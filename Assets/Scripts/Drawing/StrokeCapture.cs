@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using MukJump.Core;
 
 namespace MukJump.Drawing
@@ -16,16 +15,24 @@ namespace MukJump.Drawing
         [Tooltip("이보다 짧은 획은 발판으로 만들지 않는다")]
         [SerializeField] float minStrokeLength = 0.6f;
         [SerializeField] float previewWidth = 0.12f;
+        [Tooltip("캐릭터에서 이 거리 안에 획이 들어오면 발판을 만들지 않는다 (물리 밀어내기 악용 방지)")]
+        [SerializeField] float playerClearance = 0.75f;
 
         readonly List<Vector2> points = new();
         Camera cam;
+        Transform player;
         bool drawing;
         float strokeLength;
         LineRenderer preview;
 
+        /// HUD 먹 게이지용: 남은 잉크 비율 (획을 긋는 동안 소모)
+        public float InkRemaining01 => drawing ? 1f - Mathf.Clamp01(strokeLength / maxStrokeLength) : 1f;
+
         void Start()
         {
             cam = Camera.main;
+            var pc = FindFirstObjectByType<Player.PlayerController>();
+            if (pc != null) player = pc.transform;
         }
 
         void Update()
@@ -36,15 +43,17 @@ namespace MukJump.Drawing
                 return;
             }
 
-            var pointer = Pointer.current;
-            if (pointer == null) return;
-
-            if (pointer.press.wasPressedThisFrame)
-                BeginStroke(pointer.position.ReadValue());
-            else if (drawing && pointer.press.isPressed)
-                ContinueStroke(pointer.position.ReadValue());
-            else if (drawing && pointer.press.wasReleasedThisFrame)
+            if (PointerInput.TryGetPressed(out var screenPos))
+            {
+                if (drawing)
+                    ContinueStroke(screenPos);
+                else
+                    BeginStroke(screenPos);
+            }
+            else if (drawing)
+            {
                 EndStroke();
+            }
         }
 
         Vector2 ToWorld(Vector2 screenPos)
@@ -87,14 +96,31 @@ namespace MukJump.Drawing
             if (points.Count < 2 || strokeLength < minStrokeLength) return;
 
             var smoothed = BezierSmoother.Smooth(points);
-            if (smoothed.Count >= 2)
-                PlatformCollider.Spawn(smoothed);
+            if (smoothed.Count < 2) return;
+
+            // 캐릭터와 겹치거나 너무 가까운 획은 무효 — 콜라이더 밀어내기로 캐릭터를
+            // 튕겨 올리는 악용(반복 드로잉 탈출)을 막는다
+            if (TooCloseToPlayer(smoothed)) return;
+
+            PlatformCollider.Spawn(smoothed);
         }
 
         void CancelStroke()
         {
             drawing = false;
             DestroyPreview();
+        }
+
+        bool TooCloseToPlayer(List<Vector2> strokePoints)
+        {
+            if (player == null) return false;
+            Vector2 center = player.position;
+            foreach (var p in strokePoints)
+            {
+                if (Vector2.Distance(p, center) < playerClearance)
+                    return true;
+            }
+            return false;
         }
 
         // ---- 그리는 동안 옅은 먹선 미리보기 ----
