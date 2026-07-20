@@ -21,6 +21,12 @@ namespace MukJump.Player
         Camera cam;
         float camHalfHeight;
 
+        void Awake()
+        {
+            // 정지 상태에서 Rigidbody가 잠들면 충돌 콜백이 멈춰 접지 판정이 풀린다 → 잠들지 않게 유지
+            GetComponent<Rigidbody2D>().sleepMode = RigidbodySleepMode2D.NeverSleep;
+        }
+
         void Start()
         {
             cam = Camera.main;
