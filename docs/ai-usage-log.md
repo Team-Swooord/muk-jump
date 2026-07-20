@@ -31,3 +31,14 @@
 - 결과물: `Assets/Scripts/{Core,Player,Drawing,AI}` 하위 스크립트, 씬 빌더 에디터 스크립트
   (feature/core-loop 브랜치 커밋 이력 참고)
 - 사람의 수정/검토 내용: (Unity 에디터에서 플레이 테스트 후 물리 파라미터 튜닝 예정 — 추후 기록)
+
+### 2026-07-20 — 에디터 플레이 테스트 버그 수정
+
+- 사용 도구: Claude Code (터미널)
+- 목적: 첫 플레이 테스트에서 발견된 버그 2건 수정
+- 주요 프롬프트/지시: "점프를 안 한다" / "(드로잉이) 시뮬레이터에서만 그려진다" 증상 전달 →
+  원인 분석 및 수정 지시
+- 결과물: PlayerController(Rigidbody2D sleep으로 접지 판정 풀리는 문제 → NeverSleep),
+  PointerInput 헬퍼 신설(Device Simulator 가상 터치스크린이 Pointer.current를 차지해
+  마우스 입력이 무시되는 문제 → 터치·마우스·펜 장치별 직접 확인)
+- 사람의 수정/검토 내용: 에디터 Play 테스트로 증상 재현·수정 확인 (승연)

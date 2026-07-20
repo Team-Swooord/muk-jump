@@ -76,12 +76,6 @@ namespace MukJump.Drawing
             edge.points = local.ToArray();
             edge.edgeRadius = 0.06f;
 
-            // 아래에서 위로는 통과, 위에서만 밟을 수 있는 단방향 발판
-            var effector = gameObject.AddComponent<PlatformEffector2D>();
-            effector.useOneWay = true;
-            effector.surfaceArc = 165f;
-            edge.usedByEffector = true;
-
             ApplyVisual(local);
         }
 

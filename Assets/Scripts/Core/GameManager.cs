@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 namespace MukJump.Core
@@ -33,8 +32,7 @@ namespace MukJump.Core
             if (State != GameState.GameOver) return;
             if (Time.unscaledTime - gameOverTime < restartDelay) return;
 
-            var pointer = Pointer.current;
-            if (pointer != null && pointer.press.wasPressedThisFrame)
+            if (PointerInput.WasPressedThisFrame())
                 Restart();
         }
 
