@@ -20,7 +20,8 @@ namespace MukJump.AI
 
         public bool RemoteEnabled => !string.IsNullOrEmpty(apiEndpoint);
 
-        void Awake()
+        // OnEnable: Play 중 스크립트 재컴파일로 static이 초기화돼도 다시 할당된다
+        void OnEnable()
         {
             Instance = this;
         }
