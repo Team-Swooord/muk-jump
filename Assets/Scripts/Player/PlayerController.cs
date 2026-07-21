@@ -33,7 +33,6 @@ namespace MukJump.Player
         Camera cam;
         float camHalfHeight;
         bool inkDropHasRisen;
-        public uint InkDropLaunchVersion { get; private set; }
 
         /// 로비에서는 시작선을 그리는 동안 캐릭터가 먼저 추락하지 않도록 그 자리에 고정한다.
         /// 선이 완성되면 현재 위치에서 물리를 시작하므로 아래에 그린 선만 첫 발판이 된다.
@@ -124,7 +123,6 @@ namespace MukJump.Player
         {
             IsInkDropBoosted = true;
             inkDropHasRisen = false;
-            InkDropLaunchVersion++;
             LaunchToHeight(height);
         }
 

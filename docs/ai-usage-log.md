@@ -243,3 +243,11 @@
 - 주요 프롬프트/지시: 먹물방울 효과 도중 다시 먹어도 추가 50m 상승, 올라가는 이펙트 추가
 - 결과물: `PlayerController.cs`, `ItemEffectView.cs`
 - 사람의 수정/검토 내용: 재획득마다 상승 속도를 초기화하고 캐릭터 아래 먹빛 파티클을 즉시 추가 방출하도록 구성
+
+### 2026-07-21 — 아이템 파티클 제거
+
+- 사용 도구: Codex
+- 목적: 먹물방울 실행 시 Particle System 곡선 모드 오류 제거
+- 주요 프롬프트/지시: 파티클 관련 구현 전부 제거
+- 결과물: `ItemEffectView.cs`, `PlayerController.cs`, `PrototypeHud.cs`
+- 사람의 수정/검토 내용: 연속 50m 도약·상승 무적·금색 붓·먹 방어막 원은 유지하고 Particle System과 파티클형 GUI 연출만 제거

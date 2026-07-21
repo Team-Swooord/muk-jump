@@ -20,14 +20,12 @@ namespace MukJump.Core
         GUIStyle titleStyle;
         GUIStyle bodyStyle;
         Texture2D goldenBrushIcon;
-        Texture2D particleDot;
 
         void Start()
         {
             autoJump = FindFirstObjectByType<AutoJump>();
             strokeCapture = FindFirstObjectByType<StrokeCapture>();
             goldenBrushIcon = CreateColoredSilhouette(inkBrushIcon, new Color(1f, 0.68f, 0.08f));
-            particleDot = CreateParticleDot();
         }
 
         void OnGUI()
@@ -128,25 +126,6 @@ namespace MukJump.Core
                 bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
                 GUI.DrawTexture(iconRect, golden && goldenBrushIcon != null
                     ? goldenBrushIcon : inkBrushIcon, ScaleMode.ScaleToFit);
-                if (golden) DrawGoldenParticles(iconRect);
-            }
-        }
-
-        void DrawGoldenParticles(Rect iconRect)
-        {
-            if (particleDot == null) return;
-            float time = Time.unscaledTime;
-            for (int i = 0; i < 10; i++)
-            {
-                float seed = i * 1.713f;
-                float cycle = Mathf.Repeat(time * (0.55f + i * 0.035f) + seed, 1f);
-                float px = iconRect.center.x + Mathf.Sin(seed * 3.1f) * iconRect.width * 0.55f;
-                float py = iconRect.yMax - cycle * iconRect.height * 1.35f;
-                float size = iconRect.width * Mathf.Lerp(0.1f, 0.025f, cycle);
-                var previous = GUI.color;
-                GUI.color = new Color(1f, 0.72f, 0.12f, 1f - cycle);
-                GUI.DrawTexture(new Rect(px - size / 2f, py - size / 2f, size, size), particleDot);
-                GUI.color = previous;
             }
         }
 
@@ -172,26 +151,9 @@ namespace MukJump.Core
             return result;
         }
 
-        static Texture2D CreateParticleDot()
-        {
-            const int size = 16;
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
-            {
-                float distance = Vector2.Distance(new Vector2(x, y),
-                    new Vector2((size - 1) * 0.5f, (size - 1) * 0.5f));
-                texture.SetPixel(x, y, new Color(1f, 1f, 1f,
-                    Mathf.Clamp01(1f - distance / (size * 0.5f))));
-            }
-            texture.Apply();
-            return texture;
-        }
-
         void OnDestroy()
         {
             if (goldenBrushIcon != null) Destroy(goldenBrushIcon);
-            if (particleDot != null) Destroy(particleDot);
         }
 
         static void DrawRect(Rect rect, Color color)
