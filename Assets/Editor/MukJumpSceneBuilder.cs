@@ -28,14 +28,15 @@ namespace MukJump.EditorTools
             "apex", "fall", "dive", "land",
         };
 
-        // 배경 1080×1920, PPU 100 → 월드 10.8×19.2. 세로(9:16) 화면 가득 채우는 카메라 크기
+        // 월드 화면 폭 10.8유닛, 세로(9:16) → 카메라 반높이 9.6유닛
+        const float WorldScreenWidth = 10.8f;
         const float OrthoSize = 9.6f;
 
         [MenuItem("MukJump/Build Main Scene")]
         public static void Build()
         {
             EnsureLayer("Platform");
-            ConfigureSprite(BgPath, pixelsPerUnit: 100);
+            ConfigureBackground();
             ConfigureCharacterSheet();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -151,6 +152,10 @@ namespace MukJump.EditorTools
             var edge = go.GetComponent<EdgeCollider2D>();
             edge.points = new[] { new Vector2(-1.6f, 0f), new Vector2(1.6f, 0f) };
             edge.edgeRadius = 0.06f;
+
+            var platformSo = new SerializedObject(platform);
+            platformSo.FindProperty("isStartPlatform").boolValue = true;
+            platformSo.ApplyModifiedPropertiesWithoutUndo();
         }
 
         static void BuildSystems()
@@ -160,7 +165,41 @@ namespace MukJump.EditorTools
             go.AddComponent<ScoreManager>();
             go.AddComponent<SketchToInkService>();
             go.AddComponent<StrokeCapture>();
-            go.AddComponent<PrototypeHud>();
+
+            var hud = go.AddComponent<PrototypeHud>();
+            var so = new SerializedObject(hud);
+            AssignHudTexture(so, "inkGaugeFill", "Assets/Art/UI/muk_gauge_fill.png");
+            AssignHudTexture(so, "inkGaugeTrack", "Assets/Art/UI/muk_gauge_track.png");
+            AssignHudTexture(so, "inkBrushIcon", "Assets/Art/UI/muk_brush_icon.png");
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static void AssignHudTexture(SerializedObject so, string field, string path)
+        {
+            ConfigureUiTexture(path);
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (tex == null)
+                Debug.LogWarning($"[MukJump] HUD 텍스처를 찾을 수 없음: {path}");
+            so.FindProperty(field).objectReferenceValue = tex;
+        }
+
+        static void ConfigureUiTexture(string path)
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            if (importer == null) return;
+            importer.textureType = TextureImporterType.GUI;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.SaveAndReimport();
+        }
+
+        /// 배경 이미지의 픽셀 폭이 얼마든 월드 폭 10.8유닛(화면 가득)이 되도록 PPU를 계산한다
+        static void ConfigureBackground()
+        {
+            ConfigureSprite(BgPath, pixelsPerUnit: 100); // 우선 임포트 확정
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(BgPath);
+            if (tex == null) return;
+            ConfigureSprite(BgPath, pixelsPerUnit: tex.width / WorldScreenWidth);
         }
 
         static void ConfigureSprite(string path, float pixelsPerUnit)

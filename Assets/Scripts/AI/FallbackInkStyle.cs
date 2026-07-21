@@ -35,18 +35,33 @@ namespace MukJump.AI
             line.sortingOrder = 0;
 
             // 붓 획: 시작은 가늘게 눌러 들어가고, 끝은 스치듯 빠진다
-            float baseWidth = Mathf.Lerp(0.22f, 0.3f, Mathf.InverseLerp(1f, 6f, strokeLength));
-            var widthCurve = new AnimationCurve(
+            float baseWidth = Mathf.Lerp(0.5f, 0.62f, Mathf.InverseLerp(1f, 6f, strokeLength));
+            var taper = new AnimationCurve(
                 new Keyframe(0f, 0.35f),
                 new Keyframe(0.18f, 1f),
                 new Keyframe(0.75f, 0.9f),
                 new Keyframe(1f, 0.2f));
-            line.widthCurve = widthCurve;
-            line.widthMultiplier = baseWidth;
+
+            int count = Mathf.Max(line.positionCount, 2);
+            var widths = new float[count];
+            for (int i = 0; i < count; i++)
+                widths[i] = baseWidth * taper.Evaluate(i / (float)(count - 1));
+            ApplyWidths(line, widths);
 
             var ink = InkPalette.Ink;
             ink.a = 0.96f;
             line.startColor = line.endColor = ink;
+        }
+
+        /// 정점별 두께 배열을 widthCurve로 변환해 적용한다 (LineRenderer에는 정점별
+        /// 두께 API가 없어 커브의 키를 정점 위치마다 찍는 방식으로 굽는다)
+        static void ApplyWidths(LineRenderer line, float[] widths)
+        {
+            var keys = new Keyframe[widths.Length];
+            for (int i = 0; i < widths.Length; i++)
+                keys[i] = new Keyframe(i / (float)(widths.Length - 1), widths[i]);
+            line.widthCurve = new AnimationCurve(keys);
+            line.widthMultiplier = 1f;
         }
 
         /// 마른 붓(갈필) 질감: 세로 방향 가장자리가 노이즈로 거칠게 끊기는 잉크 띠
