@@ -45,7 +45,7 @@ NHN NAN 2026 · Game × AI Hackathon 제출작. Unity 기반 모바일(Android) 
   산(山) 모양 실루엣 — 몸통 아래에서 위로 짧게 붙었다가 몸통 바깥쪽 높은 지점(무릎)
   까지 솟은 뒤, 다시 아래 발까지 길게 떨어지는 꺾인 선. 발끝에는 작은 훅 모양 표시
 - 그림자 없음 (땅 그림자는 게임 내 조명/이펙트로 별도 처리)
-- 원본 파일: `Assets/Art/Character/character_muk_bangul_v3.png` (1024×1024, 투명 배경)
+- 원본 파일: `Assets/Art/Character/Player/character_muk_bangul_v3.png` (1024×1024, 투명 배경)
 
 **애니메이션 상태 (구현 필요)**
 - Idle / 점프 대기

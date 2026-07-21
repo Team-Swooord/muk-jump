@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 5027089b2979a460cbd1f4400699c3ee
+guid: 11a106d3fed9444bea93e77589d8e2e3
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -6112128526561701115
-    second: character_muk_bangul_v3_0
+      213: 8827800920605836607
+    second: mukbangul_death_07_fast_fall_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -51,7 +51,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 900
+  spritePixelsToUnits: 720
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: character_muk_bangul_v3_0
+      name: mukbangul_death_07_fast_fall_0
       rect:
         serializedVersion: 2
-        x: 99
-        y: 157
-        width: 826
-        height: 716
+        x: 305
+        y: 178
+        width: 423
+        height: 681
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 50312c01d7b5d2ba0800000000000000
-      internalID: -6112128526561701115
+      spriteID: f35c3946a26a28a70800000000000000
+      internalID: 8827800920605836607
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      character_muk_bangul_v3_0: -6112128526561701115
+      mukbangul_death_07_fast_fall_0: 8827800920605836607
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

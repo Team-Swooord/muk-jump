@@ -124,7 +124,7 @@
 이미지 파일은 이 문서와 별도로 터미널 Claude Code에게 직접 전달 예정. 목록만 참고:
 
 - `char_muk.svg` — 먹방울이 캐릭터 벡터 원본 (수정 시 이 파일을 편집)
-- `character_muk_bangul_v3.png` — 캐릭터 래스터 (1024×1024, 투명 배경, 최신본)
+- `Assets/Art/Character/Player/character_muk_bangul_v3.png` — 캐릭터 래스터 (1024×1024, 투명 배경, 최신본)
 - `bg_muk_landscape.svg` — 배경 벡터 원본 (세로 산수화, 1080×1920 기준)
 - `background_ink_landscape.png` — 배경 래스터 (1080×1920)
 - `muk_jump_hackathon_final.pptx` — 해커톤 제출용 기획서 원본 (11슬라이드, 이 문서의 원 출처)
@@ -138,7 +138,9 @@
 ```
 Assets/
   Art/
-    Character/     char_muk.svg, character_muk_bangul_v3.png
+    Character/Player/      character_muk_bangul_v3.png, muk_spritesheet.png
+    Character/Death/       사망 애니메이션 개별 프레임
+    Character/Obstacles/   장애물 스프라이트
     Background/    bg_muk_landscape.svg, background_ink_landscape.png
   Scripts/
     Player/        AutoJump.cs, PlayerController.cs

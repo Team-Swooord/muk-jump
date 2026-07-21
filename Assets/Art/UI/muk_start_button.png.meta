@@ -1,214 +1,202 @@
 fileFormatVersion: 2
-guid: ecb53faaee3ad431a888f82803c91c21
+guid: 3e89d6ed7d5554e938aa4ce88f5f0f2b
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 8757098914875501893
-    second: die_0
+      213: -6937207795812593998
+    second: pngwing.com-3_0
   - first:
-      213: -6103215479232170835
-    second: die_1
+      213: 4433877822652894004
+    second: pngwing.com-3_1
   - first:
-      213: -5062548802251577173
-    second: die_2
+      213: 968011203942403086
+    second: pngwing.com-3_2
   - first:
-      213: 2613213492379772746
-    second: die_3
+      213: 7372551442553919491
+    second: pngwing.com-3_3
   - first:
-      213: -3911252712821790162
-    second: die_4
+      213: -853034133898615023
+    second: pngwing.com-3_4
   - first:
-      213: 2167553827956773973
-    second: die_5
+      213: -1478949807641256284
+    second: pngwing.com-3_5
   - first:
-      213: 8269481862698526196
-    second: die_6
+      213: 5238556344998451045
+    second: pngwing.com-3_6
   - first:
-      213: 6971096030062609727
-    second: die_7
+      213: -5197293819955685415
+    second: pngwing.com-3_7
   - first:
-      213: -6493708898697568893
-    second: die_8
+      213: -4981974299185369646
+    second: pngwing.com-3_8
   - first:
-      213: 2862632215882366482
-    second: die_9
+      213: -658706749959888103
+    second: pngwing.com-3_9
   - first:
-      213: -6684223620237878856
-    second: die_10
+      213: 3350633152583406747
+    second: pngwing.com-3_10
   - first:
-      213: -880313252550374251
-    second: die_11
+      213: 2964197620510339170
+    second: pngwing.com-3_11
   - first:
-      213: 3856624869688356372
-    second: die_12
+      213: -3758196219605502504
+    second: pngwing.com-3_12
   - first:
-      213: 2136911065165560782
-    second: die_13
+      213: -4357476839676356844
+    second: pngwing.com-3_13
   - first:
-      213: -3856375698635817731
-    second: die_14
+      213: -1668316174892131223
+    second: pngwing.com-3_14
   - first:
-      213: -9130205475189463508
-    second: die_15
+      213: -7562380606114941057
+    second: pngwing.com-3_15
   - first:
-      213: -3265781609142927404
-    second: die_16
+      213: -5019451567571550031
+    second: pngwing.com-3_16
   - first:
-      213: -8834277996693815437
-    second: die_17
+      213: 7456923445594422313
+    second: pngwing.com-3_17
   - first:
-      213: 315064122136926112
-    second: die_18
+      213: -2975943558281994029
+    second: pngwing.com-3_18
   - first:
-      213: -5775039991847967107
-    second: die_19
+      213: -2965150641180627016
+    second: pngwing.com-3_19
   - first:
-      213: 6928894422476810908
-    second: die_20
+      213: -7087840112947538719
+    second: pngwing.com-3_20
   - first:
-      213: -3662445025725647105
-    second: die_21
+      213: -6934084851106295423
+    second: pngwing.com-3_21
   - first:
-      213: -2740838562870269635
-    second: die_22
+      213: 7497702542538986961
+    second: pngwing.com-3_22
   - first:
-      213: -5002062891653862046
-    second: die_23
+      213: -4226905830586823737
+    second: pngwing.com-3_23
   - first:
-      213: -4463216244554689860
-    second: die_24
+      213: -3633104917308335877
+    second: pngwing.com-3_24
   - first:
-      213: 3053660687005605940
-    second: die_25
+      213: -1143710340839942641
+    second: pngwing.com-3_25
   - first:
-      213: 943243781383645909
-    second: die_26
+      213: -2972981517838846710
+    second: pngwing.com-3_26
   - first:
-      213: 5419326256665985711
-    second: die_27
+      213: 8749933841048405294
+    second: pngwing.com-3_27
   - first:
-      213: -5806768296957217212
-    second: die_28
+      213: 180337266281072061
+    second: pngwing.com-3_28
   - first:
-      213: -3894124311953196886
-    second: die_29
+      213: -8693134852093978277
+    second: pngwing.com-3_29
   - first:
-      213: -4117157250289148922
-    second: die_30
+      213: 8536489735549453347
+    second: pngwing.com-3_30
   - first:
-      213: 2216345645836003929
-    second: die_31
+      213: -4987929050158315303
+    second: pngwing.com-3_31
   - first:
-      213: 3619827429405480564
-    second: die_32
+      213: -4970834350611972280
+    second: pngwing.com-3_32
   - first:
-      213: 2127095025122464274
-    second: die_33
+      213: -823492560761808260
+    second: pngwing.com-3_33
   - first:
-      213: 210815441083023765
-    second: die_34
+      213: -7243404762675920260
+    second: pngwing.com-3_34
   - first:
-      213: -7931729262762138019
-    second: die_35
+      213: -6553916494038662772
+    second: pngwing.com-3_35
   - first:
-      213: -6819731452653524878
-    second: die_36
+      213: -5913686930489605624
+    second: pngwing.com-3_36
   - first:
-      213: -549510089296985665
-    second: die_37
+      213: 7511071217526237912
+    second: pngwing.com-3_37
   - first:
-      213: 248571530414207627
-    second: die_38
+      213: -4328873166690917117
+    second: pngwing.com-3_38
   - first:
-      213: -5238355848480882228
-    second: die_39
+      213: -2391282940765425247
+    second: pngwing.com-3_39
   - first:
-      213: 8165357870746235060
-    second: die_40
+      213: -2639517125145156013
+    second: pngwing.com-3_40
   - first:
-      213: 3803051337502762212
-    second: die_41
+      213: -3035776236839632631
+    second: pngwing.com-3_41
   - first:
-      213: 451366200294359396
-    second: die_42
+      213: -6260883344395314669
+    second: pngwing.com-3_42
   - first:
-      213: -4665594750294010280
-    second: die_43
+      213: -1798702795644592790
+    second: pngwing.com-3_43
   - first:
-      213: 1010807959021369841
-    second: die_44
+      213: 6115355091100335764
+    second: pngwing.com-3_44
   - first:
-      213: -5171831527331695640
-    second: die_45
+      213: 3848121035365271804
+    second: pngwing.com-3_45
   - first:
-      213: 6281940456562776635
-    second: die_46
+      213: 6394695669762985561
+    second: pngwing.com-3_46
   - first:
-      213: 5686285047752273219
-    second: die_47
+      213: 2640940456605101544
+    second: pngwing.com-3_47
   - first:
-      213: 2973007658835910610
-    second: die_48
+      213: 2274135855785090037
+    second: pngwing.com-3_48
   - first:
-      213: 7904362660709450019
-    second: die_49
+      213: 7532262489769804441
+    second: pngwing.com-3_49
   - first:
-      213: 5348691657803693373
-    second: die_50
+      213: 3859529152872582872
+    second: pngwing.com-3_50
   - first:
-      213: 6135343289602751198
-    second: die_51
+      213: 3196622439263527505
+    second: pngwing.com-3_51
   - first:
-      213: -7776933929820553923
-    second: die_52
+      213: 4758239349448519435
+    second: pngwing.com-3_52
   - first:
-      213: -8398489275884082885
-    second: die_53
+      213: -3116936965406629204
+    second: pngwing.com-3_53
   - first:
-      213: -2075530908316957938
-    second: die_54
+      213: -8236700527147592110
+    second: pngwing.com-3_54
   - first:
-      213: 145761216525810697
-    second: die_55
+      213: 5741071593190941217
+    second: pngwing.com-3_55
   - first:
-      213: -1977212948330957496
-    second: die_56
+      213: 1305253077867027554
+    second: pngwing.com-3_56
   - first:
-      213: -1227551159515656526
-    second: die_57
+      213: 6873776994567220847
+    second: pngwing.com-3_57
   - first:
-      213: -4329876643893302633
-    second: die_58
+      213: 6161943515434028345
+    second: pngwing.com-3_58
   - first:
-      213: -8071409669012593714
-    second: die_59
+      213: 2087311776849696759
+    second: pngwing.com-3_59
   - first:
-      213: 1325375612454874468
-    second: die_60
+      213: -906652630488971832
+    second: pngwing.com-3_60
   - first:
-      213: -887231745816046714
-    second: die_61
+      213: -6054456121534138860
+    second: pngwing.com-3_61
   - first:
-      213: 6000932635270401710
-    second: die_62
+      213: -9095232830354943439
+    second: pngwing.com-3_62
   - first:
-      213: -8481904294903011796
-    second: die_63
+      213: 1386791590042198074
+    second: pngwing.com-3_63
   - first:
-      213: 9156800814062681077
-    second: die_64
-  - first:
-      213: 5690660817538990942
-    second: die_65
-  - first:
-      213: 3141896911085343882
-    second: die_66
-  - first:
-      213: -7496268732751938075
-    second: die_67
-  - first:
-      213: 5240523627590203382
-    second: die_68
+      213: -6765138061649888761
+    second: pngwing.com-3_64
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -261,7 +249,7 @@ TextureImporter:
   alphaUsage: 1
   alphaIsTransparency: 1
   spriteTessellationDetail: -1
-  textureType: 8
+  textureType: 2
   textureShape: 1
   singleChannelComponent: 0
   flipbookRows: 1
@@ -317,13 +305,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: die_0
+      name: pngwing.com-3_0
       rect:
         serializedVersion: 2
-        x: 11
-        y: 0
-        width: 870
-        height: 1024
+        x: 496
+        y: 1043
+        width: 85
+        height: 72
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -332,18 +320,194 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 54dec14e017778970800000000000000
-      internalID: 8757098914875501893
+      spriteID: 2be058db3461abf90800000000000000
+      internalID: -6937207795812593998
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_1
+      name: pngwing.com-3_1
       rect:
         serializedVersion: 2
-        x: 83
-        y: 998
+        x: 1210
+        y: 992
+        width: 38
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 43b45b4536c488d30800000000000000
+      internalID: 4433877822652894004
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_2
+      rect:
+        serializedVersion: 2
+        x: 1822
+        y: 1103
+        width: 11
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e0cc59daf011f6d00800000000000000
+      internalID: 968011203942403086
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_3
+      rect:
+        serializedVersion: 2
+        x: 2007
+        y: 1099
+        width: 11
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 30858bdb970905660800000000000000
+      internalID: 7372551442553919491
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_4
+      rect:
+        serializedVersion: 2
+        x: 1784
+        y: 1090
+        width: 12
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 117a0bb89f96924f0800000000000000
+      internalID: -853034133898615023
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_5
+      rect:
+        serializedVersion: 2
+        x: 161
+        y: 1061
+        width: 44
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4ae19ea5cf6b97be0800000000000000
+      internalID: -1478949807641256284
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_6
+      rect:
+        serializedVersion: 2
+        x: 268
+        y: 980
+        width: 44
+        height: 100
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 567508f9d3713b840800000000000000
+      internalID: 5238556344998451045
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_7
+      rect:
+        serializedVersion: 2
+        x: 1507
+        y: 955
+        width: 88
+        height: 119
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9d75534aec08fd7b0800000000000000
+      internalID: -5197293819955685415
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_8
+      rect:
+        serializedVersion: 2
+        x: 158
+        y: 0
+        width: 3042
+        height: 1049
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2dd2ee045c87cdab0800000000000000
+      internalID: -4981974299185369646
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_9
+      rect:
+        serializedVersion: 2
+        x: 776
+        y: 1021
         width: 6
         height: 7
       alignment: 0
@@ -354,64 +518,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: da473bc9bd50d4ba0800000000000000
-      internalID: -6103215479232170835
+      spriteID: 9132d7d63bdcbd6f0800000000000000
+      internalID: -658706749959888103
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_2
+      name: pngwing.com-3_10
       rect:
         serializedVersion: 2
-        x: 902
-        y: 0
-        width: 315
-        height: 1024
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: ba827b7dfa63eb9b0800000000000000
-      internalID: -5062548802251577173
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_3
-      rect:
-        serializedVersion: 2
-        x: 1231
-        y: 1
-        width: 295
-        height: 1023
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: a47ed8f63dff34420800000000000000
-      internalID: 2613213492379772746
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_4
-      rect:
-        serializedVersion: 2
-        x: 82
-        y: 982
+        x: 800
+        y: 1005
         width: 7
-        height: 9
+        height: 11
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -420,481 +540,63 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: e2a6971616078b9c0800000000000000
-      internalID: -3911252712821790162
+      spriteID: b9491609917df7e20800000000000000
+      internalID: 3350633152583406747
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_5
+      name: pngwing.com-3_11
       rect:
         serializedVersion: 2
-        x: 1041
+        x: 2030
+        y: 988
+        width: 16
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 260b396e702f22920800000000000000
+      internalID: 2964197620510339170
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_12
+      rect:
+        serializedVersion: 2
+        x: 54
+        y: 966
+        width: 100
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8d5b236337438dbc0800000000000000
+      internalID: -3758196219605502504
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_13
+      rect:
+        serializedVersion: 2
+        x: 196
         y: 975
-        width: 7
-        height: 9
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 554d6eae8b2b41e10800000000000000
-      internalID: 2167553827956773973
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_6
-      rect:
-        serializedVersion: 2
-        x: 83
-        y: 951
-        width: 6
-        height: 12
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 4f56ea6c0f913c270800000000000000
-      internalID: 8269481862698526196
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_7
-      rect:
-        serializedVersion: 2
-        x: 83
-        y: 920
-        width: 6
-        height: 6
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: f358407a7ee4eb060800000000000000
-      internalID: 6971096030062609727
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_8
-      rect:
-        serializedVersion: 2
-        x: 83
-        y: 824
-        width: 6
-        height: 10
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 38d965a6926b1e5a0800000000000000
-      internalID: -6493708898697568893
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_9
-      rect:
-        serializedVersion: 2
-        x: 922
-        y: 661
-        width: 178
-        height: 219
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 21ef14e55dc1ab720800000000000000
-      internalID: 2862632215882366482
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_10
-      rect:
-        serializedVersion: 2
-        x: 83
-        y: 815
-        width: 6
-        height: 6
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 8b9127c280edc33a0800000000000000
-      internalID: -6684223620237878856
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_11
-      rect:
-        serializedVersion: 2
-        x: 82
-        y: 807
-        width: 7
-        height: 6
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 59c8aaac2cf78c3f0800000000000000
-      internalID: -880313252550374251
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_12
-      rect:
-        serializedVersion: 2
-        x: 574
-        y: 578
-        width: 228
-        height: 202
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 41e26bdb2eb758530800000000000000
-      internalID: 3856624869688356372
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_13
-      rect:
-        serializedVersion: 2
-        x: 994
-        y: 656
-        width: 7
-        height: 12
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: ecb7bcbba45d7ad10800000000000000
-      internalID: 2136911065165560782
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_14
-      rect:
-        serializedVersion: 2
-        x: 559
-        y: 591
-        width: 10
-        height: 10
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: dfcfc5aebb66b7ac0800000000000000
-      internalID: -3856375698635817731
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_15
-      rect:
-        serializedVersion: 2
-        x: 939
-        y: 568
-        width: 158
-        height: 49
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: c2661058e7efa4180800000000000000
-      internalID: -9130205475189463508
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_16
-      rect:
-        serializedVersion: 2
-        x: 83
-        y: 566
-        width: 6
-        height: 12
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 4df3809edec9da2d0800000000000000
-      internalID: -3265781609142927404
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_17
-      rect:
-        serializedVersion: 2
-        x: 131
-        y: 575
-        width: 6
-        height: 7
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 37ff300d7f6566580800000000000000
-      internalID: -8834277996693815437
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_18
-      rect:
-        serializedVersion: 2
-        x: 1041
-        y: 567
-        width: 6
-        height: 7
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 0a7117956255f5400800000000000000
-      internalID: 315064122136926112
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_19
-      rect:
-        serializedVersion: 2
-        x: 81
-        y: 532
-        width: 8
-        height: 12
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: d762a3299bfeadfa0800000000000000
-      internalID: -5775039991847967107
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_20
-      rect:
-        serializedVersion: 2
-        x: 83
-        y: 542
-        width: 6
-        height: 9
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: c9a6ae134c0682060800000000000000
-      internalID: 6928894422476810908
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_21
-      rect:
-        serializedVersion: 2
-        x: 994
-        y: 544
-        width: 7
-        height: 14
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: ff6f93057a16c2dc0800000000000000
-      internalID: -3662445025725647105
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_22
-      rect:
-        serializedVersion: 2
-        x: 1041
-        y: 535
-        width: 6
-        height: 9
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: d39ec6149d596f9d0800000000000000
-      internalID: -2740838562870269635
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_23
-      rect:
-        serializedVersion: 2
-        x: 81
-        y: 526
-        width: 8
-        height: 8
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 26deec65d4a159ab0800000000000000
-      internalID: -5002062891653862046
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_24
-      rect:
-        serializedVersion: 2
-        x: 1041
-        y: 527
-        width: 6
-        height: 7
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: cb2909309787f02c0800000000000000
-      internalID: -4463216244554689860
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_25
-      rect:
-        serializedVersion: 2
-        x: 82
-        y: 518
-        width: 7
-        height: 8
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 4306b814738c06a20800000000000000
-      internalID: 3053660687005605940
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_26
-      rect:
-        serializedVersion: 2
-        x: 81
-        y: 496
-        width: 8
+        width: 15
         height: 15
       alignment: 0
       pivot: {x: 0, y: 0}
@@ -904,19 +606,107 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 5dae7fdb833171d00800000000000000
-      internalID: 943243781383645909
+      spriteID: 4175916b6e12783c0800000000000000
+      internalID: -4357476839676356844
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_27
+      name: pngwing.com-3_14
       rect:
         serializedVersion: 2
-        x: 994
-        y: 504
+        x: 1414
+        y: 976
+        width: 14
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 96c148e2743f8d8e0800000000000000
+      internalID: -1668316174892131223
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_15
+      rect:
+        serializedVersion: 2
+        x: 696
+        y: 959
+        width: 14
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f77373ce7e60d0790800000000000000
+      internalID: -7562380606114941057
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_16
+      rect:
+        serializedVersion: 2
+        x: 435
+        y: 943
         width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1b0ce9bb463575ab0800000000000000
+      internalID: -5019451567571550031
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_17
+      rect:
+        serializedVersion: 2
+        x: 823
+        y: 944
+        width: 12
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 92cffe38d505c7760800000000000000
+      internalID: 7456923445594422313
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_18
+      rect:
+        serializedVersion: 2
+        x: 2033
+        y: 945
+        width: 10
         height: 9
       alignment: 0
       pivot: {x: 0, y: 0}
@@ -926,20 +716,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: fa206828480553b40800000000000000
-      internalID: 5419326256665985711
+      spriteID: 3d06df8d91353b6d0800000000000000
+      internalID: -2975943558281994029
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_28
+      name: pngwing.com-3_19
       rect:
         serializedVersion: 2
-        x: 994
-        y: 493
-        width: 7
-        height: 12
+        x: 2224
+        y: 942
+        width: 18
+        height: 15
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -948,19 +738,151 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 4467ddedff63a6fa0800000000000000
-      internalID: -5806768296957217212
+      spriteID: 8bf28eea33ba9d6d0800000000000000
+      internalID: -2965150641180627016
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_29
+      name: pngwing.com-3_20
       rect:
         serializedVersion: 2
-        x: 81
-        y: 468
-        width: 8
+        x: 2245
+        y: 944
+        width: 10
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1e45ff268fee2ad90800000000000000
+      internalID: -7087840112947538719
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_21
+      rect:
+        serializedVersion: 2
+        x: 2247
+        y: 948
+        width: 9
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1815467f09e25cf90800000000000000
+      internalID: -6934084851106295423
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_22
+      rect:
+        serializedVersion: 2
+        x: 2255
+        y: 942
+        width: 34
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1d55497ecb03d0860800000000000000
+      internalID: 7497702542538986961
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_23
+      rect:
+        serializedVersion: 2
+        x: 2289
+        y: 938
+        width: 50
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7cb48dcca830755c0800000000000000
+      internalID: -4226905830586823737
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_24
+      rect:
+        serializedVersion: 2
+        x: 2337
+        y: 943
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bf89c14a35e949dc0800000000000000
+      internalID: -3633104917308335877
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_25
+      rect:
+        serializedVersion: 2
+        x: 2344
+        y: 938
+        width: 226
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f065b403189b020f0800000000000000
+      internalID: -1143710340839942641
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_26
+      rect:
+        serializedVersion: 2
+        x: 2576
+        y: 934
+        width: 46
         height: 18
       alignment: 0
       pivot: {x: 0, y: 0}
@@ -970,63 +892,19 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: aa831daf19a45f9c0800000000000000
-      internalID: -3894124311953196886
+      spriteID: a05f961af09ddb6d0800000000000000
+      internalID: -2972981517838846710
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_30
+      name: pngwing.com-3_27
       rect:
         serializedVersion: 2
-        x: 83
-        y: 484
-        width: 6
-        height: 9
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 60c57146b4becd6c0800000000000000
-      internalID: -4117157250289148922
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_31
-      rect:
-        serializedVersion: 2
-        x: 81
-        y: 446
-        width: 8
-        height: 23
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 95ae9874f9a02ce10800000000000000
-      internalID: 2216345645836003929
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_32
-      rect:
-        serializedVersion: 2
-        x: 81
-        y: 422
-        width: 8
+        x: 2702
+        y: 926
+        width: 130
         height: 26
       alignment: 0
       pivot: {x: 0, y: 0}
@@ -1036,41 +914,19 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 476dded4ed53c3230800000000000000
-      internalID: 3619827429405480564
+      spriteID: e250cd328720e6970800000000000000
+      internalID: 8749933841048405294
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_33
+      name: pngwing.com-3_28
       rect:
         serializedVersion: 2
-        x: 617
-        y: 245
-        width: 164
-        height: 205
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 212dcefc7a5f48d10800000000000000
-      internalID: 2127095025122464274
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_34
-      rect:
-        serializedVersion: 2
-        x: 994
-        y: 448
-        width: 7
+        x: 1609
+        y: 924
+        width: 12
         height: 9
       alignment: 0
       pivot: {x: 0, y: 0}
@@ -1080,19 +936,63 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 591cbe6d687fce200800000000000000
-      internalID: 210815441083023765
+      spriteID: db5c278c9cfa08200800000000000000
+      internalID: 180337266281072061
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_35
+      name: pngwing.com-3_29
       rect:
         serializedVersion: 2
-        x: 81
-        y: 406
-        width: 8
+        x: 1827
+        y: 929
+        width: 6
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b59de5409e7cb5780800000000000000
+      internalID: -8693134852093978277
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_30
+      rect:
+        serializedVersion: 2
+        x: 1836
+        y: 932
+        width: 10
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 324813caf24b77670800000000000000
+      internalID: 8536489735549453347
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_31
+      rect:
+        serializedVersion: 2
+        x: 2828
+        y: 925
+        width: 19
         height: 17
       alignment: 0
       pivot: {x: 0, y: 0}
@@ -1102,20 +1002,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: d56ed767246dce190800000000000000
-      internalID: -7931729262762138019
+      spriteID: 9d84670c4f057cab0800000000000000
+      internalID: -4987929050158315303
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_36
+      name: pngwing.com-3_32
       rect:
         serializedVersion: 2
-        x: 81
-        y: 381
-        width: 8
-        height: 26
+        x: 2847
+        y: 925
+        width: 16
+        height: 19
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1124,20 +1024,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 278270550627b51a0800000000000000
-      internalID: -6819731452653524878
+      spriteID: 84fb676ae7c040bb0800000000000000
+      internalID: -4970834350611972280
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_37
+      name: pngwing.com-3_33
       rect:
         serializedVersion: 2
-        x: 939
-        y: 191
-        width: 161
-        height: 245
+        x: 2862
+        y: 921
+        width: 75
+        height: 23
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1146,20 +1046,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: fb1c5f63c7fbf58f0800000000000000
-      internalID: -549510089296985665
+      spriteID: c7a9d9801ed5294f0800000000000000
+      internalID: -823492560761808260
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_38
+      name: pngwing.com-3_34
       rect:
         serializedVersion: 2
-        x: 67
-        y: 190
-        width: 218
-        height: 185
+        x: 2937
+        y: 850
+        width: 263
+        height: 90
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1168,63 +1068,19 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: b823d9b6d7a137300800000000000000
-      internalID: 248571530414207627
+      spriteID: c72445cdeb14a7b90800000000000000
+      internalID: -7243404762675920260
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_39
+      name: pngwing.com-3_35
       rect:
         serializedVersion: 2
-        x: 315
-        y: 189
-        width: 212
-        height: 204
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: cc1053c1c1f9d47b0800000000000000
-      internalID: -5238355848480882228
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_40
-      rect:
-        serializedVersion: 2
-        x: 778
-        y: 357
-        width: 7
-        height: 10
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 4b0f4c5b8bd215170800000000000000
-      internalID: 8165357870746235060
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_41
-      rect:
-        serializedVersion: 2
-        x: 1088
-        y: 346
-        width: 6
+        x: 1789
+        y: 917
+        width: 9
         height: 6
       alignment: 0
       pivot: {x: 0, y: 0}
@@ -1234,19 +1090,107 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 4e42d62ca0727c430800000000000000
-      internalID: 3803051337502762212
+      spriteID: c81804d3cafcb05a0800000000000000
+      internalID: -6553916494038662772
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_42
+      name: pngwing.com-3_36
       rect:
         serializedVersion: 2
-        x: 1085
-        y: 329
-        width: 9
+        x: 1443
+        y: 900
+        width: 15
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8020c4b911d5eeda0800000000000000
+      internalID: -5913686930489605624
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_37
+      rect:
+        serializedVersion: 2
+        x: 1486
+        y: 889
+        width: 16
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8daef4b1a7fac3860800000000000000
+      internalID: 7511071217526237912
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_38
+      rect:
+        serializedVersion: 2
+        x: 1590
+        y: 900
+        width: 14
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 305eaad4ac0cce3c0800000000000000
+      internalID: -4328873166690917117
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_39
+      rect:
+        serializedVersion: 2
+        x: 2324
+        y: 883
+        width: 15
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1a1b93eb5d470ded0800000000000000
+      internalID: -2391282940765425247
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_40
+      rect:
+        serializedVersion: 2
+        x: 1475
+        y: 890
+        width: 10
         height: 9
       alignment: 0
       pivot: {x: 0, y: 0}
@@ -1256,20 +1200,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 461c920fa23934600800000000000000
-      internalID: 451366200294359396
+      spriteID: 356a921d82d8e5bd0800000000000000
+      internalID: -2639517125145156013
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_43
+      name: pngwing.com-3_41
       rect:
         serializedVersion: 2
-        x: 621
-        y: 200
-        width: 136
-        height: 30
+        x: 179
+        y: 861
+        width: 13
+        height: 9
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1278,20 +1222,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 8565cc24b4a704fb0800000000000000
-      internalID: -4665594750294010280
+      spriteID: 9010a99c891ced5d0800000000000000
+      internalID: -3035776236839632631
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_44
+      name: pngwing.com-3_42
       rect:
         serializedVersion: 2
-        x: 1041
-        y: 192
-        width: 6
-        height: 8
+        x: 73
+        y: 760
+        width: 10
+        height: 9
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1300,20 +1244,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 1f93b95bb7c170e00800000000000000
-      internalID: 1010807959021369841
+      spriteID: 31a582515cfdc19a0800000000000000
+      internalID: -6260883344395314669
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_45
+      name: pngwing.com-3_43
       rect:
         serializedVersion: 2
-        x: 1203
-        y: 181
-        width: 252
-        height: 143
+        x: 0
+        y: 447
+        width: 144
+        height: 157
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1322,18 +1266,62 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 8e37a3f90a6f938b0800000000000000
-      internalID: -5171831527331695640
+      spriteID: a6d1a195659b907e0800000000000000
+      internalID: -1798702795644592790
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_46
+      name: pngwing.com-3_44
       rect:
         serializedVersion: 2
-        x: 995
-        y: 187
+        x: 198
+        y: 448
+        width: 11
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 49e79680e0b1ed450800000000000000
+      internalID: 6115355091100335764
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_45
+      rect:
+        serializedVersion: 2
+        x: 3
+        y: 245
+        width: 153
+        height: 137
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cf8c7a581b5476530800000000000000
+      internalID: 3848121035365271804
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_46
+      rect:
+        serializedVersion: 2
+        x: 775
+        y: 143
         width: 6
         height: 6
       alignment: 0
@@ -1344,17 +1332,61 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: b3a5495ef8fed2750800000000000000
-      internalID: 6281940456562776635
+      spriteID: 95e83f2c4d58eb850800000000000000
+      internalID: 6394695669762985561
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_47
+      name: pngwing.com-3_47
       rect:
         serializedVersion: 2
-        x: 81
+        x: 1262
+        y: 145
+        width: 15
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8eda7ec5a5186a420800000000000000
+      internalID: 2640940456605101544
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_48
+      rect:
+        serializedVersion: 2
+        x: 3078
+        y: 147
+        width: 12
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5fb9c0f038a5f8f10800000000000000
+      internalID: 2274135855785090037
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_49
+      rect:
+        serializedVersion: 2
+        x: 721
         y: 136
         width: 6
         height: 7
@@ -1366,20 +1398,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 34da3eaaf1eb9ee40800000000000000
-      internalID: 5686285047752273219
+      spriteID: 9928ab9a3d8f78860800000000000000
+      internalID: 7532262489769804441
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_48
+      name: pngwing.com-3_50
       rect:
         serializedVersion: 2
-        x: 83
-        y: 126
-        width: 6
-        height: 12
+        x: 831
+        y: 125
+        width: 13
+        height: 17
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1388,20 +1420,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 2df1e6bc6be324920800000000000000
-      internalID: 2973007658835910610
+      spriteID: 8de0c3dd05dcf8530800000000000000
+      internalID: 3859529152872582872
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_49
+      name: pngwing.com-3_51
       rect:
         serializedVersion: 2
-        x: 82
+        x: 885
         y: 111
-        width: 6
-        height: 6
+        width: 14
+        height: 15
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1410,20 +1442,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 321c277f5ffe1bd60800000000000000
-      internalID: 7904362660709450019
+      spriteID: 152685d0c2fac5c20800000000000000
+      internalID: 3196622439263527505
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_50
+      name: pngwing.com-3_52
       rect:
         serializedVersion: 2
-        x: 1041
-        y: 103
-        width: 7
-        height: 9
+        x: 2978
+        y: 118
+        width: 12
+        height: 13
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1432,20 +1464,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: d3dfb7469be5a3a40800000000000000
-      internalID: 5348691657803693373
+      spriteID: b0f2a246a79a80240800000000000000
+      internalID: 4758239349448519435
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_51
+      name: pngwing.com-3_53
       rect:
         serializedVersion: 2
-        x: 82
-        y: 104
-        width: 7
-        height: 6
+        x: 3153
+        y: 121
+        width: 11
+        height: 13
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1454,20 +1486,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: eda39d7273e152550800000000000000
-      internalID: 6135343289602751198
+      spriteID: ca267ad185a6eb4d0800000000000000
+      internalID: -3116936965406629204
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_52
+      name: pngwing.com-3_54
       rect:
         serializedVersion: 2
-        x: 1042
-        y: 95
-        width: 6
-        height: 9
+        x: 826
+        y: 99
+        width: 14
+        height: 14
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1476,20 +1508,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: d3dfc577bc7c21490800000000000000
-      internalID: -7776933929820553923
+      spriteID: 256581ea28c51bd80800000000000000
+      internalID: -8236700527147592110
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_53
+      name: pngwing.com-3_55
       rect:
         serializedVersion: 2
-        x: 81
+        x: 1258
         y: 86
-        width: 8
-        height: 16
+        width: 15
+        height: 15
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1498,19 +1530,151 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: b39600d2082927b80800000000000000
-      internalID: -8398489275884082885
+      spriteID: 1226b3e42326caf40800000000000000
+      internalID: 5741071593190941217
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_54
+      name: pngwing.com-3_56
       rect:
         serializedVersion: 2
-        x: 83
-        y: 62
-        width: 6
+        x: 1933
+        y: 97
+        width: 10
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 26cdf3042c03d1210800000000000000
+      internalID: 1305253077867027554
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_57
+      rect:
+        serializedVersion: 2
+        x: 2622
+        y: 86
+        width: 15
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f6e6e6af1cf846f50800000000000000
+      internalID: 6873776994567220847
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_58
+      rect:
+        serializedVersion: 2
+        x: 2254
+        y: 58
+        width: 18
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 93d877bdafe938550800000000000000
+      internalID: 6161943515434028345
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_59
+      rect:
+        serializedVersion: 2
+        x: 3192
+        y: 76
+        width: 8
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7f79d92800f97fc10800000000000000
+      internalID: 2087311776849696759
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_60
+      rect:
+        serializedVersion: 2
+        x: 2484
+        y: 57
+        width: 14
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8c508097c3cea63f0800000000000000
+      internalID: -906652630488971832
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_61
+      rect:
+        serializedVersion: 2
+        x: 3084
+        y: 40
+        width: 44
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 416b4cf3c304afba0800000000000000
+      internalID: -6054456121534138860
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pngwing.com-3_62
+      rect:
+        serializedVersion: 2
+        x: 1423
+        y: 19
+        width: 72
         height: 7
       alignment: 0
       pivot: {x: 0, y: 0}
@@ -1520,174 +1684,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: e038c61b2ab3233e0800000000000000
-      internalID: -2075530908316957938
+      spriteID: 132193deded37c180800000000000000
+      internalID: -9095232830354943439
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_55
+      name: pngwing.com-3_63
       rect:
         serializedVersion: 2
-        x: 83
-        y: 53
-        width: 6
-        height: 8
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 90cbc0ddd09d50200800000000000000
-      internalID: 145761216525810697
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_56
-      rect:
-        serializedVersion: 2
-        x: 1041
-        y: 47
-        width: 7
-        height: 9
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 8453e699c478f84e0800000000000000
-      internalID: -1977212948330957496
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_57
-      rect:
-        serializedVersion: 2
-        x: 82
-        y: 37
-        width: 7
-        height: 8
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 2be437969bcd6fee0800000000000000
-      internalID: -1227551159515656526
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_58
-      rect:
-        serializedVersion: 2
-        x: 1041
-        y: 39
-        width: 7
-        height: 9
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 79aaa7f022039e3c0800000000000000
-      internalID: -4329876643893302633
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_59
-      rect:
-        serializedVersion: 2
-        x: 1041
-        y: 32
-        width: 6
-        height: 8
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: ec3e9d19ba79cff80800000000000000
-      internalID: -8071409669012593714
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_60
-      rect:
-        serializedVersion: 2
-        x: 82
-        y: 29
-        width: 7
-        height: 9
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 46da65ee81ea46210800000000000000
-      internalID: 1325375612454874468
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_61
-      rect:
-        serializedVersion: 2
-        x: 82
-        y: 22
-        width: 7
-        height: 8
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 6835f2d8d6befa3f0800000000000000
-      internalID: -887231745816046714
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_62
-      rect:
-        serializedVersion: 2
-        x: 994
+        x: 2253
         y: 23
-        width: 6
-        height: 7
+        width: 15
+        height: 15
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -1696,41 +1706,19 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: eae475eff68974350800000000000000
-      internalID: 6000932635270401710
+      spriteID: a30e6f58a9fde3310800000000000000
+      internalID: 1386791590042198074
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: die_63
+      name: pngwing.com-3_64
       rect:
         serializedVersion: 2
-        x: 1041
-        y: 24
-        width: 6
-        height: 8
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: c26227b9bf83a4a80800000000000000
-      internalID: -8481904294903011796
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_64
-      rect:
-        serializedVersion: 2
-        x: 81
-        y: 11
-        width: 8
+        x: 3107
+        y: 2
+        width: 11
         height: 12
       alignment: 0
       pivot: {x: 0, y: 0}
@@ -1740,96 +1728,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 5fbb63953dd731f70800000000000000
-      internalID: 9156800814062681077
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_65
-      rect:
-        serializedVersion: 2
-        x: 82
-        y: 7
-        width: 7
-        height: 6
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: e5345a6fcd949fe40800000000000000
-      internalID: 5690660817538990942
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_66
-      rect:
-        serializedVersion: 2
-        x: 1088
-        y: 10
-        width: 7
-        height: 7
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: a84932a18924a9b20800000000000000
-      internalID: 3141896911085343882
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_67
-      rect:
-        serializedVersion: 2
-        x: 82
-        y: 0
-        width: 7
-        height: 7
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 5edf373fd47e7f790800000000000000
-      internalID: -7496268732751938075
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: die_68
-      rect:
-        serializedVersion: 2
-        x: 1041
-        y: 0
-        width: 6
-        height: 8
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 6f73e8b49741ab840800000000000000
-      internalID: 5240523627590203382
+      spriteID: 70a32e2b6c66d12a0800000000000000
+      internalID: -6765138061649888761
       vertices: []
       indices: 
       edges: []
@@ -1848,75 +1748,71 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      die_0: 8757098914875501893
-      die_1: -6103215479232170835
-      die_10: -6684223620237878856
-      die_11: -880313252550374251
-      die_12: 3856624869688356372
-      die_13: 2136911065165560782
-      die_14: -3856375698635817731
-      die_15: -9130205475189463508
-      die_16: -3265781609142927404
-      die_17: -8834277996693815437
-      die_18: 315064122136926112
-      die_19: -5775039991847967107
-      die_2: -5062548802251577173
-      die_20: 6928894422476810908
-      die_21: -3662445025725647105
-      die_22: -2740838562870269635
-      die_23: -5002062891653862046
-      die_24: -4463216244554689860
-      die_25: 3053660687005605940
-      die_26: 943243781383645909
-      die_27: 5419326256665985711
-      die_28: -5806768296957217212
-      die_29: -3894124311953196886
-      die_3: 2613213492379772746
-      die_30: -4117157250289148922
-      die_31: 2216345645836003929
-      die_32: 3619827429405480564
-      die_33: 2127095025122464274
-      die_34: 210815441083023765
-      die_35: -7931729262762138019
-      die_36: -6819731452653524878
-      die_37: -549510089296985665
-      die_38: 248571530414207627
-      die_39: -5238355848480882228
-      die_4: -3911252712821790162
-      die_40: 8165357870746235060
-      die_41: 3803051337502762212
-      die_42: 451366200294359396
-      die_43: -4665594750294010280
-      die_44: 1010807959021369841
-      die_45: -5171831527331695640
-      die_46: 6281940456562776635
-      die_47: 5686285047752273219
-      die_48: 2973007658835910610
-      die_49: 7904362660709450019
-      die_5: 2167553827956773973
-      die_50: 5348691657803693373
-      die_51: 6135343289602751198
-      die_52: -7776933929820553923
-      die_53: -8398489275884082885
-      die_54: -2075530908316957938
-      die_55: 145761216525810697
-      die_56: -1977212948330957496
-      die_57: -1227551159515656526
-      die_58: -4329876643893302633
-      die_59: -8071409669012593714
-      die_6: 8269481862698526196
-      die_60: 1325375612454874468
-      die_61: -887231745816046714
-      die_62: 6000932635270401710
-      die_63: -8481904294903011796
-      die_64: 9156800814062681077
-      die_65: 5690660817538990942
-      die_66: 3141896911085343882
-      die_67: -7496268732751938075
-      die_68: 5240523627590203382
-      die_7: 6971096030062609727
-      die_8: -6493708898697568893
-      die_9: 2862632215882366482
+      pngwing.com-3_0: -6937207795812593998
+      pngwing.com-3_1: 4433877822652894004
+      pngwing.com-3_10: 3350633152583406747
+      pngwing.com-3_11: 2964197620510339170
+      pngwing.com-3_12: -3758196219605502504
+      pngwing.com-3_13: -4357476839676356844
+      pngwing.com-3_14: -1668316174892131223
+      pngwing.com-3_15: -7562380606114941057
+      pngwing.com-3_16: -5019451567571550031
+      pngwing.com-3_17: 7456923445594422313
+      pngwing.com-3_18: -2975943558281994029
+      pngwing.com-3_19: -2965150641180627016
+      pngwing.com-3_2: 968011203942403086
+      pngwing.com-3_20: -7087840112947538719
+      pngwing.com-3_21: -6934084851106295423
+      pngwing.com-3_22: 7497702542538986961
+      pngwing.com-3_23: -4226905830586823737
+      pngwing.com-3_24: -3633104917308335877
+      pngwing.com-3_25: -1143710340839942641
+      pngwing.com-3_26: -2972981517838846710
+      pngwing.com-3_27: 8749933841048405294
+      pngwing.com-3_28: 180337266281072061
+      pngwing.com-3_29: -8693134852093978277
+      pngwing.com-3_3: 7372551442553919491
+      pngwing.com-3_30: 8536489735549453347
+      pngwing.com-3_31: -4987929050158315303
+      pngwing.com-3_32: -4970834350611972280
+      pngwing.com-3_33: -823492560761808260
+      pngwing.com-3_34: -7243404762675920260
+      pngwing.com-3_35: -6553916494038662772
+      pngwing.com-3_36: -5913686930489605624
+      pngwing.com-3_37: 7511071217526237912
+      pngwing.com-3_38: -4328873166690917117
+      pngwing.com-3_39: -2391282940765425247
+      pngwing.com-3_4: -853034133898615023
+      pngwing.com-3_40: -2639517125145156013
+      pngwing.com-3_41: -3035776236839632631
+      pngwing.com-3_42: -6260883344395314669
+      pngwing.com-3_43: -1798702795644592790
+      pngwing.com-3_44: 6115355091100335764
+      pngwing.com-3_45: 3848121035365271804
+      pngwing.com-3_46: 6394695669762985561
+      pngwing.com-3_47: 2640940456605101544
+      pngwing.com-3_48: 2274135855785090037
+      pngwing.com-3_49: 7532262489769804441
+      pngwing.com-3_5: -1478949807641256284
+      pngwing.com-3_50: 3859529152872582872
+      pngwing.com-3_51: 3196622439263527505
+      pngwing.com-3_52: 4758239349448519435
+      pngwing.com-3_53: -3116936965406629204
+      pngwing.com-3_54: -8236700527147592110
+      pngwing.com-3_55: 5741071593190941217
+      pngwing.com-3_56: 1305253077867027554
+      pngwing.com-3_57: 6873776994567220847
+      pngwing.com-3_58: 6161943515434028345
+      pngwing.com-3_59: 2087311776849696759
+      pngwing.com-3_6: 5238556344998451045
+      pngwing.com-3_60: -906652630488971832
+      pngwing.com-3_61: -6054456121534138860
+      pngwing.com-3_62: -9095232830354943439
+      pngwing.com-3_63: 1386791590042198074
+      pngwing.com-3_64: -6765138061649888761
+      pngwing.com-3_7: -5197293819955685415
+      pngwing.com-3_8: -4981974299185369646
+      pngwing.com-3_9: -658706749959888103
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
