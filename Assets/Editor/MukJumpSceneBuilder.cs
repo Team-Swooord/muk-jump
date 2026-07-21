@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -15,7 +16,17 @@ namespace MukJump.EditorTools
     {
         const string ScenePath = "Assets/Scenes/Main.unity";
         const string BgPath = "Assets/Art/Background/background_ink_landscape.png";
-        const string CharPath = "Assets/Art/Character/character_muk_bangul_v3.png";
+        const string CharSheetPath = "Assets/Art/Character/muk_spritesheet.png";
+        const int CharFrameSize = 1024;
+        const int CharSheetColumns = 4;
+
+        // 점프 애니메이션 8프레임: 4×2 그리드, 좌→우/위→아래 순서
+        // idle·crouch·launch·rise (윗줄) / apex·fall·dive·land (아랫줄)
+        static readonly string[] CharFrameNames =
+        {
+            "idle", "crouch", "launch", "rise",
+            "apex", "fall", "dive", "land",
+        };
 
         // 배경 1080×1920, PPU 100 → 월드 10.8×19.2. 세로(9:16) 화면 가득 채우는 카메라 크기
         const float OrthoSize = 9.6f;
@@ -25,7 +36,7 @@ namespace MukJump.EditorTools
         {
             EnsureLayer("Platform");
             ConfigureSprite(BgPath, pixelsPerUnit: 100);
-            ConfigureSprite(CharPath, pixelsPerUnit: 900);
+            ConfigureCharacterSheet();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -78,11 +89,13 @@ namespace MukJump.EditorTools
 
         static GameObject BuildPlayer()
         {
+            var frames = LoadCharacterFrames();
+
             var go = new GameObject("Player (먹방울이)");
             go.transform.position = new Vector3(0f, -6f, 0f);
 
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(CharPath);
+            sr.sprite = frames["idle"];
             sr.sortingOrder = 5;
 
             var rb = go.AddComponent<Rigidbody2D>();
@@ -97,7 +110,32 @@ namespace MukJump.EditorTools
 
             go.AddComponent<PlayerController>();
             go.AddComponent<AutoJump>();
+
+            var animator = go.AddComponent<CharacterAnimator>();
+            var so = new SerializedObject(animator);
+            foreach (var name in CharFrameNames)
+                so.FindProperty(name).objectReferenceValue = frames[name];
+            so.ApplyModifiedPropertiesWithoutUndo();
+
             return go;
+        }
+
+        static Dictionary<string, Sprite> LoadCharacterFrames()
+        {
+            var sheetSprites = AssetDatabase.LoadAllAssetsAtPath(CharSheetPath);
+            var frames = new Dictionary<string, Sprite>();
+            foreach (var obj in sheetSprites)
+            {
+                if (obj is Sprite sprite && System.Array.IndexOf(CharFrameNames, sprite.name) >= 0)
+                    frames[sprite.name] = sprite;
+            }
+
+            foreach (var name in CharFrameNames)
+            {
+                if (!frames.ContainsKey(name))
+                    Debug.LogWarning($"[MukJump] 캐릭터 프레임을 찾을 수 없음: {name} ({CharSheetPath})");
+            }
+            return frames;
         }
 
         static void BuildStartGround()
@@ -138,6 +176,48 @@ namespace MukJump.EditorTools
             importer.spritePixelsPerUnit = pixelsPerUnit;
             importer.alphaIsTransparency = true;
             importer.mipmapEnabled = false;
+            importer.SaveAndReimport();
+        }
+
+        /// 4×2 스프라이트시트를 8개의 서브스프라이트로 슬라이스하고 CharFrameNames 순서대로 이름을 붙인다
+        static void ConfigureCharacterSheet()
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(CharSheetPath);
+            if (importer == null)
+            {
+                Debug.LogWarning($"[MukJump] 텍스처를 찾을 수 없음: {CharSheetPath}");
+                return;
+            }
+
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Multiple;
+            importer.spritePixelsPerUnit = 900;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+
+            // 텍스처 좌표는 좌하단이 원점이므로, 이미지 위쪽 줄일수록 y가 커진다
+            int rows = Mathf.CeilToInt(CharFrameNames.Length / (float)CharSheetColumns);
+
+            // 기본 Max Size(2048)보다 시트가 크면(4096폭) 임포트 시 축소되어 픽셀 슬라이스
+            // 좌표가 틀어진다 — 시트 실제 크기 이상으로 명시
+            importer.maxTextureSize = Mathf.Max(CharSheetColumns * CharFrameSize, rows * CharFrameSize);
+            var metas = new SpriteMetaData[CharFrameNames.Length];
+            for (int i = 0; i < CharFrameNames.Length; i++)
+            {
+                int col = i % CharSheetColumns;
+                int row = i / CharSheetColumns; // 0 = 이미지 맨 윗줄
+                metas[i] = new SpriteMetaData
+                {
+                    name = CharFrameNames[i],
+                    rect = new Rect(col * CharFrameSize, (rows - 1 - row) * CharFrameSize, CharFrameSize, CharFrameSize),
+                    alignment = (int)SpriteAlignment.Center,
+                    pivot = new Vector2(0.5f, 0.5f),
+                };
+            }
+
+#pragma warning disable CS0618 // SpriteMetaData/spritesheet: 슬라이스 정보를 직접 지정하기 위해 구 API 사용
+            importer.spritesheet = metas;
+#pragma warning restore CS0618
             importer.SaveAndReimport();
         }
 
