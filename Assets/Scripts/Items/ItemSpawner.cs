@@ -8,6 +8,8 @@ namespace MukJump.Items
     public class ItemSpawner : MonoBehaviour
     {
         [SerializeField] Sprite placeholderSprite;
+        [Tooltip("먹물방울 정식 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
+        [SerializeField] Sprite inkDropSprite;
         [SerializeField] Vector2 verticalSpacing = new(15f, 25f);
         [SerializeField] Vector2 horizontalRange = new(-4f, 4f);
         [SerializeField] float firstSpawnHeight = 12f;
@@ -54,6 +56,8 @@ namespace MukJump.Items
         void Spawn(float y)
         {
             var type = (ItemType)Random.Range(0, 3);
+            Sprite sprite = type == ItemType.InkDrop && inkDropSprite != null
+                ? inkDropSprite : placeholderSprite;
             var go = new GameObject($"Item_{type}")
             {
                 layer = LayerMask.NameToLayer("Item"),
@@ -61,15 +65,16 @@ namespace MukJump.Items
             go.transform.position = new Vector3(Random.Range(horizontalRange.x, horizontalRange.y), y, 0f);
 
             var renderer = go.AddComponent<SpriteRenderer>();
-            renderer.sprite = placeholderSprite;
+            renderer.sprite = sprite;
             renderer.sortingOrder = 4;
-            renderer.color = ColorFor(type);
-            float width = placeholderSprite.bounds.size.x;
+            renderer.color = type == ItemType.InkDrop && inkDropSprite != null
+                ? Color.white : ColorFor(type);
+            float width = sprite.bounds.size.x;
             go.transform.localScale = Vector3.one * (width > 0f ? itemWorldWidth / width : 1f);
 
             var trigger = go.AddComponent<CircleCollider2D>();
             trigger.isTrigger = true;
-            trigger.radius = placeholderSprite.bounds.extents.x * 0.72f;
+            trigger.radius = Mathf.Min(sprite.bounds.extents.x, sprite.bounds.extents.y) * 0.72f;
 
             var pickup = go.AddComponent<ItemPickup>();
             pickup.Configure(type, Random.Range(0f, Mathf.PI * 2f));

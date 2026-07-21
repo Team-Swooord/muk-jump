@@ -259,3 +259,11 @@
 - 주요 지시: 기존 `PlayerController.TakeHit()` 사망 흐름과 `PlatformCollider` 등록 해제 흐름 재사용
 - 결과물: `Assets/Scripts/Obstacles/FallingInkRock.cs`, `Assets/Scripts/Obstacles/FallingInkRockSpawner.cs`, `Assets/Scripts/Drawing/PlatformCollider.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
 - 사람의 수정/검토 내용: Unity Editor 수동 플레이 테스트 예정
+
+### 2026-07-21 — 먹물방울 정식 아이템 이미지 연결
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 새 `item1_50m.png`를 먹물방울 월드 아이템과 효과 테스트 버튼에 적용
+- 주요 지시: 해당 이미지는 먹물방울 아이템 이미지임을 확인
+- 결과물: `Assets/Scripts/Items/ItemSpawner.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`, `Assets/Art/UI/item1_50m.png`
+- 사람의 수정/검토 내용: 황금 붓과 먹 방어막은 정식 이미지가 추가될 때까지 기존 임시 표시 유지

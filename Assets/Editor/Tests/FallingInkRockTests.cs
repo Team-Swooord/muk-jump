@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEngine;
 using MukJump.Drawing;
 using MukJump.EditorTools;
+using MukJump.Items;
 using MukJump.Obstacles;
 using MukJump.Player;
 
@@ -110,6 +111,11 @@ public class FallingInkRockTests
         Assert.IsNotNull(serialized.FindProperty("worldCamera").objectReferenceValue);
         Assert.IsNotNull(serialized.FindProperty("player").objectReferenceValue);
         Assert.AreNotEqual(0, serialized.FindProperty("collisionMask").intValue);
+
+        var itemSpawner = Object.FindFirstObjectByType<ItemSpawner>();
+        Assert.IsNotNull(itemSpawner);
+        var itemSerialized = new SerializedObject(itemSpawner);
+        Assert.IsNotNull(itemSerialized.FindProperty("inkDropSprite").objectReferenceValue);
 
         var importer = (TextureImporter)AssetImporter.GetAtPath(
             "Assets/Art/Character/Obstacles/anermy_02.png");

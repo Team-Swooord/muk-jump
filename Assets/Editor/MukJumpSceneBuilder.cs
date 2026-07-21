@@ -50,6 +50,7 @@ namespace MukJump.EditorTools
         const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
         const string LobbyLogoPath = "Assets/Art/UI/muk_logo.png";
         const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";
+        const string InkDropItemPath = "Assets/Art/UI/item1_50m.png";
         static readonly string[] DeathFramePaths =
         {
             "Assets/Art/Character/Death/mukbangul_death_01_idle.png",
@@ -94,6 +95,7 @@ namespace MukJump.EditorTools
             ConfigureDeathSprites();
             ConfigureObstacleSprite();
             ConfigureFallingInkRockSprite();
+            ConfigureItemSprites();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -235,6 +237,8 @@ namespace MukJump.EditorTools
             var itemSo = new SerializedObject(itemSpawner);
             itemSo.FindProperty("placeholderSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(ObstaclePath);
+            itemSo.FindProperty("inkDropSprite").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(InkDropItemPath);
             itemSo.ApplyModifiedPropertiesWithoutUndo();
 
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem),
@@ -340,12 +344,13 @@ namespace MukJump.EditorTools
             testControls.anchoredPosition = new Vector2(25f, 0f);
             RestoreUiLayout(testControls);
 
-            var iconTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(ObstaclePath);
-            var inkDropButton = CreateItemTestButton("InkDropButton", testControls, iconTexture,
-                new Vector2(0f, 150f), new Color(0.42f, 0.62f, 0.72f), "50m");
-            var goldenBrushButton = CreateItemTestButton("GoldenBrushButton", testControls, iconTexture,
+            var placeholderTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(ObstaclePath);
+            var inkDropTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(InkDropItemPath);
+            var inkDropButton = CreateItemTestButton("InkDropButton", testControls, inkDropTexture,
+                new Vector2(0f, 150f), Color.white, "50m");
+            var goldenBrushButton = CreateItemTestButton("GoldenBrushButton", testControls, placeholderTexture,
                 Vector2.zero, new Color(0.95f, 0.72f, 0.2f), "무한");
-            var inkShieldButton = CreateItemTestButton("InkShieldButton", testControls, iconTexture,
+            var inkShieldButton = CreateItemTestButton("InkShieldButton", testControls, placeholderTexture,
                 new Vector2(0f, -150f), new Color(0.72f, 0.18f, 0.28f), "방어");
 
             var view = root.GetComponent<GameplayHudView>();
@@ -527,6 +532,20 @@ namespace MukJump.EditorTools
             ConfigureSprite(FallingInkRockPath, pixelsPerUnit: 700f);
             var importer = (TextureImporter)AssetImporter.GetAtPath(FallingInkRockPath);
             if (importer == null) return;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.SaveAndReimport();
+        }
+
+        static void ConfigureItemSprites()
+        {
+            ConfigureSprite(InkDropItemPath, pixelsPerUnit: 700f);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(InkDropItemPath);
+            if (importer == null)
+            {
+                Debug.LogWarning($"[MukJump] 먹물방울 아이템 스프라이트를 찾을 수 없음: {InkDropItemPath}");
+                return;
+            }
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.filterMode = FilterMode.Bilinear;
             importer.SaveAndReimport();
