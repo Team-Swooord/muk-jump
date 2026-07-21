@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using MukJump.AI;
+using MukJump.Core;
 
 namespace MukJump.Drawing
 {
@@ -16,10 +17,15 @@ namespace MukJump.Drawing
         [SerializeField] float lifetime = 9f;
         [SerializeField] float fadeDuration = 1.5f;
 
+        [Tooltip("게임 시작 시 미리 놓인 발판인지 — 첫 점프에 사용되면 사라진다")]
+        [SerializeField] bool isStartPlatform;
+
         public float Length { get; private set; }
         public LineRenderer Line { get; private set; }
+        public bool IsStartPlatform => isStartPlatform;
 
         EdgeCollider2D edge;
+        Vector2[] originalPoints;
         float age;
 
         /// 스무딩 완료된 월드 좌표 점열로 발판을 생성한다 (런타임 드로잉 경로)
@@ -86,6 +92,15 @@ namespace MukJump.Drawing
             Line.positionCount = localPoints.Count;
             for (int i = 0; i < localPoints.Count; i++)
                 Line.SetPosition(i, localPoints[i]);
+
+            originalPoints = localPoints.ToArray();
+        }
+
+        /// 첫 점프에 밟고 떠난 시작 발판 등을 즉시 사라지게 한다 (일반 수명 로직 재사용)
+        public void Despawn(float fade = 1.2f)
+        {
+            fadeDuration = fade;
+            lifetime = age + fade;
         }
 
         void Update()
@@ -97,14 +112,51 @@ namespace MukJump.Drawing
 
             if (remaining <= fadeDuration)
             {
-                float alpha = Mathf.Clamp01(remaining / fadeDuration);
-                var c = Line.startColor;
-                c.a = alpha;
-                Line.startColor = Line.endColor = c;
+                float t = 1f - Mathf.Clamp01(remaining / fadeDuration);
+                FadeVisual(t);
+                TrimCollider(t);
             }
 
             if (remaining <= 0f)
                 Destroy(gameObject);
+        }
+
+        /// 처음 붓을 댄 쪽(t=0 지점)부터 투명해지는 알파 스윕 — 선의 길이·두께는 그대로,
+        /// 먹이 마르며 스며들 듯 투명도만 쓸려나간다
+        void FadeVisual(float t)
+        {
+            const float feather = 0.3f; // 투명↔불투명 경계의 부드러운 폭
+
+            var ink = InkPalette.Ink;
+            float front = Mathf.Lerp(0f, 1f + feather, t); // t=1이면 끝까지 완전히 투명
+
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new[]
+                {
+                    new GradientColorKey(ink, 0f),
+                    new GradientColorKey(ink, 1f),
+                },
+                new[]
+                {
+                    new GradientAlphaKey(0f, 0f),
+                    new GradientAlphaKey(0f, Mathf.Clamp01(front - feather)),
+                    new GradientAlphaKey(0.96f, Mathf.Clamp01(front)),
+                    new GradientAlphaKey(0.96f, 1f),
+                });
+            Line.colorGradient = gradient;
+        }
+
+        /// 투명해진 구간은 밟을 수 없도록 콜라이더도 같은 진행도로 잘라낸다 (비주얼은 그대로)
+        void TrimCollider(float t)
+        {
+            if (originalPoints == null || originalPoints.Length < 2) return;
+
+            int cutoff = Mathf.Clamp(Mathf.FloorToInt(t * (originalPoints.Length - 1)), 0, originalPoints.Length - 2);
+            var remainingPoints = new Vector2[originalPoints.Length - cutoff];
+            for (int i = 0; i < remainingPoints.Length; i++)
+                remainingPoints[i] = originalPoints[cutoff + i];
+            edge.points = remainingPoints; // 배열 전체를 한 번에 대입해야 콜라이더에 반영된다
         }
 
         /// 발판 수 초과 시 수명을 앞당겨 페이드아웃 시작
