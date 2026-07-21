@@ -9,22 +9,31 @@ namespace MukJump.Player
     [RequireComponent(typeof(Rigidbody2D))]
     public class PlayerController : MonoBehaviour
     {
-        [Tooltip("카메라 하단에서 이만큼 더 내려가면 추락 처리")]
-        [SerializeField] float fallMargin = 3f;
+        [Tooltip("캐릭터가 카메라 하단 가장자리에 이만큼 걸치면 죽음 연출 시작")]
+        [SerializeField] float deathEdgeMargin = 0.3f;
+        [Tooltip("죽음 직후 잠깐 멈칫하는 시간 (마리오식 타격감)")]
+        [SerializeField] float deathFreezeDuration = 0.25f;
+        [Tooltip("멈칫 후 위로 튀어 오르는 속도")]
+        [SerializeField] float deathPopSpeed = 16f;
+        [Tooltip("정점을 지난 뒤 낙하 중력 배율 — 클수록 무겁게 뚝 떨어진다")]
+        [SerializeField] float deathFallGravityMultiplier = 1.8f;
         [Tooltip("접촉 노멀의 y가 이 값 이상이어야 '발판 위'로 인정")]
         [SerializeField] float groundNormalMinY = 0.4f;
 
         public bool IsGrounded { get; private set; }
+        public bool IsDead { get; private set; }
         public Vector2 GroundNormal { get; private set; } = Vector2.up;
         public PlatformCollider CurrentPlatform { get; private set; }
 
+        Rigidbody2D rb;
         Camera cam;
         float camHalfHeight;
 
         void Awake()
         {
+            rb = GetComponent<Rigidbody2D>();
             // 정지 상태에서 Rigidbody가 잠들면 충돌 콜백이 멈춰 접지 판정이 풀린다 → 잠들지 않게 유지
-            GetComponent<Rigidbody2D>().sleepMode = RigidbodySleepMode2D.NeverSleep;
+            rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
         }
 
         void Start()
@@ -35,14 +44,49 @@ namespace MukJump.Player
 
         void FixedUpdate()
         {
+            if (IsDead) return;
+
             // 접지 플래그는 매 물리 스텝 초기화 → OnCollisionStay2D가 다시 세운다
             IsGrounded = false;
 
             if (GameManager.Instance.State == GameState.Playing &&
-                transform.position.y < cam.transform.position.y - camHalfHeight - fallMargin)
+                transform.position.y < cam.transform.position.y - camHalfHeight - deathEdgeMargin)
             {
-                GameManager.Instance.OnPlayerFell();
+                Die();
             }
+        }
+
+        /// 마리오식 죽음 연출: 멈칫 → 위로 폴짝 → 정점 후 무거운 중력으로 화면 밖까지 낙하
+        void Die()
+        {
+            IsDead = true;
+            IsGrounded = false;
+            CurrentPlatform = null;
+
+            foreach (var col in GetComponents<Collider2D>())
+                col.enabled = false;
+
+            GameManager.Instance.OnPlayerFell();
+            StartCoroutine(DeathSequence());
+        }
+
+        System.Collections.IEnumerator DeathSequence()
+        {
+            float normalGravity = rb.gravityScale;
+
+            // 1) 멈칫: 그 자리에 잠깐 정지
+            rb.linearVelocity = Vector2.zero;
+            rb.gravityScale = 0f;
+            yield return new WaitForSeconds(deathFreezeDuration);
+
+            // 2) 폴짝: 위로 튀어 오름
+            rb.gravityScale = normalGravity;
+            rb.linearVelocity = new Vector2(0f, deathPopSpeed);
+            while (rb.linearVelocity.y > 0f)
+                yield return null;
+
+            // 3) 낙하: 평소보다 무거운 중력으로 뚝 떨어진다
+            rb.gravityScale = normalGravity * deathFallGravityMultiplier;
         }
 
         void OnCollisionStay2D(Collision2D collision)

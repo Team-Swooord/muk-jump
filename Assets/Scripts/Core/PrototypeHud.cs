@@ -44,6 +44,12 @@ namespace MukJump.Core
             float titleH = titleStyle.fontSize * 1.6f;
             float bodyH = bodyStyle.fontSize * 1.6f;
 
+            if (GameManager.Instance.State == GameState.Lobby)
+            {
+                DrawLobby(bodyH);
+                return;
+            }
+
             var score = ScoreManager.Instance;
             if (score != null)
             {
@@ -62,12 +68,13 @@ namespace MukJump.Core
                 return;
             }
 
-            // 다음 점프까지 남은 시간 게이지 (발판 그릴 타이밍 안내)
+            // 다음 점프까지 남은 시간 게이지 (발판 그릴 타이밍 안내) — 점수 텍스트 아래
             if (autoJump != null && autoJump.IsCharging)
             {
                 float w = Screen.width * 0.4f;
                 float h = Screen.height * 0.012f;
-                var back = new Rect((Screen.width - w) / 2, Screen.height * 0.12f, w, h);
+                float gaugeY = Screen.height * 0.03f + titleH + bodyH + Screen.height * 0.015f;
+                var back = new Rect((Screen.width - w) / 2, gaugeY, w, h);
                 DrawRect(back, InkPalette.Paper2);
                 var fill = back;
                 fill.width = w * autoJump.ChargeRatio;
@@ -77,6 +84,47 @@ namespace MukJump.Core
             // 화면 하단 먹 게이지: 전역 잉크 잔량
             if (strokeCapture != null)
                 DrawInkGauge(strokeCapture.InkRemaining01);
+        }
+
+        /// 로비(타이틀) 화면: 산수화 배경 위에 제목 + 낙관 도장 + 시작 안내
+        void DrawLobby(float bodyH)
+        {
+            // 제목
+            var big = new GUIStyle(titleStyle) { fontSize = Screen.height / 9 };
+            big.normal.textColor = InkPalette.Ink;
+            float titleY = Screen.height * 0.24f;
+            float bigH = big.fontSize * 1.4f;
+            GUI.Label(new Rect(0, titleY, Screen.width, bigH), "먹점프", big);
+
+            // 낙관 도장: 제목 오른쪽 아래에 찍힌 붉은 인장
+            float seal = Screen.height / 26f;
+            var sealRect = new Rect(Screen.width * 0.5f + big.fontSize * 1.6f, titleY + bigH * 0.62f, seal, seal);
+            DrawRect(sealRect, InkPalette.Red);
+            var sealStyle = new GUIStyle(bodyStyle) { fontSize = (int)(seal * 0.62f) };
+            sealStyle.normal.textColor = InkPalette.TextLight;
+            GUI.Label(sealRect, "印", sealStyle);
+
+            // 부제
+            bodyStyle.normal.textColor = InkPalette.TextMuted;
+            GUI.Label(new Rect(0, titleY + bigH + 6, Screen.width, bodyH),
+                "선 하나가 발판이 되고, 발판 하나가 그림이 된다", bodyStyle);
+
+            // 시작 안내 (은은하게 깜빡임)
+            float blink = 0.45f + 0.35f * Mathf.Sin(Time.unscaledTime * 3f);
+            var prompt = new GUIStyle(titleStyle) { fontSize = Screen.height / 26 };
+            var c = InkPalette.TextDark;
+            c.a = blink;
+            prompt.normal.textColor = c;
+            GUI.Label(new Rect(0, Screen.height * 0.62f, Screen.width, prompt.fontSize * 1.6f),
+                "화면을 터치해 붓을 들기", prompt);
+
+            // 최고 기록
+            if (ScoreManager.Instance != null && ScoreManager.Instance.Best > 0)
+            {
+                bodyStyle.normal.textColor = InkPalette.TextMuted;
+                GUI.Label(new Rect(0, Screen.height * 0.62f + prompt.fontSize * 1.8f, Screen.width, bodyH),
+                    $"최고 고도 {ScoreManager.Instance.Best}", bodyStyle);
+            }
         }
 
         /// 붓 획 모양 먹 게이지: 트랙 위에 fill을 왼쪽부터 잔량만큼 잘라 그리고,
@@ -99,7 +147,7 @@ namespace MukJump.Core
             // 게이지 본체: 화면 폭 55%, 세로는 이미지 비율(4:1) 유지
             float w = Screen.width * 0.55f;
             float h = w * (inkGaugeFill.height / (float)inkGaugeFill.width);
-            float iconSize = inkBrushIcon != null ? h * 1.35f : 0f;
+            float iconSize = inkBrushIcon != null ? h * 1.0f : 0f;
             float overlap = iconSize * 0.65f;     // 붓이 획의 끝을 그리고 있는 것처럼 깊게 겹침
             float totalW = w + iconSize - overlap;
 

@@ -15,9 +15,14 @@ namespace MukJump.Core
         Transform target;
         float startY;
 
-        void Awake()
+        // OnEnable: Play 중 스크립트 재컴파일로 static이 초기화돼도 다시 할당된다
+        void OnEnable()
         {
             Instance = this;
+        }
+
+        void Awake()
+        {
             Best = PlayerPrefs.GetInt(BestKey, 0);
         }
 
