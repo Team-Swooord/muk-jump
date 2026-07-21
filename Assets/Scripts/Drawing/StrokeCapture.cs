@@ -10,27 +10,37 @@ namespace MukJump.Drawing
     {
         [Tooltip("이 간격(월드 단위) 이상 움직였을 때만 점 추가")]
         [SerializeField] float minPointDistance = 0.15f;
-        [Tooltip("먹 잔량: 한 획의 최대 길이. 넘치면 자동으로 획이 끝난다")]
+        [Tooltip("한 획의 최대 길이. 넘치면 그 지점에서 획을 끊고 이어 그린다")]
         [SerializeField] float maxStrokeLength = 6f;
         [Tooltip("이보다 짧은 획은 발판으로 만들지 않는다")]
         [SerializeField] float minStrokeLength = 0.6f;
-        [SerializeField] float previewWidth = 0.12f;
+        [SerializeField] float previewWidth = 0.4f;
         [Tooltip("캐릭터에서 이 거리 안에 획이 들어오면 발판을 만들지 않는다 (물리 밀어내기 악용 방지)")]
         [SerializeField] float playerClearance = 0.75f;
+
+        [Header("먹(잉크) 자원 — 무한 드로잉 방지")]
+        [Tooltip("먹 총량 (월드 단위 길이). 그은 만큼 소모된다")]
+        [SerializeField] float inkCapacity = 12f;
+        [Tooltip("초당 먹 회복량 (그리는 중에는 회복하지 않음)")]
+        [SerializeField] float inkRegenPerSecond = 1.8f;
+        [Tooltip("먹이 이보다 적으면 새 획을 시작할 수 없다")]
+        [SerializeField] float minInkToStart = 0.8f;
 
         readonly List<Vector2> points = new();
         Camera cam;
         Transform player;
         bool drawing;
         float strokeLength;
+        float ink;
         LineRenderer preview;
 
-        /// HUD 먹 게이지용: 남은 잉크 비율 (획을 긋는 동안 소모)
-        public float InkRemaining01 => drawing ? 1f - Mathf.Clamp01(strokeLength / maxStrokeLength) : 1f;
+        /// HUD 먹 게이지용: 전체 먹 잔량 비율
+        public float InkRemaining01 => Mathf.Clamp01(ink / inkCapacity);
 
         void Start()
         {
             cam = Camera.main;
+            ink = inkCapacity;
             var pc = FindFirstObjectByType<Player.PlayerController>();
             if (pc != null) player = pc.transform;
         }
@@ -43,11 +53,14 @@ namespace MukJump.Drawing
                 return;
             }
 
+            if (!drawing)
+                ink = Mathf.Min(inkCapacity, ink + inkRegenPerSecond * Time.deltaTime);
+
             if (PointerInput.TryGetPressed(out var screenPos))
             {
                 if (drawing)
                     ContinueStroke(screenPos);
-                else
+                else if (ink >= minInkToStart)
                     BeginStroke(screenPos);
             }
             else if (drawing)
@@ -61,12 +74,14 @@ namespace MukJump.Drawing
             return cam.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, -cam.transform.position.z));
         }
 
-        void BeginStroke(Vector2 screenPos)
+        void BeginStroke(Vector2 screenPos) => BeginStrokeAtWorld(ToWorld(screenPos));
+
+        void BeginStrokeAtWorld(Vector2 worldPos)
         {
             drawing = true;
             strokeLength = 0f;
             points.Clear();
-            points.Add(ToWorld(screenPos));
+            points.Add(worldPos);
             CreatePreview();
         }
 
@@ -76,14 +91,26 @@ namespace MukJump.Drawing
             float step = Vector2.Distance(points[^1], world);
             if (step < minPointDistance) return;
 
-            // 먹 잔량 소진 시 그 지점에서 획을 끊는다
-            if (strokeLength + step > maxStrokeLength)
+            // 먹이 다 떨어지면 그 지점에서 획이 끝난다 — 회복될 때까지 더 그릴 수 없다
+            if (ink <= 0f)
             {
                 EndStroke();
                 return;
             }
 
+            // 한 획의 최대 길이 초과 시 그 지점에서 끊고, 손을 떼지 않았다면 바로 그
+            // 지점에서 새 획을 이어 시작한다 (끊지 않으면 다음 프레임의 이동분만큼 틈이
+            // 생겨 일직선으로 길게 그은 발판 중간이 붕 뜨는 문제가 있었음)
+            if (strokeLength + step > maxStrokeLength)
+            {
+                Vector2 seam = points[^1];
+                EndStroke();
+                BeginStrokeAtWorld(seam);
+                return;
+            }
+
             strokeLength += step;
+            ink = Mathf.Max(0f, ink - step);
             points.Add(world);
             UpdatePreview();
         }
@@ -143,6 +170,17 @@ namespace MukJump.Drawing
         void UpdatePreview()
         {
             if (preview == null) return;
+
+            if (points.Count == 1)
+            {
+                // 손이 닿은 즉시 붓점이 찍히는 느낌: 점 하나로는 선이 그려지지 않으므로
+                // 같은 위치를 두 번 찍어 둥근 캡만 있는 점으로 보이게 한다
+                preview.positionCount = 2;
+                preview.SetPosition(0, points[0]);
+                preview.SetPosition(1, points[0]);
+                return;
+            }
+
             preview.positionCount = points.Count;
             for (int i = 0; i < points.Count; i++)
                 preview.SetPosition(i, points[i]);
