@@ -100,9 +100,14 @@ namespace MukJump.Core
             float w = Screen.width * 0.55f;
             float h = w * (inkGaugeFill.height / (float)inkGaugeFill.width);
             float iconSize = inkBrushIcon != null ? h * 1.35f : 0f;
-            float totalW = w + iconSize * 0.7f; // 아이콘은 게이지 끝에 살짝 겹침
+            float overlap = iconSize * 0.65f;     // 붓이 획의 끝을 그리고 있는 것처럼 깊게 겹침
+            float totalW = w + iconSize - overlap;
+
+            // 아이콘(게이지보다 큼)까지 포함한 전체가 화면 아래로 짤리지 않도록 배치
+            float clusterH = Mathf.Max(h, iconSize);
+            float centerY = Screen.height * 0.975f - clusterH / 2;
             float x = (Screen.width - totalW) / 2;
-            float y = Screen.height * 0.985f - h;
+            float y = centerY - h / 2;
 
             var area = new Rect(x, y, w, h);
             GUI.DrawTexture(area, inkGaugeTrack, ScaleMode.StretchToFill);
@@ -116,7 +121,7 @@ namespace MukJump.Core
 
             if (inkBrushIcon != null)
             {
-                var iconRect = new Rect(x + w - iconSize * 0.3f, y + h / 2 - iconSize / 2, iconSize, iconSize);
+                var iconRect = new Rect(x + w - overlap, centerY - iconSize / 2, iconSize, iconSize);
                 GUI.DrawTexture(iconRect, inkBrushIcon, ScaleMode.ScaleToFit);
             }
         }
