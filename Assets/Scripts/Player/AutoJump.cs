@@ -56,6 +56,11 @@ namespace MukJump.Player
             Vector2 direction = Vector3.Slerp(Vector3.up, player.GroundNormal, normalInfluence).normalized;
             float power = baseJumpSpeed * PowerMultiplier();
 
+            // 첫 발판(시작 지형)은 최초로 그 위에서 점프하는 순간 사라진다 —
+            // 이후로는 반드시 직접 그린 발판으로만 진행해야 한다
+            if (player.CurrentPlatform != null && player.CurrentPlatform.IsStartPlatform)
+                player.CurrentPlatform.Despawn();
+
             rb.linearVelocity = direction * power;
         }
 
