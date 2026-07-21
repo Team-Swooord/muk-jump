@@ -38,7 +38,8 @@ namespace MukJump.Core
 
         void Update()
         {
-            if (target == null || GameManager.Instance.State != GameState.Playing) return;
+            if (target == null || GameManager.Instance == null ||
+                GameManager.Instance.State != GameState.Playing) return;
             Height = Mathf.Max(Height, Mathf.RoundToInt(target.position.y - startY));
         }
 
@@ -49,5 +50,15 @@ namespace MukJump.Core
             PlayerPrefs.SetInt(BestKey, Best);
             PlayerPrefs.Save();
         }
+
+        /// 로비에서 선택한 시작 발판으로 이동한 직후 그 위치를 이번 도전의 0m로 삼는다.
+        public void ResetOrigin(float worldY)
+        {
+            if (target == null) return;
+            startY = worldY;
+            Height = 0;
+        }
+
+        public float HeightAt(float worldY) => worldY - startY;
     }
 }

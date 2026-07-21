@@ -19,15 +19,32 @@ namespace MukJump.Player
         [SerializeField] float deathFallGravityMultiplier = 1.8f;
         [Tooltip("접촉 노멀의 y가 이 값 이상이어야 '발판 위'로 인정")]
         [SerializeField] float groundNormalMinY = 0.4f;
+        [Tooltip("먹 방어막으로 추락을 막았을 때 다시 튀어 오르는 목표 높이")]
+        [SerializeField] float shieldRecoveryHeight = 35f;
 
         public bool IsGrounded { get; private set; }
         public bool IsDead { get; private set; }
         public Vector2 GroundNormal { get; private set; } = Vector2.up;
         public PlatformCollider CurrentPlatform { get; private set; }
+        public bool HasShield { get; private set; }
+        public bool IsInkDropBoosted { get; private set; }
 
         Rigidbody2D rb;
         Camera cam;
         float camHalfHeight;
+        bool inkDropHasRisen;
+        public uint InkDropLaunchVersion { get; private set; }
+
+        /// 로비에서는 시작선을 그리는 동안 캐릭터가 먼저 추락하지 않도록 그 자리에 고정한다.
+        /// 선이 완성되면 현재 위치에서 물리를 시작하므로 아래에 그린 선만 첫 발판이 된다.
+        public void BeginFromLobby()
+        {
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            rb.linearVelocity = Vector2.zero;
+            IsGrounded = false;
+            CurrentPlatform = null;
+            rb.WakeUp();
+        }
 
         void Awake()
         {
@@ -39,7 +56,18 @@ namespace MukJump.Player
         void Start()
         {
             cam = Camera.main;
+            if (cam == null)
+            {
+                Debug.LogError("[MukJump] MainCamera를 찾을 수 없어 추락 판정을 비활성화합니다.", this);
+                return;
+            }
             camHalfHeight = cam.orthographicSize;
+
+            if (GameManager.Instance != null && GameManager.Instance.State == GameState.Lobby)
+            {
+                rb.linearVelocity = Vector2.zero;
+                rb.bodyType = RigidbodyType2D.Kinematic;
+            }
         }
 
         void FixedUpdate()
@@ -49,24 +77,86 @@ namespace MukJump.Player
             // 접지 플래그는 매 물리 스텝 초기화 → OnCollisionStay2D가 다시 세운다
             IsGrounded = false;
 
-            if (GameManager.Instance.State == GameState.Playing &&
+            if (IsInkDropBoosted)
+            {
+                if (rb.linearVelocity.y > 0.1f)
+                    inkDropHasRisen = true;
+                else if (inkDropHasRisen)
+                    IsInkDropBoosted = false;
+            }
+
+            if (cam != null && GameManager.Instance != null &&
+                GameManager.Instance.State == GameState.Playing &&
                 transform.position.y < cam.transform.position.y - camHalfHeight - deathEdgeMargin)
             {
-                Die();
+                if (ConsumeShield())
+                    RecoverFromFall();
+                else
+                    Kill();
             }
         }
 
-        /// 마리오식 죽음 연출: 멈칫 → 위로 폴짝 → 정점 후 무거운 중력으로 화면 밖까지 낙하
-        void Die()
+        public void GrantShield() => HasShield = true;
+
+        /// 장애물 피해. 방어막이 있으면 1회 소모하고 작은 반동만 준다.
+        public void TakeHit()
         {
+            if (IsDead) return;
+            if (IsInkDropBoosted) return;
+            if (ConsumeShield())
+            {
+                LaunchToHeight(12f);
+                return;
+            }
+            Kill();
+        }
+
+        /// 먹물방울: 현재 위치에서 지정 높이까지 오르는 물리 점프 속도를 적용한다.
+        public void LaunchToHeight(float height)
+        {
+            float gravity = Mathf.Abs(Physics2D.gravity.y * rb.gravityScale);
+            float speed = Mathf.Sqrt(2f * gravity * Mathf.Max(0f, height));
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, speed);
+        }
+
+        /// 먹물방울 점프는 상승이 끝날 때까지 장애물 피해를 받지 않는다.
+        public void LaunchInkDrop(float height)
+        {
+            IsInkDropBoosted = true;
+            inkDropHasRisen = false;
+            InkDropLaunchVersion++;
+            LaunchToHeight(height);
+        }
+
+        bool ConsumeShield()
+        {
+            if (!HasShield) return false;
+            HasShield = false;
+            return true;
+        }
+
+        void RecoverFromFall()
+        {
+            float safeY = cam.transform.position.y - camHalfHeight + 0.8f;
+            rb.position = new Vector2(rb.position.x, safeY);
+            LaunchToHeight(shieldRecoveryHeight);
+        }
+
+        /// 추락 또는 장애물 충돌의 공통 사망 진입점.
+        /// 마리오식 죽음 연출: 멈칫 → 위로 폴짝 → 정점 후 무거운 중력으로 화면 밖까지 낙하.
+        public void Kill()
+        {
+            if (IsDead) return;
+
             IsDead = true;
+            IsInkDropBoosted = false;
             IsGrounded = false;
             CurrentPlatform = null;
 
             foreach (var col in GetComponents<Collider2D>())
                 col.enabled = false;
 
-            GameManager.Instance.OnPlayerFell();
+            GameManager.Instance?.OnPlayerFell();
             StartCoroutine(DeathSequence());
         }
 

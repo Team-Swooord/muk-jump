@@ -33,13 +33,22 @@ namespace MukJump.Drawing
         float strokeLength;
         float ink;
         LineRenderer preview;
+        float unlimitedInkUntil;
 
         /// HUD 먹 게이지용: 전체 먹 잔량 비율
-        public float InkRemaining01 => Mathf.Clamp01(ink / inkCapacity);
+        public bool HasUnlimitedInk => Time.time < unlimitedInkUntil;
+        public float InkRemaining01 => HasUnlimitedInk ? 1f : Mathf.Clamp01(ink / inkCapacity);
+
+        public void ActivateUnlimitedInk(float duration)
+        {
+            unlimitedInkUntil = Mathf.Max(unlimitedInkUntil, Time.time + duration);
+        }
 
         void Start()
         {
             cam = Camera.main;
+            if (cam == null)
+                Debug.LogError("[MukJump] MainCamera를 찾을 수 없어 드로잉 좌표를 변환할 수 없습니다.", this);
             ink = inkCapacity;
             var pc = FindFirstObjectByType<Player.PlayerController>();
             if (pc != null) player = pc.transform;
@@ -47,6 +56,20 @@ namespace MukJump.Drawing
 
         void Update()
         {
+            if (cam == null) return;
+
+            if (GameManager.Instance == null)
+            {
+                if (drawing) CancelStroke();
+                return;
+            }
+
+            if (GameManager.Instance.State == GameState.Lobby)
+            {
+                UpdateLobbyStroke();
+                return;
+            }
+
             if (GameManager.Instance.State != GameState.Playing)
             {
                 if (drawing) CancelStroke();
@@ -58,14 +81,35 @@ namespace MukJump.Drawing
 
             if (PointerInput.TryGetPressed(out var screenPos))
             {
+                if (GameplayHudView.IsPointerOverItemTestControls(screenPos))
+                {
+                    if (drawing) CancelStroke();
+                    return;
+                }
+
                 if (drawing)
                     ContinueStroke(screenPos);
-                else if (ink >= minInkToStart)
+                else if (HasUnlimitedInk || ink >= minInkToStart)
                     BeginStroke(screenPos);
             }
             else if (drawing)
             {
                 EndStroke();
+            }
+        }
+
+        void UpdateLobbyStroke()
+        {
+            if (PointerInput.TryGetPressed(out var screenPos))
+            {
+                if (drawing)
+                    ContinueStroke(screenPos);
+                else
+                    BeginStroke(screenPos);
+            }
+            else if (drawing)
+            {
+                EndStroke(startGame: true);
             }
         }
 
@@ -87,12 +131,14 @@ namespace MukJump.Drawing
 
         void ContinueStroke(Vector2 screenPos)
         {
+            bool lobbyStroke = GameManager.Instance != null &&
+                               GameManager.Instance.State == GameState.Lobby;
             Vector2 world = ToWorld(screenPos);
             float step = Vector2.Distance(points[^1], world);
             if (step < minPointDistance) return;
 
             // 먹이 다 떨어지면 그 지점에서 획이 끝난다 — 회복될 때까지 더 그릴 수 없다
-            if (ink <= 0f)
+            if (!lobbyStroke && !HasUnlimitedInk && ink <= 0f)
             {
                 EndStroke();
                 return;
@@ -103,6 +149,9 @@ namespace MukJump.Drawing
             // 생겨 일직선으로 길게 그은 발판 중간이 붕 뜨는 문제가 있었음)
             if (strokeLength + step > maxStrokeLength)
             {
+                // 로비의 시작선은 한 획만 인정하므로 최대 길이에 도달하면 손을 뗄 때까지 유지한다.
+                if (lobbyStroke) return;
+
                 Vector2 seam = points[^1];
                 EndStroke();
                 BeginStrokeAtWorld(seam);
@@ -110,12 +159,13 @@ namespace MukJump.Drawing
             }
 
             strokeLength += step;
-            ink = Mathf.Max(0f, ink - step);
+            if (!lobbyStroke && !HasUnlimitedInk)
+                ink = Mathf.Max(0f, ink - step);
             points.Add(world);
             UpdatePreview();
         }
 
-        void EndStroke()
+        void EndStroke(bool startGame = false)
         {
             drawing = false;
             DestroyPreview();
@@ -127,9 +177,11 @@ namespace MukJump.Drawing
 
             // 캐릭터와 겹치거나 너무 가까운 획은 무효 — 콜라이더 밀어내기로 캐릭터를
             // 튕겨 올리는 악용(반복 드로잉 탈출)을 막는다
-            if (TooCloseToPlayer(smoothed)) return;
+            if (!startGame && TooCloseToPlayer(smoothed)) return;
 
             PlatformCollider.Spawn(smoothed);
+            if (startGame)
+                GameManager.Instance?.StartGameFromStroke();
         }
 
         void CancelStroke()

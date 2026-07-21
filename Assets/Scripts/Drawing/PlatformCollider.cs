@@ -17,13 +17,8 @@ namespace MukJump.Drawing
         [SerializeField] float lifetime = 9f;
         [SerializeField] float fadeDuration = 1.5f;
 
-        [Tooltip("게임 시작 시 미리 놓인 발판인지 — 첫 점프에 사용되면 사라진다")]
-        [SerializeField] bool isStartPlatform;
-
         public float Length { get; private set; }
         public LineRenderer Line { get; private set; }
-        public bool IsStartPlatform => isStartPlatform;
-
         EdgeCollider2D edge;
         Vector2[] originalPoints;
         float age;
@@ -94,13 +89,6 @@ namespace MukJump.Drawing
                 Line.SetPosition(i, localPoints[i]);
 
             originalPoints = localPoints.ToArray();
-        }
-
-        /// 첫 점프에 밟고 떠난 시작 발판 등을 즉시 사라지게 한다 (일반 수명 로직 재사용)
-        public void Despawn(float fade = 1.2f)
-        {
-            fadeDuration = fade;
-            lifetime = age + fade;
         }
 
         void Update()

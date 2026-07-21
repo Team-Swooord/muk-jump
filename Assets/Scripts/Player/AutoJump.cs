@@ -27,7 +27,9 @@ namespace MukJump.Player
         float chargeTimer;
 
         /// 접지 중이며 다음 점프를 준비하고 있는가 (HUD 게이지용)
-        public bool IsCharging => player.IsGrounded && GameManager.Instance.State == GameState.Playing;
+        public bool IsCharging => player != null && player.IsGrounded &&
+                                  GameManager.Instance != null &&
+                                  GameManager.Instance.State == GameState.Playing;
         public float ChargeRatio => Mathf.Clamp01(chargeTimer / jumpInterval);
 
         void Awake()
@@ -49,26 +51,12 @@ namespace MukJump.Player
                 Jump();
         }
 
-        /// 로비에서 시작 터치 시 즉시 점프 — 착지하면 그 자리가 게임 시작점이 되는 연출.
-        /// 이 점프에서는 시작 발판을 남겨둔다 (착지할 곳이 있어야 하므로)
-        public void JumpNow()
-        {
-            if (player.IsGrounded)
-                Jump(consumeStartPlatform: false);
-        }
-
-        void Jump(bool consumeStartPlatform = true)
+        void Jump()
         {
             chargeTimer = 0f;
 
             Vector2 direction = Vector3.Slerp(Vector3.up, player.GroundNormal, normalInfluence).normalized;
             float power = baseJumpSpeed * PowerMultiplier();
-
-            // 첫 발판(시작 지형)은 최초로 그 위에서 자동 점프하는 순간 사라진다 —
-            // 이후로는 반드시 직접 그린 발판으로만 진행해야 한다
-            if (consumeStartPlatform &&
-                player.CurrentPlatform != null && player.CurrentPlatform.IsStartPlatform)
-                player.CurrentPlatform.Despawn();
 
             rb.linearVelocity = direction * power;
         }

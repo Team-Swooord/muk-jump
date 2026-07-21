@@ -20,9 +20,6 @@ namespace MukJump.Core
         // 게임오버 직후 오터치로 바로 재시작되는 것을 막는 대기 시간
         [SerializeField] float restartDelay = 0.8f;
 
-        // 재도전은 로비를 건너뛰고 바로 플레이로 (씬 리로드를 넘어 유지되도록 static)
-        static bool skipLobbyOnce;
-
         float gameOverTime;
 
         // OnEnable: Play 중 스크립트 재컴파일로 static이 초기화돼도 다시 할당된다 (Awake는 재호출 안 됨)
@@ -34,18 +31,13 @@ namespace MukJump.Core
         void Awake()
         {
             Application.targetFrameRate = 60;
-            State = skipLobbyOnce ? GameState.Playing : GameState.Lobby;
-            skipLobbyOnce = false;
+            State = GameState.Lobby;
         }
 
         void Update()
         {
             if (State == GameState.Lobby)
-            {
-                if (PointerInput.WasPressedThisFrame())
-                    StartGame();
                 return;
-            }
 
             if (State != GameState.GameOver) return;
             if (Time.unscaledTime - gameOverTime < restartDelay) return;
@@ -63,16 +55,22 @@ namespace MukJump.Core
             ScoreManager.Instance?.SaveBest();
         }
 
-        /// 로비 → 플레이 전환: 씬 전환·로딩 없이 캐릭터가 그 자리에서 점프하며 게임이 시작된다
-        void StartGame()
+        /// 로비 시작선이 완성되면 캐릭터의 고정을 풀고 현재 위치에서 낙하를 시작한다.
+        public void StartGameFromStroke()
         {
+            if (State != GameState.Lobby) return;
+
+            var player = FindFirstObjectByType<Player.PlayerController>();
             State = GameState.Playing;
-            FindFirstObjectByType<Player.AutoJump>()?.JumpNow();
+            player?.BeginFromLobby();
+            if (player != null)
+                ScoreManager.Instance?.ResetOrigin(player.transform.position.y);
+            PointerInput.SuppressUntilRelease();
         }
 
         public void Restart()
         {
-            skipLobbyOnce = true;
+            PointerInput.SuppressUntilRelease();
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
     }

@@ -19,15 +19,21 @@ namespace MukJump.Core
         StrokeCapture strokeCapture;
         GUIStyle titleStyle;
         GUIStyle bodyStyle;
+        Texture2D goldenBrushIcon;
+        Texture2D particleDot;
 
         void Start()
         {
             autoJump = FindFirstObjectByType<AutoJump>();
             strokeCapture = FindFirstObjectByType<StrokeCapture>();
+            goldenBrushIcon = CreateColoredSilhouette(inkBrushIcon, new Color(1f, 0.68f, 0.08f));
+            particleDot = CreateParticleDot();
         }
 
         void OnGUI()
         {
+            if (GameManager.Instance == null) return;
+
             if (titleStyle == null)
             {
                 titleStyle = new GUIStyle(GUI.skin.label)
@@ -36,6 +42,8 @@ namespace MukJump.Core
                     alignment = TextAnchor.MiddleCenter,
                 };
                 bodyStyle = new GUIStyle(titleStyle) { fontStyle = FontStyle.Normal };
+                MakeNonInteractive(titleStyle);
+                MakeNonInteractive(bodyStyle);
             }
 
             // 뷰(Game/Simulator) 전환으로 해상도가 바뀌어도 잘리지 않도록 매 프레임 갱신
@@ -45,26 +53,14 @@ namespace MukJump.Core
             float bodyH = bodyStyle.fontSize * 1.6f;
 
             if (GameManager.Instance.State == GameState.Lobby)
-            {
-                DrawLobby(bodyH);
                 return;
-            }
-
-            var score = ScoreManager.Instance;
-            if (score != null)
-            {
-                titleStyle.normal.textColor = InkPalette.TextDark;
-                GUI.Label(new Rect(0, Screen.height * 0.03f, Screen.width, titleH), $"고도 {score.Height}", titleStyle);
-                bodyStyle.normal.textColor = InkPalette.TextMuted;
-                GUI.Label(new Rect(0, Screen.height * 0.03f + titleH, Screen.width, bodyH), $"최고 {score.Best}", bodyStyle);
-            }
 
             if (GameManager.Instance.State == GameState.GameOver)
             {
-                titleStyle.normal.textColor = InkPalette.Red;
+                SetTextColor(titleStyle, InkPalette.Red);
                 GUI.Label(new Rect(0, Screen.height * 0.42f, Screen.width, titleH), "추락…", titleStyle);
-                bodyStyle.normal.textColor = InkPalette.TextDark;
-                GUI.Label(new Rect(0, Screen.height * 0.42f + titleH, Screen.width, bodyH), "화면을 터치해 다시 도전", bodyStyle);
+                SetTextColor(bodyStyle, InkPalette.TextDark);
+                GUI.Label(new Rect(0, Screen.height * 0.42f + titleH, Screen.width, bodyH), "화면을 터치해 메인으로", bodyStyle);
                 return;
             }
 
@@ -73,7 +69,7 @@ namespace MukJump.Core
             {
                 float w = Screen.width * 0.4f;
                 float h = Screen.height * 0.012f;
-                float gaugeY = Screen.height * 0.03f + titleH + bodyH + Screen.height * 0.015f;
+                float gaugeY = Screen.height * 0.115f;
                 var back = new Rect((Screen.width - w) / 2, gaugeY, w, h);
                 DrawRect(back, InkPalette.Paper2);
                 var fill = back;
@@ -84,47 +80,6 @@ namespace MukJump.Core
             // 화면 하단 먹 게이지: 전역 잉크 잔량
             if (strokeCapture != null)
                 DrawInkGauge(strokeCapture.InkRemaining01);
-        }
-
-        /// 로비(타이틀) 화면: 산수화 배경 위에 제목 + 낙관 도장 + 시작 안내
-        void DrawLobby(float bodyH)
-        {
-            // 제목
-            var big = new GUIStyle(titleStyle) { fontSize = Screen.height / 9 };
-            big.normal.textColor = InkPalette.Ink;
-            float titleY = Screen.height * 0.24f;
-            float bigH = big.fontSize * 1.4f;
-            GUI.Label(new Rect(0, titleY, Screen.width, bigH), "먹점프", big);
-
-            // 낙관 도장: 제목 오른쪽 아래에 찍힌 붉은 인장
-            float seal = Screen.height / 26f;
-            var sealRect = new Rect(Screen.width * 0.5f + big.fontSize * 1.6f, titleY + bigH * 0.62f, seal, seal);
-            DrawRect(sealRect, InkPalette.Red);
-            var sealStyle = new GUIStyle(bodyStyle) { fontSize = (int)(seal * 0.62f) };
-            sealStyle.normal.textColor = InkPalette.TextLight;
-            GUI.Label(sealRect, "印", sealStyle);
-
-            // 부제
-            bodyStyle.normal.textColor = InkPalette.TextMuted;
-            GUI.Label(new Rect(0, titleY + bigH + 6, Screen.width, bodyH),
-                "선 하나가 발판이 되고, 발판 하나가 그림이 된다", bodyStyle);
-
-            // 시작 안내 (은은하게 깜빡임)
-            float blink = 0.45f + 0.35f * Mathf.Sin(Time.unscaledTime * 3f);
-            var prompt = new GUIStyle(titleStyle) { fontSize = Screen.height / 26 };
-            var c = InkPalette.TextDark;
-            c.a = blink;
-            prompt.normal.textColor = c;
-            GUI.Label(new Rect(0, Screen.height * 0.62f, Screen.width, prompt.fontSize * 1.6f),
-                "화면을 터치해 붓을 들기", prompt);
-
-            // 최고 기록
-            if (ScoreManager.Instance != null && ScoreManager.Instance.Best > 0)
-            {
-                bodyStyle.normal.textColor = InkPalette.TextMuted;
-                GUI.Label(new Rect(0, Screen.height * 0.62f + prompt.fontSize * 1.8f, Screen.width, bodyH),
-                    $"최고 고도 {ScoreManager.Instance.Best}", bodyStyle);
-            }
         }
 
         /// 붓 획 모양 먹 게이지: 트랙 위에 fill을 왼쪽부터 잔량만큼 잘라 그리고,
@@ -170,8 +125,73 @@ namespace MukJump.Core
             if (inkBrushIcon != null)
             {
                 var iconRect = new Rect(x + w - overlap, centerY - iconSize / 2, iconSize, iconSize);
-                GUI.DrawTexture(iconRect, inkBrushIcon, ScaleMode.ScaleToFit);
+                bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
+                GUI.DrawTexture(iconRect, golden && goldenBrushIcon != null
+                    ? goldenBrushIcon : inkBrushIcon, ScaleMode.ScaleToFit);
+                if (golden) DrawGoldenParticles(iconRect);
             }
+        }
+
+        void DrawGoldenParticles(Rect iconRect)
+        {
+            if (particleDot == null) return;
+            float time = Time.unscaledTime;
+            for (int i = 0; i < 10; i++)
+            {
+                float seed = i * 1.713f;
+                float cycle = Mathf.Repeat(time * (0.55f + i * 0.035f) + seed, 1f);
+                float px = iconRect.center.x + Mathf.Sin(seed * 3.1f) * iconRect.width * 0.55f;
+                float py = iconRect.yMax - cycle * iconRect.height * 1.35f;
+                float size = iconRect.width * Mathf.Lerp(0.1f, 0.025f, cycle);
+                var previous = GUI.color;
+                GUI.color = new Color(1f, 0.72f, 0.12f, 1f - cycle);
+                GUI.DrawTexture(new Rect(px - size / 2f, py - size / 2f, size, size), particleDot);
+                GUI.color = previous;
+            }
+        }
+
+        static Texture2D CreateColoredSilhouette(Texture2D source, Color color)
+        {
+            if (source == null) return null;
+            var temporary = RenderTexture.GetTemporary(source.width, source.height, 0,
+                RenderTextureFormat.ARGB32);
+            Graphics.Blit(source, temporary);
+            var previous = RenderTexture.active;
+            RenderTexture.active = temporary;
+            var result = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
+            result.ReadPixels(new Rect(0f, 0f, source.width, source.height), 0, 0);
+            result.Apply();
+            RenderTexture.active = previous;
+            RenderTexture.ReleaseTemporary(temporary);
+
+            var pixels = result.GetPixels();
+            for (int i = 0; i < pixels.Length; i++)
+                pixels[i] = new Color(color.r, color.g, color.b, pixels[i].a);
+            result.SetPixels(pixels);
+            result.Apply();
+            return result;
+        }
+
+        static Texture2D CreateParticleDot()
+        {
+            const int size = 16;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float distance = Vector2.Distance(new Vector2(x, y),
+                    new Vector2((size - 1) * 0.5f, (size - 1) * 0.5f));
+                texture.SetPixel(x, y, new Color(1f, 1f, 1f,
+                    Mathf.Clamp01(1f - distance / (size * 0.5f))));
+            }
+            texture.Apply();
+            return texture;
+        }
+
+        void OnDestroy()
+        {
+            if (goldenBrushIcon != null) Destroy(goldenBrushIcon);
+            if (particleDot != null) Destroy(particleDot);
         }
 
         static void DrawRect(Rect rect, Color color)
@@ -180,6 +200,30 @@ namespace MukJump.Core
             GUI.color = color;
             GUI.DrawTexture(rect, Texture2D.whiteTexture);
             GUI.color = prev;
+        }
+
+        /// 기본 GUI 스킨의 hover/active 상태가 마우스 오버 시 버튼처럼 보이지 않게 고정한다.
+        static void MakeNonInteractive(GUIStyle style)
+        {
+            style.hover.background = null;
+            style.active.background = null;
+            style.focused.background = null;
+            style.onHover.background = null;
+            style.onActive.background = null;
+            style.onFocused.background = null;
+
+        }
+
+        static void SetTextColor(GUIStyle style, Color color)
+        {
+            style.normal.textColor = color;
+            style.hover.textColor = color;
+            style.active.textColor = color;
+            style.focused.textColor = color;
+            style.onNormal.textColor = color;
+            style.onHover.textColor = color;
+            style.onActive.textColor = color;
+            style.onFocused.textColor = color;
         }
     }
 }

@@ -3,10 +3,15 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using MukJump.AI;
 using MukJump.Core;
 using MukJump.Drawing;
+using MukJump.Items;
 using MukJump.Player;
+using MukJump.Obstacles;
 
 namespace MukJump.EditorTools
 {
@@ -14,18 +19,53 @@ namespace MukJump.EditorTools
     /// (씬 구성을 코드로 남겨 두면 협업 시 씬 머지 충돌을 피하고 재현 가능)
     public static class MukJumpSceneBuilder
     {
+        struct UiLayout
+        {
+            public Vector2 AnchorMin;
+            public Vector2 AnchorMax;
+            public Vector2 Pivot;
+            public Vector2 AnchoredPosition;
+            public Vector2 SizeDelta;
+        }
+
+        struct UiTextStyle
+        {
+            public int FontSize;
+            public FontStyle FontStyle;
+            public TextAnchor Alignment;
+            public Color Color;
+            public bool ResizeForBestFit;
+            public int ResizeMin;
+            public int ResizeMax;
+        }
+
+        static readonly Dictionary<string, UiLayout> preservedUiLayouts = new();
+        static readonly Dictionary<string, UiTextStyle> preservedTextStyles = new();
+        static readonly Dictionary<string, Color> preservedImageColors = new();
+
         const string ScenePath = "Assets/Scenes/Main.unity";
         const string BgPath = "Assets/Art/Background/background_ink_landscape.png";
-        const string CharSheetPath = "Assets/Art/Character/muk_spritesheet.png";
-        static readonly string[] DeadFramePaths =
+        const string CharSheetPath = "Assets/Art/Character/Player/muk_spritesheet.png";
+        const string ObstaclePath = "Assets/Art/Character/Obstacles/anermy_01.png";
+        const string LobbyLogoPath = "Assets/Art/UI/muk_logo.png";
+        const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";
+        static readonly string[] DeathFramePaths =
         {
-            "Assets/Art/Character/muk_dead_a.png",
-            "Assets/Art/Character/muk_dead_b.png",
-            "Assets/Art/Character/muk_dead_c.png",
+            "Assets/Art/Character/Death/mukbangul_death_01_idle.png",
+            "Assets/Art/Character/Death/mukbangul_death_02_impact.png",
+            "Assets/Art/Character/Death/mukbangul_death_03_x_eyes.png",
+            "Assets/Art/Character/Death/mukbangul_death_04_pop_up.png",
+            "Assets/Art/Character/Death/mukbangul_death_05_apex.png",
+            "Assets/Art/Character/Death/mukbangul_death_06_fall_start.png",
+            "Assets/Art/Character/Death/mukbangul_death_07_fast_fall.png",
+            "Assets/Art/Character/Death/mukbangul_death_08_final_fall.png",
         };
         const int CharFrameSize = 1024;
         const int CharSheetColumns = 4;
         const float CharPpu = 900f;
+        // 사망 원본은 같은 1024 캔버스 안에서 캐릭터가 약 80% 크기로 들어가 있어
+        // 일반/점프 프레임과 화면상 몸통 크기를 맞추기 위해 1.25배 확대한다.
+        const float DeathPpu = 720f;
         // 캐릭터 프레임의 월드 폭 — 별도 캔버스의 스프라이트(죽음 포즈 등)도 이 폭에 맞춘다
         const float CharWorldWidth = CharFrameSize / CharPpu;
 
@@ -44,18 +84,23 @@ namespace MukJump.EditorTools
         [MenuItem("MukJump/Build Main Scene")]
         public static void Build()
         {
+            CaptureUiLayouts();
             EnsureLayer("Platform");
+            EnsureLayer("Obstacle");
+            EnsureLayer("Item");
             ConfigureBackground();
             ConfigureCharacterSheet();
-            ConfigureDeadSprite();
+            ConfigureDeathSprites();
+            ConfigureObstacleSprite();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             var camera = BuildCamera();
             BuildBackground(camera.transform);
             var player = BuildPlayer();
-            BuildStartGround();
             BuildSystems();
+            BuildLobbyUi();
+            BuildGameplayUi();
 
             var follow = camera.GetComponent<CameraFollow>();
             var so = new SerializedObject(follow);
@@ -120,6 +165,7 @@ namespace MukJump.EditorTools
             circle.offset = new Vector2(0f, 0.1f);
 
             go.AddComponent<PlayerController>();
+            go.AddComponent<ItemEffectView>();
             go.AddComponent<AutoJump>();
 
             var animator = go.AddComponent<CharacterAnimator>();
@@ -127,10 +173,10 @@ namespace MukJump.EditorTools
             foreach (var name in CharFrameNames)
                 so.FindProperty(name).objectReferenceValue = frames[name];
             var deadProp = so.FindProperty("deadFrames");
-            deadProp.arraySize = DeadFramePaths.Length;
-            for (int i = 0; i < DeadFramePaths.Length; i++)
+            deadProp.arraySize = DeathFramePaths.Length;
+            for (int i = 0; i < DeathFramePaths.Length; i++)
                 deadProp.GetArrayElementAtIndex(i).objectReferenceValue =
-                    AssetDatabase.LoadAssetAtPath<Sprite>(DeadFramePaths[i]);
+                    AssetDatabase.LoadAssetAtPath<Sprite>(DeathFramePaths[i]);
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return go;
@@ -154,25 +200,6 @@ namespace MukJump.EditorTools
             return frames;
         }
 
-        static void BuildStartGround()
-        {
-            var go = new GameObject("StartGround")
-            {
-                layer = LayerMask.NameToLayer("Platform"),
-            };
-            go.transform.position = new Vector3(0f, -6.8f, 0f);
-
-            // PlatformCollider가 Start()에서 콜라이더 점을 읽어 영구 발판으로 비주얼을 구성한다
-            var platform = go.AddComponent<PlatformCollider>();
-            var edge = go.GetComponent<EdgeCollider2D>();
-            edge.points = new[] { new Vector2(-1.6f, 0f), new Vector2(1.6f, 0f) };
-            edge.edgeRadius = 0.06f;
-
-            var platformSo = new SerializedObject(platform);
-            platformSo.FindProperty("isStartPlatform").boolValue = true;
-            platformSo.ApplyModifiedPropertiesWithoutUndo();
-        }
-
         static void BuildSystems()
         {
             var go = new GameObject("Systems");
@@ -181,12 +208,276 @@ namespace MukJump.EditorTools
             go.AddComponent<SketchToInkService>();
             go.AddComponent<StrokeCapture>();
 
+            var obstacleSpawner = go.AddComponent<ObstacleSpawner>();
+            var obstacleSo = new SerializedObject(obstacleSpawner);
+            obstacleSo.FindProperty("obstacleSprite").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(ObstaclePath);
+            obstacleSo.ApplyModifiedPropertiesWithoutUndo();
+
+            var itemSpawner = go.AddComponent<ItemSpawner>();
+            var itemSo = new SerializedObject(itemSpawner);
+            itemSo.FindProperty("placeholderSprite").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(ObstaclePath);
+            itemSo.ApplyModifiedPropertiesWithoutUndo();
+
+            var eventSystem = new GameObject("EventSystem", typeof(EventSystem),
+                typeof(InputSystemUIInputModule));
+            eventSystem.transform.SetParent(go.transform);
+
             var hud = go.AddComponent<PrototypeHud>();
             var so = new SerializedObject(hud);
             AssignHudTexture(so, "inkGaugeFill", "Assets/Art/UI/muk_gauge_fill.png");
             AssignHudTexture(so, "inkGaugeTrack", "Assets/Art/UI/muk_gauge_track.png");
             AssignHudTexture(so, "inkBrushIcon", "Assets/Art/UI/muk_brush_icon.png");
             so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static void BuildLobbyUi()
+        {
+            var root = new GameObject("LobbyCanvas", typeof(RectTransform), typeof(Canvas),
+                typeof(CanvasScaler), typeof(LobbyView));
+            var canvas = root.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 100;
+
+            var scaler = root.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            scaler.matchWidthOrHeight = 1f;
+
+            Texture2D logoTexture = null;
+            if (AssetDatabase.GetMainAssetTypeAtPath(LobbyLogoPath) != null)
+            {
+                ConfigureUiTexture(LobbyLogoPath);
+                logoTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(LobbyLogoPath);
+            }
+
+            if (logoTexture != null)
+            {
+                var logo = CreateUiObject("Logo", root.transform, new Vector2(0.5f, 0.68f),
+                    new Vector2(900f, 600f));
+                var image = logo.gameObject.AddComponent<RawImage>();
+                image.texture = logoTexture;
+                image.raycastTarget = false;
+                image.uvRect = new Rect(0f, 0f, 1f, 1f);
+                RestoreUiLayout(logo);
+            }
+            else
+            {
+                CreateText("Logo", root.transform, "먹점프", 112, FontStyle.Bold,
+                    new Vector2(0.5f, 0.68f), new Vector2(720f, 220f), InkPalette.Ink);
+            }
+
+            var brush = CreateUiObject("BrushGuide", root.transform, new Vector2(0.5f, 0.5f),
+                new Vector2(105f, 105f));
+            brush.anchoredPosition = new Vector2(0f, -620f);
+            RestoreUiLayout(brush);
+            var brushImage = brush.gameObject.AddComponent<RawImage>();
+            brushImage.texture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/UI/muk_brush_icon.png");
+            brushImage.raycastTarget = false;
+            var brushGroup = brush.gameObject.AddComponent<CanvasGroup>();
+            brushGroup.alpha = 0.5f;
+            brushGroup.interactable = false;
+            brushGroup.blocksRaycasts = false;
+
+            var view = root.GetComponent<LobbyView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("brushGuide").objectReferenceValue = brush;
+            so.FindProperty("brushCanvasGroup").objectReferenceValue = brushGroup;
+            so.FindProperty("canvasRect").objectReferenceValue = root.GetComponent<RectTransform>();
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static void BuildGameplayUi()
+        {
+            var root = new GameObject("GameplayCanvas", typeof(RectTransform), typeof(Canvas),
+                typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(GameplayHudView));
+            var canvas = root.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 90;
+            canvas.enabled = false; // 편집/로비에서는 숨기고 GameplayHudView가 플레이 시작 시 켠다
+
+            var scaler = root.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            scaler.matchWidthOrHeight = 1f;
+
+            ConfigureUiTexture(StartButtonPath);
+            var display = CreateUiObject("HeightDisplay", root.transform, new Vector2(0.5f, 0.94f),
+                new Vector2(500f, 110f));
+            var background = display.gameObject.AddComponent<RawImage>();
+            background.texture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
+            background.raycastTarget = false;
+            RestoreUiLayout(display);
+
+            var label = CreateText("HeightText", display, "고도 0", 46, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), new Vector2(400f, 80f), Color.white);
+            RestoreUiLayout(label.rectTransform);
+            var bestLabel = CreateText("BestText", root.transform, "최고 0", 30, FontStyle.Normal,
+                new Vector2(0.5f, 0.89f), new Vector2(360f, 60f), InkPalette.TextMuted);
+            RestoreUiLayout(bestLabel.rectTransform);
+
+            var testControls = CreateUiObject("ItemTestControls", root.transform,
+                new Vector2(0f, 0.5f), new Vector2(170f, 500f));
+            testControls.pivot = new Vector2(0f, 0.5f);
+            testControls.anchoredPosition = new Vector2(25f, 0f);
+            RestoreUiLayout(testControls);
+
+            var iconTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(ObstaclePath);
+            var inkDropButton = CreateItemTestButton("InkDropButton", testControls, iconTexture,
+                new Vector2(0f, 150f), new Color(0.42f, 0.62f, 0.72f), "50m");
+            var goldenBrushButton = CreateItemTestButton("GoldenBrushButton", testControls, iconTexture,
+                Vector2.zero, new Color(0.95f, 0.72f, 0.2f), "무한");
+            var inkShieldButton = CreateItemTestButton("InkShieldButton", testControls, iconTexture,
+                new Vector2(0f, -150f), new Color(0.72f, 0.18f, 0.28f), "방어");
+
+            var view = root.GetComponent<GameplayHudView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("canvas").objectReferenceValue = canvas;
+            so.FindProperty("heightText").objectReferenceValue = label;
+            so.FindProperty("bestText").objectReferenceValue = bestLabel;
+            so.FindProperty("itemTestControls").objectReferenceValue = testControls;
+            so.FindProperty("inkDropButton").objectReferenceValue = inkDropButton;
+            so.FindProperty("goldenBrushButton").objectReferenceValue = goldenBrushButton;
+            so.FindProperty("inkShieldButton").objectReferenceValue = inkShieldButton;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static Button CreateItemTestButton(string name, Transform parent, Texture2D iconTexture,
+            Vector2 position, Color iconColor, string labelText)
+        {
+            var rect = CreateUiObject(name, parent, new Vector2(0f, 0.5f), new Vector2(130f, 130f));
+            rect.pivot = new Vector2(0f, 0.5f);
+            rect.anchoredPosition = position;
+
+            var background = rect.gameObject.AddComponent<Image>();
+            background.color = new Color(0.92f, 0.89f, 0.82f, 0.9f);
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = background;
+
+            var icon = CreateUiObject("Icon", rect, new Vector2(0.5f, 0.58f), new Vector2(88f, 88f));
+            var iconImage = icon.gameObject.AddComponent<RawImage>();
+            iconImage.texture = iconTexture;
+            iconImage.color = iconColor;
+            iconImage.raycastTarget = false;
+
+            var label = CreateText("Label", rect, labelText, 24, FontStyle.Bold,
+                new Vector2(0.5f, 0.12f), new Vector2(110f, 34f), InkPalette.Ink);
+            label.raycastTarget = false;
+            RestoreUiLayout(rect);
+            RestoreUiLayout(icon);
+            RestoreUiLayout(label.rectTransform);
+            return button;
+        }
+
+        static RectTransform CreateUiObject(string name, Transform parent, Vector2 anchor, Vector2 size)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            var rect = go.GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            rect.anchorMin = rect.anchorMax = anchor;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = size;
+            rect.anchoredPosition = Vector2.zero;
+            return rect;
+        }
+
+        /// 씬 빌더를 다시 실행해도 사용자가 Inspector에서 조정한 UI 배치를 보존한다.
+        static void CaptureUiLayouts()
+        {
+            preservedUiLayouts.Clear();
+            preservedTextStyles.Clear();
+            preservedImageColors.Clear();
+            if (EditorSceneManager.GetActiveScene().path != ScenePath) return;
+
+            foreach (var rect in Object.FindObjectsByType<RectTransform>(FindObjectsSortMode.None))
+            {
+                string path = HierarchyPath(rect);
+                if (!path.StartsWith("LobbyCanvas/") && !path.StartsWith("GameplayCanvas/")) continue;
+                preservedUiLayouts[path] = new UiLayout
+                {
+                    AnchorMin = rect.anchorMin,
+                    AnchorMax = rect.anchorMax,
+                    Pivot = rect.pivot,
+                    AnchoredPosition = rect.anchoredPosition,
+                    SizeDelta = rect.sizeDelta,
+                };
+
+                var text = rect.GetComponent<Text>();
+                if (text != null)
+                {
+                    preservedTextStyles[path] = new UiTextStyle
+                    {
+                        FontSize = text.fontSize,
+                        FontStyle = text.fontStyle,
+                        Alignment = text.alignment,
+                        Color = text.color,
+                        ResizeForBestFit = text.resizeTextForBestFit,
+                        ResizeMin = text.resizeTextMinSize,
+                        ResizeMax = text.resizeTextMaxSize,
+                    };
+                }
+
+                var image = rect.GetComponent<RawImage>();
+                if (image != null)
+                    preservedImageColors[path] = image.color;
+            }
+        }
+
+        static void RestoreUiLayout(RectTransform rect)
+        {
+            if (!preservedUiLayouts.TryGetValue(HierarchyPath(rect), out var layout)) return;
+            rect.anchorMin = layout.AnchorMin;
+            rect.anchorMax = layout.AnchorMax;
+            rect.pivot = layout.Pivot;
+            rect.anchoredPosition = layout.AnchoredPosition;
+            rect.sizeDelta = layout.SizeDelta;
+
+            string path = HierarchyPath(rect);
+            var text = rect.GetComponent<Text>();
+            if (text != null && preservedTextStyles.TryGetValue(path, out var textStyle))
+            {
+                text.fontSize = textStyle.FontSize;
+                text.fontStyle = textStyle.FontStyle;
+                text.alignment = textStyle.Alignment;
+                text.color = textStyle.Color;
+                text.resizeTextForBestFit = textStyle.ResizeForBestFit;
+                text.resizeTextMinSize = textStyle.ResizeMin;
+                text.resizeTextMaxSize = textStyle.ResizeMax;
+            }
+
+            var image = rect.GetComponent<RawImage>();
+            if (image != null && preservedImageColors.TryGetValue(path, out var imageColor))
+                image.color = imageColor;
+        }
+
+        static string HierarchyPath(Transform transform)
+        {
+            string path = transform.name;
+            while (transform.parent != null)
+            {
+                transform = transform.parent;
+                path = transform.name + "/" + path;
+            }
+            return path;
+        }
+
+        static Text CreateText(string name, Transform parent, string value, int fontSize,
+            FontStyle fontStyle, Vector2 anchor, Vector2 size, Color color)
+        {
+            var rect = CreateUiObject(name, parent, anchor, size);
+            var text = rect.gameObject.AddComponent<Text>();
+            text.text = value;
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.fontSize = fontSize;
+            text.fontStyle = fontStyle;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = color;
+            text.raycastTarget = false;
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = 24;
+            text.resizeTextMaxSize = fontSize;
+            return text;
         }
 
         static void AssignHudTexture(SerializedObject so, string field, string path)
@@ -208,16 +499,10 @@ namespace MukJump.EditorTools
             importer.SaveAndReimport();
         }
 
-        /// 죽음 포즈는 별도 캔버스(300px)이므로, 캐릭터 프레임과 같은 월드 폭이 되도록 PPU를 계산한다
-        static void ConfigureDeadSprite()
+        /// 장애물은 캐릭터와 비슷한 월드 폭으로 임포트하고 런타임에서 최종 크기를 조절한다.
+        static void ConfigureObstacleSprite()
         {
-            foreach (var path in DeadFramePaths)
-            {
-                ConfigureSprite(path, pixelsPerUnit: CharPpu); // 우선 임포트 확정
-                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
-                if (tex == null) continue;
-                ConfigureSprite(path, pixelsPerUnit: tex.width / CharWorldWidth);
-            }
+            ConfigureSprite(ObstaclePath, pixelsPerUnit: 700f);
         }
 
         /// 배경 이미지의 픽셀 폭이 얼마든 월드 폭 10.8유닛(화면 가득)이 되도록 PPU를 계산한다
@@ -285,6 +570,13 @@ namespace MukJump.EditorTools
             importer.spritesheet = metas;
 #pragma warning restore CS0618
             importer.SaveAndReimport();
+        }
+
+        /// 개별 1024×1024 프레임을 모두 같은 PPU와 중앙 피벗으로 임포트한다.
+        static void ConfigureDeathSprites()
+        {
+            foreach (var path in DeathFramePaths)
+                ConfigureSprite(path, DeathPpu);
         }
 
         static void EnsureLayer(string layerName)
