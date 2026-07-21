@@ -251,3 +251,11 @@
 - 주요 프롬프트/지시: 파티클 관련 구현 전부 제거
 - 결과물: `ItemEffectView.cs`, `PlayerController.cs`, `PrototypeHud.cs`
 - 사람의 수정/검토 내용: 연속 50m 도약·상승 무적·금색 붓·먹 방어막 원은 유지하고 Particle System과 파티클형 GUI 연출만 제거
+
+### 2026-07-21 — 낙묵석 장애물 구현
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 예고 후 낙하하며 플레이어를 공격하고 드로잉 발판을 파괴하는 장애물 구현
+- 주요 지시: 기존 `PlayerController.TakeHit()` 사망 흐름과 `PlatformCollider` 등록 해제 흐름 재사용
+- 결과물: `Assets/Scripts/Obstacles/FallingInkRock.cs`, `Assets/Scripts/Obstacles/FallingInkRockSpawner.cs`, `Assets/Scripts/Drawing/PlatformCollider.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: Unity Editor 수동 플레이 테스트 예정

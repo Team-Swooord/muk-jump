@@ -22,6 +22,7 @@ namespace MukJump.Drawing
         EdgeCollider2D edge;
         Vector2[] originalPoints;
         float age;
+        bool removalRequested;
 
         /// 스무딩 완료된 월드 좌표 점열로 발판을 생성한다 (런타임 드로잉 경로)
         public static PlatformCollider Spawn(List<Vector2> worldPoints)
@@ -93,6 +94,7 @@ namespace MukJump.Drawing
 
         void Update()
         {
+            if (removalRequested) return;
             if (lifetime <= 0f) return; // 영구 발판
 
             age += Time.deltaTime;
@@ -107,6 +109,23 @@ namespace MukJump.Drawing
 
             if (remaining <= 0f)
                 Destroy(gameObject);
+        }
+
+        /// 낙하 위험물에 맞은 발판을 자연 소멸과 같은 등록 해제 규칙으로 안전하게 제거한다.
+        public bool BreakFromHazard()
+        {
+            if (!TryBeginHazardRemoval()) return false;
+            Destroy(gameObject);
+            return true;
+        }
+
+        bool TryBeginHazardRemoval()
+        {
+            if (removalRequested) return false;
+            removalRequested = true;
+            if (edge != null) edge.enabled = false;
+            active.Remove(this);
+            return true;
         }
 
         /// 처음 붓을 댄 쪽(t=0 지점)부터 투명해지는 알파 스윕 — 선의 길이·두께는 그대로,

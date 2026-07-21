@@ -47,6 +47,7 @@ namespace MukJump.EditorTools
         const string BgPath = "Assets/Art/Background/background_ink_landscape.png";
         const string CharSheetPath = "Assets/Art/Character/Player/muk_spritesheet.png";
         const string ObstaclePath = "Assets/Art/Character/Obstacles/anermy_01.png";
+        const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
         const string LobbyLogoPath = "Assets/Art/UI/muk_logo.png";
         const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";
         static readonly string[] DeathFramePaths =
@@ -92,13 +93,14 @@ namespace MukJump.EditorTools
             ConfigureCharacterSheet();
             ConfigureDeathSprites();
             ConfigureObstacleSprite();
+            ConfigureFallingInkRockSprite();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             var camera = BuildCamera();
             BuildBackground(camera.transform);
             var player = BuildPlayer();
-            BuildSystems();
+            BuildSystems(camera, player);
             BuildLobbyUi();
             BuildGameplayUi();
 
@@ -200,7 +202,7 @@ namespace MukJump.EditorTools
             return frames;
         }
 
-        static void BuildSystems()
+        static void BuildSystems(Camera camera, GameObject player)
         {
             var go = new GameObject("Systems");
             go.AddComponent<GameManager>();
@@ -208,11 +210,26 @@ namespace MukJump.EditorTools
             go.AddComponent<SketchToInkService>();
             go.AddComponent<StrokeCapture>();
 
-            var obstacleSpawner = go.AddComponent<ObstacleSpawner>();
+            var obstaclesRoot = new GameObject("Obstacles");
+            obstaclesRoot.transform.SetParent(go.transform);
+
+            var obstacleSpawner = obstaclesRoot.AddComponent<ObstacleSpawner>();
             var obstacleSo = new SerializedObject(obstacleSpawner);
             obstacleSo.FindProperty("obstacleSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(ObstaclePath);
             obstacleSo.ApplyModifiedPropertiesWithoutUndo();
+
+            var fallingRockSprite = AssetDatabase.LoadAssetAtPath<Sprite>(FallingInkRockPath);
+            if (fallingRockSprite == null)
+                Debug.LogWarning($"[MukJump] 낙묵석 스프라이트를 찾을 수 없음: {FallingInkRockPath}");
+            var fallingSpawner = obstaclesRoot.AddComponent<FallingInkRockSpawner>();
+            var fallingSo = new SerializedObject(fallingSpawner);
+            fallingSo.FindProperty("fallingInkRockSprite").objectReferenceValue = fallingRockSprite;
+            fallingSo.FindProperty("worldCamera").objectReferenceValue = camera;
+            fallingSo.FindProperty("player").objectReferenceValue = player.GetComponent<PlayerController>();
+            fallingSo.FindProperty("collisionMask").intValue =
+                LayerMask.GetMask("Default", "Platform");
+            fallingSo.ApplyModifiedPropertiesWithoutUndo();
 
             var itemSpawner = go.AddComponent<ItemSpawner>();
             var itemSo = new SerializedObject(itemSpawner);
@@ -503,6 +520,16 @@ namespace MukJump.EditorTools
         static void ConfigureObstacleSprite()
         {
             ConfigureSprite(ObstaclePath, pixelsPerUnit: 700f);
+        }
+
+        static void ConfigureFallingInkRockSprite()
+        {
+            ConfigureSprite(FallingInkRockPath, pixelsPerUnit: 700f);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(FallingInkRockPath);
+            if (importer == null) return;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.SaveAndReimport();
         }
 
         /// 배경 이미지의 픽셀 폭이 얼마든 월드 폭 10.8유닛(화면 가득)이 되도록 PPU를 계산한다
