@@ -17,8 +17,17 @@ namespace MukJump.EditorTools
         const string ScenePath = "Assets/Scenes/Main.unity";
         const string BgPath = "Assets/Art/Background/background_ink_landscape.png";
         const string CharSheetPath = "Assets/Art/Character/muk_spritesheet.png";
+        static readonly string[] DeadFramePaths =
+        {
+            "Assets/Art/Character/muk_dead_a.png",
+            "Assets/Art/Character/muk_dead_b.png",
+            "Assets/Art/Character/muk_dead_c.png",
+        };
         const int CharFrameSize = 1024;
         const int CharSheetColumns = 4;
+        const float CharPpu = 900f;
+        // 캐릭터 프레임의 월드 폭 — 별도 캔버스의 스프라이트(죽음 포즈 등)도 이 폭에 맞춘다
+        const float CharWorldWidth = CharFrameSize / CharPpu;
 
         // 점프 애니메이션 8프레임: 4×2 그리드, 좌→우/위→아래 순서
         // idle·crouch·launch·rise (윗줄) / apex·fall·dive·land (아랫줄)
@@ -38,6 +47,7 @@ namespace MukJump.EditorTools
             EnsureLayer("Platform");
             ConfigureBackground();
             ConfigureCharacterSheet();
+            ConfigureDeadSprite();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -116,6 +126,11 @@ namespace MukJump.EditorTools
             var so = new SerializedObject(animator);
             foreach (var name in CharFrameNames)
                 so.FindProperty(name).objectReferenceValue = frames[name];
+            var deadProp = so.FindProperty("deadFrames");
+            deadProp.arraySize = DeadFramePaths.Length;
+            for (int i = 0; i < DeadFramePaths.Length; i++)
+                deadProp.GetArrayElementAtIndex(i).objectReferenceValue =
+                    AssetDatabase.LoadAssetAtPath<Sprite>(DeadFramePaths[i]);
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return go;
@@ -191,6 +206,18 @@ namespace MukJump.EditorTools
             importer.alphaIsTransparency = true;
             importer.mipmapEnabled = false;
             importer.SaveAndReimport();
+        }
+
+        /// 죽음 포즈는 별도 캔버스(300px)이므로, 캐릭터 프레임과 같은 월드 폭이 되도록 PPU를 계산한다
+        static void ConfigureDeadSprite()
+        {
+            foreach (var path in DeadFramePaths)
+            {
+                ConfigureSprite(path, pixelsPerUnit: CharPpu); // 우선 임포트 확정
+                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+                if (tex == null) continue;
+                ConfigureSprite(path, pixelsPerUnit: tex.width / CharWorldWidth);
+            }
         }
 
         /// 배경 이미지의 픽셀 폭이 얼마든 월드 폭 10.8유닛(화면 가득)이 되도록 PPU를 계산한다

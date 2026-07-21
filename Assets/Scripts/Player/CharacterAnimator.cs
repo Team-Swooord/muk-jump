@@ -18,6 +18,9 @@ namespace MukJump.Player
         [SerializeField] Sprite fall;
         [SerializeField] Sprite dive;
         [SerializeField] Sprite land;
+        [Tooltip("죽음 포즈들 (X 눈) — 죽음 연출 동안 순환 재생 (허우적거리는 느낌)")]
+        [SerializeField] Sprite[] deadFrames;
+        [SerializeField] float deadFps = 8f;
 
         [Header("공중 상태 전환 속도 구간")]
         [Tooltip("수직 속도가 이보다 크면 도약(launch) 포즈")]
@@ -36,6 +39,7 @@ namespace MukJump.Player
         PlayerController player;
         AutoJump jump;
         float landTimer;
+        float deathTime;
         bool wasGrounded = true;
 
         void Awake()
@@ -49,6 +53,19 @@ namespace MukJump.Player
         void LateUpdate()
         {
             if (idle == null) return; // 프레임 미할당 시 기본 스프라이트 유지
+
+            if (player.IsDead)
+            {
+                deathTime += Time.deltaTime;
+                if (deadFrames != null && deadFrames.Length > 0)
+                {
+                    // 한 번만 재생하고 마지막 포즈에서 멈춘다
+                    int frame = Mathf.Min((int)(deathTime * deadFps), deadFrames.Length - 1);
+                    sr.sprite = deadFrames[frame];
+                }
+                return;
+            }
+            deathTime = 0f;
 
             if (!player.IsGrounded)
             {
