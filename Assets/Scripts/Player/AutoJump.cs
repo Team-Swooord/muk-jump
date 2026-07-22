@@ -10,7 +10,7 @@ namespace MukJump.Player
     {
         [Header("점프 주기")]
         [Tooltip("점프 정점부터 다음 자동 점프까지 충전되는 시간")]
-        [SerializeField] float jumpInterval = 1.6f;
+        [SerializeField] float jumpIntervalSeconds = 1f;
 
         [Header("점프 궤적")]
         [SerializeField] float baseJumpSpeed = 12f;
@@ -42,7 +42,7 @@ namespace MukJump.Player
         public bool IsCharging => player != null && (chargeStarted || (!hasLaunched && player.IsGrounded)) &&
                                   GameManager.Instance != null &&
                                   GameManager.Instance.State == GameState.Playing;
-        public float ChargeRatio => Mathf.Clamp01(chargeTimer / jumpInterval);
+        public float ChargeRatio => Mathf.Clamp01(chargeTimer / jumpIntervalSeconds);
 
         void Awake()
         {
@@ -87,10 +87,10 @@ namespace MukJump.Player
                 chargeStarted = true;
 
             if (chargeStarted)
-                chargeTimer = Mathf.Min(jumpInterval, chargeTimer + Time.deltaTime);
+                chargeTimer = Mathf.Min(jumpIntervalSeconds, chargeTimer + Time.deltaTime);
 
             // 공중에서는 충전만 유지하고, 착지한 순간 가득 찼다면 바로 점프한다.
-            if (chargeStarted && player.IsGrounded && chargeTimer >= jumpInterval)
+            if (chargeStarted && player.IsGrounded && chargeTimer >= jumpIntervalSeconds)
                 Jump();
         }
 

@@ -91,9 +91,12 @@ namespace MukJump.Player
 
             if (GameManager.Instance != null && GameManager.Instance.State == GameState.Playing)
             {
-                // 물리 회전은 잠근 채 이동 방향으로 최대 3도만 기울여 굴러가는 느낌만 준다.
-                float targetAngle = Mathf.Clamp(-rb.linearVelocity.x * 0.45f,
-                    -maxVisualRollAngle, maxVisualRollAngle);
+                // 드로잉 발판에 붙어 있을 때는 캐릭터의 머리가 표면 바깥쪽을 향하도록
+                // 발판 노멀에 맞춘다. 공중에서는 기존처럼 이동 방향만 살짝 따라간다.
+                float targetAngle = CurrentPlatform != null
+                    ? Mathf.Atan2(GroundNormal.y, GroundNormal.x) * Mathf.Rad2Deg - 90f
+                    : Mathf.Clamp(-rb.linearVelocity.x * 0.45f,
+                        -maxVisualRollAngle, maxVisualRollAngle);
                 rb.rotation = Mathf.MoveTowardsAngle(rb.rotation, targetAngle,
                     visualRollSpeed * Time.fixedDeltaTime);
             }
@@ -243,6 +246,7 @@ namespace MukJump.Player
             IsGrounded = true;
             GroundNormal = normal;
             CurrentPlatform = platform;
+            rb.rotation = Mathf.Atan2(normal.y, normal.x) * Mathf.Rad2Deg - 90f;
         }
 
         void DetachFromPlatform()
@@ -268,8 +272,7 @@ namespace MukJump.Player
             if (CurrentPlatform != null &&
                 collision.collider.GetComponentInParent<PlatformCollider>() == CurrentPlatform)
             {
-                CurrentPlatform = null;
-                rb.gravityScale = normalGravityScale;
+                DetachFromPlatform();
             }
         }
     }

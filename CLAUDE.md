@@ -1,4 +1,4 @@
-# 먹뛰기 (Ink Jump) — 동양화 점프킹 프로젝트
+# 먹점프 (Ink Jump) — 동양화 점프킹 프로젝트
 
 > NHN NAN 2026 · Game x AI Hackathon 제출작
 > Unity 기반 모바일 캐주얼 드로잉 클라이밍 게임 (Android APK 제출)

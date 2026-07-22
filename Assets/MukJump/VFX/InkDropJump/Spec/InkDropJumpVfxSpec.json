@@ -1,6 +1,6 @@
 {
   "name": "VFX_InkDropJump_Pickup",
-  "visualReference": "먹뛰기 HTML 콘셉트의 먹물방울 탭",
+  "visualReference": "먹점프 HTML 콘셉트의 먹물방울 탭",
   "palette": {
     "ink": "#171612",
     "inkMid": "#39352E",

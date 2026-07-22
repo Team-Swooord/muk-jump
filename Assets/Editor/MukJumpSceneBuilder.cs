@@ -214,7 +214,10 @@ namespace MukJump.EditorTools
             vfxSo.FindProperty("whooshClip").objectReferenceValue = LoadVfxAudio(
                 "SFX_InkDropJump_Whoosh_Stem.wav");
             vfxSo.ApplyModifiedPropertiesWithoutUndo();
-            go.AddComponent<AutoJump>();
+            var autoJump = go.AddComponent<AutoJump>();
+            var autoJumpSo = new SerializedObject(autoJump);
+            autoJumpSo.FindProperty("jumpIntervalSeconds").floatValue = 1f;
+            autoJumpSo.ApplyModifiedPropertiesWithoutUndo();
 
             var animator = go.AddComponent<CharacterAnimator>();
             var so = new SerializedObject(animator);
@@ -346,7 +349,7 @@ namespace MukJump.EditorTools
             }
             else
             {
-                CreateText("Logo", root.transform, "먹뛰기", 112, FontStyle.Bold,
+                CreateText("Logo", root.transform, "먹점프", 112, FontStyle.Bold,
                     new Vector2(0.5f, 0.68f), new Vector2(720f, 220f), InkPalette.Ink);
             }
 

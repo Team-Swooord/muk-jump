@@ -1,6 +1,5 @@
 using UnityEngine;
 using MukJump.Drawing;
-using MukJump.Player;
 
 namespace MukJump.Core
 {
@@ -17,15 +16,11 @@ namespace MukJump.Core
         [Tooltip("황금 붓 아이템 활성 중 게이지 끝에 표시할 실제 아이템 이미지")]
         [SerializeField] Texture2D goldenBrushItemIcon;
 
-        AutoJump autoJump;
         StrokeCapture strokeCapture;
-        GUIStyle titleStyle;
-        GUIStyle bodyStyle;
         Texture2D goldenBrushIcon;
 
         void Start()
         {
-            autoJump = FindFirstObjectByType<AutoJump>();
             strokeCapture = FindFirstObjectByType<StrokeCapture>();
             goldenBrushIcon = goldenBrushItemIcon != null
                 ? goldenBrushItemIcon
@@ -36,43 +31,12 @@ namespace MukJump.Core
         {
             if (GameManager.Instance == null) return;
 
-            if (titleStyle == null)
-            {
-                titleStyle = new GUIStyle(GUI.skin.label)
-                {
-                    fontStyle = FontStyle.Bold,
-                    alignment = TextAnchor.MiddleCenter,
-                };
-                bodyStyle = new GUIStyle(titleStyle) { fontStyle = FontStyle.Normal };
-                MakeNonInteractive(titleStyle);
-                MakeNonInteractive(bodyStyle);
-            }
-
-            // 뷰(Game/Simulator) 전환으로 해상도가 바뀌어도 잘리지 않도록 매 프레임 갱신
-            titleStyle.fontSize = Screen.height / 22;
-            bodyStyle.fontSize = Screen.height / 34;
-            float titleH = titleStyle.fontSize * 1.6f;
-            float bodyH = bodyStyle.fontSize * 1.6f;
-
             if (GameManager.Instance.State == GameState.Lobby)
                 return;
 
             if (GameManager.Instance.State == GameState.GameOver)
             {
                 return;
-            }
-
-            // 다음 점프까지 남은 시간 게이지 (발판 그릴 타이밍 안내) — 점수 텍스트 아래
-            if (autoJump != null && autoJump.IsCharging)
-            {
-                float w = Screen.width * 0.4f;
-                float h = Screen.height * 0.012f;
-                float gaugeY = Screen.height * 0.115f;
-                var back = new Rect((Screen.width - w) / 2, gaugeY, w, h);
-                DrawRect(back, InkPalette.Paper2);
-                var fill = back;
-                fill.width = w * autoJump.ChargeRatio;
-                DrawRect(fill, InkPalette.Red);
             }
 
             // 화면 하단 먹 게이지: 전역 잉크 잔량
@@ -273,28 +237,5 @@ namespace MukJump.Core
             GUI.color = prev;
         }
 
-        /// 기본 GUI 스킨의 hover/active 상태가 마우스 오버 시 버튼처럼 보이지 않게 고정한다.
-        static void MakeNonInteractive(GUIStyle style)
-        {
-            style.hover.background = null;
-            style.active.background = null;
-            style.focused.background = null;
-            style.onHover.background = null;
-            style.onActive.background = null;
-            style.onFocused.background = null;
-
-        }
-
-        static void SetTextColor(GUIStyle style, Color color)
-        {
-            style.normal.textColor = color;
-            style.hover.textColor = color;
-            style.active.textColor = color;
-            style.focused.textColor = color;
-            style.onNormal.textColor = color;
-            style.onHover.textColor = color;
-            style.onActive.textColor = color;
-            style.onFocused.textColor = color;
-        }
     }
 }
