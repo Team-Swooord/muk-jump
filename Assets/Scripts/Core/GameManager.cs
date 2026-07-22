@@ -92,7 +92,11 @@ namespace MukJump.Core
             if (transitionInProgress) return;
             transitionInProgress = true;
             PointerInput.SuppressUntilRelease();
-            transitionView.Play(() => SceneManager.LoadScene(SceneManager.GetActiveScene().name));
+            transitionView.Play(() =>
+            {
+                BrushTransitionView.RequestRevealAfterSceneLoad();
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            });
         }
     }
 }

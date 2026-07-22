@@ -132,6 +132,14 @@
 - 결과물: `Assets/Scripts/Core/BrushTransitionView.cs`, `Assets/Scripts/Player/AutoJump.cs`
 - 사람의 수정/검토 내용: PNG 비율은 유지하고 전체 점프 배율은 1.12로 설정
 
+### 2026-07-22 — 먹붓 전환 리듬과 씬 리빌 개선
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: `촥 → 촤작 → 촥` 리듬과 실제 붓털의 끌림을 만들고 씬 재로드 순간의 화면 튐 제거
+- 주요 프롬프트/지시: 획 진행을 자연스럽게 하고 마지막 부분의 부자연스러운 전환 수정
+- 결과물: `Assets/Scripts/Core/BrushTransitionView.cs`, `Assets/Scripts/Core/GameManager.cs`
+- 사람의 수정/검토 내용: 다음 Main 씬이 암전을 이어받아 0.68초 동안 자연스럽게 드러나도록 구성
+
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
 - 사용 도구: Claude (기획 문서화), AI 이미지 보조 (배경 산수화 시안 v1~v3)

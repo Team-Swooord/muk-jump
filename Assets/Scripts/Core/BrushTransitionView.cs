@@ -15,12 +15,24 @@ namespace MukJump.Core
         CanvasGroup group;
         Image wash;
         RectTransform[] strokeMasks;
+        RectTransform[] strokeImages;
         float[] strokeHeights;
         bool playing;
+        static bool revealAfterSceneLoad;
 
         public bool IsPlaying => playing;
 
-        void Awake() => BuildIfNeeded();
+        void Awake()
+        {
+            BuildIfNeeded();
+            if (revealAfterSceneLoad)
+            {
+                revealAfterSceneLoad = false;
+                StartCoroutine(RevealLoadedSceneRoutine());
+            }
+        }
+
+        public static void RequestRevealAfterSceneLoad() => revealAfterSceneLoad = true;
 
         public void Play(Action onCovered)
         {
@@ -69,11 +81,12 @@ namespace MukJump.Core
                 new Vector2(1500f, 800f), new Vector2(1600f, 630f),
             };
             strokeMasks = new RectTransform[textures.Length];
+            strokeImages = new RectTransform[textures.Length];
             strokeHeights = new float[textures.Length];
             for (int i = 0; i < textures.Length; i++)
             {
                 strokeMasks[i] = CreateMaskedStroke($"Brush_{i + 1:00}", root.transform,
-                    textures[i], positions[i], sizes[i]);
+                    textures[i], positions[i], sizes[i], out strokeImages[i]);
                 strokeHeights[i] = sizes[i].y;
             }
         }
@@ -94,12 +107,14 @@ namespace MukJump.Core
                 {
                     float start = i switch
                     {
-                        0 => 0f, 1 => 0.07f, 2 => 0.18f, 3 => 0.27f,
-                        4 => 0.37f, 5 => 0.47f, 6 => 0.66f, _ => 0.73f,
+                        0 => 0f, 1 => 0.1f, 2 => 0.26f, 3 => 0.31f,
+                        4 => 0.38f, 5 => 0.45f, 6 => 0.64f, _ => 0.72f,
                     };
-                    SetStrokeProgress(i, Smooth01((t - start) / 0.3f));
+                    float duration = i < 2 ? 0.23f : i < 6 ? 0.26f : 0.22f;
+                    SetStrokeProgress(i, BrushEase((t - start) / duration));
                 }
-                wash.canvasRenderer.SetAlpha(Smooth01((t - 0.9f) / 0.1f));
+                float washProgress = Smooth01((t - 0.76f) / 0.24f);
+                wash.canvasRenderer.SetAlpha(washProgress * washProgress);
                 yield return null;
             }
 
@@ -122,11 +137,44 @@ namespace MukJump.Core
             playing = false;
         }
 
+        IEnumerator RevealLoadedSceneRoutine()
+        {
+            playing = true;
+            group.alpha = 1f;
+            group.blocksRaycasts = true;
+            for (int i = 0; i < strokeMasks.Length; i++) SetStrokeProgress(i, 1f);
+            wash.canvasRenderer.SetAlpha(1f);
+            yield return new WaitForSecondsRealtime(0.08f);
+
+            float elapsed = 0f;
+            const float duration = 0.68f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Smooth01(elapsed / duration);
+                group.alpha = 1f - t;
+                yield return null;
+            }
+
+            group.alpha = 0f;
+            group.blocksRaycasts = false;
+            for (int i = 0; i < strokeMasks.Length; i++) SetStrokeProgress(i, 0f);
+            playing = false;
+        }
+
         void SetStrokeProgress(int index, float progress)
         {
             Vector2 size = strokeMasks[index].sizeDelta;
             size.y = strokeHeights[index] * progress;
             strokeMasks[index].sizeDelta = size;
+            // 실제 붓털이 마스크 선두를 조금 뒤따라오는 듯한 짧은 끌림.
+            strokeImages[index].anchoredPosition = new Vector2(0f, Mathf.Lerp(46f, 0f, progress));
+        }
+
+        static float BrushEase(float value)
+        {
+            value = Mathf.Clamp01(value);
+            return 1f - Mathf.Pow(1f - value, 3f);
         }
 
         static Texture2D[] LoadBrushTextures()
@@ -149,7 +197,7 @@ namespace MukJump.Core
         }
 
         static RectTransform CreateMaskedStroke(string objectName, Transform parent, Texture texture,
-            Vector2 centerPosition, Vector2 fullSize)
+            Vector2 centerPosition, Vector2 fullSize, out RectTransform imageRect)
         {
             var maskObject = new GameObject(objectName, typeof(RectTransform), typeof(RectMask2D));
             var mask = maskObject.GetComponent<RectTransform>();
@@ -161,7 +209,7 @@ namespace MukJump.Core
 
             var imageObject = new GameObject("InkStroke", typeof(RectTransform),
                 typeof(CanvasRenderer), typeof(RawImage));
-            var imageRect = imageObject.GetComponent<RectTransform>();
+            imageRect = imageObject.GetComponent<RectTransform>();
             imageRect.SetParent(mask, false);
             imageRect.anchorMin = imageRect.anchorMax = new Vector2(0.5f, 1f);
             imageRect.pivot = new Vector2(0.5f, 1f);
