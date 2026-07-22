@@ -164,6 +164,14 @@
 - 결과물: `Assets/Scenes/Main.unity`, `Assets/Editor/MukJumpSceneBuilder.cs`
 - 사람의 수정/검토 내용: 로고 크기와 나머지 UI 배치는 유지
 
+### 2026-07-22 — 로비 상시 노출 랭킹 보드 적용
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 클릭 팝업 대신 고전 슈팅게임 스타일의 직사각형 랭킹을 메인 로비에 항상 표시
+- 주요 프롬프트/지시: 더미 랭킹 사이 가운데 줄에 사용자의 `현재 랭킹`과 최고 고도 삽입
+- 결과물: `Assets/Scripts/Core/LobbyView.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 기존 먹점프 로고 크기는 유지하고 기존 랭킹 버튼만 숨김
+
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
 - 사용 도구: Claude (기획 문서화), AI 이미지 보조 (배경 산수화 시안 v1~v3)

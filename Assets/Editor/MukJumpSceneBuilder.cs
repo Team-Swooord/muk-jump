@@ -364,6 +364,7 @@ namespace MukJump.EditorTools
             rankingButton.targetGraphic = rankingBackground;
             var popup = CreateRankingPopup(root.transform, out var popupCloseButton,
                 out var popupBackdropButton, out var popupBestText);
+            popup.SetActive(true);
 
             var brush = CreateUiObject("BrushGuide", root.transform, new Vector2(0.5f, 0.5f),
                 new Vector2(105f, 105f));
