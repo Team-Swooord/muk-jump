@@ -8,13 +8,14 @@ namespace MukJump.Core
     /// 세 번의 먹붓으로 화면을 덮고 암전 중 상태를 교체한 뒤 다음 화면을 드러낸다.
     public sealed class BrushTransitionView : MonoBehaviour
     {
-        const float CoverDuration = 0.8f;
+        const float CoverDuration = 1.15f;
         const float BlackHoldDuration = 0.22f;
         const float RevealDuration = 0.7f;
 
         CanvasGroup group;
         Image wash;
-        RectTransform[] strokes;
+        RectTransform[] strokeMasks;
+        float[] strokeHeights;
         bool playing;
 
         public bool IsPlaying => playing;
@@ -52,16 +53,29 @@ namespace MukJump.Core
             wash.color = InkPalette.Ink;
             wash.canvasRenderer.SetAlpha(0f);
 
-            var brushSprite = InkUiTextureFactory.CreateBrushSprite();
-            strokes = new RectTransform[3];
-            strokes[0] = CreateImage("Brush_Curve", root.transform, brushSprite,
-                new Vector2(-80f, 260f), new Vector2(1850f, 720f), -34f).rectTransform;
-            strokes[1] = CreateImage("Brush_Cross", root.transform, brushSprite,
-                new Vector2(100f, -110f), new Vector2(1900f, 760f), 38f).rectTransform;
-            strokes[2] = CreateImage("Brush_Finish", root.transform, brushSprite,
-                new Vector2(0f, 0f), new Vector2(2100f, 1040f), -8f).rectTransform;
-            for (int i = 0; i < strokes.Length; i++)
-                strokes[i].localScale = new Vector3(0f, 1f, 1f);
+            var textures = LoadBrushTextures();
+            var positions = new[]
+            {
+                new Vector2(-275f, 760f), new Vector2(250f, 650f),
+                new Vector2(-355f, 210f), new Vector2(-120f, 120f),
+                new Vector2(120f, 40f), new Vector2(355f, -70f),
+                new Vector2(-245f, -720f), new Vector2(270f, -790f),
+            };
+            var sizes = new[]
+            {
+                new Vector2(710f, 232f), new Vector2(760f, 214f),
+                new Vector2(455f, 810f), new Vector2(450f, 812f),
+                new Vector2(330f, 998f), new Vector2(365f, 1103f),
+                new Vector2(680f, 363f), new Vector2(720f, 284f),
+            };
+            strokeMasks = new RectTransform[textures.Length];
+            strokeHeights = new float[textures.Length];
+            for (int i = 0; i < textures.Length; i++)
+            {
+                strokeMasks[i] = CreateMaskedStroke($"Brush_{i + 1:00}", root.transform,
+                    textures[i], positions[i], sizes[i]);
+                strokeHeights[i] = sizes[i].y;
+            }
         }
 
         IEnumerator PlayRoutine(Action onCovered)
@@ -76,10 +90,16 @@ namespace MukJump.Core
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / CoverDuration);
-                SetStrokeProgress(0, Smooth01(t / 0.46f));
-                SetStrokeProgress(1, Smooth01((t - 0.22f) / 0.5f));
-                SetStrokeProgress(2, Smooth01((t - 0.53f) / 0.47f));
-                wash.canvasRenderer.SetAlpha(Smooth01((t - 0.82f) / 0.18f));
+                for (int i = 0; i < strokeMasks.Length; i++)
+                {
+                    float start = i switch
+                    {
+                        0 => 0f, 1 => 0.07f, 2 => 0.18f, 3 => 0.27f,
+                        4 => 0.37f, 5 => 0.47f, 6 => 0.66f, _ => 0.73f,
+                    };
+                    SetStrokeProgress(i, Smooth01((t - start) / 0.3f));
+                }
+                wash.canvasRenderer.SetAlpha(Smooth01((t - 0.9f) / 0.1f));
                 yield return null;
             }
 
@@ -98,14 +118,60 @@ namespace MukJump.Core
 
             group.alpha = 0f;
             group.blocksRaycasts = false;
-            for (int i = 0; i < strokes.Length; i++)
-                strokes[i].localScale = new Vector3(0f, 1f, 1f);
+            for (int i = 0; i < strokeMasks.Length; i++) SetStrokeProgress(i, 0f);
             playing = false;
         }
 
         void SetStrokeProgress(int index, float progress)
         {
-            strokes[index].localScale = new Vector3(progress, 1f, 1f);
+            Vector2 size = strokeMasks[index].sizeDelta;
+            size.y = strokeHeights[index] * progress;
+            strokeMasks[index].sizeDelta = size;
+        }
+
+        static Texture2D[] LoadBrushTextures()
+        {
+            var textures = new Texture2D[8];
+            for (int i = 0; i < textures.Length; i++)
+            {
+                string number = (i + 1).ToString("00");
+                string suffix = i switch
+                {
+                    0 => "top_left", 1 => "top_right", 2 => "left_vertical",
+                    3 => "center_left_vertical", 4 => "center_right_vertical",
+                    5 => "right_vertical", 6 => "bottom_left", _ => "bottom_right",
+                };
+                textures[i] = Resources.Load<Texture2D>($"MukJump/BrushTransitions/brush_stroke_{number}_{suffix}");
+                if (textures[i] == null)
+                    textures[i] = InkUiTextureFactory.CreateBrushSprite().texture;
+            }
+            return textures;
+        }
+
+        static RectTransform CreateMaskedStroke(string objectName, Transform parent, Texture texture,
+            Vector2 centerPosition, Vector2 fullSize)
+        {
+            var maskObject = new GameObject(objectName, typeof(RectTransform), typeof(RectMask2D));
+            var mask = maskObject.GetComponent<RectTransform>();
+            mask.SetParent(parent, false);
+            mask.anchorMin = mask.anchorMax = new Vector2(0.5f, 0.5f);
+            mask.pivot = new Vector2(0.5f, 1f);
+            mask.anchoredPosition = centerPosition + Vector2.up * (fullSize.y * 0.5f);
+            mask.sizeDelta = new Vector2(fullSize.x, 0f);
+
+            var imageObject = new GameObject("InkStroke", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(RawImage));
+            var imageRect = imageObject.GetComponent<RectTransform>();
+            imageRect.SetParent(mask, false);
+            imageRect.anchorMin = imageRect.anchorMax = new Vector2(0.5f, 1f);
+            imageRect.pivot = new Vector2(0.5f, 1f);
+            imageRect.anchoredPosition = Vector2.zero;
+            imageRect.sizeDelta = fullSize;
+            var rawImage = imageObject.GetComponent<RawImage>();
+            rawImage.texture = texture;
+            rawImage.color = Color.white;
+            rawImage.raycastTarget = false;
+            return mask;
         }
 
         static float Smooth01(float value)

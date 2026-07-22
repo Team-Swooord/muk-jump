@@ -116,6 +116,14 @@
   `Assets/Scripts/Core/PrototypeHud.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
 - 사람의 수정/검토 내용: 기존 로비와 랭킹 팝업 UI 배치는 변경하지 않음
 
+### 2026-07-22 — 실제 먹붓 PNG 기반 상하 전환 적용
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 절차적 전환 획을 제공된 8장 PNG로 교체하고 위에서 아래로 칠하는 동작 구현
+- 주요 프롬프트/지시: `/Users/seungyeoning/Downloads/brush_strokes_png` 사용, 상단부터 내려오는 느낌 강화
+- 결과물: `Assets/Resources/MukJump/BrushTransitions`, `Assets/Scripts/Core/BrushTransitionView.cs`
+- 사람의 수정/검토 내용: 각 PNG 원본 비율을 유지하고 `RectMask2D`로 세로 노출
+
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
 - 사용 도구: Claude (기획 문서화), AI 이미지 보조 (배경 산수화 시안 v1~v3)
