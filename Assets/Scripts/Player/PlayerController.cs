@@ -1,6 +1,7 @@
 using UnityEngine;
 using MukJump.Core;
 using MukJump.Drawing;
+using System;
 
 namespace MukJump.Player
 {
@@ -21,6 +22,12 @@ namespace MukJump.Player
         [SerializeField] float groundNormalMinY = 0.4f;
         [Tooltip("먹 방어막으로 추락을 막았을 때 다시 튀어 오르는 목표 높이")]
         [SerializeField] float shieldRecoveryHeight = 35f;
+        [Tooltip("화면 좌우 벽에 닿았을 때 안쪽으로 되튀는 최소 수평 속도")]
+        [SerializeField, Min(0f)] float sideWallBounceSpeed = 2.4f;
+        [Tooltip("수평 이동 중 캐릭터가 시각적으로 기울어지는 최대 각도")]
+        [SerializeField, Range(0f, 8f)] float maxVisualRollAngle = 3f;
+        [Tooltip("현재 이동 방향의 기울기로 따라가는 속도")]
+        [SerializeField, Min(0f)] float visualRollSpeed = 18f;
 
         public bool IsGrounded { get; private set; }
         public bool IsDead { get; private set; }
@@ -28,6 +35,7 @@ namespace MukJump.Player
         public PlatformCollider CurrentPlatform { get; private set; }
         public bool HasShield { get; private set; }
         public bool IsInkDropBoosted { get; private set; }
+        public event Action ShieldConsumed;
 
         Rigidbody2D rb;
         Camera cam;
@@ -48,6 +56,7 @@ namespace MukJump.Player
         void Awake()
         {
             rb = GetComponent<Rigidbody2D>();
+            rb.freezeRotation = true;
             // 정지 상태에서 Rigidbody가 잠들면 충돌 콜백이 멈춰 접지 판정이 풀린다 → 잠들지 않게 유지
             rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
         }
@@ -72,6 +81,15 @@ namespace MukJump.Player
         void FixedUpdate()
         {
             if (IsDead) return;
+
+            if (GameManager.Instance != null && GameManager.Instance.State == GameState.Playing)
+            {
+                // 물리 회전은 잠근 채 이동 방향으로 최대 3도만 기울여 굴러가는 느낌만 준다.
+                float targetAngle = Mathf.Clamp(-rb.linearVelocity.x * 0.45f,
+                    -maxVisualRollAngle, maxVisualRollAngle);
+                rb.rotation = Mathf.MoveTowardsAngle(rb.rotation, targetAngle,
+                    visualRollSpeed * Time.fixedDeltaTime);
+            }
 
             // 접지 플래그는 매 물리 스텝 초기화 → OnCollisionStay2D가 다시 세운다
             IsGrounded = false;
@@ -130,6 +148,7 @@ namespace MukJump.Player
         {
             if (!HasShield) return false;
             HasShield = false;
+            ShieldConsumed?.Invoke();
             return true;
         }
 
@@ -189,6 +208,15 @@ namespace MukJump.Player
                 CurrentPlatform = collision.collider.GetComponentInParent<PlatformCollider>();
                 return;
             }
+        }
+
+        void OnCollisionEnter2D(Collision2D collision)
+        {
+            if (IsDead || collision.collider.GetComponent<ScreenSideWall>() == null) return;
+
+            float inwardDirection = transform.position.x >= collision.transform.position.x ? 1f : -1f;
+            float bounceSpeed = Mathf.Max(sideWallBounceSpeed, Mathf.Abs(rb.linearVelocity.x) * 0.55f);
+            rb.linearVelocity = new Vector2(inwardDirection * bounceSpeed, rb.linearVelocity.y);
         }
 
         void OnCollisionExit2D(Collision2D collision)

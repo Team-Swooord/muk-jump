@@ -140,6 +140,7 @@ namespace MukJump.EditorTools
             go.AddComponent<UniversalAdditionalCameraData>();
             go.AddComponent<AudioListener>();
             go.AddComponent<CameraFollow>();
+            go.AddComponent<ScreenSideWalls>();
             return cam;
         }
 
@@ -176,7 +177,19 @@ namespace MukJump.EditorTools
             circle.offset = new Vector2(0f, 0.1f);
 
             go.AddComponent<PlayerController>();
-            go.AddComponent<ItemEffectView>();
+            var itemEffectView = go.AddComponent<ItemEffectView>();
+            var itemEffectSo = new SerializedObject(itemEffectView);
+            itemEffectSo.FindProperty("effectDroplet").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(InkDropVfxTextureRoot + "T_VFX_InkDrop_128.png");
+            itemEffectSo.FindProperty("goldenBrushFullClip").objectReferenceValue =
+                LoadVfxAudio("SFX_InkDropJump_Full.wav");
+            itemEffectSo.FindProperty("shieldAnticipationClip").objectReferenceValue =
+                LoadVfxAudio("SFX_InkDropJump_Anticipation_Stem.wav");
+            itemEffectSo.FindProperty("shieldImpactClip").objectReferenceValue =
+                LoadVfxAudio("SFX_InkDropJump_Impact_Stem.wav");
+            itemEffectSo.FindProperty("shieldTailClip").objectReferenceValue =
+                LoadVfxAudio("SFX_InkDropJump_Tail_Stem.wav");
+            itemEffectSo.ApplyModifiedPropertiesWithoutUndo();
             var inkDropVfx = go.AddComponent<InkDropJumpVfx>();
             var vfxSo = new SerializedObject(inkDropVfx);
             AssignVfxSprite(vfxSo, "inkDrop", "T_VFX_InkDrop_128.png");
@@ -187,8 +200,16 @@ namespace MukJump.EditorTools
             AssignVfxSprite(vfxSo, "brushFibers", "T_VFX_BrushFibers_256x1024.png");
             AssignVfxSprite(vfxSo, "softFlash", "T_VFX_SoftFlash_256.png");
             AssignVfxSprite(vfxSo, "inkStreak", "T_VFX_InkStreak_128x512.png");
+            var dropletFrames = AssetDatabase.LoadAllAssetRepresentationsAtPath(
+                InkDropVfxTextureRoot + "T_VFX_InkDropletAtlas_512.png");
+            var dropletProperty = vfxSo.FindProperty("dropletFrames");
+            dropletProperty.arraySize = dropletFrames.Length;
+            for (int i = 0; i < dropletFrames.Length; i++)
+                dropletProperty.GetArrayElementAtIndex(i).objectReferenceValue = dropletFrames[i];
             vfxSo.FindProperty("immediateClip").objectReferenceValue = AssetDatabase.LoadAssetAtPath<AudioClip>(
                 InkDropVfxAudioRoot + "SFX_InkDropJump_Immediate.wav");
+            vfxSo.FindProperty("whooshClip").objectReferenceValue = LoadVfxAudio(
+                "SFX_InkDropJump_Whoosh_Stem.wav");
             vfxSo.ApplyModifiedPropertiesWithoutUndo();
             go.AddComponent<AutoJump>();
 
@@ -275,13 +296,15 @@ namespace MukJump.EditorTools
             AssignHudTexture(so, "inkGaugeFill", "Assets/Art/UI/muk_gauge_fill.png");
             AssignHudTexture(so, "inkGaugeTrack", "Assets/Art/UI/muk_gauge_track.png");
             AssignHudTexture(so, "inkBrushIcon", "Assets/Art/UI/muk_brush_icon.png");
+            so.FindProperty("goldenBrushItemIcon").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Texture2D>(GoldenBrushItemPath);
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         static void BuildLobbyUi()
         {
             var root = new GameObject("LobbyCanvas", typeof(RectTransform), typeof(Canvas),
-                typeof(CanvasScaler), typeof(LobbyView));
+                typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(LobbyView));
             var canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 100;
@@ -315,6 +338,18 @@ namespace MukJump.EditorTools
                     new Vector2(0.5f, 0.68f), new Vector2(720f, 220f), InkPalette.Ink);
             }
 
+            ConfigureUiTexture(StartButtonPath);
+            var lobbyBest = CreateLobbyRecordDisplay("BestDisplay", root.transform, "최고 0",
+                new Vector2(0.5f, 0.94f), copyHeightDisplayPosition: true);
+            var lobbyRanking = CreateLobbyRecordDisplay("RankingDisplay", root.transform, "랭킹",
+                new Vector2(0.5f, 0.42f), copyHeightDisplayPosition: false);
+            var rankingBackground = lobbyRanking.transform.parent.GetComponent<RawImage>();
+            rankingBackground.raycastTarget = true;
+            var rankingButton = lobbyRanking.transform.parent.gameObject.AddComponent<Button>();
+            rankingButton.targetGraphic = rankingBackground;
+            var popup = CreateRankingPopup(root.transform, out var popupCloseButton,
+                out var popupBackdropButton, out var popupBestText);
+
             var brush = CreateUiObject("BrushGuide", root.transform, new Vector2(0.5f, 0.5f),
                 new Vector2(105f, 105f));
             brush.anchoredPosition = new Vector2(0f, -620f);
@@ -332,7 +367,104 @@ namespace MukJump.EditorTools
             so.FindProperty("brushGuide").objectReferenceValue = brush;
             so.FindProperty("brushCanvasGroup").objectReferenceValue = brushGroup;
             so.FindProperty("canvasRect").objectReferenceValue = root.GetComponent<RectTransform>();
+            so.FindProperty("bestText").objectReferenceValue = lobbyBest;
+            so.FindProperty("rankingText").objectReferenceValue = lobbyRanking;
+            so.FindProperty("rankingButton").objectReferenceValue = rankingButton;
+            so.FindProperty("rankingPopup").objectReferenceValue = popup;
+            so.FindProperty("rankingPopupCloseButton").objectReferenceValue = popupCloseButton;
+            so.FindProperty("rankingPopupBackdropButton").objectReferenceValue = popupBackdropButton;
+            so.FindProperty("rankingPopupBestText").objectReferenceValue = popupBestText;
             so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static GameObject CreateRankingPopup(Transform parent, out Button closeButton,
+            out Button backdropButton, out Text bestText)
+        {
+            var overlay = CreateUiObject("RankingPopup", parent, new Vector2(0.5f, 0.5f),
+                new Vector2(1080f, 1920f));
+            var dim = overlay.gameObject.AddComponent<Image>();
+            dim.color = new Color(0.08f, 0.075f, 0.065f, 0.58f);
+            backdropButton = overlay.gameObject.AddComponent<Button>();
+            backdropButton.targetGraphic = dim;
+
+            var panel = CreateUiObject("PaperPanel", overlay, new Vector2(0.5f, 0.5f),
+                new Vector2(760f, 620f));
+            var panelImage = panel.gameObject.AddComponent<Image>();
+            panelImage.color = new Color(InkPalette.Paper.r, InkPalette.Paper.g, InkPalette.Paper.b, 0.98f);
+            var outline = panel.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.45f);
+            outline.effectDistance = new Vector2(5f, -5f);
+
+            CreateText("Title", panel, "로컬 랭킹", 58, FontStyle.Bold,
+                new Vector2(0.5f, 0.78f), new Vector2(600f, 100f), InkPalette.Ink);
+            bestText = CreateText("BestRecord", panel, "아직 기록이 없습니다", 46, FontStyle.Bold,
+                new Vector2(0.5f, 0.52f), new Vector2(620f, 110f), InkPalette.TextDark);
+            CreateText("Notice", panel, "온라인 랭킹은 준비 중입니다", 30, FontStyle.Normal,
+                new Vector2(0.5f, 0.34f), new Vector2(620f, 70f), InkPalette.TextMuted);
+
+            var seal = CreateUiObject("CloseButton", panel, new Vector2(0.5f, 0.14f),
+                new Vector2(190f, 76f));
+            var sealImage = seal.gameObject.AddComponent<Image>();
+            sealImage.color = InkPalette.Red;
+            closeButton = seal.gameObject.AddComponent<Button>();
+            closeButton.targetGraphic = sealImage;
+            CreateText("Label", seal, "닫기", 32, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), new Vector2(160f, 60f), Color.white);
+
+            overlay.gameObject.SetActive(false);
+            return overlay.gameObject;
+        }
+
+        static Text CreateLobbyRecordDisplay(string name, Transform parent, string value, Vector2 anchor,
+            bool copyHeightDisplayPosition)
+        {
+            var display = CreateUiObject(name, parent, anchor, new Vector2(500f, 110f));
+            var background = display.gameObject.AddComponent<RawImage>();
+            background.texture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
+            background.raycastTarget = false;
+            RestoreUiLayout(display);
+            CopyPreservedDisplayLayout("GameplayCanvas/HeightDisplay", display, anchor,
+                copyHeightDisplayPosition);
+
+            var label = CreateText("Label", display, value, 46, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), new Vector2(400f, 80f), Color.white);
+            RestoreUiLayout(label.rectTransform);
+            CopyPreservedTextLayout("GameplayCanvas/HeightDisplay/HeightText", label);
+            label.resizeTextForBestFit = false;
+            label.alignByGeometry = true;
+            return label;
+        }
+
+        static void CopyPreservedDisplayLayout(string sourcePath, RectTransform target,
+            Vector2 targetAnchor, bool copyPosition)
+        {
+            if (!preservedUiLayouts.TryGetValue(sourcePath, out var layout)) return;
+            target.anchorMin = copyPosition ? layout.AnchorMin : targetAnchor;
+            target.anchorMax = copyPosition ? layout.AnchorMax : targetAnchor;
+            target.pivot = layout.Pivot;
+            target.sizeDelta = layout.SizeDelta;
+            target.anchoredPosition = copyPosition ? layout.AnchoredPosition : Vector2.zero;
+        }
+
+        static void CopyPreservedTextLayout(string sourcePath, Text target)
+        {
+            if (target == null) return;
+            if (preservedUiLayouts.TryGetValue(sourcePath, out var layout))
+            {
+                target.rectTransform.anchorMin = layout.AnchorMin;
+                target.rectTransform.anchorMax = layout.AnchorMax;
+                target.rectTransform.pivot = layout.Pivot;
+                target.rectTransform.anchoredPosition = layout.AnchoredPosition;
+                target.rectTransform.sizeDelta = layout.SizeDelta;
+            }
+            if (!preservedTextStyles.TryGetValue(sourcePath, out var style)) return;
+            target.fontSize = style.FontSize;
+            target.fontStyle = style.FontStyle;
+            target.alignment = style.Alignment;
+            target.color = style.Color;
+            target.resizeTextForBestFit = style.ResizeForBestFit;
+            target.resizeTextMinSize = style.ResizeMin;
+            target.resizeTextMaxSize = style.ResizeMax;
         }
 
         static void BuildGameplayUi()
@@ -623,6 +755,46 @@ namespace MukJump.EditorTools
                 importer.textureCompression = TextureImporterCompression.Uncompressed;
                 importer.SaveAndReimport();
             }
+            ConfigureDropletAtlas();
+        }
+
+        static void ConfigureDropletAtlas()
+        {
+            string path = InkDropVfxTextureRoot + "T_VFX_InkDropletAtlas_512.png";
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) return;
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Multiple;
+            importer.spritePixelsPerUnit = 256f;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            var metas = new SpriteMetaData[16];
+            for (int i = 0; i < metas.Length; i++)
+            {
+                int column = i % 4;
+                int row = i / 4;
+                metas[i] = new SpriteMetaData
+                {
+                    name = $"ink_droplet_{i:00}",
+                    rect = new Rect(column * 128, (3 - row) * 128, 128, 128),
+                    alignment = (int)SpriteAlignment.Center,
+                    pivot = new Vector2(0.5f, 0.5f),
+                };
+            }
+#pragma warning disable CS0618
+            importer.spritesheet = metas;
+#pragma warning restore CS0618
+            importer.SaveAndReimport();
+        }
+
+        static AudioClip LoadVfxAudio(string fileName)
+        {
+            string path = InkDropVfxAudioRoot + fileName;
+            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+            if (clip == null) Debug.LogWarning($"[MukJump] VFX 효과음을 찾을 수 없음: {path}");
+            return clip;
         }
 
         static void AssignVfxSprite(SerializedObject target, string propertyName, string fileName)

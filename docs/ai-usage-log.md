@@ -23,6 +23,37 @@
   `Assets/Editor/MukJumpSceneBuilder.cs`
 - 사람의 수정/검토 내용: Unity Editor에서 먹물방울 연속 획득 시 연출 중첩, 효과음 음량과 모바일 성능 확인 예정
 
+### 2026-07-22 — 로비 최고 기록·로컬 랭킹 및 아이템 연출 보강
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 로비에서 저장된 최고 고도를 확인하고 아이템 3종의 효과 상태를 시각적으로 구분
+- 주요 프롬프트/지시: 기존 고도 먹 붓획 UI를 로비 최고·랭킹 표시에 재사용하고,
+  황금 붓과 방어막에도 안정적인 코드 기반 연출 추가
+- 결과물: `Assets/Scripts/Core/LobbyView.cs`, `Assets/Scripts/Items/ItemEffectView.cs`,
+  `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 온라인 랭킹 데이터가 없어 랭킹은 현재 기기의 로컬 기록임을 명시,
+  Unity Editor에서 로고 아래 배치와 금빛 붓결·방어막 펄스 확인 예정
+
+### 2026-07-22 — 아이템 VFX 밀도 및 자동 점프 움직임 개선
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: HTML 콘셉트 프리뷰에 맞춰 아이템 연출 레이어를 늘리고 자동 점프의 정적인 수직 반복 완화
+- 주요 프롬프트/지시: ParticleSystem 오류 없이 비말·잔상·금빛 부유 입자·방어막 궤도 입자를 추가하고,
+  발판 기울기와 이전 수평 관성이 다음 점프에 자연스럽게 이어지도록 조정
+- 결과물: `Assets/Scripts/Items/InkDropJumpVfx.cs`, `Assets/Scripts/Items/ItemEffectView.cs`,
+  `Assets/Scripts/Player/AutoJump.cs`, `Assets/Scripts/Player/CharacterAnimator.cs`
+- 사람의 수정/검토 내용: Unity Editor에서 아이템별 연출 밀도와 수평 이동량을 직접 확인·튜닝 예정
+
+### 2026-07-22 — 로비 랭킹 팝업·아이템 크기·물리 감각 조정
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 사용자 수정 UI를 보존하면서 로컬 랭킹 팝업을 추가하고 아이템 가시성과 캐릭터 움직임 개선
+- 주요 프롬프트/지시: 랭킹 문구는 버튼에 유지하고 상세 기록은 팝업 안에 표시,
+  인게임 아이템을 GameplayCanvas 아이콘과 비슷한 크기로 확대, 실제 구름 대신 미세한 시각 기울기만 적용
+- 결과물: `Assets/Scripts/Core/LobbyView.cs`, `Assets/Scripts/Items/ItemSpawner.cs`,
+  `Assets/Scripts/Player/{AutoJump,PlayerController,ScreenSideWalls}.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: `Main.unity`의 로비·게임 HUD 배치는 사용자가 직접 조정한 저장본을 유지
+
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
 - 사용 도구: Claude (기획 문서화), AI 이미지 보조 (배경 산수화 시안 v1~v3)

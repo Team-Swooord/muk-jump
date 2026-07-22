@@ -19,7 +19,8 @@ namespace MukJump.Items
         [SerializeField] float firstSpawnHeight = 12f;
         [SerializeField] float spawnAhead = 12f;
         [SerializeField] float despawnBelow = 10f;
-        [SerializeField] float itemWorldWidth = 0.9f;
+        [Tooltip("GameplayCanvas 테스트 아이콘(Set Native Size / 9)과 비슷하게 보이는 월드 폭")]
+        [SerializeField] float itemWorldWidth = 1.7f;
 
         readonly List<ItemPickup> active = new();
         Camera cam;

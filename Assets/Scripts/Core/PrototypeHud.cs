@@ -14,6 +14,8 @@ namespace MukJump.Core
         [SerializeField] Texture2D inkGaugeTrack;
         [Tooltip("게이지 오른쪽 끝의 붓 아이콘")]
         [SerializeField] Texture2D inkBrushIcon;
+        [Tooltip("황금 붓 아이템 활성 중 게이지 끝에 표시할 실제 아이템 이미지")]
+        [SerializeField] Texture2D goldenBrushItemIcon;
 
         AutoJump autoJump;
         StrokeCapture strokeCapture;
@@ -25,7 +27,9 @@ namespace MukJump.Core
         {
             autoJump = FindFirstObjectByType<AutoJump>();
             strokeCapture = FindFirstObjectByType<StrokeCapture>();
-            goldenBrushIcon = CreateColoredSilhouette(inkBrushIcon, new Color(1f, 0.68f, 0.08f));
+            goldenBrushIcon = goldenBrushItemIcon != null
+                ? goldenBrushItemIcon
+                : CreateColoredSilhouette(inkBrushIcon, new Color(1f, 0.68f, 0.08f));
         }
 
         void OnGUI()
@@ -116,17 +120,38 @@ namespace MukJump.Core
             if (ratio > 0f)
             {
                 // 왼쪽부터 잔량 비율만큼만 가로로 잘라 그린다 (UV도 같은 비율로 잘라 왜곡 방지)
-                var clipped = new Rect(x, y, w * ratio, h);
-                GUI.DrawTextureWithTexCoords(clipped, inkGaugeFill, new Rect(0f, 0f, ratio, 1f));
+                // 먹이 줄어들 때 왼쪽부터 비워지고 붓이 있는 오른쪽 방향으로 잔량이 남는다.
+                float remainingX = x + w * (1f - ratio);
+                var clipped = new Rect(remainingX, y, w * ratio, h);
+                GUI.DrawTextureWithTexCoords(clipped, inkGaugeFill,
+                    new Rect(1f - ratio, 0f, ratio, 1f));
             }
 
             if (inkBrushIcon != null)
             {
                 var iconRect = new Rect(x + w - overlap, centerY - iconSize / 2, iconSize, iconSize);
                 bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
+                Color previousColor = GUI.color;
+                if (golden)
+                {
+                    float flash = 0.72f + 0.28f * Mathf.Sin(Time.unscaledTime * 8f);
+                    GUI.color = new Color(1f, 0.88f, 0.42f, flash);
+                    float pulse = 1f + 0.1f * Mathf.Sin(Time.unscaledTime * 6f);
+                    iconRect = ScaleAroundCenter(iconRect, pulse);
+                }
                 GUI.DrawTexture(iconRect, golden && goldenBrushIcon != null
                     ? goldenBrushIcon : inkBrushIcon, ScaleMode.ScaleToFit);
+                GUI.color = previousColor;
             }
+        }
+
+        static Rect ScaleAroundCenter(Rect rect, float scale)
+        {
+            Vector2 center = rect.center;
+            rect.width *= scale;
+            rect.height *= scale;
+            rect.center = center;
+            return rect;
         }
 
         static Texture2D CreateColoredSilhouette(Texture2D source, Color color)

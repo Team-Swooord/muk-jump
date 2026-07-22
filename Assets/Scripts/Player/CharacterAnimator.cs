@@ -71,6 +71,8 @@ namespace MukJump.Player
             {
                 wasGrounded = false;
                 sr.sprite = SpriteForVelocity(rb.linearVelocity.y);
+                if (Mathf.Abs(rb.linearVelocity.x) > 0.25f)
+                    sr.flipX = rb.linearVelocity.x < 0f;
                 return;
             }
 

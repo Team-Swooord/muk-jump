@@ -9,6 +9,7 @@ using MukJump.EditorTools;
 using MukJump.Items;
 using MukJump.Obstacles;
 using MukJump.Player;
+using UnityEngine.UI;
 
 public class FallingInkRockTests
 {
@@ -129,6 +130,13 @@ public class FallingInkRockTests
         Assert.IsNotNull(vfxSerialized.FindProperty("verticalBrush").objectReferenceValue);
         Assert.IsNotNull(vfxSerialized.FindProperty("immediateClip").objectReferenceValue);
         Assert.IsNotNull(Object.FindFirstObjectByType<VfxAudioManager>());
+
+        var lobby = Object.FindFirstObjectByType<LobbyView>();
+        Assert.IsNotNull(lobby);
+        var lobbySerialized = new SerializedObject(lobby);
+        Assert.IsNotNull(lobbySerialized.FindProperty("bestText").objectReferenceValue);
+        Assert.IsNotNull(lobbySerialized.FindProperty("rankingText").objectReferenceValue);
+        Assert.AreEqual(2, lobby.GetComponentsInChildren<RawImage>(true).Length - 2);
 
         var importer = (TextureImporter)AssetImporter.GetAtPath(
             "Assets/Art/Character/Obstacles/anermy_02.png");

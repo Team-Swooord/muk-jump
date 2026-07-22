@@ -19,11 +19,14 @@ namespace MukJump.Items
         [SerializeField] Sprite brushFibers;
         [SerializeField] Sprite softFlash;
         [SerializeField] Sprite inkStreak;
+        [SerializeField] Sprite[] dropletFrames;
         [SerializeField] AudioClip immediateClip;
+        [SerializeField] AudioClip whooshClip;
 
         [Header("연출 조절")]
         [SerializeField, Min(0.1f)] float effectScale = 1f;
-        [SerializeField, Range(4, 24)] int sprayCount = 14;
+        [SerializeField, Range(8, 36)] int sprayCount = 24;
+        [SerializeField, Range(6, 28)] int residualDropCount = 18;
         [SerializeField, Min(0.5f)] float maximumStrokeLength = 15f;
 
         static readonly Color Ink = new(0.09f, 0.086f, 0.071f, 1f);
@@ -62,7 +65,10 @@ namespace MukJump.Items
             if (immediateClip != null)
             {
                 if (VfxAudioManager.Instance != null)
+                {
                     VfxAudioManager.Instance.PlayOneShot(immediateClip);
+                    VfxAudioManager.Instance.PlayOneShot(whooshClip, 0.48f);
+                }
                 else
                     audioSource.PlayOneShot(immediateClip);
             }
@@ -91,6 +97,10 @@ namespace MukJump.Items
             for (int i = 0; i < sprayCount; i++)
                 StartCoroutine(AnimateSpray(CreateSprite(root.transform, $"InkSpray_{i:00}", inkStreak,
                     Ink, 6), height, i));
+            for (int i = 0; i < residualDropCount; i++)
+                StartCoroutine(AnimateResidualDrop(CreateSprite(root.transform, $"ResidualDrop_{i:00}",
+                    inkDrop, Ink, 5), height, i));
+            StartCoroutine(AnimateAfterimages(root.transform, height));
 
             const float duration = 3.55f;
             float elapsed = 0f;
@@ -141,6 +151,62 @@ namespace MukJump.Items
                 SetAlpha(sprite, 1f - Mathf.Clamp01(elapsed / duration));
                 yield return null;
             }
+        }
+
+        IEnumerator AnimateResidualDrop(SpriteRenderer sprite, float height, int index)
+        {
+            float delay = Random.Range(0.03f, 0.22f);
+            yield return new WaitForSeconds(delay);
+            float duration = Random.Range(1f, 2.3f);
+            float angle = Random.Range(55f, 125f) * Mathf.Deg2Rad;
+            float speed = Random.Range(0.45f, 1.6f) * height;
+            Vector3 velocity = new(Mathf.Cos(angle) * speed, Mathf.Sin(angle) * speed, 0f);
+            float size = Random.Range(0.018f, 0.055f) * height;
+            if (dropletFrames != null && dropletFrames.Length > 0)
+                sprite.sprite = dropletFrames[Random.Range(0, dropletFrames.Length)];
+            sprite.transform.localPosition = new Vector3((index % 5 - 2) * 0.035f * height, 0f, 0f);
+            SetScale(sprite, size, size * Random.Range(0.8f, 1.5f));
+
+            float elapsed = 0f;
+            while (elapsed < duration && sprite != null)
+            {
+                float dt = Time.deltaTime;
+                elapsed += dt;
+                velocity *= Mathf.Exp(-2.7f * dt);
+                velocity += Vector3.down * (0.18f * height * dt);
+                sprite.transform.position += velocity * dt;
+                SetAlpha(sprite, Mathf.Sin(Mathf.Clamp01(elapsed / duration) * Mathf.PI));
+                yield return null;
+            }
+        }
+
+        IEnumerator AnimateAfterimages(Transform root, float height)
+        {
+            float[] delays = { 0.1f, 0.12f, 0.14f };
+            for (int i = 0; i < delays.Length; i++)
+            {
+                yield return new WaitForSeconds(delays[i]);
+                if (root == null || playerRenderer == null) yield break;
+                var afterimage = CreateSprite(root, $"Afterimage_{i + 1}", playerRenderer.sprite,
+                    new Color(Ink.r, Ink.g, Ink.b, 0.13f), playerRenderer.sortingOrder - 1);
+                afterimage.flipX = playerRenderer.flipX;
+                afterimage.flipY = playerRenderer.flipY;
+                afterimage.transform.position = transform.position;
+                afterimage.transform.localScale = transform.localScale;
+                StartCoroutine(FadeAfterimage(afterimage, 0.42f));
+            }
+        }
+
+        IEnumerator FadeAfterimage(SpriteRenderer sprite, float duration)
+        {
+            float elapsed = 0f;
+            while (elapsed < duration && sprite != null)
+            {
+                elapsed += Time.deltaTime;
+                SetAlpha(sprite, 0.13f * (1f - Mathf.Clamp01(elapsed / duration)));
+                yield return null;
+            }
+            if (sprite != null) Destroy(sprite.gameObject);
         }
 
         void UpdateVerticalStroke(SpriteRenderer brush, SpriteRenderer fibers, Vector3 ground,
@@ -203,7 +269,8 @@ namespace MukJump.Items
         void OnValidate()
         {
             effectScale = Mathf.Max(0.1f, effectScale);
-            sprayCount = Mathf.Clamp(sprayCount, 4, 24);
+            sprayCount = Mathf.Clamp(sprayCount, 8, 36);
+            residualDropCount = Mathf.Clamp(residualDropCount, 6, 28);
             maximumStrokeLength = Mathf.Max(0.5f, maximumStrokeLength);
         }
     }

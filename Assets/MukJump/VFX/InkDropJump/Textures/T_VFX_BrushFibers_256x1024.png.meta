@@ -126,7 +126,7 @@ TextureImporter:
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData:
+      customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
@@ -134,7 +134,7 @@ TextureImporter:
       spriteID: 443d4c0fa204a2520800000000000000
       internalID: 2678023481597416260
       vertices: []
-      indices:
+      indices: 
       edges: []
       weights: []
     - serializedVersion: 2
@@ -148,7 +148,7 @@ TextureImporter:
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData:
+      customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
@@ -156,17 +156,17 @@ TextureImporter:
       spriteID: ec8b4ad7dbe8dca10800000000000000
       internalID: 1931356759719721166
       vertices: []
-      indices:
+      indices: 
       edges: []
       weights: []
     outline: []
-    customData:
+    customData: 
     physicsShape: []
     bones: []
     spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
-    indices:
+    indices: 
     edges: []
     weights: []
     secondaryTextures: []
@@ -175,8 +175,8 @@ TextureImporter:
     nameFileIdTable:
       T_VFX_BrushFibers_256x1024_0: 2678023481597416260
       T_VFX_BrushFibers_256x1024_1: 1931356759719721166
-  mipmapLimitGroupName:
+  mipmapLimitGroupName: 
   pSDRemoveMatte: 0
-  userData:
-  assetBundleName:
-  assetBundleVariant:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
