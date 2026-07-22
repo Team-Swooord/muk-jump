@@ -43,6 +43,8 @@ namespace MukJump.EditorTools
         static readonly Dictionary<string, UiLayout> preservedUiLayouts = new();
         static readonly Dictionary<string, UiTextStyle> preservedTextStyles = new();
         static readonly Dictionary<string, Color> preservedImageColors = new();
+        static readonly Dictionary<string, Texture> preservedRawImageTextures = new();
+        static readonly Dictionary<string, Sprite> preservedImageSprites = new();
 
         const string ScenePath = "Assets/Scenes/Main.unity";
         const string BgPath = "Assets/Art/Background/background_ink_landscape.png";
@@ -419,17 +421,21 @@ namespace MukJump.EditorTools
             bool copyHeightDisplayPosition)
         {
             var display = CreateUiObject(name, parent, anchor, new Vector2(500f, 110f));
+            bool hasPreservedDisplay = preservedUiLayouts.ContainsKey(HierarchyPath(display));
             var background = display.gameObject.AddComponent<RawImage>();
             background.texture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
             background.raycastTarget = false;
             RestoreUiLayout(display);
-            CopyPreservedDisplayLayout("GameplayCanvas/HeightDisplay", display, anchor,
-                copyHeightDisplayPosition);
+            if (!hasPreservedDisplay)
+                CopyPreservedDisplayLayout("GameplayCanvas/HeightDisplay", display, anchor,
+                    copyHeightDisplayPosition);
 
             var label = CreateText("Label", display, value, 46, FontStyle.Bold,
                 new Vector2(0.5f, 0.5f), new Vector2(400f, 80f), Color.white);
+            bool hasPreservedLabel = preservedUiLayouts.ContainsKey(HierarchyPath(label.rectTransform));
             RestoreUiLayout(label.rectTransform);
-            CopyPreservedTextLayout("GameplayCanvas/HeightDisplay/HeightText", label);
+            if (!hasPreservedLabel)
+                CopyPreservedTextLayout("GameplayCanvas/HeightDisplay/HeightText", label);
             label.resizeTextForBestFit = false;
             label.alignByGeometry = true;
             return label;
@@ -530,6 +536,31 @@ namespace MukJump.EditorTools
             so.FindProperty("goldenBrushButton").objectReferenceValue = goldenBrushButton;
             so.FindProperty("inkShieldButton").objectReferenceValue = inkShieldButton;
             so.ApplyModifiedPropertiesWithoutUndo();
+
+            RestoreCustomLineSprite(root.transform);
+        }
+
+        static void RestoreCustomLineSprite(Transform gameplayCanvas)
+        {
+            const string path = "GameplayCanvas/LineSprite";
+            if (!preservedUiLayouts.ContainsKey(path)) return;
+
+            var rect = CreateUiObject("LineSprite", gameplayCanvas, new Vector2(0.5f, 0.5f),
+                new Vector2(600f, 100f));
+            if (preservedRawImageTextures.TryGetValue(path, out var texture))
+            {
+                var rawImage = rect.gameObject.AddComponent<RawImage>();
+                rawImage.texture = texture;
+                rawImage.raycastTarget = false;
+            }
+            else if (preservedImageSprites.TryGetValue(path, out var sprite))
+            {
+                var image = rect.gameObject.AddComponent<Image>();
+                image.sprite = sprite;
+                image.preserveAspect = true;
+                image.raycastTarget = false;
+            }
+            RestoreUiLayout(rect);
         }
 
         static Button CreateItemTestButton(string name, Transform parent, Texture2D iconTexture,
@@ -585,6 +616,8 @@ namespace MukJump.EditorTools
             preservedUiLayouts.Clear();
             preservedTextStyles.Clear();
             preservedImageColors.Clear();
+            preservedRawImageTextures.Clear();
+            preservedImageSprites.Clear();
 
             Scene sourceScene = EditorSceneManager.GetActiveScene();
             bool closeSourceWhenDone = false;
@@ -629,7 +662,13 @@ namespace MukJump.EditorTools
 
                 var image = rect.GetComponent<RawImage>();
                 if (image != null)
+                {
                     preservedImageColors[path] = image.color;
+                    preservedRawImageTextures[path] = image.texture;
+                }
+                var spriteImage = rect.GetComponent<Image>();
+                if (spriteImage != null)
+                    preservedImageSprites[path] = spriteImage.sprite;
             }
 
             if (closeSourceWhenDone)
