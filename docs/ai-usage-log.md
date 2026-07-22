@@ -2,6 +2,15 @@
 
 > 제출물 4번(AI 활용 기술 문서)의 원본 자료. 개발 중 AI 도구를 사용할 때마다 즉시 기록한다.
 
+### 2026-07-22 — 프로젝트 한글 명칭을 먹뛰기로 변경
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 프로젝트 문서와 표시용 폴백 문자열의 기존 명칭을 `먹뛰기`로 통일
+- 주요 프롬프트/지시: 전체 문서의 기존 한글 프로젝트 명칭 변경
+- 결과물: `README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/project-brief.md`,
+  `docs/ai-usage-log.md`, `Assets/Editor/MukJumpSceneBuilder.cs`, VFX 사양 JSON
+- 사람의 수정/검토 내용: 기술 식별자 `MukJump`와 기존 PNG 로고 아트는 유지
+
 ## 외부 에셋 · 오픈소스 출처
 
 | 항목 | 출처 | 라이선스 |
@@ -159,7 +168,7 @@
 ### 2026-07-22 — 로비 랭킹 버튼을 로고 아래로 이동
 
 - 사용 도구: OpenAI Codex CLI
-- 목적: 로비 랭킹 표시를 먹점프 로고 바로 아래에 배치
+- 목적: 로비 랭킹 표시를 먹뛰기 로고 바로 아래에 배치
 - 주요 프롬프트/지시: 랭킹 텍스트와 팝업 기능은 유지하고 위치만 정리
 - 결과물: `Assets/Scenes/Main.unity`, `Assets/Editor/MukJumpSceneBuilder.cs`
 - 사람의 수정/검토 내용: 로고 크기와 나머지 UI 배치는 유지
@@ -170,7 +179,7 @@
 - 목적: 클릭 팝업 대신 고전 슈팅게임 스타일의 직사각형 랭킹을 메인 로비에 항상 표시
 - 주요 프롬프트/지시: 더미 랭킹 사이 가운데 줄에 사용자의 `현재 랭킹`과 최고 고도 삽입
 - 결과물: `Assets/Scripts/Core/LobbyView.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
-- 사람의 수정/검토 내용: 기존 먹점프 로고 크기는 유지하고 기존 랭킹 버튼만 숨김
+- 사람의 수정/검토 내용: 기존 먹뛰기 로고 크기는 유지하고 기존 랭킹 버튼만 숨김
 
 ### 2026-07-22 — 랭킹 시스템 임시 제거
 
@@ -327,11 +336,11 @@
 - 결과물: `LobbyView.cs`, `PrototypeHud.cs`, `MukJumpSceneBuilder.cs`
 - 사람의 수정/검토 내용: `LobbyCanvas/{Logo,StartPrompt,BrushGuide}`의 9:16 배치와 한글 폰트 확인 예정
 
-### 2026-07-21 — 먹점프 로고 적용
+### 2026-07-21 — 먹뛰기 로고 적용
 
 - 사용 도구: Codex
 - 목적: 새 수묵 캘리그래피 로고를 로비의 텍스트 제목 대신 적용
-- 주요 프롬프트/지시: 추가된 먹점프 로고로 기존 제목 대체
+- 주요 프롬프트/지시: 추가된 먹뛰기 로고로 기존 제목 대체
 - 결과물: `Assets/Art/UI/muk_logo.png`, `MukJumpSceneBuilder.cs`
 - 사람의 수정/검토 내용: 1536×1024 원본 비율에 맞춰 로고 UI 영역을 3:2로 설정
 

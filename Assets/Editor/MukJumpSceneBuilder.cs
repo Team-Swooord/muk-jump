@@ -346,7 +346,7 @@ namespace MukJump.EditorTools
             }
             else
             {
-                CreateText("Logo", root.transform, "먹점프", 112, FontStyle.Bold,
+                CreateText("Logo", root.transform, "먹뛰기", 112, FontStyle.Bold,
                     new Vector2(0.5f, 0.68f), new Vector2(720f, 220f), InkPalette.Ink);
             }
 
