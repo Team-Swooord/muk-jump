@@ -545,44 +545,8 @@ namespace MukJump.EditorTools
             so.FindProperty("inkShieldButton").objectReferenceValue = inkShieldButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            RestoreCustomLineSprite(root.transform);
-        }
-
-        static void RestoreCustomLineSprite(Transform gameplayCanvas)
-        {
-            const string path = "GameplayCanvas/LineSprite";
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LineSpritePrefabPath);
-            RectTransform rect;
-            if (prefab != null)
-            {
-                var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-                instance.name = "LineSprite";
-                rect = instance.GetComponent<RectTransform>();
-                rect.SetParent(gameplayCanvas, false);
-            }
-            else if (preservedUiLayouts.ContainsKey(path))
-            {
-                rect = CreateUiObject("LineSprite", gameplayCanvas, new Vector2(0.5f, 0.5f),
-                    new Vector2(600f, 60f));
-                if (preservedRawImageTextures.TryGetValue(path, out var texture))
-                {
-                    var rawImage = rect.gameObject.AddComponent<RawImage>();
-                    rawImage.texture = texture;
-                }
-                else if (preservedImageSprites.TryGetValue(path, out var sprite))
-                {
-                    var image = rect.gameObject.AddComponent<Image>();
-                    image.sprite = sprite;
-                    image.preserveAspect = true;
-                }
-            }
-            else return;
-
-            var graphic = rect.GetComponent<Graphic>();
-            if (graphic != null) graphic.raycastTarget = false;
-            var button = rect.GetComponent<Button>();
-            if (button != null) button.interactable = false;
-            RestoreUiLayout(rect);
+            // LineSprite 프리팹은 StrokeCapture의 붓결 텍스처 원본으로만 사용한다.
+            // GameplayCanvas에 표시 인스턴스를 만들면 화면 중앙에 불필요한 획이 남는다.
         }
 
         static Button CreateItemTestButton(string name, Transform parent, Texture2D iconTexture,

@@ -81,6 +81,15 @@
 - 사람의 수정/검토 내용: 프리팹의 `muk_start_button.png` RawImage와 600×60 크기를 확인,
   UI 인스턴스의 Raycast와 Button은 드로잉을 막지 않도록 비활성화
 
+### 2026-07-22 — LineSprite 표시 잔상과 긴 획 제한 수정
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: GameplayCanvas 중앙의 제작용 LineSprite 표시 제거, 긴 연속 발판 허용, HUD 종료 오류 수정
+- 주요 프롬프트/지시: LineSprite 프리팹은 실제 붓결에 사용하되 화면에는 표시하지 않고 길게 그리면 길게 생성
+- 결과물: `Assets/Scripts/Drawing/StrokeCapture.cs`, `Assets/Scripts/Core/PrototypeHud.cs`,
+  `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: Unity Editor에서 긴 드래그와 Play Mode 종료 시 콘솔 확인 예정
+
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
 - 사용 도구: Claude (기획 문서화), AI 이미지 보조 (배경 산수화 시안 v1~v3)

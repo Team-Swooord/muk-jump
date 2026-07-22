@@ -22,11 +22,13 @@ namespace MukJump.Core
         GUIStyle titleStyle;
         GUIStyle bodyStyle;
         Texture2D goldenBrushIcon;
+        bool ownsGoldenBrushIcon;
 
         void Start()
         {
             autoJump = FindFirstObjectByType<AutoJump>();
             strokeCapture = FindFirstObjectByType<StrokeCapture>();
+            ownsGoldenBrushIcon = goldenBrushItemIcon == null && inkBrushIcon != null;
             goldenBrushIcon = goldenBrushItemIcon != null
                 ? goldenBrushItemIcon
                 : CreateColoredSilhouette(inkBrushIcon, new Color(1f, 0.68f, 0.08f));
@@ -178,7 +180,10 @@ namespace MukJump.Core
 
         void OnDestroy()
         {
-            if (goldenBrushIcon != null) Destroy(goldenBrushIcon);
+            // Inspector에 연결된 프로젝트 에셋은 Unity가 관리한다. 이 컴포넌트가
+            // 런타임에 직접 만든 폴백 텍스처만 제거해야 에셋 삭제 오류가 발생하지 않는다.
+            if (ownsGoldenBrushIcon && goldenBrushIcon != null)
+                Destroy(goldenBrushIcon);
         }
 
         static void DrawRect(Rect rect, Color color)

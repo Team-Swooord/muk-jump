@@ -13,7 +13,7 @@ namespace MukJump.Drawing
         [Tooltip("이 간격(월드 단위) 이상 움직였을 때만 점 추가")]
         [SerializeField] float minPointDistance = 0.15f;
         [Tooltip("한 획의 최대 길이. 넘치면 그 지점에서 획을 끊고 이어 그린다")]
-        [SerializeField] float maxStrokeLength = 6f;
+        [SerializeField] float maxContinuousStrokeLength = 30f;
         [Tooltip("이보다 짧은 획은 발판으로 만들지 않는다")]
         [SerializeField] float minStrokeLength = 0.6f;
         [SerializeField] float previewWidth = 0.4f;
@@ -61,6 +61,10 @@ namespace MukJump.Drawing
 
         void UseLineSpriteFromMainUi()
         {
+            // LineSprite는 붓결 텍스처를 보관하는 제작용 프리팹이다. 씬에 남아 있는
+            // 이전 빌드의 인스턴스는 화면 중앙에 획처럼 보이지 않도록 즉시 숨긴다.
+            HideLineSpriteTemplates();
+
             if (lineSpriteTexture != null)
             {
                 FallbackInkStyle.SetBrushTexture(lineSpriteTexture);
@@ -98,6 +102,17 @@ namespace MukJump.Drawing
             }
 
             Debug.LogWarning("[MukJump] Main UI에서 LineSprite를 찾지 못해 기존 절차적 붓선을 사용합니다.", this);
+        }
+
+        static void HideLineSpriteTemplates()
+        {
+            var rawImages = FindObjectsByType<RawImage>(FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int i = 0; i < rawImages.Length; i++)
+            {
+                if (rawImages[i].name.Equals("LineSprite", System.StringComparison.OrdinalIgnoreCase))
+                    rawImages[i].gameObject.SetActive(false);
+            }
         }
 
         void Update()
@@ -193,7 +208,7 @@ namespace MukJump.Drawing
             // 한 획의 최대 길이 초과 시 그 지점에서 끊고, 손을 떼지 않았다면 바로 그
             // 지점에서 새 획을 이어 시작한다 (끊지 않으면 다음 프레임의 이동분만큼 틈이
             // 생겨 일직선으로 길게 그은 발판 중간이 붕 뜨는 문제가 있었음)
-            if (strokeLength + step > maxStrokeLength)
+            if (strokeLength + step > maxContinuousStrokeLength)
             {
                 // 로비의 시작선은 한 획만 인정하므로 최대 길이에 도달하면 손을 뗄 때까지 유지한다.
                 if (lobbyStroke) return;
