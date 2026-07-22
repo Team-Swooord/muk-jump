@@ -107,6 +107,15 @@
   `Assets/Scripts/Core/GameManager.cs`, `Assets/Scripts/Core/LobbyView.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
 - 사람의 수정/검토 내용: 기존 Main UI 배치를 유지하고 제공 PNG는 참고용으로만 사용
 
+### 2026-07-22 — 게임오버 결과 팝업 흐름 적용
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 로비 시작 전환을 잠시 끄고 게임 종료 결과를 먹 웅덩이 팝업으로 안내
+- 주요 프롬프트/지시: 고도 숫자 낙하 연출, 최고 점수 갱신 강조, 터치 후 메인 전환에만 먹붓 적용
+- 결과물: `Assets/Scripts/Core/GameManager.cs`, `Assets/Scripts/Core/BrushTransitionView.cs`,
+  `Assets/Scripts/Core/PrototypeHud.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 기존 로비와 랭킹 팝업 UI 배치는 변경하지 않음
+
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
 - 사용 도구: Claude (기획 문서화), AI 이미지 보조 (배경 산수화 시안 v1~v3)

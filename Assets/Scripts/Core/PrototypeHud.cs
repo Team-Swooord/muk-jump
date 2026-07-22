@@ -59,10 +59,6 @@ namespace MukJump.Core
 
             if (GameManager.Instance.State == GameState.GameOver)
             {
-                SetTextColor(titleStyle, InkPalette.Red);
-                GUI.Label(new Rect(0, Screen.height * 0.42f, Screen.width, titleH), "추락…", titleStyle);
-                SetTextColor(bodyStyle, InkPalette.TextDark);
-                GUI.Label(new Rect(0, Screen.height * 0.42f + titleH, Screen.width, bodyH), "화면을 터치해 메인으로", bodyStyle);
                 return;
             }
 

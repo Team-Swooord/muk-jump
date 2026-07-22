@@ -253,6 +253,7 @@ namespace MukJump.EditorTools
             var go = new GameObject("Systems");
             go.AddComponent<GameManager>();
             go.AddComponent<BrushTransitionView>();
+            go.AddComponent<GameOverPopupView>();
             go.AddComponent<ScoreManager>();
             go.AddComponent<VfxAudioManager>();
             go.AddComponent<SketchToInkService>();

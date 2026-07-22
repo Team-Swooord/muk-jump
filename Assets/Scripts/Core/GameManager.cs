@@ -22,6 +22,7 @@ namespace MukJump.Core
 
         float gameOverTime;
         BrushTransitionView transitionView;
+        GameOverPopupView gameOverPopupView;
         bool transitionInProgress;
 
         // OnEnable: Play 중 스크립트 재컴파일로 static이 초기화돼도 다시 할당된다 (Awake는 재호출 안 됨)
@@ -36,6 +37,8 @@ namespace MukJump.Core
             State = GameState.Lobby;
             transitionView = GetComponent<BrushTransitionView>();
             if (transitionView == null) transitionView = gameObject.AddComponent<BrushTransitionView>();
+            gameOverPopupView = GetComponent<GameOverPopupView>();
+            if (gameOverPopupView == null) gameOverPopupView = gameObject.AddComponent<GameOverPopupView>();
         }
 
         void Update()
@@ -56,17 +59,20 @@ namespace MukJump.Core
             if (State == GameState.GameOver) return;
             State = GameState.GameOver;
             gameOverTime = Time.unscaledTime;
+            int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
+            int previousBest = ScoreManager.Instance != null ? ScoreManager.Instance.Best : 0;
+            bool reachedNewBest = height > previousBest;
             ScoreManager.Instance?.SaveBest();
+            int best = ScoreManager.Instance != null ? ScoreManager.Instance.Best : previousBest;
+            gameOverPopupView.Show(height, best, reachedNewBest);
         }
 
         /// 로비 시작선이 완성되면 캐릭터의 고정을 풀고 현재 위치에서 낙하를 시작한다.
         public void StartGameFromStroke()
         {
             if (State != GameState.Lobby || transitionInProgress) return;
-
-            transitionInProgress = true;
             PointerInput.SuppressUntilRelease();
-            transitionView.Play(BeginPlayingAfterCover);
+            BeginPlayingAfterCover();
         }
 
         void BeginPlayingAfterCover()
@@ -79,7 +85,6 @@ namespace MukJump.Core
             if (player != null)
                 ScoreManager.Instance?.ResetOrigin(player.transform.position.y);
             PointerInput.SuppressUntilRelease();
-            transitionInProgress = false;
         }
 
         public void Restart()
