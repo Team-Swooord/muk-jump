@@ -172,6 +172,14 @@
 - 결과물: `Assets/Scripts/Core/LobbyView.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
 - 사람의 수정/검토 내용: 기존 먹점프 로고 크기는 유지하고 기존 랭킹 버튼만 숨김
 
+### 2026-07-22 — 랭킹 시스템 임시 제거
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 로비 랭킹 버튼, 상시 보드와 팝업을 모두 비활성화
+- 주요 프롬프트/지시: 랭킹 시스템은 일단 제거하고 최고점수 표시는 유지
+- 결과물: `Assets/Scripts/Core/LobbyView.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 기존 씬의 랭킹 오브젝트는 비활성화하고 새 씬 빌드에서는 생성하지 않음
+
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
 - 사용 도구: Claude (기획 문서화), AI 이미지 보조 (배경 산수화 시안 v1~v3)

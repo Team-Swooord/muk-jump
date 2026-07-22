@@ -353,19 +353,6 @@ namespace MukJump.EditorTools
             ConfigureUiTexture(StartButtonPath);
             var lobbyBest = CreateLobbyRecordDisplay("BestDisplay", root.transform, "최고 0",
                 new Vector2(0.5f, 0.94f), copyHeightDisplayPosition: true);
-            var lobbyRanking = CreateLobbyRecordDisplay("RankingDisplay", root.transform, "랭킹",
-                new Vector2(0.5f, 0.5f), copyHeightDisplayPosition: false);
-            var rankingRect = lobbyRanking.transform.parent.GetComponent<RectTransform>();
-            if (!preservedUiLayouts.ContainsKey(HierarchyPath(rankingRect)))
-                rankingRect.anchoredPosition = new Vector2(12f, -95f);
-            var rankingBackground = lobbyRanking.transform.parent.GetComponent<RawImage>();
-            rankingBackground.raycastTarget = true;
-            var rankingButton = lobbyRanking.transform.parent.gameObject.AddComponent<Button>();
-            rankingButton.targetGraphic = rankingBackground;
-            var popup = CreateRankingPopup(root.transform, out var popupCloseButton,
-                out var popupBackdropButton, out var popupBestText);
-            popup.SetActive(true);
-
             var brush = CreateUiObject("BrushGuide", root.transform, new Vector2(0.5f, 0.5f),
                 new Vector2(105f, 105f));
             brush.anchoredPosition = new Vector2(0f, -620f);
@@ -384,51 +371,7 @@ namespace MukJump.EditorTools
             so.FindProperty("brushCanvasGroup").objectReferenceValue = brushGroup;
             so.FindProperty("canvasRect").objectReferenceValue = root.GetComponent<RectTransform>();
             so.FindProperty("bestText").objectReferenceValue = lobbyBest;
-            so.FindProperty("rankingText").objectReferenceValue = lobbyRanking;
-            so.FindProperty("rankingButton").objectReferenceValue = rankingButton;
-            so.FindProperty("rankingPopup").objectReferenceValue = popup;
-            so.FindProperty("rankingPopupCloseButton").objectReferenceValue = popupCloseButton;
-            so.FindProperty("rankingPopupBackdropButton").objectReferenceValue = popupBackdropButton;
-            so.FindProperty("rankingPopupBestText").objectReferenceValue = popupBestText;
             so.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        static GameObject CreateRankingPopup(Transform parent, out Button closeButton,
-            out Button backdropButton, out Text bestText)
-        {
-            var overlay = CreateUiObject("RankingPopup", parent, new Vector2(0.5f, 0.5f),
-                new Vector2(1080f, 1920f));
-            var dim = overlay.gameObject.AddComponent<Image>();
-            dim.color = new Color(0.08f, 0.075f, 0.065f, 0.58f);
-            backdropButton = overlay.gameObject.AddComponent<Button>();
-            backdropButton.targetGraphic = dim;
-
-            var panel = CreateUiObject("PaperPanel", overlay, new Vector2(0.5f, 0.5f),
-                new Vector2(760f, 620f));
-            var panelImage = panel.gameObject.AddComponent<Image>();
-            panelImage.color = new Color(InkPalette.Paper.r, InkPalette.Paper.g, InkPalette.Paper.b, 0.98f);
-            var outline = panel.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.45f);
-            outline.effectDistance = new Vector2(5f, -5f);
-
-            CreateText("Title", panel, "로컬 랭킹", 58, FontStyle.Bold,
-                new Vector2(0.5f, 0.78f), new Vector2(600f, 100f), InkPalette.Ink);
-            bestText = CreateText("BestRecord", panel, "아직 기록이 없습니다", 46, FontStyle.Bold,
-                new Vector2(0.5f, 0.52f), new Vector2(620f, 110f), InkPalette.TextDark);
-            CreateText("Notice", panel, "온라인 랭킹은 준비 중입니다", 30, FontStyle.Normal,
-                new Vector2(0.5f, 0.34f), new Vector2(620f, 70f), InkPalette.TextMuted);
-
-            var seal = CreateUiObject("CloseButton", panel, new Vector2(0.5f, 0.14f),
-                new Vector2(190f, 76f));
-            var sealImage = seal.gameObject.AddComponent<Image>();
-            sealImage.color = InkPalette.Red;
-            closeButton = seal.gameObject.AddComponent<Button>();
-            closeButton.targetGraphic = sealImage;
-            CreateText("Label", seal, "닫기", 32, FontStyle.Bold,
-                new Vector2(0.5f, 0.5f), new Vector2(160f, 60f), Color.white);
-
-            overlay.gameObject.SetActive(false);
-            return overlay.gameObject;
         }
 
         static Text CreateLobbyRecordDisplay(string name, Transform parent, string value, Vector2 anchor,
