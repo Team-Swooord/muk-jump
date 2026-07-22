@@ -14,6 +14,8 @@ namespace MukJump.Player
 
         [Header("점프 궤적")]
         [SerializeField] float baseJumpSpeed = 12f;
+        [Tooltip("기존 점프 궤적을 유지하면서 전체 점프 힘을 조절하는 배율")]
+        [SerializeField, Min(1f)] float jumpStrengthMultiplier = 1.12f;
         [Tooltip("0 = 항상 수직 점프, 1 = 발판 노멀 방향 그대로")]
         [Range(0f, 1f)]
         [SerializeField] float normalInfluence = 0.7f;
@@ -100,7 +102,7 @@ namespace MukJump.Player
             wasRising = true;
 
             Vector2 direction = Vector3.Slerp(Vector3.up, player.GroundNormal, normalInfluence).normalized;
-            float power = baseJumpSpeed * PowerMultiplier();
+            float power = baseJumpSpeed * jumpStrengthMultiplier * PowerMultiplier();
             float horizontal = direction.x * power + rb.linearVelocity.x * horizontalMomentumRetention;
             if (Mathf.Abs(direction.x) < 0.08f)
             {

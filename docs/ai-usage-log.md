@@ -124,6 +124,14 @@
 - 결과물: `Assets/Resources/MukJump/BrushTransitions`, `Assets/Scripts/Core/BrushTransitionView.cs`
 - 사람의 수정/검토 내용: 각 PNG 원본 비율을 유지하고 `RectMask2D`로 세로 노출
 
+### 2026-07-22 — 먹붓 전환 대형화와 점프력 상향
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 전환 초반 색상 이상을 차단하고 대형 붓 획으로 세로 화면 전체를 확실히 덮기
+- 주요 프롬프트/지시: 위에서부터 화면 전체를 칠하고 캐릭터 기본 점프 힘을 소폭 상향
+- 결과물: `Assets/Scripts/Core/BrushTransitionView.cs`, `Assets/Scripts/Player/AutoJump.cs`
+- 사람의 수정/검토 내용: PNG 비율은 유지하고 전체 점프 배율은 1.12로 설정
+
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
 - 사용 도구: Claude (기획 문서화), AI 이미지 보조 (배경 산수화 시안 v1~v3)

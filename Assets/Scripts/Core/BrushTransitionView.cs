@@ -56,17 +56,17 @@ namespace MukJump.Core
             var textures = LoadBrushTextures();
             var positions = new[]
             {
-                new Vector2(-275f, 760f), new Vector2(250f, 650f),
-                new Vector2(-355f, 210f), new Vector2(-120f, 120f),
-                new Vector2(120f, 40f), new Vector2(355f, -70f),
+                new Vector2(-250f, 720f), new Vector2(250f, 650f),
+                new Vector2(-400f, 0f), new Vector2(-140f, -50f),
+                new Vector2(130f, -120f), new Vector2(400f, -200f),
                 new Vector2(-245f, -720f), new Vector2(270f, -790f),
             };
             var sizes = new[]
             {
-                new Vector2(710f, 232f), new Vector2(760f, 214f),
-                new Vector2(455f, 810f), new Vector2(450f, 812f),
-                new Vector2(330f, 998f), new Vector2(365f, 1103f),
-                new Vector2(680f, 363f), new Vector2(720f, 284f),
+                new Vector2(1650f, 538f), new Vector2(1750f, 492f),
+                new Vector2(1100f, 1960f), new Vector2(1100f, 1980f),
+                new Vector2(850f, 2300f), new Vector2(900f, 2700f),
+                new Vector2(1500f, 800f), new Vector2(1600f, 630f),
             };
             strokeMasks = new RectTransform[textures.Length];
             strokeHeights = new float[textures.Length];
@@ -169,7 +169,8 @@ namespace MukJump.Core
             imageRect.sizeDelta = fullSize;
             var rawImage = imageObject.GetComponent<RawImage>();
             rawImage.texture = texture;
-            rawImage.color = Color.white;
+            // 원본 RGB에 예기치 않은 색이 포함돼도 전환은 항상 먹색으로만 보인다.
+            rawImage.color = InkPalette.Ink;
             rawImage.raycastTarget = false;
             return mask;
         }
