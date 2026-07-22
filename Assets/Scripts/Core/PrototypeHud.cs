@@ -113,6 +113,8 @@ namespace MukJump.Core
             var area = new Rect(x, y, w, h);
             GUI.DrawTexture(area, inkGaugeTrack, ScaleMode.StretchToFill);
 
+            bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
+
             if (ratio > 0f)
             {
                 // 왼쪽부터 잔량 비율만큼만 가로로 잘라 그린다 (UV도 같은 비율로 잘라 왜곡 방지)
@@ -123,22 +125,113 @@ namespace MukJump.Core
                     new Rect(1f - ratio, 0f, ratio, 1f));
             }
 
+            if (golden)
+                DrawGoldenGaugeEffect(area);
+
             if (inkBrushIcon != null)
             {
                 var iconRect = new Rect(x + w - overlap, centerY - iconSize / 2, iconSize, iconSize);
-                bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
                 Color previousColor = GUI.color;
                 if (golden)
                 {
-                    float flash = 0.72f + 0.28f * Mathf.Sin(Time.unscaledTime * 8f);
-                    GUI.color = new Color(1f, 0.88f, 0.42f, flash);
-                    float pulse = 1f + 0.1f * Mathf.Sin(Time.unscaledTime * 6f);
+                    float pulse = 1f + 0.055f * Mathf.Sin(Time.unscaledTime * 6f);
                     iconRect = ScaleAroundCenter(iconRect, pulse);
+                    iconRect = new Rect(iconRect.center.x - iconRect.width * 0.78f,
+                        iconRect.center.y - iconRect.height * 0.53f,
+                        iconRect.width * 1.56f, iconRect.height * 1.06f);
+                    DrawGoldenIconHalo(iconRect);
+                    // golden_brush 원본 색이 보이도록 별도의 Tint를 곱하지 않는다.
+                    GUI.color = Color.white;
                 }
                 GUI.DrawTexture(iconRect, golden && goldenBrushIcon != null
                     ? goldenBrushIcon : inkBrushIcon, ScaleMode.ScaleToFit);
+                if (golden) DrawGoldenIconSparkles(iconRect);
                 GUI.color = previousColor;
             }
+        }
+
+        static void DrawGoldenGaugeEffect(Rect area)
+        {
+            float time = Time.unscaledTime;
+            Color previous = GUI.color;
+
+            // 먹 게이지 위를 흐르는 얇은 금빛 세 줄. 이미지가 아니라 GUI 벡터 면으로 그린다.
+            for (int i = 0; i < 3; i++)
+            {
+                float phase = Mathf.Repeat(time * (0.32f + i * 0.035f) + i * 0.31f, 1f);
+                float streakX = Mathf.Lerp(area.x - area.width * 0.08f,
+                    area.xMax + area.width * 0.08f, phase);
+                float alpha = Mathf.Sin(phase * Mathf.PI) * (0.18f + i * 0.055f);
+                var streak = new Rect(streakX, area.y + area.height * (0.2f + i * 0.22f),
+                    Mathf.Max(2f, area.height * 0.055f), area.height * 0.7f);
+                DrawRotatedRect(streak, -18f, new Color(1f, 0.78f, 0.22f, alpha));
+            }
+
+            // 게이지 윗선을 따라 떠오르는 작은 금가루.
+            for (int i = 0; i < 9; i++)
+            {
+                float phase = time * (0.65f + i % 3 * 0.11f) + i * 1.73f;
+                float px = area.x + area.width * (i + 0.5f) / 9f + Mathf.Sin(phase) * area.height * 0.15f;
+                float py = area.y - area.height * (0.05f + 0.18f * (0.5f + 0.5f * Mathf.Sin(phase * 0.7f)));
+                float size = area.height * (0.035f + (i % 3) * 0.014f);
+                GUI.color = new Color(1f, 0.82f, 0.3f,
+                    0.35f + 0.4f * (0.5f + 0.5f * Mathf.Sin(phase * 1.4f)));
+                GUI.DrawTexture(new Rect(px - size * 0.5f, py - size * 0.5f, size, size),
+                    Texture2D.whiteTexture);
+            }
+            GUI.color = previous;
+        }
+
+        static void DrawGoldenIconHalo(Rect iconRect)
+        {
+            Color previous = GUI.color;
+            float time = Time.unscaledTime;
+            Vector2 center = iconRect.center;
+            float radius = Mathf.Max(iconRect.width, iconRect.height) * 0.42f;
+            for (int i = 0; i < 14; i++)
+            {
+                float angle = time * 1.35f + i * Mathf.PI * 2f / 14f;
+                float size = iconRect.height * (0.025f + (i % 3) * 0.008f);
+                Vector2 point = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+                GUI.color = new Color(1f, 0.78f, 0.2f,
+                    0.3f + 0.38f * (0.5f + 0.5f * Mathf.Sin(time * 4f + i)));
+                GUI.DrawTexture(new Rect(point.x - size * 0.5f, point.y - size * 0.5f, size, size),
+                    Texture2D.whiteTexture);
+            }
+            GUI.color = previous;
+        }
+
+        static void DrawGoldenIconSparkles(Rect iconRect)
+        {
+            float time = Time.unscaledTime;
+            Vector2 center = iconRect.center;
+            Color previous = GUI.color;
+            for (int i = 0; i < 4; i++)
+            {
+                float angle = time * -1.1f + i * Mathf.PI * 0.5f;
+                float pulse = 0.55f + 0.45f * Mathf.Sin(time * 6.5f + i * 1.7f);
+                Vector2 point = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) *
+                    iconRect.height * 0.46f;
+                float longSize = iconRect.height * (0.07f + pulse * 0.065f);
+                float thin = Mathf.Max(1.5f, iconRect.height * 0.012f);
+                GUI.color = new Color(1f, 0.9f, 0.48f, 0.45f + pulse * 0.5f);
+                GUI.DrawTexture(new Rect(point.x - longSize * 0.5f, point.y - thin * 0.5f,
+                    longSize, thin), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(point.x - thin * 0.5f, point.y - longSize * 0.5f,
+                    thin, longSize), Texture2D.whiteTexture);
+            }
+            GUI.color = previous;
+        }
+
+        static void DrawRotatedRect(Rect rect, float angle, Color color)
+        {
+            Matrix4x4 previousMatrix = GUI.matrix;
+            Color previousColor = GUI.color;
+            GUIUtility.RotateAroundPivot(angle, rect.center);
+            GUI.color = color;
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+            GUI.matrix = previousMatrix;
+            GUI.color = previousColor;
         }
 
         static Rect ScaleAroundCenter(Rect rect, float scale)
