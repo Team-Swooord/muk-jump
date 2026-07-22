@@ -28,6 +28,11 @@ namespace MukJump.Player
         [SerializeField, Range(0f, 8f)] float maxVisualRollAngle = 3f;
         [Tooltip("현재 이동 방향의 기울기로 따라가는 속도")]
         [SerializeField, Min(0f)] float visualRollSpeed = 18f;
+        [Header("드로잉 발판 접착")]
+        [Tooltip("대각선 발판에 붙어 있을 때 접선 방향 속도를 남기는 비율")]
+        [SerializeField, Range(0f, 1f)] float platformGrip = 0.42f;
+        [Tooltip("발판에서 미끄러지지 않도록 표면 쪽으로 누르는 약한 힘")]
+        [SerializeField, Min(0f)] float adhesionSpeed = 0.18f;
 
         public bool IsGrounded { get; private set; }
         public bool IsDead { get; private set; }
@@ -41,6 +46,7 @@ namespace MukJump.Player
         Camera cam;
         float camHalfHeight;
         bool inkDropHasRisen;
+        float normalGravityScale;
 
         /// 로비에서는 시작선을 그리는 동안 캐릭터가 먼저 추락하지 않도록 그 자리에 고정한다.
         /// 선이 완성되면 현재 위치에서 물리를 시작하므로 아래에 그린 선만 첫 발판이 된다.
@@ -56,6 +62,7 @@ namespace MukJump.Player
         void Awake()
         {
             rb = GetComponent<Rigidbody2D>();
+            normalGravityScale = rb.gravityScale;
             rb.freezeRotation = true;
             // 정지 상태에서 Rigidbody가 잠들면 충돌 콜백이 멈춰 접지 판정이 풀린다 → 잠들지 않게 유지
             rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
@@ -198,16 +205,38 @@ namespace MukJump.Player
 
         void OnCollisionStay2D(Collision2D collision)
         {
+            var platform = collision.collider.GetComponentInParent<PlatformCollider>();
             for (int i = 0; i < collision.contactCount; i++)
             {
                 var contact = collision.GetContact(i);
+                if (platform != null)
+                {
+                    // 실제 드로잉 발판은 가파른 대각선도 스파이더처럼 붙는다.
+                    // 이미 표면 바깥으로 점프 중이면 다시 붙잡지 않는다.
+                    if (Vector2.Dot(rb.linearVelocity, contact.normal) > 0.2f) continue;
+                    AttachToDrawnPlatform(contact.normal, platform);
+                    return;
+                }
+
                 if (contact.normal.y < groundNormalMinY) continue;
 
                 IsGrounded = true;
                 GroundNormal = contact.normal;
-                CurrentPlatform = collision.collider.GetComponentInParent<PlatformCollider>();
+                CurrentPlatform = null;
                 return;
             }
+        }
+
+        void AttachToDrawnPlatform(Vector2 normal, PlatformCollider platform)
+        {
+            normal.Normalize();
+            Vector2 tangent = new(-normal.y, normal.x);
+            float tangentVelocity = Vector2.Dot(rb.linearVelocity, tangent) * platformGrip;
+            rb.linearVelocity = tangent * tangentVelocity - normal * adhesionSpeed;
+            rb.gravityScale = 0f;
+            IsGrounded = true;
+            GroundNormal = normal;
+            CurrentPlatform = platform;
         }
 
         void OnCollisionEnter2D(Collision2D collision)
@@ -225,6 +254,7 @@ namespace MukJump.Player
                 collision.collider.GetComponentInParent<PlatformCollider>() == CurrentPlatform)
             {
                 CurrentPlatform = null;
+                rb.gravityScale = normalGravityScale;
             }
         }
     }

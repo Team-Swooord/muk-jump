@@ -14,8 +14,8 @@ namespace MukJump.Drawing
         static readonly List<PlatformCollider> active = new();
 
         [Tooltip("생성 후 유지 시간(초). 0 이하면 영구 발판")]
-        [SerializeField] float lifetime = 9f;
-        [SerializeField] float fadeDuration = 1.5f;
+        [SerializeField] float lifetime = 6.5f;
+        [SerializeField] float fadeDuration = 1.2f;
 
         public float Length { get; private set; }
         public LineRenderer Line { get; private set; }

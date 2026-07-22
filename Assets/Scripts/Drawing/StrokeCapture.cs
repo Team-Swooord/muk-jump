@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using MukJump.Core;
+using UnityEngine.UI;
 
 namespace MukJump.Drawing
 {
@@ -52,6 +53,31 @@ namespace MukJump.Drawing
             ink = inkCapacity;
             var pc = FindFirstObjectByType<Player.PlayerController>();
             if (pc != null) player = pc.transform;
+            UseLineSpriteFromMainUi();
+        }
+
+        void UseLineSpriteFromMainUi()
+        {
+            var rawImages = FindObjectsByType<RawImage>(FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int i = 0; i < rawImages.Length; i++)
+            {
+                if (!rawImages[i].name.Equals("LineSprite", System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+                FallbackInkStyle.SetBrushTexture(rawImages[i].texture as Texture2D);
+                return;
+            }
+
+            var images = FindObjectsByType<Image>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < images.Length; i++)
+            {
+                if (!images[i].name.Equals("LineSprite", System.StringComparison.OrdinalIgnoreCase) ||
+                    images[i].sprite == null) continue;
+                FallbackInkStyle.SetBrushTexture(images[i].sprite.texture);
+                return;
+            }
+
+            Debug.LogWarning("[MukJump] Main UI에서 LineSprite를 찾지 못해 기존 절차적 붓선을 사용합니다.", this);
         }
 
         void Update()

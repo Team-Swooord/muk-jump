@@ -25,6 +25,14 @@ namespace MukJump.AI
             }
         }
 
+        /// Main UI의 LineSprite 텍스처를 실제 드로잉 발판 붓결로 교체한다.
+        public static void SetBrushTexture(Texture2D texture)
+        {
+            if (texture == null) return;
+            brushTexture = texture;
+            if (inkMaterial != null) inkMaterial.mainTexture = texture;
+        }
+
         /// 발판 LineRenderer에 붓선 스타일을 적용한다
         public static void Apply(LineRenderer line, float strokeLength)
         {
