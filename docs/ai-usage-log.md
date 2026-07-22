@@ -8,7 +8,14 @@
 |---|---|---|
 | 캐릭터/배경 아트 | 팀 자체 제작 (AI 보조 드로잉 후 수작업 검수) | 자체 저작물 |
 | Unity 패키지 | Unity Technologies (URP, Input System 등 공식 패키지) | Unity Companion License |
-| 먹물방울 점프 VFX·SFX 팩 | 팀 제공 `MukJump_InkDropJump_VFX_Pack` (절차 생성 텍스처·합성 효과음) | 프로젝트 내 자유 수정·사용 허용 |
+
+---
+
+## AI 생성 자체 제작 에셋
+
+| 항목 | 제작 도구 | 구분 |
+|---|---|---|
+| `MukJump_InkDropJump_VFX_Pack` 텍스처·효과음·연출 사양 | OpenAI Codex | 프로젝트를 위해 직접 생성한 AI 산출물이며 외부 에셋이 아님 |
 
 ---
 
@@ -16,7 +23,7 @@
 
 - 사용 도구: OpenAI Codex CLI
 - 목적: 먹물방울 획득 즉시 실행되는 50m 점프에 수묵 스플래시, 충격 링, 상승 붓획과 전용 효과음 추가
-- 주요 프롬프트/지시: 기존 점프 물리와 발동 시점을 변경하지 않고 제공된 VFX 팩을 이식하며,
+- 주요 프롬프트/지시: 기존 점프 물리와 발동 시점을 변경하지 않고 Codex로 생성한 자체 VFX·SFX 팩을 적용하며,
   전용 VFX 오디오 관리자를 만들어 중첩 효과음을 안정적으로 재생
 - 결과물: `Assets/MukJump/VFX/InkDropJump/`, `Assets/Scripts/Items/InkDropJumpVfx.cs`,
   `Assets/Scripts/Core/VfxAudioManager.cs`, `Assets/Scripts/Items/ItemPickup.cs`,
