@@ -21,6 +21,8 @@ namespace MukJump.Core
         [SerializeField] float restartDelay = 0.8f;
 
         float gameOverTime;
+        BrushTransitionView transitionView;
+        bool transitionInProgress;
 
         // OnEnable: Play 중 스크립트 재컴파일로 static이 초기화돼도 다시 할당된다 (Awake는 재호출 안 됨)
         void OnEnable()
@@ -32,6 +34,8 @@ namespace MukJump.Core
         {
             Application.targetFrameRate = 60;
             State = GameState.Lobby;
+            transitionView = GetComponent<BrushTransitionView>();
+            if (transitionView == null) transitionView = gameObject.AddComponent<BrushTransitionView>();
         }
 
         void Update()
@@ -58,6 +62,15 @@ namespace MukJump.Core
         /// 로비 시작선이 완성되면 캐릭터의 고정을 풀고 현재 위치에서 낙하를 시작한다.
         public void StartGameFromStroke()
         {
+            if (State != GameState.Lobby || transitionInProgress) return;
+
+            transitionInProgress = true;
+            PointerInput.SuppressUntilRelease();
+            transitionView.Play(BeginPlayingAfterCover);
+        }
+
+        void BeginPlayingAfterCover()
+        {
             if (State != GameState.Lobby) return;
 
             var player = FindFirstObjectByType<Player.PlayerController>();
@@ -66,12 +79,15 @@ namespace MukJump.Core
             if (player != null)
                 ScoreManager.Instance?.ResetOrigin(player.transform.position.y);
             PointerInput.SuppressUntilRelease();
+            transitionInProgress = false;
         }
 
         public void Restart()
         {
+            if (transitionInProgress) return;
+            transitionInProgress = true;
             PointerInput.SuppressUntilRelease();
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            transitionView.Play(() => SceneManager.LoadScene(SceneManager.GetActiveScene().name));
         }
     }
 }

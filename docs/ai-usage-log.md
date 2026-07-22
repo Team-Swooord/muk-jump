@@ -98,6 +98,15 @@
 - 결과물: `Assets/Scripts/Core/PrototypeHud.cs`
 - 사람의 수정/검토 내용: HUD 텍스처 수동 삭제를 제거하고 Unity 수명 관리에 위임
 
+### 2026-07-22 — 먹붓 화면 전환과 먹 웅덩이 팝업 구현
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 로비 시작 및 게임오버 복귀 화면 전환, 랭킹 팝업의 수묵 스타일 연출 구현
+- 주요 프롬프트/지시: `MukJump_BrushTransition_UI_Visual_Preview`의 삼연속 먹붓과 먹 웅덩이 사양 참고
+- 결과물: `Assets/Scripts/Core/BrushTransitionView.cs`, `Assets/Scripts/Core/InkPopupAnimator.cs`,
+  `Assets/Scripts/Core/GameManager.cs`, `Assets/Scripts/Core/LobbyView.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 기존 Main UI 배치를 유지하고 제공 PNG는 참고용으로만 사용
+
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
 - 사용 도구: Claude (기획 문서화), AI 이미지 보조 (배경 산수화 시안 v1~v3)

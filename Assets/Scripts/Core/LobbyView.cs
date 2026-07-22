@@ -19,6 +19,7 @@ namespace MukJump.Core
 
         Transform player;
         Camera cam;
+        InkPopupAnimator rankingPopupAnimator;
 
         void OnEnable()
         {
@@ -39,6 +40,12 @@ namespace MukJump.Core
             var controller = FindFirstObjectByType<Player.PlayerController>();
             if (controller != null) player = controller.transform;
             cam = Camera.main;
+            if (rankingPopup != null)
+            {
+                rankingPopupAnimator = rankingPopup.GetComponent<InkPopupAnimator>();
+                if (rankingPopupAnimator == null)
+                    rankingPopupAnimator = rankingPopup.AddComponent<InkPopupAnimator>();
+            }
         }
 
         void Update()
@@ -72,12 +79,14 @@ namespace MukJump.Core
 
         void OpenRankingPopup()
         {
-            if (rankingPopup != null) rankingPopup.SetActive(true);
+            if (rankingPopupAnimator != null) rankingPopupAnimator.Show();
+            else if (rankingPopup != null) rankingPopup.SetActive(true);
         }
 
         void CloseRankingPopup()
         {
-            if (rankingPopup != null) rankingPopup.SetActive(false);
+            if (rankingPopupAnimator != null) rankingPopupAnimator.Hide();
+            else if (rankingPopup != null) rankingPopup.SetActive(false);
         }
     }
 }
