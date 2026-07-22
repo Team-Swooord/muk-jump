@@ -138,6 +138,9 @@ namespace MukJump.Player
         /// 먹물방울: 현재 위치에서 지정 높이까지 오르는 물리 점프 속도를 적용한다.
         public void LaunchToHeight(float height)
         {
+            // 대각선 발판 접착 중에는 gravityScale이 0이므로 먼저 접착을 풀어야
+            // 목표 높이에 필요한 점프 속도가 정상적으로 계산된다.
+            DetachFromPlatform();
             float gravity = Mathf.Abs(Physics2D.gravity.y * rb.gravityScale);
             float speed = Mathf.Sqrt(2f * gravity * Mathf.Max(0f, height));
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, speed);
@@ -211,6 +214,9 @@ namespace MukJump.Player
                 var contact = collision.GetContact(i);
                 if (platform != null)
                 {
+                    // 먹물방울 상승 중에는 방금 떨어져 나온 대각선 발판이 같은 물리
+                    // 스텝에서 다시 캐릭터를 붙잡아 점프 속도를 덮지 못하게 한다.
+                    if (IsInkDropBoosted) return;
                     // 실제 드로잉 발판은 가파른 대각선도 스파이더처럼 붙는다.
                     // 이미 표면 바깥으로 점프 중이면 다시 붙잡지 않는다.
                     if (Vector2.Dot(rb.linearVelocity, contact.normal) > 0.2f) continue;
@@ -237,6 +243,15 @@ namespace MukJump.Player
             IsGrounded = true;
             GroundNormal = normal;
             CurrentPlatform = platform;
+        }
+
+        void DetachFromPlatform()
+        {
+            IsGrounded = false;
+            CurrentPlatform = null;
+            GroundNormal = Vector2.up;
+            rb.gravityScale = normalGravityScale;
+            rb.WakeUp();
         }
 
         void OnCollisionEnter2D(Collision2D collision)
