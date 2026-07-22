@@ -90,6 +90,14 @@
   `Assets/Editor/MukJumpSceneBuilder.cs`
 - 사람의 수정/검토 내용: Unity Editor에서 긴 드래그와 Play Mode 종료 시 콘솔 확인 예정
 
+### 2026-07-22 — PrototypeHud 에셋 삭제 오류 재수정
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: Domain Reload와 씬 해제 시 프로젝트 Texture2D에 `Destroy`가 호출되는 오류 제거
+- 주요 프롬프트/지시: `Destroying assets is not permitted` 오류의 실제 `OnDestroy` 경로 수정
+- 결과물: `Assets/Scripts/Core/PrototypeHud.cs`
+- 사람의 수정/검토 내용: HUD 텍스처 수동 삭제를 제거하고 Unity 수명 관리에 위임
+
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
 - 사용 도구: Claude (기획 문서화), AI 이미지 보조 (배경 산수화 시안 v1~v3)
