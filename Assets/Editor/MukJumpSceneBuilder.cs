@@ -354,7 +354,10 @@ namespace MukJump.EditorTools
             var lobbyBest = CreateLobbyRecordDisplay("BestDisplay", root.transform, "최고 0",
                 new Vector2(0.5f, 0.94f), copyHeightDisplayPosition: true);
             var lobbyRanking = CreateLobbyRecordDisplay("RankingDisplay", root.transform, "랭킹",
-                new Vector2(0.5f, 0.42f), copyHeightDisplayPosition: false);
+                new Vector2(0.5f, 0.5f), copyHeightDisplayPosition: false);
+            var rankingRect = lobbyRanking.transform.parent.GetComponent<RectTransform>();
+            if (!preservedUiLayouts.ContainsKey(HierarchyPath(rankingRect)))
+                rankingRect.anchoredPosition = new Vector2(12f, -95f);
             var rankingBackground = lobbyRanking.transform.parent.GetComponent<RawImage>();
             rankingBackground.raycastTarget = true;
             var rankingButton = lobbyRanking.transform.parent.gameObject.AddComponent<Button>();
