@@ -61,6 +61,16 @@
   `Assets/Scripts/Player/{AutoJump,PlayerController,ScreenSideWalls}.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
 - 사람의 수정/검토 내용: `Main.unity`의 로비·게임 HUD 배치는 사용자가 직접 조정한 저장본을 유지
 
+### 2026-07-22 — 대각선 발판 접착·발판 수명·LineSprite 적용
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 가파른 드로잉 발판의 활용도를 높이고 발판 교체 템포와 수묵 붓선 비주얼 개선
+- 주요 프롬프트/지시: 그린 대각선에는 스파이더처럼 붙되 화면 양옆 벽 반동은 유지,
+  발판 수명을 단축하고 Main UI의 폭 600 `LineSprite`를 실제 드로잉 선 텍스처로 사용
+- 결과물: `Assets/Scripts/Player/PlayerController.cs`, `Assets/Scripts/Drawing/{StrokeCapture,PlatformCollider}.cs`,
+  `Assets/Scripts/AI/FallbackInkStyle.cs`, `README.md`, `CLAUDE.md`, `docs/project-brief.md`
+- 사람의 수정/검토 내용: Unity Editor에서 대각선 접착 강도, 6.5초 수명, LineSprite 늘어짐 여부 확인 예정
+
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
 - 사용 도구: Claude (기획 문서화), AI 이미지 보조 (배경 산수화 시안 v1~v3)
