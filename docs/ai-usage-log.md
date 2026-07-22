@@ -71,6 +71,16 @@
   `Assets/Scripts/AI/FallbackInkStyle.cs`, `README.md`, `CLAUDE.md`, `docs/project-brief.md`
 - 사람의 수정/검토 내용: Unity Editor에서 대각선 접착 강도, 6.5초 수명, LineSprite 늘어짐 여부 확인 예정
 
+### 2026-07-22 — LineSprite 프리팹 기반 발판 텍스처 연결
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 사용자가 만든 폭 600 UI 붓획 프리팹을 씬 재생성에도 잃지 않고 실제 드로잉 발판에 사용
+- 주요 프롬프트/지시: `Assets/Art/UI/LineSprite.prefab`을 단일 기준으로 사용하고 Main UI 배치는 유지
+- 결과물: `Assets/Art/UI/LineSprite.prefab`, `Assets/Scripts/Drawing/StrokeCapture.cs`,
+  `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 프리팹의 `muk_start_button.png` RawImage와 600×60 크기를 확인,
+  UI 인스턴스의 Raycast와 Button은 드로잉을 막지 않도록 비활성화
+
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
 - 사용 도구: Claude (기획 문서화), AI 이미지 보조 (배경 산수화 시안 v1~v3)

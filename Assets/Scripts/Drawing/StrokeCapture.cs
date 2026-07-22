@@ -17,6 +17,8 @@ namespace MukJump.Drawing
         [Tooltip("이보다 짧은 획은 발판으로 만들지 않는다")]
         [SerializeField] float minStrokeLength = 0.6f;
         [SerializeField] float previewWidth = 0.4f;
+        [Tooltip("LineSprite 프리팹의 600px 붓획 텍스처")]
+        [SerializeField] Texture2D lineSpriteTexture;
         [Tooltip("캐릭터에서 이 거리 안에 획이 들어오면 발판을 만들지 않는다 (물리 밀어내기 악용 방지)")]
         [SerializeField] float playerClearance = 0.75f;
 
@@ -59,6 +61,12 @@ namespace MukJump.Drawing
 
         void UseLineSpriteFromMainUi()
         {
+            if (lineSpriteTexture != null)
+            {
+                FallbackInkStyle.SetBrushTexture(lineSpriteTexture);
+                return;
+            }
+
             var rawImages = FindObjectsByType<RawImage>(FindObjectsInactive.Include,
                 FindObjectsSortMode.None);
             for (int i = 0; i < rawImages.Length; i++)
@@ -66,6 +74,17 @@ namespace MukJump.Drawing
                 if (!rawImages[i].name.Equals("LineSprite", System.StringComparison.OrdinalIgnoreCase))
                     continue;
                 FallbackInkStyle.SetBrushTexture(rawImages[i].texture as Texture2D);
+                return;
+            }
+
+            // 기존 Main을 재빌드하지 않아도 LineSprite 프리팹과 같은 원본 텍스처를 쓰는
+            // 고도 먹 UI에서 텍스처를 가져올 수 있다.
+            for (int i = 0; i < rawImages.Length; i++)
+            {
+                if (rawImages[i].texture is not Texture2D texture ||
+                    !texture.name.Equals("muk_start_button", System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+                FallbackInkStyle.SetBrushTexture(texture);
                 return;
             }
 

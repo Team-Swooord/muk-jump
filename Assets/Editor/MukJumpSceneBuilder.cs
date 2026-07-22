@@ -53,6 +53,7 @@ namespace MukJump.EditorTools
         const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
         const string LobbyLogoPath = "Assets/Art/UI/muk_logo.png";
         const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";
+        const string LineSpritePrefabPath = "Assets/Art/UI/LineSprite.prefab";
         const string InkDropItemPath = "Assets/Art/UI/ink_drop.png";
         const string GoldenBrushItemPath = "Assets/Art/UI/golden_brush.png";
         const string InkShieldItemPath = "Assets/Art/UI/ink_shield.png";
@@ -254,7 +255,14 @@ namespace MukJump.EditorTools
             go.AddComponent<ScoreManager>();
             go.AddComponent<VfxAudioManager>();
             go.AddComponent<SketchToInkService>();
-            go.AddComponent<StrokeCapture>();
+            var strokeCapture = go.AddComponent<StrokeCapture>();
+            var strokeSo = new SerializedObject(strokeCapture);
+            var linePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(LineSpritePrefabPath);
+            var lineTexture = linePrefab != null
+                ? linePrefab.GetComponent<RawImage>()?.texture as Texture2D
+                : null;
+            strokeSo.FindProperty("lineSpriteTexture").objectReferenceValue = lineTexture;
+            strokeSo.ApplyModifiedPropertiesWithoutUndo();
 
             var obstaclesRoot = new GameObject("Obstacles");
             obstaclesRoot.transform.SetParent(go.transform);
@@ -543,23 +551,37 @@ namespace MukJump.EditorTools
         static void RestoreCustomLineSprite(Transform gameplayCanvas)
         {
             const string path = "GameplayCanvas/LineSprite";
-            if (!preservedUiLayouts.ContainsKey(path)) return;
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LineSpritePrefabPath);
+            RectTransform rect;
+            if (prefab != null)
+            {
+                var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                instance.name = "LineSprite";
+                rect = instance.GetComponent<RectTransform>();
+                rect.SetParent(gameplayCanvas, false);
+            }
+            else if (preservedUiLayouts.ContainsKey(path))
+            {
+                rect = CreateUiObject("LineSprite", gameplayCanvas, new Vector2(0.5f, 0.5f),
+                    new Vector2(600f, 60f));
+                if (preservedRawImageTextures.TryGetValue(path, out var texture))
+                {
+                    var rawImage = rect.gameObject.AddComponent<RawImage>();
+                    rawImage.texture = texture;
+                }
+                else if (preservedImageSprites.TryGetValue(path, out var sprite))
+                {
+                    var image = rect.gameObject.AddComponent<Image>();
+                    image.sprite = sprite;
+                    image.preserveAspect = true;
+                }
+            }
+            else return;
 
-            var rect = CreateUiObject("LineSprite", gameplayCanvas, new Vector2(0.5f, 0.5f),
-                new Vector2(600f, 100f));
-            if (preservedRawImageTextures.TryGetValue(path, out var texture))
-            {
-                var rawImage = rect.gameObject.AddComponent<RawImage>();
-                rawImage.texture = texture;
-                rawImage.raycastTarget = false;
-            }
-            else if (preservedImageSprites.TryGetValue(path, out var sprite))
-            {
-                var image = rect.gameObject.AddComponent<Image>();
-                image.sprite = sprite;
-                image.preserveAspect = true;
-                image.raycastTarget = false;
-            }
+            var graphic = rect.GetComponent<Graphic>();
+            if (graphic != null) graphic.raycastTarget = false;
+            var button = rect.GetComponent<Button>();
+            if (button != null) button.interactable = false;
             RestoreUiLayout(rect);
         }
 
