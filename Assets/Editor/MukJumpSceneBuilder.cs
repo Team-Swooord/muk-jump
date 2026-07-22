@@ -6,6 +6,7 @@ using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
 using MukJump.AI;
 using MukJump.Core;
 using MukJump.Drawing;
@@ -50,7 +51,12 @@ namespace MukJump.EditorTools
         const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
         const string LobbyLogoPath = "Assets/Art/UI/muk_logo.png";
         const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";
-        const string InkDropItemPath = "Assets/Art/UI/item1_50m.png";
+        const string InkDropItemPath = "Assets/Art/UI/ink_drop.png";
+        const string GoldenBrushItemPath = "Assets/Art/UI/golden_brush.png";
+        const string InkShieldItemPath = "Assets/Art/UI/ink_shield.png";
+        const string InkDropVfxRoot = "Assets/MukJump/VFX/InkDropJump";
+        const string InkDropVfxTextureRoot = InkDropVfxRoot + "/Textures/";
+        const string InkDropVfxAudioRoot = InkDropVfxRoot + "/Audio/";
         static readonly string[] DeathFramePaths =
         {
             "Assets/Art/Character/Death/mukbangul_death_01_idle.png",
@@ -96,6 +102,7 @@ namespace MukJump.EditorTools
             ConfigureObstacleSprite();
             ConfigureFallingInkRockSprite();
             ConfigureItemSprites();
+            ConfigureInkDropJumpVfxAssets();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -170,6 +177,19 @@ namespace MukJump.EditorTools
 
             go.AddComponent<PlayerController>();
             go.AddComponent<ItemEffectView>();
+            var inkDropVfx = go.AddComponent<InkDropJumpVfx>();
+            var vfxSo = new SerializedObject(inkDropVfx);
+            AssignVfxSprite(vfxSo, "inkDrop", "T_VFX_InkDrop_128.png");
+            AssignVfxSprite(vfxSo, "groundBlob", "T_VFX_InkGroundBlob_512.png");
+            AssignVfxSprite(vfxSo, "inkSplash", "T_VFX_InkSplash_512.png");
+            AssignVfxSprite(vfxSo, "shockRing", "T_VFX_InkShockRing_512.png");
+            AssignVfxSprite(vfxSo, "verticalBrush", "T_VFX_InkVerticalBrush_256x1024.png");
+            AssignVfxSprite(vfxSo, "brushFibers", "T_VFX_BrushFibers_256x1024.png");
+            AssignVfxSprite(vfxSo, "softFlash", "T_VFX_SoftFlash_256.png");
+            AssignVfxSprite(vfxSo, "inkStreak", "T_VFX_InkStreak_128x512.png");
+            vfxSo.FindProperty("immediateClip").objectReferenceValue = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                InkDropVfxAudioRoot + "SFX_InkDropJump_Immediate.wav");
+            vfxSo.ApplyModifiedPropertiesWithoutUndo();
             go.AddComponent<AutoJump>();
 
             var animator = go.AddComponent<CharacterAnimator>();
@@ -209,6 +229,7 @@ namespace MukJump.EditorTools
             var go = new GameObject("Systems");
             go.AddComponent<GameManager>();
             go.AddComponent<ScoreManager>();
+            go.AddComponent<VfxAudioManager>();
             go.AddComponent<SketchToInkService>();
             go.AddComponent<StrokeCapture>();
 
@@ -239,6 +260,10 @@ namespace MukJump.EditorTools
                 AssetDatabase.LoadAssetAtPath<Sprite>(ObstaclePath);
             itemSo.FindProperty("inkDropSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(InkDropItemPath);
+            itemSo.FindProperty("goldenBrushSprite").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(GoldenBrushItemPath);
+            itemSo.FindProperty("inkShieldSprite").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(InkShieldItemPath);
             itemSo.ApplyModifiedPropertiesWithoutUndo();
 
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem),
@@ -260,6 +285,7 @@ namespace MukJump.EditorTools
             var canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 100;
+            canvas.pixelPerfect = true;
 
             var scaler = root.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -316,7 +342,8 @@ namespace MukJump.EditorTools
             var canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 90;
-            canvas.enabled = false; // 편집/로비에서는 숨기고 GameplayHudView가 플레이 시작 시 켠다
+            canvas.enabled = true; // 편집 중에는 표시, 플레이 시 GameplayHudView가 상태에 맞춰 전환
+            canvas.pixelPerfect = true;
 
             var scaler = root.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -334,9 +361,13 @@ namespace MukJump.EditorTools
             var label = CreateText("HeightText", display, "고도 0", 46, FontStyle.Bold,
                 new Vector2(0.5f, 0.5f), new Vector2(400f, 80f), Color.white);
             RestoreUiLayout(label.rectTransform);
+            label.resizeTextForBestFit = false;
+            label.alignByGeometry = true;
             var bestLabel = CreateText("BestText", root.transform, "최고 0", 30, FontStyle.Normal,
                 new Vector2(0.5f, 0.89f), new Vector2(360f, 60f), InkPalette.TextMuted);
             RestoreUiLayout(bestLabel.rectTransform);
+            bestLabel.resizeTextForBestFit = false;
+            bestLabel.alignByGeometry = true;
 
             var testControls = CreateUiObject("ItemTestControls", root.transform,
                 new Vector2(0f, 0.5f), new Vector2(170f, 500f));
@@ -346,12 +377,16 @@ namespace MukJump.EditorTools
 
             var placeholderTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(ObstaclePath);
             var inkDropTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(InkDropItemPath);
+            var goldenBrushTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GoldenBrushItemPath);
+            var inkShieldTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(InkShieldItemPath);
             var inkDropButton = CreateItemTestButton("InkDropButton", testControls, inkDropTexture,
                 new Vector2(0f, 150f), Color.white, "50m");
-            var goldenBrushButton = CreateItemTestButton("GoldenBrushButton", testControls, placeholderTexture,
-                Vector2.zero, new Color(0.95f, 0.72f, 0.2f), "무한");
-            var inkShieldButton = CreateItemTestButton("InkShieldButton", testControls, placeholderTexture,
-                new Vector2(0f, -150f), new Color(0.72f, 0.18f, 0.28f), "방어");
+            var goldenBrushButton = CreateItemTestButton("GoldenBrushButton", testControls,
+                goldenBrushTexture != null ? goldenBrushTexture : placeholderTexture,
+                Vector2.zero, goldenBrushTexture != null ? Color.white : new Color(0.95f, 0.72f, 0.2f), "무한");
+            var inkShieldButton = CreateItemTestButton("InkShieldButton", testControls,
+                inkShieldTexture != null ? inkShieldTexture : placeholderTexture,
+                new Vector2(0f, -150f), inkShieldTexture != null ? Color.white : new Color(0.72f, 0.18f, 0.28f), "방어");
 
             var view = root.GetComponent<GameplayHudView>();
             var so = new SerializedObject(view);
@@ -377,7 +412,7 @@ namespace MukJump.EditorTools
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = background;
 
-            var icon = CreateUiObject("Icon", rect, new Vector2(0.5f, 0.58f), new Vector2(88f, 88f));
+            var icon = CreateUiObject("Icon", rect, new Vector2(0.5f, 0.58f), Vector2.zero);
             var iconImage = icon.gameObject.AddComponent<RawImage>();
             iconImage.texture = iconTexture;
             iconImage.color = iconColor;
@@ -389,7 +424,15 @@ namespace MukJump.EditorTools
             RestoreUiLayout(rect);
             RestoreUiLayout(icon);
             RestoreUiLayout(label.rectTransform);
+            SetNativeSizeDivided(iconImage, 9f);
             return button;
+        }
+
+        static void SetNativeSizeDivided(RawImage image, float divisor)
+        {
+            if (image == null || image.texture == null || divisor <= 0f) return;
+            image.SetNativeSize();
+            image.rectTransform.sizeDelta /= divisor;
         }
 
         static RectTransform CreateUiObject(string name, Transform parent, Vector2 anchor, Vector2 size)
@@ -410,10 +453,22 @@ namespace MukJump.EditorTools
             preservedUiLayouts.Clear();
             preservedTextStyles.Clear();
             preservedImageColors.Clear();
-            if (EditorSceneManager.GetActiveScene().path != ScenePath) return;
+
+            Scene sourceScene = EditorSceneManager.GetActiveScene();
+            bool closeSourceWhenDone = false;
+            if (sourceScene.path != ScenePath)
+            {
+                sourceScene = SceneManager.GetSceneByPath(ScenePath);
+                if (!sourceScene.IsValid() || !sourceScene.isLoaded)
+                {
+                    sourceScene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Additive);
+                    closeSourceWhenDone = true;
+                }
+            }
 
             foreach (var rect in Object.FindObjectsByType<RectTransform>(FindObjectsSortMode.None))
             {
+                if (rect.gameObject.scene != sourceScene) continue;
                 string path = HierarchyPath(rect);
                 if (!path.StartsWith("LobbyCanvas/") && !path.StartsWith("GameplayCanvas/")) continue;
                 preservedUiLayouts[path] = new UiLayout
@@ -444,6 +499,9 @@ namespace MukJump.EditorTools
                 if (image != null)
                     preservedImageColors[path] = image.color;
             }
+
+            if (closeSourceWhenDone)
+                EditorSceneManager.CloseScene(sourceScene, true);
         }
 
         static void RestoreUiLayout(RectTransform rect)
@@ -539,11 +597,50 @@ namespace MukJump.EditorTools
 
         static void ConfigureItemSprites()
         {
-            ConfigureSprite(InkDropItemPath, pixelsPerUnit: 700f);
-            var importer = (TextureImporter)AssetImporter.GetAtPath(InkDropItemPath);
+            ConfigureItemSprite(InkDropItemPath, "먹물방울");
+            ConfigureItemSprite(GoldenBrushItemPath, "황금 붓");
+            ConfigureItemSprite(InkShieldItemPath, "먹 방어막");
+        }
+
+        static void ConfigureInkDropJumpVfxAssets()
+        {
+            string[] textures =
+            {
+                "T_VFX_InkDrop_128.png", "T_VFX_InkGroundBlob_512.png",
+                "T_VFX_InkSplash_512.png", "T_VFX_InkShockRing_512.png",
+                "T_VFX_InkVerticalBrush_256x1024.png", "T_VFX_BrushFibers_256x1024.png",
+                "T_VFX_SoftFlash_256.png", "T_VFX_InkStreak_128x512.png",
+                "T_VFX_InkDropletAtlas_512.png",
+            };
+            for (int i = 0; i < textures.Length; i++)
+            {
+                string path = InkDropVfxTextureRoot + textures[i];
+                ConfigureSprite(path, 256f);
+                var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+                if (importer == null) continue;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.textureCompression = TextureImporterCompression.Uncompressed;
+                importer.SaveAndReimport();
+            }
+        }
+
+        static void AssignVfxSprite(SerializedObject target, string propertyName, string fileName)
+        {
+            string path = InkDropVfxTextureRoot + fileName;
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+                Debug.LogWarning($"[MukJump] 먹물방울 VFX 스프라이트를 찾을 수 없음: {path}");
+            target.FindProperty(propertyName).objectReferenceValue = sprite;
+        }
+
+        static void ConfigureItemSprite(string path, string displayName)
+        {
+            ConfigureSprite(path, pixelsPerUnit: 700f);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
             if (importer == null)
             {
-                Debug.LogWarning($"[MukJump] 먹물방울 아이템 스프라이트를 찾을 수 없음: {InkDropItemPath}");
+                Debug.LogWarning($"[MukJump] {displayName} 아이템 스프라이트를 찾을 수 없음: {path}");
                 return;
             }
             importer.wrapMode = TextureWrapMode.Clamp;

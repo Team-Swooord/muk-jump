@@ -8,8 +8,20 @@
 |---|---|---|
 | 캐릭터/배경 아트 | 팀 자체 제작 (AI 보조 드로잉 후 수작업 검수) | 자체 저작물 |
 | Unity 패키지 | Unity Technologies (URP, Input System 등 공식 패키지) | Unity Companion License |
+| 먹물방울 점프 VFX·SFX 팩 | 팀 제공 `MukJump_InkDropJump_VFX_Pack` (절차 생성 텍스처·합성 효과음) | 프로젝트 내 자유 수정·사용 허용 |
 
 ---
+
+### 2026-07-22 — 먹물방울 50m 점프 VFX·SFX 이식
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 먹물방울 획득 즉시 실행되는 50m 점프에 수묵 스플래시, 충격 링, 상승 붓획과 전용 효과음 추가
+- 주요 프롬프트/지시: 기존 점프 물리와 발동 시점을 변경하지 않고 제공된 VFX 팩을 이식하며,
+  전용 VFX 오디오 관리자를 만들어 중첩 효과음을 안정적으로 재생
+- 결과물: `Assets/MukJump/VFX/InkDropJump/`, `Assets/Scripts/Items/InkDropJumpVfx.cs`,
+  `Assets/Scripts/Core/VfxAudioManager.cs`, `Assets/Scripts/Items/ItemPickup.cs`,
+  `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: Unity Editor에서 먹물방울 연속 획득 시 연출 중첩, 효과음 음량과 모바일 성능 확인 예정
 
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
@@ -263,7 +275,15 @@
 ### 2026-07-21 — 먹물방울 정식 아이템 이미지 연결
 
 - 사용 도구: OpenAI Codex CLI
-- 목적: 새 `item1_50m.png`를 먹물방울 월드 아이템과 효과 테스트 버튼에 적용
+- 목적: 새 먹물방울 이미지를 월드 아이템과 효과 테스트 버튼에 적용
 - 주요 지시: 해당 이미지는 먹물방울 아이템 이미지임을 확인
-- 결과물: `Assets/Scripts/Items/ItemSpawner.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`, `Assets/Art/UI/item1_50m.png`
+- 결과물: `Assets/Scripts/Items/ItemSpawner.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`, `Assets/Art/UI/ink_drop.png`
 - 사람의 수정/검토 내용: 황금 붓과 먹 방어막은 정식 이미지가 추가될 때까지 기존 임시 표시 유지
+
+### 2026-07-21 — 아이템 이미지 이름 정리 및 3종 연결
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 임시 번호 파일을 실제 아이템 이름으로 변경하고 세 아이템 비주얼에 연결
+- 주요 지시: 1·2·3번 이미지 이름을 아이템 이름에 맞게 변경
+- 결과물: `ink_drop.png`, `golden_brush.png`, `ink_shield.png`, `ItemSpawner.cs`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 붓 형태인 기존 1번은 황금 붓, 나머지 임시 먹방울은 기존 순서대로 먹물방울과 먹 방어막에 배정

@@ -10,6 +10,10 @@ namespace MukJump.Items
         [SerializeField] Sprite placeholderSprite;
         [Tooltip("먹물방울 정식 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
         [SerializeField] Sprite inkDropSprite;
+        [Tooltip("황금 붓 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
+        [SerializeField] Sprite goldenBrushSprite;
+        [Tooltip("먹 방어막 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
+        [SerializeField] Sprite inkShieldSprite;
         [SerializeField] Vector2 verticalSpacing = new(15f, 25f);
         [SerializeField] Vector2 horizontalRange = new(-4f, 4f);
         [SerializeField] float firstSpawnHeight = 12f;
@@ -56,8 +60,8 @@ namespace MukJump.Items
         void Spawn(float y)
         {
             var type = (ItemType)Random.Range(0, 3);
-            Sprite sprite = type == ItemType.InkDrop && inkDropSprite != null
-                ? inkDropSprite : placeholderSprite;
+            Sprite sprite = SpriteFor(type);
+            bool usesDedicatedSprite = sprite != placeholderSprite;
             var go = new GameObject($"Item_{type}")
             {
                 layer = LayerMask.NameToLayer("Item"),
@@ -67,8 +71,7 @@ namespace MukJump.Items
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
             renderer.sortingOrder = 4;
-            renderer.color = type == ItemType.InkDrop && inkDropSprite != null
-                ? Color.white : ColorFor(type);
+            renderer.color = usesDedicatedSprite ? Color.white : ColorFor(type);
             float width = sprite.bounds.size.x;
             go.transform.localScale = Vector3.one * (width > 0f ? itemWorldWidth / width : 1f);
 
@@ -79,6 +82,17 @@ namespace MukJump.Items
             var pickup = go.AddComponent<ItemPickup>();
             pickup.Configure(type, Random.Range(0f, Mathf.PI * 2f));
             active.Add(pickup);
+        }
+
+        Sprite SpriteFor(ItemType type)
+        {
+            return type switch
+            {
+                ItemType.InkDrop when inkDropSprite != null => inkDropSprite,
+                ItemType.GoldenBrush when goldenBrushSprite != null => goldenBrushSprite,
+                ItemType.InkShield when inkShieldSprite != null => inkShieldSprite,
+                _ => placeholderSprite,
+            };
         }
 
         static Color ColorFor(ItemType type)

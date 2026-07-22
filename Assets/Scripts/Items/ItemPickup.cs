@@ -27,6 +27,7 @@ namespace MukJump.Items
             {
                 case ItemType.InkDrop:
                     player.LaunchInkDrop(50f);
+                    player.GetComponent<InkDropJumpVfx>()?.Play();
                     break;
                 case ItemType.GoldenBrush:
                     Object.FindFirstObjectByType<StrokeCapture>()?.ActivateUnlimitedInk(8f);

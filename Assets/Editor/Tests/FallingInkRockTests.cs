@@ -3,6 +3,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using MukJump.Core;
 using MukJump.Drawing;
 using MukJump.EditorTools;
 using MukJump.Items;
@@ -116,6 +117,18 @@ public class FallingInkRockTests
         Assert.IsNotNull(itemSpawner);
         var itemSerialized = new SerializedObject(itemSpawner);
         Assert.IsNotNull(itemSerialized.FindProperty("inkDropSprite").objectReferenceValue);
+        Assert.IsNotNull(itemSerialized.FindProperty("goldenBrushSprite").objectReferenceValue);
+        Assert.IsNotNull(itemSerialized.FindProperty("inkShieldSprite").objectReferenceValue);
+
+        var inkDropVfx = Object.FindFirstObjectByType<InkDropJumpVfx>();
+        Assert.IsNotNull(inkDropVfx);
+        var vfxSerialized = new SerializedObject(inkDropVfx);
+        Assert.IsNotNull(vfxSerialized.FindProperty("groundBlob").objectReferenceValue);
+        Assert.IsNotNull(vfxSerialized.FindProperty("inkSplash").objectReferenceValue);
+        Assert.IsNotNull(vfxSerialized.FindProperty("shockRing").objectReferenceValue);
+        Assert.IsNotNull(vfxSerialized.FindProperty("verticalBrush").objectReferenceValue);
+        Assert.IsNotNull(vfxSerialized.FindProperty("immediateClip").objectReferenceValue);
+        Assert.IsNotNull(Object.FindFirstObjectByType<VfxAudioManager>());
 
         var importer = (TextureImporter)AssetImporter.GetAtPath(
             "Assets/Art/Character/Obstacles/anermy_02.png");

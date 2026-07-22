@@ -21,6 +21,7 @@ namespace MukJump.Core
         void OnEnable()
         {
             Instance = this;
+            ApplyCrispTextSettings();
             if (!Application.isPlaying) return;
             inkDropButton?.onClick.AddListener(UseInkDrop);
             goldenBrushButton?.onClick.AddListener(UseGoldenBrush);
@@ -47,11 +48,39 @@ namespace MukJump.Core
         void UseGoldenBrush() => ItemEffect.Apply(ItemType.GoldenBrush);
         void UseInkShield() => ItemEffect.Apply(ItemType.InkShield);
 
+        void ApplyCrispTextSettings()
+        {
+            if (canvas != null) canvas.pixelPerfect = true;
+            ConfigureText(heightText);
+            ConfigureText(bestText);
+            SetItemIconNativeSize(inkDropButton);
+            SetItemIconNativeSize(goldenBrushButton);
+            SetItemIconNativeSize(inkShieldButton);
+        }
+
+        static void ConfigureText(Text text)
+        {
+            if (text == null) return;
+            text.resizeTextForBestFit = false;
+            text.alignByGeometry = true;
+        }
+
+        static void SetItemIconNativeSize(Button button)
+        {
+            if (button == null) return;
+            var icon = button.transform.Find("Icon")?.GetComponent<RawImage>();
+            if (icon == null || icon.texture == null) return;
+            icon.SetNativeSize();
+            icon.rectTransform.sizeDelta /= 9f;
+        }
+
         void Update()
         {
             if (!Application.isPlaying)
             {
-                if (canvas != null) canvas.enabled = false;
+                ApplyCrispTextSettings();
+                // 편집 모드에서는 로비 UI와 함께 보이게 하여 하이어라키에서 직접 배치할 수 있게 한다.
+                if (canvas != null) canvas.enabled = true;
                 return;
             }
 

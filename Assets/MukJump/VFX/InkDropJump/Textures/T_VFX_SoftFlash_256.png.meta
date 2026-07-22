@@ -1,11 +1,10 @@
 fileFormatVersion: 2
-guid: fe432ab1e9b924f9aaad351e3b480732
+guid: c98531255702143e796ecfa0a0d89b7e
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -7887409436064373372
-    second: "ChatGPT Image 2026\u1102\u1167\u11AB 7\u110B\u116F\u11AF 21\u110B\u1175\u11AF
-      \u110B\u1169\u1112\u116E 05_28_16_0"
+      213: 6533412362801422555
+    second: T_VFX_SoftFlash_256_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -52,7 +51,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 700
+  spritePixelsToUnits: 256
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -76,7 +75,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -114,45 +113,44 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: "ChatGPT Image 2026\u1102\u1167\u11AB 7\u110B\u116F\u11AF 21\u110B\u1175\u11AF
-        \u110B\u1169\u1112\u116E 05_28_16_0"
+      name: T_VFX_SoftFlash_256_0
       rect:
         serializedVersion: 2
-        x: 164
-        y: 88
-        width: 686
-        height: 855
+        x: 11
+        y: 11
+        width: 234
+        height: 234
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 485a15d38ea4a8290800000000000000
-      internalID: -7887409436064373372
+      spriteID: bd0acefade75baa50800000000000000
+      internalID: 6533412362801422555
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     outline: []
-    customData: 
+    customData:
     physicsShape: []
     bones: []
     spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
-    indices: 
+    indices:
     edges: []
     weights: []
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      "ChatGPT Image 2026\u1102\u1167\u11AB 7\u110B\u116F\u11AF 21\u110B\u1175\u11AF \u110B\u1169\u1112\u116E 05_28_16_0": -7887409436064373372
-  mipmapLimitGroupName: 
+      T_VFX_SoftFlash_256_0: 6533412362801422555
+  mipmapLimitGroupName:
   pSDRemoveMatte: 0
-  userData: 
-  assetBundleName: 
-  assetBundleVariant: 
+  userData:
+  assetBundleName:
+  assetBundleVariant:

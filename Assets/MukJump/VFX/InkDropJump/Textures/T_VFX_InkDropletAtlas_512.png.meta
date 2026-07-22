@@ -1,0 +1,962 @@
+fileFormatVersion: 2
+guid: d92c7edf2ada04b52bc2b6c9a1c68c82
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 4820270761928481863
+    second: T_VFX_InkDropletAtlas_512_0
+  - first:
+      213: -1273451446951521370
+    second: T_VFX_InkDropletAtlas_512_1
+  - first:
+      213: 3310701291634973779
+    second: T_VFX_InkDropletAtlas_512_2
+  - first:
+      213: -8083038024016869431
+    second: T_VFX_InkDropletAtlas_512_3
+  - first:
+      213: -3505425198042059794
+    second: T_VFX_InkDropletAtlas_512_4
+  - first:
+      213: -4086460235836328188
+    second: T_VFX_InkDropletAtlas_512_5
+  - first:
+      213: 7613403622297492749
+    second: T_VFX_InkDropletAtlas_512_6
+  - first:
+      213: 6054660389899488880
+    second: T_VFX_InkDropletAtlas_512_7
+  - first:
+      213: -8268599244662842519
+    second: T_VFX_InkDropletAtlas_512_8
+  - first:
+      213: -6877027464615635502
+    second: T_VFX_InkDropletAtlas_512_9
+  - first:
+      213: 617556066397185243
+    second: T_VFX_InkDropletAtlas_512_10
+  - first:
+      213: 8563383459338219781
+    second: T_VFX_InkDropletAtlas_512_11
+  - first:
+      213: -266061965552611424
+    second: T_VFX_InkDropletAtlas_512_12
+  - first:
+      213: 825952134822822368
+    second: T_VFX_InkDropletAtlas_512_13
+  - first:
+      213: 4895725446122124057
+    second: T_VFX_InkDropletAtlas_512_14
+  - first:
+      213: 3510902007653837982
+    second: T_VFX_InkDropletAtlas_512_15
+  - first:
+      213: 380453378241700608
+    second: T_VFX_InkDropletAtlas_512_16
+  - first:
+      213: -5823424948325525903
+    second: T_VFX_InkDropletAtlas_512_17
+  - first:
+      213: -3670030393236427947
+    second: T_VFX_InkDropletAtlas_512_18
+  - first:
+      213: -6850000867911365656
+    second: T_VFX_InkDropletAtlas_512_19
+  - first:
+      213: 7910055669467895331
+    second: T_VFX_InkDropletAtlas_512_20
+  - first:
+      213: -5885086391401928257
+    second: T_VFX_InkDropletAtlas_512_21
+  - first:
+      213: -7574367208081429641
+    second: T_VFX_InkDropletAtlas_512_22
+  - first:
+      213: -8957229904077524915
+    second: T_VFX_InkDropletAtlas_512_23
+  - first:
+      213: -5586461187991175454
+    second: T_VFX_InkDropletAtlas_512_24
+  - first:
+      213: -1307714693810452247
+    second: T_VFX_InkDropletAtlas_512_25
+  - first:
+      213: -6524514267938154159
+    second: T_VFX_InkDropletAtlas_512_26
+  - first:
+      213: -2074757759588609483
+    second: T_VFX_InkDropletAtlas_512_27
+  - first:
+      213: -2674536059292778898
+    second: T_VFX_InkDropletAtlas_512_28
+  - first:
+      213: -3534242679952653509
+    second: T_VFX_InkDropletAtlas_512_29
+  - first:
+      213: -2287481459580423572
+    second: T_VFX_InkDropletAtlas_512_30
+  - first:
+      213: 480235952775883350
+    second: T_VFX_InkDropletAtlas_512_31
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 256
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: iOS
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_0
+      rect:
+        serializedVersion: 2
+        x: 36
+        y: 416
+        width: 66
+        height: 65
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 74cd2f518ba05e240800000000000000
+      internalID: 4820270761928481863
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_1
+      rect:
+        serializedVersion: 2
+        x: 147
+        y: 425
+        width: 85
+        height: 57
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6a35fb1f7aac35ee0800000000000000
+      internalID: -1273451446951521370
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_2
+      rect:
+        serializedVersion: 2
+        x: 236
+        y: 449
+        width: 9
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 35c545da849f1fd20800000000000000
+      internalID: 3310701291634973779
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_3
+      rect:
+        serializedVersion: 2
+        x: 244
+        y: 446
+        width: 13
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9c7cf703eb743df80800000000000000
+      internalID: -8083038024016869431
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_4
+      rect:
+        serializedVersion: 2
+        x: 297
+        y: 406
+        width: 55
+        height: 72
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: eebeffbda5a3a5fc0800000000000000
+      internalID: -3505425198042059794
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_5
+      rect:
+        serializedVersion: 2
+        x: 397
+        y: 420
+        width: 111
+        height: 43
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4077736011af947c0800000000000000
+      internalID: -4086460235836328188
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_6
+      rect:
+        serializedVersion: 2
+        x: 289
+        y: 420
+        width: 11
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d0dd6b6c14e38a960800000000000000
+      internalID: 7613403622297492749
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_7
+      rect:
+        serializedVersion: 2
+        x: 383
+        y: 408
+        width: 16
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 07e469fab89760450800000000000000
+      internalID: 6054660389899488880
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_8
+      rect:
+        serializedVersion: 2
+        x: 457
+        y: 383
+        width: 20
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 96bdecfbbc8004d80800000000000000
+      internalID: -8268599244662842519
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_9
+      rect:
+        serializedVersion: 2
+        x: 24
+        y: 334
+        width: 15
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2d5dafcf4f3ef80a0800000000000000
+      internalID: -6877027464615635502
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_10
+      rect:
+        serializedVersion: 2
+        x: 33
+        y: 282
+        width: 64
+        height: 83
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bd4ed7e68fff19800800000000000000
+      internalID: 617556066397185243
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_11
+      rect:
+        serializedVersion: 2
+        x: 300
+        y: 270
+        width: 52
+        height: 94
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5017f41b2ef37d670800000000000000
+      internalID: 8563383459338219781
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_12
+      rect:
+        serializedVersion: 2
+        x: 417
+        y: 351
+        width: 18
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0af8efe4d02ce4cf0800000000000000
+      internalID: -266061965552611424
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_13
+      rect:
+        serializedVersion: 2
+        x: 434
+        y: 354
+        width: 15
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0e1079d271f567b00800000000000000
+      internalID: 825952134822822368
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_14
+      rect:
+        serializedVersion: 2
+        x: 143
+        y: 289
+        width: 101
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 91333f5ca5c11f340800000000000000
+      internalID: 4895725446122124057
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_15
+      rect:
+        serializedVersion: 2
+        x: 401
+        y: 302
+        width: 101
+        height: 37
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e9ca96f36ca39b030800000000000000
+      internalID: 3510902007653837982
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_16
+      rect:
+        serializedVersion: 2
+        x: 19
+        y: 219
+        width: 11
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 003a1bfe454a74500800000000000000
+      internalID: 380453378241700608
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_17
+      rect:
+        serializedVersion: 2
+        x: 157
+        y: 224
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 176d8e20dd90f2fa0800000000000000
+      internalID: -5823424948325525903
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_18
+      rect:
+        serializedVersion: 2
+        x: 289
+        y: 151
+        width: 53
+        height: 76
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 55b61405dce611dc0800000000000000
+      internalID: -3670030393236427947
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_19
+      rect:
+        serializedVersion: 2
+        x: 34
+        y: 162
+        width: 73
+        height: 55
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8eb8605e088efe0a0800000000000000
+      internalID: -6850000867911365656
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_20
+      rect:
+        serializedVersion: 2
+        x: 130
+        y: 172
+        width: 15
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 326d23cd8b926cd60800000000000000
+      internalID: 7910055669467895331
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_21
+      rect:
+        serializedVersion: 2
+        x: 144
+        y: 169
+        width: 91
+        height: 43
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fb9a0088b19f35ea0800000000000000
+      internalID: -5885086391401928257
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_22
+      rect:
+        serializedVersion: 2
+        x: 399
+        y: 178
+        width: 101
+        height: 35
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 77b60fba72172e690800000000000000
+      internalID: -7574367208081429641
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_23
+      rect:
+        serializedVersion: 2
+        x: 451
+        y: 133
+        width: 18
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d40f3f31cd681b380800000000000000
+      internalID: -8957229904077524915
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_24
+      rect:
+        serializedVersion: 2
+        x: 471
+        y: 134
+        width: 11
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2ee774ad527e872b0800000000000000
+      internalID: -5586461187991175454
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_25
+      rect:
+        serializedVersion: 2
+        x: 30
+        y: 36
+        width: 62
+        height: 65
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9e88edf1a601adde0800000000000000
+      internalID: -1307714693810452247
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_26
+      rect:
+        serializedVersion: 2
+        x: 127
+        y: 73
+        width: 22
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 159149777d44475a0800000000000000
+      internalID: -6524514267938154159
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_27
+      rect:
+        serializedVersion: 2
+        x: 150
+        y: 38
+        width: 82
+        height: 58
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5325cb86fcaf433e0800000000000000
+      internalID: -2074757759588609483
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_28
+      rect:
+        serializedVersion: 2
+        x: 213
+        y: 81
+        width: 16
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e6e71e6df9322ead0800000000000000
+      internalID: -2674536059292778898
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_29
+      rect:
+        serializedVersion: 2
+        x: 303
+        y: 14
+        width: 46
+        height: 95
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b33c56ff109d3fec0800000000000000
+      internalID: -3534242679952653509
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_30
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 48
+        width: 120
+        height: 81
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c62ba6b6bbb3140e0800000000000000
+      internalID: -2287481459580423572
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: T_VFX_InkDropletAtlas_512_31
+      rect:
+        serializedVersion: 2
+        x: 196
+        y: 21
+        width: 13
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 65ae39dfd042aa600800000000000000
+      internalID: 480235952775883350
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    outline: []
+    customData:
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices:
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      T_VFX_InkDropletAtlas_512_0: 4820270761928481863
+      T_VFX_InkDropletAtlas_512_1: -1273451446951521370
+      T_VFX_InkDropletAtlas_512_10: 617556066397185243
+      T_VFX_InkDropletAtlas_512_11: 8563383459338219781
+      T_VFX_InkDropletAtlas_512_12: -266061965552611424
+      T_VFX_InkDropletAtlas_512_13: 825952134822822368
+      T_VFX_InkDropletAtlas_512_14: 4895725446122124057
+      T_VFX_InkDropletAtlas_512_15: 3510902007653837982
+      T_VFX_InkDropletAtlas_512_16: 380453378241700608
+      T_VFX_InkDropletAtlas_512_17: -5823424948325525903
+      T_VFX_InkDropletAtlas_512_18: -3670030393236427947
+      T_VFX_InkDropletAtlas_512_19: -6850000867911365656
+      T_VFX_InkDropletAtlas_512_2: 3310701291634973779
+      T_VFX_InkDropletAtlas_512_20: 7910055669467895331
+      T_VFX_InkDropletAtlas_512_21: -5885086391401928257
+      T_VFX_InkDropletAtlas_512_22: -7574367208081429641
+      T_VFX_InkDropletAtlas_512_23: -8957229904077524915
+      T_VFX_InkDropletAtlas_512_24: -5586461187991175454
+      T_VFX_InkDropletAtlas_512_25: -1307714693810452247
+      T_VFX_InkDropletAtlas_512_26: -6524514267938154159
+      T_VFX_InkDropletAtlas_512_27: -2074757759588609483
+      T_VFX_InkDropletAtlas_512_28: -2674536059292778898
+      T_VFX_InkDropletAtlas_512_29: -3534242679952653509
+      T_VFX_InkDropletAtlas_512_3: -8083038024016869431
+      T_VFX_InkDropletAtlas_512_30: -2287481459580423572
+      T_VFX_InkDropletAtlas_512_31: 480235952775883350
+      T_VFX_InkDropletAtlas_512_4: -3505425198042059794
+      T_VFX_InkDropletAtlas_512_5: -4086460235836328188
+      T_VFX_InkDropletAtlas_512_6: 7613403622297492749
+      T_VFX_InkDropletAtlas_512_7: 6054660389899488880
+      T_VFX_InkDropletAtlas_512_8: -8268599244662842519
+      T_VFX_InkDropletAtlas_512_9: -6877027464615635502
+  mipmapLimitGroupName:
+  pSDRemoveMatte: 0
+  userData:
+  assetBundleName:
+  assetBundleVariant:

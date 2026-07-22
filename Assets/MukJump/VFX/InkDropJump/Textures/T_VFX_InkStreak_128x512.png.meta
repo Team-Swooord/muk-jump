@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: f71a621066a0c4414ac30ce01857573d
+guid: 7f1a86a70ff3e44a9ad2d26ba402556e
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -1184795083526038822
-    second: muk_gauge_track_0
+      213: 2478969618075946626
+    second: T_VFX_InkStreak_128x512_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -46,18 +46,18 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 100
+  spritePixelsToUnits: 256
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
   spriteTessellationDetail: -1
-  textureType: 2
+  textureType: 8
   textureShape: 1
   singleChannelComponent: 0
   flipbookRows: 1
@@ -75,7 +75,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: muk_gauge_track_0
+      name: T_VFX_InkStreak_128x512_0
       rect:
         serializedVersion: 2
-        x: 7
-        y: 31
-        width: 1007
-        height: 193
+        x: 23
+        y: 17
+        width: 82
+        height: 478
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: ada1dca1623ce8fe0800000000000000
-      internalID: -1184795083526038822
+      spriteID: 28e0766cbb1176220800000000000000
+      internalID: 2478969618075946626
       vertices: []
       indices:
       edges: []
@@ -138,7 +138,7 @@ TextureImporter:
     customData:
     physicsShape: []
     bones: []
-    spriteID:
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices:
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      muk_gauge_track_0: -1184795083526038822
+      T_VFX_InkStreak_128x512_0: 2478969618075946626
   mipmapLimitGroupName:
   pSDRemoveMatte: 0
   userData:
