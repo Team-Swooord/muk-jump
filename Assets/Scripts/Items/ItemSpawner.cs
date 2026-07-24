@@ -21,8 +21,8 @@ namespace MukJump.Items
         [SerializeField] float firstSpawnHeight = 12f;
         [SerializeField] float spawnAhead = 12f;
         [SerializeField] float despawnBelow = 10f;
-        [Tooltip("GameplayCanvas 테스트 아이콘(Set Native Size / 9)과 비슷하게 보이는 월드 폭")]
-        [SerializeField] float itemWorldWidth = 1.7f;
+        // 씬에 저장된 예전 직렬화 값과 무관하게 네 아이템의 크기를 항상 동일하게 유지한다.
+        const float ItemWorldWidth = 1.35f;
 
         readonly List<ItemPickup> active = new();
         Camera cam;
@@ -76,7 +76,7 @@ namespace MukJump.Items
             renderer.sortingOrder = 4;
             renderer.color = usesDedicatedSprite ? Color.white : ColorFor(type);
             float width = sprite.bounds.size.x;
-            go.transform.localScale = Vector3.one * (width > 0f ? itemWorldWidth / width : 1f);
+            go.transform.localScale = Vector3.one * (width > 0f ? ItemWorldWidth / width : 1f);
 
             var trigger = go.AddComponent<CircleCollider2D>();
             trigger.isTrigger = true;
