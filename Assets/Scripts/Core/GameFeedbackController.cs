@@ -65,7 +65,8 @@ namespace MukJump.Core
                                   CreateBrushNoise("BrushTransition", 1.15f, 0.3f, true);
             wallHitClip = LoadSfx("SFX_Wall_Hit") ??
                           CreateTone("WallHit", 0.11f, 120f, 72f, 0.28f, 0.32f);
-            deathSqueakClip = LoadSfx("SFX_Character_Death") ??
+            deathSqueakClip = LoadSfx("SFX_Character_Death_Slime") ??
+                              LoadSfx("SFX_Character_Death") ??
                               CreateTone("DeathSqueak", 0.32f, 1080f, 185f, 0.68f, 0.025f);
             gameOverClip = LoadSfx("SFX_Game_Over") ??
                            CreateTone("GameOver", 0.58f, 310f, 92f, 0.42f, 0.08f);
@@ -422,7 +423,8 @@ namespace MukJump.Core
         IEnumerator PlayGameOverAfterDeath()
         {
             // 마지막 캐릭터의 짧은 "찍" 사망음이 먼저 온전히 들린 뒤 종료음을 붙인다.
-            yield return new WaitForSecondsRealtime(0.24f);
+            float deathDuration = deathSqueakClip != null ? deathSqueakClip.length : 0.24f;
+            yield return new WaitForSecondsRealtime(deathDuration + 0.04f);
             PlayAccent(gameOverClip, 0.74f);
             gameOverSoundRoutine = null;
         }

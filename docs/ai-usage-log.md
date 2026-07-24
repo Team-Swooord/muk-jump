@@ -28,6 +28,7 @@
 | Unity 패키지 | Unity Technologies (URP, Input System 등 공식 패키지) | Unity Companion License |
 | `Inkdrop Ascent.mp3` | 팀 Suno Pro 계정에서 직접 생성 | 생성 당시 유료 구독 상업 이용 권한 |
 | `SFX_Brush_Community.mp3` | Pixabay `brush` · Reitanna (Freesound), ID 83215 | Pixabay Content License |
+| `SFX_Character_Death_Slime.mp3` | Pixabay `Slime Squish 5` · floraphonic, ID 218569 | Pixabay Content License |
 
 ---
 
@@ -680,3 +681,14 @@
 - 결과물: `SFX_Character_Death.wav`, `GameFeedbackController.cs`
 - 구현 메모: 사망음을 0.38초 복합 배음에서 0.19초 단일 사인파 고음 하강음으로 교체하고,
   마지막 캐릭터의 게임 종료음은 0.24초 뒤에 재생해 두 음이 겹치지 않도록 했다.
+
+### 2026-07-24 — 제공된 슬라임 스퀴시 사망음 적용
+
+- 사용 도구: OpenAI Codex
+- 목적: 자체 생성 `찍` 음원 대신 먹방울이 터지는 질감과 가까운 사용자의 선택 음원 적용
+- 입력 에셋: `floraphonic-slime-squish-5-218569.mp3`, 약 0.576초, 48kHz stereo
+- 결과물: `Assets/Resources/MukJump/Audio/SFX/SFX_Character_Death_Slime.mp3`
+- 구현 메모: 캐릭터 사망 시 새 슬라임 스퀴시 음원을 우선 재생하고 기존 `찍` WAV는 폴백으로
+  유지한다. 마지막 캐릭터의 게임 종료음은 사망 클립 전체 길이와 0.04초 여백 뒤에 재생한다.
+- 출처·라이선스: Pixabay `Slime Squish 5`(ID 218569), floraphonic,
+  Pixabay Content License
