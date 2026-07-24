@@ -19,8 +19,8 @@ namespace MukJump.Drawing
         [SerializeField] float previewWidth = 0.4f;
         [Tooltip("LineSprite 프리팹의 600px 붓획 텍스처")]
         [SerializeField] Texture2D lineSpriteTexture;
-        [Tooltip("캐릭터에서 이 거리 안에 획이 들어오면 발판을 만들지 않는다 (물리 밀어내기 악용 방지)")]
-        [SerializeField] float playerClearance = 0.75f;
+        [Tooltip("캐릭터에서 이 거리 안의 획 부분만 잘라낸다 (물리 밀어내기 악용 방지)")]
+        [SerializeField] float playerClearance = 0.55f;
 
         [Header("먹(잉크) 자원 — 무한 드로잉 방지")]
         [Tooltip("먹 총량 (월드 단위 길이). 그은 만큼 소모된다")]
@@ -227,17 +227,36 @@ namespace MukJump.Drawing
         {
             drawing = false;
             DestroyPreview();
+            Vector2 feedbackPosition = points.Count > 0 ? points[^1] : Vector2.zero;
 
-            if (points.Count < 2 || strokeLength < minStrokeLength) return;
+            if (points.Count < 2 || strokeLength < minStrokeLength)
+            {
+                GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, false);
+                return;
+            }
 
             var smoothed = BezierSmoother.Smooth(points);
-            if (smoothed.Count < 2) return;
+            if (smoothed.Count < 2)
+            {
+                GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, false);
+                return;
+            }
 
-            // 캐릭터와 겹치거나 너무 가까운 획은 무효 — 콜라이더 밀어내기로 캐릭터를
-            // 튕겨 올리는 악용(반복 드로잉 탈출)을 막는다
-            if (!startGame && TooCloseToPlayer(smoothed)) return;
+            // 캐릭터와 너무 가까운 부분만 잘라내 콜라이더 밀어내기로 캐릭터를
+            // 튕겨 올리는 악용은 막되, 나머지 유효한 획은 발판으로 살린다.
+            if (!startGame)
+            {
+                smoothed = LongestSafeSegment(smoothed);
+                if (smoothed.Count < 2 ||
+                    BezierSmoother.PolylineLength(smoothed) < minStrokeLength)
+                {
+                    GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, false);
+                    return;
+                }
+            }
 
             PlatformCollider.Spawn(smoothed);
+            GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, true);
             if (startGame)
                 GameManager.Instance?.StartGameFromStroke();
         }
@@ -248,21 +267,46 @@ namespace MukJump.Drawing
             DestroyPreview();
         }
 
-        bool TooCloseToPlayer(List<Vector2> strokePoints)
+        /// 캐릭터와 겹치는 부분만 잘라내고 가장 긴 안전 구간은 살린다.
+        /// 획 전체를 취소해 입력이 먹히지 않은 것처럼 보이던 불편을 줄인다.
+        List<Vector2> LongestSafeSegment(List<Vector2> strokePoints)
         {
             var players = FindObjectsByType<Player.PlayerController>(FindObjectsSortMode.None);
-            if (players.Length == 0) return false;
-            for (int i = 0; i < players.Length; i++)
+            if (players.Length == 0) return strokePoints;
+
+            var longest = new List<Vector2>();
+            var current = new List<Vector2>();
+            for (int pointIndex = 0; pointIndex < strokePoints.Count; pointIndex++)
             {
-                if (players[i].IsDead) continue;
-                Vector2 center = players[i].transform.position;
-                foreach (var p in strokePoints)
+                Vector2 point = strokePoints[pointIndex];
+                bool blocked = false;
+                for (int playerIndex = 0; playerIndex < players.Length; playerIndex++)
                 {
-                    if (Vector2.Distance(p, center) < playerClearance)
-                        return true;
+                    if (players[playerIndex].IsDead) continue;
+                    if (Vector2.Distance(point, players[playerIndex].transform.position) <
+                        playerClearance)
+                    {
+                        blocked = true;
+                        break;
+                    }
                 }
+
+                if (!blocked)
+                {
+                    current.Add(point);
+                    continue;
+                }
+
+                if (BezierSmoother.PolylineLength(current) >
+                    BezierSmoother.PolylineLength(longest))
+                    longest = new List<Vector2>(current);
+                current.Clear();
             }
-            return false;
+
+            if (BezierSmoother.PolylineLength(current) >
+                BezierSmoother.PolylineLength(longest))
+                longest = current;
+            return longest;
         }
 
         // ---- 그리는 동안 옅은 먹선 미리보기 ----

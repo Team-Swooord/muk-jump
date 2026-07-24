@@ -12,6 +12,7 @@ namespace MukJump.Drawing
     {
         const int MaxActivePlatforms = 4;
         static readonly List<PlatformCollider> active = new();
+        public static float RuntimeLifetimeMultiplier { get; set; } = 1f;
 
         [Tooltip("생성 후 유지 시간(초). 0 이하면 영구 발판")]
         [SerializeField] float lifetime = 6.5f;
@@ -98,7 +99,8 @@ namespace MukJump.Drawing
             if (lifetime <= 0f) return; // 영구 발판
 
             age += Time.deltaTime;
-            float remaining = lifetime - age;
+            float effectiveLifetime = lifetime * Mathf.Clamp(RuntimeLifetimeMultiplier, 0.35f, 1f);
+            float remaining = effectiveLifetime - age;
 
             if (remaining <= fadeDuration)
             {
@@ -170,7 +172,8 @@ namespace MukJump.Drawing
         void BeginFade()
         {
             if (lifetime <= 0f) return;
-            age = Mathf.Max(age, lifetime - fadeDuration);
+            float effectiveLifetime = lifetime * Mathf.Clamp(RuntimeLifetimeMultiplier, 0.35f, 1f);
+            age = Mathf.Max(age, effectiveLifetime - fadeDuration);
         }
 
         void OnDestroy()

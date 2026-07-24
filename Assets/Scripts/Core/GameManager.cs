@@ -70,6 +70,11 @@ namespace MukJump.Core
         {
             Application.targetFrameRate = 60;
             State = GameState.Lobby;
+            // 이전 버전의 Main 씬을 열어도 새 피드백·구간 시스템이 즉시 동작한다.
+            if (GetComponent<GameFeedbackController>() == null)
+                gameObject.AddComponent<GameFeedbackController>();
+            if (GetComponent<HeightZoneController>() == null)
+                gameObject.AddComponent<HeightZoneController>();
             transitionView = GetComponent<BrushTransitionView>();
             if (transitionView == null) transitionView = gameObject.AddComponent<BrushTransitionView>();
             gameOverPopupView = GetComponent<GameOverPopupView>();

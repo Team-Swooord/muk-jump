@@ -41,6 +41,7 @@ namespace MukJump.Obstacles
         bool heightUnlocked;
         float spawnTimer;
         bool missingReferenceLogged;
+        public float RuntimeIntervalMultiplier { get; set; } = 1f;
 
         void Start()
         {
@@ -163,7 +164,7 @@ namespace MukJump.Obstacles
             float difficulty = Mathf.InverseLerp(startHeight, highDifficultyHeight, height);
             float minimum = Mathf.Lerp(lowHeightInterval.x, highHeightInterval.x, difficulty);
             float maximum = Mathf.Lerp(lowHeightInterval.y, highHeightInterval.y, difficulty);
-            return Random.Range(minimum, maximum);
+            return Random.Range(minimum, maximum) * Mathf.Clamp(RuntimeIntervalMultiplier, 0.35f, 1f);
         }
 
         bool ValidateReferences()

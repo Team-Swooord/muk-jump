@@ -265,6 +265,8 @@ namespace MukJump.EditorTools
             go.AddComponent<GameOverPopupView>();
             go.AddComponent<ScoreManager>();
             go.AddComponent<VfxAudioManager>();
+            go.AddComponent<GameFeedbackController>();
+            go.AddComponent<HeightZoneController>();
             go.AddComponent<SketchToInkService>();
             var strokeCapture = go.AddComponent<StrokeCapture>();
             var strokeSo = new SerializedObject(strokeCapture);

@@ -23,6 +23,7 @@ namespace MukJump.Items
 
             player ??= GameManager.Instance.HighestLivingPlayer;
             if (player == null) return;
+            GameFeedbackController.Instance?.PlayItemPickup(player.transform.position, type);
 
             switch (type)
             {

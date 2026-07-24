@@ -215,6 +215,7 @@ namespace MukJump.Player
         {
             if (IsDead) return;
 
+            GameFeedbackController.Instance?.PlayDeath(transform.position);
             IsDead = true;
             IsInkDropBoosted = false;
             IsGrounded = false;
@@ -333,7 +334,16 @@ namespace MukJump.Player
 
         void OnCollisionEnter2D(Collision2D collision)
         {
-            if (IsDead || collision.collider.GetComponent<ScreenSideWall>() == null) return;
+            if (IsDead) return;
+
+            bool landed = collision.collider.GetComponentInParent<PlatformCollider>() != null;
+            for (int i = 0; !landed && i < collision.contactCount; i++)
+                landed = collision.GetContact(i).normal.y >= groundNormalMinY;
+            if (landed)
+                GameFeedbackController.Instance?.PlayLanding(transform.position,
+                    Mathf.Abs(collision.relativeVelocity.y));
+
+            if (collision.collider.GetComponent<ScreenSideWall>() == null) return;
 
             float inwardDirection = transform.position.x >= collision.transform.position.x ? 1f : -1f;
             float bounceSpeed = Mathf.Max(sideWallBounceSpeed, Mathf.Abs(rb.linearVelocity.x) * 0.55f);

@@ -14,6 +14,7 @@ namespace MukJump.Core
 
         Transform target;
         float startY;
+        bool bestCelebrated;
 
         // OnEnable: Play 중 스크립트 재컴파일로 static이 초기화돼도 다시 할당된다
         void OnEnable()
@@ -44,6 +45,11 @@ namespace MukJump.Core
             if (livingPlayer != null) target = livingPlayer.transform;
             if (target == null) return;
             Height = Mathf.Max(Height, Mathf.RoundToInt(target.position.y - startY));
+            if (!bestCelebrated && Height > Best && Height > 0)
+            {
+                bestCelebrated = true;
+                GameFeedbackController.Instance?.ShowZone("새 최고 고도", $"{Height}m 돌파");
+            }
         }
 
         public void SaveBest()
@@ -60,6 +66,7 @@ namespace MukJump.Core
             if (target == null) return;
             startY = worldY;
             Height = 0;
+            bestCelebrated = false;
         }
 
         public float HeightAt(float worldY) => worldY - startY;
