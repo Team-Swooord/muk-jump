@@ -22,7 +22,7 @@ namespace MukJump.Items
         [SerializeField] float spawnAhead = 12f;
         [SerializeField] float despawnBelow = 10f;
         // 씬에 저장된 예전 직렬화 값과 무관하게 네 아이템의 크기를 항상 동일하게 유지한다.
-        const float ItemWorldWidth = 1.35f;
+        const float ItemWorldWidth = 0.9f;
 
         readonly List<ItemPickup> active = new();
         Camera cam;
