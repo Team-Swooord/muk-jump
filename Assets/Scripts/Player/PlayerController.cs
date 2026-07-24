@@ -345,6 +345,7 @@ namespace MukJump.Player
 
             if (collision.collider.GetComponent<ScreenSideWall>() == null) return;
 
+            GameFeedbackController.Instance?.PlayWallHit();
             float inwardDirection = transform.position.x >= collision.transform.position.x ? 1f : -1f;
             float bounceSpeed = Mathf.Max(sideWallBounceSpeed, Mathf.Abs(rb.linearVelocity.x) * 0.55f);
             rb.linearVelocity = new Vector2(inwardDirection * bounceSpeed, rb.linearVelocity.y);

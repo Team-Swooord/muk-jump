@@ -139,6 +139,7 @@ namespace MukJump.Core
         {
             if (State == GameState.GameOver) return;
             State = GameState.GameOver;
+            GameFeedbackController.Instance?.PlayGameOver();
             gameOverTime = Time.unscaledTime;
             int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
             int previousBest = ScoreManager.Instance != null ? ScoreManager.Instance.Best : 0;

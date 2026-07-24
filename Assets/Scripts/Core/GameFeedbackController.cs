@@ -18,6 +18,13 @@ namespace MukJump.Core
         AudioClip invalidClip;
         AudioClip itemClip;
         AudioClip milestoneClip;
+        AudioClip brushLoopClip;
+        AudioClip brushTransitionClip;
+        AudioClip wallHitClip;
+        AudioClip deathSqueakClip;
+        AudioClip gameOverClip;
+        AudioSource brushSource;
+        float brushSoundUntil;
         Sprite dotSprite;
         Canvas overlayCanvas;
         Text bannerText;
@@ -41,8 +48,58 @@ namespace MukJump.Core
             invalidClip = CreateTone("InvalidStroke", 0.12f, 170f, 125f, 0.16f, 0.2f);
             itemClip = CreateTone("ItemPickup", 0.22f, 420f, 760f, 0.16f, 0.03f);
             milestoneClip = CreateTone("MilestoneSeal", 0.34f, 220f, 440f, 0.2f, 0.08f);
+            brushLoopClip = CreateBrushNoise("BrushDrawing", 0.42f, 0.16f);
+            brushTransitionClip = CreateBrushNoise("BrushTransition", 1.15f, 0.3f, true);
+            wallHitClip = CreateTone("WallHit", 0.11f, 120f, 72f, 0.28f, 0.32f);
+            deathSqueakClip = CreateTone("DeathSqueak", 0.24f, 720f, 155f, 0.25f, 0.04f);
+            gameOverClip = CreateTone("GameOver", 0.58f, 310f, 92f, 0.22f, 0.08f);
+            CreateBrushSource();
             dotSprite = CreateDotSprite();
             CreateOverlay();
+        }
+
+        void Update()
+        {
+            if (brushSource != null && brushSource.isPlaying && Time.unscaledTime > brushSoundUntil)
+                brushSource.Pause();
+        }
+
+        public void PlayBrushMovement(float movement)
+        {
+            if (brushSource == null || brushLoopClip == null) return;
+            brushSoundUntil = Time.unscaledTime + 0.12f;
+            brushSource.volume = Mathf.Lerp(0.16f, 0.34f, Mathf.Clamp01(movement / 0.5f));
+            brushSource.pitch = Mathf.Lerp(0.9f, 1.12f, Mathf.Clamp01(movement / 0.5f));
+            if (!brushSource.isPlaying)
+            {
+                if (brushSource.timeSamples > 0)
+                    brushSource.UnPause();
+                else
+                    brushSource.Play();
+            }
+        }
+
+        public void StopBrushDrawing()
+        {
+            brushSoundUntil = 0f;
+            if (brushSource != null && brushSource.isPlaying)
+                brushSource.Pause();
+        }
+
+        public void PlayBrushTransition()
+        {
+            StopBrushDrawing();
+            VfxAudioManager.Instance?.PlayOneShot(brushTransitionClip, 0.78f);
+        }
+
+        public void PlayWallHit()
+        {
+            VfxAudioManager.Instance?.PlayOneShot(wallHitClip, 0.78f);
+        }
+
+        public void PlayGameOver()
+        {
+            VfxAudioManager.Instance?.PlayOneShot(gameOverClip, 0.9f);
         }
 
         public void PlayJump(Vector3 position)
@@ -85,7 +142,8 @@ namespace MukJump.Core
 
         public void PlayDeath(Vector3 position)
         {
-            VfxAudioManager.Instance?.PlayOneShot(landingClip, 0.9f);
+            StopBrushDrawing();
+            VfxAudioManager.Instance?.PlayOneShot(deathSqueakClip, 0.92f);
             StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.1f, 1.35f,
                 0.42f, 0.12f, 0.75f));
             SpawnDroplets(position, 14, InkPalette.Ink);
@@ -283,6 +341,40 @@ namespace MukJump.Core
                 float tonal = Mathf.Sin(phase) * (1f - noiseAmount);
                 float noise = Random.Range(-1f, 1f) * noiseAmount;
                 samples[i] = (tonal + noise) * envelope * volume;
+            }
+            var clip = AudioClip.Create(name, count, 1, sampleRate, false);
+            clip.SetData(samples, 0);
+            return clip;
+        }
+
+        void CreateBrushSource()
+        {
+            var sourceObject = new GameObject("BrushDrawingAudio");
+            sourceObject.transform.SetParent(transform, false);
+            brushSource = sourceObject.AddComponent<AudioSource>();
+            brushSource.playOnAwake = false;
+            brushSource.loop = true;
+            brushSource.spatialBlend = 0f;
+            brushSource.clip = brushLoopClip;
+        }
+
+        static AudioClip CreateBrushNoise(string name, float duration, float volume,
+            bool fadeOut = false)
+        {
+            const int sampleRate = 44100;
+            int count = Mathf.CeilToInt(duration * sampleRate);
+            var samples = new float[count];
+            float filtered = 0f;
+            for (int i = 0; i < count; i++)
+            {
+                float t = i / (float)(count - 1);
+                float grain = Random.Range(-1f, 1f);
+                filtered = Mathf.Lerp(filtered, grain, 0.18f);
+                float bristle = Mathf.Sin(t * Mathf.PI * 2f * 23f) * 0.12f;
+                float envelope = fadeOut
+                    ? Mathf.Sin(Mathf.PI * t) * Mathf.Pow(1f - t, 0.28f)
+                    : 0.72f + Mathf.Sin(t * Mathf.PI * 2f * 3f) * 0.18f;
+                samples[i] = (filtered * 0.88f + bristle) * envelope * volume;
             }
             var clip = AudioClip.Create(name, count, 1, sampleRate, false);
             clip.SetData(samples, 0);

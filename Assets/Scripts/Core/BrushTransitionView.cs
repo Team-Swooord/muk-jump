@@ -94,6 +94,7 @@ namespace MukJump.Core
         IEnumerator PlayRoutine(Action onCovered)
         {
             playing = true;
+            GameFeedbackController.Instance?.PlayBrushTransition();
             group.alpha = 1f;
             group.blocksRaycasts = true;
             wash.canvasRenderer.SetAlpha(0f);

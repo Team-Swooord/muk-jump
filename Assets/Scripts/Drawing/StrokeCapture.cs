@@ -220,12 +220,14 @@ namespace MukJump.Drawing
             if (!lobbyStroke && !HasUnlimitedInk)
                 ink = Mathf.Max(0f, ink - step);
             points.Add(world);
+            GameFeedbackController.Instance?.PlayBrushMovement(step);
             UpdatePreview();
         }
 
         void EndStroke(bool startGame = false)
         {
             drawing = false;
+            GameFeedbackController.Instance?.StopBrushDrawing();
             DestroyPreview();
             Vector2 feedbackPosition = points.Count > 0 ? points[^1] : Vector2.zero;
 
@@ -264,6 +266,7 @@ namespace MukJump.Drawing
         void CancelStroke()
         {
             drawing = false;
+            GameFeedbackController.Instance?.StopBrushDrawing();
             DestroyPreview();
         }
 
