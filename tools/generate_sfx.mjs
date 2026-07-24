@@ -66,12 +66,12 @@ writeWav("SFX_Wall_Hit.wav", 0.18, (t, p, phase, filtered) => {
   return { value: (Math.sin(phase) * 0.76 + filtered * 0.38) * envelope * 0.9, phase, filtered };
 });
 
-writeWav("SFX_Character_Death.wav", 0.38, (t, p, phase) => {
-  const frequency = 1280 * (1 - p) ** 2 + 145;
+writeWav("SFX_Character_Death.wav", 0.19, (t, p, phase) => {
+  const frequency = 940 * (1 - p) ** 1.7 + 210;
   phase += frequency / sampleRate * Math.PI * 2;
-  const envelope = Math.sin(Math.PI * Math.min(1, p / 0.1)) * Math.exp(-p * 3.2);
-  const squeak = Math.sin(phase) * 0.78 + Math.sin(phase * 2.03) * 0.18;
-  return { value: squeak * envelope * 0.92, phase };
+  const attack = Math.min(1, p / 0.045);
+  const envelope = attack * Math.exp(-p * 4.8);
+  return { value: Math.sin(phase) * envelope * 0.94, phase };
 });
 
 writeWav("SFX_Game_Over.wav", 0.78, (t, p, phase) => {

@@ -25,6 +25,7 @@ namespace MukJump.Core
         AudioClip gameOverClip;
         AudioSource brushSource;
         AudioSource accentSource;
+        Coroutine gameOverSoundRoutine;
         Sprite dotSprite;
         Canvas overlayCanvas;
         Text bannerText;
@@ -125,7 +126,8 @@ namespace MukJump.Core
         public void PlayGameOver()
         {
             EnsureInitialized();
-            PlayAccent(gameOverClip, 0.82f);
+            if (gameOverSoundRoutine != null) StopCoroutine(gameOverSoundRoutine);
+            gameOverSoundRoutine = StartCoroutine(PlayGameOverAfterDeath());
         }
 
         public void PlayJump(Vector3 position)
@@ -415,6 +417,14 @@ namespace MukJump.Core
         {
             if (accentSource == null || clip == null) return;
             accentSource.PlayOneShot(clip, Mathf.Clamp01(volume));
+        }
+
+        IEnumerator PlayGameOverAfterDeath()
+        {
+            // 마지막 캐릭터의 짧은 "찍" 사망음이 먼저 온전히 들린 뒤 종료음을 붙인다.
+            yield return new WaitForSecondsRealtime(0.24f);
+            PlayAccent(gameOverClip, 0.74f);
+            gameOverSoundRoutine = null;
         }
 
         static AudioClip CreateBrushNoise(string name, float duration, float volume,

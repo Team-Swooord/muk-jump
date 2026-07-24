@@ -671,3 +671,12 @@
   외부 파일 로드 실패 시 자체 제작 붓 WAV와 런타임 합성 순서로 폴백한다.
 - 출처·라이선스: Pixabay `brush`(ID 83215), Reitanna (Freesound),
   Pixabay Content License
+
+### 2026-07-24 — 캐릭터 사망음 `찍` 톤 재조정
+
+- 사용 도구: OpenAI Codex, Node.js PCM 생성 스크립트
+- 목적: 길고 배음이 섞여 이상하게 들리는 사망음을 짧고 명확한 `찍` 소리로 복원
+- 주요 프롬프트/지시: 이전처럼 짧은 `찍` 소리가 나도록 사망음 수정
+- 결과물: `SFX_Character_Death.wav`, `GameFeedbackController.cs`
+- 구현 메모: 사망음을 0.38초 복합 배음에서 0.19초 단일 사인파 고음 하강음으로 교체하고,
+  마지막 캐릭터의 게임 종료음은 0.24초 뒤에 재생해 두 음이 겹치지 않도록 했다.
