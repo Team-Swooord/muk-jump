@@ -644,3 +644,18 @@
 - 구현 메모: Play 중 스크립트 재컴파일에서는 `Awake`가 다시 호출되지 않아 비직렬화
   AudioClip 참조가 null이 될 수 있다. `OnEnable`과 모든 재생 진입점에서 합성 클립과
   전용 AudioSource를 재확인·복원하며, 기존 자식 소스를 재사용해 중복 생성을 막는다.
+
+### 2026-07-24 — 실제 WAV 효과음 제작과 Missing Script 원인 수정
+
+- 사용 도구: OpenAI Codex, Node.js PCM 생성 스크립트
+- 목적: 런타임 합성에만 의존하지 않고 프로젝트에서 직접 확인 가능한 효과음 파일을 적용하며
+  `The referenced script (Unknown)` 경고의 구조적 원인을 제거
+- 주요 프롬프트/지시: 소리가 계속 들리지 않으므로 실제 음원을 만들고 Missing Script도 수정
+- 결과물: `Assets/Resources/MukJump/Audio/SFX/`의 붓 드로잉·붓 전환·벽 충돌·
+  캐릭터 사망·게임 종료 WAV 5종, `tools/generate_sfx.mjs`, `GameOverPopupView.cs`
+- 구현 메모: 44.1kHz 16-bit mono PCM WAV를 저장하고 `Resources.Load`로 불러오며,
+  로드 실패 시에만 기존 런타임 합성을 폴백으로 사용한다. 파일명과 다른 소스 파일에 두 번째
+  MonoBehaviour로 선언돼 씬에 런타임 fileID가 저장되던 `GameOverPopupView`를 독립 파일로
+  분리해 정상 GUID를 갖도록 했다.
+- 사람의 수정/검토 내용: `MukJump > Build Main Scene` 재실행 후 Missing Script 경고 제거,
+  Inspector 미리듣기와 실제 플레이 음량 확인 예정
