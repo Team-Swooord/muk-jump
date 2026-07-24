@@ -33,6 +33,7 @@ namespace MukJump.Core
         void OnEnable()
         {
             Instance = this;
+            EnsureInitialized();
         }
 
         void OnDisable()
@@ -42,6 +43,13 @@ namespace MukJump.Core
 
         void Awake()
         {
+            EnsureInitialized();
+        }
+
+        void EnsureInitialized()
+        {
+            if (jumpClip != null && brushSource != null && accentSource != null) return;
+
             jumpClip = CreateTone("JumpBrush", 0.16f, 240f, 520f, 0.18f, 0.04f);
             landingClip = CreateTone("LandingInk", 0.13f, 150f, 82f, 0.24f, 0.18f);
             drawClip = CreateTone("DrawSet", 0.1f, 390f, 320f, 0.12f, 0.08f);
@@ -54,12 +62,23 @@ namespace MukJump.Core
             deathSqueakClip = CreateTone("DeathSqueak", 0.32f, 1080f, 185f, 0.68f, 0.025f);
             gameOverClip = CreateTone("GameOver", 0.58f, 310f, 92f, 0.42f, 0.08f);
             CreateDedicatedAudioSources();
-            dotSprite = CreateDotSprite();
-            CreateOverlay();
+            if (dotSprite == null) dotSprite = CreateDotSprite();
+            if (bannerText == null)
+            {
+                var existingBanner = transform.Find("FeedbackOverlay/ZoneBanner");
+                if (existingBanner != null)
+                {
+                    bannerText = existingBanner.GetComponent<Text>();
+                    overlayCanvas = existingBanner.GetComponentInParent<Canvas>();
+                }
+                else
+                    CreateOverlay();
+            }
         }
 
         public void StartBrushDrawing()
         {
+            EnsureInitialized();
             if (brushSource == null || brushLoopClip == null || brushSource.isPlaying) return;
             brushSource.volume = 0.28f;
             brushSource.pitch = Random.Range(0.94f, 1.04f);
@@ -71,6 +90,7 @@ namespace MukJump.Core
 
         public void PlayBrushMovement(float movement)
         {
+            EnsureInitialized();
             if (brushSource == null || brushLoopClip == null) return;
             brushSource.volume = Mathf.Lerp(0.24f, 0.4f, Mathf.Clamp01(movement / 0.5f));
             brushSource.pitch = Mathf.Lerp(0.9f, 1.12f, Mathf.Clamp01(movement / 0.5f));
@@ -84,22 +104,26 @@ namespace MukJump.Core
 
         public void PlayBrushTransition()
         {
+            EnsureInitialized();
             StopBrushDrawing();
             VfxAudioManager.Instance?.PlayOneShot(brushTransitionClip, 0.78f);
         }
 
         public void PlayWallHit()
         {
+            EnsureInitialized();
             VfxAudioManager.Instance?.PlayOneShot(wallHitClip, 0.78f);
         }
 
         public void PlayGameOver()
         {
+            EnsureInitialized();
             PlayAccent(gameOverClip, 0.82f);
         }
 
         public void PlayJump(Vector3 position)
         {
+            EnsureInitialized();
             VfxAudioManager.Instance?.PlayOneShot(jumpClip, 0.72f);
             StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.18f, 0.78f, 0.24f, 0.07f, 0.2f));
             StartCoroutine(AnimateBrushStreak(position + Vector3.down * 0.25f));
@@ -107,6 +131,7 @@ namespace MukJump.Core
 
         public void PlayLanding(Vector3 position, float impactSpeed)
         {
+            EnsureInitialized();
             float strength = Mathf.InverseLerp(2f, 14f, impactSpeed);
             VfxAudioManager.Instance?.PlayOneShot(landingClip, Mathf.Lerp(0.45f, 0.9f, strength));
             StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.12f,
@@ -116,6 +141,7 @@ namespace MukJump.Core
 
         public void PlayStrokeResolved(Vector3 position, bool valid)
         {
+            EnsureInitialized();
             if (valid)
             {
                 VfxAudioManager.Instance?.PlayOneShot(drawClip, 0.55f);
@@ -130,6 +156,7 @@ namespace MukJump.Core
 
         public void PlayItemPickup(Vector3 position, ItemType type)
         {
+            EnsureInitialized();
             Color color = type == ItemType.GoldenBrush ? InkPalette.Gold : InkPalette.Ink;
             VfxAudioManager.Instance?.PlayOneShot(itemClip, 0.72f);
             StartCoroutine(AnimateRing(position, color, 0.2f, 1.15f, 0.38f, 0.08f, 0.15f));
@@ -138,6 +165,7 @@ namespace MukJump.Core
 
         public void PlayDeath(Vector3 position)
         {
+            EnsureInitialized();
             StopBrushDrawing();
             PlayAccent(deathSqueakClip, 1f);
             StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.1f, 1.35f,
@@ -147,6 +175,7 @@ namespace MukJump.Core
 
         public void ShowZone(string title, string subtitle)
         {
+            EnsureInitialized();
             VfxAudioManager.Instance?.PlayOneShot(milestoneClip, 0.72f);
             if (bannerRoutine != null) StopCoroutine(bannerRoutine);
             bannerRoutine = StartCoroutine(AnimateBanner(title, subtitle));
@@ -345,17 +374,25 @@ namespace MukJump.Core
 
         void CreateDedicatedAudioSources()
         {
-            var sourceObject = new GameObject("BrushDrawingAudio");
-            sourceObject.transform.SetParent(transform, false);
-            brushSource = sourceObject.AddComponent<AudioSource>();
+            var brushTransform = transform.Find("BrushDrawingAudio");
+            var sourceObject = brushTransform != null
+                ? brushTransform.gameObject
+                : new GameObject("BrushDrawingAudio");
+            if (brushTransform == null) sourceObject.transform.SetParent(transform, false);
+            brushSource = sourceObject.GetComponent<AudioSource>();
+            if (brushSource == null) brushSource = sourceObject.AddComponent<AudioSource>();
             brushSource.playOnAwake = false;
             brushSource.loop = true;
             brushSource.spatialBlend = 0f;
             brushSource.clip = brushLoopClip;
 
-            var accentObject = new GameObject("PriorityAccentAudio");
-            accentObject.transform.SetParent(transform, false);
-            accentSource = accentObject.AddComponent<AudioSource>();
+            var accentTransform = transform.Find("PriorityAccentAudio");
+            var accentObject = accentTransform != null
+                ? accentTransform.gameObject
+                : new GameObject("PriorityAccentAudio");
+            if (accentTransform == null) accentObject.transform.SetParent(transform, false);
+            accentSource = accentObject.GetComponent<AudioSource>();
+            if (accentSource == null) accentSource = accentObject.AddComponent<AudioSource>();
             accentSource.playOnAwake = false;
             accentSource.loop = false;
             accentSource.spatialBlend = 0f;
