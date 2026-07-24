@@ -29,6 +29,7 @@
 | `Inkdrop Ascent.mp3` | 팀 Suno Pro 계정에서 직접 생성 | 생성 당시 유료 구독 상업 이용 권한 |
 | `SFX_Brush_Community.mp3` | Pixabay `brush` · Reitanna (Freesound), ID 83215 | Pixabay Content License |
 | `SFX_Character_Death_Slime.mp3` | Pixabay `Slime Squish 5` · floraphonic, ID 218569 | Pixabay Content License |
+| `SFX_Game_Over_Ink_Spill.mp3` | Pixabay 다운로드 `freesound_community-2`, ID 108080 | Pixabay Content License |
 
 ---
 
@@ -692,3 +693,13 @@
   유지한다. 마지막 캐릭터의 게임 종료음은 사망 클립 전체 길이와 0.04초 여백 뒤에 재생한다.
 - 출처·라이선스: Pixabay `Slime Squish 5`(ID 218569), floraphonic,
   Pixabay Content License
+
+### 2026-07-24 — 제공된 먹물 쏟아짐 게임 종료음 적용
+
+- 사용 도구: OpenAI Codex
+- 목적: 기존 합성 종료음을 먹물이 엎질러지며 결과 팝업이 나타나는 느낌의 음원으로 교체
+- 입력 에셋: `freesound_community-2-108080.mp3`, 약 0.6초, 24kHz stereo
+- 결과물: `Assets/Resources/MukJump/Audio/SFX/SFX_Game_Over_Ink_Spill.mp3`
+- 구현 메모: 마지막 캐릭터의 슬라임 사망음이 끝난 뒤 새 먹물 쏟아짐 음원을 재생하고,
+  기존 자체 제작 게임 종료 WAV는 로드 실패용 폴백으로 유지한다.
+- 출처·라이선스: Pixabay 다운로드 파일 ID 108080, Pixabay Content License

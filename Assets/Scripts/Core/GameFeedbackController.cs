@@ -68,7 +68,8 @@ namespace MukJump.Core
             deathSqueakClip = LoadSfx("SFX_Character_Death_Slime") ??
                               LoadSfx("SFX_Character_Death") ??
                               CreateTone("DeathSqueak", 0.32f, 1080f, 185f, 0.68f, 0.025f);
-            gameOverClip = LoadSfx("SFX_Game_Over") ??
+            gameOverClip = LoadSfx("SFX_Game_Over_Ink_Spill") ??
+                           LoadSfx("SFX_Game_Over") ??
                            CreateTone("GameOver", 0.58f, 310f, 92f, 0.42f, 0.08f);
             CreateDedicatedAudioSources();
             if (dotSprite == null) dotSprite = CreateDotSprite();
