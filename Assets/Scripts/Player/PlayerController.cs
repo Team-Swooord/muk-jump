@@ -2,6 +2,7 @@ using UnityEngine;
 using MukJump.Core;
 using MukJump.Drawing;
 using System;
+using System.Collections.Generic;
 
 namespace MukJump.Player
 {
@@ -16,6 +17,8 @@ namespace MukJump.Player
         [SerializeField] Sprite deathSplashSprite;
         [SerializeField, Min(0.1f)] float deathSplashDuration = 0.65f;
         [SerializeField, Min(0.1f)] float deathSplashWorldWidth = 2.6f;
+        [Tooltip("한 화면에 누적할 수 있는 먹 사망 자국 수")]
+        [SerializeField, Min(1)] int maxDeathStains = 20;
         [Tooltip("방어막 소모 직후 겹친 장애물에 같은 프레임으로 다시 맞는 것을 막는 시간")]
         [SerializeField, Min(0f)] float shieldHitGraceDuration = 0.35f;
         [Tooltip("새 분신이 장애물 위에 생성되어 즉사하지 않도록 보호하는 시간")]
@@ -51,6 +54,7 @@ namespace MukJump.Player
         bool inkDropHasRisen;
         float normalGravityScale;
         float damageInvulnerableUntil;
+        static readonly Queue<GameObject> deathStains = new();
 
         void OnEnable()
         {
@@ -235,14 +239,15 @@ namespace MukJump.Player
 
             if (deathSplashSprite != null)
             {
-                var splashObject = new GameObject("DeathInkSplash");
-                splashObject.transform.SetParent(transform, false);
-                splashObject.transform.localRotation =
+                // 죽은 분신 오브젝트가 정리되어도 한지 위 먹 자국은 월드에 남긴다.
+                var splashObject = new GameObject("DeathInkStain");
+                splashObject.transform.position = transform.position;
+                splashObject.transform.rotation =
                     Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(-18f, 18f));
                 var splashRenderer = splashObject.AddComponent<SpriteRenderer>();
                 splashRenderer.sprite = deathSplashSprite;
-                splashRenderer.sortingOrder =
-                    playerRenderer != null ? playerRenderer.sortingOrder + 3 : 8;
+                // 캐릭터와 아이템 아래, 드로잉 발판 위에 종이 얼룩처럼 남는다.
+                splashRenderer.sortingOrder = 2;
 
                 float spriteWidth = Mathf.Max(0.01f, deathSplashSprite.bounds.size.x);
                 float finalScale = deathSplashWorldWidth / spriteWidth;
@@ -254,12 +259,15 @@ namespace MukJump.Player
                     float eased = 1f - Mathf.Pow(1f - t, 3f);
                     float scale = Mathf.Lerp(finalScale * 0.18f, finalScale, eased);
                     splashObject.transform.localScale = Vector3.one * scale;
-                    Color color = Color.white;
-                    color.a = t < 0.58f ? 1f : 1f - Mathf.InverseLerp(0.58f, 1f, t);
-                    splashRenderer.color = color;
                     yield return null;
                 }
-                Destroy(splashObject);
+
+                deathStains.Enqueue(splashObject);
+                while (deathStains.Count > Mathf.Max(1, maxDeathStains))
+                {
+                    var oldest = deathStains.Dequeue();
+                    if (oldest != null) Destroy(oldest);
+                }
             }
             else
                 yield return new WaitForSeconds(deathSplashDuration);
