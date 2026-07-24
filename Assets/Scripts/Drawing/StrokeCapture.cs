@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 using MukJump.Core;
+using MukJump.AI;
+using UnityEngine.UI;
 
 namespace MukJump.Drawing
 {
@@ -11,10 +13,12 @@ namespace MukJump.Drawing
         [Tooltip("이 간격(월드 단위) 이상 움직였을 때만 점 추가")]
         [SerializeField] float minPointDistance = 0.15f;
         [Tooltip("한 획의 최대 길이. 넘치면 그 지점에서 획을 끊고 이어 그린다")]
-        [SerializeField] float maxStrokeLength = 6f;
+        [SerializeField] float maxContinuousStrokeLength = 30f;
         [Tooltip("이보다 짧은 획은 발판으로 만들지 않는다")]
         [SerializeField] float minStrokeLength = 0.6f;
         [SerializeField] float previewWidth = 0.4f;
+        [Tooltip("LineSprite 프리팹의 600px 붓획 텍스처")]
+        [SerializeField] Texture2D lineSpriteTexture;
         [Tooltip("캐릭터에서 이 거리 안에 획이 들어오면 발판을 만들지 않는다 (물리 밀어내기 악용 방지)")]
         [SerializeField] float playerClearance = 0.75f;
 
@@ -28,25 +32,102 @@ namespace MukJump.Drawing
 
         readonly List<Vector2> points = new();
         Camera cam;
-        Transform player;
         bool drawing;
         float strokeLength;
         float ink;
         LineRenderer preview;
+        float unlimitedInkUntil;
 
         /// HUD 먹 게이지용: 전체 먹 잔량 비율
-        public float InkRemaining01 => Mathf.Clamp01(ink / inkCapacity);
+        public bool HasUnlimitedInk => Time.time < unlimitedInkUntil;
+        public float InkRemaining01 => HasUnlimitedInk ? 1f : Mathf.Clamp01(ink / inkCapacity);
+
+        public void ActivateUnlimitedInk(float duration)
+        {
+            unlimitedInkUntil = Mathf.Max(unlimitedInkUntil, Time.time + duration);
+        }
 
         void Start()
         {
             cam = Camera.main;
+            if (cam == null)
+                Debug.LogError("[MukJump] MainCamera를 찾을 수 없어 드로잉 좌표를 변환할 수 없습니다.", this);
             ink = inkCapacity;
-            var pc = FindFirstObjectByType<Player.PlayerController>();
-            if (pc != null) player = pc.transform;
+            UseLineSpriteFromMainUi();
+        }
+
+        void UseLineSpriteFromMainUi()
+        {
+            // LineSprite는 붓결 텍스처를 보관하는 제작용 프리팹이다. 씬에 남아 있는
+            // 이전 빌드의 인스턴스는 화면 중앙에 획처럼 보이지 않도록 즉시 숨긴다.
+            HideLineSpriteTemplates();
+
+            if (lineSpriteTexture != null)
+            {
+                FallbackInkStyle.SetBrushTexture(lineSpriteTexture);
+                return;
+            }
+
+            var rawImages = FindObjectsByType<RawImage>(FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int i = 0; i < rawImages.Length; i++)
+            {
+                if (!rawImages[i].name.Equals("LineSprite", System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+                FallbackInkStyle.SetBrushTexture(rawImages[i].texture as Texture2D);
+                return;
+            }
+
+            // 기존 Main을 재빌드하지 않아도 LineSprite 프리팹과 같은 원본 텍스처를 쓰는
+            // 고도 먹 UI에서 텍스처를 가져올 수 있다.
+            for (int i = 0; i < rawImages.Length; i++)
+            {
+                if (rawImages[i].texture is not Texture2D texture ||
+                    !texture.name.Equals("muk_start_button", System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+                FallbackInkStyle.SetBrushTexture(texture);
+                return;
+            }
+
+            var images = FindObjectsByType<Image>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < images.Length; i++)
+            {
+                if (!images[i].name.Equals("LineSprite", System.StringComparison.OrdinalIgnoreCase) ||
+                    images[i].sprite == null) continue;
+                FallbackInkStyle.SetBrushTexture(images[i].sprite.texture);
+                return;
+            }
+
+            Debug.LogWarning("[MukJump] Main UI에서 LineSprite를 찾지 못해 기존 절차적 붓선을 사용합니다.", this);
+        }
+
+        static void HideLineSpriteTemplates()
+        {
+            var rawImages = FindObjectsByType<RawImage>(FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int i = 0; i < rawImages.Length; i++)
+            {
+                if (rawImages[i].name.Equals("LineSprite", System.StringComparison.OrdinalIgnoreCase))
+                    rawImages[i].gameObject.SetActive(false);
+            }
         }
 
         void Update()
         {
+            if (cam == null) return;
+
+            if (GameManager.Instance == null)
+            {
+                if (drawing) CancelStroke();
+                return;
+            }
+
+            if (GameManager.Instance.State == GameState.Lobby)
+            {
+                UpdateLobbyStroke();
+                return;
+            }
+
             if (GameManager.Instance.State != GameState.Playing)
             {
                 if (drawing) CancelStroke();
@@ -58,14 +139,35 @@ namespace MukJump.Drawing
 
             if (PointerInput.TryGetPressed(out var screenPos))
             {
+                if (GameplayHudView.IsPointerOverItemTestControls(screenPos))
+                {
+                    if (drawing) CancelStroke();
+                    return;
+                }
+
                 if (drawing)
                     ContinueStroke(screenPos);
-                else if (ink >= minInkToStart)
+                else if (HasUnlimitedInk || ink >= minInkToStart)
                     BeginStroke(screenPos);
             }
             else if (drawing)
             {
                 EndStroke();
+            }
+        }
+
+        void UpdateLobbyStroke()
+        {
+            if (PointerInput.TryGetPressed(out var screenPos))
+            {
+                if (drawing)
+                    ContinueStroke(screenPos);
+                else
+                    BeginStroke(screenPos);
+            }
+            else if (drawing)
+            {
+                EndStroke(startGame: true);
             }
         }
 
@@ -87,12 +189,14 @@ namespace MukJump.Drawing
 
         void ContinueStroke(Vector2 screenPos)
         {
+            bool lobbyStroke = GameManager.Instance != null &&
+                               GameManager.Instance.State == GameState.Lobby;
             Vector2 world = ToWorld(screenPos);
             float step = Vector2.Distance(points[^1], world);
             if (step < minPointDistance) return;
 
             // 먹이 다 떨어지면 그 지점에서 획이 끝난다 — 회복될 때까지 더 그릴 수 없다
-            if (ink <= 0f)
+            if (!lobbyStroke && !HasUnlimitedInk && ink <= 0f)
             {
                 EndStroke();
                 return;
@@ -101,8 +205,11 @@ namespace MukJump.Drawing
             // 한 획의 최대 길이 초과 시 그 지점에서 끊고, 손을 떼지 않았다면 바로 그
             // 지점에서 새 획을 이어 시작한다 (끊지 않으면 다음 프레임의 이동분만큼 틈이
             // 생겨 일직선으로 길게 그은 발판 중간이 붕 뜨는 문제가 있었음)
-            if (strokeLength + step > maxStrokeLength)
+            if (strokeLength + step > maxContinuousStrokeLength)
             {
+                // 로비의 시작선은 한 획만 인정하므로 최대 길이에 도달하면 손을 뗄 때까지 유지한다.
+                if (lobbyStroke) return;
+
                 Vector2 seam = points[^1];
                 EndStroke();
                 BeginStrokeAtWorld(seam);
@@ -110,12 +217,13 @@ namespace MukJump.Drawing
             }
 
             strokeLength += step;
-            ink = Mathf.Max(0f, ink - step);
+            if (!lobbyStroke && !HasUnlimitedInk)
+                ink = Mathf.Max(0f, ink - step);
             points.Add(world);
             UpdatePreview();
         }
 
-        void EndStroke()
+        void EndStroke(bool startGame = false)
         {
             drawing = false;
             DestroyPreview();
@@ -127,9 +235,11 @@ namespace MukJump.Drawing
 
             // 캐릭터와 겹치거나 너무 가까운 획은 무효 — 콜라이더 밀어내기로 캐릭터를
             // 튕겨 올리는 악용(반복 드로잉 탈출)을 막는다
-            if (TooCloseToPlayer(smoothed)) return;
+            if (!startGame && TooCloseToPlayer(smoothed)) return;
 
             PlatformCollider.Spawn(smoothed);
+            if (startGame)
+                GameManager.Instance?.StartGameFromStroke();
         }
 
         void CancelStroke()
@@ -140,12 +250,17 @@ namespace MukJump.Drawing
 
         bool TooCloseToPlayer(List<Vector2> strokePoints)
         {
-            if (player == null) return false;
-            Vector2 center = player.position;
-            foreach (var p in strokePoints)
+            var players = FindObjectsByType<Player.PlayerController>(FindObjectsSortMode.None);
+            if (players.Length == 0) return false;
+            for (int i = 0; i < players.Length; i++)
             {
-                if (Vector2.Distance(p, center) < playerClearance)
-                    return true;
+                if (players[i].IsDead) continue;
+                Vector2 center = players[i].transform.position;
+                foreach (var p in strokePoints)
+                {
+                    if (Vector2.Distance(p, center) < playerClearance)
+                        return true;
+                }
             }
             return false;
         }

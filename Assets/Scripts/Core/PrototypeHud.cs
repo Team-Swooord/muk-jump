@@ -1,6 +1,5 @@
 using UnityEngine;
 using MukJump.Drawing;
-using MukJump.Player;
 
 namespace MukJump.Core
 {
@@ -14,117 +13,35 @@ namespace MukJump.Core
         [SerializeField] Texture2D inkGaugeTrack;
         [Tooltip("게이지 오른쪽 끝의 붓 아이콘")]
         [SerializeField] Texture2D inkBrushIcon;
+        [Tooltip("황금 붓 아이템 활성 중 게이지 끝에 표시할 실제 아이템 이미지")]
+        [SerializeField] Texture2D goldenBrushItemIcon;
 
-        AutoJump autoJump;
         StrokeCapture strokeCapture;
-        GUIStyle titleStyle;
-        GUIStyle bodyStyle;
+        Texture2D goldenBrushIcon;
 
         void Start()
         {
-            autoJump = FindFirstObjectByType<AutoJump>();
             strokeCapture = FindFirstObjectByType<StrokeCapture>();
+            goldenBrushIcon = goldenBrushItemIcon != null
+                ? goldenBrushItemIcon
+                : CreateColoredSilhouette(inkBrushIcon, new Color(1f, 0.68f, 0.08f));
         }
 
         void OnGUI()
         {
-            if (titleStyle == null)
-            {
-                titleStyle = new GUIStyle(GUI.skin.label)
-                {
-                    fontStyle = FontStyle.Bold,
-                    alignment = TextAnchor.MiddleCenter,
-                };
-                bodyStyle = new GUIStyle(titleStyle) { fontStyle = FontStyle.Normal };
-            }
-
-            // 뷰(Game/Simulator) 전환으로 해상도가 바뀌어도 잘리지 않도록 매 프레임 갱신
-            titleStyle.fontSize = Screen.height / 22;
-            bodyStyle.fontSize = Screen.height / 34;
-            float titleH = titleStyle.fontSize * 1.6f;
-            float bodyH = bodyStyle.fontSize * 1.6f;
+            if (GameManager.Instance == null) return;
 
             if (GameManager.Instance.State == GameState.Lobby)
-            {
-                DrawLobby(bodyH);
                 return;
-            }
-
-            var score = ScoreManager.Instance;
-            if (score != null)
-            {
-                titleStyle.normal.textColor = InkPalette.TextDark;
-                GUI.Label(new Rect(0, Screen.height * 0.03f, Screen.width, titleH), $"고도 {score.Height}", titleStyle);
-                bodyStyle.normal.textColor = InkPalette.TextMuted;
-                GUI.Label(new Rect(0, Screen.height * 0.03f + titleH, Screen.width, bodyH), $"최고 {score.Best}", bodyStyle);
-            }
 
             if (GameManager.Instance.State == GameState.GameOver)
             {
-                titleStyle.normal.textColor = InkPalette.Red;
-                GUI.Label(new Rect(0, Screen.height * 0.42f, Screen.width, titleH), "추락…", titleStyle);
-                bodyStyle.normal.textColor = InkPalette.TextDark;
-                GUI.Label(new Rect(0, Screen.height * 0.42f + titleH, Screen.width, bodyH), "화면을 터치해 다시 도전", bodyStyle);
                 return;
-            }
-
-            // 다음 점프까지 남은 시간 게이지 (발판 그릴 타이밍 안내) — 점수 텍스트 아래
-            if (autoJump != null && autoJump.IsCharging)
-            {
-                float w = Screen.width * 0.4f;
-                float h = Screen.height * 0.012f;
-                float gaugeY = Screen.height * 0.03f + titleH + bodyH + Screen.height * 0.015f;
-                var back = new Rect((Screen.width - w) / 2, gaugeY, w, h);
-                DrawRect(back, InkPalette.Paper2);
-                var fill = back;
-                fill.width = w * autoJump.ChargeRatio;
-                DrawRect(fill, InkPalette.Red);
             }
 
             // 화면 하단 먹 게이지: 전역 잉크 잔량
             if (strokeCapture != null)
                 DrawInkGauge(strokeCapture.InkRemaining01);
-        }
-
-        /// 로비(타이틀) 화면: 산수화 배경 위에 제목 + 낙관 도장 + 시작 안내
-        void DrawLobby(float bodyH)
-        {
-            // 제목
-            var big = new GUIStyle(titleStyle) { fontSize = Screen.height / 9 };
-            big.normal.textColor = InkPalette.Ink;
-            float titleY = Screen.height * 0.24f;
-            float bigH = big.fontSize * 1.4f;
-            GUI.Label(new Rect(0, titleY, Screen.width, bigH), "먹점프", big);
-
-            // 낙관 도장: 제목 오른쪽 아래에 찍힌 붉은 인장
-            float seal = Screen.height / 26f;
-            var sealRect = new Rect(Screen.width * 0.5f + big.fontSize * 1.6f, titleY + bigH * 0.62f, seal, seal);
-            DrawRect(sealRect, InkPalette.Red);
-            var sealStyle = new GUIStyle(bodyStyle) { fontSize = (int)(seal * 0.62f) };
-            sealStyle.normal.textColor = InkPalette.TextLight;
-            GUI.Label(sealRect, "印", sealStyle);
-
-            // 부제
-            bodyStyle.normal.textColor = InkPalette.TextMuted;
-            GUI.Label(new Rect(0, titleY + bigH + 6, Screen.width, bodyH),
-                "선 하나가 발판이 되고, 발판 하나가 그림이 된다", bodyStyle);
-
-            // 시작 안내 (은은하게 깜빡임)
-            float blink = 0.45f + 0.35f * Mathf.Sin(Time.unscaledTime * 3f);
-            var prompt = new GUIStyle(titleStyle) { fontSize = Screen.height / 26 };
-            var c = InkPalette.TextDark;
-            c.a = blink;
-            prompt.normal.textColor = c;
-            GUI.Label(new Rect(0, Screen.height * 0.62f, Screen.width, prompt.fontSize * 1.6f),
-                "화면을 터치해 붓을 들기", prompt);
-
-            // 최고 기록
-            if (ScoreManager.Instance != null && ScoreManager.Instance.Best > 0)
-            {
-                bodyStyle.normal.textColor = InkPalette.TextMuted;
-                GUI.Label(new Rect(0, Screen.height * 0.62f + prompt.fontSize * 1.8f, Screen.width, bodyH),
-                    $"최고 고도 {ScoreManager.Instance.Best}", bodyStyle);
-            }
         }
 
         /// 붓 획 모양 먹 게이지: 트랙 위에 fill을 왼쪽부터 잔량만큼 잘라 그리고,
@@ -160,18 +77,156 @@ namespace MukJump.Core
             var area = new Rect(x, y, w, h);
             GUI.DrawTexture(area, inkGaugeTrack, ScaleMode.StretchToFill);
 
+            bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
+
             if (ratio > 0f)
             {
                 // 왼쪽부터 잔량 비율만큼만 가로로 잘라 그린다 (UV도 같은 비율로 잘라 왜곡 방지)
-                var clipped = new Rect(x, y, w * ratio, h);
-                GUI.DrawTextureWithTexCoords(clipped, inkGaugeFill, new Rect(0f, 0f, ratio, 1f));
+                // 먹이 줄어들 때 왼쪽부터 비워지고 붓이 있는 오른쪽 방향으로 잔량이 남는다.
+                float remainingX = x + w * (1f - ratio);
+                var clipped = new Rect(remainingX, y, w * ratio, h);
+                GUI.DrawTextureWithTexCoords(clipped, inkGaugeFill,
+                    new Rect(1f - ratio, 0f, ratio, 1f));
             }
+
+            if (golden)
+                DrawGoldenGaugeEffect(area);
 
             if (inkBrushIcon != null)
             {
                 var iconRect = new Rect(x + w - overlap, centerY - iconSize / 2, iconSize, iconSize);
-                GUI.DrawTexture(iconRect, inkBrushIcon, ScaleMode.ScaleToFit);
+                Color previousColor = GUI.color;
+                if (golden)
+                {
+                    float pulse = 1f + 0.055f * Mathf.Sin(Time.unscaledTime * 6f);
+                    iconRect = ScaleAroundCenter(iconRect, pulse);
+                    iconRect = new Rect(iconRect.center.x - iconRect.width * 0.78f,
+                        iconRect.center.y - iconRect.height * 0.53f,
+                        iconRect.width * 1.56f, iconRect.height * 1.06f);
+                    DrawGoldenIconHalo(iconRect);
+                    // golden_brush 원본 색이 보이도록 별도의 Tint를 곱하지 않는다.
+                    GUI.color = Color.white;
+                }
+                GUI.DrawTexture(iconRect, golden && goldenBrushIcon != null
+                    ? goldenBrushIcon : inkBrushIcon, ScaleMode.ScaleToFit);
+                if (golden) DrawGoldenIconSparkles(iconRect);
+                GUI.color = previousColor;
             }
+        }
+
+        static void DrawGoldenGaugeEffect(Rect area)
+        {
+            float time = Time.unscaledTime;
+            Color previous = GUI.color;
+
+            // 먹 게이지 위를 흐르는 얇은 금빛 세 줄. 이미지가 아니라 GUI 벡터 면으로 그린다.
+            for (int i = 0; i < 3; i++)
+            {
+                float phase = Mathf.Repeat(time * (0.32f + i * 0.035f) + i * 0.31f, 1f);
+                float streakX = Mathf.Lerp(area.x - area.width * 0.08f,
+                    area.xMax + area.width * 0.08f, phase);
+                float alpha = Mathf.Sin(phase * Mathf.PI) * (0.18f + i * 0.055f);
+                var streak = new Rect(streakX, area.y + area.height * (0.2f + i * 0.22f),
+                    Mathf.Max(2f, area.height * 0.055f), area.height * 0.7f);
+                DrawRotatedRect(streak, -18f, new Color(1f, 0.78f, 0.22f, alpha));
+            }
+
+            // 게이지 윗선을 따라 떠오르는 작은 금가루.
+            for (int i = 0; i < 9; i++)
+            {
+                float phase = time * (0.65f + i % 3 * 0.11f) + i * 1.73f;
+                float px = area.x + area.width * (i + 0.5f) / 9f + Mathf.Sin(phase) * area.height * 0.15f;
+                float py = area.y - area.height * (0.05f + 0.18f * (0.5f + 0.5f * Mathf.Sin(phase * 0.7f)));
+                float size = area.height * (0.035f + (i % 3) * 0.014f);
+                GUI.color = new Color(1f, 0.82f, 0.3f,
+                    0.35f + 0.4f * (0.5f + 0.5f * Mathf.Sin(phase * 1.4f)));
+                GUI.DrawTexture(new Rect(px - size * 0.5f, py - size * 0.5f, size, size),
+                    Texture2D.whiteTexture);
+            }
+            GUI.color = previous;
+        }
+
+        static void DrawGoldenIconHalo(Rect iconRect)
+        {
+            Color previous = GUI.color;
+            float time = Time.unscaledTime;
+            Vector2 center = iconRect.center;
+            float radius = Mathf.Max(iconRect.width, iconRect.height) * 0.42f;
+            for (int i = 0; i < 14; i++)
+            {
+                float angle = time * 1.35f + i * Mathf.PI * 2f / 14f;
+                float size = iconRect.height * (0.025f + (i % 3) * 0.008f);
+                Vector2 point = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+                GUI.color = new Color(1f, 0.78f, 0.2f,
+                    0.3f + 0.38f * (0.5f + 0.5f * Mathf.Sin(time * 4f + i)));
+                GUI.DrawTexture(new Rect(point.x - size * 0.5f, point.y - size * 0.5f, size, size),
+                    Texture2D.whiteTexture);
+            }
+            GUI.color = previous;
+        }
+
+        static void DrawGoldenIconSparkles(Rect iconRect)
+        {
+            float time = Time.unscaledTime;
+            Vector2 center = iconRect.center;
+            Color previous = GUI.color;
+            for (int i = 0; i < 4; i++)
+            {
+                float angle = time * -1.1f + i * Mathf.PI * 0.5f;
+                float pulse = 0.55f + 0.45f * Mathf.Sin(time * 6.5f + i * 1.7f);
+                Vector2 point = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) *
+                    iconRect.height * 0.46f;
+                float longSize = iconRect.height * (0.07f + pulse * 0.065f);
+                float thin = Mathf.Max(1.5f, iconRect.height * 0.012f);
+                GUI.color = new Color(1f, 0.9f, 0.48f, 0.45f + pulse * 0.5f);
+                GUI.DrawTexture(new Rect(point.x - longSize * 0.5f, point.y - thin * 0.5f,
+                    longSize, thin), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(point.x - thin * 0.5f, point.y - longSize * 0.5f,
+                    thin, longSize), Texture2D.whiteTexture);
+            }
+            GUI.color = previous;
+        }
+
+        static void DrawRotatedRect(Rect rect, float angle, Color color)
+        {
+            Matrix4x4 previousMatrix = GUI.matrix;
+            Color previousColor = GUI.color;
+            GUIUtility.RotateAroundPivot(angle, rect.center);
+            GUI.color = color;
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+            GUI.matrix = previousMatrix;
+            GUI.color = previousColor;
+        }
+
+        static Rect ScaleAroundCenter(Rect rect, float scale)
+        {
+            Vector2 center = rect.center;
+            rect.width *= scale;
+            rect.height *= scale;
+            rect.center = center;
+            return rect;
+        }
+
+        static Texture2D CreateColoredSilhouette(Texture2D source, Color color)
+        {
+            if (source == null) return null;
+            var temporary = RenderTexture.GetTemporary(source.width, source.height, 0,
+                RenderTextureFormat.ARGB32);
+            Graphics.Blit(source, temporary);
+            var previous = RenderTexture.active;
+            RenderTexture.active = temporary;
+            var result = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
+            result.ReadPixels(new Rect(0f, 0f, source.width, source.height), 0, 0);
+            result.Apply();
+            RenderTexture.active = previous;
+            RenderTexture.ReleaseTemporary(temporary);
+
+            var pixels = result.GetPixels();
+            for (int i = 0; i < pixels.Length; i++)
+                pixels[i] = new Color(color.r, color.g, color.b, pixels[i].a);
+            result.SetPixels(pixels);
+            result.Apply();
+            return result;
         }
 
         static void DrawRect(Rect rect, Color color)
@@ -181,5 +236,6 @@ namespace MukJump.Core
             GUI.DrawTexture(rect, Texture2D.whiteTexture);
             GUI.color = prev;
         }
+
     }
 }

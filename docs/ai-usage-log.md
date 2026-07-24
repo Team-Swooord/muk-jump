@@ -2,6 +2,24 @@
 
 > 제출물 4번(AI 활용 기술 문서)의 원본 자료. 개발 중 AI 도구를 사용할 때마다 즉시 기록한다.
 
+### 2026-07-22 — 프로젝트 한글 명칭을 먹점프로 복원
+
+- 사용 도구: Codex
+- 목적: 프로젝트의 한글 표시 명칭을 `먹뛰기`에서 기존 `먹점프`로 복원
+- 주요 프롬프트/지시: 먹뛰기로 변경했던 프로젝트 명칭을 다시 먹점프로 수정하고 커밋
+- 결과물: `README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/project-brief.md`,
+  `MukJumpSceneBuilder.cs`, `InkDropJumpVfxSpec.json`
+- 사람의 수정/검토 내용: 기술 식별자 `MukJump`, 영문명 `Ink Jump`, 기존 PNG 로고 아트는 유지
+
+### 2026-07-22 — 프로젝트 한글 명칭을 먹뛰기로 변경
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 프로젝트 문서와 표시용 폴백 문자열의 기존 명칭을 `먹뛰기`로 통일
+- 주요 프롬프트/지시: 전체 문서의 기존 한글 프로젝트 명칭 변경
+- 결과물: `README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/project-brief.md`,
+  `docs/ai-usage-log.md`, `Assets/Editor/MukJumpSceneBuilder.cs`, VFX 사양 JSON
+- 사람의 수정/검토 내용: 기술 식별자 `MukJump`와 기존 PNG 로고 아트는 유지
+
 ## 외부 에셋 · 오픈소스 출처
 
 | 항목 | 출처 | 라이선스 |
@@ -10,6 +28,175 @@
 | Unity 패키지 | Unity Technologies (URP, Input System 등 공식 패키지) | Unity Companion License |
 
 ---
+
+## AI 생성 자체 제작 에셋
+
+| 항목 | 제작 도구 | 구분 |
+|---|---|---|
+| `MukJump_InkDropJump_VFX_Pack` 텍스처·효과음·연출 사양 | OpenAI Codex | 프로젝트를 위해 직접 생성한 AI 산출물이며 외부 에셋이 아님 |
+
+---
+
+### 2026-07-22 — 먹물방울 50m 점프 VFX·SFX 이식
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 먹물방울 획득 즉시 실행되는 50m 점프에 수묵 스플래시, 충격 링, 상승 붓획과 전용 효과음 추가
+- 주요 프롬프트/지시: 기존 점프 물리와 발동 시점을 변경하지 않고 Codex로 생성한 자체 VFX·SFX 팩을 적용하며,
+  전용 VFX 오디오 관리자를 만들어 중첩 효과음을 안정적으로 재생
+- 결과물: `Assets/MukJump/VFX/InkDropJump/`, `Assets/Scripts/Items/InkDropJumpVfx.cs`,
+  `Assets/Scripts/Core/VfxAudioManager.cs`, `Assets/Scripts/Items/ItemPickup.cs`,
+  `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: Unity Editor에서 먹물방울 연속 획득 시 연출 중첩, 효과음 음량과 모바일 성능 확인 예정
+
+### 2026-07-22 — 로비 최고 기록·로컬 랭킹 및 아이템 연출 보강
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 로비에서 저장된 최고 고도를 확인하고 아이템 3종의 효과 상태를 시각적으로 구분
+- 주요 프롬프트/지시: 기존 고도 먹 붓획 UI를 로비 최고·랭킹 표시에 재사용하고,
+  황금 붓과 방어막에도 안정적인 코드 기반 연출 추가
+- 결과물: `Assets/Scripts/Core/LobbyView.cs`, `Assets/Scripts/Items/ItemEffectView.cs`,
+  `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 온라인 랭킹 데이터가 없어 랭킹은 현재 기기의 로컬 기록임을 명시,
+  Unity Editor에서 로고 아래 배치와 금빛 붓결·방어막 펄스 확인 예정
+
+### 2026-07-22 — 아이템 VFX 밀도 및 자동 점프 움직임 개선
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: HTML 콘셉트 프리뷰에 맞춰 아이템 연출 레이어를 늘리고 자동 점프의 정적인 수직 반복 완화
+- 주요 프롬프트/지시: ParticleSystem 오류 없이 비말·잔상·금빛 부유 입자·방어막 궤도 입자를 추가하고,
+  발판 기울기와 이전 수평 관성이 다음 점프에 자연스럽게 이어지도록 조정
+- 결과물: `Assets/Scripts/Items/InkDropJumpVfx.cs`, `Assets/Scripts/Items/ItemEffectView.cs`,
+  `Assets/Scripts/Player/AutoJump.cs`, `Assets/Scripts/Player/CharacterAnimator.cs`
+- 사람의 수정/검토 내용: Unity Editor에서 아이템별 연출 밀도와 수평 이동량을 직접 확인·튜닝 예정
+
+### 2026-07-22 — 로비 랭킹 팝업·아이템 크기·물리 감각 조정
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 사용자 수정 UI를 보존하면서 로컬 랭킹 팝업을 추가하고 아이템 가시성과 캐릭터 움직임 개선
+- 주요 프롬프트/지시: 랭킹 문구는 버튼에 유지하고 상세 기록은 팝업 안에 표시,
+  인게임 아이템을 GameplayCanvas 아이콘과 비슷한 크기로 확대, 실제 구름 대신 미세한 시각 기울기만 적용
+- 결과물: `Assets/Scripts/Core/LobbyView.cs`, `Assets/Scripts/Items/ItemSpawner.cs`,
+  `Assets/Scripts/Player/{AutoJump,PlayerController,ScreenSideWalls}.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: `Main.unity`의 로비·게임 HUD 배치는 사용자가 직접 조정한 저장본을 유지
+
+### 2026-07-22 — 대각선 발판 접착·발판 수명·LineSprite 적용
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 가파른 드로잉 발판의 활용도를 높이고 발판 교체 템포와 수묵 붓선 비주얼 개선
+- 주요 프롬프트/지시: 그린 대각선에는 스파이더처럼 붙되 화면 양옆 벽 반동은 유지,
+  발판 수명을 단축하고 Main UI의 폭 600 `LineSprite`를 실제 드로잉 선 텍스처로 사용
+- 결과물: `Assets/Scripts/Player/PlayerController.cs`, `Assets/Scripts/Drawing/{StrokeCapture,PlatformCollider}.cs`,
+  `Assets/Scripts/AI/FallbackInkStyle.cs`, `README.md`, `CLAUDE.md`, `docs/project-brief.md`
+- 사람의 수정/검토 내용: Unity Editor에서 대각선 접착 강도, 6.5초 수명, LineSprite 늘어짐 여부 확인 예정
+
+### 2026-07-22 — LineSprite 프리팹 기반 발판 텍스처 연결
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 사용자가 만든 폭 600 UI 붓획 프리팹을 씬 재생성에도 잃지 않고 실제 드로잉 발판에 사용
+- 주요 프롬프트/지시: `Assets/Art/UI/LineSprite.prefab`을 단일 기준으로 사용하고 Main UI 배치는 유지
+- 결과물: `Assets/Art/UI/LineSprite.prefab`, `Assets/Scripts/Drawing/StrokeCapture.cs`,
+  `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 프리팹의 `muk_start_button.png` RawImage와 600×60 크기를 확인,
+  UI 인스턴스의 Raycast와 Button은 드로잉을 막지 않도록 비활성화
+
+### 2026-07-22 — LineSprite 표시 잔상과 긴 획 제한 수정
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: GameplayCanvas 중앙의 제작용 LineSprite 표시 제거, 긴 연속 발판 허용, HUD 종료 오류 수정
+- 주요 프롬프트/지시: LineSprite 프리팹은 실제 붓결에 사용하되 화면에는 표시하지 않고 길게 그리면 길게 생성
+- 결과물: `Assets/Scripts/Drawing/StrokeCapture.cs`, `Assets/Scripts/Core/PrototypeHud.cs`,
+  `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: Unity Editor에서 긴 드래그와 Play Mode 종료 시 콘솔 확인 예정
+
+### 2026-07-22 — PrototypeHud 에셋 삭제 오류 재수정
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: Domain Reload와 씬 해제 시 프로젝트 Texture2D에 `Destroy`가 호출되는 오류 제거
+- 주요 프롬프트/지시: `Destroying assets is not permitted` 오류의 실제 `OnDestroy` 경로 수정
+- 결과물: `Assets/Scripts/Core/PrototypeHud.cs`
+- 사람의 수정/검토 내용: HUD 텍스처 수동 삭제를 제거하고 Unity 수명 관리에 위임
+
+### 2026-07-22 — 먹붓 화면 전환과 먹 웅덩이 팝업 구현
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 로비 시작 및 게임오버 복귀 화면 전환, 랭킹 팝업의 수묵 스타일 연출 구현
+- 주요 프롬프트/지시: `MukJump_BrushTransition_UI_Visual_Preview`의 삼연속 먹붓과 먹 웅덩이 사양 참고
+- 결과물: `Assets/Scripts/Core/BrushTransitionView.cs`, `Assets/Scripts/Core/InkPopupAnimator.cs`,
+  `Assets/Scripts/Core/GameManager.cs`, `Assets/Scripts/Core/LobbyView.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 기존 Main UI 배치를 유지하고 제공 PNG는 참고용으로만 사용
+
+### 2026-07-22 — 게임오버 결과 팝업 흐름 적용
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 로비 시작 전환을 잠시 끄고 게임 종료 결과를 먹 웅덩이 팝업으로 안내
+- 주요 프롬프트/지시: 고도 숫자 낙하 연출, 최고 점수 갱신 강조, 터치 후 메인 전환에만 먹붓 적용
+- 결과물: `Assets/Scripts/Core/GameManager.cs`, `Assets/Scripts/Core/BrushTransitionView.cs`,
+  `Assets/Scripts/Core/PrototypeHud.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 기존 로비와 랭킹 팝업 UI 배치는 변경하지 않음
+
+### 2026-07-22 — 실제 먹붓 PNG 기반 상하 전환 적용
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 절차적 전환 획을 제공된 8장 PNG로 교체하고 위에서 아래로 칠하는 동작 구현
+- 주요 프롬프트/지시: `/Users/seungyeoning/Downloads/brush_strokes_png` 사용, 상단부터 내려오는 느낌 강화
+- 결과물: `Assets/Resources/MukJump/BrushTransitions`, `Assets/Scripts/Core/BrushTransitionView.cs`
+- 사람의 수정/검토 내용: 각 PNG 원본 비율을 유지하고 `RectMask2D`로 세로 노출
+
+### 2026-07-22 — 먹붓 전환 대형화와 점프력 상향
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 전환 초반 색상 이상을 차단하고 대형 붓 획으로 세로 화면 전체를 확실히 덮기
+- 주요 프롬프트/지시: 위에서부터 화면 전체를 칠하고 캐릭터 기본 점프 힘을 소폭 상향
+- 결과물: `Assets/Scripts/Core/BrushTransitionView.cs`, `Assets/Scripts/Player/AutoJump.cs`
+- 사람의 수정/검토 내용: PNG 비율은 유지하고 전체 점프 배율은 1.12로 설정
+
+### 2026-07-22 — 먹붓 전환 리듬과 씬 리빌 개선
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: `촥 → 촤작 → 촥` 리듬과 실제 붓털의 끌림을 만들고 씬 재로드 순간의 화면 튐 제거
+- 주요 프롬프트/지시: 획 진행을 자연스럽게 하고 마지막 부분의 부자연스러운 전환 수정
+- 결과물: `Assets/Scripts/Core/BrushTransitionView.cs`, `Assets/Scripts/Core/GameManager.cs`
+- 사람의 수정/검토 내용: 다음 Main 씬이 암전을 이어받아 0.68초 동안 자연스럽게 드러나도록 구성
+
+### 2026-07-22 — 스파이더 접착 중 먹물방울 50m 점프 수정
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 대각선 발판 접착 상태에서 먹물방울 아이템 점프 속도가 0이 되는 문제 해결
+- 주요 프롬프트/지시: 스파이더처럼 붙어 있을 때도 50m 효과 정상 작동
+- 결과물: `Assets/Scripts/Player/PlayerController.cs`
+- 사람의 수정/검토 내용: 접착 해제 후 중력 복원, 아이템 상승 중 발판 재접착 차단
+
+### 2026-07-22 — 황금 붓 게이지 아이콘과 벡터 이펙트 보강
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 무한 먹 활성 중 하단 붓을 `golden_brush.png`로 명확히 교체하고 게이지 전체에 금빛 연출 추가
+- 주요 프롬프트/지시: 황금 붓 아이콘 위 반짝임과 게이지 위 벡터형 금색 효과 기획·구현
+- 결과물: `Assets/Scripts/Core/PrototypeHud.cs`
+- 사람의 수정/검토 내용: 기존 게이지 위치와 먹 잔량 방향을 유지하고 코드 기반 선·광점만 추가
+
+### 2026-07-22 — 로비 랭킹 버튼을 로고 아래로 이동
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 로비 랭킹 표시를 먹뛰기 로고 바로 아래에 배치
+- 주요 프롬프트/지시: 랭킹 텍스트와 팝업 기능은 유지하고 위치만 정리
+- 결과물: `Assets/Scenes/Main.unity`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 로고 크기와 나머지 UI 배치는 유지
+
+### 2026-07-22 — 로비 상시 노출 랭킹 보드 적용
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 클릭 팝업 대신 고전 슈팅게임 스타일의 직사각형 랭킹을 메인 로비에 항상 표시
+- 주요 프롬프트/지시: 더미 랭킹 사이 가운데 줄에 사용자의 `현재 랭킹`과 최고 고도 삽입
+- 결과물: `Assets/Scripts/Core/LobbyView.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 기존 먹뛰기 로고 크기는 유지하고 기존 랭킹 버튼만 숨김
+
+### 2026-07-22 — 랭킹 시스템 임시 제거
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 로비 랭킹 버튼, 상시 보드와 팝업을 모두 비활성화
+- 주요 프롬프트/지시: 랭킹 시스템은 일단 제거하고 최고점수 표시는 유지
+- 결과물: `Assets/Scripts/Core/LobbyView.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 기존 씬의 랭킹 오브젝트는 비활성화하고 새 씬 빌드에서는 생성하지 않음
 
 ### 2026-07-20 — 프로젝트 기획 및 아트 시안
 
@@ -63,7 +250,7 @@
   프레임당 1024)로 납품받음
 - 주요 프롬프트/지시: "마스터 몸통을 1개만 만들고 모든 프레임은 복사해서 다리만 변형",
   눈 크기·간격·동공 크기는 모든 프레임에서 고정, 스쿼시&스트레치는 세로/가로 ±12% 이내
-- 결과물: `Assets/Art/Character/muk_spritesheet.png`,
+- 결과물: `Assets/Art/Character/Player/muk_spritesheet.png`,
   `Assets/Scripts/Player/CharacterAnimator.cs`(수직 속도 구간으로 launch→rise→apex→
   fall→dive를 자연 전환), `Assets/Editor/MukJumpSceneBuilder.cs`(시트를 8개 서브스프라이트로
   런타임 슬라이싱)
@@ -85,6 +272,120 @@
   상태라, Claude Code가 색 키잉으로 요소 분리·투명화하고 트랙은 fill 실루엣을 재색칠해
   픽셀 정렬을 보장하도록 가공. 최종 인게임 확인 (승연)
 
+### 2026-07-21 — 코어 안정성 점검 및 로비 UI 정리
+
+- 사용 도구: Codex
+- 목적: 전체 코어 루프의 예외 가능성을 점검하고, 사망 연출 중 카메라 이동 문제와 로고 적용 전
+  로비 화면 구성을 정리
+- 주요 프롬프트/지시: 저장소 전체 문제 확인 및 수정, 제작 중인 중앙 로고를 나중에 넣을 수 있도록
+  로비 화면을 간결하게 개선
+- 결과물: `CameraFollow.cs`, `PlayerController.cs`, `AutoJump.cs`, `ScoreManager.cs`,
+  `PointerInput.cs`, `GameManager.cs`, `StrokeCapture.cs`, `PrototypeHud.cs`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: Unity 에디터에서 9:16 로비 배치, 사망 시 카메라 고정, 재시작 흐름 확인 예정
+
+### 2026-07-21 — 고도별 장애물과 사망 시트 균등 슬라이스
+
+- 사용 도구: Codex
+- 목적: 원형 먹 가시 장애물을 랜덤 배치하고 100m 이후 좌우·상하 이동형으로 확장,
+  잘못 자동 슬라이스된 사망 시트를 고정 그리드 애니메이션으로 연결
+- 주요 프롬프트/지시: `anermy_01`을 원형 장애물로 사용, 100m 이후 이동 패턴 진화,
+  `die.png`의 프레임 크기와 피벗을 동일하게 유지
+- 결과물: `Assets/Scripts/Obstacles/`, `PlayerController.cs`, `CharacterAnimator.cs`,
+  `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: Unity 에디터에서 장애물 크기·간격·충돌 반경과 사망 12프레임 순서 확인 예정
+
+### 2026-07-21 — 로비 드로잉 시작 연출
+
+- 사용 도구: Codex
+- 목적: 로비의 탭 시작을 첫 발판 드로잉으로 교체하고 GUI 텍스트의 마우스 오버 상태 제거
+- 주요 프롬프트/지시: “선을 그어 시작”, 그은 위치가 시작 지점이 되는 연출로 즉시 플레이 전환
+- 결과물: `StrokeCapture.cs`, `GameManager.cs`, `PlayerController.cs`, `ScoreManager.cs`,
+  `PrototypeHud.cs`
+- 사람의 수정/검토 내용: 에디터에서 짧은 획 무효 처리, 시작 발판 착지, 임의 높이 시작 시 점수 0m 기준 확인 예정
+
+### 2026-07-21 — 캐릭터 아트 폴더 정리 및 개별 사망 프레임 교체
+
+- 사용 도구: Codex
+- 목적: 8장의 동일 규격 사망 프레임을 순서대로 연결하고 캐릭터·사망·장애물 아트를 역할별 폴더로 정리
+- 주요 프롬프트/지시: 새 개별 사망 스프라이트 사용, 미사용 기존 사망 시트와 프레임 삭제
+- 결과물: `Assets/Art/Character/{Player,Death,Obstacles}/`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 기존 `die.png`, `muk_dead_a~c`는 참조 교체 후 휴지통으로 이동해 복구 가능하게 보관
+
+### 2026-07-21 — 장애물 좌우 이동 및 고도별 속도 조정
+
+- 사용 도구: Codex
+- 목적: 모든 장애물을 좌우 이동형으로 통일하고 고도에 따라 이동 속도를 높이며 크기를 소폭 축소
+- 주요 프롬프트/지시: 장애물은 항상 좌우 이동, 속도는 높이에 비례해 증가, 크기는 조금 축소
+- 결과물: `Assets/Scripts/Obstacles/ObstacleSpawner.cs`
+- 사람의 수정/검토 내용: 시작 구간과 300m 최고 난도의 체감 속도 및 장애물 폭 확인 예정
+
+### 2026-07-21 — 시작선 가이드와 초기 발판 제거
+
+- 사용 도구: Codex
+- 목적: 캐릭터 아래에 첫 발판을 그리도록 유도하고 기존 고정 시작 발판을 완전히 제거
+- 주요 프롬프트/지시: 캐릭터 아래 점선 가이드 표시, 위에 그으면 캐릭터가 추락해 사망,
+  플레이 시작 시 사용자가 그은 선만 존재
+- 결과물: `PrototypeHud.cs`, `StrokeCapture.cs`, `GameManager.cs`, `PlayerController.cs`,
+  `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 로비에서 캐릭터 고정, 시작선 완성 후 물리 해제, 위쪽 오답 획의 추락 동작 확인 예정
+
+### 2026-07-21 — 시작 가이드 붓 아이콘 연출
+
+- 사용 도구: Codex
+- 목적: 로비 시작 점선 위에 반투명 붓 아이콘을 왕복시켜 드로잉 위치를 직관적으로 안내
+- 주요 프롬프트/지시: 붓 아이콘에 투명도를 적용하고 가이드라인 위쪽을 따라 이동
+- 결과물: `PrototypeHud.cs`
+- 사람의 수정/검토 내용: 9:16 화면에서 아이콘 크기·높이·왕복 속도 확인 예정
+
+### 2026-07-21 — 로비 UI Canvas 전환
+
+- 사용 도구: Codex
+- 목적: 런타임 OnGUI 로비를 하이어라키에서 직접 편집 가능한 Canvas 오브젝트로 전환
+- 주요 프롬프트/지시: 빨간 점선과 부제 제거, `선을 그어 시작`만 유지, Play 전에도 로비 요소 확인·수정 가능
+- 결과물: `LobbyView.cs`, `PrototypeHud.cs`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: `LobbyCanvas/{Logo,StartPrompt,BrushGuide}`의 9:16 배치와 한글 폰트 확인 예정
+
+### 2026-07-21 — 먹뛰기 로고 적용
+
+- 사용 도구: Codex
+- 목적: 새 수묵 캘리그래피 로고를 로비의 텍스트 제목 대신 적용
+- 주요 프롬프트/지시: 추가된 먹뛰기 로고로 기존 제목 대체
+- 결과물: `Assets/Art/UI/muk_logo.png`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 1536×1024 원본 비율에 맞춰 로고 UI 영역을 3:2로 설정
+
+### 2026-07-21 — 시작 안내 붓획 버튼 적용
+
+- 사용 도구: Codex
+- 목적: 새 먹 붓획 UI를 `선을 그어 시작` 안내의 배경으로 적용하고 로고 크기를 확대
+- 주요 프롬프트/지시: 버튼을 얇은 가로형으로 사용, 문구는 한 줄 흰색, 로고 크기 증가
+- 결과물: `Assets/Art/UI/muk_start_button.png`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 하이어라키를 `StartPrompt/Label`로 분리해 배경과 텍스트를 독립 편집 가능하게 구성
+
+### 2026-07-21 — 붓획 고도 HUD 및 로비 재시작 흐름
+
+- 사용 도구: Codex
+- 목적: 로비 시작 안내 UI를 제거하고 붓획 이미지를 플레이 중 고도 표시 배경으로 재사용,
+  게임 오버 후 반드시 로비에서 시작선을 다시 그리도록 흐름 수정
+- 주요 프롬프트/지시: 시작 안내 텍스트·UI 제거, 버튼 UI를 `고도 0` 위치에 배치, 사망 후 메인 화면 복귀
+- 결과물: `GameplayHudView.cs`, `GameManager.cs`, `PrototypeHud.cs`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: `GameplayCanvas/HeightDisplay/HeightText`를 하이어라키에서 편집 가능하게 구성
+
+### 2026-07-21 — UI 수동 배치 보존
+
+- 사용 도구: Codex
+- 목적: 씬 빌더 재실행으로 사용자가 조정한 로고·고도 HUD 크기와 위치가 초기화되는 문제 방지
+- 주요 프롬프트/지시: 메인 로비에서는 고도 HUD 숨김, Inspector에서 맞춘 UI 배치는 그대로 유지
+- 결과물: `GameplayHudView.cs`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 빌드 전 RectTransform을 하이어라키 경로별로 캡처하고 재생성 후 복원하도록 변경
+
+### 2026-07-21 — 사망 모션 화면 크기 통일
+
+- 사용 도구: Codex
+- 목적: 사망 프레임의 큰 투명 여백 때문에 캐릭터가 작아 보이는 문제 수정
+- 주요 프롬프트/지시: 모든 캐릭터 모션의 화면상 크기를 동일하게 유지
+- 결과물: `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 사망 프레임 8장 모두 PPU 720을 동일 적용해 일반 프레임 대비 약 1.25배 확대
+
 ### 2026-07-21 — 마리오식 죽음 연출·로비 화면·붓 아이콘 교체
 
 - 사용 도구: ChatGPT (죽음 포즈 시트·붓 클로즈업 이미지 생성), Claude Code (가공·구현)
@@ -97,3 +398,159 @@
   `PrototypeHud`(타이틀 UI·낙관 도장)
 - 사람의 수정/검토 내용: 죽음 프레임 반복 재생의 어색함 발견 → 1회 재생으로 변경 요청,
   붓 아이콘 크기·게이지 간격 조정 지시, 에디터 Play 테스트 (승연)
+
+### 2026-07-21 — 임시 아이템 3종 및 먹 방어막 추락 복귀
+
+- 사용 도구: Codex
+- 목적: 먹물방울·황금 붓·먹 방어막 아이템을 임시 비주얼로 구현하고, 먹 방어막이 장애물뿐 아니라 추락도 1회 막도록 확장
+- 주요 프롬프트/지시: 먹물방울은 50m 점프, 황금 붓은 일정 시간 먹 무소모, 먹은 피해 또는 추락 1회 방어 후 추락 시 크게 재도약
+- 결과물: `ItemPickup.cs`, `ItemSpawner.cs`, `PlayerController.cs`, `StrokeCapture.cs`, `Obstacle.cs`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 정식 스프라이트 제작 전까지 기존 원형 이미지를 색상별 플레이스홀더로 사용하며, 황금 붓 지속시간은 8초로 설정
+
+### 2026-07-21 — 아이템 효과 테스트 버튼
+
+- 사용 도구: Codex
+- 목적: 플레이 중 아이템 3종의 효과를 즉시 확인할 수 있는 개발용 UI 제공
+- 주요 프롬프트/지시: 화면 왼쪽에 아이템 아이콘 버튼을 배치하고 누르면 즉시 효과 실행
+- 결과물: `GameplayHudView.cs`, `ItemPickup.cs`, `StrokeCapture.cs`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 버튼은 50m·무한·방어 문구와 임시 색상 아이콘으로 구분하며 버튼 터치가 발판 드로잉으로 전달되지 않도록 처리
+
+### 2026-07-21 — 아이템 활성 시각 효과 및 먹물방울 보호
+
+- 사용 도구: Codex
+- 목적: 아이템 효과의 활성 상태를 즉시 알아볼 수 있게 하고 먹물방울 상승 중 장애물 사망 방지
+- 주요 프롬프트/지시: 50m 점프 중 장애물 무적, 황금 붓은 하단 붓 금색화와 파티클, 먹 방어막은 캐릭터 주변 먹 원 효과
+- 결과물: `PlayerController.cs`, `ItemEffectView.cs`, `ItemPickup.cs`, `PrototypeHud.cs`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 먹물방울 무적은 상승 구간까지만 유지하고, 방어막 소모 시 원형 효과가 즉시 사라지도록 구성
+
+### 2026-07-21 — 먹물방울 연속 도약 및 상승 파티클
+
+- 사용 도구: Codex
+- 목적: 먹물방울을 연속 획득할 때마다 현재 위치에서 다시 50m 상승시키고 상승 상태를 시각화
+- 주요 프롬프트/지시: 먹물방울 효과 도중 다시 먹어도 추가 50m 상승, 올라가는 이펙트 추가
+- 결과물: `PlayerController.cs`, `ItemEffectView.cs`
+- 사람의 수정/검토 내용: 재획득마다 상승 속도를 초기화하고 캐릭터 아래 먹빛 파티클을 즉시 추가 방출하도록 구성
+
+### 2026-07-21 — 아이템 파티클 제거
+
+- 사용 도구: Codex
+- 목적: 먹물방울 실행 시 Particle System 곡선 모드 오류 제거
+- 주요 프롬프트/지시: 파티클 관련 구현 전부 제거
+- 결과물: `ItemEffectView.cs`, `PlayerController.cs`, `PrototypeHud.cs`
+- 사람의 수정/검토 내용: 연속 50m 도약·상승 무적·금색 붓·먹 방어막 원은 유지하고 Particle System과 파티클형 GUI 연출만 제거
+
+### 2026-07-21 — 낙묵석 장애물 구현
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 예고 후 낙하하며 플레이어를 공격하고 드로잉 발판을 파괴하는 장애물 구현
+- 주요 지시: 기존 `PlayerController.TakeHit()` 사망 흐름과 `PlatformCollider` 등록 해제 흐름 재사용
+- 결과물: `Assets/Scripts/Obstacles/FallingInkRock.cs`, `Assets/Scripts/Obstacles/FallingInkRockSpawner.cs`, `Assets/Scripts/Drawing/PlatformCollider.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: Unity Editor 수동 플레이 테스트 예정
+
+### 2026-07-21 — 먹물방울 정식 아이템 이미지 연결
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 새 먹물방울 이미지를 월드 아이템과 효과 테스트 버튼에 적용
+- 주요 지시: 해당 이미지는 먹물방울 아이템 이미지임을 확인
+- 결과물: `Assets/Scripts/Items/ItemSpawner.cs`, `Assets/Editor/MukJumpSceneBuilder.cs`, `Assets/Art/UI/ink_drop.png`
+- 사람의 수정/검토 내용: 황금 붓과 먹 방어막은 정식 이미지가 추가될 때까지 기존 임시 표시 유지
+
+### 2026-07-21 — 아이템 이미지 이름 정리 및 3종 연결
+
+- 사용 도구: OpenAI Codex CLI
+- 목적: 임시 번호 파일을 실제 아이템 이름으로 변경하고 세 아이템 비주얼에 연결
+- 주요 지시: 1·2·3번 이미지 이름을 아이템 이름에 맞게 변경
+- 결과물: `ink_drop.png`, `golden_brush.png`, `ink_shield.png`, `ItemSpawner.cs`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 붓 형태인 기존 1번은 황금 붓, 나머지 임시 먹방울은 기존 순서대로 먹물방울과 먹 방어막에 배정
+### 2026-07-22 — 자동 점프 1초 단축 및 대각선 접착 방향 보정
+
+- 사용 도구: Codex
+- 목적: 자동 점프 충전 시간을 1초로 줄이고, 드로잉 발판에 스파이더처럼 붙을 때 캐릭터 머리 방향을 발판 기울기에 맞춤
+- 주요 프롬프트/지시: 점프 주기를 1초로 변경, 대각선 발판 접착 중 캐릭터도 같은 방향으로 기울어지도록 수정
+- 결과물: `AutoJump.cs`, `PlayerController.cs`, `MukJumpSceneBuilder.cs`
+- 사람의 수정/검토 내용: 씬 빌더 재생성 후 대각선 양면 접착 방향과 1초 점프 리듬을 플레이 테스트 예정
+
+### 2026-07-22 — 상단 자동 점프 게이지 제거
+
+- 사용 도구: Codex
+- 목적: 플레이 화면 상단의 자동 점프 충전 게이지를 제거해 HUD를 단순화
+- 주요 프롬프트/지시: 위쪽 점프 게이지 삭제, 하단 먹 자원 게이지는 유지
+- 결과물: `PrototypeHud.cs`
+- 사람의 수정/검토 내용: 자동 점프 예고용 웅크림 애니메이션은 유지
+### 2026-07-24 — 먹분신 아이템과 다중 생존 플레이어 구현
+
+- 사용 도구: Codex, ChatGPT Images
+- 목적: 먹분신 획득 시 캐릭터를 최대 2마리로 복제하고 한 마리가 살아 있으면 게임을 계속하는 추가 목숨 기능 구현
+- 주요 프롬프트/지시: 두 캐릭터가 자동 점프·발판·장애물 물리를 공유하고 마지막 캐릭터 사망 시에만 게임오버, 재획득 시 2마리 복구
+- 결과물: `GameManager.cs`, `PlayerController.cs`, `CameraFollow.cs`, `ScoreManager.cs`,
+  `StrokeCapture.cs`, `ItemPickup.cs`, `ItemSpawner.cs`, `GameplayHudView.cs`, `ItemEffectView.cs`,
+  `FallingInkRockSpawner.cs`, `MukJumpSceneBuilder.cs`, `Assets/Art/UI/ink_clone.png`
+- 사람의 수정/검토 내용: 사용자가 ChatGPT Images로 생성한 먹분신 아이콘을 선택했으며,
+  씬 빌더 재생성과 Play 진입·콘솔 무오류를 확인함. 실제 분신 사망 유지 흐름은 수동 플레이 테스트 예정
+
+### 2026-07-24 — 접착 상태 사망 시 무한 상승 수정
+
+- 사용 도구: Codex
+- 목적: 대각선 발판 접착 중 사망하거나 해당 상태에서 생성된 먹분신이 죽으면 중력이 0으로 유지되어 사망 애니메이션이 하늘로 계속 상승하는 문제 수정
+- 주요 프롬프트/지시: 사망 폴짝 연출이 정상적으로 정점을 지나 아래로 낙하하도록 수정
+- 결과물: `Assets/Scripts/Player/PlayerController.cs`, `Assets/Scripts/Core/GameManager.cs`
+- 사람의 수정/검토 내용: 접착 여부와 관계없이 캐릭터 기본 중력을 사망 연출에 사용하고,
+  분신 생성 시 원본이 기억하는 정상 중력값을 별도로 전달하도록 변경
+
+### 2026-07-24 — 사망 위치에 먹 자국 유지
+
+- 사용 도구: Codex
+- 목적: 캐릭터 사망 시 먹 번짐이 사라지지 않고 한지에 먹이 튄 흔적처럼 해당 위치에 남도록 개선
+- 산출물: `Assets/Scripts/Player/PlayerController.cs`
+- 구현 메모: 사망 자국을 플레이어 자식이 아닌 독립 월드 오브젝트로 생성해 분신 제거 후에도 유지. 반복 사망에 따른 렌더링 누적을 막기 위해 최신 20개까지만 보존
+
+### 2026-07-24 — 아이템 크기 통일과 접이식 디버그 창
+
+- 사용 도구: Codex
+- 목적: 아이템 4종의 화면상 폭을 통일하고 플레이 중 효과를 빠르게 검증할 수 있는 왼쪽 디버그 UI와 무적 모드를 제공
+- 입력/작업 요약: 투명 알파의 실제 피사체 영역을 기준으로 네 아이콘을 동일한 900px 폭으로 정규화. 기존 아이템 테스트 버튼을 기본 닫힘 상태의 `DEBUG` 패널로 이동하고 무적 ON/OFF 버튼을 추가
+- 산출물: 아이템 PNG 4종, `GameplayHudView.cs`, `GameManager.cs`, `PlayerController.cs`, `MukJumpSceneBuilder.cs`
+- 사람 검토 포인트: 무적 ON에서는 장애물 충돌 시 죽지 않고 반동하며 화면 하단 추락 시 안전 위치로 복귀해 다시 상승. 닫힌 패널은 DEBUG 버튼 영역 외의 드로잉 입력을 가로채지 않음
+
+### 2026-07-24 — 먹분신 눈 추가와 방패 외곽선 보정
+
+- 사용 도구: Codex, OpenAI Image Generation
+- 목적: 먹분신이 기어처럼 보이는 문제를 해결하고 방패만 과도하게 두꺼워 보이던 외곽선을 세트 기준에 맞춤
+- 입력/프롬프트 요약: 사용자가 선호한 납작하고 넓은 두 먹방울 겹침 구도를 복원하고 각 분신에 원본 캐릭터와 같은 흰 타원 눈과 검정 동공을 적용. 방패는 내부 디자인을 유지한 채 바깥 검정 외곽선만 피사체 폭 약 4%로 축소
+- 산출물: `Assets/Art/UI/ink_clone.png`, `Assets/Art/UI/ink_shield.png`
+- 사람 검토/후처리: 투명 PNG 변환 후 종이색 배경에 나란히 합성하여 분신의 캐릭터 인식성과 방패 외곽선 균형을 확인
+
+### 2026-07-24 — 아이템 4종 공통 검정 외곽선 적용
+
+- 사용 도구: Codex, OpenAI Image Generation
+- 목적: 먹물방울·황금붓·먹방패·먹분신 아이콘을 하나의 세트로 보이게 통일하고 작은 화면에서 실루엣 가독성을 강화
+- 입력/프롬프트 요약: 네 아이콘 모두 피사체 폭 약 6%의 연속된 순검정 외곽선을 적용. 황금붓은 외부 별 이펙트를 제거하고 손잡이와 띠의 황금색 비중을 높였으며, 먹분신은 얼굴 요소 없이 두 먹방울의 겹침만으로 복제를 표현
+- 산출물: `Assets/Art/UI/ink_drop.png`, `Assets/Art/UI/golden_brush.png`, `Assets/Art/UI/ink_shield.png`, `Assets/Art/UI/ink_clone.png`
+- 사람 검토/후처리: 네 결과를 투명 PNG로 변환하고 동일한 종이색 배경의 2×2 비교 이미지에서 외곽선 두께와 세트 일관성을 확인
+
+### 2026-07-24 — 황금붓·먹방패 아이콘 단순화
+
+- 사용 도구: Codex, OpenAI Image Generation
+- 목적: 사실적이고 고급스러운 기존 아이템 이미지를 캐릭터와 먹물방울에 어울리는 귀엽고 단순한 아이콘으로 통일
+- 입력/프롬프트 요약: 기존 아이콘은 기능 참조, 먹방울 캐릭터는 단순화 기준, 새 먹물방울은 색과 마감 기준으로 사용. 검정·종이색·절제된 금색만 사용하고 굵고 둥근 실루엣으로 재구성
+- 산출물: `Assets/Art/UI/golden_brush.png`, `Assets/Art/UI/ink_shield.png`
+- 사람 검토/후처리: 크로마키를 알파로 변환한 뒤 종이색 배경 합성 미리보기로 가독성과 가장자리를 확인. 기존 경로와 메타 파일을 유지하여 연결된 스프라이트 참조를 보존
+
+### 2026-07-24 — 먹물방울 아이템 아이콘 교체
+
+- 사용 도구: Codex, OpenAI Image Generation
+- 목적: 사용자가 선택한 낮고 둥근 먹물방울 디자인을 게임용 투명 PNG 아이콘으로 적용
+- 입력/프롬프트 요약: 제공 이미지를 엄격한 디자인 참조로 사용하고 검은 먹방울, 흰 반사광, 절제된 금색 테두리를 유지하면서 단색 크로마키 배경과 균일한 여백으로 재구성
+- 산출물: `Assets/Art/UI/ink_drop.png`
+- 사람 검토/후처리: 크로마키를 알파로 변환하고 종이색 배경 합성 미리보기로 가장자리, 반사광, 금색 테두리 보존을 확인. 아이템 스포너가 월드 폭을 정규화하므로 기존 게임 크기는 유지
+
+### 2026-07-24 — 먹 번짐 사망 연출과 충돌 경계 상황 보강
+
+- 사용 도구: Codex, OpenAI Image Generation
+- 목적: 위로 폴짝하는 기존 사망 연출을 먹 번짐이 퍼졌다 사라지는 연출로 교체하고 다중 충돌의 불공정한 즉사를 방지
+- 주요 프롬프트/지시: 첨부된 먹 번짐 이미지를 사망 애니메이션으로 사용하고 장애물·방어막·분신 조합의 버그 가능성 검수
+- 결과물: `PlayerController.cs`, `MukJumpSceneBuilder.cs`,
+  `Assets/Art/Character/Death/ink_death_splash.png`
+- 사람의 수정/검토 내용: 첨부 원본은 알파가 전부 불투명해 체크무늬 배경이 표시되는 것을 확인하고,
+  형태를 참조해 크로마 배경으로 재생성한 뒤 투명 PNG로 변환함. 방어막 소모 직후 0.35초,
+  새 분신 생성 직후 0.6초의 장애물 피해 유예를 적용

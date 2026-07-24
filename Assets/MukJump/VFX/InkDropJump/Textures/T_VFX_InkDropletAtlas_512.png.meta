@@ -1,0 +1,674 @@
+fileFormatVersion: 2
+guid: d92c7edf2ada04b52bc2b6c9a1c68c82
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 4820270761928481863
+    second: T_VFX_InkDropletAtlas_512_0
+  - first:
+      213: -1273451446951521370
+    second: T_VFX_InkDropletAtlas_512_1
+  - first:
+      213: 3310701291634973779
+    second: T_VFX_InkDropletAtlas_512_2
+  - first:
+      213: -8083038024016869431
+    second: T_VFX_InkDropletAtlas_512_3
+  - first:
+      213: -3505425198042059794
+    second: T_VFX_InkDropletAtlas_512_4
+  - first:
+      213: -4086460235836328188
+    second: T_VFX_InkDropletAtlas_512_5
+  - first:
+      213: 7613403622297492749
+    second: T_VFX_InkDropletAtlas_512_6
+  - first:
+      213: 6054660389899488880
+    second: T_VFX_InkDropletAtlas_512_7
+  - first:
+      213: -8268599244662842519
+    second: T_VFX_InkDropletAtlas_512_8
+  - first:
+      213: -6877027464615635502
+    second: T_VFX_InkDropletAtlas_512_9
+  - first:
+      213: 617556066397185243
+    second: T_VFX_InkDropletAtlas_512_10
+  - first:
+      213: 8563383459338219781
+    second: T_VFX_InkDropletAtlas_512_11
+  - first:
+      213: -266061965552611424
+    second: T_VFX_InkDropletAtlas_512_12
+  - first:
+      213: 825952134822822368
+    second: T_VFX_InkDropletAtlas_512_13
+  - first:
+      213: 4895725446122124057
+    second: T_VFX_InkDropletAtlas_512_14
+  - first:
+      213: 3510902007653837982
+    second: T_VFX_InkDropletAtlas_512_15
+  - first:
+      213: 380453378241700608
+    second: T_VFX_InkDropletAtlas_512_16
+  - first:
+      213: -5823424948325525903
+    second: T_VFX_InkDropletAtlas_512_17
+  - first:
+      213: -3670030393236427947
+    second: T_VFX_InkDropletAtlas_512_18
+  - first:
+      213: -6850000867911365656
+    second: T_VFX_InkDropletAtlas_512_19
+  - first:
+      213: 7910055669467895331
+    second: T_VFX_InkDropletAtlas_512_20
+  - first:
+      213: -5885086391401928257
+    second: T_VFX_InkDropletAtlas_512_21
+  - first:
+      213: -7574367208081429641
+    second: T_VFX_InkDropletAtlas_512_22
+  - first:
+      213: -8957229904077524915
+    second: T_VFX_InkDropletAtlas_512_23
+  - first:
+      213: -5586461187991175454
+    second: T_VFX_InkDropletAtlas_512_24
+  - first:
+      213: -1307714693810452247
+    second: T_VFX_InkDropletAtlas_512_25
+  - first:
+      213: -6524514267938154159
+    second: T_VFX_InkDropletAtlas_512_26
+  - first:
+      213: -2074757759588609483
+    second: T_VFX_InkDropletAtlas_512_27
+  - first:
+      213: -2674536059292778898
+    second: T_VFX_InkDropletAtlas_512_28
+  - first:
+      213: -3534242679952653509
+    second: T_VFX_InkDropletAtlas_512_29
+  - first:
+      213: -2287481459580423572
+    second: T_VFX_InkDropletAtlas_512_30
+  - first:
+      213: 480235952775883350
+    second: T_VFX_InkDropletAtlas_512_31
+  - first:
+      213: 7922242118831568377
+    second: ink_droplet_00
+  - first:
+      213: 483203998874901584
+    second: ink_droplet_01
+  - first:
+      213: 1083523068108041852
+    second: ink_droplet_02
+  - first:
+      213: -383124393054683584
+    second: ink_droplet_03
+  - first:
+      213: 4013213099405002953
+    second: ink_droplet_04
+  - first:
+      213: 6946980542425143358
+    second: ink_droplet_05
+  - first:
+      213: -2738807899265385263
+    second: ink_droplet_06
+  - first:
+      213: 6012407090039890377
+    second: ink_droplet_07
+  - first:
+      213: 1456263326542258698
+    second: ink_droplet_08
+  - first:
+      213: 6069642173446717741
+    second: ink_droplet_09
+  - first:
+      213: 246928474390567614
+    second: ink_droplet_10
+  - first:
+      213: -314761285077497601
+    second: ink_droplet_11
+  - first:
+      213: -3529121491537884300
+    second: ink_droplet_12
+  - first:
+      213: 2167588305877688280
+    second: ink_droplet_13
+  - first:
+      213: 3925021625049081009
+    second: ink_droplet_14
+  - first:
+      213: 2618849461766063598
+    second: ink_droplet_15
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 256
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: iOS
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: ink_droplet_00
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 384
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9f5f795bb3571fd60800000000000000
+      internalID: 7922242118831568377
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_01
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 384
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 05c9cf21a7fa4b600800000000000000
+      internalID: 483203998874901584
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_02
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 384
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c7e658c5d72790f00800000000000000
+      internalID: 1083523068108041852
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_03
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 384
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 04e3037f46edeaaf0800000000000000
+      internalID: -383124393054683584
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_04
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 256
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9c8cafd0d0cc1b730800000000000000
+      internalID: 4013213099405002953
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_05
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 256
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e381dc42ff1a86060800000000000000
+      internalID: 6946980542425143358
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_06
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 256
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1dcb048f9bccdf9d0800000000000000
+      internalID: -2738807899265385263
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_07
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 256
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9c12edea46c507350800000000000000
+      internalID: 6012407090039890377
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_08
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 128
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a02eaf5a7cfa53410800000000000000
+      internalID: 1456263326542258698
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_09
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 128
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d21850ef563bb3450800000000000000
+      internalID: 6069642173446717741
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_10
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 128
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: eba9af0a3244d6300800000000000000
+      internalID: 246928474390567614
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_11
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 128
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ff809e5674eb1abf0800000000000000
+      internalID: -314761285077497601
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_12
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 47b00b793ba060fc0800000000000000
+      internalID: -3529121491537884300
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_13
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 0
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8df512f6412d41e10800000000000000
+      internalID: 2167588305877688280
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_14
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 0
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1b4e6c05f5a787630800000000000000
+      internalID: 3925021625049081009
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ink_droplet_15
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 0
+        width: 128
+        height: 128
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ee50ac0d5b5085420800000000000000
+      internalID: 2618849461766063598
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      T_VFX_InkDropletAtlas_512_0: 4820270761928481863
+      T_VFX_InkDropletAtlas_512_1: -1273451446951521370
+      T_VFX_InkDropletAtlas_512_10: 617556066397185243
+      T_VFX_InkDropletAtlas_512_11: 8563383459338219781
+      T_VFX_InkDropletAtlas_512_12: -266061965552611424
+      T_VFX_InkDropletAtlas_512_13: 825952134822822368
+      T_VFX_InkDropletAtlas_512_14: 4895725446122124057
+      T_VFX_InkDropletAtlas_512_15: 3510902007653837982
+      T_VFX_InkDropletAtlas_512_16: 380453378241700608
+      T_VFX_InkDropletAtlas_512_17: -5823424948325525903
+      T_VFX_InkDropletAtlas_512_18: -3670030393236427947
+      T_VFX_InkDropletAtlas_512_19: -6850000867911365656
+      T_VFX_InkDropletAtlas_512_2: 3310701291634973779
+      T_VFX_InkDropletAtlas_512_20: 7910055669467895331
+      T_VFX_InkDropletAtlas_512_21: -5885086391401928257
+      T_VFX_InkDropletAtlas_512_22: -7574367208081429641
+      T_VFX_InkDropletAtlas_512_23: -8957229904077524915
+      T_VFX_InkDropletAtlas_512_24: -5586461187991175454
+      T_VFX_InkDropletAtlas_512_25: -1307714693810452247
+      T_VFX_InkDropletAtlas_512_26: -6524514267938154159
+      T_VFX_InkDropletAtlas_512_27: -2074757759588609483
+      T_VFX_InkDropletAtlas_512_28: -2674536059292778898
+      T_VFX_InkDropletAtlas_512_29: -3534242679952653509
+      T_VFX_InkDropletAtlas_512_3: -8083038024016869431
+      T_VFX_InkDropletAtlas_512_30: -2287481459580423572
+      T_VFX_InkDropletAtlas_512_31: 480235952775883350
+      T_VFX_InkDropletAtlas_512_4: -3505425198042059794
+      T_VFX_InkDropletAtlas_512_5: -4086460235836328188
+      T_VFX_InkDropletAtlas_512_6: 7613403622297492749
+      T_VFX_InkDropletAtlas_512_7: 6054660389899488880
+      T_VFX_InkDropletAtlas_512_8: -8268599244662842519
+      T_VFX_InkDropletAtlas_512_9: -6877027464615635502
+      ink_droplet_00: 7922242118831568377
+      ink_droplet_01: 483203998874901584
+      ink_droplet_02: 1083523068108041852
+      ink_droplet_03: -383124393054683584
+      ink_droplet_04: 4013213099405002953
+      ink_droplet_05: 6946980542425143358
+      ink_droplet_06: -2738807899265385263
+      ink_droplet_07: 6012407090039890377
+      ink_droplet_08: 1456263326542258698
+      ink_droplet_09: 6069642173446717741
+      ink_droplet_10: 246928474390567614
+      ink_droplet_11: -314761285077497601
+      ink_droplet_12: -3529121491537884300
+      ink_droplet_13: 2167588305877688280
+      ink_droplet_14: 3925021625049081009
+      ink_droplet_15: 2618849461766063598
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

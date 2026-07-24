@@ -54,6 +54,11 @@
 - 캐릭터(먹방울이)는 **일정 주기마다 자동으로 점프**한다. 플레이어가 점프 자체를 조작할 수 없다.
 - 플레이어는 화면에 **손가락으로 선을 그어 발판을 생성**한다.
 - 발판의 **위치 · 각도 · 길이**가 다음 점프의 궤적(방향, 높이)을 결정한다.
+- 그린 발판은 가파른 대각선에서도 캐릭터가 붙을 수 있다. 화면 양옆 `ScreenSideWall`은
+  접착 대상이 아니며 기존처럼 안쪽으로 튕긴다.
+- 첫 자동 점프는 접지 중 충전하고, 이후 충전은 점프 정점부터 시작한다. 발판 수명은
+  기본 6.5초이며 동시에 최대 4개를 유지한다.
+- 발판 붓결은 Main UI의 `LineSprite`를 우선 사용하고 없으면 절차적 갈필로 폴백한다.
 - 발판을 잘못 그리거나 타이밍을 놓치면 캐릭터가 굴러 떨어진다 (기존 점프킹과 동일한 낙하 리스크).
 - 전략의 핵심은 "내 점프 컨트롤"이 아니라 **"그림으로 만드는 길"**.
 
@@ -124,7 +129,7 @@
 이미지 파일은 이 문서와 별도로 터미널 Claude Code에게 직접 전달 예정. 목록만 참고:
 
 - `char_muk.svg` — 먹방울이 캐릭터 벡터 원본 (수정 시 이 파일을 편집)
-- `character_muk_bangul_v3.png` — 캐릭터 래스터 (1024×1024, 투명 배경, 최신본)
+- `Assets/Art/Character/Player/character_muk_bangul_v3.png` — 캐릭터 래스터 (1024×1024, 투명 배경, 최신본)
 - `bg_muk_landscape.svg` — 배경 벡터 원본 (세로 산수화, 1080×1920 기준)
 - `background_ink_landscape.png` — 배경 래스터 (1080×1920)
 - `muk_jump_hackathon_final.pptx` — 해커톤 제출용 기획서 원본 (11슬라이드, 이 문서의 원 출처)
@@ -138,7 +143,9 @@
 ```
 Assets/
   Art/
-    Character/     char_muk.svg, character_muk_bangul_v3.png
+    Character/Player/      character_muk_bangul_v3.png, muk_spritesheet.png
+    Character/Death/       사망 애니메이션 개별 프레임
+    Character/Obstacles/   장애물 스프라이트
     Background/    bg_muk_landscape.svg, background_ink_landscape.png
   Scripts/
     Player/        AutoJump.cs, PlayerController.cs

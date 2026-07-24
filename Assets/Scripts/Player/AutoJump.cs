@@ -9,14 +9,22 @@ namespace MukJump.Player
     public class AutoJump : MonoBehaviour
     {
         [Header("점프 주기")]
-        [Tooltip("접지 후 이 시간이 지나면 자동 점프")]
-        [SerializeField] float jumpInterval = 1.6f;
+        [Tooltip("점프 정점부터 다음 자동 점프까지 충전되는 시간")]
+        [SerializeField] float jumpIntervalSeconds = 1f;
 
         [Header("점프 궤적")]
         [SerializeField] float baseJumpSpeed = 12f;
+        [Tooltip("기존 점프 궤적을 유지하면서 전체 점프 힘을 조절하는 배율")]
+        [SerializeField, Min(1f)] float jumpStrengthMultiplier = 1.12f;
         [Tooltip("0 = 항상 수직 점프, 1 = 발판 노멀 방향 그대로")]
         [Range(0f, 1f)]
         [SerializeField] float normalInfluence = 0.7f;
+        [Tooltip("이전 점프의 수평 관성을 다음 점프에 남기는 비율")]
+        [Range(0f, 0.8f)]
+        [SerializeField] float horizontalMomentumRetention = 0.28f;
+        [Tooltip("평평한 발판에서도 완전히 수직으로만 반복되지 않게 하는 약한 좌우 이동")]
+        [SerializeField, Min(0f)] float flatPlatformWanderSpeed = 0.35f;
+        [SerializeField, Min(1f)] float maxHorizontalSpeed = 5.5f;
 
         [Header("발판 길이 → 점프력 보정")]
         [SerializeField] Vector2 platformLengthRange = new(1f, 5f);
@@ -25,52 +33,85 @@ namespace MukJump.Player
         Rigidbody2D rb;
         PlayerController player;
         float chargeTimer;
+        bool hasLaunched;
+        bool wasRising;
+        bool chargeStarted;
+        float wanderDirection;
 
-        /// 접지 중이며 다음 점프를 준비하고 있는가 (HUD 게이지용)
-        public bool IsCharging => player.IsGrounded && GameManager.Instance.State == GameState.Playing;
-        public float ChargeRatio => Mathf.Clamp01(chargeTimer / jumpInterval);
+        /// 첫 점프는 접지 중, 이후 점프는 정점부터 다음 점프를 준비한다 (HUD 게이지용).
+        public bool IsCharging => player != null && (chargeStarted || (!hasLaunched && player.IsGrounded)) &&
+                                  GameManager.Instance != null &&
+                                  GameManager.Instance.State == GameState.Playing;
+        public float ChargeRatio => Mathf.Clamp01(chargeTimer / jumpIntervalSeconds);
 
         void Awake()
         {
             rb = GetComponent<Rigidbody2D>();
             player = GetComponent<PlayerController>();
+            wanderDirection = Random.value < 0.5f ? -1f : 1f;
         }
 
         void Update()
         {
-            if (!IsCharging)
+            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing ||
+                player == null || player.IsDead)
             {
                 chargeTimer = 0f;
+                chargeStarted = false;
+                hasLaunched = false;
+                wasRising = false;
                 return;
             }
 
-            chargeTimer += Time.deltaTime;
-            if (chargeTimer >= jumpInterval)
+            float verticalSpeed = rb.linearVelocity.y;
+            if (verticalSpeed > 0.1f)
+            {
+                // 자동 점프뿐 아니라 먹물방울 점프도 새로운 상승으로 인식한다.
+                if (!wasRising)
+                {
+                    hasLaunched = true;
+                    chargeStarted = false;
+                    chargeTimer = 0f;
+                }
+                wasRising = true;
+            }
+            else if (wasRising)
+            {
+                // 상승에서 하강으로 바뀌는 정점부터 다음 점프 충전을 시작한다.
+                wasRising = false;
+                chargeStarted = true;
+                chargeTimer = 0f;
+            }
+
+            if (!hasLaunched && player.IsGrounded)
+                chargeStarted = true;
+
+            if (chargeStarted)
+                chargeTimer = Mathf.Min(jumpIntervalSeconds, chargeTimer + Time.deltaTime);
+
+            // 공중에서는 충전만 유지하고, 착지한 순간 가득 찼다면 바로 점프한다.
+            if (chargeStarted && player.IsGrounded && chargeTimer >= jumpIntervalSeconds)
                 Jump();
         }
 
-        /// 로비에서 시작 터치 시 즉시 점프 — 착지하면 그 자리가 게임 시작점이 되는 연출.
-        /// 이 점프에서는 시작 발판을 남겨둔다 (착지할 곳이 있어야 하므로)
-        public void JumpNow()
-        {
-            if (player.IsGrounded)
-                Jump(consumeStartPlatform: false);
-        }
-
-        void Jump(bool consumeStartPlatform = true)
+        void Jump()
         {
             chargeTimer = 0f;
+            chargeStarted = false;
+            hasLaunched = true;
+            wasRising = true;
 
             Vector2 direction = Vector3.Slerp(Vector3.up, player.GroundNormal, normalInfluence).normalized;
-            float power = baseJumpSpeed * PowerMultiplier();
+            float power = baseJumpSpeed * jumpStrengthMultiplier * PowerMultiplier();
+            float horizontal = direction.x * power + rb.linearVelocity.x * horizontalMomentumRetention;
+            if (Mathf.Abs(direction.x) < 0.08f)
+            {
+                if (Random.value < 0.3f) wanderDirection = -wanderDirection;
+                horizontal += wanderDirection * flatPlatformWanderSpeed;
+            }
 
-            // 첫 발판(시작 지형)은 최초로 그 위에서 자동 점프하는 순간 사라진다 —
-            // 이후로는 반드시 직접 그린 발판으로만 진행해야 한다
-            if (consumeStartPlatform &&
-                player.CurrentPlatform != null && player.CurrentPlatform.IsStartPlatform)
-                player.CurrentPlatform.Despawn();
-
-            rb.linearVelocity = direction * power;
+            horizontal = Mathf.Clamp(horizontal, -maxHorizontalSpeed, maxHorizontalSpeed);
+            rb.linearVelocity = new Vector2(horizontal, direction.y * power);
         }
 
         float PowerMultiplier()

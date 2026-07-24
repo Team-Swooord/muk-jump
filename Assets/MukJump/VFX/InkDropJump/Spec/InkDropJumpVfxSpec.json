@@ -1,0 +1,167 @@
+{
+  "name": "VFX_InkDropJump_Pickup",
+  "visualReference": "먹점프 HTML 콘셉트의 먹물방울 탭",
+  "palette": {
+    "ink": "#171612",
+    "inkMid": "#39352E",
+    "paper": "#EEE4CD",
+    "paperMuted": "#BFB49F"
+  },
+  "durationSeconds": 4.4,
+  "fullSequence": {
+    "anticipation": [
+      0.0,
+      0.38
+    ],
+    "impact": [
+      0.38,
+      0.55
+    ],
+    "launch": [
+      0.47,
+      1.23
+    ],
+    "dissipation": [
+      1.23,
+      4.4
+    ],
+    "audioImpact": 0.42,
+    "audioLaunch": 0.47
+  },
+  "immediateGameplayFallback": {
+    "rule": "Never delay or duplicate the existing jump. Existing jump trigger frame becomes VFX impact t=0.",
+    "audio": "SFX_InkDropJump_Immediate.wav",
+    "gatherTailSeconds": 0.1
+  },
+  "layers": [
+    {
+      "id": "Hero_ItemDrop",
+      "type": "SpriteRenderer or ParticleSystem",
+      "texture": "T_VFX_InkDrop_128.png",
+      "notes": "Full pre-roll: descend from ~1H above target to feet and compress; immediate fallback: tiny ground compression pop or omit without delaying gameplay."
+    },
+    {
+      "id": "Anticipation_Gather",
+      "type": "ParticleSystem",
+      "count": 18,
+      "lifetime": [
+        0.28,
+        0.42
+      ],
+      "texture": "T_VFX_InkDropletAtlas_512.png",
+      "notes": "Spiral inward toward feet; only use full pre-roll when an existing pre-jump event exists."
+    },
+    {
+      "id": "Impact_CreamFlash",
+      "type": "ParticleSystem",
+      "count": 1,
+      "lifetime": [
+        0.1,
+        0.16
+      ],
+      "texture": "T_VFX_SoftFlash_256.png",
+      "blend": "Additive",
+      "notes": "Peak held for 1-3 frames only."
+    },
+    {
+      "id": "Impact_GroundBlob",
+      "type": "ParticleSystem",
+      "count": 1,
+      "lifetime": [
+        0.22,
+        0.32
+      ],
+      "texture": "T_VFX_InkGroundBlob_512.png",
+      "blend": "Alpha",
+      "notes": "Scale Y 0.35-0.48."
+    },
+    {
+      "id": "Impact_InkSplash",
+      "type": "ParticleSystem",
+      "count": 1,
+      "lifetime": [
+        0.18,
+        0.28
+      ],
+      "texture": "T_VFX_InkSplash_512.png",
+      "blend": "Alpha",
+      "notes": "Flattened sharp radial splash, width 0.8-1.25 character heights, random rotation ±12 degrees."
+    },
+    {
+      "id": "ShockRing_Ink",
+      "type": "ParticleSystem",
+      "count": 1,
+      "lifetime": [
+        0.55,
+        0.68
+      ],
+      "texture": "T_VFX_InkShockRing_512.png",
+      "blend": "Alpha",
+      "notes": "Expand to 2.2-2.6 character heights wide; scale Y ~0.27."
+    },
+    {
+      "id": "ShockRing_Paper",
+      "type": "ParticleSystem",
+      "count": 1,
+      "lifetime": [
+        0.45,
+        0.6
+      ],
+      "texture": "T_VFX_InkShockRing_512.png",
+      "blend": "Alpha/Additive subtle",
+      "notes": "Paper color, lower alpha, slightly inside ink ring."
+    },
+    {
+      "id": "Main_Spray",
+      "type": "ParticleSystem",
+      "count": [
+        36,
+        48
+      ],
+      "lifetime": [
+        0.55,
+        1.25
+      ],
+      "texture": "T_VFX_InkStreak_128x512.png",
+      "blend": "Alpha",
+      "notes": "Upward cone, speed random 10-100%, drag 3.7-5.0, slight gravity."
+    },
+    {
+      "id": "Vertical_Brush",
+      "type": "SpriteRenderer/Controller",
+      "texture": "T_VFX_InkVerticalBrush_256x1024.png",
+      "notes": "Bottom fixed at impact origin, top follows character; grow 0.47-0.90, fade 1.45-3.55."
+    },
+    {
+      "id": "Vertical_Fibers",
+      "type": "SpriteRenderer/Controller",
+      "texture": "T_VFX_BrushFibers_256x1024.png",
+      "notes": "Paper-colored low-alpha overlay, same geometry as vertical brush."
+    },
+    {
+      "id": "Residual_Droplets",
+      "type": "ParticleSystem",
+      "count": [
+        24,
+        32
+      ],
+      "lifetime": [
+        1.0,
+        2.6
+      ],
+      "texture": "T_VFX_InkDropletAtlas_512.png",
+      "blend": "Alpha",
+      "notes": "Slow rise/drift with low density."
+    },
+    {
+      "id": "Afterimages",
+      "type": "Optional runtime sprite snapshots",
+      "count": 3,
+      "notes": "Alpha 0.10, only if the player is SpriteRenderer-based and this does not disturb animation."
+    }
+  ],
+  "assetPaths": {
+    "textures": "Assets/MukJump/VFX/InkDropJump/Textures",
+    "audio": "Assets/MukJump/VFX/InkDropJump/Audio"
+  }
+}
