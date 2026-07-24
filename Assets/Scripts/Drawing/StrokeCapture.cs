@@ -184,6 +184,7 @@ namespace MukJump.Drawing
             strokeLength = 0f;
             points.Clear();
             points.Add(worldPos);
+            GameFeedbackController.Instance?.StartBrushDrawing();
             CreatePreview();
         }
 

@@ -24,7 +24,7 @@ namespace MukJump.Core
         AudioClip deathSqueakClip;
         AudioClip gameOverClip;
         AudioSource brushSource;
-        float brushSoundUntil;
+        AudioSource accentSource;
         Sprite dotSprite;
         Canvas overlayCanvas;
         Text bannerText;
@@ -51,37 +51,33 @@ namespace MukJump.Core
             brushLoopClip = CreateBrushNoise("BrushDrawing", 0.42f, 0.16f);
             brushTransitionClip = CreateBrushNoise("BrushTransition", 1.15f, 0.3f, true);
             wallHitClip = CreateTone("WallHit", 0.11f, 120f, 72f, 0.28f, 0.32f);
-            deathSqueakClip = CreateTone("DeathSqueak", 0.24f, 720f, 155f, 0.25f, 0.04f);
-            gameOverClip = CreateTone("GameOver", 0.58f, 310f, 92f, 0.22f, 0.08f);
-            CreateBrushSource();
+            deathSqueakClip = CreateTone("DeathSqueak", 0.32f, 1080f, 185f, 0.68f, 0.025f);
+            gameOverClip = CreateTone("GameOver", 0.58f, 310f, 92f, 0.42f, 0.08f);
+            CreateDedicatedAudioSources();
             dotSprite = CreateDotSprite();
             CreateOverlay();
         }
 
-        void Update()
+        public void StartBrushDrawing()
         {
-            if (brushSource != null && brushSource.isPlaying && Time.unscaledTime > brushSoundUntil)
-                brushSource.Pause();
+            if (brushSource == null || brushLoopClip == null || brushSource.isPlaying) return;
+            brushSource.volume = 0.28f;
+            brushSource.pitch = Random.Range(0.94f, 1.04f);
+            if (brushSource.timeSamples > 0)
+                brushSource.UnPause();
+            else
+                brushSource.Play();
         }
 
         public void PlayBrushMovement(float movement)
         {
             if (brushSource == null || brushLoopClip == null) return;
-            brushSoundUntil = Time.unscaledTime + 0.12f;
-            brushSource.volume = Mathf.Lerp(0.16f, 0.34f, Mathf.Clamp01(movement / 0.5f));
+            brushSource.volume = Mathf.Lerp(0.24f, 0.4f, Mathf.Clamp01(movement / 0.5f));
             brushSource.pitch = Mathf.Lerp(0.9f, 1.12f, Mathf.Clamp01(movement / 0.5f));
-            if (!brushSource.isPlaying)
-            {
-                if (brushSource.timeSamples > 0)
-                    brushSource.UnPause();
-                else
-                    brushSource.Play();
-            }
         }
 
         public void StopBrushDrawing()
         {
-            brushSoundUntil = 0f;
             if (brushSource != null && brushSource.isPlaying)
                 brushSource.Pause();
         }
@@ -99,7 +95,7 @@ namespace MukJump.Core
 
         public void PlayGameOver()
         {
-            VfxAudioManager.Instance?.PlayOneShot(gameOverClip, 0.9f);
+            PlayAccent(gameOverClip, 0.82f);
         }
 
         public void PlayJump(Vector3 position)
@@ -143,7 +139,7 @@ namespace MukJump.Core
         public void PlayDeath(Vector3 position)
         {
             StopBrushDrawing();
-            VfxAudioManager.Instance?.PlayOneShot(deathSqueakClip, 0.92f);
+            PlayAccent(deathSqueakClip, 1f);
             StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.1f, 1.35f,
                 0.42f, 0.12f, 0.75f));
             SpawnDroplets(position, 14, InkPalette.Ink);
@@ -347,7 +343,7 @@ namespace MukJump.Core
             return clip;
         }
 
-        void CreateBrushSource()
+        void CreateDedicatedAudioSources()
         {
             var sourceObject = new GameObject("BrushDrawingAudio");
             sourceObject.transform.SetParent(transform, false);
@@ -356,6 +352,20 @@ namespace MukJump.Core
             brushSource.loop = true;
             brushSource.spatialBlend = 0f;
             brushSource.clip = brushLoopClip;
+
+            var accentObject = new GameObject("PriorityAccentAudio");
+            accentObject.transform.SetParent(transform, false);
+            accentSource = accentObject.AddComponent<AudioSource>();
+            accentSource.playOnAwake = false;
+            accentSource.loop = false;
+            accentSource.spatialBlend = 0f;
+            accentSource.priority = 32;
+        }
+
+        void PlayAccent(AudioClip clip, float volume)
+        {
+            if (accentSource == null || clip == null) return;
+            accentSource.PlayOneShot(clip, Mathf.Clamp01(volume));
         }
 
         static AudioClip CreateBrushNoise(string name, float duration, float volume,
