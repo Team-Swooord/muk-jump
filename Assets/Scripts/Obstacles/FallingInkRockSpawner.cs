@@ -134,6 +134,10 @@ namespace MukJump.Obstacles
         float ChooseSafestX(float left, float right)
         {
             if (right <= left) return (left + right) * 0.5f;
+            var livingPlayer = GameManager.Instance != null
+                ? GameManager.Instance.HighestLivingPlayer
+                : null;
+            if (livingPlayer != null) player = livingPlayer;
 
             float safestX = (left + right) * 0.5f;
             float safestDistance = -1f;

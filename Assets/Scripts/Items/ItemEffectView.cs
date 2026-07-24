@@ -217,9 +217,12 @@ namespace MukJump.Items
             var motes = new SpriteRenderer[count];
             for (int i = 0; i < count; i++)
             {
-                var go = new GameObject($"{prefix}{i + 1:00}");
-                go.transform.SetParent(transform, false);
-                var renderer = go.AddComponent<SpriteRenderer>();
+                string objectName = $"{prefix}{i + 1:00}";
+                var child = transform.Find(objectName);
+                var go = child != null ? child.gameObject : new GameObject(objectName);
+                if (child == null) go.transform.SetParent(transform, false);
+                var renderer = go.GetComponent<SpriteRenderer>();
+                if (renderer == null) renderer = go.AddComponent<SpriteRenderer>();
                 renderer.sprite = effectDroplet;
                 renderer.color = color;
                 renderer.sortingOrder = sortingOrder;
@@ -231,9 +234,11 @@ namespace MukJump.Items
 
         LineRenderer CreateRing(string objectName, int sortingOrder, float width)
         {
-            var go = new GameObject(objectName);
-            go.transform.SetParent(transform, false);
-            var ring = go.AddComponent<LineRenderer>();
+            var child = transform.Find(objectName);
+            var go = child != null ? child.gameObject : new GameObject(objectName);
+            if (child == null) go.transform.SetParent(transform, false);
+            var ring = go.GetComponent<LineRenderer>();
+            if (ring == null) ring = go.AddComponent<LineRenderer>();
             ring.useWorldSpace = false;
             ring.loop = true;
             ring.positionCount = ringSegments;
@@ -250,9 +255,12 @@ namespace MukJump.Items
 
         LineRenderer CreateGoldenStroke(int index)
         {
-            var go = new GameObject($"GoldenBrushStroke{index + 1}");
-            go.transform.SetParent(transform, false);
-            var line = go.AddComponent<LineRenderer>();
+            string objectName = $"GoldenBrushStroke{index + 1}";
+            var child = transform.Find(objectName);
+            var go = child != null ? child.gameObject : new GameObject(objectName);
+            if (child == null) go.transform.SetParent(transform, false);
+            var line = go.GetComponent<LineRenderer>();
+            if (line == null) line = go.AddComponent<LineRenderer>();
             line.useWorldSpace = false;
             line.positionCount = 12;
             line.startWidth = 0.055f - index * 0.01f;

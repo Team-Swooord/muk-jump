@@ -14,6 +14,8 @@ namespace MukJump.Items
         [SerializeField] Sprite goldenBrushSprite;
         [Tooltip("먹 방어막 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
         [SerializeField] Sprite inkShieldSprite;
+        [Tooltip("먹분신 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
+        [SerializeField] Sprite inkCloneSprite;
         [SerializeField] Vector2 verticalSpacing = new(15f, 25f);
         [SerializeField] Vector2 horizontalRange = new(-4f, 4f);
         [SerializeField] float firstSpawnHeight = 12f;
@@ -60,7 +62,7 @@ namespace MukJump.Items
 
         void Spawn(float y)
         {
-            var type = (ItemType)Random.Range(0, 3);
+            var type = (ItemType)Random.Range(0, 4);
             Sprite sprite = SpriteFor(type);
             bool usesDedicatedSprite = sprite != placeholderSprite;
             var go = new GameObject($"Item_{type}")
@@ -92,6 +94,7 @@ namespace MukJump.Items
                 ItemType.InkDrop when inkDropSprite != null => inkDropSprite,
                 ItemType.GoldenBrush when goldenBrushSprite != null => goldenBrushSprite,
                 ItemType.InkShield when inkShieldSprite != null => inkShieldSprite,
+                ItemType.InkClone when inkCloneSprite != null => inkCloneSprite,
                 _ => placeholderSprite,
             };
         }
@@ -102,7 +105,8 @@ namespace MukJump.Items
             {
                 ItemType.InkDrop => new Color(0.42f, 0.62f, 0.72f),
                 ItemType.GoldenBrush => new Color(0.95f, 0.72f, 0.2f),
-                _ => new Color(0.72f, 0.18f, 0.28f),
+                ItemType.InkShield => new Color(0.72f, 0.18f, 0.28f),
+                _ => new Color(0.2f, 0.18f, 0.16f),
             };
         }
     }

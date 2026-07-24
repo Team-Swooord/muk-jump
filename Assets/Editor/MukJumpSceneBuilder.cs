@@ -57,6 +57,8 @@ namespace MukJump.EditorTools
         const string InkDropItemPath = "Assets/Art/UI/ink_drop.png";
         const string GoldenBrushItemPath = "Assets/Art/UI/golden_brush.png";
         const string InkShieldItemPath = "Assets/Art/UI/ink_shield.png";
+        const string InkCloneItemPath = "Assets/Art/UI/ink_clone.png";
+        const string DeathSplashPath = "Assets/Art/Character/Death/ink_death_splash.png";
         const string InkDropVfxRoot = "Assets/MukJump/VFX/InkDropJump";
         const string InkDropVfxTextureRoot = InkDropVfxRoot + "/Textures/";
         const string InkDropVfxAudioRoot = InkDropVfxRoot + "/Audio/";
@@ -179,7 +181,11 @@ namespace MukJump.EditorTools
             circle.radius = 0.4f;
             circle.offset = new Vector2(0f, 0.1f);
 
-            go.AddComponent<PlayerController>();
+            var playerController = go.AddComponent<PlayerController>();
+            var playerSo = new SerializedObject(playerController);
+            playerSo.FindProperty("deathSplashSprite").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(DeathSplashPath);
+            playerSo.ApplyModifiedPropertiesWithoutUndo();
             var itemEffectView = go.AddComponent<ItemEffectView>();
             var itemEffectSo = new SerializedObject(itemEffectView);
             itemEffectSo.FindProperty("effectDroplet").objectReferenceValue =
@@ -300,6 +306,8 @@ namespace MukJump.EditorTools
                 AssetDatabase.LoadAssetAtPath<Sprite>(GoldenBrushItemPath);
             itemSo.FindProperty("inkShieldSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(InkShieldItemPath);
+            itemSo.FindProperty("inkCloneSprite").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(InkCloneItemPath);
             itemSo.ApplyModifiedPropertiesWithoutUndo();
 
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem),
@@ -468,23 +476,40 @@ namespace MukJump.EditorTools
             bestLabel.alignByGeometry = true;
 
             var testControls = CreateUiObject("ItemTestControls", root.transform,
-                new Vector2(0f, 0.5f), new Vector2(170f, 500f));
+                new Vector2(0f, 0.5f), new Vector2(210f, 900f));
             testControls.pivot = new Vector2(0f, 0.5f);
-            testControls.anchoredPosition = new Vector2(25f, 0f);
+            testControls.anchoredPosition = Vector2.zero;
             RestoreUiLayout(testControls);
+
+            var debugToggleButton = CreateDebugTextButton("DebugToggleButton", testControls,
+                new Vector2(8f, 370f), new Vector2(194f, 64f), "DEBUG");
+            var debugPanel = CreateUiObject("DebugPanel", testControls,
+                new Vector2(0f, 0.5f), new Vector2(194f, 720f));
+            debugPanel.pivot = new Vector2(0f, 0.5f);
+            debugPanel.anchoredPosition = new Vector2(8f, -30f);
+            var panelBackground = debugPanel.gameObject.AddComponent<Image>();
+            panelBackground.color = new Color(0.11f, 0.105f, 0.1f, 0.82f);
 
             var placeholderTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(ObstaclePath);
             var inkDropTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(InkDropItemPath);
             var goldenBrushTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GoldenBrushItemPath);
             var inkShieldTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(InkShieldItemPath);
-            var inkDropButton = CreateItemTestButton("InkDropButton", testControls, inkDropTexture,
-                new Vector2(0f, 150f), Color.white, "50m");
-            var goldenBrushButton = CreateItemTestButton("GoldenBrushButton", testControls,
+            var inkCloneTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(InkCloneItemPath);
+            var inkDropButton = CreateItemTestButton("InkDropButton", debugPanel, inkDropTexture,
+                new Vector2(32f, 245f), Color.white, "50m");
+            var goldenBrushButton = CreateItemTestButton("GoldenBrushButton", debugPanel,
                 goldenBrushTexture != null ? goldenBrushTexture : placeholderTexture,
-                Vector2.zero, goldenBrushTexture != null ? Color.white : new Color(0.95f, 0.72f, 0.2f), "무한");
-            var inkShieldButton = CreateItemTestButton("InkShieldButton", testControls,
+                new Vector2(32f, 95f), goldenBrushTexture != null ? Color.white : new Color(0.95f, 0.72f, 0.2f), "무한");
+            var inkShieldButton = CreateItemTestButton("InkShieldButton", debugPanel,
                 inkShieldTexture != null ? inkShieldTexture : placeholderTexture,
-                new Vector2(0f, -150f), inkShieldTexture != null ? Color.white : new Color(0.72f, 0.18f, 0.28f), "방어");
+                new Vector2(32f, -55f), inkShieldTexture != null ? Color.white : new Color(0.72f, 0.18f, 0.28f), "방어");
+            var inkCloneButton = CreateItemTestButton("InkCloneButton", debugPanel,
+                inkCloneTexture != null ? inkCloneTexture : placeholderTexture,
+                new Vector2(32f, -205f), inkCloneTexture != null ? Color.white : InkPalette.Ink, "분신");
+            var invincibleButton = CreateDebugTextButton("InvincibleButton", debugPanel,
+                new Vector2(22f, -325f), new Vector2(150f, 72f), "무적 OFF");
+            var invincibleLabel = invincibleButton.transform.Find("Label")?.GetComponent<Text>();
+            debugPanel.gameObject.SetActive(false);
 
             var view = root.GetComponent<GameplayHudView>();
             var so = new SerializedObject(view);
@@ -492,13 +517,34 @@ namespace MukJump.EditorTools
             so.FindProperty("heightText").objectReferenceValue = label;
             so.FindProperty("bestText").objectReferenceValue = bestLabel;
             so.FindProperty("itemTestControls").objectReferenceValue = testControls;
+            so.FindProperty("debugPanel").objectReferenceValue = debugPanel;
+            so.FindProperty("debugToggleButton").objectReferenceValue = debugToggleButton;
+            so.FindProperty("invincibleButton").objectReferenceValue = invincibleButton;
+            so.FindProperty("invincibleLabel").objectReferenceValue = invincibleLabel;
             so.FindProperty("inkDropButton").objectReferenceValue = inkDropButton;
             so.FindProperty("goldenBrushButton").objectReferenceValue = goldenBrushButton;
             so.FindProperty("inkShieldButton").objectReferenceValue = inkShieldButton;
+            so.FindProperty("inkCloneButton").objectReferenceValue = inkCloneButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             // LineSprite 프리팹은 StrokeCapture의 붓결 텍스처 원본으로만 사용한다.
             // GameplayCanvas에 표시 인스턴스를 만들면 화면 중앙에 불필요한 획이 남는다.
+        }
+
+        static Button CreateDebugTextButton(string name, Transform parent, Vector2 position,
+            Vector2 size, string labelText)
+        {
+            var rect = CreateUiObject(name, parent, new Vector2(0f, 0.5f), size);
+            rect.pivot = new Vector2(0f, 0.5f);
+            rect.anchoredPosition = position;
+            var background = rect.gameObject.AddComponent<Image>();
+            background.color = new Color(0.92f, 0.89f, 0.82f, 0.94f);
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = background;
+            var label = CreateText("Label", rect, labelText, 24, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), size - new Vector2(12f, 10f), InkPalette.Ink);
+            label.raycastTarget = false;
+            return button;
         }
 
         static Button CreateItemTestButton(string name, Transform parent, Texture2D iconTexture,
@@ -709,6 +755,7 @@ namespace MukJump.EditorTools
             ConfigureItemSprite(InkDropItemPath, "먹물방울");
             ConfigureItemSprite(GoldenBrushItemPath, "황금 붓");
             ConfigureItemSprite(InkShieldItemPath, "먹 방어막");
+            ConfigureItemSprite(InkCloneItemPath, "먹분신");
         }
 
         static void ConfigureInkDropJumpVfxAssets()
@@ -869,6 +916,7 @@ namespace MukJump.EditorTools
         {
             foreach (var path in DeathFramePaths)
                 ConfigureSprite(path, DeathPpu);
+            ConfigureSprite(DeathSplashPath, 300f);
         }
 
         static void EnsureLayer(string layerName)

@@ -32,7 +32,6 @@ namespace MukJump.Drawing
 
         readonly List<Vector2> points = new();
         Camera cam;
-        Transform player;
         bool drawing;
         float strokeLength;
         float ink;
@@ -54,8 +53,6 @@ namespace MukJump.Drawing
             if (cam == null)
                 Debug.LogError("[MukJump] MainCamera를 찾을 수 없어 드로잉 좌표를 변환할 수 없습니다.", this);
             ink = inkCapacity;
-            var pc = FindFirstObjectByType<Player.PlayerController>();
-            if (pc != null) player = pc.transform;
             UseLineSpriteFromMainUi();
         }
 
@@ -253,12 +250,17 @@ namespace MukJump.Drawing
 
         bool TooCloseToPlayer(List<Vector2> strokePoints)
         {
-            if (player == null) return false;
-            Vector2 center = player.position;
-            foreach (var p in strokePoints)
+            var players = FindObjectsByType<Player.PlayerController>(FindObjectsSortMode.None);
+            if (players.Length == 0) return false;
+            for (int i = 0; i < players.Length; i++)
             {
-                if (Vector2.Distance(p, center) < playerClearance)
-                    return true;
+                if (players[i].IsDead) continue;
+                Vector2 center = players[i].transform.position;
+                foreach (var p in strokePoints)
+                {
+                    if (Vector2.Distance(p, center) < playerClearance)
+                        return true;
+                }
             }
             return false;
         }

@@ -21,6 +21,10 @@ namespace MukJump.Core
 
         void LateUpdate()
         {
+            var livingPlayer = GameManager.Instance != null
+                ? GameManager.Instance.HighestLivingPlayer
+                : null;
+            if (livingPlayer != null) target = livingPlayer.transform;
             if (target == null) return;
 
             // 사망 팝 연출을 따라 카메라까지 올라가면 게임오버 배경과 다음 도전의 기준점이

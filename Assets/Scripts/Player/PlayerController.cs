@@ -12,12 +12,14 @@ namespace MukJump.Player
     {
         [Tooltip("캐릭터가 카메라 하단 가장자리에 이만큼 걸치면 죽음 연출 시작")]
         [SerializeField] float deathEdgeMargin = 0.3f;
-        [Tooltip("죽음 직후 잠깐 멈칫하는 시간 (마리오식 타격감)")]
-        [SerializeField] float deathFreezeDuration = 0.25f;
-        [Tooltip("멈칫 후 위로 튀어 오르는 속도")]
-        [SerializeField] float deathPopSpeed = 16f;
-        [Tooltip("정점을 지난 뒤 낙하 중력 배율 — 클수록 무겁게 뚝 떨어진다")]
-        [SerializeField] float deathFallGravityMultiplier = 1.8f;
+        [Header("사망 먹 번짐 연출")]
+        [SerializeField] Sprite deathSplashSprite;
+        [SerializeField, Min(0.1f)] float deathSplashDuration = 0.65f;
+        [SerializeField, Min(0.1f)] float deathSplashWorldWidth = 2.6f;
+        [Tooltip("방어막 소모 직후 겹친 장애물에 같은 프레임으로 다시 맞는 것을 막는 시간")]
+        [SerializeField, Min(0f)] float shieldHitGraceDuration = 0.35f;
+        [Tooltip("새 분신이 장애물 위에 생성되어 즉사하지 않도록 보호하는 시간")]
+        [SerializeField, Min(0f)] float cloneSpawnGraceDuration = 0.6f;
         [Tooltip("접촉 노멀의 y가 이 값 이상이어야 '발판 위'로 인정")]
         [SerializeField] float groundNormalMinY = 0.4f;
         [Tooltip("먹 방어막으로 추락을 막았을 때 다시 튀어 오르는 목표 높이")]
@@ -40,6 +42,7 @@ namespace MukJump.Player
         public PlatformCollider CurrentPlatform { get; private set; }
         public bool HasShield { get; private set; }
         public bool IsInkDropBoosted { get; private set; }
+        public float NormalGravityScale => normalGravityScale;
         public event Action ShieldConsumed;
 
         Rigidbody2D rb;
@@ -47,6 +50,12 @@ namespace MukJump.Player
         float camHalfHeight;
         bool inkDropHasRisen;
         float normalGravityScale;
+        float damageInvulnerableUntil;
+
+        void OnEnable()
+        {
+            GameManager.Instance?.RegisterPlayer(this);
+        }
 
         /// 로비에서는 시작선을 그리는 동안 캐릭터가 먼저 추락하지 않도록 그 자리에 고정한다.
         /// 선이 완성되면 현재 위치에서 물리를 시작하므로 아래에 그린 선만 첫 발판이 된다.
@@ -56,6 +65,19 @@ namespace MukJump.Player
             rb.linearVelocity = Vector2.zero;
             IsGrounded = false;
             CurrentPlatform = null;
+            rb.WakeUp();
+        }
+
+        /// 접착 중인 원본을 복제하면 Rigidbody의 현재 중력 0까지 복사되므로,
+        /// 분신에는 원본이 기억하는 정상 중력을 별도로 전달한다.
+        public void ConfigureAsClone(float sourceNormalGravityScale)
+        {
+            normalGravityScale = Mathf.Max(0.01f, sourceNormalGravityScale);
+            rb.gravityScale = normalGravityScale;
+            IsGrounded = false;
+            CurrentPlatform = null;
+            GroundNormal = Vector2.up;
+            damageInvulnerableUntil = Time.time + cloneSpawnGraceDuration;
             rb.WakeUp();
         }
 
@@ -70,6 +92,7 @@ namespace MukJump.Player
 
         void Start()
         {
+            GameManager.Instance?.RegisterPlayer(this);
             cam = Camera.main;
             if (cam == null)
             {
@@ -116,7 +139,9 @@ namespace MukJump.Player
                 GameManager.Instance.State == GameState.Playing &&
                 transform.position.y < cam.transform.position.y - camHalfHeight - deathEdgeMargin)
             {
-                if (ConsumeShield())
+                if (GameManager.Instance.DebugInvincible)
+                    RecoverFromFall();
+                else if (ConsumeShield())
                     RecoverFromFall();
                 else
                     Kill();
@@ -130,8 +155,16 @@ namespace MukJump.Player
         {
             if (IsDead) return;
             if (IsInkDropBoosted) return;
+            if (Time.time < damageInvulnerableUntil) return;
+            if (GameManager.Instance != null && GameManager.Instance.DebugInvincible)
+            {
+                damageInvulnerableUntil = Time.time + shieldHitGraceDuration;
+                LaunchToHeight(12f);
+                return;
+            }
             if (ConsumeShield())
             {
+                damageInvulnerableUntil = Time.time + shieldHitGraceDuration;
                 LaunchToHeight(12f);
                 return;
             }
@@ -173,7 +206,7 @@ namespace MukJump.Player
         }
 
         /// 추락 또는 장애물 충돌의 공통 사망 진입점.
-        /// 마리오식 죽음 연출: 멈칫 → 위로 폴짝 → 정점 후 무거운 중력으로 화면 밖까지 낙하.
+        /// 캐릭터를 숨기고 먹 번짐이 퍼졌다 사라지는 연출을 재생한다.
         public void Kill()
         {
             if (IsDead) return;
@@ -186,27 +219,59 @@ namespace MukJump.Player
             foreach (var col in GetComponents<Collider2D>())
                 col.enabled = false;
 
-            GameManager.Instance?.OnPlayerFell();
-            StartCoroutine(DeathSequence());
+            bool isLastPlayer = GameManager.Instance == null ||
+                                GameManager.Instance.NotifyPlayerDied(this);
+            StartCoroutine(DeathSequence(isLastPlayer));
         }
 
-        System.Collections.IEnumerator DeathSequence()
+        System.Collections.IEnumerator DeathSequence(bool isLastPlayer)
         {
-            float normalGravity = rb.gravityScale;
-
-            // 1) 멈칫: 그 자리에 잠깐 정지
             rb.linearVelocity = Vector2.zero;
             rb.gravityScale = 0f;
-            yield return new WaitForSeconds(deathFreezeDuration);
+            rb.simulated = false;
 
-            // 2) 폴짝: 위로 튀어 오름
-            rb.gravityScale = normalGravity;
-            rb.linearVelocity = new Vector2(0f, deathPopSpeed);
-            while (rb.linearVelocity.y > 0f)
-                yield return null;
+            var playerRenderer = GetComponent<SpriteRenderer>();
+            if (playerRenderer != null) playerRenderer.enabled = false;
 
-            // 3) 낙하: 평소보다 무거운 중력으로 뚝 떨어진다
-            rb.gravityScale = normalGravity * deathFallGravityMultiplier;
+            if (deathSplashSprite != null)
+            {
+                var splashObject = new GameObject("DeathInkSplash");
+                splashObject.transform.SetParent(transform, false);
+                splashObject.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(-18f, 18f));
+                var splashRenderer = splashObject.AddComponent<SpriteRenderer>();
+                splashRenderer.sprite = deathSplashSprite;
+                splashRenderer.sortingOrder =
+                    playerRenderer != null ? playerRenderer.sortingOrder + 3 : 8;
+
+                float spriteWidth = Mathf.Max(0.01f, deathSplashSprite.bounds.size.x);
+                float finalScale = deathSplashWorldWidth / spriteWidth;
+                float elapsed = 0f;
+                while (elapsed < deathSplashDuration)
+                {
+                    elapsed += Time.deltaTime;
+                    float t = Mathf.Clamp01(elapsed / deathSplashDuration);
+                    float eased = 1f - Mathf.Pow(1f - t, 3f);
+                    float scale = Mathf.Lerp(finalScale * 0.18f, finalScale, eased);
+                    splashObject.transform.localScale = Vector3.one * scale;
+                    Color color = Color.white;
+                    color.a = t < 0.58f ? 1f : 1f - Mathf.InverseLerp(0.58f, 1f, t);
+                    splashRenderer.color = color;
+                    yield return null;
+                }
+                Destroy(splashObject);
+            }
+            else
+                yield return new WaitForSeconds(deathSplashDuration);
+
+            // 마지막 캐릭터는 게임오버 씬이 유지하므로 숨긴 채 남기고,
+            // 먹분신이 살아 있으면 죽은 개체만 정리한다.
+            if (!isLastPlayer) Destroy(gameObject);
+        }
+
+        void OnDestroy()
+        {
+            GameManager.Instance?.UnregisterPlayer(this);
         }
 
         void OnCollisionStay2D(Collision2D collision)

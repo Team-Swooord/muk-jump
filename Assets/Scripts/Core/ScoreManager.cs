@@ -38,8 +38,11 @@ namespace MukJump.Core
 
         void Update()
         {
-            if (target == null || GameManager.Instance == null ||
-                GameManager.Instance.State != GameState.Playing) return;
+            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing)
+                return;
+            var livingPlayer = GameManager.Instance.HighestLivingPlayer;
+            if (livingPlayer != null) target = livingPlayer.transform;
+            if (target == null) return;
             Height = Mathf.Max(Height, Mathf.RoundToInt(target.position.y - startY));
         }
 

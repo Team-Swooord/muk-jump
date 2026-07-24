@@ -10,6 +10,7 @@ namespace MukJump.Items
         InkDrop,
         GoldenBrush,
         InkShield,
+        InkClone,
     }
 
     /// 실제 픽업과 테스트 버튼이 동일한 아이템 효과를 사용하도록 모아 둔 진입점.
@@ -20,7 +21,7 @@ namespace MukJump.Items
             if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing)
                 return;
 
-            player ??= Object.FindFirstObjectByType<PlayerController>();
+            player ??= GameManager.Instance.HighestLivingPlayer;
             if (player == null) return;
 
             switch (type)
@@ -34,6 +35,9 @@ namespace MukJump.Items
                     break;
                 case ItemType.InkShield:
                     player.GrantShield();
+                    break;
+                case ItemType.InkClone:
+                    GameManager.Instance.TryCreateInkClone(player);
                     break;
             }
         }
