@@ -56,9 +56,11 @@ namespace MukJump.Core
             invalidClip = CreateTone("InvalidStroke", 0.12f, 170f, 125f, 0.16f, 0.2f);
             itemClip = CreateTone("ItemPickup", 0.22f, 420f, 760f, 0.16f, 0.03f);
             milestoneClip = CreateTone("MilestoneSeal", 0.34f, 220f, 440f, 0.2f, 0.08f);
-            brushLoopClip = LoadSfx("SFX_Brush_Draw_Loop") ??
+            brushLoopClip = LoadSfx("SFX_Brush_Community") ??
+                            LoadSfx("SFX_Brush_Draw_Loop") ??
                             CreateBrushNoise("BrushDrawing", 0.42f, 0.16f);
-            brushTransitionClip = LoadSfx("SFX_Brush_Transition") ??
+            brushTransitionClip = LoadSfx("SFX_Brush_Community") ??
+                                  LoadSfx("SFX_Brush_Transition") ??
                                   CreateBrushNoise("BrushTransition", 1.15f, 0.3f, true);
             wallHitClip = LoadSfx("SFX_Wall_Hit") ??
                           CreateTone("WallHit", 0.11f, 120f, 72f, 0.28f, 0.32f);

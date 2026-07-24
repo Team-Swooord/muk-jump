@@ -27,6 +27,7 @@
 | 캐릭터/배경 아트 | 팀 자체 제작 (AI 보조 드로잉 후 수작업 검수) | 자체 저작물 |
 | Unity 패키지 | Unity Technologies (URP, Input System 등 공식 패키지) | Unity Companion License |
 | `Inkdrop Ascent.mp3` | 팀 Suno Pro 계정에서 직접 생성 | 생성 당시 유료 구독 상업 이용 권한 |
+| `SFX_Brush_Community.mp3` | Pixabay `brush` · Reitanna (Freesound), ID 83215 | Pixabay Content License |
 
 ---
 
@@ -659,3 +660,14 @@
   분리해 정상 GUID를 갖도록 했다.
 - 사람의 수정/검토 내용: `MukJump > Build Main Scene` 재실행 후 Missing Script 경고 제거,
   Inspector 미리듣기와 실제 플레이 음량 확인 예정
+
+### 2026-07-24 — 제공된 붓 마찰음으로 교체
+
+- 사용 도구: OpenAI Codex
+- 목적: 코드로 만든 임시 붓소리를 사용자가 선택한 자연스러운 붓 마찰음으로 교체
+- 입력 에셋: `freesound_community-brush-83215.mp3`, 약 1.646초, 44.1kHz mono
+- 결과물: `Assets/Resources/MukJump/Audio/SFX/SFX_Brush_Community.mp3`
+- 구현 메모: 드로잉 중에는 터치 시작부터 종료까지 반복하고 화면 전환에서는 한 번 재생한다.
+  외부 파일 로드 실패 시 자체 제작 붓 WAV와 런타임 합성 순서로 폴백한다.
+- 출처·라이선스: Pixabay `brush`(ID 83215), Reitanna (Freesound),
+  Pixabay Content License
