@@ -51,16 +51,25 @@ namespace MukJump.Core
                 new Vector2(1400f, 2300f), new Color(0.04f, 0.038f, 0.034f, 0.48f));
             backdrop.raycastTarget = false;
 
-            var shadow = CreateImage("ResultShadow", root.transform, null,
-                new Vector2(18f, -22f), new Vector2(866f, 926f), new Color(0f, 0f, 0f, 0.24f));
-            shadow.raycastTarget = false;
-
-            var panelImage = CreateImage("ResultOutline", root.transform, null,
-                Vector2.zero, new Vector2(850f, 910f), InkPalette.Ink);
+            var panelImage = CreateImage("ScrollResultPopup", root.transform, null,
+                Vector2.zero, new Vector2(900f, 980f), Color.clear);
             panel = panelImage.rectTransform;
 
-            CreateImage("PaperCard", panel, null, Vector2.zero,
-                new Vector2(824f, 884f), InkPalette.Paper);
+            CreateImage("ScrollShadow", panel, null, new Vector2(18f, -20f),
+                new Vector2(798f, 870f), new Color(0f, 0f, 0f, 0.24f));
+            CreateImage("ScrollBodyOutline", panel, null, Vector2.zero,
+                new Vector2(792f, 860f), InkPalette.Ink);
+            CreateImage("ScrollPaper", panel, null, Vector2.zero,
+                new Vector2(770f, 840f), InkPalette.Paper);
+            CreateImage("LeftPaperShade", panel, null, new Vector2(-374f, 0f),
+                new Vector2(18f, 824f), new Color(InkPalette.Paper2.r, InkPalette.Paper2.g,
+                    InkPalette.Paper2.b, 0.72f));
+            CreateImage("RightPaperShade", panel, null, new Vector2(374f, 0f),
+                new Vector2(18f, 824f), new Color(InkPalette.Paper2.r, InkPalette.Paper2.g,
+                    InkPalette.Paper2.b, 0.72f));
+            CreateScrollRoll(panel, 430f, true);
+            CreateScrollRoll(panel, -430f, false);
+
             CreateText("Title", panel, "플레이 결과", 56, new Vector2(0f, 354f),
                 new Vector2(620f, 90f), InkPalette.TextDark, FontStyle.Normal);
             CreateImage("TitleDivider", panel, null, new Vector2(0f, 294f),
@@ -136,6 +145,32 @@ namespace MukJump.Core
             image.color = color;
             image.raycastTarget = false;
             return image;
+        }
+
+        static void CreateScrollRoll(Transform parent, float y, bool top)
+        {
+            float shadowY = y - 10f;
+            CreateImage(top ? "TopRollShadow" : "BottomRollShadow", parent, null,
+                new Vector2(12f, shadowY), new Vector2(866f, 92f),
+                new Color(0f, 0f, 0f, 0.22f));
+            var roll = CreateImage(top ? "TopPaperRoll" : "BottomPaperRoll", parent, null,
+                new Vector2(0f, y), new Vector2(852f, 86f), InkPalette.Ink);
+            CreateImage("Paper", roll.transform, null, Vector2.zero,
+                new Vector2(828f, 68f), InkPalette.Paper2);
+            CreateImage("FoldHighlight", roll.transform, null,
+                new Vector2(0f, top ? 15f : -15f), new Vector2(800f, 5f),
+                new Color(InkPalette.Paper.r, InkPalette.Paper.g, InkPalette.Paper.b, 0.9f));
+
+            Sprite capSprite = InkUiTextureFactory.CreateBlobSprite();
+            for (int side = -1; side <= 1; side += 2)
+            {
+                var cap = CreateImage(side < 0 ? "LeftCap" : "RightCap", parent, capSprite,
+                    new Vector2(side * 426f, y), new Vector2(104f, 104f), InkPalette.Ink);
+                CreateImage("Paper", cap.transform, capSprite, Vector2.zero,
+                    new Vector2(78f, 78f), InkPalette.Paper2);
+                CreateImage("Axis", cap.transform, capSprite, Vector2.zero,
+                    new Vector2(24f, 24f), InkPalette.Ink);
+            }
         }
 
         static Text CreateResultBlock(string objectName, Transform parent, string caption,
