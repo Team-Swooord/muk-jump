@@ -26,6 +26,15 @@ namespace MukJump.Core
         AudioSource brushSource;
         AudioSource accentSource;
         Coroutine gameOverSoundRoutine;
+
+        public float GameOverRevealDelay
+        {
+            get
+            {
+                EnsureInitialized();
+                return (deathSqueakClip != null ? deathSqueakClip.length : 0.58f) + 0.04f;
+            }
+        }
         Sprite dotSprite;
         Canvas overlayCanvas;
         Text bannerText;
@@ -424,8 +433,7 @@ namespace MukJump.Core
         IEnumerator PlayGameOverAfterDeath()
         {
             // 마지막 캐릭터의 짧은 "찍" 사망음이 먼저 온전히 들린 뒤 종료음을 붙인다.
-            float deathDuration = deathSqueakClip != null ? deathSqueakClip.length : 0.24f;
-            yield return new WaitForSecondsRealtime(deathDuration + 0.04f);
+            yield return new WaitForSecondsRealtime(GameOverRevealDelay);
             PlayAccent(gameOverClip, 0.74f);
             gameOverSoundRoutine = null;
         }

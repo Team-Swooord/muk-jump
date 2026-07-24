@@ -139,14 +139,25 @@ namespace MukJump.Core
         {
             if (State == GameState.GameOver) return;
             State = GameState.GameOver;
-            GameFeedbackController.Instance?.PlayGameOver();
-            gameOverTime = Time.unscaledTime;
+            var feedback = GameFeedbackController.Instance;
+            float revealDelay = feedback != null ? feedback.GameOverRevealDelay : 0.62f;
+            feedback?.PlayGameOver();
+            gameOverTime = float.PositiveInfinity;
             int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
             int previousBest = ScoreManager.Instance != null ? ScoreManager.Instance.Best : 0;
             bool reachedNewBest = height > previousBest;
             ScoreManager.Instance?.SaveBest();
             int best = ScoreManager.Instance != null ? ScoreManager.Instance.Best : previousBest;
+            StartCoroutine(ShowGameOverAfterDeath(revealDelay, height, best, reachedNewBest));
+        }
+
+        System.Collections.IEnumerator ShowGameOverAfterDeath(float delay, int height, int best,
+            bool reachedNewBest)
+        {
+            yield return new WaitForSecondsRealtime(delay);
             gameOverPopupView.Show(height, best, reachedNewBest);
+            // 팝업이 나타난 뒤 restartDelay 동안은 오터치 재시작을 막는다.
+            gameOverTime = Time.unscaledTime;
         }
 
         /// 먹분신은 최대 두 마리까지만 유지한다. 한 마리가 남았다면 다시 보충할 수 있다.
