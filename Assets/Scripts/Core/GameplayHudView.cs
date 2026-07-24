@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using MukJump.Items;
+using MukJump.Drawing;
 
 namespace MukJump.Core
 {
@@ -20,6 +21,11 @@ namespace MukJump.Core
         [SerializeField] Button goldenBrushButton;
         [SerializeField] Button inkShieldButton;
         [SerializeField] Button inkCloneButton;
+        [SerializeField] Button mapStartButton;
+        [SerializeField] Button mapWindButton;
+        [SerializeField] Button mapRainButton;
+        [SerializeField] Button mapGorgeButton;
+        [SerializeField] Button restPlatformButton;
 
         public static GameplayHudView Instance { get; private set; }
 
@@ -34,6 +40,11 @@ namespace MukJump.Core
             goldenBrushButton?.onClick.AddListener(UseGoldenBrush);
             inkShieldButton?.onClick.AddListener(UseInkShield);
             inkCloneButton?.onClick.AddListener(UseInkClone);
+            mapStartButton?.onClick.AddListener(() => MoveToHeight(0));
+            mapWindButton?.onClick.AddListener(() => MoveToHeight(100));
+            mapRainButton?.onClick.AddListener(() => MoveToHeight(200));
+            mapGorgeButton?.onClick.AddListener(() => MoveToHeight(300));
+            restPlatformButton?.onClick.AddListener(SpawnRestPlatform);
         }
 
         void OnDisable()
@@ -46,6 +57,11 @@ namespace MukJump.Core
             goldenBrushButton?.onClick.RemoveListener(UseGoldenBrush);
             inkShieldButton?.onClick.RemoveListener(UseInkShield);
             inkCloneButton?.onClick.RemoveListener(UseInkClone);
+            mapStartButton?.onClick.RemoveAllListeners();
+            mapWindButton?.onClick.RemoveAllListeners();
+            mapRainButton?.onClick.RemoveAllListeners();
+            mapGorgeButton?.onClick.RemoveAllListeners();
+            restPlatformButton?.onClick.RemoveListener(SpawnRestPlatform);
         }
 
         public static bool IsPointerOverItemTestControls(Vector2 screenPosition)
@@ -66,6 +82,8 @@ namespace MukJump.Core
         void UseGoldenBrush() => ItemEffect.Apply(ItemType.GoldenBrush);
         void UseInkShield() => ItemEffect.Apply(ItemType.InkShield);
         void UseInkClone() => ItemEffect.Apply(ItemType.InkClone);
+        void MoveToHeight(int height) => GameManager.Instance?.DebugTeleportToHeight(height);
+        void SpawnRestPlatform() => RestPlatformSpawner.Instance?.DebugSpawnNearPlayer();
 
         void ToggleDebugPanel()
         {

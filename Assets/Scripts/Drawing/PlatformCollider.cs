@@ -17,9 +17,11 @@ namespace MukJump.Drawing
         [Tooltip("생성 후 유지 시간(초). 0 이하면 영구 발판")]
         [SerializeField] float lifetime = 6.5f;
         [SerializeField] float fadeDuration = 1.2f;
+        [SerializeField] bool restPlatform;
 
         public float Length { get; private set; }
         public LineRenderer Line { get; private set; }
+        public bool IsRestPlatform => restPlatform;
         EdgeCollider2D edge;
         Vector2[] originalPoints;
         float age;
@@ -40,6 +42,26 @@ namespace MukJump.Drawing
                 active[0].BeginFade(); // 가장 오래된 발판부터 먹이 마른다
 
             SketchToInkService.Instance?.Stylize(platform);
+            return platform;
+        }
+
+        /// 일정 고도마다 등장하는 영구 안전 발판. 드로잉 발판 개수 제한에 포함하지 않는다.
+        public static PlatformCollider SpawnRestPlatform(List<Vector2> worldPoints)
+        {
+            var go = new GameObject("RestInkPlatform")
+            {
+                layer = LayerMask.NameToLayer("Platform"),
+            };
+            var platform = go.AddComponent<PlatformCollider>();
+            platform.lifetime = 0f;
+            platform.restPlatform = true;
+            platform.Build(worldPoints);
+            SketchToInkService.Instance?.Stylize(platform);
+            if (platform.Line != null)
+            {
+                platform.Line.startWidth = 0.46f;
+                platform.Line.endWidth = 0.38f;
+            }
             return platform;
         }
 
@@ -116,6 +138,7 @@ namespace MukJump.Drawing
         /// 낙하 위험물에 맞은 발판을 자연 소멸과 같은 등록 해제 규칙으로 안전하게 제거한다.
         public bool BreakFromHazard()
         {
+            if (restPlatform) return false;
             if (!TryBeginHazardRemoval()) return false;
             Destroy(gameObject);
             return true;

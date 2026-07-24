@@ -1,5 +1,6 @@
 using UnityEngine;
 using MukJump.Core;
+using MukJump.Drawing;
 
 namespace MukJump.Player
 {
@@ -25,6 +26,8 @@ namespace MukJump.Player
         [Tooltip("평평한 발판에서도 완전히 수직으로만 반복되지 않게 하는 약한 좌우 이동")]
         [SerializeField, Min(0f)] float flatPlatformWanderSpeed = 0.35f;
         [SerializeField, Min(1f)] float maxHorizontalSpeed = 5.5f;
+        [Tooltip("안전 먹 발판에 처음 착지했을 때 머무르는 시간")]
+        [SerializeField, Min(1f)] float restPlatformPauseSeconds = 2.4f;
 
         [Header("발판 길이 → 점프력 보정")]
         [SerializeField] Vector2 platformLengthRange = new(1f, 5f);
@@ -37,12 +40,18 @@ namespace MukJump.Player
         bool wasRising;
         bool chargeStarted;
         float wanderDirection;
+        PlatformCollider activeRestPlatform;
 
         /// 첫 점프는 접지 중, 이후 점프는 정점부터 다음 점프를 준비한다 (HUD 게이지용).
         public bool IsCharging => player != null && (chargeStarted || (!hasLaunched && player.IsGrounded)) &&
                                   GameManager.Instance != null &&
                                   GameManager.Instance.State == GameState.Playing;
-        public float ChargeRatio => Mathf.Clamp01(chargeTimer / jumpIntervalSeconds);
+        public float ChargeRatio => Mathf.Clamp01(chargeTimer / CurrentChargeDuration);
+
+        float CurrentChargeDuration =>
+            player != null && player.CurrentPlatform != null && player.CurrentPlatform.IsRestPlatform
+                ? restPlatformPauseSeconds
+                : jumpIntervalSeconds;
 
         void Awake()
         {
@@ -86,11 +95,24 @@ namespace MukJump.Player
             if (!hasLaunched && player.IsGrounded)
                 chargeStarted = true;
 
+            var groundedPlatform = player.IsGrounded ? player.CurrentPlatform : null;
+            if (groundedPlatform != null && groundedPlatform.IsRestPlatform &&
+                groundedPlatform != activeRestPlatform)
+            {
+                // 정점부터 이미 충전됐더라도 안전 발판에서는 실제로 잠시 쉬고 출발한다.
+                activeRestPlatform = groundedPlatform;
+                chargeStarted = true;
+                chargeTimer = 0f;
+            }
+            else if (!player.IsGrounded && player.CurrentPlatform == null)
+                activeRestPlatform = null;
+
+            float chargeDuration = CurrentChargeDuration;
             if (chargeStarted)
-                chargeTimer = Mathf.Min(jumpIntervalSeconds, chargeTimer + Time.deltaTime);
+                chargeTimer = Mathf.Min(chargeDuration, chargeTimer + Time.deltaTime);
 
             // 공중에서는 충전만 유지하고, 착지한 순간 가득 찼다면 바로 점프한다.
-            if (chargeStarted && player.IsGrounded && chargeTimer >= jumpIntervalSeconds)
+            if (chargeStarted && player.IsGrounded && chargeTimer >= chargeDuration)
                 Jump();
         }
 

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using MukJump.Player;
+using MukJump.Drawing;
 
 namespace MukJump.Core
 {
@@ -75,6 +76,8 @@ namespace MukJump.Core
                 gameObject.AddComponent<GameFeedbackController>();
             if (GetComponent<HeightZoneController>() == null)
                 gameObject.AddComponent<HeightZoneController>();
+            if (GetComponent<RestPlatformSpawner>() == null)
+                gameObject.AddComponent<RestPlatformSpawner>();
             if (BackgroundMusicController.Instance == null &&
                 FindFirstObjectByType<BackgroundMusicController>() == null)
             {
@@ -194,6 +197,28 @@ namespace MukJump.Core
             IgnorePlayerCollision(source, clone);
             RegisterPlayer(clone);
             return true;
+        }
+
+        /// 디버그 패널에서 고도별 맵과 스폰을 즉시 검증하기 위한 순간이동.
+        public void DebugTeleportToHeight(int targetHeight)
+        {
+            if (State != GameState.Playing) return;
+            var primary = HighestLivingPlayer;
+            if (primary == null) return;
+
+            int currentHeight = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
+            float deltaY = Mathf.Max(0, targetHeight) - currentHeight;
+            CleanupPlayers();
+            for (int i = 0; i < players.Count; i++)
+                if (!players[i].IsDead)
+                    players[i].DebugTeleportBy(Vector2.up * deltaY);
+
+            primary = HighestLivingPlayer;
+            ScoreManager.Instance?.DebugSetHeight(targetHeight, primary != null ? primary.transform : null);
+            Camera.main?.GetComponent<CameraFollow>()?.DebugSnapTo(primary != null
+                ? primary.transform
+                : null);
+            RestPlatformSpawner.Instance?.DebugResetSchedule(targetHeight);
         }
 
         void IgnorePlayerCollision(PlayerController first, PlayerController second)

@@ -70,5 +70,14 @@ namespace MukJump.Core
         }
 
         public float HeightAt(float worldY) => worldY - startY;
+
+        public void DebugSetHeight(int height, Transform newTarget)
+        {
+            target = newTarget;
+            Height = Mathf.Max(0, height);
+            if (target != null)
+                startY = target.position.y - Height;
+            bestCelebrated = Height > Best;
+        }
     }
 }

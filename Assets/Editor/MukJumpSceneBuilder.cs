@@ -270,6 +270,7 @@ namespace MukJump.EditorTools
             go.AddComponent<VfxAudioManager>();
             go.AddComponent<GameFeedbackController>();
             go.AddComponent<HeightZoneController>();
+            go.AddComponent<RestPlatformSpawner>();
             go.AddComponent<SketchToInkService>();
             var strokeCapture = go.AddComponent<StrokeCapture>();
             var strokeSo = new SerializedObject(strokeCapture);
@@ -481,17 +482,17 @@ namespace MukJump.EditorTools
             bestLabel.alignByGeometry = true;
 
             var testControls = CreateUiObject("ItemTestControls", root.transform,
-                new Vector2(0f, 0.5f), new Vector2(210f, 900f));
+                new Vector2(0f, 0.5f), new Vector2(410f, 1200f));
             testControls.pivot = new Vector2(0f, 0.5f);
             testControls.anchoredPosition = Vector2.zero;
             RestoreUiLayout(testControls);
 
             var debugToggleButton = CreateDebugTextButton("DebugToggleButton", testControls,
-                new Vector2(8f, 370f), new Vector2(194f, 64f), "DEBUG");
+                new Vector2(8f, 520f), new Vector2(194f, 64f), "DEBUG");
             var debugPanel = CreateUiObject("DebugPanel", testControls,
-                new Vector2(0f, 0.5f), new Vector2(194f, 720f));
+                new Vector2(0f, 0.5f), new Vector2(390f, 980f));
             debugPanel.pivot = new Vector2(0f, 0.5f);
-            debugPanel.anchoredPosition = new Vector2(8f, -30f);
+            debugPanel.anchoredPosition = new Vector2(8f, -10f);
             var panelBackground = debugPanel.gameObject.AddComponent<Image>();
             panelBackground.color = new Color(0.11f, 0.105f, 0.1f, 0.82f);
 
@@ -501,18 +502,31 @@ namespace MukJump.EditorTools
             var inkShieldTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(InkShieldItemPath);
             var inkCloneTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(InkCloneItemPath);
             var inkDropButton = CreateItemTestButton("InkDropButton", debugPanel, inkDropTexture,
-                new Vector2(32f, 245f), Color.white, "50m");
+                new Vector2(22f, 300f), Color.white, "50m");
             var goldenBrushButton = CreateItemTestButton("GoldenBrushButton", debugPanel,
                 goldenBrushTexture != null ? goldenBrushTexture : placeholderTexture,
-                new Vector2(32f, 95f), goldenBrushTexture != null ? Color.white : new Color(0.95f, 0.72f, 0.2f), "무한");
+                new Vector2(22f, 145f), goldenBrushTexture != null ? Color.white : new Color(0.95f, 0.72f, 0.2f), "무한");
             var inkShieldButton = CreateItemTestButton("InkShieldButton", debugPanel,
                 inkShieldTexture != null ? inkShieldTexture : placeholderTexture,
-                new Vector2(32f, -55f), inkShieldTexture != null ? Color.white : new Color(0.72f, 0.18f, 0.28f), "방어");
+                new Vector2(22f, -10f), inkShieldTexture != null ? Color.white : new Color(0.72f, 0.18f, 0.28f), "방어");
             var inkCloneButton = CreateItemTestButton("InkCloneButton", debugPanel,
                 inkCloneTexture != null ? inkCloneTexture : placeholderTexture,
-                new Vector2(32f, -205f), inkCloneTexture != null ? Color.white : InkPalette.Ink, "분신");
+                new Vector2(22f, -165f), inkCloneTexture != null ? Color.white : InkPalette.Ink, "분신");
+
+            CreateText("MapDebugTitle", debugPanel, "맵 이동", 26, FontStyle.Bold,
+                new Vector2(0.76f, 0.9f), new Vector2(175f, 55f), InkPalette.Paper);
+            var mapStartButton = CreateDebugTextButton("MapStartButton", debugPanel,
+                new Vector2(190f, 300f), new Vector2(175f, 62f), "산길 0m");
+            var mapWindButton = CreateDebugTextButton("MapWindButton", debugPanel,
+                new Vector2(190f, 220f), new Vector2(175f, 62f), "바람 100m");
+            var mapRainButton = CreateDebugTextButton("MapRainButton", debugPanel,
+                new Vector2(190f, 140f), new Vector2(175f, 62f), "먹비 200m");
+            var mapGorgeButton = CreateDebugTextButton("MapGorgeButton", debugPanel,
+                new Vector2(190f, 60f), new Vector2(175f, 62f), "협곡 300m");
+            var restPlatformButton = CreateDebugTextButton("RestPlatformButton", debugPanel,
+                new Vector2(190f, -40f), new Vector2(175f, 78f), "안전 발판");
             var invincibleButton = CreateDebugTextButton("InvincibleButton", debugPanel,
-                new Vector2(22f, -325f), new Vector2(150f, 72f), "무적 OFF");
+                new Vector2(190f, -165f), new Vector2(175f, 72f), "무적 OFF");
             var invincibleLabel = invincibleButton.transform.Find("Label")?.GetComponent<Text>();
             debugPanel.gameObject.SetActive(false);
 
@@ -530,6 +544,11 @@ namespace MukJump.EditorTools
             so.FindProperty("goldenBrushButton").objectReferenceValue = goldenBrushButton;
             so.FindProperty("inkShieldButton").objectReferenceValue = inkShieldButton;
             so.FindProperty("inkCloneButton").objectReferenceValue = inkCloneButton;
+            so.FindProperty("mapStartButton").objectReferenceValue = mapStartButton;
+            so.FindProperty("mapWindButton").objectReferenceValue = mapWindButton;
+            so.FindProperty("mapRainButton").objectReferenceValue = mapRainButton;
+            so.FindProperty("mapGorgeButton").objectReferenceValue = mapGorgeButton;
+            so.FindProperty("restPlatformButton").objectReferenceValue = restPlatformButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             // LineSprite 프리팹은 StrokeCapture의 붓결 텍스처 원본으로만 사용한다.

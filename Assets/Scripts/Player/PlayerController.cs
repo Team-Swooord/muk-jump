@@ -85,6 +85,18 @@ namespace MukJump.Player
             rb.WakeUp();
         }
 
+        /// 개발용 고도 이동. 접착과 속도를 정리해 순간이동 직후 물리 튕김을 막는다.
+        public void DebugTeleportBy(Vector2 offset)
+        {
+            if (IsDead) return;
+            DetachFromPlatform();
+            rb.position += offset;
+            rb.linearVelocity = Vector2.zero;
+            rb.angularVelocity = 0f;
+            damageInvulnerableUntil = Time.time + 0.5f;
+            rb.WakeUp();
+        }
+
         void Awake()
         {
             rb = GetComponent<Rigidbody2D>();
@@ -159,6 +171,7 @@ namespace MukJump.Player
         {
             if (IsDead) return;
             if (IsInkDropBoosted) return;
+            if (IsGrounded && CurrentPlatform != null && CurrentPlatform.IsRestPlatform) return;
             if (Time.time < damageInvulnerableUntil) return;
             if (GameManager.Instance != null && GameManager.Instance.DebugInvincible)
             {

@@ -27,15 +27,22 @@ namespace MukJump.Core
         int currentBand = -1;
         FallingInkRockSpawner rockSpawner;
         Camera worldCamera;
+        SpriteRenderer backgroundRenderer;
         LineRenderer[] weatherLines;
+        LineRenderer[] gorgeLines;
 
         public Zone CurrentZone => currentZone;
+        public int CurrentMapStage { get; private set; }
+        public float ZoneHeight => zoneHeight;
 
         void Start()
         {
             rockSpawner = FindFirstObjectByType<FallingInkRockSpawner>();
             worldCamera = Camera.main;
+            var background = GameObject.Find("Background");
+            if (background != null) backgroundRenderer = background.GetComponent<SpriteRenderer>();
             CreateWeatherLines();
+            CreateGorgeLines();
             ApplyZone(0);
         }
 
@@ -51,12 +58,14 @@ namespace MukJump.Core
             if (currentZone == Zone.WindPass)
                 ApplyWind();
             UpdateWeatherVisuals();
+            UpdateGorgeVisuals();
         }
 
         void ApplyZone(int band)
         {
             currentBand = band;
             currentZone = (Zone)(band % 4);
+            ApplyMapStage(Mathf.Clamp(band, 0, 3));
             PlatformCollider.RuntimeLifetimeMultiplier =
                 currentZone == Zone.InkRain ? rainPlatformLifetimeMultiplier : 1f;
             if (rockSpawner == null) rockSpawner = FindFirstObjectByType<FallingInkRockSpawner>();
@@ -73,6 +82,29 @@ namespace MukJump.Core
                 _ => ("고요한 산길", "잠시 숨을 고르세요"),
             };
             GameFeedbackController.Instance?.ShowZone(title, subtitle);
+        }
+
+        void ApplyMapStage(int stage)
+        {
+            CurrentMapStage = stage;
+            Color tint = stage switch
+            {
+                1 => new Color(0.88f, 0.93f, 0.94f, 1f),
+                2 => new Color(0.76f, 0.84f, 0.86f, 1f),
+                3 => new Color(0.72f, 0.66f, 0.57f, 1f),
+                _ => Color.white,
+            };
+            if (backgroundRenderer != null) backgroundRenderer.color = tint;
+            if (worldCamera != null)
+            {
+                worldCamera.backgroundColor = stage switch
+                {
+                    1 => new Color(0.78f, 0.84f, 0.84f),
+                    2 => new Color(0.62f, 0.69f, 0.7f),
+                    3 => new Color(0.42f, 0.39f, 0.34f),
+                    _ => InkPalette.Paper,
+                };
+            }
         }
 
         void ApplyWind()
@@ -105,6 +137,24 @@ namespace MukJump.Core
                 line.startWidth = line.endWidth = 0.025f + i % 3 * 0.009f;
                 line.enabled = false;
                 weatherLines[i] = line;
+            }
+        }
+
+        void CreateGorgeLines()
+        {
+            gorgeLines = new LineRenderer[6];
+            for (int i = 0; i < gorgeLines.Length; i++)
+            {
+                var lineObject = new GameObject($"GorgeCliffLine_{i:00}");
+                lineObject.transform.SetParent(transform, false);
+                var line = lineObject.AddComponent<LineRenderer>();
+                line.useWorldSpace = true;
+                line.positionCount = 6;
+                line.material = FallbackInkStyle.SharedInkMaterial;
+                line.sortingOrder = -1;
+                line.startWidth = line.endWidth = 0.05f + i % 2 * 0.025f;
+                line.enabled = false;
+                gorgeLines[i] = line;
             }
         }
 
@@ -148,6 +198,37 @@ namespace MukJump.Core
             }
         }
 
+        void UpdateGorgeVisuals()
+        {
+            if (gorgeLines == null || worldCamera == null) return;
+            bool visible = CurrentMapStage >= 3;
+            float halfHeight = worldCamera.orthographicSize;
+            float halfWidth = halfHeight * worldCamera.aspect;
+            Vector3 center = worldCamera.transform.position;
+            for (int i = 0; i < gorgeLines.Length; i++)
+            {
+                var line = gorgeLines[i];
+                line.enabled = visible;
+                if (!visible) continue;
+
+                bool left = i % 2 == 0;
+                float depth = i / 2 * 0.34f;
+                float edgeX = center.x + (left ? -halfWidth : halfWidth) +
+                              (left ? 1f : -1f) * (0.15f + depth);
+                for (int point = 0; point < line.positionCount; point++)
+                {
+                    float t = point / (float)(line.positionCount - 1);
+                    float y = center.y - halfHeight + t * halfHeight * 2f;
+                    float jag = Mathf.Sin(point * 2.7f + i * 1.3f) *
+                                (0.18f + depth * 0.22f);
+                    line.SetPosition(point, new Vector3(edgeX + (left ? jag : -jag), y, 0f));
+                }
+                Color color = InkPalette.Ink;
+                color.a = 0.17f + i / 2 * 0.045f;
+                line.startColor = line.endColor = color;
+            }
+        }
+
         void OnDisable()
         {
             PlatformCollider.RuntimeLifetimeMultiplier = 1f;
@@ -155,6 +236,10 @@ namespace MukJump.Core
             if (weatherLines != null)
                 for (int i = 0; i < weatherLines.Length; i++)
                     if (weatherLines[i] != null) weatherLines[i].enabled = false;
+            if (gorgeLines != null)
+                for (int i = 0; i < gorgeLines.Length; i++)
+                    if (gorgeLines[i] != null) gorgeLines[i].enabled = false;
+            if (backgroundRenderer != null) backgroundRenderer.color = Color.white;
         }
     }
 }

@@ -14,6 +14,16 @@ namespace MukJump.Core
 
         public void SetTarget(Transform t) => target = t;
 
+        public void DebugSnapTo(Transform t)
+        {
+            if (t == null) return;
+            target = t;
+            highestY = t.position.y + lookAhead;
+            var position = transform.position;
+            position.y = highestY;
+            transform.position = position;
+        }
+
         void Start()
         {
             highestY = transform.position.y;
