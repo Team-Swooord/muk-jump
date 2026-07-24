@@ -259,6 +259,9 @@ namespace MukJump.EditorTools
 
         static void BuildSystems(Camera camera, GameObject player)
         {
+            var music = new GameObject("BackgroundMusic");
+            music.AddComponent<BackgroundMusicController>();
+
             var go = new GameObject("Systems");
             go.AddComponent<GameManager>();
             go.AddComponent<BrushTransitionView>();

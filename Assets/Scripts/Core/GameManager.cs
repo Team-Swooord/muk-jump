@@ -75,6 +75,12 @@ namespace MukJump.Core
                 gameObject.AddComponent<GameFeedbackController>();
             if (GetComponent<HeightZoneController>() == null)
                 gameObject.AddComponent<HeightZoneController>();
+            if (BackgroundMusicController.Instance == null &&
+                FindFirstObjectByType<BackgroundMusicController>() == null)
+            {
+                var musicObject = new GameObject("BackgroundMusic");
+                musicObject.AddComponent<BackgroundMusicController>();
+            }
             transitionView = GetComponent<BrushTransitionView>();
             if (transitionView == null) transitionView = gameObject.AddComponent<BrushTransitionView>();
             gameOverPopupView = GetComponent<GameOverPopupView>();
