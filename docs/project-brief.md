@@ -66,6 +66,9 @@ NHN NAN 2026 · Game × AI Hackathon 제출작. Unity 기반 모바일(Android) 
 | TEXT_MUTED | 라이트 배경 위 보조 텍스트 | `#6B6355` |
 | TEXT_LIGHT | 다크 배경 위 본문 텍스트 | `#F5F1E6` |
 
+- UI 서체는 헬스셋 조릿대 Std로 통일한다. 결과 화면은 장식보다 이번 고도·최고 고도를
+  각각 분리해 읽히는 정보 카드 구성을 우선한다.
+
 ## 6. 배경 아트
 
 - 세로 산수화 (1080×1920), 파일: `Assets/Art/Background/background_ink_landscape.png`

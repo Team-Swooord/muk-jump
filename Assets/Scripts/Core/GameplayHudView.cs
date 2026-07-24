@@ -119,6 +119,9 @@ namespace MukJump.Core
         void ApplyCrispTextSettings()
         {
             if (canvas != null) canvas.pixelPerfect = true;
+            var texts = GetComponentsInChildren<Text>(true);
+            for (int i = 0; i < texts.Length; i++)
+                texts[i].font = InkPalette.UiFont;
             ConfigureText(heightText);
             ConfigureText(bestText);
             ConfigureText(invincibleLabel);

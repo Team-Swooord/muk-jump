@@ -347,7 +347,7 @@ namespace MukJump.Core
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.78f);
             rect.sizeDelta = new Vector2(840f, 150f);
             bannerText = textObject.GetComponent<Text>();
-            bannerText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            bannerText.font = InkPalette.UiFont;
             bannerText.fontSize = 42;
             bannerText.fontStyle = FontStyle.Bold;
             bannerText.alignment = TextAnchor.MiddleCenter;

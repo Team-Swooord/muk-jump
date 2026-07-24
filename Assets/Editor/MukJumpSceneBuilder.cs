@@ -58,6 +58,8 @@ namespace MukJump.EditorTools
         const string GoldenBrushItemPath = "Assets/Art/UI/golden_brush.png";
         const string InkShieldItemPath = "Assets/Art/UI/ink_shield.png";
         const string InkCloneItemPath = "Assets/Art/UI/ink_clone.png";
+        const string UiFontPath =
+            "Assets/Resources/MukJump/Fonts/HealthsetJoritdaeStd.otf";
         const string DeathSplashPath = "Assets/Art/Character/Death/ink_death_splash.png";
         const string InkDropVfxRoot = "Assets/MukJump/VFX/InkDropJump";
         const string InkDropVfxTextureRoot = InkDropVfxRoot + "/Textures/";
@@ -108,6 +110,8 @@ namespace MukJump.EditorTools
             ConfigureFallingInkRockSprite();
             ConfigureItemSprites();
             ConfigureInkDropJumpVfxAssets();
+            if (AssetDatabase.LoadAssetAtPath<Font>(UiFontPath) == null)
+                Debug.LogWarning($"[MukJump] UI 폰트를 찾을 수 없음: {UiFontPath}");
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -735,7 +739,7 @@ namespace MukJump.EditorTools
             var rect = CreateUiObject(name, parent, anchor, size);
             var text = rect.gameObject.AddComponent<Text>();
             text.text = value;
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = AssetDatabase.LoadAssetAtPath<Font>(UiFontPath) ?? InkPalette.UiFont;
             text.fontSize = fontSize;
             text.fontStyle = fontStyle;
             text.alignment = TextAnchor.MiddleCenter;

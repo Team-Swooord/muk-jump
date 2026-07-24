@@ -30,6 +30,7 @@
 | `SFX_Brush_Community.mp3` | Pixabay `brush` · Reitanna (Freesound), ID 83215 | Pixabay Content License |
 | `SFX_Character_Death_Slime.mp3` | Pixabay `Slime Squish 5` · floraphonic, ID 218569 | Pixabay Content License |
 | `SFX_Game_Over_Ink_Spill.mp3` | Pixabay 다운로드 `freesound_community-2`, ID 108080 | Pixabay Content License |
+| `HealthsetJoritdaeStd.otf` | 제주조릿대 RIS사업단·한그리아 제작, 사용자 제공 OTF | 회사·개인 용도 제한 없이 상업적 이용 가능, 유료 재판매 금지. 원본 재배포 조건은 최종 제출 전 원 배포처 재확인 |
 
 ---
 
@@ -738,3 +739,18 @@
   `PrototypeHud.cs`, `HeightZoneController.cs`, `MukJumpSceneBuilder.cs`
 - 사람 검토/후처리: Unity Play Mode에서 단방향 접촉 방향, 풍맥 재사용 방지,
   다중 분신 생존 및 여유 게이지 소모 순서를 확인할 예정
+
+### 2026-07-24 — 헬스셋 조릿대 UI 통일·결과 정보 카드 정리
+
+- 사용 도구: OpenAI Codex
+- 목적: 프로젝트의 모든 런타임 UI 글꼴을 하나로 통일하고 게임 종료 정보를 빠르게 읽게 개선
+- 주요 프롬프트/지시: 사용자 제공 `헬스셋조릿대Std.otf`를 모든 글씨에 적용하고,
+  결과창에는 필요한 정보를 각각 독립적으로 표시
+- 결과물: `HealthsetJoritdaeStd.otf`, `InkPalette.cs`, `MukJumpSceneBuilder.cs`,
+  `LobbyView.cs`, `GameplayHudView.cs`, `GameFeedbackController.cs`, `PrototypeHud.cs`,
+  `GameOverPopupView.cs`
+- 구현 메모: Resources 공통 폰트로 로비·HUD·디버그·구간 배너·여유 게이지·결과창을
+  통일했다. 결과창 장식을 걷어내고 이번 고도와 최고 고도 카드, 조건부 신기록, 재도전
+  안내만 남겼으며 전체 카드에는 짧은 페이드·스케일 등장만 적용했다.
+- 사람의 수정/검토 내용: 씬 빌더 재실행 후 모바일 해상도에서 한글 누락 여부와
+  결과 카드 줄바꿈·가독성을 확인할 예정

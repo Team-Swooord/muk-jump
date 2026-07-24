@@ -135,7 +135,14 @@ namespace MukJump.Core
                 DrawRect(block, new Color(0.18f, 0.5f, 0.42f, 0.95f));
             }
             var label = new Rect(area.xMax - 110f, area.y - area.height * 0.62f, 110f, 24f);
-            GUI.Label(label, $"+{Mathf.RoundToInt(reserveRatio * 100f)}%");
+            var labelStyle = new GUIStyle(GUI.skin.label)
+            {
+                font = InkPalette.UiFont,
+                alignment = TextAnchor.MiddleRight,
+                fontSize = Mathf.RoundToInt(Mathf.Clamp(Screen.height * 0.015f, 18f, 30f)),
+            };
+            labelStyle.normal.textColor = InkPalette.TextDark;
+            GUI.Label(label, $"+{Mathf.RoundToInt(reserveRatio * 100f)}%", labelStyle);
         }
 
         static void DrawGoldenGaugeEffect(Rect area)
