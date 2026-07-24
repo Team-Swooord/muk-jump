@@ -35,12 +35,18 @@ namespace MukJump.Drawing
         bool drawing;
         float strokeLength;
         float ink;
+        float inkReserve;
         LineRenderer preview;
         float unlimitedInkUntil;
 
-        /// HUD 먹 게이지용: 전체 먹 잔량 비율
+        /// HUD 먹 게이지용. 1을 넘는 값은 아이템으로 쌓은 일회성 여유분이다.
         public bool HasUnlimitedInk => Time.time < unlimitedInkUntil;
-        public float InkRemaining01 => HasUnlimitedInk ? 1f : Mathf.Clamp01(ink / inkCapacity);
+        public float InkRemaining01 => HasUnlimitedInk ? 1f : (ink + inkReserve) / inkCapacity;
+
+        public void AddInkReserve(float capacityRatio)
+        {
+            inkReserve += inkCapacity * Mathf.Max(0f, capacityRatio);
+        }
 
         public void ActivateUnlimitedInk(float duration)
         {
@@ -147,7 +153,7 @@ namespace MukJump.Drawing
 
                 if (drawing)
                     ContinueStroke(screenPos);
-                else if (HasUnlimitedInk || ink >= minInkToStart)
+                else if (HasUnlimitedInk || ink + inkReserve >= minInkToStart)
                     BeginStroke(screenPos);
             }
             else if (drawing)
@@ -197,7 +203,7 @@ namespace MukJump.Drawing
             if (step < minPointDistance) return;
 
             // 먹이 다 떨어지면 그 지점에서 획이 끝난다 — 회복될 때까지 더 그릴 수 없다
-            if (!lobbyStroke && !HasUnlimitedInk && ink <= 0f)
+            if (!lobbyStroke && !HasUnlimitedInk && ink + inkReserve <= 0f)
             {
                 EndStroke();
                 return;
@@ -219,10 +225,17 @@ namespace MukJump.Drawing
 
             strokeLength += step;
             if (!lobbyStroke && !HasUnlimitedInk)
-                ink = Mathf.Max(0f, ink - step);
+                ConsumeInk(step);
             points.Add(world);
             GameFeedbackController.Instance?.PlayBrushMovement(step);
             UpdatePreview();
+        }
+
+        void ConsumeInk(float amount)
+        {
+            float reserveUse = Mathf.Min(inkReserve, amount);
+            inkReserve -= reserveUse;
+            ink = Mathf.Max(0f, ink - (amount - reserveUse));
         }
 
         void EndStroke(bool startGame = false)

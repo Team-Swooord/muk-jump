@@ -21,11 +21,13 @@ namespace MukJump.Core
         [SerializeField] Button goldenBrushButton;
         [SerializeField] Button inkShieldButton;
         [SerializeField] Button inkCloneButton;
+        [SerializeField] Button inkReserveButton;
         [SerializeField] Button mapStartButton;
         [SerializeField] Button mapWindButton;
         [SerializeField] Button mapRainButton;
         [SerializeField] Button mapGorgeButton;
         [SerializeField] Button restPlatformButton;
+        [SerializeField] Button windPlatformButton;
 
         public static GameplayHudView Instance { get; private set; }
 
@@ -40,11 +42,13 @@ namespace MukJump.Core
             goldenBrushButton?.onClick.AddListener(UseGoldenBrush);
             inkShieldButton?.onClick.AddListener(UseInkShield);
             inkCloneButton?.onClick.AddListener(UseInkClone);
+            inkReserveButton?.onClick.AddListener(UseInkReserve);
             mapStartButton?.onClick.AddListener(() => MoveToHeight(0));
-            mapWindButton?.onClick.AddListener(() => MoveToHeight(100));
-            mapRainButton?.onClick.AddListener(() => MoveToHeight(200));
-            mapGorgeButton?.onClick.AddListener(() => MoveToHeight(300));
+            mapWindButton?.onClick.AddListener(() => MoveToHeight(250));
+            mapRainButton?.onClick.AddListener(() => MoveToHeight(500));
+            mapGorgeButton?.onClick.AddListener(() => MoveToHeight(750));
             restPlatformButton?.onClick.AddListener(SpawnRestPlatform);
+            windPlatformButton?.onClick.AddListener(SpawnWindPlatform);
         }
 
         void OnDisable()
@@ -57,11 +61,13 @@ namespace MukJump.Core
             goldenBrushButton?.onClick.RemoveListener(UseGoldenBrush);
             inkShieldButton?.onClick.RemoveListener(UseInkShield);
             inkCloneButton?.onClick.RemoveListener(UseInkClone);
+            inkReserveButton?.onClick.RemoveListener(UseInkReserve);
             mapStartButton?.onClick.RemoveAllListeners();
             mapWindButton?.onClick.RemoveAllListeners();
             mapRainButton?.onClick.RemoveAllListeners();
             mapGorgeButton?.onClick.RemoveAllListeners();
             restPlatformButton?.onClick.RemoveListener(SpawnRestPlatform);
+            windPlatformButton?.onClick.RemoveListener(SpawnWindPlatform);
         }
 
         public static bool IsPointerOverItemTestControls(Vector2 screenPosition)
@@ -82,8 +88,10 @@ namespace MukJump.Core
         void UseGoldenBrush() => ItemEffect.Apply(ItemType.GoldenBrush);
         void UseInkShield() => ItemEffect.Apply(ItemType.InkShield);
         void UseInkClone() => ItemEffect.Apply(ItemType.InkClone);
+        void UseInkReserve() => ItemEffect.Apply(ItemType.InkReserve);
         void MoveToHeight(int height) => GameManager.Instance?.DebugTeleportToHeight(height);
         void SpawnRestPlatform() => RestPlatformSpawner.Instance?.DebugSpawnNearPlayer();
+        void SpawnWindPlatform() => RestPlatformSpawner.Instance?.DebugSpawnWindNearPlayer();
 
         void ToggleDebugPanel()
         {
@@ -118,6 +126,7 @@ namespace MukJump.Core
             SetItemIconNativeSize(goldenBrushButton);
             SetItemIconNativeSize(inkShieldButton);
             SetItemIconNativeSize(inkCloneButton);
+            SetItemIconNativeSize(inkReserveButton);
         }
 
         static void ConfigureText(Text text)

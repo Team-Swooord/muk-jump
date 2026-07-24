@@ -349,7 +349,16 @@ namespace MukJump.Player
         {
             if (IsDead) return;
 
-            bool landed = collision.collider.GetComponentInParent<PlatformCollider>() != null;
+            var platform = collision.collider.GetComponentInParent<PlatformCollider>();
+            if (platform != null && platform.TryUseWindCurrent(this))
+            {
+                LaunchInkDrop(36f);
+                GetComponent<InkDropJumpVfx>()?.Play();
+                GameFeedbackController.Instance?.ShowZone("풍맥 상승", "바람길이 먹방울을 밀어 올립니다");
+                return;
+            }
+
+            bool landed = platform != null;
             for (int i = 0; !landed && i < collision.contactCount; i++)
                 landed = collision.GetContact(i).normal.y >= groundNormalMinY;
             if (landed)

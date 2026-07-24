@@ -18,11 +18,14 @@ namespace MukJump.Drawing
         [SerializeField] float lifetime = 6.5f;
         [SerializeField] float fadeDuration = 1.2f;
         [SerializeField] bool restPlatform;
+        [SerializeField] bool windCurrentPlatform;
 
         public float Length { get; private set; }
         public LineRenderer Line { get; private set; }
         public bool IsRestPlatform => restPlatform;
+        public bool IsWindCurrentPlatform => windCurrentPlatform;
         EdgeCollider2D edge;
+        readonly HashSet<int> windUsers = new();
         Vector2[] originalPoints;
         float age;
         bool removalRequested;
@@ -56,11 +59,35 @@ namespace MukJump.Drawing
             platform.lifetime = 0f;
             platform.restPlatform = true;
             platform.Build(worldPoints);
+            platform.ConfigureOneWay();
             SketchToInkService.Instance?.Stylize(platform);
             if (platform.Line != null)
             {
                 platform.Line.startWidth = 0.46f;
                 platform.Line.endWidth = 0.38f;
+            }
+            return platform;
+        }
+
+        /// 아래에서는 통과하고 위에서 닿으면 상승 기류를 받는 영구 풍맥 발판.
+        public static PlatformCollider SpawnWindCurrentPlatform(List<Vector2> worldPoints)
+        {
+            var go = new GameObject("WindCurrentPlatform")
+            {
+                layer = LayerMask.NameToLayer("Platform"),
+            };
+            var platform = go.AddComponent<PlatformCollider>();
+            platform.lifetime = 0f;
+            platform.windCurrentPlatform = true;
+            platform.Build(worldPoints);
+            platform.ConfigureOneWay();
+            SketchToInkService.Instance?.Stylize(platform);
+            if (platform.Line != null)
+            {
+                platform.Line.startWidth = 0.34f;
+                platform.Line.endWidth = 0.28f;
+                platform.Line.startColor = platform.Line.endColor =
+                    new Color(0.28f, 0.48f, 0.5f, 0.95f);
             }
             return platform;
         }
@@ -104,6 +131,22 @@ namespace MukJump.Drawing
             ApplyVisual(local);
         }
 
+        void ConfigureOneWay()
+        {
+            edge ??= GetComponent<EdgeCollider2D>();
+            edge.usedByEffector = true;
+            var effector = gameObject.AddComponent<PlatformEffector2D>();
+            effector.useOneWay = true;
+            effector.surfaceArc = 165f;
+            effector.useColliderMask = false;
+        }
+
+        /// 같은 캐릭터가 같은 풍맥 발판에서 연속 충돌해 중복 발사되지 않게 한 번만 허용한다.
+        public bool TryUseWindCurrent(Component player)
+        {
+            return windCurrentPlatform && player != null && windUsers.Add(player.GetInstanceID());
+        }
+
         void ApplyVisual(List<Vector2> localPoints)
         {
             Line = GetComponent<LineRenderer>();
@@ -138,7 +181,7 @@ namespace MukJump.Drawing
         /// 낙하 위험물에 맞은 발판을 자연 소멸과 같은 등록 해제 규칙으로 안전하게 제거한다.
         public bool BreakFromHazard()
         {
-            if (restPlatform) return false;
+            if (restPlatform || windCurrentPlatform) return false;
             if (!TryBeginHazardRemoval()) return false;
             Destroy(gameObject);
             return true;

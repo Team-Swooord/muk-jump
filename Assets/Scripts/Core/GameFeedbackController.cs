@@ -177,7 +177,12 @@ namespace MukJump.Core
         public void PlayItemPickup(Vector3 position, ItemType type)
         {
             EnsureInitialized();
-            Color color = type == ItemType.GoldenBrush ? InkPalette.Gold : InkPalette.Ink;
+            Color color = type switch
+            {
+                ItemType.GoldenBrush => InkPalette.Gold,
+                ItemType.InkReserve => new Color(0.18f, 0.5f, 0.42f),
+                _ => InkPalette.Ink,
+            };
             VfxAudioManager.Instance?.PlayOneShot(itemClip, 0.72f);
             StartCoroutine(AnimateRing(position, color, 0.2f, 1.15f, 0.38f, 0.08f, 0.15f));
             SpawnDroplets(position, 9, color);

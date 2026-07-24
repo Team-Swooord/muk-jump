@@ -16,12 +16,14 @@ namespace MukJump.Items
         [SerializeField] Sprite inkShieldSprite;
         [Tooltip("먹분신 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
         [SerializeField] Sprite inkCloneSprite;
+        [Tooltip("붓 여유 게이지 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
+        [SerializeField] Sprite inkReserveSprite;
         [SerializeField] Vector2 verticalSpacing = new(15f, 25f);
         [SerializeField] Vector2 horizontalRange = new(-4f, 4f);
         [SerializeField] float firstSpawnHeight = 12f;
         [SerializeField] float spawnAhead = 12f;
         [SerializeField] float despawnBelow = 10f;
-        // 씬에 저장된 예전 직렬화 값과 무관하게 네 아이템의 크기를 항상 동일하게 유지한다.
+        // 씬에 저장된 예전 직렬화 값과 무관하게 모든 아이템의 크기를 동일하게 유지한다.
         const float ItemWorldWidth = 0.9f;
 
         readonly List<ItemPickup> active = new();
@@ -62,7 +64,7 @@ namespace MukJump.Items
 
         void Spawn(float y)
         {
-            var type = (ItemType)Random.Range(0, 4);
+            var type = (ItemType)Random.Range(0, 5);
             Sprite sprite = SpriteFor(type);
             bool usesDedicatedSprite = sprite != placeholderSprite;
             var go = new GameObject($"Item_{type}")
@@ -95,6 +97,7 @@ namespace MukJump.Items
                 ItemType.GoldenBrush when goldenBrushSprite != null => goldenBrushSprite,
                 ItemType.InkShield when inkShieldSprite != null => inkShieldSprite,
                 ItemType.InkClone when inkCloneSprite != null => inkCloneSprite,
+                ItemType.InkReserve when inkReserveSprite != null => inkReserveSprite,
                 _ => placeholderSprite,
             };
         }
@@ -106,6 +109,7 @@ namespace MukJump.Items
                 ItemType.InkDrop => new Color(0.42f, 0.62f, 0.72f),
                 ItemType.GoldenBrush => new Color(0.95f, 0.72f, 0.2f),
                 ItemType.InkShield => new Color(0.72f, 0.18f, 0.28f),
+                ItemType.InkReserve => new Color(0.2f, 0.58f, 0.48f),
                 _ => new Color(0.2f, 0.18f, 0.16f),
             };
         }

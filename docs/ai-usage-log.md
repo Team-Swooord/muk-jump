@@ -723,8 +723,18 @@
 - 결과물: `RestPlatformSpawner.cs`, `PlatformCollider.cs`, `AutoJump.cs`,
   `HeightZoneController.cs`, `GameplayHudView.cs`, `MukJumpSceneBuilder.cs`
 - 구현 메모: 38~58m 간격으로 넓은 영구 발판을 미리 배치하고 붉은 원형 낙관으로 구분한다.
-  안전 발판 착지 시 기존 공중 충전을 초기화해 2.4초간 실제 휴식한다. 맵은 0/100/200/300m
+  안전 발판 착지 시 기존 공중 충전을 초기화해 2.4초간 실제 휴식한다. 맵은 0/250/500/750m
   단계에서 배경 색감·기상·절벽 먹선을 누적 변화시키며 디버그 순간이동과 안전 발판 생성 버튼을
   제공한다. 점수는 기존 최고 높이만 유지한다.
 - 사람의 수정/검토 내용: 씬 빌더 재실행 후 각 맵 버튼, 분신 동시 이동, 안전 발판 착지 시간,
   좁은 화면에서 확장된 디버그 패널 배치 확인 예정
+### 2026-07-24 — 특수 발판·누적 분신·붓 여유 자원 확장
+
+- 목적: 상승 플레이의 휴식과 가속 선택지를 늘리고 장거리 맵 및 누적형 아이템 진행을 구현
+- 주요 지시: 안전 발판 아래 통과, 풍맥 발판 상승, 맵 구간 확대, 먹분신 무제한 누적,
+  100%를 초과해 쌓이지만 자연 회복되지 않는 붓 여유 게이지 추가
+- 산출물: `PlatformCollider.cs`, `RestPlatformSpawner.cs`, `PlayerController.cs`,
+  `StrokeCapture.cs`, `ItemPickup.cs`, `ItemSpawner.cs`, `GameplayHudView.cs`,
+  `PrototypeHud.cs`, `HeightZoneController.cs`, `MukJumpSceneBuilder.cs`
+- 사람 검토/후처리: Unity Play Mode에서 단방향 접촉 방향, 풍맥 재사용 방지,
+  다중 분신 생존 및 여유 게이지 소모 순서를 확인할 예정

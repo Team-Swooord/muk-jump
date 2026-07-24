@@ -48,6 +48,8 @@ namespace MukJump.Core
         /// 오른쪽 끝에 붓 아이콘을 붙인다. 이미지 미할당 시 단색 막대 폴백.
         void DrawInkGauge(float ratio)
         {
+            float baseRatio = Mathf.Clamp01(ratio);
+            float reserveRatio = Mathf.Max(0f, ratio - 1f);
             if (inkGaugeFill == null || inkGaugeTrack == null)
             {
                 float bw = Screen.width * 0.6f;
@@ -56,8 +58,9 @@ namespace MukJump.Core
                 var back = new Rect((Screen.width - bw) / 2, by, bw, bh);
                 DrawRect(back, InkPalette.Paper2);
                 var fillRect = back;
-                fillRect.width = bw * ratio;
+                fillRect.width = bw * baseRatio;
                 DrawRect(fillRect, InkPalette.Ink);
+                DrawReserveGauge(back, reserveRatio);
                 return;
             }
 
@@ -79,15 +82,16 @@ namespace MukJump.Core
 
             bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
 
-            if (ratio > 0f)
+            if (baseRatio > 0f)
             {
                 // 왼쪽부터 잔량 비율만큼만 가로로 잘라 그린다 (UV도 같은 비율로 잘라 왜곡 방지)
                 // 먹이 줄어들 때 왼쪽부터 비워지고 붓이 있는 오른쪽 방향으로 잔량이 남는다.
-                float remainingX = x + w * (1f - ratio);
-                var clipped = new Rect(remainingX, y, w * ratio, h);
+                float remainingX = x + w * (1f - baseRatio);
+                var clipped = new Rect(remainingX, y, w * baseRatio, h);
                 GUI.DrawTextureWithTexCoords(clipped, inkGaugeFill,
-                    new Rect(1f - ratio, 0f, ratio, 1f));
+                    new Rect(1f - baseRatio, 0f, baseRatio, 1f));
             }
+            DrawReserveGauge(area, reserveRatio);
 
             if (golden)
                 DrawGoldenGaugeEffect(area);
@@ -112,6 +116,26 @@ namespace MukJump.Core
                 if (golden) DrawGoldenIconSparkles(iconRect);
                 GUI.color = previousColor;
             }
+        }
+
+        static void DrawReserveGauge(Rect area, float reserveRatio)
+        {
+            if (reserveRatio <= 0f) return;
+            float blockWidth = Mathf.Max(8f, area.width * 0.085f);
+            float gap = Mathf.Max(2f, area.width * 0.008f);
+            int fullBlocks = Mathf.FloorToInt(reserveRatio / 0.35f);
+            float partial = Mathf.Repeat(reserveRatio, 0.35f) / 0.35f;
+            int visibleBlocks = Mathf.Min(8, fullBlocks + (partial > 0.01f ? 1 : 0));
+            for (int i = 0; i < visibleBlocks; i++)
+            {
+                float fill = i < fullBlocks ? 1f : partial;
+                var block = new Rect(area.x + i * (blockWidth + gap),
+                    area.y - area.height * 0.34f, blockWidth * fill,
+                    Mathf.Max(3f, area.height * 0.16f));
+                DrawRect(block, new Color(0.18f, 0.5f, 0.42f, 0.95f));
+            }
+            var label = new Rect(area.xMax - 110f, area.y - area.height * 0.62f, 110f, 24f);
+            GUI.Label(label, $"+{Mathf.RoundToInt(reserveRatio * 100f)}%");
         }
 
         static void DrawGoldenGaugeEffect(Rect area)

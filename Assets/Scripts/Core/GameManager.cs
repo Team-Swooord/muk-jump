@@ -163,16 +163,17 @@ namespace MukJump.Core
             gameOverTime = Time.unscaledTime;
         }
 
-        /// 먹분신은 최대 두 마리까지만 유지한다. 한 마리가 남았다면 다시 보충할 수 있다.
+        /// 먹분신 아이템을 먹을 때마다 생존 캐릭터를 한 마리씩 추가한다.
         public bool TryCreateInkClone(PlayerController source)
         {
-            if (State != GameState.Playing || source == null || source.IsDead ||
-                LivingPlayerCount >= 2)
+            if (State != GameState.Playing || source == null || source.IsDead)
                 return false;
 
             var sourceBody = source.GetComponent<Rigidbody2D>();
-            float direction = source.transform.position.x <= 0f ? 1f : -1f;
-            Vector3 spawnPosition = source.transform.position + Vector3.right * (direction * 0.9f);
+            int cloneIndex = Mathf.Max(1, LivingPlayerCount);
+            float direction = cloneIndex % 2 == 0 ? -1f : 1f;
+            float offset = 0.7f + Mathf.Min(1.2f, cloneIndex * 0.16f);
+            Vector3 spawnPosition = source.transform.position + Vector3.right * (direction * offset);
             if (Camera.main != null)
             {
                 float halfWidth = Camera.main.orthographicSize * Camera.main.aspect;
@@ -194,7 +195,10 @@ namespace MukJump.Core
                 cloneBody.linearVelocity = sourceBody.linearVelocity +
                                            Vector2.right * (direction * 0.45f);
 
-            IgnorePlayerCollision(source, clone);
+            CleanupPlayers();
+            for (int i = 0; i < players.Count; i++)
+                if (players[i] != clone)
+                    IgnorePlayerCollision(players[i], clone);
             RegisterPlayer(clone);
             return true;
         }

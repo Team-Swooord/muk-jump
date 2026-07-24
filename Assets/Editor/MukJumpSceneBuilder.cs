@@ -314,6 +314,7 @@ namespace MukJump.EditorTools
                 AssetDatabase.LoadAssetAtPath<Sprite>(InkShieldItemPath);
             itemSo.FindProperty("inkCloneSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(InkCloneItemPath);
+            itemSo.FindProperty("inkReserveSprite").objectReferenceValue = null;
             itemSo.ApplyModifiedPropertiesWithoutUndo();
 
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem),
@@ -512,21 +513,26 @@ namespace MukJump.EditorTools
             var inkCloneButton = CreateItemTestButton("InkCloneButton", debugPanel,
                 inkCloneTexture != null ? inkCloneTexture : placeholderTexture,
                 new Vector2(22f, -165f), inkCloneTexture != null ? Color.white : InkPalette.Ink, "분신");
+            var inkReserveButton = CreateItemTestButton("InkReserveButton", debugPanel,
+                placeholderTexture, new Vector2(22f, -320f),
+                new Color(0.2f, 0.58f, 0.48f), "여유 +35%");
 
             CreateText("MapDebugTitle", debugPanel, "맵 이동", 26, FontStyle.Bold,
                 new Vector2(0.76f, 0.9f), new Vector2(175f, 55f), InkPalette.Paper);
             var mapStartButton = CreateDebugTextButton("MapStartButton", debugPanel,
                 new Vector2(190f, 300f), new Vector2(175f, 62f), "산길 0m");
             var mapWindButton = CreateDebugTextButton("MapWindButton", debugPanel,
-                new Vector2(190f, 220f), new Vector2(175f, 62f), "바람 100m");
+                new Vector2(190f, 220f), new Vector2(175f, 62f), "바람 250m");
             var mapRainButton = CreateDebugTextButton("MapRainButton", debugPanel,
-                new Vector2(190f, 140f), new Vector2(175f, 62f), "먹비 200m");
+                new Vector2(190f, 140f), new Vector2(175f, 62f), "먹비 500m");
             var mapGorgeButton = CreateDebugTextButton("MapGorgeButton", debugPanel,
-                new Vector2(190f, 60f), new Vector2(175f, 62f), "협곡 300m");
+                new Vector2(190f, 60f), new Vector2(175f, 62f), "협곡 750m");
             var restPlatformButton = CreateDebugTextButton("RestPlatformButton", debugPanel,
                 new Vector2(190f, -40f), new Vector2(175f, 78f), "안전 발판");
+            var windPlatformButton = CreateDebugTextButton("WindPlatformButton", debugPanel,
+                new Vector2(190f, -130f), new Vector2(175f, 72f), "풍맥 발판");
             var invincibleButton = CreateDebugTextButton("InvincibleButton", debugPanel,
-                new Vector2(190f, -165f), new Vector2(175f, 72f), "무적 OFF");
+                new Vector2(190f, -220f), new Vector2(175f, 72f), "무적 OFF");
             var invincibleLabel = invincibleButton.transform.Find("Label")?.GetComponent<Text>();
             debugPanel.gameObject.SetActive(false);
 
@@ -544,11 +550,13 @@ namespace MukJump.EditorTools
             so.FindProperty("goldenBrushButton").objectReferenceValue = goldenBrushButton;
             so.FindProperty("inkShieldButton").objectReferenceValue = inkShieldButton;
             so.FindProperty("inkCloneButton").objectReferenceValue = inkCloneButton;
+            so.FindProperty("inkReserveButton").objectReferenceValue = inkReserveButton;
             so.FindProperty("mapStartButton").objectReferenceValue = mapStartButton;
             so.FindProperty("mapWindButton").objectReferenceValue = mapWindButton;
             so.FindProperty("mapRainButton").objectReferenceValue = mapRainButton;
             so.FindProperty("mapGorgeButton").objectReferenceValue = mapGorgeButton;
             so.FindProperty("restPlatformButton").objectReferenceValue = restPlatformButton;
+            so.FindProperty("windPlatformButton").objectReferenceValue = windPlatformButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             // LineSprite 프리팹은 StrokeCapture의 붓결 텍스처 원본으로만 사용한다.

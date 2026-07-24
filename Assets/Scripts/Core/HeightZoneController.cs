@@ -18,7 +18,7 @@ namespace MukJump.Core
             RockGorge,
         }
 
-        [SerializeField, Min(20f)] float zoneHeight = 100f;
+        [SerializeField, Min(20f)] float zoneHeight = 250f;
         [SerializeField] float windAcceleration = 1.8f;
         [SerializeField, Range(0.4f, 1f)] float rainPlatformLifetimeMultiplier = 0.72f;
         [SerializeField, Range(0.35f, 1f)] float gorgeRockIntervalMultiplier = 0.62f;
