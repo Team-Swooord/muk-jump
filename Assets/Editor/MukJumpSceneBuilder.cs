@@ -48,6 +48,13 @@ namespace MukJump.EditorTools
 
         const string ScenePath = "Assets/Scenes/Main.unity";
         const string BgPath = "Assets/Art/Background/background_ink_landscape.png";
+        static readonly string[] MapBackgroundPaths =
+        {
+            "Assets/Art/Background/Maps/map_00_quiet_mountain.png",
+            "Assets/Art/Background/Maps/map_01_wind_ridge.png",
+            "Assets/Art/Background/Maps/map_02_ink_rain_valley.png",
+            "Assets/Art/Background/Maps/map_03_black_cliff.png",
+        };
         const string CharSheetPath = "Assets/Art/Character/Player/muk_spritesheet.png";
         const string ObstaclePath = "Assets/Art/Character/Obstacles/anermy_01.png";
         const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
@@ -159,9 +166,31 @@ namespace MukJump.EditorTools
             go.transform.SetParent(cameraTransform);
             go.transform.localPosition = new Vector3(0f, 0f, 10f);
 
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(BgPath);
-            sr.sortingOrder = -10;
+            var currentObject = new GameObject("BackgroundCurrent");
+            currentObject.transform.SetParent(go.transform, false);
+            var current = currentObject.AddComponent<SpriteRenderer>();
+            current.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(MapBackgroundPaths[0]) ??
+                             AssetDatabase.LoadAssetAtPath<Sprite>(BgPath);
+            current.sortingOrder = -10;
+
+            var nextObject = new GameObject("BackgroundNext");
+            nextObject.transform.SetParent(go.transform, false);
+            var next = nextObject.AddComponent<SpriteRenderer>();
+            next.sortingOrder = -9;
+            next.color = Color.clear;
+
+            var view = go.AddComponent<MapBackgroundView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("worldCamera").objectReferenceValue =
+                cameraTransform.GetComponent<Camera>();
+            so.FindProperty("currentRenderer").objectReferenceValue = current;
+            so.FindProperty("nextRenderer").objectReferenceValue = next;
+            var stages = so.FindProperty("stageSprites");
+            stages.arraySize = MapBackgroundPaths.Length;
+            for (int i = 0; i < MapBackgroundPaths.Length; i++)
+                stages.GetArrayElementAtIndex(i).objectReferenceValue =
+                    AssetDatabase.LoadAssetAtPath<Sprite>(MapBackgroundPaths[i]);
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         static GameObject BuildPlayer()
@@ -883,10 +912,23 @@ namespace MukJump.EditorTools
         /// 배경 이미지의 픽셀 폭이 얼마든 월드 폭 10.8유닛(화면 가득)이 되도록 PPU를 계산한다
         static void ConfigureBackground()
         {
-            ConfigureSprite(BgPath, pixelsPerUnit: 100); // 우선 임포트 확정
-            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(BgPath);
-            if (tex == null) return;
-            ConfigureSprite(BgPath, pixelsPerUnit: tex.width / WorldScreenWidth);
+            for (int i = 0; i < MapBackgroundPaths.Length; i++)
+            {
+                string path = MapBackgroundPaths[i];
+                ConfigureSprite(path, pixelsPerUnit: 100f);
+                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+                if (tex == null) continue;
+                ConfigureSprite(path, pixelsPerUnit: tex.width / WorldScreenWidth);
+                var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+                if (importer == null) continue;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.mipmapEnabled = false;
+                importer.alphaIsTransparency = false;
+                importer.maxTextureSize = 2048;
+                importer.textureCompression = TextureImporterCompression.CompressedHQ;
+                importer.SaveAndReimport();
+            }
         }
 
         static void ConfigureSprite(string path, float pixelsPerUnit)

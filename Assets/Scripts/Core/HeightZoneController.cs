@@ -27,7 +27,7 @@ namespace MukJump.Core
         int currentBand = -1;
         FallingInkRockSpawner rockSpawner;
         Camera worldCamera;
-        SpriteRenderer backgroundRenderer;
+        MapBackgroundView backgroundView;
         LineRenderer[] weatherLines;
         LineRenderer[] gorgeLines;
 
@@ -39,8 +39,7 @@ namespace MukJump.Core
         {
             rockSpawner = FindFirstObjectByType<FallingInkRockSpawner>();
             worldCamera = Camera.main;
-            var background = GameObject.Find("Background");
-            if (background != null) backgroundRenderer = background.GetComponent<SpriteRenderer>();
+            backgroundView = FindFirstObjectByType<MapBackgroundView>();
             CreateWeatherLines();
             CreateGorgeLines();
             ApplyZone(0);
@@ -87,21 +86,15 @@ namespace MukJump.Core
         void ApplyMapStage(int stage)
         {
             CurrentMapStage = stage;
-            Color tint = stage switch
-            {
-                1 => new Color(0.88f, 0.93f, 0.94f, 1f),
-                2 => new Color(0.76f, 0.84f, 0.86f, 1f),
-                3 => new Color(0.72f, 0.66f, 0.57f, 1f),
-                _ => Color.white,
-            };
-            if (backgroundRenderer != null) backgroundRenderer.color = tint;
+            if (backgroundView == null) backgroundView = FindFirstObjectByType<MapBackgroundView>();
+            backgroundView?.SetStage(stage);
             if (worldCamera != null)
             {
                 worldCamera.backgroundColor = stage switch
                 {
-                    1 => new Color(0.78f, 0.84f, 0.84f),
-                    2 => new Color(0.62f, 0.69f, 0.7f),
-                    3 => new Color(0.42f, 0.39f, 0.34f),
+                    1 => new Color(0.9f, 0.9f, 0.84f),
+                    2 => new Color(0.87f, 0.87f, 0.81f),
+                    3 => new Color(0.84f, 0.81f, 0.73f),
                     _ => InkPalette.Paper,
                 };
             }
@@ -239,7 +232,7 @@ namespace MukJump.Core
             if (gorgeLines != null)
                 for (int i = 0; i < gorgeLines.Length; i++)
                     if (gorgeLines[i] != null) gorgeLines[i].enabled = false;
-            if (backgroundRenderer != null) backgroundRenderer.color = Color.white;
+            backgroundView?.SetStage(0, true);
         }
     }
 }
