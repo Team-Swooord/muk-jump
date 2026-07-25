@@ -57,14 +57,21 @@ namespace MukJump.Items
         [SerializeField] float bobSpeed = 2f;
 
         Vector3 origin;
+        Vector3 baseScale;
         float phase;
+        float telegraphTime;
         bool collected;
+        bool telegraphed;
+        Camera worldCamera;
 
         public void Configure(ItemType itemType, float phaseOffset)
         {
             type = itemType;
             phase = phaseOffset;
             origin = transform.position;
+            baseScale = transform.localScale;
+            transform.localScale = baseScale * 0.86f;
+            worldCamera = Camera.main;
         }
 
         void Update()
@@ -74,6 +81,37 @@ namespace MukJump.Items
 
             transform.position = origin + Vector3.up *
                 (Mathf.Sin(Time.time * bobSpeed + phase) * bobAmount);
+
+            if (!telegraphed && worldCamera != null)
+            {
+                Vector3 viewport = worldCamera.WorldToViewportPoint(transform.position);
+                if (viewport.z > 0f && viewport.y is >= 0.78f and <= 1.06f)
+                {
+                    telegraphed = true;
+                    telegraphTime = 0.38f;
+                    GameFeedbackController.Instance?.PlayItemTelegraph(transform.position, type);
+                }
+            }
+
+            if (!telegraphed) return;
+            if (telegraphTime <= 0f)
+            {
+                transform.localScale = baseScale;
+                return;
+            }
+
+            telegraphTime -= Time.deltaTime;
+            float t = 1f - Mathf.Clamp01(telegraphTime / 0.38f);
+            float scale = t < 0.55f
+                ? Mathf.Lerp(0.86f, 1.09f, Smooth01(t / 0.55f))
+                : Mathf.Lerp(1.09f, 1f, Smooth01((t - 0.55f) / 0.45f));
+            transform.localScale = baseScale * scale;
+        }
+
+        static float Smooth01(float value)
+        {
+            value = Mathf.Clamp01(value);
+            return value * value * (3f - 2f * value);
         }
 
         void OnTriggerEnter2D(Collider2D other)

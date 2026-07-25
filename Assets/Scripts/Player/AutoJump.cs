@@ -135,6 +135,8 @@ namespace MukJump.Player
             horizontal = Mathf.Clamp(horizontal, -maxHorizontalSpeed, maxHorizontalSpeed);
             rb.linearVelocity = new Vector2(horizontal, direction.y * power);
             GameFeedbackController.Instance?.PlayJump(transform.position);
+            Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
+                transform, Mathf.InverseLerp(10f, 18f, power));
         }
 
         float PowerMultiplier()

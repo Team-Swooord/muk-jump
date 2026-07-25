@@ -174,6 +174,7 @@ namespace MukJump.Player
             if (IsInkDropBoosted) return;
             if (IsGrounded && CurrentPlatform != null && CurrentPlatform.IsRestPlatform) return;
             if (Time.time < damageInvulnerableUntil) return;
+            GameFeedbackController.Instance?.PlayHitStop();
             if (GameManager.Instance != null && GameManager.Instance.DebugInvincible)
             {
                 damageInvulnerableUntil = Time.time + shieldHitGraceDuration;
@@ -206,6 +207,8 @@ namespace MukJump.Player
             IsInkDropBoosted = true;
             inkDropHasRisen = false;
             LaunchToHeight(height);
+            Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
+                transform, Mathf.Lerp(1f, 1.5f, Mathf.InverseLerp(25f, 50f, height)));
         }
 
         bool ConsumeShield()
@@ -213,6 +216,7 @@ namespace MukJump.Player
             if (!HasShield) return false;
             HasShield = false;
             ShieldConsumed?.Invoke();
+            GameFeedbackController.Instance?.PlayShieldBreak();
             return true;
         }
 

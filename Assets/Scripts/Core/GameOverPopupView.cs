@@ -10,6 +10,10 @@ namespace MukJump.Core
     {
         CanvasGroup rootGroup;
         RectTransform panel;
+        RectTransform scrollBody;
+        RectTransform topRoll;
+        RectTransform bottomRoll;
+        CanvasGroup contentGroup;
         Text heightText;
         Text bestText;
         Text newBestText;
@@ -55,37 +59,43 @@ namespace MukJump.Core
                 Vector2.zero, new Vector2(900f, 980f), Color.clear);
             panel = panelImage.rectTransform;
 
-            CreateImage("ScrollShadow", panel, null, new Vector2(18f, -20f),
+            scrollBody = CreateImage("ScrollBody", panel, null, Vector2.zero,
+                new Vector2(810f, 880f), Color.clear).rectTransform;
+            CreateImage("ScrollShadow", scrollBody, null, new Vector2(18f, -20f),
                 new Vector2(798f, 870f), new Color(0f, 0f, 0f, 0.24f));
-            CreateImage("ScrollBodyOutline", panel, null, Vector2.zero,
+            CreateImage("ScrollBodyOutline", scrollBody, null, Vector2.zero,
                 new Vector2(792f, 860f), InkPalette.Ink);
-            CreateImage("ScrollPaper", panel, null, Vector2.zero,
+            CreateImage("ScrollPaper", scrollBody, null, Vector2.zero,
                 new Vector2(770f, 840f), InkPalette.Paper);
-            CreateImage("LeftPaperShade", panel, null, new Vector2(-374f, 0f),
+            CreateImage("LeftPaperShade", scrollBody, null, new Vector2(-374f, 0f),
                 new Vector2(18f, 824f), new Color(InkPalette.Paper2.r, InkPalette.Paper2.g,
                     InkPalette.Paper2.b, 0.72f));
-            CreateImage("RightPaperShade", panel, null, new Vector2(374f, 0f),
+            CreateImage("RightPaperShade", scrollBody, null, new Vector2(374f, 0f),
                 new Vector2(18f, 824f), new Color(InkPalette.Paper2.r, InkPalette.Paper2.g,
                     InkPalette.Paper2.b, 0.72f));
-            CreateScrollRoll(panel, 430f, true);
-            CreateScrollRoll(panel, -430f, false);
+            topRoll = CreateScrollRoll(panel, 430f, true);
+            bottomRoll = CreateScrollRoll(panel, -430f, false);
 
-            CreateText("Title", panel, "플레이 결과", 56, new Vector2(0f, 354f),
+            var content = CreateImage("ResultContent", panel, null, Vector2.zero,
+                new Vector2(800f, 860f), Color.clear);
+            contentGroup = content.gameObject.AddComponent<CanvasGroup>();
+
+            CreateText("Title", content.transform, "플레이 결과", 56, new Vector2(0f, 354f),
                 new Vector2(620f, 90f), InkPalette.TextDark, FontStyle.Normal);
-            CreateImage("TitleDivider", panel, null, new Vector2(0f, 294f),
+            CreateImage("TitleDivider", content.transform, null, new Vector2(0f, 294f),
                 new Vector2(610f, 3f), new Color(InkPalette.Red.r, InkPalette.Red.g,
                     InkPalette.Red.b, 0.78f));
 
-            heightText = CreateResultBlock("CurrentResult", panel, "이번 고도",
+            heightText = CreateResultBlock("CurrentResult", content.transform, "이번 고도",
                 new Vector2(0f, 160f), out var currentHighlight);
             currentHighlight.gameObject.SetActive(false);
-            bestText = CreateResultBlock("BestResult", panel, "최고 고도",
+            bestText = CreateResultBlock("BestResult", content.transform, "최고 고도",
                 new Vector2(0f, -82f), out bestGlow);
 
-            newBestText = CreateText("NewBest", panel, "신기록", 34,
+            newBestText = CreateText("NewBest", content.transform, "신기록", 34,
                 new Vector2(0f, -230f), new Vector2(280f, 58f),
                 InkPalette.Red, FontStyle.Normal);
-            CreateText("TouchHint", panel, "화면을 터치해 다시 도전", 30,
+            CreateText("TouchHint", content.transform, "화면을 터치해 다시 도전", 30,
                 new Vector2(0f, -356f), new Vector2(700f, 70f),
                 new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.62f),
                 FontStyle.Normal);
@@ -95,24 +105,38 @@ namespace MukJump.Core
         {
             rootGroup.alpha = 0f;
             rootGroup.blocksRaycasts = true;
-            panel.localScale = Vector3.one * 0.94f;
+            panel.localScale = Vector3.one * 0.98f;
             panel.localEulerAngles = Vector3.zero;
+            scrollBody.localScale = new Vector3(1f, 0.02f, 1f);
+            topRoll.anchoredPosition = Vector2.zero;
+            bottomRoll.anchoredPosition = Vector2.zero;
+            contentGroup.alpha = 0f;
 
             float elapsed = 0f;
-            const float duration = 0.42f;
+            const float duration = 0.78f;
             while (elapsed < duration)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
-                float appear = Smooth01(t);
+                float appear = Smooth01(Mathf.InverseLerp(0f, 0.22f, t));
+                float unroll = Smooth01(Mathf.InverseLerp(0.08f, 0.78f, t));
+                float content = Smooth01(Mathf.InverseLerp(0.58f, 0.96f, t));
                 rootGroup.alpha = appear;
-                panel.localScale = Vector3.one * Mathf.Lerp(0.94f, 1f, appear);
+                panel.localScale = Vector3.one * Mathf.Lerp(0.98f, 1f, unroll);
+                scrollBody.localScale = new Vector3(1f, Mathf.Max(0.02f, unroll), 1f);
+                topRoll.anchoredPosition = Vector2.up * (430f * unroll);
+                bottomRoll.anchoredPosition = Vector2.down * (430f * unroll);
+                contentGroup.alpha = content;
                 yield return null;
             }
 
             rootGroup.alpha = 1f;
             panel.localScale = Vector3.one;
             panel.localEulerAngles = Vector3.zero;
+            scrollBody.localScale = Vector3.one;
+            topRoll.anchoredPosition = Vector2.up * 430f;
+            bottomRoll.anchoredPosition = Vector2.down * 430f;
+            contentGroup.alpha = 1f;
 
             while (reachedNewBest)
             {
@@ -147,14 +171,14 @@ namespace MukJump.Core
             return image;
         }
 
-        static void CreateScrollRoll(Transform parent, float y, bool top)
+        static RectTransform CreateScrollRoll(Transform parent, float y, bool top)
         {
-            float shadowY = y - 10f;
-            CreateImage(top ? "TopRollShadow" : "BottomRollShadow", parent, null,
-                new Vector2(12f, shadowY), new Vector2(866f, 92f),
+            var root = CreateImage(top ? "TopRoll" : "BottomRoll", parent, null,
+                new Vector2(0f, y), new Vector2(900f, 120f), Color.clear).rectTransform;
+            CreateImage("Shadow", root, null, new Vector2(12f, -10f), new Vector2(866f, 92f),
                 new Color(0f, 0f, 0f, 0.22f));
-            var roll = CreateImage(top ? "TopPaperRoll" : "BottomPaperRoll", parent, null,
-                new Vector2(0f, y), new Vector2(852f, 86f), InkPalette.Ink);
+            var roll = CreateImage("PaperRoll", root, null,
+                Vector2.zero, new Vector2(852f, 86f), InkPalette.Ink);
             CreateImage("Paper", roll.transform, null, Vector2.zero,
                 new Vector2(828f, 68f), InkPalette.Paper2);
             CreateImage("FoldHighlight", roll.transform, null,
@@ -164,13 +188,14 @@ namespace MukJump.Core
             Sprite capSprite = InkUiTextureFactory.CreateBlobSprite();
             for (int side = -1; side <= 1; side += 2)
             {
-                var cap = CreateImage(side < 0 ? "LeftCap" : "RightCap", parent, capSprite,
-                    new Vector2(side * 426f, y), new Vector2(104f, 104f), InkPalette.Ink);
+                var cap = CreateImage(side < 0 ? "LeftCap" : "RightCap", root, capSprite,
+                    new Vector2(side * 426f, 0f), new Vector2(104f, 104f), InkPalette.Ink);
                 CreateImage("Paper", cap.transform, capSprite, Vector2.zero,
                     new Vector2(78f, 78f), InkPalette.Paper2);
                 CreateImage("Axis", cap.transform, capSprite, Vector2.zero,
                     new Vector2(24f, 24f), InkPalette.Ink);
             }
+            return root;
         }
 
         static Text CreateResultBlock(string objectName, Transform parent, string caption,

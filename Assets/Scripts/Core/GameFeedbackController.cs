@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using MukJump.AI;
 using MukJump.Items;
 
@@ -26,6 +27,18 @@ namespace MukJump.Core
         AudioSource brushSource;
         AudioSource accentSource;
         Coroutine gameOverSoundRoutine;
+        Coroutine hitStopRoutine;
+        Coroutine gamepadHapticRoutine;
+        float hitStopPreviousScale = 1f;
+        float hitStopPreviousFixedDelta;
+        float lastLandingHapticTime = -10f;
+
+        enum HapticPattern
+        {
+            Landing,
+            ShieldBreak,
+            Death,
+        }
 
         public float GameOverRevealDelay
         {
@@ -49,6 +62,8 @@ namespace MukJump.Core
         void OnDisable()
         {
             if (Instance == this) Instance = null;
+            RestoreTimeScale();
+            if (Gamepad.current != null) Gamepad.current.SetMotorSpeeds(0f, 0f);
         }
 
         void Awake()
@@ -157,6 +172,11 @@ namespace MukJump.Core
             StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.12f,
                 Mathf.Lerp(0.55f, 1.05f, strength), 0.28f, 0.09f, 0.12f, 0.35f));
             SpawnDroplets(position, 5 + Mathf.RoundToInt(strength * 4f), InkPalette.Ink);
+            if (strength >= 0.34f && Time.unscaledTime - lastLandingHapticTime >= 0.18f)
+            {
+                lastLandingHapticTime = Time.unscaledTime;
+                PlayHaptic(HapticPattern.Landing, strength);
+            }
         }
 
         public void PlayStrokeResolved(Vector3 position, bool valid)
@@ -177,15 +197,29 @@ namespace MukJump.Core
         public void PlayItemPickup(Vector3 position, ItemType type)
         {
             EnsureInitialized();
-            Color color = type switch
+            Color color = ItemColor(type);
+            VfxAudioManager.Instance?.PlayOneShot(itemClip, 0.72f);
+            StartCoroutine(AnimateRing(position, color, 0.2f, 1.15f, 0.38f, 0.08f, 0.15f));
+            SpawnDroplets(position, 9, color);
+        }
+
+        public void PlayItemTelegraph(Vector3 position, ItemType type)
+        {
+            EnsureInitialized();
+            Color color = ItemColor(type);
+            VfxAudioManager.Instance?.PlayOneShot(itemClip, 0.2f);
+            StartCoroutine(AnimateRing(position, color, 0.12f, 0.72f, 0.42f, 0.035f, 0.22f));
+            StartCoroutine(AnimateRing(position, color, 0.32f, 1.02f, 0.55f, 0.025f, 0.13f));
+        }
+
+        static Color ItemColor(ItemType type)
+        {
+            return type switch
             {
                 ItemType.GoldenBrush => InkPalette.Gold,
                 ItemType.InkReserve => new Color(0.18f, 0.5f, 0.42f),
                 _ => InkPalette.Ink,
             };
-            VfxAudioManager.Instance?.PlayOneShot(itemClip, 0.72f);
-            StartCoroutine(AnimateRing(position, color, 0.2f, 1.15f, 0.38f, 0.08f, 0.15f));
-            SpawnDroplets(position, 9, color);
         }
 
         public void PlayDeath(Vector3 position)
@@ -196,6 +230,23 @@ namespace MukJump.Core
             StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.1f, 1.35f,
                 0.42f, 0.12f, 0.75f));
             SpawnDroplets(position, 14, InkPalette.Ink);
+            PlayHaptic(HapticPattern.Death, 1f);
+        }
+
+        public void PlayShieldBreak()
+        {
+            PlayHaptic(HapticPattern.ShieldBreak, 1f);
+        }
+
+        public void PlayHitStop(float duration = 0.055f)
+        {
+            if (!isActiveAndEnabled) return;
+            if (hitStopRoutine != null)
+            {
+                StopCoroutine(hitStopRoutine);
+                RestoreTimeScale();
+            }
+            hitStopRoutine = StartCoroutine(HitStopRoutine(Mathf.Clamp(duration, 0.02f, 0.09f)));
         }
 
         public void ShowZone(string title, string subtitle)
@@ -239,6 +290,98 @@ namespace MukJump.Core
             }
             Destroy(go);
         }
+
+        IEnumerator HitStopRoutine(float duration)
+        {
+            hitStopPreviousScale = Mathf.Max(0.01f, Time.timeScale);
+            hitStopPreviousFixedDelta = Time.fixedDeltaTime;
+            Time.timeScale = 0.05f;
+            Time.fixedDeltaTime = hitStopPreviousFixedDelta * Time.timeScale /
+                                  hitStopPreviousScale;
+            yield return new WaitForSecondsRealtime(duration);
+            RestoreTimeScale();
+            hitStopRoutine = null;
+        }
+
+        void RestoreTimeScale()
+        {
+            if (hitStopPreviousFixedDelta > 0f)
+                Time.fixedDeltaTime = hitStopPreviousFixedDelta;
+            if (Time.timeScale <= 0.051f)
+                Time.timeScale = Mathf.Max(0.01f, hitStopPreviousScale);
+            hitStopPreviousFixedDelta = 0f;
+        }
+
+        void PlayHaptic(HapticPattern pattern, float strength)
+        {
+            int durationMs = pattern switch
+            {
+                HapticPattern.Landing => Mathf.RoundToInt(Mathf.Lerp(18f, 34f, strength)),
+                HapticPattern.ShieldBreak => 82,
+                _ => 165,
+            };
+            int amplitude = pattern switch
+            {
+                HapticPattern.Landing => Mathf.RoundToInt(Mathf.Lerp(45f, 85f, strength)),
+                HapticPattern.ShieldBreak => 145,
+                _ => 220,
+            };
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+            VibrateAndroid(durationMs, amplitude);
+#elif UNITY_IOS && !UNITY_EDITOR
+            Handheld.Vibrate();
+#endif
+
+            var gamepad = Gamepad.current;
+            if (gamepad == null) return;
+            if (gamepadHapticRoutine != null) StopCoroutine(gamepadHapticRoutine);
+            float low = pattern == HapticPattern.Death ? 0.78f :
+                pattern == HapticPattern.ShieldBreak ? 0.5f : 0.18f + strength * 0.18f;
+            float high = pattern == HapticPattern.Death ? 0.34f :
+                pattern == HapticPattern.ShieldBreak ? 0.72f : 0.12f + strength * 0.16f;
+            gamepad.SetMotorSpeeds(low, high);
+            gamepadHapticRoutine = StartCoroutine(StopGamepadHaptic(gamepad, durationMs / 1000f));
+        }
+
+        IEnumerator StopGamepadHaptic(Gamepad gamepad, float duration)
+        {
+            yield return new WaitForSecondsRealtime(duration);
+            gamepad?.SetMotorSpeeds(0f, 0f);
+            gamepadHapticRoutine = null;
+        }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        static void VibrateAndroid(int durationMs, int amplitude)
+        {
+            try
+            {
+                using var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+                using var activity =
+                    unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+                using var vibrator =
+                    activity.Call<AndroidJavaObject>("getSystemService", "vibrator");
+                using var version = new AndroidJavaClass("android.os.Build$VERSION");
+                int sdk = version.GetStatic<int>("SDK_INT");
+                if (sdk >= 26)
+                {
+                    using var vibrationEffect =
+                        new AndroidJavaClass("android.os.VibrationEffect");
+                    using var effect = vibrationEffect.CallStatic<AndroidJavaObject>(
+                        "createOneShot", (long)durationMs, Mathf.Clamp(amplitude, 1, 255));
+                    vibrator.Call("vibrate", effect);
+                }
+                else
+                {
+                    vibrator.Call("vibrate", (long)durationMs);
+                }
+            }
+            catch (System.Exception)
+            {
+                Handheld.Vibrate();
+            }
+        }
+#endif
 
         IEnumerator AnimateBrushStreak(Vector3 position)
         {
