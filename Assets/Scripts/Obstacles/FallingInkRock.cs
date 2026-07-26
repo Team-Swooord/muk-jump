@@ -140,7 +140,7 @@ namespace MukJump.Obstacles
 
             if (warningElapsed < warningDuration) return;
 
-            spriteRenderer.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1f);
+            spriteRenderer.color = baseColor;
             transform.localScale = baseScale;
             fallSpeed = initialFallSpeed;
             body.simulated = true;
@@ -202,7 +202,7 @@ namespace MukJump.Obstacles
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / dissolveDuration);
                 Color color = startColor;
-                color.a = 1f - t;
+                color.a = startColor.a * (1f - t);
                 spriteRenderer.color = color;
                 transform.localScale = Vector3.LerpUnclamped(startScale,
                     startScale * dissolveScale, t);

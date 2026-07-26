@@ -141,12 +141,9 @@ namespace MukJump.Obstacles
                 fallingInkRockSprite.bounds.extents.y) * 0.83f;
             circle.enabled = false;
 
+            go.GetComponent<ObstacleVisibilityView>().Configure();
             rock.Initialize(this, worldCamera, collisionMask, warningDuration,
                 initialFallSpeed, maxFallSpeed, fallAcceleration, maxLifetime);
-            float visualRadius = Mathf.Max(fallingInkRockSprite.bounds.extents.x,
-                fallingInkRockSprite.bounds.extents.y);
-            go.GetComponent<ObstacleVisibilityView>().Configure(visualRadius,
-                renderer.sortingOrder);
             active.Add(rock);
         }
 

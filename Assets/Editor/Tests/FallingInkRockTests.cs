@@ -3,7 +3,6 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
-using MukJump.AI;
 using MukJump.Core;
 using MukJump.Core.Pooling;
 using MukJump.Drawing;
@@ -44,6 +43,8 @@ public class FallingInkRockTests
         Assert.AreEqual(FallingInkRockState.Falling, rock.State);
         Assert.IsTrue(collider.enabled);
         Assert.IsTrue(body.simulated);
+        Assert.AreEqual(InkPalette.ObstaclePaperRed,
+            rock.GetComponent<SpriteRenderer>().color);
     }
 
     [Test]
@@ -77,6 +78,8 @@ public class FallingInkRockTests
         Assert.IsFalse(reused.GetComponent<CircleCollider2D>().enabled);
         Assert.IsFalse(reused.GetComponent<Rigidbody2D>().simulated);
         Assert.IsTrue(reused.GetComponent<SpriteRenderer>().enabled);
+        Assert.AreEqual(InkPalette.ObstaclePaperRed,
+            reused.GetComponent<SpriteRenderer>().color);
         Assert.AreEqual(0f, (float)GetField(reused, "warningElapsed"));
         Assert.AreEqual(0f, (float)GetField(reused, "lifetimeElapsed"));
     }
@@ -125,29 +128,38 @@ public class FallingInkRockTests
     }
 
     [Test]
-    public void VisibilityUsesOnlyThinRedOutline()
+    public void VisibilityTintsBodyAndDisablesLegacyDecorations()
     {
         var root = Track(new GameObject("VisibleObstacle"));
-        root.AddComponent<SpriteRenderer>().sortingOrder = 6;
+        var body = root.AddComponent<SpriteRenderer>();
+        body.sortingOrder = 6;
+        body.color = new Color(1f, 1f, 1f, 0.47f);
+
+        var haloObject = Track(new GameObject("PaperHalo"));
+        haloObject.transform.SetParent(root.transform, false);
+        var paperHalo = haloObject.AddComponent<SpriteRenderer>();
+
+        var ringObject = Track(new GameObject("DangerRing"));
+        ringObject.transform.SetParent(root.transform, false);
+        var dangerRing = ringObject.AddComponent<LineRenderer>();
+
         var view = root.AddComponent<ObstacleVisibilityView>();
 
-        view.Configure(0.5f, 6);
+        view.Configure();
 
-        var paperHalo = root.transform.Find("PaperHalo");
-        Assert.IsTrue(paperHalo == null ||
-                      !paperHalo.GetComponent<SpriteRenderer>().enabled);
-
-        var dangerRing = root.transform.Find("DangerRing")?.GetComponent<LineRenderer>();
-        Assert.IsNotNull(dangerRing);
-        Assert.LessOrEqual(dangerRing.startWidth, 0.015f);
-        Assert.AreEqual(5, dangerRing.sortingOrder);
-        Assert.AreSame(FallbackInkStyle.SharedTintableBrushMaterial,
-            dangerRing.sharedMaterial);
+        Assert.That(body.color.r, Is.EqualTo(InkPalette.ObstaclePaperRed.r).Within(0.001f));
+        Assert.That(body.color.g, Is.EqualTo(InkPalette.ObstaclePaperRed.g).Within(0.001f));
+        Assert.That(body.color.b, Is.EqualTo(InkPalette.ObstaclePaperRed.b).Within(0.001f));
+        Assert.That(body.color.a, Is.EqualTo(0.47f).Within(0.001f));
+        Assert.IsNotNull(body.sharedMaterial);
+        Assert.AreEqual("MukJump/ObstaclePaperRed", body.sharedMaterial.shader.name);
+        Assert.IsFalse(paperHalo.enabled);
+        Assert.IsFalse(dangerRing.enabled);
 
         view.SetVisible(false);
         Assert.IsFalse(dangerRing.enabled);
         view.SetVisible(true);
-        Assert.IsTrue(dangerRing.enabled);
+        Assert.IsFalse(dangerRing.enabled);
     }
 
     [Test]
@@ -225,7 +237,9 @@ public class FallingInkRockTests
     FallingInkRock CreateRock(float warningDuration)
     {
         var go = Track(new GameObject("TestFallingInkRock"));
-        go.AddComponent<SpriteRenderer>().sprite = CreateSprite();
+        var spriteRenderer = go.AddComponent<SpriteRenderer>();
+        spriteRenderer.sprite = CreateSprite();
+        go.AddComponent<ObstacleVisibilityView>().Configure();
         var body = go.AddComponent<Rigidbody2D>();
         body.bodyType = RigidbodyType2D.Kinematic;
         var collider = go.AddComponent<CircleCollider2D>();

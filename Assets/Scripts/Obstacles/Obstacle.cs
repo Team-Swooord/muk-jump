@@ -82,6 +82,7 @@ namespace MukJump.Obstacles
             speed = 0f;
             phase = 0f;
             trigger.enabled = false;
+            spriteRenderer.color = Color.white;
             spriteRenderer.enabled = false;
             visibility?.SetVisible(false);
             transform.localRotation = Quaternion.identity;

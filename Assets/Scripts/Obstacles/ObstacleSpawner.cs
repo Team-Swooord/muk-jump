@@ -119,9 +119,7 @@ namespace MukJump.Obstacles
             // 바깥쪽 반투명 먹 번짐보다 실제 가시 몸통에 맞춰 판정을 약간 줄인다.
             circle.radius = obstacleSprite.bounds.extents.x * 0.78f;
 
-            float visualRadius = Mathf.Max(obstacleSprite.bounds.extents.x,
-                obstacleSprite.bounds.extents.y);
-            go.GetComponent<ObstacleVisibilityView>().Configure(visualRadius, renderer.sortingOrder);
+            go.GetComponent<ObstacleVisibilityView>().Configure();
             float difficulty = Mathf.InverseLerp(0f, maxSpeedHeight, courseHeight);
             float minSpeed = Mathf.Lerp(baseMoveSpeedRange.x, maxMoveSpeedRange.x, difficulty);
             float maxSpeed = Mathf.Lerp(baseMoveSpeedRange.y, maxMoveSpeedRange.y, difficulty);

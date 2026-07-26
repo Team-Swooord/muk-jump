@@ -12,6 +12,7 @@ namespace MukJump.Core
         public static readonly Color Paper = FromHex(0xEAE3D2);
         public static readonly Color Paper2 = FromHex(0xDFD6BE);
         public static readonly Color Red = FromHex(0xAE1C3C);
+        public static readonly Color ObstaclePaperRed = FromHex(0xC8645B);
         public static readonly Color Gold = FromHex(0x9C7A3C);
         public static readonly Color WindPlatform = FromHex(0x628889);
         public static readonly Color WindAccent = FromHex(0x789A9B);
