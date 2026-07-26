@@ -84,7 +84,7 @@ namespace MukJump.Drawing
             if (player == null) return;
             SpawnWindPlatform(new Vector2(player.transform.position.x,
                 player.transform.position.y + 3.2f), 3.4f, "DEBUG");
-            GameFeedbackController.Instance?.ShowZone("풍맥 발판", "아래에서 통과해 상승 기류를 타세요");
+            GameFeedbackController.Instance?.ShowZone("풍맥 발판", "위에 착지해 상승 기류를 타세요");
         }
 
         void SpawnAtGameHeight(float gameHeight)
@@ -160,7 +160,7 @@ namespace MukJump.Drawing
                 var line = mark.AddComponent<LineRenderer>();
                 line.useWorldSpace = false;
                 line.positionCount = 9;
-                line.material = FallbackInkStyle.SharedInkMaterial;
+                line.sharedMaterial = FallbackInkStyle.SharedTintableBrushMaterial;
                 line.sortingOrder = 4;
                 line.startWidth = line.endWidth = 0.035f;
                 var accent = InkPalette.WindAccent;
@@ -184,7 +184,7 @@ namespace MukJump.Drawing
             line.useWorldSpace = false;
             line.loop = true;
             line.positionCount = 18;
-            line.material = FallbackInkStyle.SharedInkMaterial;
+            line.sharedMaterial = FallbackInkStyle.SharedTintableBrushMaterial;
             line.sortingOrder = 4;
             line.startWidth = line.endWidth = 0.055f;
             line.startColor = line.endColor = InkPalette.Red;

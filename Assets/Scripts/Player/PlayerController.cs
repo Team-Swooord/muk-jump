@@ -309,6 +309,11 @@ namespace MukJump.Player
                 var contact = collision.GetContact(i);
                 if (platform != null)
                 {
+                    // 자동 생성 특수 발판은 양방향으로 막되, 아래·옆면 접촉을 착지나
+                    // 휴식/풍맥 효과로 처리하지 않는다.
+                    if ((platform.IsRestPlatform || platform.IsWindCurrentPlatform) &&
+                        contact.normal.y < groundNormalMinY)
+                        continue;
                     // 먹물방울 상승 중에는 방금 떨어져 나온 대각선 발판이 같은 물리
                     // 스텝에서 다시 캐릭터를 붙잡아 점프 속도를 덮지 못하게 한다.
                     if (IsInkDropBoosted) return;
@@ -355,7 +360,15 @@ namespace MukJump.Player
             if (IsDead) return;
 
             var platform = collision.collider.GetComponentInParent<PlatformCollider>();
-            if (platform != null && platform.TryUseWindCurrent(this))
+            bool hasTopContact = false;
+            for (int i = 0; i < collision.contactCount; i++)
+            {
+                if (collision.GetContact(i).normal.y < groundNormalMinY) continue;
+                hasTopContact = true;
+                break;
+            }
+
+            if (hasTopContact && platform != null && platform.TryUseWindCurrent(this))
             {
                 LaunchInkDrop(36f);
                 GetComponent<InkDropJumpVfx>()?.Play();
@@ -363,9 +376,9 @@ namespace MukJump.Player
                 return;
             }
 
-            bool landed = platform != null;
-            for (int i = 0; !landed && i < collision.contactCount; i++)
-                landed = collision.GetContact(i).normal.y >= groundNormalMinY;
+            bool isSpecialPlatform = platform != null &&
+                (platform.IsRestPlatform || platform.IsWindCurrentPlatform);
+            bool landed = hasTopContact || (platform != null && !isSpecialPlatform);
             if (landed)
                 GameFeedbackController.Instance?.PlayLanding(transform.position,
                     Mathf.Abs(collision.relativeVelocity.y));

@@ -48,7 +48,7 @@ namespace MukJump.Drawing
             return platform;
         }
 
-        /// 일정 고도마다 등장하는 영구 안전 발판. 드로잉 발판 개수 제한에 포함하지 않는다.
+        /// 일정 고도마다 등장하는 영구 안전 발판. 아래에서도 통과하지 않는 양방향 발판이다.
         public static PlatformCollider SpawnRestPlatform(List<Vector2> worldPoints)
         {
             var go = new GameObject("RestInkPlatform")
@@ -59,13 +59,12 @@ namespace MukJump.Drawing
             platform.lifetime = 0f;
             platform.restPlatform = true;
             platform.Build(worldPoints);
-            platform.ConfigureOneWay();
             SketchToInkService.Instance?.Stylize(platform);
             platform.ApplySpecialVisual(InkPalette.SafePlatform, 0.82f, 1.08f);
             return platform;
         }
 
-        /// 아래에서는 통과하고 위에서 닿으면 상승 기류를 받는 영구 풍맥 발판.
+        /// 아래에서도 통과하지 않고, 위에 착지하면 상승 기류를 받는 영구 풍맥 발판.
         public static PlatformCollider SpawnWindCurrentPlatform(List<Vector2> worldPoints)
         {
             var go = new GameObject("WindCurrentPlatform")
@@ -76,7 +75,6 @@ namespace MukJump.Drawing
             platform.lifetime = 0f;
             platform.windCurrentPlatform = true;
             platform.Build(worldPoints);
-            platform.ConfigureOneWay();
             SketchToInkService.Instance?.Stylize(platform);
             platform.ApplySpecialVisual(InkPalette.WindPlatform, 0.62f, 0.84f);
             return platform;
@@ -121,16 +119,6 @@ namespace MukJump.Drawing
             ApplyVisual(local);
         }
 
-        void ConfigureOneWay()
-        {
-            edge ??= GetComponent<EdgeCollider2D>();
-            edge.usedByEffector = true;
-            var effector = gameObject.AddComponent<PlatformEffector2D>();
-            effector.useOneWay = true;
-            effector.surfaceArc = 165f;
-            effector.useColliderMask = false;
-        }
-
         /// 같은 캐릭터가 같은 풍맥 발판에서 연속 충돌해 중복 발사되지 않게 한 번만 허용한다.
         public bool TryUseWindCurrent(Component player)
         {
@@ -149,11 +137,14 @@ namespace MukJump.Drawing
         }
 
         /// 특수 발판은 같은 붓결의 검정 외곽선 위에 효과색 획을 겹쳐 물리 종류를 구분한다.
-        /// 외곽선에는 콜라이더를 붙이지 않아 one-way와 풍맥 발동 횟수에 영향을 주지 않는다.
+        /// 외곽선에는 콜라이더를 붙이지 않아 실제 양방향 충돌과 풍맥 발동 횟수에 영향을 주지 않는다.
         void ApplySpecialVisual(Color innerColor, float innerWidth, float outlineWidth)
         {
             if (Line == null || Line.positionCount < 2) return;
 
+            // 제작용 LineSprite는 검정 RGB라 일반적인 색 곱셈으로는 금색·청회색이 나오지
+            // 않는다. 특수 발판 안쪽만 흰색 알파 붓결 재질로 바꿔 색을 정확히 표시한다.
+            Line.sharedMaterial = FallbackInkStyle.SharedTintableBrushMaterial;
             innerColor.a = 0.96f;
             Line.startColor = Line.endColor = innerColor;
             Line.widthMultiplier = innerWidth;
@@ -167,7 +158,7 @@ namespace MukJump.Drawing
             var positions = new Vector3[Line.positionCount];
             Line.GetPositions(positions);
             outline.SetPositions(positions);
-            outline.sharedMaterial = Line.sharedMaterial;
+            outline.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
             outline.textureMode = Line.textureMode;
             outline.numCapVertices = Line.numCapVertices;
             outline.numCornerVertices = Line.numCornerVertices;

@@ -9,19 +9,28 @@ namespace MukJump.AI
     public static class FallbackInkStyle
     {
         static Material inkMaterial;
+        static Material tintableBrushMaterial;
         static Texture2D brushTexture;
+        static Texture2D tintableBrushTexture;
 
         public static Material SharedInkMaterial
         {
             get
             {
                 if (inkMaterial == null)
-                {
-                    var shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
-                    if (shader == null) shader = Shader.Find("Sprites/Default");
-                    inkMaterial = new Material(shader) { mainTexture = BrushTexture };
-                }
+                    inkMaterial = CreateMaterial(BrushTexture);
                 return inkMaterial;
+            }
+        }
+
+        /// 원본 LineSprite의 RGB가 검정이어도 효과색이 보이도록 흰색+알파 붓결을 쓰는 재질.
+        public static Material SharedTintableBrushMaterial
+        {
+            get
+            {
+                if (tintableBrushMaterial == null)
+                    tintableBrushMaterial = CreateMaterial(TintableBrushTexture);
+                return tintableBrushMaterial;
             }
         }
 
@@ -78,32 +87,56 @@ namespace MukJump.AI
             get
             {
                 if (brushTexture != null) return brushTexture;
-
-                const int w = 256, h = 64;
-                brushTexture = new Texture2D(w, h, TextureFormat.RGBA32, false)
-                {
-                    wrapMode = TextureWrapMode.Clamp,
-                    filterMode = FilterMode.Bilinear,
-                };
-
-                for (int y = 0; y < h; y++)
-                {
-                    // 중심(0.5)에서 멀수록 옅어지는 기본 농도
-                    float edge = 1f - Mathf.Abs(y / (float)(h - 1) - 0.5f) * 2f;
-                    for (int x = 0; x < w; x++)
-                    {
-                        float u = x / (float)w;
-                        // 결 방향 노이즈: 붓털이 갈라진 자국
-                        float streak = Mathf.PerlinNoise(u * 6f, y * 0.55f);
-                        float grain = Mathf.PerlinNoise(u * 40f, y * 0.15f) * 0.25f;
-                        float a = Mathf.Clamp01(edge * 1.4f - (1f - streak) * 0.7f - grain);
-                        a = Mathf.SmoothStep(0f, 1f, a);
-                        brushTexture.SetPixel(x, y, new Color(1f, 1f, 1f, a));
-                    }
-                }
-                brushTexture.Apply();
+                brushTexture = CreateProceduralBrushTexture("MukJump_InkBrushTexture");
                 return brushTexture;
             }
+        }
+
+        static Texture2D TintableBrushTexture
+        {
+            get
+            {
+                if (tintableBrushTexture == null)
+                    tintableBrushTexture =
+                        CreateProceduralBrushTexture("MukJump_TintableBrushTexture");
+                return tintableBrushTexture;
+            }
+        }
+
+        static Texture2D CreateProceduralBrushTexture(string textureName)
+        {
+            const int w = 256, h = 64;
+            var texture = new Texture2D(w, h, TextureFormat.RGBA32, false)
+            {
+                name = textureName,
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+            };
+
+            for (int y = 0; y < h; y++)
+            {
+                // 중심(0.5)에서 멀수록 옅어지는 기본 농도
+                float edge = 1f - Mathf.Abs(y / (float)(h - 1) - 0.5f) * 2f;
+                for (int x = 0; x < w; x++)
+                {
+                    float u = x / (float)w;
+                    // 결 방향 노이즈: 붓털이 갈라진 자국
+                    float streak = Mathf.PerlinNoise(u * 6f, y * 0.55f);
+                    float grain = Mathf.PerlinNoise(u * 40f, y * 0.15f) * 0.25f;
+                    float a = Mathf.Clamp01(edge * 1.4f - (1f - streak) * 0.7f - grain);
+                    a = Mathf.SmoothStep(0f, 1f, a);
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+                }
+            }
+            texture.Apply(false, true);
+            return texture;
+        }
+
+        static Material CreateMaterial(Texture2D texture)
+        {
+            var shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
+            if (shader == null) shader = Shader.Find("Sprites/Default");
+            return new Material(shader) { mainTexture = texture };
         }
     }
 }
