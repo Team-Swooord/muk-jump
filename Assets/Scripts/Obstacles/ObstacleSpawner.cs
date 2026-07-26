@@ -82,7 +82,7 @@ namespace MukJump.Obstacles
 
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.sprite = obstacleSprite;
-            renderer.sortingOrder = 3;
+            renderer.sortingOrder = 6;
             float spriteWidth = obstacleSprite.bounds.size.x;
             float scale = spriteWidth > 0f ? obstacleWorldWidth / spriteWidth : 1f;
             go.transform.localScale = Vector3.one * scale;
@@ -93,6 +93,10 @@ namespace MukJump.Obstacles
             circle.radius = obstacleSprite.bounds.extents.x * 0.78f;
 
             var obstacle = go.AddComponent<Obstacle>();
+            float visualRadius = Mathf.Max(obstacleSprite.bounds.extents.x,
+                obstacleSprite.bounds.extents.y);
+            go.AddComponent<ObstacleVisibilityView>().Configure(visualRadius,
+                renderer.sortingOrder);
             float difficulty = Mathf.InverseLerp(0f, maxSpeedHeight, courseHeight);
             float minSpeed = Mathf.Lerp(baseMoveSpeedRange.x, maxMoveSpeedRange.x, difficulty);
             float maxSpeed = Mathf.Lerp(baseMoveSpeedRange.y, maxMoveSpeedRange.y, difficulty);

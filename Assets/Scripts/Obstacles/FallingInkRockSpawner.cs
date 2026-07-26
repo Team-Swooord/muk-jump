@@ -23,14 +23,14 @@ namespace MukJump.Obstacles
         [Min(1), SerializeField] int maxActiveRocks = 1;
 
         [Header("배치")]
-        [Range(0f, 0.45f), SerializeField] float viewportSideMargin = 0.08f;
+        [Range(0f, 0.45f), SerializeField] float viewportSideMargin = 0.13f;
         [Min(0f), SerializeField] float playerHorizontalClearance = 0.7f;
         [Min(1), SerializeField] int xSelectionAttempts = 5;
         [Min(0.1f), SerializeField] float rockWorldWidth = 1.35f;
         [Min(0f), SerializeField] float topInset = 0.15f;
 
         [Header("낙하 설정")]
-        [Min(0.05f), SerializeField] float warningDuration = 0.8f;
+        [Min(0.05f), SerializeField] float warningDuration = 0.9f;
         [Min(0f), SerializeField] float initialFallSpeed = 4f;
         [Min(0f), SerializeField] float maxFallSpeed = 9f;
         [Min(0f), SerializeField] float fallAcceleration = 8f;
@@ -110,7 +110,7 @@ namespace MukJump.Obstacles
 
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.sprite = fallingInkRockSprite;
-            renderer.sortingOrder = 4;
+            renderer.sortingOrder = 6;
 
             var body = go.AddComponent<Rigidbody2D>();
             body.bodyType = RigidbodyType2D.Kinematic;
@@ -129,6 +129,10 @@ namespace MukJump.Obstacles
             var rock = go.AddComponent<FallingInkRock>();
             rock.Initialize(this, worldCamera, collisionMask, warningDuration,
                 initialFallSpeed, maxFallSpeed, fallAcceleration, maxLifetime);
+            float visualRadius = Mathf.Max(fallingInkRockSprite.bounds.extents.x,
+                fallingInkRockSprite.bounds.extents.y);
+            go.AddComponent<ObstacleVisibilityView>().Configure(visualRadius,
+                renderer.sortingOrder);
             active.Add(rock);
         }
 

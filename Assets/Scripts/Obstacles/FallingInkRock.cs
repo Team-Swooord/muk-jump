@@ -18,11 +18,11 @@ namespace MukJump.Obstacles
     public class FallingInkRock : MonoBehaviour
     {
         [Header("예고")]
-        [Min(0.05f), SerializeField] float warningDuration = 0.8f;
-        [Range(0f, 1f), SerializeField] float warningMinAlpha = 0.25f;
-        [Range(0f, 1f), SerializeField] float warningMaxAlpha = 0.65f;
-        [Min(0.01f), SerializeField] float warningMinScale = 0.9f;
-        [Min(0.01f), SerializeField] float warningMaxScale = 1.05f;
+        [Min(0.05f), SerializeField] float warningDuration = 0.9f;
+        [Range(0f, 1f), SerializeField] float warningMinAlpha = 0.48f;
+        [Range(0f, 1f), SerializeField] float warningMaxAlpha = 0.9f;
+        [Min(0.01f), SerializeField] float warningMinScale = 0.94f;
+        [Min(0.01f), SerializeField] float warningMaxScale = 1.08f;
 
         [Header("낙하")]
         [Min(0f), SerializeField] float initialFallSpeed = 4f;
