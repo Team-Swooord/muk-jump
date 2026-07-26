@@ -16,6 +16,7 @@ flowchart TD
     Drawing["Drawing<br/>입력·발판·먹 자원"]
     Items["Items<br/>스폰·획득·효과"]
     Obstacles["Obstacles<br/>스폰·피격·낙묵석"]
+    Weather["WindWeatherController<br/>풍향·상승기류 물리"]
     Presentation["UI / VFX / Audio<br/>표현 전용"]
 
     Builder --> Manager
@@ -26,6 +27,9 @@ flowchart TD
     Manager --> Contracts
     Contracts --> Items
     Contracts --> Obstacles
+    Contracts --> Weather
+    Weather --> Player
+    Weather --> Presentation
     Player --> Manager
     Drawing --> Player
     Items --> Player
@@ -88,7 +92,8 @@ flowchart TD
 - 방어막 자식 효과: 해당 캐릭터가 방어막을 처음 얻을 때
 - 공유 황금 붓 효과: 게임에서 황금 붓을 처음 얻을 때
 - 먹물점프 합성 VFX: 첫 먹물방울 획득
-- 바람·먹비·협곡 선: 해당 고도 구간 첫 진입
+- 전역 바람선: 첫 플레이 진입
+- 먹비·협곡 선: 해당 고도 구간 첫 진입
 - 드로잉 미리보기: 첫 스트로크에서 한 번 만들고 이후 활성 상태만 재사용
 
 이 원칙을 지키면 로비 진입 비용과 실제 플레이 중 기능 비용을 분리할 수 있다.
@@ -100,15 +105,21 @@ flowchart TD
 `WorldHeightTeleported`를 받으면 현재 가시 영역을 기준으로 예약을 다시 잡고 활성 객체를
 소유 풀에 반납한다.
 
+상승기류도 다음 발생 고도 하나만 보관한다. 디버그 고도 이동에서는 지나온 이벤트를
+연속 발동하지 않고 이동한 고도부터 220~340m 뒤로 다시 예약한다. 풍향·기류 물리는
+`WindWeatherController`, 월드 붓결 선은 `WindWeatherView`, 상단 표시는
+`WindIndicatorView`가 각각 소유한다.
+
 이 규칙이 없으면 0m에서 750m로 이동할 때 수십~수백 개를 같은 프레임에 생성한 뒤 바로
 파괴하게 된다.
 
 ## 5. 발판 충돌 정책
 
 - 일반 드로잉 발판: 양방향 `EdgeCollider2D`. 대각선 매달리기와 발판 방향 회전을 유지한다.
-- 안전·풍맥 발판: `PlatformEffector2D` 단방향 충돌. 아래에서 위로 통과할 수 있다.
-- 특수 효과: 안전 휴식과 풍맥 상승은 위쪽 접촉에서만 발동한다.
-- 시각용 검정 외곽선·낙관·바람 문양에는 콜라이더를 추가하지 않는다.
+- 안전 발판은 생성하지 않는다.
+- 풍맥 발판: `PlatformEffector2D` 단방향 충돌. 아래에서 위로 통과할 수 있다.
+- 풍맥 상승은 위쪽 접촉에서만 발동한다.
+- 시각용 검정 외곽선·바람 문양에는 콜라이더를 추가하지 않는다.
 
 ## 6. 변경 시 체크리스트
 
@@ -117,6 +128,7 @@ flowchart TD
 - 세션 상태를 매 프레임 검색하는 대신 기존 이벤트 계약으로 해결할 수 있는가?
 - `FindObjectsByType` 결과 배열이나 Material을 매 프레임 새로 만들고 있지 않은가?
 - 일반 발판과 특수 발판의 충돌 정책을 함께 바꾸지 않았는가?
+- 바람 물리가 `gravityScale`이나 발판 접착 상태를 직접 변경하지 않는가?
 - 먹분신 `Instantiate`가 런타임 캐시·풀 자식까지 복제하지 않는가?
 - `Assets/Scenes/Main.unity`가 아니라 씬 빌더를 수정했는가?
 - 런타임·에디터 어셈블리 컴파일과 관련 회귀 테스트를 통과했는가?
