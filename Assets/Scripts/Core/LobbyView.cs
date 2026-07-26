@@ -12,17 +12,12 @@ namespace MukJump.Core
         [SerializeField] RectTransform canvasRect;
         [SerializeField] Text bestText;
 
-        // 기존 씬에 남아 있는 랭킹 UI를 안전하게 숨기기 위한 임시 참조.
-        [SerializeField] Button rankingButton;
-        [SerializeField] GameObject rankingPopup;
-
         Transform player;
         Camera cam;
 
         void OnEnable()
         {
             ApplyUiFont();
-            HideRankingUi();
         }
 
         void Start()
@@ -30,16 +25,12 @@ namespace MukJump.Core
             var controller = FindFirstObjectByType<Player.PlayerController>();
             if (controller != null) player = controller.transform;
             cam = Camera.main;
-            HideRankingUi();
         }
 
         void Update()
         {
             if (!Application.isPlaying)
-            {
-                HideRankingUi();
                 return;
-            }
 
             bool show = GameManager.Instance != null && GameManager.Instance.State == GameState.Lobby;
             if (gameObject.activeSelf != show)
@@ -63,12 +54,6 @@ namespace MukJump.Core
 
             if (brushCanvasGroup != null)
                 brushCanvasGroup.alpha = 0.46f + 0.12f * Mathf.Sin(Time.unscaledTime * 3.2f);
-        }
-
-        void HideRankingUi()
-        {
-            if (rankingButton != null) rankingButton.gameObject.SetActive(false);
-            if (rankingPopup != null) rankingPopup.SetActive(false);
         }
 
         void ApplyUiFont()

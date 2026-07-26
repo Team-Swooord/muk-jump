@@ -39,25 +39,35 @@ namespace MukJump.Obstacles
 
         readonly List<FallingInkRock> active = new();
         ComponentPool<FallingInkRock> pool;
+        GameManager subscribedManager;
         GameState previousState = GameState.Lobby;
         bool heightUnlocked;
         float spawnTimer;
         bool missingReferenceLogged;
         public float RuntimeIntervalMultiplier { get; set; } = 1f;
 
+        void OnEnable()
+        {
+            TrySubscribeToGameManager();
+        }
+
         void Start()
         {
             if (worldCamera == null) worldCamera = Camera.main;
             if (player == null) player = FindFirstObjectByType<PlayerController>();
             if (collisionMask.value == 0)
-                collisionMask = LayerMask.GetMask("Default", "Platform");
+                collisionMask = LayerMask.GetMask("Default", "Platform", "Player");
+            else
+                collisionMask |= LayerMask.GetMask("Player");
             EnsurePool();
             ValidateReferences();
             ResetSchedule();
+            TrySubscribeToGameManager();
         }
 
         void OnDisable()
         {
+            UnsubscribeFromGameManager();
             ClearActive();
             ResetSchedule();
             previousState = GameState.Lobby;
@@ -65,6 +75,7 @@ namespace MukJump.Obstacles
 
         void Update()
         {
+            TrySubscribeToGameManager();
             var manager = GameManager.Instance;
             GameState state = manager != null ? manager.State : GameState.Lobby;
             if (state != previousState)
@@ -76,7 +87,7 @@ namespace MukJump.Obstacles
             }
 
             CleanupList();
-            if (state != GameState.Playing || !ValidateReferences()) return;
+            if (manager == null || !manager.IsGameplayTicking || !ValidateReferences()) return;
 
             float height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0f;
             if (height < startHeight) return;
@@ -187,7 +198,8 @@ namespace MukJump.Obstacles
             float safestDistance = -1f;
             for (int i = 0; i < xSelectionAttempts; i++)
             {
-                float candidate = Random.Range(left, right);
+                float candidate = GameplayRandom.Range(
+                    GameplayRandomStream.FallingRocks, left, right);
                 float distance = player != null
                     ? Mathf.Abs(candidate - player.transform.position.x)
                     : float.MaxValue;
@@ -207,17 +219,29 @@ namespace MukJump.Obstacles
             float difficulty = Mathf.InverseLerp(startHeight, highDifficultyHeight, height);
             float minimum = Mathf.Lerp(lowHeightInterval.x, highHeightInterval.x, difficulty);
             float maximum = Mathf.Lerp(lowHeightInterval.y, highHeightInterval.y, difficulty);
-            return Random.Range(minimum, maximum) * Mathf.Clamp(RuntimeIntervalMultiplier, 0.35f, 1f);
+            return GameplayRandom.Range(
+                       GameplayRandomStream.FallingRocks, minimum, maximum) *
+                   Mathf.Clamp(RuntimeIntervalMultiplier, 0.35f, 1f);
         }
 
         bool ValidateReferences()
         {
+            if (worldCamera == null) worldCamera = Camera.main;
+            if (player == null)
+            {
+                player = GameManager.Instance != null
+                    ? GameManager.Instance.HighestLivingPlayer
+                    : FindFirstObjectByType<PlayerController>();
+            }
+
             bool valid = fallingInkRockSprite != null && worldCamera != null && player != null;
             if (!valid && !missingReferenceLogged)
             {
                 Debug.LogWarning("[MukJump] 낙묵석 Sprite/Camera/Player 참조가 없어 스폰을 중지합니다.", this);
                 missingReferenceLogged = true;
             }
+            else if (valid)
+                missingReferenceLogged = false;
             return valid;
         }
 
@@ -225,6 +249,29 @@ namespace MukJump.Obstacles
         {
             heightUnlocked = false;
             spawnTimer = initialDelay;
+        }
+
+        void TrySubscribeToGameManager()
+        {
+            var manager = GameManager.Instance;
+            if (manager == subscribedManager) return;
+            UnsubscribeFromGameManager();
+            if (manager == null) return;
+            subscribedManager = manager;
+            subscribedManager.WorldHeightTeleported += HandleWorldHeightTeleported;
+        }
+
+        void UnsubscribeFromGameManager()
+        {
+            if (subscribedManager == null) return;
+            subscribedManager.WorldHeightTeleported -= HandleWorldHeightTeleported;
+            subscribedManager = null;
+        }
+
+        void HandleWorldHeightTeleported(int targetHeight)
+        {
+            ClearActive();
+            ResetSchedule();
         }
 
         void CleanupList()

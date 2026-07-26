@@ -68,7 +68,8 @@ namespace MukJump.Core
             if (Application.isPlaying)
                 ApplyRuntimeDirectionTuning();
             if (DirectionSign == 0)
-                DirectionSign = Random.value < 0.5f ? -1 : 1;
+                DirectionSign = GameplayRandom.Value(
+                    GameplayRandomStream.Weather) < 0.5f ? -1 : 1;
             DirectionBlend = DirectionSign;
             directionHoldRemaining = SampleDirectionHold();
             BindGameManager();
@@ -92,11 +93,15 @@ namespace MukJump.Core
         void Update()
         {
             BindGameManager();
-            if (subscribedManager == null || subscribedManager.State != GameState.Playing)
+            if (subscribedManager == null ||
+                subscribedManager.State != GameState.Playing)
             {
                 Strength01 = 0f;
                 return;
             }
+            // 일시정지는 풍향·세기·단계 타이머를 현재 값 그대로 보존한다.
+            if (!subscribedManager.IsGameplayTicking)
+                return;
 
             if (!sessionActive)
                 BeginSession(CurrentHeight);
@@ -110,7 +115,7 @@ namespace MukJump.Core
         void FixedUpdate()
         {
             BindGameManager();
-            if (subscribedManager == null || subscribedManager.State != GameState.Playing)
+            if (subscribedManager == null || !subscribedManager.IsGameplayTicking)
                 return;
 
             subscribedManager.GetLivingPlayersNonAlloc(livingPlayers);
@@ -128,7 +133,7 @@ namespace MukJump.Core
                     player.CurrentPlatform != null)
                     continue;
 
-                var body = player.GetComponent<Rigidbody2D>();
+                var body = player.Body;
                 if (body == null || !body.simulated ||
                     body.bodyType != RigidbodyType2D.Dynamic)
                     continue;
@@ -197,13 +202,16 @@ namespace MukJump.Core
             sessionActive = true;
             Phase = WindWeatherPhase.Breeze;
             phaseElapsed = 0f;
-            DirectionSign = Random.value < 0.5f ? -1 : 1;
+            DirectionSign = GameplayRandom.Value(
+                GameplayRandomStream.Weather) < 0.5f ? -1 : 1;
             DirectionBlend = DirectionSign;
             directionHoldRemaining = SampleDirectionHold();
             NextUpdraftHeight = Mathf.Max(0, currentHeight) +
                                 (useFirstInterval
-                                    ? Random.Range(180, 261)
-                                    : Random.Range(220, 341));
+                                    ? GameplayRandom.Range(
+                                        GameplayRandomStream.Weather, 180, 261)
+                                    : GameplayRandom.Range(
+                                        GameplayRandomStream.Weather, 220, 341));
             Strength01 = 0f;
         }
 
@@ -254,7 +262,8 @@ namespace MukJump.Core
         void BeginWarning()
         {
             SetPhase(WindWeatherPhase.Warning);
-            NextUpdraftHeight = CurrentHeight + Random.Range(220, 341);
+            NextUpdraftHeight = CurrentHeight + GameplayRandom.Range(
+                GameplayRandomStream.Weather, 220, 341);
             GameFeedbackController.Instance?.ShowZone(
                 "상승기류 접근",
                 "잠시 뒤 낙하를 받쳐 주는 강한 바람이 붑니다");
@@ -288,7 +297,8 @@ namespace MukJump.Core
                 Mathf.Min(directionHoldSeconds.x, directionHoldSeconds.y));
             float maximum = Mathf.Max(minimum,
                 Mathf.Max(directionHoldSeconds.x, directionHoldSeconds.y));
-            return Random.Range(minimum, maximum);
+            return GameplayRandom.Range(
+                GameplayRandomStream.Weather, minimum, maximum);
         }
 
         int CurrentHeight => ScoreManager.Instance != null

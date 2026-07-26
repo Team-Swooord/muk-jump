@@ -16,6 +16,13 @@ namespace MukJump.Obstacles
         SpriteRenderer paperHalo;
         LineRenderer dangerRing;
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ReleaseRuntimeAssets()
+        {
+            DestroyRuntimeObject(sharedPaperRedMaterial);
+            sharedPaperRedMaterial = null;
+        }
+
         public void Configure()
         {
             if (bodyRenderer == null) bodyRenderer = GetComponent<SpriteRenderer>();
@@ -31,13 +38,7 @@ namespace MukJump.Obstacles
                 bodyRenderer.sharedMaterial = material;
         }
 
-        public void SetVisible(bool visible)
-        {
-            if (paperHalo != null) paperHalo.enabled = false;
-            if (dangerRing != null) dangerRing.enabled = false;
-        }
-
-        void DisableLegacyDecorations()
+        public void DisableLegacyDecorations()
         {
             var existing = transform.Find("PaperHalo");
             paperHalo = existing != null ? existing.GetComponent<SpriteRenderer>() : null;
@@ -62,6 +63,15 @@ namespace MukJump.Obstacles
                 };
                 return sharedPaperRedMaterial;
             }
+        }
+
+        static void DestroyRuntimeObject(Object value)
+        {
+            if (value == null) return;
+            if (Application.isPlaying)
+                Destroy(value);
+            else
+                DestroyImmediate(value);
         }
     }
 }

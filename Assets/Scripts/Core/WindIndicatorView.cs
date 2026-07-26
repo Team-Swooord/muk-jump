@@ -10,10 +10,8 @@ namespace MukJump.Core
         [SerializeField] CanvasGroup rootGroup;
         [SerializeField] RectTransform directionArrow;
         [SerializeField] Text stateText;
-        [SerializeField] Image strengthFill;
         [FormerlySerializedAs("tintGraphics")]
         [SerializeField] Graphic[] arrowGraphics;
-        [SerializeField] Graphic[] strengthBrushes;
         [SerializeField] Image alertSeal;
         [SerializeField] Text sealText;
 
@@ -109,15 +107,6 @@ namespace MukJump.Core
                 stateText.resizeTextMaxSize = 34;
                 stateText.alignByGeometry = true;
                 EnsureTextWeight(stateText);
-            }
-
-            if (strengthFill != null)
-                strengthFill.transform.parent.gameObject.SetActive(false);
-            if (strengthBrushes != null)
-            {
-                for (int i = 0; i < strengthBrushes.Length; i++)
-                    if (strengthBrushes[i] != null)
-                        strengthBrushes[i].gameObject.SetActive(false);
             }
 
             if (alertSeal != null)
@@ -282,19 +271,6 @@ namespace MukJump.Core
         /// 구형 Main 씬에서도 중복 생성 없이 작은 풍향 낙관만 보강한다.
         void EnsureRuntimeDecorations()
         {
-            if (strengthBrushes == null || strengthBrushes.Length == 0)
-            {
-                var found = new Graphic[3];
-                int count = 0;
-                for (int i = 0; i < found.Length; i++)
-                {
-                    found[i] = transform.Find($"WindStrengthStroke{i + 1}")
-                        ?.GetComponent<Graphic>();
-                    if (found[i] != null) count++;
-                }
-                if (count > 0) strengthBrushes = found;
-            }
-
             if (alertSeal == null)
             {
                 alertSeal = transform.Find("WindAlertSeal")?.GetComponent<Image>();

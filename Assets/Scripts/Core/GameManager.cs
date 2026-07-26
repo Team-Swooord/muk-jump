@@ -19,10 +19,26 @@ namespace MukJump.Core
     {
         public static GameManager Instance { get; private set; }
 
+        /// 치트성 검증 도구는 에디터와 Development Build에서만 사용할 수 있다.
+        public static bool DebugToolsAvailable
+        {
+            get
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                return true;
+#else
+                return false;
+#endif
+            }
+        }
+
         public GameState State { get; private set; } = GameState.Lobby;
         public bool IsPaused { get; private set; }
         public bool IsTransitioning =>
             transitionInProgress || (transitionView != null && transitionView.IsPlaying);
+        /// 게임 규칙·스폰·물리가 한 틱 진행되어도 되는 공통 계약.
+        public bool IsGameplayTicking =>
+            State == GameState.Playing && !IsPaused && !IsTransitioning;
         public bool DebugInvincible { get; private set; }
         /// 스포너·연출이 GameManager 구현을 직접 폴링하지 않고 세션 경계에 반응하는 계약.
         public event Action<GameState, GameState> StateChanged;
@@ -37,7 +53,6 @@ namespace MukJump.Core
         float gameOverTime;
         BrushTransitionView transitionView;
         GameOverPopupView gameOverPopupView;
-        PauseMenuView pauseMenuView;
         bool transitionInProgress;
         float timeScaleBeforePause = 1f;
         float fixedDeltaBeforePause = 0.02f;
@@ -107,13 +122,14 @@ namespace MukJump.Core
             if (transitionView == null) transitionView = gameObject.AddComponent<BrushTransitionView>();
             gameOverPopupView = GetComponent<GameOverPopupView>();
             if (gameOverPopupView == null) gameOverPopupView = gameObject.AddComponent<GameOverPopupView>();
-            pauseMenuView = GetComponent<PauseMenuView>();
-            if (pauseMenuView == null) pauseMenuView = gameObject.AddComponent<PauseMenuView>();
+            if (GetComponent<PauseMenuView>() == null)
+                gameObject.AddComponent<PauseMenuView>();
             RefreshPlayerRegistry();
         }
 
         void OnDisable()
         {
+            transitionInProgress = false;
             if (Instance != this) return;
             RestorePausedWorld(false);
             Instance = null;
@@ -133,8 +149,10 @@ namespace MukJump.Core
 
         public void RegisterPlayer(PlayerController player)
         {
-            if (player != null && !players.Contains(player))
-                players.Add(player);
+            if (player == null) return;
+            if (players.Contains(player)) return;
+            ConfigurePlayerCollisionLayer(player);
+            players.Add(player);
         }
 
         public void UnregisterPlayer(PlayerController player)
@@ -157,7 +175,10 @@ namespace MukJump.Core
         /// 디버그 창에서만 사용하는 무적 모드. 장애물과 화면 하단에서 죽지 않고 되튄다.
         public void ToggleDebugInvincible()
         {
+            if (!DebugToolsAvailable) return;
             DebugInvincible = !DebugInvincible;
+            if (DebugInvincible)
+                ScoreManager.Instance?.InvalidateCurrentRunForRecords();
         }
 
         /// 기존 Playing 상태를 바꾸지 않고 물리 시간만 멈춰 활성 풀·분신·날씨를 보존한다.
@@ -204,7 +225,7 @@ namespace MukJump.Core
             }
 
             if (transitionView != null)
-                transitionView.Play(ReloadLobby);
+                transitionView.Play(ReloadLobby, HandleTransitionFailure);
             else
                 ReloadLobby();
             return true;
@@ -222,12 +243,6 @@ namespace MukJump.Core
             return true;
         }
 
-        /// 기존 단일 플레이어 호출부와의 호환용 진입점.
-        public void OnPlayerFell()
-        {
-            EnterGameOver();
-        }
-
         void EnterGameOver()
         {
             if (State == GameState.GameOver) return;
@@ -238,9 +253,11 @@ namespace MukJump.Core
             gameOverTime = float.PositiveInfinity;
             int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
             int previousBest = ScoreManager.Instance != null ? ScoreManager.Instance.Best : 0;
-            bool reachedNewBest =
-                (ScoreManager.Instance != null && ScoreManager.Instance.IsNewBestThisRun) ||
-                height > previousBest;
+            bool recordsAllowed =
+                ScoreManager.Instance == null || ScoreManager.Instance.RecordsAllowed;
+            bool reachedNewBest = recordsAllowed &&
+                ((ScoreManager.Instance != null && ScoreManager.Instance.IsNewBestThisRun) ||
+                 height > previousBest);
             ScoreManager.Instance?.SaveBest();
             int best = ScoreManager.Instance != null ? ScoreManager.Instance.Best : previousBest;
             StartCoroutine(ShowGameOverAfterDeath(revealDelay, height, best, reachedNewBest));
@@ -310,10 +327,6 @@ namespace MukJump.Core
                 cloneBody.linearVelocity = sourceBody.linearVelocity +
                                            Vector2.right * (direction * 0.45f);
 
-            CleanupPlayers();
-            for (int i = 0; i < players.Count; i++)
-                if (players[i] != clone)
-                    IgnorePlayerCollision(players[i], clone);
             RegisterPlayer(clone);
             return true;
         }
@@ -321,7 +334,7 @@ namespace MukJump.Core
         /// 디버그 패널에서 고도별 맵과 스폰을 즉시 검증하기 위한 순간이동.
         public void DebugTeleportToHeight(int targetHeight)
         {
-            if (State != GameState.Playing) return;
+            if (!DebugToolsAvailable || State != GameState.Playing) return;
             var primary = HighestLivingPlayer;
             if (primary == null) return;
 
@@ -341,13 +354,19 @@ namespace MukJump.Core
             WorldHeightTeleported?.Invoke(Mathf.Max(0, targetHeight));
         }
 
-        void IgnorePlayerCollision(PlayerController first, PlayerController second)
+        static void ConfigurePlayerCollisionLayer(PlayerController player)
         {
-            var firstColliders = first.GetComponentsInChildren<Collider2D>(true);
-            var secondColliders = second.GetComponentsInChildren<Collider2D>(true);
-            for (int i = 0; i < firstColliders.Length; i++)
-            for (int j = 0; j < secondColliders.Length; j++)
-                Physics2D.IgnoreCollision(firstColliders[i], secondColliders[j], true);
+            int playerLayer = LayerMask.NameToLayer("Player");
+            if (playerLayer < 0) return;
+
+            player.gameObject.layer = playerLayer;
+            var colliders = player.GetComponentsInChildren<Collider2D>(true);
+            for (int i = 0; i < colliders.Length; i++)
+                colliders[i].gameObject.layer = playerLayer;
+
+            // 분신마다 모든 기존 캐릭터와 IgnoreCollision 쌍을 추가하면 누적 O(n²)이
+            // 된다. 전용 레이어 하나로 같은 캐릭터끼리의 충돌만 전역 차단한다.
+            Physics2D.IgnoreLayerCollision(playerLayer, playerLayer, true);
         }
 
         void CleanupPlayers()
@@ -375,6 +394,8 @@ namespace MukJump.Core
         {
             if (State != GameState.Lobby) return;
 
+            // 연출 난수와 분리된 게임 규칙 스트림을 판 시작 직전에 함께 초기화한다.
+            GameplayRandom.ResetSession();
             var player = HighestLivingPlayer;
             SetState(GameState.Playing);
             player?.BeginFromLobby();
@@ -388,11 +409,20 @@ namespace MukJump.Core
             if (transitionInProgress) return;
             transitionInProgress = true;
             PointerInput.SuppressUntilRelease();
-            transitionView.Play(() =>
-            {
-                BrushTransitionView.RequestRevealAfterSceneLoad();
-                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-            });
+            transitionView.Play(
+                () =>
+                {
+                    BrushTransitionView.RequestRevealAfterSceneLoad();
+                    SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+                },
+                HandleTransitionFailure);
+        }
+
+        void HandleTransitionFailure()
+        {
+            transitionInProgress = false;
+            if (IsPaused)
+                AudioListener.pause = true;
         }
 
         void RestorePausedWorld(bool notify)
@@ -400,7 +430,8 @@ namespace MukJump.Core
             bool wasPaused = IsPaused;
             AudioListener.pause = false;
             if (!wasPaused) return;
-            if (fixedDeltaBeforePause > 0f)
+            if (fixedDeltaBeforePause > 0f &&
+                !Mathf.Approximately(Time.fixedDeltaTime, fixedDeltaBeforePause))
                 Time.fixedDeltaTime = fixedDeltaBeforePause;
             Time.timeScale = Mathf.Max(0.01f, timeScaleBeforePause);
             IsPaused = false;

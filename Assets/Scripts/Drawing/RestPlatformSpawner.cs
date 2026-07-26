@@ -9,6 +9,9 @@ namespace MukJump.Drawing
     /// 기존 씬·빌더 호환을 위해 클래스 이름은 유지한다.
     public class RestPlatformSpawner : MonoBehaviour
     {
+        const float MinWindHeightInterval = 1f;
+        const int MaxCatchUpSpawnsPerFrame = 8;
+
         [SerializeField] Vector2 windHeightIntervalRange = new(82f, 128f);
         [SerializeField, Min(2f)] float spawnAheadHeight = 8f;
         [SerializeField, Min(1f)] float cleanupBelowCamera = 8f;
@@ -19,6 +22,7 @@ namespace MukJump.Drawing
         Camera worldCamera;
         float nextWindHeight;
         int platformIndex;
+        int scheduledSessionVersion = -1;
 
         void OnEnable()
         {
@@ -33,25 +37,33 @@ namespace MukJump.Drawing
         void Start()
         {
             worldCamera = Camera.main;
-            ScheduleNextWind(25f);
         }
 
         void Update()
         {
-            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing)
+            if (GameManager.Instance == null || !GameManager.Instance.IsGameplayTicking)
                 return;
 
+            EnsureSessionSchedule();
             int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
-            while (height + spawnAheadHeight >= nextWindHeight)
+            int spawnedThisFrame = 0;
+            while (height + spawnAheadHeight >= nextWindHeight &&
+                   spawnedThisFrame < MaxCatchUpSpawnsPerFrame)
             {
                 SpawnWindAtGameHeight(nextWindHeight);
                 ScheduleNextWind(nextWindHeight);
+                spawnedThisFrame++;
             }
+            // 손상된 세이브나 큰 디버그 순간이동이 있어도 한 프레임에 과거 예약을
+            // 무제한 생성하지 않고 현재 고도 이후로 예약을 재정렬한다.
+            if (height + spawnAheadHeight >= nextWindHeight)
+                ScheduleNextWind(height + spawnAheadHeight);
             CleanupOldPlatforms();
         }
 
         public void DebugResetSchedule(int currentHeight)
         {
+            scheduledSessionVersion = GameplayRandom.SessionVersion;
             ScheduleNextWind(Mathf.Max(0, currentHeight));
         }
 
@@ -73,9 +85,13 @@ namespace MukJump.Drawing
             float halfWidth = worldCamera != null
                 ? worldCamera.orthographicSize * worldCamera.aspect
                 : 4.8f;
-            float width = Random.Range(2.8f, 3.8f);
+            float width = GameplayRandom.Range(
+                GameplayRandomStream.Platforms, 2.8f, 3.8f);
             float limit = Mathf.Max(0.2f, halfWidth - width * 0.5f - 0.25f);
-            SpawnWindPlatform(new Vector2(Random.Range(-limit, limit), worldY), width,
+            SpawnWindPlatform(new Vector2(
+                    GameplayRandom.Range(GameplayRandomStream.Platforms, -limit, limit),
+                    worldY),
+                width,
                 $"{Mathf.RoundToInt(gameHeight)}m");
         }
 
@@ -121,8 +137,33 @@ namespace MukJump.Drawing
 
         void ScheduleNextWind(float fromHeight)
         {
+            Vector2 interval = NormalizeHeightInterval(windHeightIntervalRange);
             nextWindHeight = fromHeight +
-                             Random.Range(windHeightIntervalRange.x, windHeightIntervalRange.y);
+                             GameplayRandom.Range(
+                                 GameplayRandomStream.Platforms,
+                                 interval.x,
+                                 interval.y);
+        }
+
+        static Vector2 NormalizeHeightInterval(Vector2 range)
+        {
+            float first = IsFinite(range.x) ? range.x : MinWindHeightInterval;
+            float second = IsFinite(range.y) ? range.y : first;
+            float minimum = Mathf.Max(
+                MinWindHeightInterval, Mathf.Min(first, second));
+            float maximum = Mathf.Max(minimum, Mathf.Max(first, second));
+            return new Vector2(minimum, maximum);
+        }
+
+        static bool IsFinite(float value) =>
+            !float.IsNaN(value) && !float.IsInfinity(value);
+
+        void EnsureSessionSchedule()
+        {
+            int version = GameplayRandom.SessionVersion;
+            if (scheduledSessionVersion == version) return;
+            scheduledSessionVersion = version;
+            ScheduleNextWind(25f);
         }
 
         void CleanupOldPlatforms()
@@ -141,6 +182,13 @@ namespace MukJump.Drawing
                 Destroy(spawned[i].gameObject);
                 spawned.RemoveAt(i);
             }
+        }
+
+        void OnValidate()
+        {
+            windHeightIntervalRange = NormalizeHeightInterval(windHeightIntervalRange);
+            spawnAheadHeight = Mathf.Max(2f, spawnAheadHeight);
+            cleanupBelowCamera = Mathf.Max(1f, cleanupBelowCamera);
         }
     }
 }

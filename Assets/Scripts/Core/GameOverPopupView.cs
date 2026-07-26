@@ -85,10 +85,9 @@ namespace MukJump.Core
                     InkPalette.Red.b, 0.78f));
 
             heightText = CreateResultBlock("CurrentResult", content.transform, "이번 고도",
-                new Vector2(0f, 160f), out var currentHighlight);
-            currentHighlight.gameObject.SetActive(false);
+                new Vector2(0f, 160f), false, out _);
             bestText = CreateResultBlock("BestResult", content.transform, "최고 고도",
-                new Vector2(0f, -82f), out bestGlow);
+                new Vector2(0f, -82f), true, out bestGlow);
 
             newBestText = CreateText("NewBest", content.transform, "신기록", 40,
                 new Vector2(0f, -230f), new Vector2(280f, 58f),
@@ -197,15 +196,17 @@ namespace MukJump.Core
         }
 
         static Text CreateResultBlock(string objectName, Transform parent, string caption,
-            Vector2 position, out Image highlight)
+            Vector2 position, bool createHighlight, out Image highlight)
         {
             var border = CreateImage(objectName, parent, null, position,
                 new Vector2(700f, 204f), InkPalette.Ink);
             CreateImage("Paper", border.transform, null, Vector2.zero,
                 new Vector2(688f, 192f), InkPalette.Paper2);
-            highlight = CreateImage("Highlight", border.transform, null, Vector2.zero,
-                new Vector2(688f, 192f), new Color(InkPalette.Gold.r, InkPalette.Gold.g,
-                    InkPalette.Gold.b, 0.2f));
+            highlight = createHighlight
+                ? CreateImage("Highlight", border.transform, null, Vector2.zero,
+                    new Vector2(688f, 192f), new Color(InkPalette.Gold.r, InkPalette.Gold.g,
+                        InkPalette.Gold.b, 0.2f))
+                : null;
             CreateText("Caption", border.transform, caption, 32, new Vector2(0f, 48f),
                 new Vector2(560f, 52f), InkPalette.TextMuted, FontStyle.Normal);
             return CreateText("Value", border.transform, "0 m", 78, new Vector2(0f, -32f),

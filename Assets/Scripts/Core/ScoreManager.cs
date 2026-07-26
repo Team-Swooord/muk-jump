@@ -14,6 +14,7 @@ namespace MukJump.Core
         public int Best { get; private set; }
         public int RunBestToBeat { get; private set; }
         public bool IsNewBestThisRun { get; private set; }
+        public bool RecordsAllowed { get; private set; } = true;
         public int DisplayBest => Mathf.Max(Best, Height);
 
         /// 이전 최고 기록을 처음 넘어선 순간에만 한 판에 한 번 발생한다.
@@ -26,6 +27,11 @@ namespace MukJump.Core
         void OnEnable()
         {
             Instance = this;
+        }
+
+        void OnDisable()
+        {
+            if (Instance == this) Instance = null;
         }
 
         void Awake()
@@ -46,13 +52,14 @@ namespace MukJump.Core
 
         void Update()
         {
-            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing)
+            if (GameManager.Instance == null || !GameManager.Instance.IsGameplayTicking)
                 return;
             var livingPlayer = GameManager.Instance.HighestLivingPlayer;
             if (livingPlayer != null) target = livingPlayer.transform;
             if (target == null) return;
             Height = Mathf.Max(Height, Mathf.RoundToInt(target.position.y - startY));
-            if (!IsNewBestThisRun && BeatsRecord(Height, RunBestToBeat))
+            if (RecordsAllowed && !IsNewBestThisRun &&
+                BeatsRecord(Height, RunBestToBeat))
             {
                 IsNewBestThisRun = true;
                 NewBestReached?.Invoke(Height, RunBestToBeat);
@@ -66,7 +73,7 @@ namespace MukJump.Core
 
         public void SaveBest()
         {
-            if (Height <= Best) return;
+            if (!RecordsAllowed || Height <= Best) return;
             Best = Height;
             PlayerPrefs.SetInt(BestKey, Best);
             PlayerPrefs.Save();
@@ -79,17 +86,25 @@ namespace MukJump.Core
             Height = 0;
             RunBestToBeat = Best;
             IsNewBestThisRun = false;
+            RecordsAllowed = true;
         }
 
         public float HeightAt(float worldY) => worldY - startY;
 
         public void DebugSetHeight(int height, Transform newTarget)
         {
+            InvalidateCurrentRunForRecords();
             target = newTarget;
             Height = Mathf.Max(0, height);
             if (target != null)
                 startY = target.position.y - Height;
-            IsNewBestThisRun = BeatsRecord(Height, RunBestToBeat);
+        }
+
+        /// 무적·아이템 지급·순간이동을 사용한 판은 로컬 최고 기록에 저장하지 않는다.
+        public void InvalidateCurrentRunForRecords()
+        {
+            RecordsAllowed = false;
+            IsNewBestThisRun = false;
         }
     }
 }

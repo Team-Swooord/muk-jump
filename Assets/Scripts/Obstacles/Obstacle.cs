@@ -5,25 +5,18 @@ using MukJump.Player;
 
 namespace MukJump.Obstacles
 {
-    public enum ObstacleMotion
-    {
-        Static,
-        Horizontal,
-        Vertical,
-    }
-
     /// 닿으면 플레이어를 사망시키는 원형 먹 가시 장애물.
-    /// 이동형도 Transform만 움직이며 트리거이므로 발판 접지 판정에는 관여하지 않는다.
-    [RequireComponent(typeof(SpriteRenderer), typeof(CircleCollider2D))]
+    /// 좌우 이동은 kinematic body가 담당하며 트리거이므로 발판 접지 판정에는 관여하지 않는다.
+    [RequireComponent(typeof(SpriteRenderer), typeof(CircleCollider2D), typeof(Rigidbody2D))]
     public class Obstacle : MonoBehaviour, IPoolableEntity
     {
-        ObstacleMotion motion;
-        Vector3 origin;
+        Vector2 origin;
         float amplitude;
         float speed;
         float phase;
         SpriteRenderer spriteRenderer;
         CircleCollider2D trigger;
+        Rigidbody2D body;
         ObstacleVisibilityView visibility;
 
         void Awake()
@@ -31,27 +24,26 @@ namespace MukJump.Obstacles
             EnsureComponents();
         }
 
-        public void Configure(ObstacleMotion newMotion, float newAmplitude, float newSpeed, float newPhase)
+        public void Configure(float newAmplitude, float newSpeed, float newPhase)
         {
             EnsureComponents();
-            motion = newMotion;
-            origin = transform.position;
+            body.position = transform.position;
+            origin = body.position;
             amplitude = newAmplitude;
             speed = newSpeed;
             phase = newPhase;
+            body.simulated = true;
             spriteRenderer.enabled = true;
             trigger.enabled = true;
         }
 
-        void Update()
+        void FixedUpdate()
         {
-            if (motion == ObstacleMotion.Static || GameManager.Instance == null ||
-                GameManager.Instance.State != GameState.Playing) return;
+            if (speed <= 0f || GameManager.Instance == null ||
+                !GameManager.Instance.IsGameplayTicking) return;
 
-            float offset = Mathf.Sin(Time.time * speed + phase) * amplitude;
-            transform.position = motion == ObstacleMotion.Horizontal
-                ? origin + Vector3.right * offset
-                : origin + Vector3.up * offset;
+            float offset = Mathf.Sin(Time.fixedTime * speed + phase) * amplitude;
+            body.MovePosition(origin + Vector2.right * offset);
         }
 
         void OnTriggerEnter2D(Collider2D other)
@@ -64,11 +56,14 @@ namespace MukJump.Obstacles
         public void OnPoolAcquire()
         {
             EnsureComponents();
-            motion = ObstacleMotion.Static;
-            origin = transform.position;
+            body.position = transform.position;
+            origin = body.position;
             amplitude = 0f;
             speed = 0f;
             phase = 0f;
+            body.linearVelocity = Vector2.zero;
+            body.angularVelocity = 0f;
+            body.simulated = true;
             spriteRenderer.enabled = true;
             spriteRenderer.color = Color.white;
             trigger.enabled = true;
@@ -77,14 +72,15 @@ namespace MukJump.Obstacles
         public void OnPoolRelease()
         {
             EnsureComponents();
-            motion = ObstacleMotion.Static;
             amplitude = 0f;
             speed = 0f;
             phase = 0f;
+            body.linearVelocity = Vector2.zero;
+            body.angularVelocity = 0f;
             trigger.enabled = false;
             spriteRenderer.color = Color.white;
             spriteRenderer.enabled = false;
-            visibility?.SetVisible(false);
+            visibility?.DisableLegacyDecorations();
             transform.localRotation = Quaternion.identity;
         }
 
@@ -92,7 +88,12 @@ namespace MukJump.Obstacles
         {
             if (spriteRenderer == null) spriteRenderer = GetComponent<SpriteRenderer>();
             if (trigger == null) trigger = GetComponent<CircleCollider2D>();
+            if (body == null) body = GetComponent<Rigidbody2D>();
             if (visibility == null) visibility = GetComponent<ObstacleVisibilityView>();
+
+            body.bodyType = RigidbodyType2D.Kinematic;
+            body.gravityScale = 0f;
+            body.constraints = RigidbodyConstraints2D.FreezeRotation;
         }
     }
 }

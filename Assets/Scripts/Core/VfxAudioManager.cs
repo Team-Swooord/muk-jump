@@ -3,6 +3,7 @@ using UnityEngine;
 namespace MukJump.Core
 {
     /// 짧은 VFX 효과음이 서로 끊기지 않도록 순환 AudioSource 풀로 재생한다.
+    [DisallowMultipleComponent]
     public class VfxAudioManager : MonoBehaviour
     {
         [SerializeField, Range(2, 12)] int sourceCount = 6;
@@ -11,10 +12,17 @@ namespace MukJump.Core
         public static VfxAudioManager Instance { get; private set; }
 
         AudioSource[] sources;
+        float[] lastStartedAt;
         int nextSource;
 
         void OnEnable()
         {
+            if (Instance != null && Instance != this)
+            {
+                Debug.LogWarning("[MukJump] 중복 VfxAudioManager를 비활성화합니다.", this);
+                enabled = false;
+                return;
+            }
             Instance = this;
             EnsureSources();
         }
@@ -30,11 +38,14 @@ namespace MukJump.Core
             EnsureSources();
             if (sources == null || sources.Length == 0) return;
 
-            AudioSource source = sources[nextSource];
-            nextSource = (nextSource + 1) % sources.Length;
-            source.Stop();
+            int selected = FindAvailableSourceIndex();
+            AudioSource source = sources[selected];
+            nextSource = (selected + 1) % sources.Length;
+            if (source.isPlaying)
+                source.Stop();
             source.clip = null;
             source.PlayOneShot(clip, Mathf.Clamp01(volume) * masterVolume);
+            lastStartedAt[selected] = Time.unscaledTime;
         }
 
         /// 일시정지 전에 재생 중인 짧은 효과음을 비워, 재개 시 뒤늦게 이어지지 않게 한다.
@@ -66,7 +77,24 @@ namespace MukJump.Core
                 source.spatialBlend = 0f;
                 sources[i] = source;
             }
+            lastStartedAt = new float[count];
             nextSource = 0;
+        }
+
+        int FindAvailableSourceIndex()
+        {
+            int oldestIndex = nextSource;
+            float oldestStart = float.PositiveInfinity;
+            for (int offset = 0; offset < sources.Length; offset++)
+            {
+                int index = (nextSource + offset) % sources.Length;
+                if (sources[index] == null || !sources[index].isPlaying)
+                    return index;
+                if (lastStartedAt[index] >= oldestStart) continue;
+                oldestStart = lastStartedAt[index];
+                oldestIndex = index;
+            }
+            return oldestIndex;
         }
 
         void OnValidate()

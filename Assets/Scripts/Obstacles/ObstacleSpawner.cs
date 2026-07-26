@@ -56,7 +56,7 @@ namespace MukJump.Obstacles
         {
             TrySubscribeToGameManager();
             if (cam == null || obstacleSprite == null || GameManager.Instance == null ||
-                GameManager.Instance.State != GameState.Playing) return;
+                !GameManager.Instance.IsGameplayTicking) return;
 
             float cameraTop = cam.transform.position.y + cam.orthographicSize;
             float cutoff = cam.transform.position.y - cam.orthographicSize - despawnBelow;
@@ -87,21 +87,19 @@ namespace MukJump.Obstacles
         {
             EnsurePool();
             float courseHeight = ScoreManager.Instance != null ? ScoreManager.Instance.HeightAt(y) : y;
-            ObstacleMotion motion = ObstacleMotion.Horizontal;
-            float amplitude = Random.Range(moveAmplitudeRange.x, moveAmplitudeRange.y);
-            float minX = horizontalRange.x;
-            float maxX = horizontalRange.y;
-            if (motion == ObstacleMotion.Horizontal)
-            {
-                minX += amplitude;
-                maxX -= amplitude;
-            }
+            float amplitude = GameplayRandom.Range(
+                GameplayRandomStream.Obstacles,
+                moveAmplitudeRange.x, moveAmplitudeRange.y);
+            float minX = horizontalRange.x + amplitude;
+            float maxX = horizontalRange.y - amplitude;
 
             var obstacle = pool.Acquire();
             var go = obstacle.gameObject;
             go.name = "InkObstacle";
             go.layer = LayerMask.NameToLayer("Obstacle");
-            go.transform.position = new Vector3(Random.Range(minX, maxX), y, 0f);
+            go.transform.position = new Vector3(
+                GameplayRandom.Range(GameplayRandomStream.Obstacles, minX, maxX),
+                y, 0f);
             go.transform.rotation = Quaternion.identity;
 
             var renderer = go.GetComponent<SpriteRenderer>();
@@ -123,8 +121,9 @@ namespace MukJump.Obstacles
             float difficulty = Mathf.InverseLerp(0f, maxSpeedHeight, courseHeight);
             float minSpeed = Mathf.Lerp(baseMoveSpeedRange.x, maxMoveSpeedRange.x, difficulty);
             float maxSpeed = Mathf.Lerp(baseMoveSpeedRange.y, maxMoveSpeedRange.y, difficulty);
-            obstacle.Configure(motion, amplitude,
-                Random.Range(minSpeed, maxSpeed), Random.Range(0f, Mathf.PI * 2f));
+            obstacle.Configure(amplitude,
+                GameplayRandom.Range(GameplayRandomStream.Obstacles, minSpeed, maxSpeed),
+                GameplayRandom.Range(GameplayRandomStream.Obstacles, 0f, Mathf.PI * 2f));
             active.Add(obstacle);
         }
 
@@ -137,6 +136,10 @@ namespace MukJump.Obstacles
             go.transform.SetParent(transform, false);
             go.SetActive(false);
             go.AddComponent<SpriteRenderer>();
+            var body = go.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Kinematic;
+            body.gravityScale = 0f;
+            body.constraints = RigidbodyConstraints2D.FreezeRotation;
             var circle = go.AddComponent<CircleCollider2D>();
             circle.isTrigger = true;
             go.AddComponent<ObstacleVisibilityView>();
@@ -170,7 +173,8 @@ namespace MukJump.Obstacles
         {
             float minimum = Mathf.Max(0.1f, verticalSpacing.x);
             float maximum = Mathf.Max(minimum, verticalSpacing.y);
-            return Random.Range(minimum, maximum);
+            return GameplayRandom.Range(
+                GameplayRandomStream.Obstacles, minimum, maximum);
         }
 
         void TrySubscribeToGameManager()

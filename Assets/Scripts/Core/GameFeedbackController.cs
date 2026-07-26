@@ -10,7 +10,7 @@ using MukJump.Core.Pooling;
 namespace MukJump.Core
 {
     /// 점프·착지·드로잉·아이템 등 순간 피드백을 한곳에서 관리한다.
-    /// 외부 음원 없이 짧은 효과음을 런타임에 합성해 API 키나 추가 에셋 없이 동작한다.
+    /// 내장 효과음을 우선 사용하고, 누락된 소리는 런타임 합성 폴백으로 보완한다.
     public class GameFeedbackController : MonoBehaviour
     {
         const int LineVfxCapacity = 8;
@@ -54,7 +54,6 @@ namespace MukJump.Core
             }
         }
         Sprite dotSprite;
-        Canvas overlayCanvas;
         Text bannerText;
         Coroutine bannerRoutine;
         Transform transientPoolRoot;
@@ -62,6 +61,7 @@ namespace MukJump.Core
         ComponentPool<TransientVfxElement> spriteVfxPool;
         readonly HashSet<TransientVfxElement> leasedLineVfx = new();
         readonly HashSet<TransientVfxElement> leasedSpriteVfx = new();
+        readonly List<AudioClip> ownedRuntimeClips = new();
 
         void OnEnable()
         {
@@ -83,6 +83,7 @@ namespace MukJump.Core
             RestoreTimeScale();
             if (Gamepad.current != null) Gamepad.current.SetMotorSpeeds(0f, 0f);
             if (bannerText != null) bannerText.color = Color.clear;
+            DisposeRuntimeAssets();
         }
 
         void Awake()
@@ -90,30 +91,73 @@ namespace MukJump.Core
             EnsureInitialized();
         }
 
+        void OnDestroy()
+        {
+            DisposeRuntimeAssets();
+        }
+
+        void DisposeRuntimeAssets()
+        {
+            if (brushSource != null)
+            {
+                brushSource.Stop();
+                brushSource.clip = null;
+            }
+            accentSource?.Stop();
+
+            for (int i = 0; i < ownedRuntimeClips.Count; i++)
+                DestroyOwnedObject(ownedRuntimeClips[i]);
+            ownedRuntimeClips.Clear();
+
+            if (dotSprite != null)
+            {
+                Texture2D texture = dotSprite.texture;
+                DestroyOwnedObject(dotSprite);
+                DestroyOwnedObject(texture);
+                dotSprite = null;
+            }
+
+            jumpClip = null;
+            landingClip = null;
+            drawClip = null;
+            invalidClip = null;
+            itemClip = null;
+            milestoneClip = null;
+            brushLoopClip = null;
+            brushTransitionClip = null;
+            wallHitClip = null;
+            deathSqueakClip = null;
+            gameOverClip = null;
+        }
+
         void EnsureInitialized()
         {
             if (jumpClip != null && brushSource != null && accentSource != null) return;
 
-            jumpClip = CreateTone("JumpBrush", 0.16f, 240f, 520f, 0.18f, 0.04f);
-            landingClip = CreateTone("LandingInk", 0.13f, 150f, 82f, 0.24f, 0.18f);
-            drawClip = CreateTone("DrawSet", 0.1f, 390f, 320f, 0.12f, 0.08f);
-            invalidClip = CreateTone("InvalidStroke", 0.12f, 170f, 125f, 0.16f, 0.2f);
-            itemClip = CreateTone("ItemPickup", 0.22f, 420f, 760f, 0.16f, 0.03f);
-            milestoneClip = CreateTone("MilestoneSeal", 0.34f, 220f, 440f, 0.2f, 0.08f);
+            jumpClip = CreateOwnedTone("JumpBrush", 0.16f, 240f, 520f, 0.18f, 0.04f);
+            landingClip = CreateOwnedTone("LandingInk", 0.13f, 150f, 82f, 0.24f, 0.18f);
+            drawClip = CreateOwnedTone("DrawSet", 0.1f, 390f, 320f, 0.12f, 0.08f);
+            invalidClip = CreateOwnedTone("InvalidStroke", 0.12f, 170f, 125f, 0.16f, 0.2f);
+            itemClip = CreateOwnedTone("ItemPickup", 0.22f, 420f, 760f, 0.16f, 0.03f);
+            milestoneClip = CreateOwnedTone(
+                "MilestoneSeal", 0.34f, 220f, 440f, 0.2f, 0.08f);
             brushLoopClip = LoadSfx("SFX_Brush_Community") ??
                             LoadSfx("SFX_Brush_Draw_Loop") ??
-                            CreateBrushNoise("BrushDrawing", 0.42f, 0.16f);
+                            CreateOwnedBrushNoise("BrushDrawing", 0.42f, 0.16f);
             brushTransitionClip = LoadSfx("SFX_Brush_Community") ??
                                   LoadSfx("SFX_Brush_Transition") ??
-                                  CreateBrushNoise("BrushTransition", 1.15f, 0.3f, true);
+                                  CreateOwnedBrushNoise(
+                                      "BrushTransition", 1.15f, 0.3f, true);
             wallHitClip = LoadSfx("SFX_Wall_Hit") ??
-                          CreateTone("WallHit", 0.11f, 120f, 72f, 0.28f, 0.32f);
+                          CreateOwnedTone("WallHit", 0.11f, 120f, 72f, 0.28f, 0.32f);
             deathSqueakClip = LoadSfx("SFX_Character_Death_Slime") ??
                               LoadSfx("SFX_Character_Death") ??
-                              CreateTone("DeathSqueak", 0.32f, 1080f, 185f, 0.68f, 0.025f);
+                              CreateOwnedTone(
+                                  "DeathSqueak", 0.32f, 1080f, 185f, 0.68f, 0.025f);
             gameOverClip = LoadSfx("SFX_Game_Over_Ink_Spill") ??
                            LoadSfx("SFX_Game_Over") ??
-                           CreateTone("GameOver", 0.58f, 310f, 92f, 0.42f, 0.08f);
+                           CreateOwnedTone(
+                               "GameOver", 0.58f, 310f, 92f, 0.42f, 0.08f);
             CreateDedicatedAudioSources();
             if (dotSprite == null) dotSprite = CreateDotSprite();
             if (bannerText == null)
@@ -122,7 +166,6 @@ namespace MukJump.Core
                 if (existingBanner != null)
                 {
                     bannerText = existingBanner.GetComponent<Text>();
-                    overlayCanvas = existingBanner.GetComponentInParent<Canvas>();
                 }
             }
         }
@@ -621,9 +664,9 @@ namespace MukJump.Core
             var canvasObject = new GameObject("FeedbackOverlay", typeof(Canvas),
                 typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasObject.transform.SetParent(transform, false);
-            overlayCanvas = canvasObject.GetComponent<Canvas>();
-            overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            overlayCanvas.sortingOrder = 140;
+            var canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 140;
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080f, 1920f);
@@ -646,7 +689,6 @@ namespace MukJump.Core
             if (existingBanner != null)
             {
                 bannerText = existingBanner.GetComponent<Text>();
-                overlayCanvas = existingBanner.GetComponentInParent<Canvas>();
                 ConfigureBannerText();
                 return;
             }
@@ -707,6 +749,15 @@ namespace MukJump.Core
             }
             var clip = AudioClip.Create(name, count, 1, sampleRate, false);
             clip.SetData(samples, 0);
+            return clip;
+        }
+
+        AudioClip CreateOwnedTone(string name, float duration, float startFrequency,
+            float endFrequency, float volume, float noiseAmount)
+        {
+            AudioClip clip = CreateTone(
+                name, duration, startFrequency, endFrequency, volume, noiseAmount);
+            ownedRuntimeClips.Add(clip);
             return clip;
         }
 
@@ -779,6 +830,14 @@ namespace MukJump.Core
             return clip;
         }
 
+        AudioClip CreateOwnedBrushNoise(string name, float duration, float volume,
+            bool fadeOut = false)
+        {
+            AudioClip clip = CreateBrushNoise(name, duration, volume, fadeOut);
+            ownedRuntimeClips.Add(clip);
+            return clip;
+        }
+
         static Sprite CreateDotSprite()
         {
             const int size = 32;
@@ -801,6 +860,15 @@ namespace MukJump.Core
             texture.Apply();
             return Sprite.Create(texture, new Rect(0f, 0f, size, size),
                 new Vector2(0.5f, 0.5f), size);
+        }
+
+        static void DestroyOwnedObject(UnityEngine.Object ownedObject)
+        {
+            if (ownedObject == null) return;
+            if (Application.isPlaying)
+                Destroy(ownedObject);
+            else
+                DestroyImmediate(ownedObject);
         }
     }
 }

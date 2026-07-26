@@ -60,7 +60,6 @@ namespace MukJump.Items
         Vector3 ground;
         float height;
         float maximumStrokeLength;
-        Coroutine sequence;
         bool built;
 
         public event Action<InkDropJumpVfxInstance> ReleaseRequested;
@@ -100,7 +99,7 @@ namespace MukJump.Items
             transform.position = ground;
             transform.rotation = Quaternion.identity;
             transform.localScale = Vector3.one;
-            sequence = StartCoroutine(PlaySequence());
+            StartCoroutine(PlaySequence());
         }
 
         public void OnPoolAcquire()
@@ -190,7 +189,6 @@ namespace MukJump.Items
                 yield return null;
             }
 
-            sequence = null;
             ReleaseRequested?.Invoke(this);
         }
 
@@ -331,7 +329,6 @@ namespace MukJump.Items
         void ResetPlaybackState()
         {
             StopAllCoroutines();
-            sequence = null;
             trackedPlayer = null;
             playerRenderer = null;
             ground = Vector3.zero;
@@ -385,7 +382,6 @@ namespace MukJump.Items
         void OnDisable()
         {
             StopAllCoroutines();
-            sequence = null;
         }
     }
 }

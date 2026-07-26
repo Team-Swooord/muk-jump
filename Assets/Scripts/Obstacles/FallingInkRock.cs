@@ -88,11 +88,15 @@ namespace MukJump.Obstacles
         {
             if (State == FallingInkRockState.Resolved) return;
 
-            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing)
+            if (GameManager.Instance == null ||
+                GameManager.Instance.State != GameState.Playing)
             {
                 ResolveImmediately();
                 return;
             }
+            // 일시정지·화면 전환 동안에는 활성 낙묵석의 예고/낙하 상태를 보존한다.
+            if (!GameManager.Instance.IsGameplayTicking)
+                return;
 
             lifetimeElapsed += Time.deltaTime;
             if (lifetimeElapsed >= maxLifetime)
@@ -255,7 +259,7 @@ namespace MukJump.Obstacles
             spriteRenderer.color = baseColor;
             spriteRenderer.enabled = false;
             transform.localScale = baseScale;
-            GetComponent<ObstacleVisibilityView>()?.SetVisible(false);
+            GetComponent<ObstacleVisibilityView>()?.DisableLegacyDecorations();
             owner = null;
             worldCamera = null;
             warningElapsed = 0f;

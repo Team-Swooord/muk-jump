@@ -57,6 +57,7 @@ namespace MukJump.Core
             lastBest = int.MinValue;
             lastNewBest = false;
             ApplyCrispTextSettings();
+            SetDebugToolsAvailable(GameManager.DebugToolsAvailable);
             if (!Application.isPlaying) return;
             if (windIndicator == null)
                 windIndicator = GetComponentInChildren<WindIndicatorView>(true);
@@ -67,20 +68,23 @@ namespace MukJump.Core
                 newBestIndicator = NewBestIndicatorView.CreateRuntime(
                     topHudRoot != null ? topHudRoot : transform);
             ApplyPolishedRuntimeLayout();
-            debugToggleButton?.onClick.AddListener(ToggleDebugPanel);
-            invincibleButton?.onClick.AddListener(ToggleInvincible);
-            inkDropButton?.onClick.AddListener(UseInkDrop);
-            goldenBrushButton?.onClick.AddListener(UseGoldenBrush);
-            inkShieldButton?.onClick.AddListener(UseInkShield);
-            inkCloneButton?.onClick.AddListener(UseInkClone);
-            inkReserveButton?.onClick.AddListener(UseInkReserve);
-            mapStartButton?.onClick.AddListener(() => MoveToHeight(0));
-            mapWindButton?.onClick.AddListener(() => MoveToHeight(250));
-            mapRainButton?.onClick.AddListener(() => MoveToHeight(500));
-            mapGorgeButton?.onClick.AddListener(() => MoveToHeight(750));
-            updraftButton?.onClick.AddListener(TriggerUpdraft);
-            windDirectionButton?.onClick.AddListener(FlipWindDirection);
-            windPlatformButton?.onClick.AddListener(SpawnWindPlatform);
+            if (GameManager.DebugToolsAvailable)
+            {
+                debugToggleButton?.onClick.AddListener(ToggleDebugPanel);
+                invincibleButton?.onClick.AddListener(ToggleInvincible);
+                inkDropButton?.onClick.AddListener(UseInkDrop);
+                goldenBrushButton?.onClick.AddListener(UseGoldenBrush);
+                inkShieldButton?.onClick.AddListener(UseInkShield);
+                inkCloneButton?.onClick.AddListener(UseInkClone);
+                inkReserveButton?.onClick.AddListener(UseInkReserve);
+                mapStartButton?.onClick.AddListener(MoveToStartHeight);
+                mapWindButton?.onClick.AddListener(MoveToWindHeight);
+                mapRainButton?.onClick.AddListener(MoveToRainHeight);
+                mapGorgeButton?.onClick.AddListener(MoveToGorgeHeight);
+                updraftButton?.onClick.AddListener(TriggerUpdraft);
+                windDirectionButton?.onClick.AddListener(FlipWindDirection);
+                windPlatformButton?.onClick.AddListener(SpawnWindPlatform);
+            }
         }
 
         void OnValidate()
@@ -99,10 +103,10 @@ namespace MukJump.Core
             inkShieldButton?.onClick.RemoveListener(UseInkShield);
             inkCloneButton?.onClick.RemoveListener(UseInkClone);
             inkReserveButton?.onClick.RemoveListener(UseInkReserve);
-            mapStartButton?.onClick.RemoveAllListeners();
-            mapWindButton?.onClick.RemoveAllListeners();
-            mapRainButton?.onClick.RemoveAllListeners();
-            mapGorgeButton?.onClick.RemoveAllListeners();
+            mapStartButton?.onClick.RemoveListener(MoveToStartHeight);
+            mapWindButton?.onClick.RemoveListener(MoveToWindHeight);
+            mapRainButton?.onClick.RemoveListener(MoveToRainHeight);
+            mapGorgeButton?.onClick.RemoveListener(MoveToGorgeHeight);
             updraftButton?.onClick.RemoveListener(TriggerUpdraft);
             windDirectionButton?.onClick.RemoveListener(FlipWindDirection);
             windPlatformButton?.onClick.RemoveListener(SpawnWindPlatform);
@@ -112,6 +116,7 @@ namespace MukJump.Core
         {
             if (Instance == null) return false;
             bool overToggle = Instance.debugToggleButton != null &&
+                              Instance.debugToggleButton.gameObject.activeInHierarchy &&
                               RectTransformUtility.RectangleContainsScreenPoint(
                                   Instance.debugToggleButton.transform as RectTransform,
                                   screenPosition, null);
@@ -122,15 +127,53 @@ namespace MukJump.Core
             return overToggle || overOpenPanel;
         }
 
-        void UseInkDrop() => ItemEffect.Apply(ItemType.InkDrop);
-        void UseGoldenBrush() => ItemEffect.Apply(ItemType.GoldenBrush);
-        void UseInkShield() => ItemEffect.Apply(ItemType.InkShield);
-        void UseInkClone() => ItemEffect.Apply(ItemType.InkClone);
-        void UseInkReserve() => ItemEffect.Apply(ItemType.InkReserve);
+        void UseInkDrop() => ApplyDebugItem(ItemType.InkDrop);
+        void UseGoldenBrush() => ApplyDebugItem(ItemType.GoldenBrush);
+        void UseInkShield() => ApplyDebugItem(ItemType.InkShield);
+        void UseInkClone() => ApplyDebugItem(ItemType.InkClone);
+        void UseInkReserve() => ApplyDebugItem(ItemType.InkReserve);
         void MoveToHeight(int height) => GameManager.Instance?.DebugTeleportToHeight(height);
-        void TriggerUpdraft() => WindWeatherController.Instance?.DebugTriggerUpdraft();
-        void FlipWindDirection() => WindWeatherController.Instance?.DebugFlipDirection();
-        void SpawnWindPlatform() => RestPlatformSpawner.Instance?.DebugSpawnWindNearPlayer();
+        void MoveToStartHeight() => MoveToHeight(0);
+        void MoveToWindHeight() => MoveToHeight(250);
+        void MoveToRainHeight() => MoveToHeight(500);
+        void MoveToGorgeHeight() => MoveToHeight(750);
+        void TriggerUpdraft()
+        {
+            MarkDebugRun();
+            WindWeatherController.Instance?.DebugTriggerUpdraft();
+        }
+
+        void FlipWindDirection()
+        {
+            MarkDebugRun();
+            WindWeatherController.Instance?.DebugFlipDirection();
+        }
+
+        void SpawnWindPlatform()
+        {
+            MarkDebugRun();
+            RestPlatformSpawner.Instance?.DebugSpawnWindNearPlayer();
+        }
+
+        static void ApplyDebugItem(ItemType type)
+        {
+            MarkDebugRun();
+            ItemEffect.Apply(type);
+        }
+
+        static void MarkDebugRun()
+        {
+            if (GameManager.DebugToolsAvailable)
+                ScoreManager.Instance?.InvalidateCurrentRunForRecords();
+        }
+
+        void SetDebugToolsAvailable(bool available)
+        {
+            if (itemTestControls != null)
+                itemTestControls.gameObject.SetActive(available);
+            if (!available && debugPanel != null)
+                debugPanel.gameObject.SetActive(false);
+        }
 
         void ToggleDebugPanel()
         {

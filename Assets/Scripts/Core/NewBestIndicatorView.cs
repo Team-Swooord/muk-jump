@@ -14,7 +14,6 @@ namespace MukJump.Core
         [SerializeField] RectTransform stampRoot;
         [SerializeField] Image sealImage;
         [SerializeField] Text sealText;
-        [SerializeField] Text valueText;
 
         ScoreManager boundScore;
         bool gameplayVisible = true;
@@ -54,7 +53,6 @@ namespace MukJump.Core
             if (!Application.isPlaying)
             {
                 recordVisible = true;
-                UpdateValueText();
                 ApplyVisibility();
                 return;
             }
@@ -66,7 +64,6 @@ namespace MukJump.Core
             else if (!shouldShow && recordVisible)
                 HideRecord();
 
-            UpdateValueText();
             UpdateStampAnimation();
             UpdateRestingEmphasis();
             ApplyVisibility();
@@ -165,7 +162,6 @@ namespace MukJump.Core
                     ? Quaternion.Euler(0f, 0f, -8f)
                     : Quaternion.Euler(0f, 0f, -4f);
             }
-            UpdateValueText();
             ApplyVisibility();
         }
 
@@ -215,13 +211,6 @@ namespace MukJump.Core
                 (1f - RestingAlpha) / 0.18f * Time.unscaledDeltaTime);
         }
 
-        void UpdateValueText()
-        {
-            if (valueText == null || !valueText.gameObject.activeSelf) return;
-            int best = boundScore != null ? boundScore.DisplayBest : 0;
-            valueText.text = $"신기록 · {best}m";
-        }
-
         void ConfigureVisuals()
         {
             if (stampRoot != null && sealText == null)
@@ -232,12 +221,6 @@ namespace MukJump.Core
                     sealImage.sprite = InkUiTextureFactory.CreateBlobSprite();
                 sealImage.color = InkPalette.Red;
                 sealImage.raycastTarget = false;
-            }
-            if (valueText != null)
-            {
-                valueText.font = InkPalette.UiFont;
-                valueText.color = InkPalette.Red;
-                valueText.raycastTarget = false;
             }
             if (sealText != null)
             {
@@ -281,7 +264,6 @@ namespace MukJump.Core
 
             var legacyBackground = GetComponent<Graphic>();
             if (legacyBackground != null) legacyBackground.enabled = false;
-            if (valueText != null) valueText.gameObject.SetActive(false);
 
             if (stampRoot == null) return;
             stampRoot.anchorMin = stampRoot.anchorMax = new Vector2(0.5f, 0.5f);

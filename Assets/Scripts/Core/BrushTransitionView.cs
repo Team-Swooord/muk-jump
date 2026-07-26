@@ -18,6 +18,8 @@ namespace MukJump.Core
         RectTransform[] strokeImages;
         float[] strokeHeights;
         bool playing;
+        bool coveredCallbackStarted;
+        Action activeFailureCallback;
         static bool revealAfterSceneLoad;
 
         public bool IsPlaying => playing;
@@ -33,11 +35,23 @@ namespace MukJump.Core
 
         public static void RequestRevealAfterSceneLoad() => revealAfterSceneLoad = true;
 
-        public void Play(Action onCovered)
+        public void Play(Action onCovered, Action onFailed = null)
         {
             if (playing) return;
             BuildIfNeeded();
-            StartCoroutine(PlayRoutine(onCovered));
+            coveredCallbackStarted = false;
+            activeFailureCallback = onFailed;
+            StartCoroutine(PlayRoutine(onCovered, onFailed));
+        }
+
+        void OnDisable()
+        {
+            bool notifyCancellation = playing && !coveredCallbackStarted;
+            Action cancellationCallback = activeFailureCallback;
+            StopAllCoroutines();
+            ResetOverlayState();
+            if (notifyCancellation)
+                TryInvokeFailure(cancellationCallback);
         }
 
         void BuildIfNeeded()
@@ -90,7 +104,7 @@ namespace MukJump.Core
             }
         }
 
-        IEnumerator PlayRoutine(Action onCovered)
+        IEnumerator PlayRoutine(Action onCovered, Action onFailed)
         {
             playing = true;
             GameFeedbackController.Instance?.PlayBrushTransition();
@@ -119,7 +133,8 @@ namespace MukJump.Core
             }
 
             wash.canvasRenderer.SetAlpha(1f);
-            onCovered?.Invoke();
+            if (!TryInvokeCovered(onCovered, onFailed))
+                yield break;
             yield return new WaitForSecondsRealtime(BlackHoldDuration);
 
             elapsed = 0f;
@@ -131,10 +146,7 @@ namespace MukJump.Core
                 yield return null;
             }
 
-            group.alpha = 0f;
-            group.blocksRaycasts = false;
-            for (int i = 0; i < strokeMasks.Length; i++) SetStrokeProgress(i, 0f);
-            playing = false;
+            ResetOverlayState();
         }
 
         IEnumerator RevealLoadedSceneRoutine()
@@ -156,10 +168,56 @@ namespace MukJump.Core
                 yield return null;
             }
 
-            group.alpha = 0f;
-            group.blocksRaycasts = false;
-            for (int i = 0; i < strokeMasks.Length; i++) SetStrokeProgress(i, 0f);
+            ResetOverlayState();
+        }
+
+        bool TryInvokeCovered(Action onCovered, Action onFailed)
+        {
+            coveredCallbackStarted = true;
+            try
+            {
+                onCovered?.Invoke();
+                activeFailureCallback = null;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                ResetOverlayState();
+                TryInvokeFailure(onFailed);
+                Debug.LogException(exception, this);
+                return false;
+            }
+        }
+
+        void TryInvokeFailure(Action onFailed)
+        {
+            try
+            {
+                onFailed?.Invoke();
+            }
+            catch (Exception recoveryException)
+            {
+                Debug.LogException(recoveryException, this);
+            }
+        }
+
+        void ResetOverlayState()
+        {
+            if (group != null)
+            {
+                group.alpha = 0f;
+                group.blocksRaycasts = false;
+                group.interactable = false;
+            }
+            if (strokeMasks != null)
+            {
+                for (int i = 0; i < strokeMasks.Length; i++)
+                    if (strokeMasks[i] != null)
+                        SetStrokeProgress(i, 0f);
+            }
             playing = false;
+            coveredCallbackStarted = false;
+            activeFailureCallback = null;
         }
 
         void SetStrokeProgress(int index, float progress)
@@ -252,6 +310,21 @@ namespace MukJump.Core
     {
         static Sprite brushSprite;
         static Sprite blobSprite;
+        static Texture2D brushTexture;
+        static Texture2D blobTexture;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ReleaseRuntimeAssets()
+        {
+            DestroyRuntimeObject(brushSprite);
+            DestroyRuntimeObject(blobSprite);
+            DestroyRuntimeObject(brushTexture);
+            DestroyRuntimeObject(blobTexture);
+            brushSprite = null;
+            blobSprite = null;
+            brushTexture = null;
+            blobTexture = null;
+        }
 
         public static Sprite CreateBrushSprite()
         {
@@ -259,6 +332,7 @@ namespace MukJump.Core
             const int width = 512;
             const int height = 160;
             var texture = NewTexture(width, height, "MukJump_BrushMask");
+            var pixels = new Color32[width * height];
             for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
             {
@@ -269,9 +343,12 @@ namespace MukJump.Core
                 float fibers = Mathf.PerlinNoise(u * 7f, y * 0.31f);
                 float alpha = edge > 0f ? taper * Mathf.Clamp01(edge * 5f) : 0f;
                 if (fibers < 0.13f && v > 0.35f) alpha *= 0.2f;
-                texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                pixels[y * width + x] =
+                    new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255f));
             }
+            texture.SetPixels32(pixels);
             texture.Apply(false, true);
+            brushTexture = texture;
             brushSprite = Sprite.Create(texture, new Rect(0, 0, width, height),
                 new Vector2(0.5f, 0.5f), 100f);
             brushSprite.name = "MukJump_BrushMask";
@@ -281,8 +358,9 @@ namespace MukJump.Core
         public static Sprite CreateBlobSprite()
         {
             if (blobSprite != null) return blobSprite;
-            const int size = 512;
+            const int size = 128;
             var texture = NewTexture(size, size, "MukJump_InkBlobMask");
+            var pixels = new Color32[size * size];
             for (int y = 0; y < size; y++)
             for (int x = 0; x < size; x++)
             {
@@ -294,9 +372,12 @@ namespace MukJump.Core
                 float radius = 0.83f + (noise - 0.5f) * 0.22f;
                 float distance = Mathf.Sqrt(nx * nx + ny * ny);
                 float alpha = Mathf.Clamp01((radius - distance) * 35f);
-                texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                pixels[y * size + x] =
+                    new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255f));
             }
+            texture.SetPixels32(pixels);
             texture.Apply(false, true);
+            blobTexture = texture;
             blobSprite = Sprite.Create(texture, new Rect(0, 0, size, size),
                 new Vector2(0.5f, 0.5f), 100f);
             blobSprite.name = "MukJump_InkBlobMask";
@@ -311,6 +392,15 @@ namespace MukJump.Core
                 wrapMode = TextureWrapMode.Clamp,
                 filterMode = FilterMode.Bilinear,
             };
+        }
+
+        static void DestroyRuntimeObject(UnityEngine.Object value)
+        {
+            if (value == null) return;
+            if (Application.isPlaying)
+                UnityEngine.Object.Destroy(value);
+            else
+                UnityEngine.Object.DestroyImmediate(value);
         }
     }
 }

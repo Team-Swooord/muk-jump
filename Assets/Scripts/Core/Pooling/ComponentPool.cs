@@ -48,9 +48,20 @@ namespace MukJump.Core.Pooling
                 throw new InvalidOperationException(
                     $"{typeof(T).Name} 인스턴스가 이미 대여 중입니다.");
 
-            instance.OnPoolAcquire();
-            instance.gameObject.SetActive(true);
-            return instance;
+            try
+            {
+                instance.OnPoolAcquire();
+                instance.gameObject.SetActive(true);
+                return instance;
+            }
+            catch
+            {
+                // 초기화에 실패한 인스턴스를 leased에 고립시키거나 다음 대여에
+                // 재사용하지 않는다. 부분 상태인 객체는 비활성화 후 폐기한다.
+                leased.Remove(instance);
+                Discard(instance);
+                throw;
+            }
         }
 
         /// Play 중 스크립트 재컴파일 뒤 Hierarchy에는 남았지만 managed 풀이 사라진
@@ -60,12 +71,21 @@ namespace MukJump.Core.Pooling
             if (instance == null || leased.Contains(instance) || available.Contains(instance))
                 return false;
 
-            instance.OnPoolRelease();
-            instance.gameObject.SetActive(false);
+            try
+            {
+                instance.OnPoolRelease();
+                instance.gameObject.SetActive(false);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, instance);
+                Discard(instance);
+                return false;
+            }
             if (available.Count < maxRetained)
                 available.Push(instance);
             else
-                UnityEngine.Object.Destroy(instance.gameObject);
+                DestroyInstance(instance);
             return true;
         }
 
@@ -79,15 +99,39 @@ namespace MukJump.Core.Pooling
             if (instance == null)
                 return true;
 
-            instance.OnPoolRelease();
-            instance.gameObject.SetActive(false);
+            try
+            {
+                instance.OnPoolRelease();
+                instance.gameObject.SetActive(false);
+            }
+            catch
+            {
+                Discard(instance);
+                throw;
+            }
             if (available.Count < maxRetained)
                 available.Push(instance);
             else
-                UnityEngine.Object.Destroy(instance.gameObject);
+                DestroyInstance(instance);
             return true;
         }
 
         static bool IsDestroyed(T instance) => instance == null;
+
+        static void Discard(T instance)
+        {
+            if (instance == null) return;
+            instance.gameObject.SetActive(false);
+            DestroyInstance(instance);
+        }
+
+        static void DestroyInstance(T instance)
+        {
+            if (instance == null) return;
+            if (Application.isPlaying)
+                UnityEngine.Object.Destroy(instance.gameObject);
+            else
+                UnityEngine.Object.DestroyImmediate(instance.gameObject);
+        }
     }
 }

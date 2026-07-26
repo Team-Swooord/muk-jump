@@ -43,8 +43,16 @@ namespace MukJump.Drawing
             platform.Build(worldPoints);
 
             active.Add(platform);
-            if (active.Count > MaxActivePlatforms)
-                active[0].BeginFade(); // 가장 오래된 발판부터 먹이 마른다
+            while (active.Count > MaxActivePlatforms)
+            {
+                var oldest = active[0];
+                if (oldest == null)
+                {
+                    active.RemoveAt(0);
+                    continue;
+                }
+                oldest.BeginFade(); // 가장 오래된 발판부터 먹이 마른다
+            }
 
             SketchToInkService.Instance?.Stylize(platform);
             return platform;
@@ -252,7 +260,13 @@ namespace MukJump.Drawing
         /// 발판 수 초과 시 수명을 앞당겨 페이드아웃 시작
         void BeginFade()
         {
-            if (lifetime <= 0f) return;
+            // 이미 페이드 예약된 발판을 예산 목록에서 먼저 빼야, 빠르게 여러 획을
+            // 그어도 같은 첫 발판만 반복 예약되고 후속 발판이 무한 누적되지 않는다.
+            active.Remove(this);
+            // 최대 4개 규칙은 비주얼 수가 아니라 실제로 밟을 수 있는 발판 수다.
+            // 먹이 마르는 모습은 남기되 예산에서 밀린 순간 물리 충돌은 즉시 제거한다.
+            if (edge != null) edge.enabled = false;
+            if (lifetime <= 0f || removalRequested) return;
             float effectiveLifetime = lifetime * Mathf.Clamp(RuntimeLifetimeMultiplier, 0.35f, 1f);
             age = Mathf.Max(age, effectiveLifetime - fadeDuration);
         }

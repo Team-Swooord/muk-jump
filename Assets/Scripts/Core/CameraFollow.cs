@@ -21,8 +21,6 @@ namespace MukJump.Core
         Vector2 visualShake;
         Camera worldCamera;
 
-        public void SetTarget(Transform t) => target = t;
-
         public void PlayJumpImpulse(Transform source, float strength)
         {
             var highest = GameManager.Instance != null

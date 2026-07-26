@@ -47,6 +47,7 @@ namespace MukJump.Player
         public bool HasShield { get; private set; }
         public bool IsInkDropBoosted { get; private set; }
         public float NormalGravityScale => normalGravityScale;
+        public Rigidbody2D Body => rb;
         public event Action ShieldConsumed;
 
         Rigidbody2D rb;
@@ -187,7 +188,6 @@ namespace MukJump.Player
             }
             if (ConsumeShield())
             {
-                damageInvulnerableUntil = Time.time + shieldHitGraceDuration;
                 LaunchToHeight(12f);
                 return;
             }
@@ -219,6 +219,7 @@ namespace MukJump.Player
         {
             if (!HasShield) return false;
             HasShield = false;
+            damageInvulnerableUntil = Time.time + shieldHitGraceDuration;
             ShieldConsumed?.Invoke();
             GameFeedbackController.Instance?.PlayShieldBreak();
             return true;
@@ -258,7 +259,9 @@ namespace MukJump.Player
             rb.simulated = false;
 
             var playerRenderer = GetComponent<SpriteRenderer>();
-            if (playerRenderer != null) playerRenderer.enabled = false;
+            // CharacterAnimator의 사망 프레임이 먹 번짐과 함께 실제로 보이도록
+            // 연출이 끝날 때까지 본체 렌더러를 유지한다.
+            if (playerRenderer != null) playerRenderer.enabled = true;
 
             if (deathSplashSprite != null)
             {
@@ -294,6 +297,8 @@ namespace MukJump.Player
             }
             else
                 yield return new WaitForSeconds(deathSplashDuration);
+
+            if (playerRenderer != null) playerRenderer.enabled = false;
 
             // 마지막 캐릭터는 게임오버 씬이 유지하므로 숨긴 채 남기고,
             // 먹분신이 살아 있으면 죽은 개체만 정리한다.

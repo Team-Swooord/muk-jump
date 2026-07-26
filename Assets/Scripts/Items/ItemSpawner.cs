@@ -29,6 +29,7 @@ namespace MukJump.Items
         const int PoolCapacity = 8;
 
         readonly List<ItemPickup> active = new();
+        readonly HashSet<ItemType> missingSpriteWarnings = new();
         ComponentPool<ItemPickup> pool;
         GameManager subscribedManager;
         Camera cam;
@@ -56,8 +57,8 @@ namespace MukJump.Items
         void Update()
         {
             TrySubscribeToGameManager();
-            if (cam == null || placeholderSprite == null || GameManager.Instance == null ||
-                GameManager.Instance.State != GameState.Playing) return;
+            if (cam == null || GameManager.Instance == null ||
+                !GameManager.Instance.IsGameplayTicking) return;
 
             float cameraTop = cam.transform.position.y + cam.orthographicSize;
             float cutoff = cam.transform.position.y - cam.orthographicSize - despawnBelow;
@@ -88,14 +89,25 @@ namespace MukJump.Items
         void Spawn(float y)
         {
             EnsurePool();
-            var type = (ItemType)Random.Range(0, 5);
+            var type = (ItemType)GameplayRandom.Range(
+                GameplayRandomStream.Items, 0, 5);
             Sprite sprite = SpriteFor(type);
+            if (sprite == null)
+            {
+                if (missingSpriteWarnings.Add(type))
+                    Debug.LogWarning($"[MukJump] {type} 아이템 스프라이트가 없어 해당 스폰을 건너뜁니다.",
+                        this);
+                return;
+            }
             bool usesDedicatedSprite = sprite != placeholderSprite;
             var pickup = pool.Acquire();
             var go = pickup.gameObject;
             go.name = $"Item_{type}";
             go.layer = LayerMask.NameToLayer("Item");
-            go.transform.position = new Vector3(Random.Range(horizontalRange.x, horizontalRange.y), y, 0f);
+            go.transform.position = new Vector3(
+                GameplayRandom.Range(GameplayRandomStream.Items,
+                    horizontalRange.x, horizontalRange.y),
+                y, 0f);
             go.transform.rotation = Quaternion.identity;
 
             var renderer = go.GetComponent<SpriteRenderer>();
@@ -112,7 +124,8 @@ namespace MukJump.Items
 
             pickup.ReleaseRequested -= OnReleaseRequested;
             pickup.ReleaseRequested += OnReleaseRequested;
-            pickup.Configure(type, Random.Range(0f, Mathf.PI * 2f));
+            pickup.Configure(type, GameplayRandom.Range(
+                GameplayRandomStream.Items, 0f, Mathf.PI * 2f));
             active.Add(pickup);
         }
 
@@ -165,7 +178,8 @@ namespace MukJump.Items
         {
             float minimum = Mathf.Max(0.1f, verticalSpacing.x);
             float maximum = Mathf.Max(minimum, verticalSpacing.y);
-            return Random.Range(minimum, maximum);
+            return GameplayRandom.Range(
+                GameplayRandomStream.Items, minimum, maximum);
         }
 
         void TrySubscribeToGameManager()

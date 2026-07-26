@@ -24,6 +24,12 @@ namespace MukJump.Items
 
         void OnEnable()
         {
+            if (Instance != null && Instance != this && Instance.isActiveAndEnabled)
+            {
+                // 비활성 서비스가 뒤늦게 켜져 현재 공용 풀을 덮어쓰지 않게 한다.
+                enabled = false;
+                return;
+            }
             Instance = this;
         }
 
@@ -39,10 +45,20 @@ namespace MukJump.Items
             var service = Instance;
             if (service == null)
             {
-                var go = new GameObject("InkDropJumpVfxPool");
-                if (GameManager.Instance != null)
-                    go.transform.SetParent(GameManager.Instance.transform, false);
-                service = go.AddComponent<InkDropJumpVfxPool>();
+                // EditMode 검증이나 Play 중 스크립트 리로드에서는 OnEnable보다 static
+                // 참조가 먼저 사라질 수 있다. 계층에 남은 서비스를 우선 복구해야
+                // 분신마다 별도 풀이 생기지 않는다.
+                service = FindFirstObjectByType<InkDropJumpVfxPool>(
+                    FindObjectsInactive.Exclude);
+                if (service == null)
+                {
+                    var go = new GameObject("InkDropJumpVfxPool");
+                    if (GameManager.Instance != null)
+                        go.transform.SetParent(GameManager.Instance.transform, false);
+                    service = go.AddComponent<InkDropJumpVfxPool>();
+                }
+
+                Instance = service;
             }
 
             service.Configure(assets, sprayCount, residualDropCount);
