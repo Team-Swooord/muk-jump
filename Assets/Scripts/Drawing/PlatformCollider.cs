@@ -61,11 +61,7 @@ namespace MukJump.Drawing
             platform.Build(worldPoints);
             platform.ConfigureOneWay();
             SketchToInkService.Instance?.Stylize(platform);
-            if (platform.Line != null)
-            {
-                platform.Line.startWidth = 0.46f;
-                platform.Line.endWidth = 0.38f;
-            }
+            platform.ApplySpecialVisual(InkPalette.SafePlatform, 0.82f, 1.08f);
             return platform;
         }
 
@@ -82,13 +78,7 @@ namespace MukJump.Drawing
             platform.Build(worldPoints);
             platform.ConfigureOneWay();
             SketchToInkService.Instance?.Stylize(platform);
-            if (platform.Line != null)
-            {
-                platform.Line.startWidth = 0.34f;
-                platform.Line.endWidth = 0.28f;
-                platform.Line.startColor = platform.Line.endColor =
-                    new Color(0.28f, 0.48f, 0.5f, 0.95f);
-            }
+            platform.ApplySpecialVisual(InkPalette.WindPlatform, 0.62f, 0.84f);
             return platform;
         }
 
@@ -156,6 +146,38 @@ namespace MukJump.Drawing
                 Line.SetPosition(i, localPoints[i]);
 
             originalPoints = localPoints.ToArray();
+        }
+
+        /// 특수 발판은 같은 붓결의 검정 외곽선 위에 효과색 획을 겹쳐 물리 종류를 구분한다.
+        /// 외곽선에는 콜라이더를 붙이지 않아 one-way와 풍맥 발동 횟수에 영향을 주지 않는다.
+        void ApplySpecialVisual(Color innerColor, float innerWidth, float outlineWidth)
+        {
+            if (Line == null || Line.positionCount < 2) return;
+
+            innerColor.a = 0.96f;
+            Line.startColor = Line.endColor = innerColor;
+            Line.widthMultiplier = innerWidth;
+
+            var outlineObject = new GameObject("BrushOutline");
+            outlineObject.transform.SetParent(transform, false);
+            var outline = outlineObject.AddComponent<LineRenderer>();
+            outline.useWorldSpace = false;
+            outline.loop = Line.loop;
+            outline.positionCount = Line.positionCount;
+            var positions = new Vector3[Line.positionCount];
+            Line.GetPositions(positions);
+            outline.SetPositions(positions);
+            outline.sharedMaterial = Line.sharedMaterial;
+            outline.textureMode = Line.textureMode;
+            outline.numCapVertices = Line.numCapVertices;
+            outline.numCornerVertices = Line.numCornerVertices;
+            outline.widthCurve = new AnimationCurve(Line.widthCurve.keys);
+            outline.widthMultiplier = outlineWidth;
+            outline.sortingLayerID = Line.sortingLayerID;
+            outline.sortingOrder = Line.sortingOrder - 1;
+            var ink = InkPalette.Ink;
+            ink.a = 0.94f;
+            outline.startColor = outline.endColor = ink;
         }
 
         void Update()

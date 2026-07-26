@@ -163,7 +163,9 @@ namespace MukJump.Drawing
                 line.material = FallbackInkStyle.SharedInkMaterial;
                 line.sortingOrder = 4;
                 line.startWidth = line.endWidth = 0.035f;
-                line.startColor = line.endColor = new Color(0.35f, 0.62f, 0.65f, 0.8f);
+                var accent = InkPalette.WindAccent;
+                accent.a = 0.8f;
+                line.startColor = line.endColor = accent;
                 for (int i = 0; i < line.positionCount; i++)
                 {
                     float t = i / (line.positionCount - 1f);
