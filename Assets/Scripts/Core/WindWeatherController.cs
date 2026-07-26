@@ -27,8 +27,8 @@ namespace MukJump.Core
         [Header("약한 바람")]
         [SerializeField, Min(0f)] float breezeAcceleration = 0.78f;
         [SerializeField, Min(0f)] float breezeSpeedLimit = 2.25f;
-        [SerializeField, Min(0.01f)] float directionEaseSpeed = 0.82f;
-        [SerializeField] Vector2 directionHoldSeconds = new(8f, 13f);
+        [SerializeField, Min(0.01f)] float directionEaseSpeed = 0.28f;
+        [SerializeField] Vector2 directionHoldSeconds = new(28f, 45f);
 
         [Header("상승기류")]
         [SerializeField, Min(0f)] float updraftHorizontalMultiplier = 1.35f;
@@ -65,11 +65,22 @@ namespace MukJump.Core
         void OnEnable()
         {
             Instance = this;
+            if (Application.isPlaying)
+                ApplyRuntimeDirectionTuning();
             if (DirectionSign == 0)
                 DirectionSign = Random.value < 0.5f ? -1 : 1;
             DirectionBlend = DirectionSign;
             directionHoldRemaining = SampleDirectionHold();
             BindGameManager();
+        }
+
+        /// 예전 Main 씬에 직렬화된 빠른 값이 남아 있어도 새 완만한 풍향 규칙을 적용한다.
+        void ApplyRuntimeDirectionTuning()
+        {
+            directionEaseSpeed = Mathf.Min(directionEaseSpeed, 0.28f);
+            directionHoldSeconds = new Vector2(
+                Mathf.Max(directionHoldSeconds.x, 28f),
+                Mathf.Max(directionHoldSeconds.y, 45f));
         }
 
         void Start()
@@ -198,11 +209,16 @@ namespace MukJump.Core
 
         void UpdateDirection(float deltaTime)
         {
-            directionHoldRemaining -= deltaTime;
-            if (directionHoldRemaining <= 0f)
+            // 상승기류 연출 중에는 다음 풍향까지 남은 시간을 소모하지 않는다.
+            // 평상시에도 한 방향을 충분히 오래 유지해 플레이어가 미리 대응할 수 있게 한다.
+            if (Phase == WindWeatherPhase.Breeze)
             {
-                DirectionSign = -DirectionSign;
-                directionHoldRemaining = SampleDirectionHold();
+                directionHoldRemaining -= deltaTime;
+                if (directionHoldRemaining <= 0f)
+                {
+                    DirectionSign = -DirectionSign;
+                    directionHoldRemaining = SampleDirectionHold();
+                }
             }
 
             DirectionBlend = Mathf.MoveTowards(
