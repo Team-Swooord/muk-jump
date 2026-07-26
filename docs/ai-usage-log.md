@@ -39,7 +39,7 @@
 | 항목 | 제작 도구 | 구분 |
 |---|---|---|
 | `MukJump_InkDropJump_VFX_Pack` 텍스처·효과음·연출 사양 | OpenAI Codex | 프로젝트를 위해 직접 생성한 AI 산출물이며 외부 에셋이 아님 |
-| `Assets/Art/Background/Maps/` 고도 맵 배경 4종 | OpenAI ImageGen + Codex | 프로젝트 전용으로 생성·검수한 자체 수채화 배경이며 외부 에셋이 아님 |
+| 고도 맵 배경 7종 (`Assets/Art/Background/Maps/`, `Assets/Resources/MukJump/Background/Endless/`) | OpenAI ImageGen + Codex | 프로젝트 전용으로 생성·검수한 자체 수채화 배경이며 외부 에셋이 아님 |
 
 ---
 
@@ -914,3 +914,25 @@
   에디터 어셈블리 독립 컴파일과 Editor.log 오류 부재를 확인했다. 씬 빌더 테스트에
   단일 `TopHudRoot`, 3열 참조, 풍속 막대 미생성 검증을 추가했으며 실제 9:16 화면의
   한지 질감과 Safe Area 간격은 Play Mode에서 최종 확인할 예정이다.
+
+### 2026-07-26 — 먹빛 우주 무한 맵·붉은 한지 장애물
+
+- 사용 도구: OpenAI Codex, OpenAI ImageGen
+- 목적: 750m 이후 고정되던 배경을 세상에 없는 동양 수채화 우주로 확장하고,
+  외곽선에 의존하던 장애물 가시성을 본체 색으로 해결
+- 주요 프롬프트/지시: 마지막 맵 이후 동양화 수채화와 우주를 섞은 무한 맵을 만들고,
+  장애물 스프라이트 자체를 붉은 한지색으로 변경
+- 결과물: `Assets/Resources/MukJump/Background/Endless/` 배경 3종,
+  `MapBackgroundView.cs`, `HeightZoneController.cs`, `ObstaclePaperRed.shader`,
+  `ObstacleVisibilityView.cs`, 두 장애물 스포너·풀 생명주기 코드, 관련 Editor 테스트,
+  `MukJumpSceneBuilder.cs`
+- 구현 메모: 기존 배경의 따뜻한 한지·둥근 실루엣·중앙과 하단 65% 여백을 스타일
+  레퍼런스로 삼아 먹빛 성문, 월련 성해, 천하수 3종을 각각 생성했다. 모두 1080×1920
+  불투명 PNG이며 1000m부터 250m마다 순환하고 다음 순환은 좌우 반전한다. 기존 씬을
+  재생성하지 않아도 Resources 폴백으로 로드한다. 장애물은 전용 팔레트 리맵 셰이더로
+  원본 명암과 알파를 유지하면서 `#C8645B`로 치환하고, 기존 받침과 붉은 외곽선은 끈다.
+  낙묵석은 틴트 적용 뒤 기준색을 저장해 예고·소멸·풀 재사용 중 흰색으로 돌아가지 않는다.
+- 사람의 수정/검토 내용: 생성 이미지 3장의 해상도·불투명도·중앙/하단 가독성을 확인하고
+  런타임·에디터 어셈블리 독립 컴파일을 통과했다. 사용자 소유 `Main.unity`와 기존 맵
+  메타 4개는 건드리지 않았으며, Unity Play Mode에서 1000/1250/1500/1750m 전환과
+  실제 셰이더 색감은 최종 확인할 예정이다.
