@@ -189,6 +189,30 @@ public class FallingInkRockTests
         Assert.IsNotNull(lobbySerialized.FindProperty("rankingText").objectReferenceValue);
         Assert.AreEqual(2, lobby.GetComponentsInChildren<RawImage>(true).Length - 2);
 
+        var gameplayHud = Object.FindFirstObjectByType<GameplayHudView>();
+        Assert.IsNotNull(gameplayHud);
+        var hudSerialized = new SerializedObject(gameplayHud);
+        var topHud = hudSerialized.FindProperty("topHudRoot").objectReferenceValue
+            as RectTransform;
+        Assert.IsNotNull(topHud);
+        Assert.AreEqual("TopHudRoot", topHud.name);
+        Assert.That(topHud.sizeDelta.x, Is.EqualTo(1016f).Within(0.01f));
+        Assert.That(topHud.sizeDelta.y, Is.EqualTo(112f).Within(0.01f));
+        Assert.IsNotNull(hudSerialized.FindProperty("heightCaption").objectReferenceValue);
+        Assert.IsNotNull(hudSerialized.FindProperty("bestCaption").objectReferenceValue);
+
+        var windIndicator = hudSerialized.FindProperty("windIndicator").objectReferenceValue
+            as WindIndicatorView;
+        var newBestIndicator = hudSerialized.FindProperty("newBestIndicator").objectReferenceValue
+            as NewBestIndicatorView;
+        Assert.IsNotNull(windIndicator);
+        Assert.IsNotNull(newBestIndicator);
+        Assert.AreSame(topHud, windIndicator.transform.parent);
+        Assert.AreSame(topHud, newBestIndicator.transform.parent);
+        Assert.IsNull(windIndicator.transform.Find("WindStrengthStroke1"));
+        Assert.That(((RectTransform)newBestIndicator.transform).sizeDelta.x,
+            Is.LessThanOrEqualTo(46f));
+
         var importer = (TextureImporter)AssetImporter.GetAtPath(
             "Assets/Art/Character/Obstacles/anermy_02.png");
         Assert.IsNotNull(importer);

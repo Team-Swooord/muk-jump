@@ -4,14 +4,16 @@ using UnityEngine.UI;
 namespace MukJump.Core
 {
     /// 이전 최고 고도를 넘긴 순간 낙관처럼 찍히고, 이번 판이 끝날 때까지 유지되는 HUD.
-    [ExecuteAlways]
     public sealed class NewBestIndicatorView : MonoBehaviour
     {
-        const float StampDuration = 0.42f;
+        const float StampDuration = 0.24f;
+        const float FullEmphasisHold = 0.7f;
+        const float RestingAlpha = 0.78f;
 
         [SerializeField] CanvasGroup rootGroup;
         [SerializeField] RectTransform stampRoot;
         [SerializeField] Image sealImage;
+        [SerializeField] Text sealText;
         [SerializeField] Text valueText;
 
         ScoreManager boundScore;
@@ -19,6 +21,8 @@ namespace MukJump.Core
         bool recordVisible;
         bool stampAnimating;
         float stampElapsed;
+        float visibleElapsed;
+        float visualAlpha = RestingAlpha;
 
         void Awake()
         {
@@ -64,6 +68,7 @@ namespace MukJump.Core
 
             UpdateValueText();
             UpdateStampAnimation();
+            UpdateRestingEmphasis();
             ApplyVisibility();
         }
 
@@ -76,47 +81,48 @@ namespace MukJump.Core
         /// 씬 빌더를 아직 다시 실행하지 않은 기존 Main 씬에서도 신기록 HUD가 즉시 동작한다.
         public static NewBestIndicatorView CreateRuntime(Transform parent)
         {
+            var existing = parent.GetComponentInChildren<NewBestIndicatorView>(true);
+            if (existing != null)
+            {
+                existing.ApplyPolishedLayout();
+                return existing;
+            }
+
             var rootObject = new GameObject(
                 "NewBestInkSeal",
                 typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(Image),
                 typeof(CanvasGroup));
             var root = rootObject.GetComponent<RectTransform>();
             root.SetParent(parent, false);
-            root.anchorMin = root.anchorMax = new Vector2(0.5f, 0.835f);
+            root.anchorMin = root.anchorMax = new Vector2(0.955f, 0.5f);
             root.pivot = new Vector2(0.5f, 0.5f);
-            root.sizeDelta = new Vector2(460f, 108f);
+            root.sizeDelta = new Vector2(46f, 46f);
             root.anchoredPosition = Vector2.zero;
 
-            var paper = rootObject.GetComponent<Image>();
-            paper.sprite = InkUiTextureFactory.CreateBrushSprite();
-            paper.color = InkPalette.Paper;
-            paper.raycastTarget = false;
-
             var sealRoot = CreateRect(
-                "RecordSeal", root, new Vector2(0.13f, 0.5f), new Vector2(74f, 74f));
-            sealRoot.localRotation = Quaternion.Euler(0f, 0f, -5f);
+                "RecordSeal", root, new Vector2(0.5f, 0.5f), new Vector2(46f, 46f));
+            sealRoot.localRotation = Quaternion.Euler(0f, 0f, -4f);
             var seal = sealRoot.gameObject.AddComponent<Image>();
             seal.sprite = InkUiTextureFactory.CreateBlobSprite();
             seal.color = InkPalette.Red;
             seal.raycastTarget = false;
-            CreateText("SealText", sealRoot, "최고", 23, InkPalette.Paper,
-                new Vector2(0.5f, 0.5f), new Vector2(62f, 58f));
-
-            var value = CreateText(
-                "RecordText", root, "지금 기록이 최고 · 0m", 28, InkPalette.Red,
-                new Vector2(0.61f, 0.51f), new Vector2(350f, 64f));
+            var recordText = CreateText("SealText", sealRoot, "신", 20, InkPalette.Paper,
+                new Vector2(0.5f, 0.5f), new Vector2(34f, 32f));
 
             var view = rootObject.AddComponent<NewBestIndicatorView>();
             view.rootGroup = rootObject.GetComponent<CanvasGroup>();
             view.stampRoot = sealRoot;
             view.sealImage = seal;
-            view.valueText = value;
+            view.sealText = recordText;
             view.ConfigureVisuals();
             view.BindScoreManager();
             view.ApplyVisibility();
             return view;
+        }
+
+        public void ApplyPolishedLayout()
+        {
+            ApplyCompactRuntimeLayout();
         }
 
         void BindScoreManager()
@@ -130,7 +136,7 @@ namespace MukJump.Core
 
             boundScore.NewBestReached += HandleNewBestReached;
             if (boundScore.IsNewBestThisRun)
-                ShowRecord(true);
+                ShowRecord(false);
         }
 
         void UnbindScoreManager()
@@ -150,12 +156,14 @@ namespace MukJump.Core
             recordVisible = true;
             stampAnimating = animate;
             stampElapsed = 0f;
+            visibleElapsed = 0f;
+            visualAlpha = animate ? 0f : RestingAlpha;
             if (stampRoot != null)
             {
-                stampRoot.localScale = animate ? Vector3.one * 1.55f : Vector3.one;
+                stampRoot.localScale = animate ? Vector3.one * 1.18f : Vector3.one;
                 stampRoot.localRotation = animate
-                    ? Quaternion.Euler(0f, 0f, -12f)
-                    : Quaternion.Euler(0f, 0f, -5f);
+                    ? Quaternion.Euler(0f, 0f, -8f)
+                    : Quaternion.Euler(0f, 0f, -4f);
             }
             UpdateValueText();
             ApplyVisibility();
@@ -166,6 +174,8 @@ namespace MukJump.Core
             recordVisible = false;
             stampAnimating = false;
             stampElapsed = 0f;
+            visibleElapsed = 0f;
+            visualAlpha = RestingAlpha;
             ApplyVisibility();
         }
 
@@ -176,38 +186,50 @@ namespace MukJump.Core
             stampElapsed += Time.unscaledDeltaTime;
             float progress = Mathf.Clamp01(stampElapsed / StampDuration);
             float scale;
-            if (progress < 0.72f)
+            if (progress < 0.58f)
             {
-                float strike = Mathf.SmoothStep(0f, 1f, progress / 0.72f);
-                scale = Mathf.Lerp(1.55f, 0.92f, strike);
+                float strike = EaseOutCubic(progress / 0.58f);
+                scale = Mathf.Lerp(1.18f, 0.94f, strike);
             }
             else
             {
-                float settle = Mathf.SmoothStep(0f, 1f, (progress - 0.72f) / 0.28f);
-                scale = Mathf.Lerp(0.92f, 1f, settle);
+                float settle = Mathf.SmoothStep(0f, 1f, (progress - 0.58f) / 0.42f);
+                scale = Mathf.Lerp(0.94f, 1f, settle);
             }
 
+            visualAlpha = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / 0.58f));
             stampRoot.localScale = Vector3.one * scale;
             stampRoot.localRotation = Quaternion.Euler(
-                0f, 0f, Mathf.Lerp(-12f, -5f, Mathf.SmoothStep(0f, 1f, progress)));
+                0f, 0f, Mathf.Lerp(-8f, -4f, EaseOutCubic(progress)));
             if (progress >= 1f)
                 stampAnimating = false;
         }
 
+        void UpdateRestingEmphasis()
+        {
+            if (!recordVisible || stampAnimating || !Application.isPlaying) return;
+            visibleElapsed += Time.unscaledDeltaTime;
+            if (visibleElapsed <= FullEmphasisHold) return;
+            visualAlpha = Mathf.MoveTowards(
+                visualAlpha, RestingAlpha,
+                (1f - RestingAlpha) / 0.18f * Time.unscaledDeltaTime);
+        }
+
         void UpdateValueText()
         {
-            if (valueText == null) return;
+            if (valueText == null || !valueText.gameObject.activeSelf) return;
             int best = boundScore != null ? boundScore.DisplayBest : 0;
-            valueText.text = Application.isPlaying
-                ? $"지금 기록이 최고 · {best}m"
-                : "지금 기록이 최고 · 123m";
+            valueText.text = $"신기록 · {best}m";
         }
 
         void ConfigureVisuals()
         {
+            if (stampRoot != null && sealText == null)
+                sealText = stampRoot.Find("SealText")?.GetComponent<Text>();
             if (sealImage != null)
             {
-                sealImage.sprite = InkUiTextureFactory.CreateBlobSprite();
+                if (Application.isPlaying && sealImage.sprite == null)
+                    sealImage.sprite = InkUiTextureFactory.CreateBlobSprite();
                 sealImage.color = InkPalette.Red;
                 sealImage.raycastTarget = false;
             }
@@ -217,20 +239,61 @@ namespace MukJump.Core
                 valueText.color = InkPalette.Red;
                 valueText.raycastTarget = false;
             }
+            if (sealText != null)
+            {
+                sealText.text = "신";
+                sealText.font = InkPalette.UiFont;
+                sealText.fontSize = 20;
+                sealText.fontStyle = FontStyle.Normal;
+                sealText.alignment = TextAnchor.MiddleCenter;
+                sealText.color = InkPalette.Paper;
+                sealText.raycastTarget = false;
+            }
             if (rootGroup != null)
             {
                 rootGroup.interactable = false;
                 rootGroup.blocksRaycasts = false;
             }
+            if (Application.isPlaying)
+                ApplyCompactRuntimeLayout();
         }
 
         void ApplyVisibility()
         {
             if (rootGroup == null) return;
             bool visible = !Application.isPlaying || (gameplayVisible && recordVisible);
-            rootGroup.alpha = visible ? 1f : 0f;
+            rootGroup.alpha = visible
+                ? (Application.isPlaying ? visualAlpha : 1f)
+                : 0f;
             rootGroup.interactable = false;
             rootGroup.blocksRaycasts = false;
+        }
+
+        void ApplyCompactRuntimeLayout()
+        {
+            if (transform is RectTransform root)
+            {
+                root.anchorMin = root.anchorMax = new Vector2(0.955f, 0.5f);
+                root.pivot = new Vector2(0.5f, 0.5f);
+                root.anchoredPosition = Vector2.zero;
+                root.sizeDelta = new Vector2(46f, 46f);
+            }
+
+            var legacyBackground = GetComponent<Graphic>();
+            if (legacyBackground != null) legacyBackground.enabled = false;
+            if (valueText != null) valueText.gameObject.SetActive(false);
+
+            if (stampRoot == null) return;
+            stampRoot.anchorMin = stampRoot.anchorMax = new Vector2(0.5f, 0.5f);
+            stampRoot.pivot = new Vector2(0.5f, 0.5f);
+            stampRoot.anchoredPosition = Vector2.zero;
+            stampRoot.sizeDelta = new Vector2(46f, 46f);
+        }
+
+        static float EaseOutCubic(float value)
+        {
+            float inverse = 1f - Mathf.Clamp01(value);
+            return 1f - inverse * inverse * inverse;
         }
 
         static RectTransform CreateRect(
@@ -255,7 +318,7 @@ namespace MukJump.Core
             text.text = value;
             text.font = InkPalette.UiFont;
             text.fontSize = fontSize;
-            text.fontStyle = FontStyle.Bold;
+            text.fontStyle = FontStyle.Normal;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = color;
             text.resizeTextForBestFit = false;

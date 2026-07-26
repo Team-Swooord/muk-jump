@@ -500,26 +500,39 @@ namespace MukJump.EditorTools
             scaler.referenceResolution = new Vector2(1080f, 1920f);
             scaler.matchWidthOrHeight = 1f;
 
-            ConfigureUiTexture(StartButtonPath);
-            var display = CreateUiObject("HeightDisplay", root.transform, new Vector2(0.5f, 0.94f),
-                new Vector2(500f, 110f));
-            var background = display.gameObject.AddComponent<RawImage>();
-            background.texture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
-            background.raycastTarget = false;
-            RestoreUiLayout(display);
+            ConfigureUiTexture(GaugeTrackPath);
+            var paperTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeTrackPath);
+            var topHudRoot = CreateUiObject("TopHudRoot", root.transform, new Vector2(0.5f, 1f),
+                new Vector2(1016f, 112f));
+            topHudRoot.pivot = new Vector2(0.5f, 1f);
+            topHudRoot.anchoredPosition = new Vector2(0f, -52f);
+            var topHudBackground = topHudRoot.gameObject.AddComponent<RawImage>();
+            topHudBackground.texture = paperTexture;
+            topHudBackground.color = new Color(1f, 1f, 1f, 0.78f);
+            topHudBackground.raycastTarget = false;
 
-            var label = CreateText("HeightText", display, "고도 0", 46, FontStyle.Bold,
-                new Vector2(0.5f, 0.5f), new Vector2(400f, 80f), Color.white);
-            RestoreUiLayout(label.rectTransform);
+            var display = CreateUiObject("HeightDisplay", topHudRoot, new Vector2(0.5f, 0.5f),
+                new Vector2(360f, 96f));
+            var heightCaption = CreateText("HeightCaption", topHudRoot, "고도", 20,
+                FontStyle.Normal, new Vector2(0.5f, 0.77f), new Vector2(100f, 28f),
+                InkPalette.TextMuted);
+            heightCaption.resizeTextForBestFit = false;
+            var label = CreateText("HeightText", display, "0m", 50, FontStyle.Normal,
+                new Vector2(0.5f, 0.34f), new Vector2(300f, 58f), InkPalette.TextDark);
+            label.rectTransform.anchoredPosition = new Vector2(0f, -2f);
             label.resizeTextForBestFit = false;
             label.alignByGeometry = true;
-            var bestLabel = CreateText("BestText", root.transform, "최고 0", 30, FontStyle.Normal,
-                new Vector2(0.5f, 0.89f), new Vector2(360f, 60f), InkPalette.TextMuted);
-            RestoreUiLayout(bestLabel.rectTransform);
+
+            var bestCaption = CreateText("BestCaption", topHudRoot, "최고", 20,
+                FontStyle.Normal, new Vector2(0.82f, 0.73f), new Vector2(140f, 28f),
+                InkPalette.TextMuted);
+            bestCaption.resizeTextForBestFit = false;
+            var bestLabel = CreateText("BestText", topHudRoot, "0m", 30, FontStyle.Normal,
+                new Vector2(0.82f, 0.36f), new Vector2(180f, 42f), InkPalette.TextDark);
             bestLabel.resizeTextForBestFit = false;
             bestLabel.alignByGeometry = true;
-            var newBestIndicator = CreateNewBestIndicator(root.transform);
-            var windIndicator = CreateWindIndicator(root.transform);
+            var newBestIndicator = CreateNewBestIndicator(topHudRoot);
+            var windIndicator = CreateWindIndicator(topHudRoot);
 
             var testControls = CreateUiObject("ItemTestControls", root.transform,
                 new Vector2(0f, 0.5f), new Vector2(410f, 1200f));
@@ -580,8 +593,11 @@ namespace MukJump.EditorTools
             var view = root.GetComponent<GameplayHudView>();
             var so = new SerializedObject(view);
             so.FindProperty("canvas").objectReferenceValue = canvas;
+            so.FindProperty("topHudRoot").objectReferenceValue = topHudRoot;
             so.FindProperty("heightText").objectReferenceValue = label;
+            so.FindProperty("heightCaption").objectReferenceValue = heightCaption;
             so.FindProperty("bestText").objectReferenceValue = bestLabel;
+            so.FindProperty("bestCaption").objectReferenceValue = bestCaption;
             so.FindProperty("itemTestControls").objectReferenceValue = testControls;
             so.FindProperty("debugPanel").objectReferenceValue = debugPanel;
             so.FindProperty("debugToggleButton").objectReferenceValue = debugToggleButton;
@@ -609,42 +625,28 @@ namespace MukJump.EditorTools
 
         static NewBestIndicatorView CreateNewBestIndicator(Transform parent)
         {
-            ConfigureUiTexture(GaugeTrackPath);
-            var paperTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeTrackPath);
-
-            var root = CreateUiObject("NewBestInkSeal", parent, new Vector2(0.5f, 0.835f),
-                new Vector2(460f, 108f));
+            var root = CreateUiObject("NewBestInkSeal", parent, new Vector2(0.955f, 0.5f),
+                new Vector2(46f, 46f));
             var group = root.gameObject.AddComponent<CanvasGroup>();
             group.interactable = false;
             group.blocksRaycasts = false;
 
-            var paper = root.gameObject.AddComponent<RawImage>();
-            paper.texture = paperTexture;
-            paper.color = new Color(1f, 1f, 1f, 0.9f);
-            paper.raycastTarget = false;
-
-            var sealRoot = CreateUiObject("RecordSeal", root, new Vector2(0.13f, 0.5f),
-                new Vector2(74f, 74f));
-            sealRoot.localRotation = Quaternion.Euler(0f, 0f, -5f);
+            var sealRoot = CreateUiObject("RecordSeal", root, new Vector2(0.5f, 0.5f),
+                new Vector2(46f, 46f));
+            sealRoot.localRotation = Quaternion.Euler(0f, 0f, -4f);
             var seal = sealRoot.gameObject.AddComponent<Image>();
             seal.color = InkPalette.Red;
             seal.raycastTarget = false;
-            var sealText = CreateText("SealText", sealRoot, "최고", 23, FontStyle.Bold,
-                new Vector2(0.5f, 0.5f), new Vector2(62f, 58f), InkPalette.Paper);
+            var sealText = CreateText("SealText", sealRoot, "신", 20, FontStyle.Normal,
+                new Vector2(0.5f, 0.5f), new Vector2(34f, 32f), InkPalette.Paper);
             sealText.resizeTextForBestFit = false;
-
-            var value = CreateText("RecordText", root, "지금 기록이 최고 · 123m", 28,
-                FontStyle.Bold, new Vector2(0.61f, 0.51f), new Vector2(350f, 64f),
-                InkPalette.Red);
-            value.resizeTextForBestFit = false;
-            value.alignByGeometry = true;
 
             var view = root.gameObject.AddComponent<NewBestIndicatorView>();
             var viewSo = new SerializedObject(view);
             viewSo.FindProperty("rootGroup").objectReferenceValue = group;
             viewSo.FindProperty("stampRoot").objectReferenceValue = sealRoot;
             viewSo.FindProperty("sealImage").objectReferenceValue = seal;
-            viewSo.FindProperty("valueText").objectReferenceValue = value;
+            viewSo.FindProperty("sealText").objectReferenceValue = sealText;
             viewSo.ApplyModifiedPropertiesWithoutUndo();
             return view;
         }
@@ -652,61 +654,40 @@ namespace MukJump.EditorTools
         static WindIndicatorView CreateWindIndicator(Transform parent)
         {
             ConfigureUiTexture(GaugeFillPath);
-            ConfigureUiTexture(GaugeTrackPath);
             var brushTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeFillPath);
-            var paperTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeTrackPath);
 
-            var root = CreateUiObject("WindInkIndicator", parent, Vector2.one,
-                new Vector2(280f, 92f));
-            root.pivot = Vector2.one;
-            root.anchoredPosition = new Vector2(-24f, -138f);
+            var root = CreateUiObject("WindInkIndicator", parent, new Vector2(0.16f, 0.5f),
+                new Vector2(270f, 84f));
 
             var group = root.gameObject.AddComponent<CanvasGroup>();
             group.interactable = false;
             group.blocksRaycasts = false;
 
-            var background = root.gameObject.AddComponent<RawImage>();
-            background.texture = paperTexture;
-            background.color = new Color(1f, 1f, 1f, 0.9f);
-            background.raycastTarget = false;
+            var sealRect = CreateUiObject("WindAlertSeal", root, new Vector2(0.1f, 0.5f),
+                new Vector2(32f, 32f));
+            sealRect.localRotation = Quaternion.Euler(0f, 0f, -4f);
+            var alertSeal = sealRect.gameObject.AddComponent<Image>();
+            alertSeal.color = new Color(
+                InkPalette.Red.r, InkPalette.Red.g, InkPalette.Red.b, 0.62f);
+            alertSeal.raycastTarget = false;
+            var sealText = CreateText("SealText", sealRect, "풍", 19, FontStyle.Normal,
+                new Vector2(0.5f, 0.5f), new Vector2(26f, 26f), InkPalette.Paper);
+            sealText.resizeTextForBestFit = false;
 
-            var arrow = CreateUiObject("DirectionArrow", root, new Vector2(0.2f, 0.56f),
-                new Vector2(86f, 56f));
+            var arrow = CreateUiObject("DirectionArrow", root, new Vector2(0.42f, 0.5f),
+                new Vector2(76f, 36f));
             var shaft = CreateWindArrowPart("Shaft", arrow, new Vector2(-5f, 0f),
-                new Vector2(54f, 10f), 0f, brushTexture);
-            var upper = CreateWindArrowPart("UpperHead", arrow, new Vector2(18f, 9f),
-                new Vector2(25f, 7f), -40f, brushTexture);
-            var lower = CreateWindArrowPart("LowerHead", arrow, new Vector2(18f, -9f),
-                new Vector2(25f, 7f), 40f, brushTexture);
+                new Vector2(44f, 7f), 0f, brushTexture);
+            var upper = CreateWindArrowPart("UpperHead", arrow, new Vector2(15f, 7f),
+                new Vector2(20f, 6f), -40f, brushTexture);
+            var lower = CreateWindArrowPart("LowerHead", arrow, new Vector2(15f, -7f),
+                new Vector2(20f, 6f), 40f, brushTexture);
 
-            var state = CreateText("WindStateText", root, "산들바람", 25, FontStyle.Bold,
-                new Vector2(0.67f, 0.67f), new Vector2(165f, 42f), InkPalette.TextDark);
+            var state = CreateText("WindStateText", root, "산들", 22, FontStyle.Normal,
+                new Vector2(0.76f, 0.5f), new Vector2(112f, 40f),
+                InkPalette.TextDark);
             state.resizeTextForBestFit = false;
             state.alignByGeometry = true;
-
-            var strengthBrushes = new RawImage[3];
-            float[] widths = { 28f, 38f, 48f };
-            float[] positions = { -45f, 0f, 49f };
-            for (int i = 0; i < strengthBrushes.Length; i++)
-            {
-                var stroke = CreateUiObject($"WindStrengthStroke{i + 1}", root,
-                    new Vector2(0.67f, 0.25f), new Vector2(widths[i], 7f));
-                stroke.anchoredPosition = new Vector2(positions[i], 0f);
-                stroke.localRotation = Quaternion.Euler(0f, 0f, -2f + i * 2f);
-                var strokeImage = stroke.gameObject.AddComponent<RawImage>();
-                strokeImage.texture = brushTexture;
-                strokeImage.color = new Color(
-                    InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.5f);
-                strokeImage.raycastTarget = false;
-                strengthBrushes[i] = strokeImage;
-            }
-
-            var alertRect = CreateUiObject("WindAlertSeal", root, new Vector2(0.94f, 0.78f),
-                new Vector2(22f, 22f));
-            alertRect.localRotation = Quaternion.Euler(0f, 0f, 8f);
-            var alertSeal = alertRect.gameObject.AddComponent<Image>();
-            alertSeal.color = InkPalette.Red;
-            alertSeal.raycastTarget = false;
 
             var view = root.gameObject.AddComponent<WindIndicatorView>();
             var viewSo = new SerializedObject(view);
@@ -719,11 +700,9 @@ namespace MukJump.EditorTools
             arrowGraphics.GetArrayElementAtIndex(1).objectReferenceValue = upper;
             arrowGraphics.GetArrayElementAtIndex(2).objectReferenceValue = lower;
             var brushGraphics = viewSo.FindProperty("strengthBrushes");
-            brushGraphics.arraySize = strengthBrushes.Length;
-            for (int i = 0; i < strengthBrushes.Length; i++)
-                brushGraphics.GetArrayElementAtIndex(i).objectReferenceValue =
-                    strengthBrushes[i];
+            brushGraphics.arraySize = 0;
             viewSo.FindProperty("alertSeal").objectReferenceValue = alertSeal;
+            viewSo.FindProperty("sealText").objectReferenceValue = sealText;
             viewSo.ApplyModifiedPropertiesWithoutUndo();
             return view;
         }
