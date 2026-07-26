@@ -1,6 +1,7 @@
 using UnityEngine;
 using MukJump.Core;
 using MukJump.Drawing;
+using MukJump.Items;
 using System;
 using System.Collections.Generic;
 
@@ -61,6 +62,11 @@ namespace MukJump.Player
             GameManager.Instance?.RegisterPlayer(this);
         }
 
+        void OnDisable()
+        {
+            GameManager.Instance?.UnregisterPlayer(this);
+        }
+
         /// 로비에서는 시작선을 그리는 동안 캐릭터가 먼저 추락하지 않도록 그 자리에 고정한다.
         /// 선이 완성되면 현재 위치에서 물리를 시작하므로 아래에 그린 선만 첫 발판이 된다.
         public void BeginFromLobby()
@@ -82,6 +88,18 @@ namespace MukJump.Player
             CurrentPlatform = null;
             GroundNormal = Vector2.up;
             damageInvulnerableUntil = Time.time + cloneSpawnGraceDuration;
+            rb.WakeUp();
+        }
+
+        /// 개발용 고도 이동. 접착과 속도를 정리해 순간이동 직후 물리 튕김을 막는다.
+        public void DebugTeleportBy(Vector2 offset)
+        {
+            if (IsDead) return;
+            DetachFromPlatform();
+            rb.position += offset;
+            rb.linearVelocity = Vector2.zero;
+            rb.angularVelocity = 0f;
+            damageInvulnerableUntil = Time.time + 0.5f;
             rb.WakeUp();
         }
 
@@ -160,6 +178,7 @@ namespace MukJump.Player
             if (IsDead) return;
             if (IsInkDropBoosted) return;
             if (Time.time < damageInvulnerableUntil) return;
+            GameFeedbackController.Instance?.PlayHitStop();
             if (GameManager.Instance != null && GameManager.Instance.DebugInvincible)
             {
                 damageInvulnerableUntil = Time.time + shieldHitGraceDuration;
@@ -192,6 +211,8 @@ namespace MukJump.Player
             IsInkDropBoosted = true;
             inkDropHasRisen = false;
             LaunchToHeight(height);
+            Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
+                transform, Mathf.Lerp(1f, 1.5f, Mathf.InverseLerp(25f, 50f, height)));
         }
 
         bool ConsumeShield()
@@ -199,6 +220,7 @@ namespace MukJump.Player
             if (!HasShield) return false;
             HasShield = false;
             ShieldConsumed?.Invoke();
+            GameFeedbackController.Instance?.PlayShieldBreak();
             return true;
         }
 
@@ -215,6 +237,7 @@ namespace MukJump.Player
         {
             if (IsDead) return;
 
+            GameFeedbackController.Instance?.PlayDeath(transform.position);
             IsDead = true;
             IsInkDropBoosted = false;
             IsGrounded = false;
@@ -290,6 +313,10 @@ namespace MukJump.Player
                 var contact = collision.GetContact(i);
                 if (platform != null)
                 {
+                    // 풍맥 발판은 아래에서 통과한다. Effector 경계에서 발생할 수 있는
+                    // 아래·옆면 접촉도 착지나 풍맥 효과로 처리하지 않는다.
+                    if (platform.IsWindCurrentPlatform && contact.normal.y < groundNormalMinY)
+                        continue;
                     // 먹물방울 상승 중에는 방금 떨어져 나온 대각선 발판이 같은 물리
                     // 스텝에서 다시 캐릭터를 붙잡아 점프 속도를 덮지 못하게 한다.
                     if (IsInkDropBoosted) return;
@@ -333,8 +360,34 @@ namespace MukJump.Player
 
         void OnCollisionEnter2D(Collision2D collision)
         {
-            if (IsDead || collision.collider.GetComponent<ScreenSideWall>() == null) return;
+            if (IsDead) return;
 
+            var platform = collision.collider.GetComponentInParent<PlatformCollider>();
+            bool hasTopContact = false;
+            for (int i = 0; i < collision.contactCount; i++)
+            {
+                if (collision.GetContact(i).normal.y < groundNormalMinY) continue;
+                hasTopContact = true;
+                break;
+            }
+
+            if (hasTopContact && platform != null && platform.TryUseWindCurrent(this))
+            {
+                LaunchInkDrop(36f);
+                GetComponent<InkDropJumpVfx>()?.Play();
+                GameFeedbackController.Instance?.ShowZone("풍맥 상승", "바람길이 먹방울을 밀어 올립니다");
+                return;
+            }
+
+            bool isSpecialPlatform = platform != null && platform.IsWindCurrentPlatform;
+            bool landed = hasTopContact || (platform != null && !isSpecialPlatform);
+            if (landed)
+                GameFeedbackController.Instance?.PlayLanding(transform.position,
+                    Mathf.Abs(collision.relativeVelocity.y));
+
+            if (collision.collider.GetComponent<ScreenSideWall>() == null) return;
+
+            GameFeedbackController.Instance?.PlayWallHit();
             float inwardDirection = transform.position.x >= collision.transform.position.x ? 1f : -1f;
             float bounceSpeed = Mathf.Max(sideWallBounceSpeed, Mathf.Abs(rb.linearVelocity.x) * 0.55f);
             rb.linearVelocity = new Vector2(inwardDirection * bounceSpeed, rb.linearVelocity.y);

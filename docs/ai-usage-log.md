@@ -26,6 +26,11 @@
 |---|---|---|
 | 캐릭터/배경 아트 | 팀 자체 제작 (AI 보조 드로잉 후 수작업 검수) | 자체 저작물 |
 | Unity 패키지 | Unity Technologies (URP, Input System 등 공식 패키지) | Unity Companion License |
+| `Inkdrop Ascent.mp3` | 팀 Suno Pro 계정에서 직접 생성 | 생성 당시 유료 구독 상업 이용 권한 |
+| `SFX_Brush_Community.mp3` | Pixabay `brush` · Reitanna (Freesound), ID 83215 | Pixabay Content License |
+| `SFX_Character_Death_Slime.mp3` | Pixabay `Slime Squish 5` · floraphonic, ID 218569 | Pixabay Content License |
+| `SFX_Game_Over_Ink_Spill.mp3` | Pixabay 다운로드 `freesound_community-2`, ID 108080 | Pixabay Content License |
+| `HealthsetJoritdaeStd.otf` | 제주조릿대 RIS사업단·한그리아 제작, 사용자 제공 OTF | 회사·개인 용도 제한 없이 상업적 이용 가능, 유료 재판매 금지. 원본 재배포 조건은 최종 제출 전 원 배포처 재확인 |
 
 ---
 
@@ -34,6 +39,7 @@
 | 항목 | 제작 도구 | 구분 |
 |---|---|---|
 | `MukJump_InkDropJump_VFX_Pack` 텍스처·효과음·연출 사양 | OpenAI Codex | 프로젝트를 위해 직접 생성한 AI 산출물이며 외부 에셋이 아님 |
+| 고도 맵 배경 7종 (`Assets/Art/Background/Maps/`, `Assets/Resources/MukJump/Background/Endless/`) | OpenAI ImageGen + Codex | 프로젝트 전용으로 생성·검수한 자체 수채화 배경이며 외부 에셋이 아님 |
 
 ---
 
@@ -497,6 +503,33 @@
 - 사람의 수정/검토 내용: 접착 여부와 관계없이 캐릭터 기본 중력을 사망 연출에 사용하고,
   분신 생성 시 원본이 기억하는 정상 중력값을 별도로 전달하도록 변경
 
+### 2026-07-24 — 인게임 아이템 크기 2차 축소
+
+- 사용 도구: Codex
+- 목적: 1차 축소 후에도 캐릭터 대비 크게 보이던 아이템 4종의 월드 크기를 추가 보정
+- 산출물: `Assets/Scripts/Items/ItemSpawner.cs`
+- 사람 검토/후처리: 네 아이템 공통 월드 폭을 1.35에서 0.9로 줄여 약 33% 추가 축소.
+  Collider는 아이템 Transform 스케일을 따라 함께 축소됨
+
+### 2026-07-24 — 사망 먹 자국 명도 정리와 월드 아이템 축소
+
+- 사용 도구: Codex, imagegen 로컬 후처리
+- 목적: 사망 자국의 흰색 종이 질감이 별도 흰 물감처럼 보이는 문제를 없애고 인게임 아이템 크기를 줄임
+- 산출물: `Assets/Art/Character/Death/ink_death_splash.png`, `Assets/Scripts/Items/ItemSpawner.cs`
+- 사람 검토/후처리: 원본 명도를 알파 농도로 변환해 밝은 부분은 완전 투명, 진한 부분은
+  `INK #1C1B1A` 먹 농담으로 유지. 아이템 공통 월드 폭을 1.7에서 1.35로 축소하고
+  과거 씬 직렬화 값에 영향받지 않도록 상수로 고정
+
+### 2026-07-24 — 프로젝트 기획·실행 문서 최신화
+
+- 사용 도구: Codex
+- 목적: 초기 구현 전 상태에 머물러 있던 프로젝트 문서를 현재 `main` 구현과 실제 협업 흐름에 맞춤
+- 산출물: `CLAUDE.md`, `README.md`, `docs/project-brief.md`
+- 정리 내용: 아이템 4종, 먹분신 생존 규칙, 8프레임 애니메이션, 먹 사망 자국, DEBUG 패널,
+  완료·진행·미구현 범위, feature 브랜치 → commit → push → 일반 PR merge → main 동기화
+  운영 절차 반영. Claude Code가 동일한 작업 방식을 재현하도록 원격 조작 제한, Unity 씬 빌더,
+  컴파일 로그 검증, 문서 동기화 규칙을 시작 지침으로 추가
+
 ### 2026-07-24 — 사망 위치에 먹 자국 유지
 
 - 사용 도구: Codex
@@ -554,3 +587,375 @@
 - 사람의 수정/검토 내용: 첨부 원본은 알파가 전부 불투명해 체크무늬 배경이 표시되는 것을 확인하고,
   형태를 참조해 크로마 배경으로 재생성한 뒤 투명 PNG로 변환함. 방어막 소모 직후 0.35초,
   새 분신 생성 직후 0.6초의 장애물 피해 유예를 적용
+
+### 2026-07-24 — 행동 피드백·절차적 효과음·고도별 환경 구간
+
+- 사용 도구: OpenAI Codex
+- 목적: 최고 고도 점수 규칙은 유지하면서 반복 플레이의 손맛과 구간별 변화를 강화
+- 주요 프롬프트/지시: 점수·콤보 추가는 보류하고 나머지 고도화 요소를 적용하며, 가능한
+  효과음과 시각 효과는 외부 에셋 없이 프로젝트 안에서 직접 생성
+- 결과물: `GameFeedbackController.cs`, `HeightZoneController.cs` 및 점프·착지·드로잉·
+  아이템·사망 연결 코드
+- 구현 메모: AudioClip 샘플을 런타임에 합성해 점프·착지·유효/무효 획·아이템·구간 효과음을
+  만들었다. 100m마다 바람, 발판 수명 단축, 낙묵석 빈도 증가 규칙을 순환시키되 점수는
+  기존 최고 높이만 사용한다. 캐릭터와 겹친 획은 전체 폐기하지 않고 가장 긴 안전 구간을 남긴다.
+- 사람의 수정/검토 내용: Unity Play에서 구간 전환 체감, 모바일 음량, 장시간 플레이 중
+  런타임 이펙트 오브젝트 정리와 프레임 타임 확인 예정
+
+### 2026-07-24 — Suno 생성 배경음악 적용
+
+- 사용 도구: Suno v4.5, OpenAI Codex
+- 목적: 수묵 산수화와 귀여운 자동 점프 분위기에 맞는 국악풍 인게임 BGM 적용
+- 주요 프롬프트/지시: 가야금·대금·장구 중심의 여백 있는 연주곡, 가사와 보컬 없이
+  상승 리듬을 만들고 장시간 반복해도 피로하지 않은 모바일 게임 배경음악
+- 결과물: `Assets/Resources/MukJump/Audio/InkdropAscent.mp3`,
+  `BackgroundMusicController.cs`
+- 구현 메모: 약 59.8초 스테레오 MP3를 반복 재생하고 씬 재시작에도 재생 객체를 유지한다.
+  로비 0.32, 플레이 0.48, 게임오버 0.18 음량으로 부드럽게 페이드한다.
+- 권리 확인: 사용자 유료 Suno Pro 구독 중 직접 생성. Suno 공식 도움말 기준 유료 구독 중
+  생성곡은 비디오 게임을 포함한 상업 이용 권한이 부여된다.
+- 사람의 수정/검토 내용: 실제 모바일 스피커에서 효과음 대비 음량과 MP3 반복 경계 확인 예정
+
+### 2026-07-24 — 플레이 상황별 절차적 효과음 보강
+
+- 사용 도구: OpenAI Codex
+- 목적: BGM 위에서도 드로잉과 충돌·사망·화면 전환의 손맛이 명확하게 들리도록 상황음을 분리
+- 주요 프롬프트/지시: 붓을 그리는 동안의 마찰음, 먹붓 화면 전환음, 벽 충돌음,
+  캐릭터가 짧게 찍 하고 죽는 소리, 마지막 캐릭터 사망 시 게임 종료음을 추가
+- 결과물: `GameFeedbackController.cs`, `StrokeCapture.cs`, `BrushTransitionView.cs`,
+  `PlayerController.cs`, `GameManager.cs`
+- 구현 메모: 터치 시작부터 종료까지 저음량 붓 마찰 루프를 재생하고 이동량에 맞춰 음색과
+  음량을 조절한다. 벽 충돌은 둔탁한 단발음, 개별 사망은 고음에서 급강하하는 짧은 음,
+  마지막 사망은 별도의 하강 종료음으로 구분한다.
+- 사람의 수정/검토 내용: BGM이 재생되는 실제 기기에서 각 효과음 음량과 반복 붓소리 경계 확인 예정
+
+### 2026-07-24 — 연속 붓소리와 사망음 가청성 수정
+
+- 사용 도구: OpenAI Codex
+- 목적: 긴 선의 붓소리가 중간에 끊기고 장애물 사망음이 BGM·종료음에 묻히는 문제 수정
+- 주요 프롬프트/지시: 선을 길게 그리면 손을 뗄 때까지 “스으으윽” 소리가 이어지고,
+  장애물 충돌 사망 시 캐릭터의 짧은 사망음이 확실히 들리도록 조정
+- 결과물: `GameFeedbackController.cs`, `StrokeCapture.cs`
+- 구현 메모: 붓 루프의 수명을 이동 샘플 타이머가 아닌 터치 시작·종료에 직접 연결했다.
+  사망·게임 종료음은 효과음 순환 풀과 분리한 우선순위 전용 AudioSource에서 재생하고,
+  사망음의 합성 진폭과 고음 시작점을 높였다.
+
+### 2026-07-24 — Play 중 재컴파일 후 절차적 효과음 복구
+
+- 사용 도구: OpenAI Codex
+- 목적: 코드 수정 후에도 이전과 똑같이 효과음이 들리지 않는 런타임 참조 초기화 문제 수정
+- 주요 프롬프트/지시: 사망음과 긴 붓소리를 강화했는데도 들리지 않는 원인을 확인
+- 결과물: `GameFeedbackController.cs`
+- 구현 메모: Play 중 스크립트 재컴파일에서는 `Awake`가 다시 호출되지 않아 비직렬화
+  AudioClip 참조가 null이 될 수 있다. `OnEnable`과 모든 재생 진입점에서 합성 클립과
+  전용 AudioSource를 재확인·복원하며, 기존 자식 소스를 재사용해 중복 생성을 막는다.
+
+### 2026-07-24 — 실제 WAV 효과음 제작과 Missing Script 원인 수정
+
+- 사용 도구: OpenAI Codex, Node.js PCM 생성 스크립트
+- 목적: 런타임 합성에만 의존하지 않고 프로젝트에서 직접 확인 가능한 효과음 파일을 적용하며
+  `The referenced script (Unknown)` 경고의 구조적 원인을 제거
+- 주요 프롬프트/지시: 소리가 계속 들리지 않으므로 실제 음원을 만들고 Missing Script도 수정
+- 결과물: `Assets/Resources/MukJump/Audio/SFX/`의 붓 드로잉·붓 전환·벽 충돌·
+  캐릭터 사망·게임 종료 WAV 5종, `tools/generate_sfx.mjs`, `GameOverPopupView.cs`
+- 구현 메모: 44.1kHz 16-bit mono PCM WAV를 저장하고 `Resources.Load`로 불러오며,
+  로드 실패 시에만 기존 런타임 합성을 폴백으로 사용한다. 파일명과 다른 소스 파일에 두 번째
+  MonoBehaviour로 선언돼 씬에 런타임 fileID가 저장되던 `GameOverPopupView`를 독립 파일로
+  분리해 정상 GUID를 갖도록 했다.
+- 사람의 수정/검토 내용: `MukJump > Build Main Scene` 재실행 후 Missing Script 경고 제거,
+  Inspector 미리듣기와 실제 플레이 음량 확인 예정
+
+### 2026-07-24 — 제공된 붓 마찰음으로 교체
+
+- 사용 도구: OpenAI Codex
+- 목적: 코드로 만든 임시 붓소리를 사용자가 선택한 자연스러운 붓 마찰음으로 교체
+- 입력 에셋: `freesound_community-brush-83215.mp3`, 약 1.646초, 44.1kHz mono
+- 결과물: `Assets/Resources/MukJump/Audio/SFX/SFX_Brush_Community.mp3`
+- 구현 메모: 드로잉 중에는 터치 시작부터 종료까지 반복하고 화면 전환에서는 한 번 재생한다.
+  외부 파일 로드 실패 시 자체 제작 붓 WAV와 런타임 합성 순서로 폴백한다.
+- 출처·라이선스: Pixabay `brush`(ID 83215), Reitanna (Freesound),
+  Pixabay Content License
+
+### 2026-07-24 — 캐릭터 사망음 `찍` 톤 재조정
+
+- 사용 도구: OpenAI Codex, Node.js PCM 생성 스크립트
+- 목적: 길고 배음이 섞여 이상하게 들리는 사망음을 짧고 명확한 `찍` 소리로 복원
+- 주요 프롬프트/지시: 이전처럼 짧은 `찍` 소리가 나도록 사망음 수정
+- 결과물: `SFX_Character_Death.wav`, `GameFeedbackController.cs`
+- 구현 메모: 사망음을 0.38초 복합 배음에서 0.19초 단일 사인파 고음 하강음으로 교체하고,
+  마지막 캐릭터의 게임 종료음은 0.24초 뒤에 재생해 두 음이 겹치지 않도록 했다.
+
+### 2026-07-24 — 제공된 슬라임 스퀴시 사망음 적용
+
+- 사용 도구: OpenAI Codex
+- 목적: 자체 생성 `찍` 음원 대신 먹방울이 터지는 질감과 가까운 사용자의 선택 음원 적용
+- 입력 에셋: `floraphonic-slime-squish-5-218569.mp3`, 약 0.576초, 48kHz stereo
+- 결과물: `Assets/Resources/MukJump/Audio/SFX/SFX_Character_Death_Slime.mp3`
+- 구현 메모: 캐릭터 사망 시 새 슬라임 스퀴시 음원을 우선 재생하고 기존 `찍` WAV는 폴백으로
+  유지한다. 마지막 캐릭터의 게임 종료음은 사망 클립 전체 길이와 0.04초 여백 뒤에 재생한다.
+- 출처·라이선스: Pixabay `Slime Squish 5`(ID 218569), floraphonic,
+  Pixabay Content License
+
+### 2026-07-24 — 제공된 먹물 쏟아짐 게임 종료음 적용
+
+- 사용 도구: OpenAI Codex
+- 목적: 기존 합성 종료음을 먹물이 엎질러지며 결과 팝업이 나타나는 느낌의 음원으로 교체
+- 입력 에셋: `freesound_community-2-108080.mp3`, 약 0.6초, 24kHz stereo
+- 결과물: `Assets/Resources/MukJump/Audio/SFX/SFX_Game_Over_Ink_Spill.mp3`
+- 구현 메모: 마지막 캐릭터의 슬라임 사망음이 끝난 뒤 새 먹물 쏟아짐 음원을 재생하고,
+  기존 자체 제작 게임 종료 WAV는 로드 실패용 폴백으로 유지한다.
+- 출처·라이선스: Pixabay 다운로드 파일 ID 108080, Pixabay Content License
+
+### 2026-07-24 — 사망 후 결과 팝업 지연과 한지 카드 리디자인
+
+- 사용 도구: OpenAI Codex
+- 목적: 사망과 팝업이 동시에 발생해 소리가 겹치는 문제를 없애고 투박한 결과창을 수묵 UI로 개선
+- 주요 프롬프트/지시: 죽은 뒤 잠시 후 팝업을 표시하고 팝업을 더 예쁘게 꾸미기
+- 결과물: `GameManager.cs`, `GameFeedbackController.cs`, `GameOverPopupView.cs`
+- 구현 메모: 슬라임 사망 클립 길이와 0.04초 여백 뒤에 먹물 종료음과 팝업을 동시에 시작한다.
+  팝업은 먹 테두리·한지 내부 카드·붉은 제목 붓획·최고 고도 금빛 붓결·낙관·먹방울 장식으로
+  재구성하고, 살짝 기울어진 카드가 먹 번지듯 펴지는 등장 애니메이션을 적용했다.
+
+### 2026-07-24 — 안전 먹 발판·점진 맵 변화·구간 디버그 이동
+
+- 사용 도구: OpenAI Codex
+- 목적: 연속 상승 사이에 쉬어가는 호흡을 만들고 맵 변화를 빠르게 검증할 개발 도구 추가
+- 주요 프롬프트/지시: 몇십 미터마다 랜덤 안전 발판을 생성하고 맵이 점점 달라지게 하며,
+  디버그 창에서 맵 변화 지점으로 즉시 이동하고 기능을 확인할 버튼 추가
+- 결과물: `RestPlatformSpawner.cs`, `PlatformCollider.cs`, `AutoJump.cs`,
+  `HeightZoneController.cs`, `GameplayHudView.cs`, `MukJumpSceneBuilder.cs`
+- 구현 메모: 38~58m 간격으로 넓은 영구 발판을 미리 배치하고 붉은 원형 낙관으로 구분한다.
+  안전 발판 착지 시 기존 공중 충전을 초기화해 2.4초간 실제 휴식한다. 맵은 0/250/500/750m
+  단계에서 배경 색감·기상·절벽 먹선을 누적 변화시키며 디버그 순간이동과 안전 발판 생성 버튼을
+  제공한다. 점수는 기존 최고 높이만 유지한다.
+- 사람의 수정/검토 내용: 씬 빌더 재실행 후 각 맵 버튼, 분신 동시 이동, 안전 발판 착지 시간,
+  좁은 화면에서 확장된 디버그 패널 배치 확인 예정
+### 2026-07-24 — 특수 발판·누적 분신·붓 여유 자원 확장
+
+- 목적: 상승 플레이의 휴식과 가속 선택지를 늘리고 장거리 맵 및 누적형 아이템 진행을 구현
+- 주요 지시: 안전 발판 아래 통과, 풍맥 발판 상승, 맵 구간 확대, 먹분신 무제한 누적,
+  100%를 초과해 쌓이지만 자연 회복되지 않는 붓 여유 게이지 추가
+- 산출물: `PlatformCollider.cs`, `RestPlatformSpawner.cs`, `PlayerController.cs`,
+  `StrokeCapture.cs`, `ItemPickup.cs`, `ItemSpawner.cs`, `GameplayHudView.cs`,
+  `PrototypeHud.cs`, `HeightZoneController.cs`, `MukJumpSceneBuilder.cs`
+- 사람 검토/후처리: Unity Play Mode에서 단방향 접촉 방향, 풍맥 재사용 방지,
+  다중 분신 생존 및 여유 게이지 소모 순서를 확인할 예정
+
+### 2026-07-24 — 헬스셋 조릿대 UI 통일·결과 정보 카드 정리
+
+- 사용 도구: OpenAI Codex
+- 목적: 프로젝트의 모든 런타임 UI 글꼴을 하나로 통일하고 게임 종료 정보를 빠르게 읽게 개선
+- 주요 프롬프트/지시: 사용자 제공 `헬스셋조릿대Std.otf`를 모든 글씨에 적용하고,
+  결과창에는 필요한 정보를 각각 독립적으로 표시
+- 결과물: `HealthsetJoritdaeStd.otf`, `InkPalette.cs`, `MukJumpSceneBuilder.cs`,
+  `LobbyView.cs`, `GameplayHudView.cs`, `GameFeedbackController.cs`, `PrototypeHud.cs`,
+  `GameOverPopupView.cs`
+- 구현 메모: Resources 공통 폰트로 로비·HUD·디버그·구간 배너·여유 게이지·결과창을
+  통일했다. 결과창 장식을 걷어내고 이번 고도와 최고 고도 카드, 조건부 신기록, 재도전
+  안내만 남겼으며 전체 카드에는 짧은 페이드·스케일 등장만 적용했다.
+- 사람의 수정/검토 내용: 씬 빌더 재실행 후 모바일 해상도에서 한글 누락 여부와
+  결과 카드 줄바꿈·가독성을 확인할 예정
+
+### 2026-07-24 — 결과창 두루마리 프레임 적용
+
+- 사용 도구: OpenAI Codex
+- 목적: 간결하게 정리한 결과 정보를 게임의 수묵·한지 세계관과 어울리는 틀에 표시
+- 주요 프롬프트/지시: 결과 팝업을 두루마리처럼 변경
+- 결과물: `GameOverPopupView.cs`, `CLAUDE.md`, `docs/project-brief.md`
+- 구현 메모: 기존 정보 카드 배치는 유지하고 한지 본문, 양쪽 음영, 위·아래 말림,
+  먹색 축과 끝마개를 절차적 uGUI 도형으로 구성했다.
+- 사람의 수정/검토 내용: 모바일 세로 화면에서 두루마리 끝과 결과 카드의 간격 확인 예정
+
+### 2026-07-25 — 고도 맵 배경 4종·행동 연출 고도화
+
+- 사용 도구: OpenAI Codex, OpenAI ImageGen
+- 목적: 최고 고도 점수 규칙은 유지하면서 장거리 상승의 장소 변화와 조작 피드백을 강화
+- 주요 프롬프트/지시: 기존 한지 산수화의 여백과 구도를 참조하되 먹방울이처럼 둥글고
+  단순한 저채도 수채화로 표현하고, 과도한 디테일·사실적 질감·뾰족한 형태를 피한다.
+  고요한 산길은 겹친 둥근 산과 작은 소나무, 바람 능선은 옅은 청회색 능선과 넓은
+  바람 띠, 먹비 계곡은 가장자리의 성긴 둥근 먹방울 자국, 검은 절벽은 양옆의 둥근
+  절벽과 붉은 해를 사용한다. 네 장 모두 캐릭터·발판이 읽히도록 중앙과 하단 65%를 비운다.
+- 결과물: `Assets/Art/Background/Maps/` 1080×1920 PNG 4종,
+  `MapBackgroundView.cs`, `HeightZoneController.cs`, `MukJumpSceneBuilder.cs`,
+  `ItemPickup.cs`, `CameraFollow.cs`, `GameFeedbackController.cs`,
+  `PlayerController.cs`, `AutoJump.cs`, `GameOverPopupView.cs`
+- 구현 메모: 0·250·500·750m에서 두 SpriteRenderer를 재사용해 1초 교차 전환한다.
+  아이템 화면 진입 예고, 강한 점프 카메라 펄스, 유효 충돌 0.055초 순간 정지,
+  착지·방어막·사망의 차등 진동과 두루마리 펼침 애니메이션을 추가했다.
+- 사람의 수정/검토 내용: 4종 모두 정확히 1080×1920으로 정규화하고 실제 PNG를 눈으로
+  검수해 중앙·하단 가독성, 둥근 실루엣, 제한된 색감을 확인했다. Unity 씬 빌더 재생성 후
+  실기기 진동 강도와 좁은 화면의 교차 전환·카메라 펄스는 추가 확인 예정이다.
+
+### 2026-07-26 — 효과별 발판 색상·장애물 가시성 보강
+
+- 사용 도구: OpenAI Codex
+- 목적: 신규 수채화 맵 위에서 특수 발판의 기능과 어두운 장애물을 즉시 구분
+- 주요 프롬프트/지시: 맵을 적용하고 생성 발판의 효과마다 색을 다르게 하며 적의
+  가시성을 높이기
+- 결과물: `InkPalette.cs`, `PlatformCollider.cs`, `RestPlatformSpawner.cs`,
+  `ObstacleVisibilityView.cs`, `ObstacleSpawner.cs`, `FallingInkRockSpawner.cs`,
+  `FallingInkRock.cs`
+- 구현 메모: 일반 먹색, 안전 금색, 풍맥 청회색의 3단 팔레트를 사용하고 특수 발판에는
+  물리 없는 검정 붓 외곽선을 겹쳤다. 장애물은 크기·판정은 유지하면서 한지색 받침과
+  붉은 위험선, 높은 렌더 순서를 추가하고 낙묵석 예고 알파·시간·화면 가장자리 여백을 강화했다.
+- 사람의 수정/검토 내용: 발판 외곽 자식에 콜라이더가 없고 장애물 루트 스케일을
+  애니메이션하지 않는 것을 코드로 확인했다. 런타임·에디터 어셈블리 독립 컴파일을 통과했으며
+  실제 9:16 Play 화면의 색 대비와 맵 전환은 씬 빌더 재생성 후 확인 예정이다.
+
+### 2026-07-26 — 특수 발판 색상 출력·양방향 충돌 정정
+
+- 사용 도구: OpenAI Codex
+- 목적: 안전·풍맥 발판이 검게 보이는 문제를 고치고 아래에서 특수 발판을 관통하지 않게 변경
+- 주요 프롬프트/지시: 발판 효과색이 바뀌지 않았으며, 밑에서 올라올 때도 발판을 통과하지
+  않도록 수정
+- 결과물: `FallbackInkStyle.cs`, `PlatformCollider.cs`, `RestPlatformSpawner.cs`,
+  `PlayerController.cs`, `SpecialPlatformTests.cs`, `README.md`, `CLAUDE.md`,
+  `docs/project-brief.md`
+- 구현 메모: 검정 RGB인 UI 붓 텍스처에 효과색을 곱해 색이 소실되던 원인을 확인하고,
+  흰색 RGB와 갈필 알파를 가진 특수색 전용 공유 재질을 분리했다. 안전 발판은 금색,
+  풍맥 발판은 청회색으로 출력하며 낙관과 바람 문양에도 같은 색상용 재질을 사용한다.
+  특수 발판의 `PlatformEffector2D` 단방향 설정을 제거해 양방향 고체로 만들고, 밑면·옆면
+  충돌은 휴식·풍맥·접착·착지 피드백을 발동하지 않도록 상단 접촉을 따로 판정한다.
+- 사람의 수정/검토 내용: Unity Play Mode를 다시 시작한 뒤 9:16 화면에서 두 발판의
+  색 대비, 아래쪽 고속 충돌 차단, 위쪽 착지 효과와 일반 대각선 발판 매달리기를 확인할 예정
+
+### 2026-07-26 — 기능별 오브젝트 풀링·지연 생성·런타임 경계 정리
+
+- 사용 도구: OpenAI Codex
+- 목적: 로비 진입과 장시간 플레이 중 반복 생성·파괴로 인한 오브젝트 수 증가와 GC를 줄이고,
+  한 기능의 생명주기 변경이 다른 스포너·물리 규칙에 전파되지 않게 구조화
+- 주요 프롬프트/지시: 게임 실행 시 너무 많은 오브젝트가 생성되므로 풀링을 적용하고,
+  아키텍처별로 구조를 나눠 수정 영향 범위를 줄이며, 특수 발판은 다시 아래에서 통과하게 변경
+- 결과물: `Assets/Scripts/Core/Pooling/`, `IRuntimeCloneLifecycle.cs`, `GameManager.cs`,
+  `GameFeedbackController.cs`,
+  `HeightZoneController.cs`, `BrushTransitionView.cs`, `GameOverPopupView.cs`,
+  `StrokeCapture.cs`, `ItemEffectView.cs`, `ItemPickup.cs`, `ItemSpawner.cs`,
+  `InkDropJumpVfx.cs`, `InkDropJumpVfxPool.cs`, `InkDropJumpVfxInstance.cs`,
+  `GoldenBrushEffectView.cs`,
+  `Obstacle.cs`, `ObstacleSpawner.cs`,
+  `FallingInkRock.cs`, `FallingInkRockSpawner.cs`, `ObstacleVisibilityView.cs`,
+  `PlatformCollider.cs`, 관련 Editor 테스트, `docs/architecture.md`
+- 구현 메모: 아이템·이동 장애물·낙묵석·피드백·먹물점프 합성 VFX를 기능별 lazy pool로
+  분리하고 대여/반납 초기화 계약을 추가했다. 숨은 결과창·전환·아이템 효과·날씨선은 실제
+  첫 사용까지 만들지 않으며, 고도 순간이동은 과거 예약을 생성 없이 재기준화한다.
+  먹물점프 풀은 플레이어 계층 밖에서 모든 분신이 게임 전체 3묶음을 공유하게 해
+  분신 수에 따른 VFX 자식 누적을 차단했다. 방어막·황금붓 표현 캐시도 분신 Instantiate
+  대상에서 제외한다. 이 제외는 Core의 `IRuntimeCloneLifecycle` 계약으로 역전해
+  `GameManager`가 아이템 표현 타입을 직접 참조하지 않는다. 전역 황금 붓 표현은 최고
+  생존자를 따라가는 렌더러 24개 한 묶음으로 고정했다. Play 중 재컴파일 뒤 남은 비활성
+  풀 객체는 새 managed 풀에 다시 편입하고 유실된 managed 풀도 재구성한다. 동시
+  사망·착지 피드백은 활성 선 8개·방울 16개의 하드 상한 안에서만 표시한다. 특수 발판은
+  단방향 Effector를 사용해 아래에서 통과하고, 일반 대각선 발판은 양방향 매달리기를 유지한다.
+- 사람의 수정/검토 내용: 런타임·에디터 어셈블리 컴파일과 풀 재사용·중복 반납·상태 초기화·
+  합성 자식 수 불변·특수 발판 충돌 정책 테스트를 확인했다. Unity Play Mode에서는 첫 진입
+  Hierarchy 수, 750m DEBUG 이동 프레임, 연속 아이템 획득, 특수 발판 밑 통과를 추가 확인한다.
+
+### 2026-07-26 — 전 맵 풍향·희귀 상승기류와 안전 발판 제거
+
+- 사용 도구: OpenAI Codex
+- 목적: 맵마다 끊기던 단순 횡풍 대신 매 판의 이동 변수를 지속적으로 제공하고, 강제 점프가
+  아닌 완만한 상승기류로 장거리 플레이의 리듬을 바꾸기
+- 주요 프롬프트/지시: 안전 발판을 제거하고 모든 맵의 상단에 풍향 아이콘을 표시한다.
+  약한 바람은 캐릭터를 풍향대로 살짝 밀며, 수백 m마다 강한 바람이 불 때는 너무 빨리
+  올리지 않고 아래로 떨어지지 않는 듯한 상승기류를 만든다.
+- 결과물: `WindWeatherController.cs`, `WindWeatherView.cs`, `WindIndicatorView.cs`,
+  `HeightZoneController.cs`, `RestPlatformSpawner.cs`, `PlatformCollider.cs`,
+  `AutoJump.cs`, `PlayerController.cs`, `GameplayHudView.cs`,
+  `MukJumpSceneBuilder.cs`, `WindWeatherControllerTests.cs`
+- 구현 메모: 첫 180~260m 이후 220~340m 간격으로 예고 1.35초·활성 5.5초·회복
+  0.8초의 기류 상태를 예약한다. 모든 생존 분신의 공중 속도만 재사용 버퍼로 보정하고
+  `gravityScale`은 바꾸지 않는다. 낙하 속도는 즉시 0 이상으로 제동한 뒤 최대
+  0.55m/s까지 천천히 올리며, 이미 빠르게 상승 중인 점프와 먹물방울은 덮어쓰지 않는다.
+  상단 HUD와 고정 10개 붓결 선은 물리 컨트롤러를 읽기만 한다. 기존 안전 발판의 자동
+  생성·2.4초 휴식·피격 면역·디버그 버튼은 제거하되 별도 풍맥 발판 콘텐츠는 유지했다.
+- 사람의 수정/검토 내용: 씬 빌더 재생성 뒤 9:16 화면에서 좌우 풍향 화살표, 강풍 예고,
+  분신 동시 부유, 대각선 발판 접착, 먹물방울 상승, 0/250/500/750m 디버그 이동 시
+  다음 상승기류 재예약을 Play Mode로 확인할 예정이다.
+
+### 2026-07-26 — 인게임 신기록 낙관·풍향 HUD·적 외곽선 정돈
+
+- 사용 도구: OpenAI Codex
+- 목적: 최고 기록 갱신을 플레이 도중 즉시 인지하게 하고, 풍향과 장애물 표시를 게임의
+  단순한 수묵·한지 스타일에 맞추면서 화면을 가리는 장식을 줄이기
+- 주요 프롬프트/지시: 현재 기록이 최고임을 게임플레이 중 시각화하고, 바람 표시 UI를
+  동양화 느낌으로 바꾸며, 적은 두꺼운 받침 대신 얇은 붉은 외곽선으로 표시한다.
+  풍향이 너무 자주 바뀌지 않도록 유지 시간을 늘리고 천천히 전환한다.
+- 결과물: `ScoreManager.cs`, `GameManager.cs`, `GameplayHudView.cs`,
+  `NewBestIndicatorView.cs`, `WindIndicatorView.cs`, `WindWeatherController.cs`,
+  `ObstacleVisibilityView.cs`, `MukJumpSceneBuilder.cs`, 관련 Editor 테스트,
+  `README.md`, `CLAUDE.md`, `docs/project-brief.md`
+- 구현 메모: 도전 시작 시점의 저장 기록을 기준으로 동점은 제외하고 처음 넘어선 순간만
+  신기록 이벤트를 발생시킨다. 최고 기록 HUD를 현재 고도로 갱신하고 붉은 낙관 안내를
+  게임 종료까지 유지한다. 풍향 HUD는 한지 붓획 바탕·검정 먹선 화살표·강풍용 작은 붉은
+  낙관으로 구성한다. 일반 풍향은 28~45초 유지하고 느리게 보간하며 강풍 예고·상승기류·
+  회복 중에는 유지 타이머를 일시 정지한다. 장애물의 한지색 받침은 제거하고 물리 크기와
+  판정은 그대로 둔 채 실루엣 바깥에 얇은 붉은 선만 표시한다.
+- 사람의 수정/검토 내용: 씬 빌더 재생성 뒤 9:16 Play 화면에서 최초 기록 돌파 시 낙관이
+  한 번만 찍혀 계속 유지되는지, 풍향 전환 속도와 강풍 상태의 붉은 강조, 어두운 배경에서
+  먹가시·낙묵석의 얇은 외곽선 가독성을 확인할 예정이다.
+
+### 2026-07-26 — 상단 인게임 HUD 단일 수묵 패널 통합
+
+- 사용 도구: OpenAI Codex
+- 목적: 서로 겹치고 시각적 위계가 분산된 고도·최고 기록·풍향·신기록 표시를 하나의
+  간결한 수묵 HUD로 정돈
+- 주요 프롬프트/지시: 인게임 UI가 보기 좋지 않으므로 더 다듬고 계속 진행
+- 결과물: `GameplayHudView.cs`, `NewBestIndicatorView.cs`, `WindIndicatorView.cs`,
+  `MukJumpSceneBuilder.cs`, `FallingInkRockTests.cs`, `README.md`, `CLAUDE.md`,
+  `docs/project-brief.md`
+- 구현 메모: 화면 상단의 한 장짜리 한지 붓획 안에 풍향·현재 고도·최고 기록을 3열로
+  통합했다. 큰 신기록 배너와 풍속 막대를 제거하고 작은 `풍`·`신` 낙관, 먹선 화살표,
+  짧은 상태 문구만 남겼다. 신기록 낙관은 0.24초 찍힘 후 낮은 강조로 유지하고, 풍향은
+  좌우 반전 대신 양의 스케일 회전과 히스테리시스를 사용해 방향 전환 순간의 찌그러짐을
+  없앴다. 구형 Main 씬도 Play 진입 시 같은 계층으로 중복 없이 이관하며 Safe Area를
+  반영한다. 세로로 긴 기기에서는 내부 간격을 유지한 채 패널 전체를 균일 축소하고,
+  게임오버에서는 플레이 HUD를 숨긴다.
+- 사람의 수정/검토 내용: 사용자 소유 Main 씬을 저장·재생성하지 않은 상태에서 런타임·
+  에디터 어셈블리 독립 컴파일과 Editor.log 오류 부재를 확인했다. 씬 빌더 테스트에
+  단일 `TopHudRoot`, 3열 참조, 풍속 막대 미생성 검증을 추가했으며 실제 9:16 화면의
+  한지 질감과 Safe Area 간격은 Play Mode에서 최종 확인할 예정이다.
+
+### 2026-07-26 — 먹빛 우주 무한 맵·붉은 한지 장애물
+
+- 사용 도구: OpenAI Codex, OpenAI ImageGen
+- 목적: 750m 이후 고정되던 배경을 세상에 없는 동양 수채화 우주로 확장하고,
+  외곽선에 의존하던 장애물 가시성을 본체 색으로 해결
+- 주요 프롬프트/지시: 마지막 맵 이후 동양화 수채화와 우주를 섞은 무한 맵을 만들고,
+  장애물 스프라이트 자체를 붉은 한지색으로 변경
+- 결과물: `Assets/Resources/MukJump/Background/Endless/` 배경 3종,
+  `MapBackgroundView.cs`, `HeightZoneController.cs`, `ObstaclePaperRed.shader`,
+  `ObstacleVisibilityView.cs`, 두 장애물 스포너·풀 생명주기 코드, 관련 Editor 테스트,
+  `MukJumpSceneBuilder.cs`
+- 구현 메모: 기존 배경의 따뜻한 한지·둥근 실루엣·중앙과 하단 65% 여백을 스타일
+  레퍼런스로 삼아 먹빛 성문, 월련 성해, 천하수 3종을 각각 생성했다. 모두 1080×1920
+  불투명 PNG이며 1000m부터 250m마다 순환하고 다음 순환은 좌우 반전한다. 기존 씬을
+  재생성하지 않아도 Resources 폴백으로 로드한다. 장애물은 전용 팔레트 리맵 셰이더로
+  원본 명암과 알파를 유지하면서 `#C8645B`로 치환하고, 기존 받침과 붉은 외곽선은 끈다.
+  낙묵석은 틴트 적용 뒤 기준색을 저장해 예고·소멸·풀 재사용 중 흰색으로 돌아가지 않는다.
+- 사람의 수정/검토 내용: 생성 이미지 3장의 해상도·불투명도·중앙/하단 가독성을 확인하고
+  런타임·에디터 어셈블리 독립 컴파일을 통과했다. 사용자 소유 `Main.unity`와 기존 맵
+  메타 4개는 건드리지 않았으며, Unity Play Mode에서 1000/1250/1500/1750m 전환과
+  실제 셰이더 색감은 최종 확인할 예정이다.
+
+### 2026-07-26 — 한지 일시정지판·전역 텍스트 가독성 보강
+
+- 사용 도구: OpenAI Codex
+- 목적: 플레이 세션을 잃지 않고 잠시 멈추거나 로비로 돌아갈 수 있게 하고, 모바일
+  화면에서 작고 흐리던 주요 수치·상태·버튼 문구를 빠르게 읽을 수 있게 개선
+- 주요 프롬프트/지시: 일시정지판에 로비 이동을 추가하고, 전체 텍스트를 조금 더
+  진하거나 크게 만들어 가독성을 높인다.
+- 결과물: `PauseMenuView.cs`, `GameManager.cs`, `StrokeCapture.cs`,
+  `GameFeedbackController.cs`, `BackgroundMusicController.cs`, `CameraFollow.cs`,
+  `GameplayHudView.cs`, `LobbyView.cs`, `GameOverPopupView.cs`,
+  `NewBestIndicatorView.cs`, `WindIndicatorView.cs`, `PrototypeHud.cs`,
+  `InkPalette.cs`, `MukJumpSceneBuilder.cs`, 관련 Editor 테스트와 문서
+- 구현 메모: `Playing`을 유지하는 별도 `IsPaused` 계약과 `Time.timeScale = 0`을 사용해
+  분신·발판·아이템·날씨·기능별 풀을 보존한다. 진행 중 획과 히트스톱 경합을 정리하고,
+  효과음은 멈추되 BGM은 낮은 음량으로 유지한다. Safe Area를 따르는 수묵 쉼 버튼과
+  한지 패널에는 큰 계속·로비 버튼을 두었고, 진입·퇴장은 0.18초/0.12초의 짧은
+  투명도·스케일 전환만 사용한다. 고도·최고 기록·풍향·신기록 낙관·디버그·결과창·
+  구간 알림은 글자 크기와 전경 대비를 함께 높였다.
+- 사람의 수정/검토 내용: 런타임·에디터 어셈블리 독립 컴파일과 일시정지 버튼의
+  raycast 대상·패널 차단 상태·최소 글자 크기 회귀 테스트 코드를 확인했다. Unity가
+  닫혀 있어 Test Runner와 Play Mode는 실행하지 않았으며, 9:16 Safe Area, 일시정지 중
+  완전 정지, 계속하기 위치 보존, 붓 전환 뒤 로비 복귀와 실제 폰트 렌더링을 최종 확인한다.

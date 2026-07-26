@@ -19,8 +19,8 @@ namespace MukJump.Drawing
         [SerializeField] float previewWidth = 0.4f;
         [Tooltip("LineSprite 프리팹의 600px 붓획 텍스처")]
         [SerializeField] Texture2D lineSpriteTexture;
-        [Tooltip("캐릭터에서 이 거리 안에 획이 들어오면 발판을 만들지 않는다 (물리 밀어내기 악용 방지)")]
-        [SerializeField] float playerClearance = 0.75f;
+        [Tooltip("캐릭터에서 이 거리 안의 획 부분만 잘라낸다 (물리 밀어내기 악용 방지)")]
+        [SerializeField] float playerClearance = 0.55f;
 
         [Header("먹(잉크) 자원 — 무한 드로잉 방지")]
         [Tooltip("먹 총량 (월드 단위 길이). 그은 만큼 소모된다")]
@@ -35,12 +35,18 @@ namespace MukJump.Drawing
         bool drawing;
         float strokeLength;
         float ink;
+        float inkReserve;
         LineRenderer preview;
         float unlimitedInkUntil;
 
-        /// HUD 먹 게이지용: 전체 먹 잔량 비율
+        /// HUD 먹 게이지용. 1을 넘는 값은 아이템으로 쌓은 일회성 여유분이다.
         public bool HasUnlimitedInk => Time.time < unlimitedInkUntil;
-        public float InkRemaining01 => HasUnlimitedInk ? 1f : Mathf.Clamp01(ink / inkCapacity);
+        public float InkRemaining01 => HasUnlimitedInk ? 1f : (ink + inkReserve) / inkCapacity;
+
+        public void AddInkReserve(float capacityRatio)
+        {
+            inkReserve += inkCapacity * Mathf.Max(0f, capacityRatio);
+        }
 
         public void ActivateUnlimitedInk(float duration)
         {
@@ -134,12 +140,19 @@ namespace MukJump.Drawing
                 return;
             }
 
+            if (GameManager.Instance.IsPaused)
+            {
+                if (drawing) CancelStroke();
+                return;
+            }
+
             if (!drawing)
                 ink = Mathf.Min(inkCapacity, ink + inkRegenPerSecond * Time.deltaTime);
 
             if (PointerInput.TryGetPressed(out var screenPos))
             {
-                if (GameplayHudView.IsPointerOverItemTestControls(screenPos))
+                if (GameplayHudView.IsPointerOverItemTestControls(screenPos) ||
+                    PauseMenuView.IsPointerOverControls(screenPos))
                 {
                     if (drawing) CancelStroke();
                     return;
@@ -147,7 +160,7 @@ namespace MukJump.Drawing
 
                 if (drawing)
                     ContinueStroke(screenPos);
-                else if (HasUnlimitedInk || ink >= minInkToStart)
+                else if (HasUnlimitedInk || ink + inkReserve >= minInkToStart)
                     BeginStroke(screenPos);
             }
             else if (drawing)
@@ -184,6 +197,7 @@ namespace MukJump.Drawing
             strokeLength = 0f;
             points.Clear();
             points.Add(worldPos);
+            GameFeedbackController.Instance?.StartBrushDrawing();
             CreatePreview();
         }
 
@@ -196,7 +210,7 @@ namespace MukJump.Drawing
             if (step < minPointDistance) return;
 
             // 먹이 다 떨어지면 그 지점에서 획이 끝난다 — 회복될 때까지 더 그릴 수 없다
-            if (!lobbyStroke && !HasUnlimitedInk && ink <= 0f)
+            if (!lobbyStroke && !HasUnlimitedInk && ink + inkReserve <= 0f)
             {
                 EndStroke();
                 return;
@@ -218,26 +232,54 @@ namespace MukJump.Drawing
 
             strokeLength += step;
             if (!lobbyStroke && !HasUnlimitedInk)
-                ink = Mathf.Max(0f, ink - step);
+                ConsumeInk(step);
             points.Add(world);
+            GameFeedbackController.Instance?.PlayBrushMovement(step);
             UpdatePreview();
+        }
+
+        void ConsumeInk(float amount)
+        {
+            float reserveUse = Mathf.Min(inkReserve, amount);
+            inkReserve -= reserveUse;
+            ink = Mathf.Max(0f, ink - (amount - reserveUse));
         }
 
         void EndStroke(bool startGame = false)
         {
             drawing = false;
+            GameFeedbackController.Instance?.StopBrushDrawing();
             DestroyPreview();
+            Vector2 feedbackPosition = points.Count > 0 ? points[^1] : Vector2.zero;
 
-            if (points.Count < 2 || strokeLength < minStrokeLength) return;
+            if (points.Count < 2 || strokeLength < minStrokeLength)
+            {
+                GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, false);
+                return;
+            }
 
             var smoothed = BezierSmoother.Smooth(points);
-            if (smoothed.Count < 2) return;
+            if (smoothed.Count < 2)
+            {
+                GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, false);
+                return;
+            }
 
-            // 캐릭터와 겹치거나 너무 가까운 획은 무효 — 콜라이더 밀어내기로 캐릭터를
-            // 튕겨 올리는 악용(반복 드로잉 탈출)을 막는다
-            if (!startGame && TooCloseToPlayer(smoothed)) return;
+            // 캐릭터와 너무 가까운 부분만 잘라내 콜라이더 밀어내기로 캐릭터를
+            // 튕겨 올리는 악용은 막되, 나머지 유효한 획은 발판으로 살린다.
+            if (!startGame)
+            {
+                smoothed = LongestSafeSegment(smoothed);
+                if (smoothed.Count < 2 ||
+                    BezierSmoother.PolylineLength(smoothed) < minStrokeLength)
+                {
+                    GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, false);
+                    return;
+                }
+            }
 
             PlatformCollider.Spawn(smoothed);
+            GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, true);
             if (startGame)
                 GameManager.Instance?.StartGameFromStroke();
         }
@@ -245,40 +287,82 @@ namespace MukJump.Drawing
         void CancelStroke()
         {
             drawing = false;
+            GameFeedbackController.Instance?.StopBrushDrawing();
             DestroyPreview();
         }
 
-        bool TooCloseToPlayer(List<Vector2> strokePoints)
+        public void CancelActiveStroke()
+        {
+            if (drawing)
+                CancelStroke();
+            else
+                GameFeedbackController.Instance?.StopBrushDrawing();
+        }
+
+        /// 캐릭터와 겹치는 부분만 잘라내고 가장 긴 안전 구간은 살린다.
+        /// 획 전체를 취소해 입력이 먹히지 않은 것처럼 보이던 불편을 줄인다.
+        List<Vector2> LongestSafeSegment(List<Vector2> strokePoints)
         {
             var players = FindObjectsByType<Player.PlayerController>(FindObjectsSortMode.None);
-            if (players.Length == 0) return false;
-            for (int i = 0; i < players.Length; i++)
+            if (players.Length == 0) return strokePoints;
+
+            var longest = new List<Vector2>();
+            var current = new List<Vector2>();
+            for (int pointIndex = 0; pointIndex < strokePoints.Count; pointIndex++)
             {
-                if (players[i].IsDead) continue;
-                Vector2 center = players[i].transform.position;
-                foreach (var p in strokePoints)
+                Vector2 point = strokePoints[pointIndex];
+                bool blocked = false;
+                for (int playerIndex = 0; playerIndex < players.Length; playerIndex++)
                 {
-                    if (Vector2.Distance(p, center) < playerClearance)
-                        return true;
+                    if (players[playerIndex].IsDead) continue;
+                    if (Vector2.Distance(point, players[playerIndex].transform.position) <
+                        playerClearance)
+                    {
+                        blocked = true;
+                        break;
+                    }
                 }
+
+                if (!blocked)
+                {
+                    current.Add(point);
+                    continue;
+                }
+
+                if (BezierSmoother.PolylineLength(current) >
+                    BezierSmoother.PolylineLength(longest))
+                    longest = new List<Vector2>(current);
+                current.Clear();
             }
-            return false;
+
+            if (BezierSmoother.PolylineLength(current) >
+                BezierSmoother.PolylineLength(longest))
+                longest = current;
+            return longest;
         }
 
         // ---- 그리는 동안 옅은 먹선 미리보기 ----
 
         void CreatePreview()
         {
-            var go = new GameObject("StrokePreview");
-            preview = go.AddComponent<LineRenderer>();
-            preview.useWorldSpace = true;
-            preview.startWidth = preview.endWidth = previewWidth;
-            preview.material = AI.FallbackInkStyle.SharedInkMaterial;
-            var faint = InkPalette.Ink;
-            faint.a = 0.35f;
-            preview.startColor = preview.endColor = faint;
-            preview.numCapVertices = 4;
-            preview.sortingOrder = 10;
+            // 매 획마다 생성/파괴하면 드로잉 빈도만큼 GC가 발생하므로 미리보기 하나를
+            // 최초 사용 시 만들고 이후에는 활성 상태만 전환한다.
+            if (preview == null)
+            {
+                var go = new GameObject("StrokePreview");
+                preview = go.AddComponent<LineRenderer>();
+                preview.useWorldSpace = true;
+                preview.startWidth = preview.endWidth = previewWidth;
+                preview.sharedMaterial = AI.FallbackInkStyle.SharedInkMaterial;
+                var faint = InkPalette.Ink;
+                faint.a = 0.35f;
+                preview.startColor = preview.endColor = faint;
+                preview.numCapVertices = 4;
+                preview.sortingOrder = 10;
+            }
+            else
+                preview.gameObject.SetActive(true);
+
             UpdatePreview();
         }
 
@@ -303,8 +387,9 @@ namespace MukJump.Drawing
 
         void DestroyPreview()
         {
-            if (preview != null) Destroy(preview.gameObject);
-            preview = null;
+            if (preview == null) return;
+            preview.positionCount = 0;
+            preview.gameObject.SetActive(false);
         }
     }
 }

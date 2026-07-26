@@ -21,6 +21,7 @@ namespace MukJump.Core
 
         void OnEnable()
         {
+            ApplyUiFont();
             HideRankingUi();
         }
 
@@ -68,6 +69,22 @@ namespace MukJump.Core
         {
             if (rankingButton != null) rankingButton.gameObject.SetActive(false);
             if (rankingPopup != null) rankingPopup.SetActive(false);
+        }
+
+        void ApplyUiFont()
+        {
+            var texts = GetComponentsInChildren<Text>(true);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                texts[i].font = InkPalette.UiFont;
+                texts[i].resizeTextForBestFit = false;
+                texts[i].alignByGeometry = true;
+            }
+
+            if (bestText == null) return;
+            bestText.fontSize = 50;
+            bestText.fontStyle = FontStyle.Normal;
+            bestText.color = InkPalette.Paper;
         }
     }
 }

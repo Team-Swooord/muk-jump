@@ -4,6 +4,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using MukJump.Core;
+using MukJump.Core.Pooling;
 using MukJump.Drawing;
 using MukJump.EditorTools;
 using MukJump.Items;
@@ -42,6 +43,8 @@ public class FallingInkRockTests
         Assert.AreEqual(FallingInkRockState.Falling, rock.State);
         Assert.IsTrue(collider.enabled);
         Assert.IsTrue(body.simulated);
+        Assert.AreEqual(InkPalette.ObstaclePaperRed,
+            rock.GetComponent<SpriteRenderer>().color);
     }
 
     [Test]
@@ -54,6 +57,31 @@ public class FallingInkRockTests
         Assert.AreEqual(FallingInkRockState.Resolved, rock.State);
         Assert.IsFalse(rock.GetComponent<CircleCollider2D>().enabled);
         Assert.IsFalse(rock.GetComponent<Rigidbody2D>().simulated);
+    }
+
+    [Test]
+    public void PoolReuseResetsWarningPhysicsAndTimers()
+    {
+        var pool = new ComponentPool<FallingInkRock>(() => CreateRock(0.8f), 1);
+        var first = pool.Acquire();
+        SetField(first, "warningElapsed", 0.6f);
+        SetField(first, "lifetimeElapsed", 3f);
+        first.GetComponent<CircleCollider2D>().enabled = true;
+        first.GetComponent<Rigidbody2D>().simulated = true;
+        first.GetComponent<SpriteRenderer>().enabled = false;
+
+        Assert.IsTrue(pool.Release(first));
+        var reused = pool.Acquire();
+
+        Assert.AreSame(first, reused);
+        Assert.AreEqual(FallingInkRockState.Warning, reused.State);
+        Assert.IsFalse(reused.GetComponent<CircleCollider2D>().enabled);
+        Assert.IsFalse(reused.GetComponent<Rigidbody2D>().simulated);
+        Assert.IsTrue(reused.GetComponent<SpriteRenderer>().enabled);
+        Assert.AreEqual(InkPalette.ObstaclePaperRed,
+            reused.GetComponent<SpriteRenderer>().color);
+        Assert.AreEqual(0f, (float)GetField(reused, "warningElapsed"));
+        Assert.AreEqual(0f, (float)GetField(reused, "lifetimeElapsed"));
     }
 
     [Test]
@@ -100,6 +128,41 @@ public class FallingInkRockTests
     }
 
     [Test]
+    public void VisibilityTintsBodyAndDisablesLegacyDecorations()
+    {
+        var root = Track(new GameObject("VisibleObstacle"));
+        var body = root.AddComponent<SpriteRenderer>();
+        body.sortingOrder = 6;
+        body.color = new Color(1f, 1f, 1f, 0.47f);
+
+        var haloObject = Track(new GameObject("PaperHalo"));
+        haloObject.transform.SetParent(root.transform, false);
+        var paperHalo = haloObject.AddComponent<SpriteRenderer>();
+
+        var ringObject = Track(new GameObject("DangerRing"));
+        ringObject.transform.SetParent(root.transform, false);
+        var dangerRing = ringObject.AddComponent<LineRenderer>();
+
+        var view = root.AddComponent<ObstacleVisibilityView>();
+
+        view.Configure();
+
+        Assert.That(body.color.r, Is.EqualTo(InkPalette.ObstaclePaperRed.r).Within(0.001f));
+        Assert.That(body.color.g, Is.EqualTo(InkPalette.ObstaclePaperRed.g).Within(0.001f));
+        Assert.That(body.color.b, Is.EqualTo(InkPalette.ObstaclePaperRed.b).Within(0.001f));
+        Assert.That(body.color.a, Is.EqualTo(0.47f).Within(0.001f));
+        Assert.IsNotNull(body.sharedMaterial);
+        Assert.AreEqual("MukJump/ObstaclePaperRed", body.sharedMaterial.shader.name);
+        Assert.IsFalse(paperHalo.enabled);
+        Assert.IsFalse(dangerRing.enabled);
+
+        view.SetVisible(false);
+        Assert.IsFalse(dangerRing.enabled);
+        view.SetVisible(true);
+        Assert.IsFalse(dangerRing.enabled);
+    }
+
+    [Test]
     public void SceneBuilderCreatesSingleConfiguredSpawner()
     {
         MukJumpSceneBuilder.Build();
@@ -134,9 +197,48 @@ public class FallingInkRockTests
         var lobby = Object.FindFirstObjectByType<LobbyView>();
         Assert.IsNotNull(lobby);
         var lobbySerialized = new SerializedObject(lobby);
-        Assert.IsNotNull(lobbySerialized.FindProperty("bestText").objectReferenceValue);
-        Assert.IsNotNull(lobbySerialized.FindProperty("rankingText").objectReferenceValue);
+        var lobbyBest = lobbySerialized.FindProperty("bestText").objectReferenceValue as Text;
+        Assert.IsNotNull(lobbyBest);
+        Assert.AreEqual(50, lobbyBest.fontSize);
+        Assert.AreEqual(InkPalette.Paper, lobbyBest.color);
         Assert.AreEqual(2, lobby.GetComponentsInChildren<RawImage>(true).Length - 2);
+
+        var gameplayHud = Object.FindFirstObjectByType<GameplayHudView>();
+        Assert.IsNotNull(gameplayHud);
+        var hudSerialized = new SerializedObject(gameplayHud);
+        var topHud = hudSerialized.FindProperty("topHudRoot").objectReferenceValue
+            as RectTransform;
+        Assert.IsNotNull(topHud);
+        Assert.AreEqual("TopHudRoot", topHud.name);
+        Assert.That(topHud.sizeDelta.x, Is.EqualTo(1016f).Within(0.01f));
+        Assert.That(topHud.sizeDelta.y, Is.EqualTo(124f).Within(0.01f));
+        Assert.IsNotNull(hudSerialized.FindProperty("heightCaption").objectReferenceValue);
+        Assert.IsNotNull(hudSerialized.FindProperty("bestCaption").objectReferenceValue);
+        var heightText = hudSerialized.FindProperty("heightText").objectReferenceValue as Text;
+        var bestText = hudSerialized.FindProperty("bestText").objectReferenceValue as Text;
+        Assert.IsNotNull(heightText);
+        Assert.IsNotNull(bestText);
+        Assert.AreEqual(56, heightText.fontSize);
+        Assert.AreEqual(36, bestText.fontSize);
+        Assert.GreaterOrEqual(heightText.rectTransform.sizeDelta.x, 340f);
+        Assert.GreaterOrEqual(bestText.rectTransform.sizeDelta.x, 220f);
+
+        var windIndicator = hudSerialized.FindProperty("windIndicator").objectReferenceValue
+            as WindIndicatorView;
+        var newBestIndicator = hudSerialized.FindProperty("newBestIndicator").objectReferenceValue
+            as NewBestIndicatorView;
+        Assert.IsNotNull(windIndicator);
+        Assert.IsNotNull(newBestIndicator);
+        var windSerialized = new SerializedObject(windIndicator);
+        var windState = windSerialized.FindProperty("stateText").objectReferenceValue as Text;
+        Assert.IsNotNull(windState);
+        Assert.AreEqual(26, windState.fontSize);
+        Assert.AreSame(topHud, windIndicator.transform.parent);
+        Assert.AreSame(topHud, newBestIndicator.transform.parent);
+        Assert.IsNull(windIndicator.transform.Find("WindStrengthStroke1"));
+        Assert.That(((RectTransform)newBestIndicator.transform).sizeDelta.x,
+            Is.LessThanOrEqualTo(50f));
+        Assert.IsNotNull(Object.FindFirstObjectByType<PauseMenuView>());
 
         var importer = (TextureImporter)AssetImporter.GetAtPath(
             "Assets/Art/Character/Obstacles/anermy_02.png");
@@ -150,7 +252,9 @@ public class FallingInkRockTests
     FallingInkRock CreateRock(float warningDuration)
     {
         var go = Track(new GameObject("TestFallingInkRock"));
-        go.AddComponent<SpriteRenderer>().sprite = CreateSprite();
+        var spriteRenderer = go.AddComponent<SpriteRenderer>();
+        spriteRenderer.sprite = CreateSprite();
+        go.AddComponent<ObstacleVisibilityView>().Configure();
         var body = go.AddComponent<Rigidbody2D>();
         body.bodyType = RigidbodyType2D.Kinematic;
         var collider = go.AddComponent<CircleCollider2D>();
@@ -183,6 +287,12 @@ public class FallingInkRockTests
     {
         target.GetType().GetField(fieldName,
             BindingFlags.Instance | BindingFlags.NonPublic)?.SetValue(target, value);
+    }
+
+    static object GetField(object target, string fieldName)
+    {
+        return target.GetType().GetField(fieldName,
+            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(target);
     }
 
     static object Invoke(object target, string methodName, params object[] arguments)

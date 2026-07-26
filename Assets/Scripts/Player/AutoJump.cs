@@ -86,11 +86,12 @@ namespace MukJump.Player
             if (!hasLaunched && player.IsGrounded)
                 chargeStarted = true;
 
+            float chargeDuration = jumpIntervalSeconds;
             if (chargeStarted)
-                chargeTimer = Mathf.Min(jumpIntervalSeconds, chargeTimer + Time.deltaTime);
+                chargeTimer = Mathf.Min(chargeDuration, chargeTimer + Time.deltaTime);
 
             // 공중에서는 충전만 유지하고, 착지한 순간 가득 찼다면 바로 점프한다.
-            if (chargeStarted && player.IsGrounded && chargeTimer >= jumpIntervalSeconds)
+            if (chargeStarted && player.IsGrounded && chargeTimer >= chargeDuration)
                 Jump();
         }
 
@@ -112,6 +113,9 @@ namespace MukJump.Player
 
             horizontal = Mathf.Clamp(horizontal, -maxHorizontalSpeed, maxHorizontalSpeed);
             rb.linearVelocity = new Vector2(horizontal, direction.y * power);
+            GameFeedbackController.Instance?.PlayJump(transform.position);
+            Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
+                transform, Mathf.InverseLerp(10f, 18f, power));
         }
 
         float PowerMultiplier()

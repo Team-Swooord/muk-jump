@@ -8,7 +8,7 @@ namespace MukJump.Items
 {
     /// 먹 방어막을 캐릭터 주변의 살아 움직이는 먹 원으로 표현한다.
     [RequireComponent(typeof(PlayerController))]
-    public class ItemEffectView : MonoBehaviour
+    public class ItemEffectView : MonoBehaviour, IRuntimeCloneLifecycle
     {
         [SerializeField] int ringSegments = 48;
         [SerializeField] float ringRadius = 0.78f;
@@ -23,41 +23,36 @@ namespace MukJump.Items
         LineRenderer outerRing;
         LineRenderer innerRing;
         LineRenderer shieldPulse;
-        LineRenderer[] goldenStrokes;
-        LineRenderer goldenAura;
-        SpriteRenderer[] goldenMotes;
         SpriteRenderer[] shieldMotes;
         SpriteRenderer[] shieldShards;
         Vector3[] shieldShardVelocity;
-        StrokeCapture strokeCapture;
         bool shieldWasVisible;
         float shieldPulseTime;
-        bool goldenWasVisible;
         float shieldShardTime;
+        readonly System.Collections.Generic.List<Transform> cloneDetachedVisuals = new();
 
         void Awake()
         {
             player = GetComponent<PlayerController>();
-            outerRing = CreateRing("InkShieldOuter", 7, 0.105f);
-            innerRing = CreateRing("InkShieldInner", 6, 0.052f);
-            shieldPulse = CreateRing("InkShieldPulse", 8, 0.085f);
-            goldenStrokes = new LineRenderer[3];
-            for (int i = 0; i < goldenStrokes.Length; i++)
-                goldenStrokes[i] = CreateGoldenStroke(i);
-            goldenAura = CreateRing("GoldenBrushAura", 9, 0.045f);
-            goldenMotes = CreateMotes("GoldenMote", 20, InkPalette.Gold, 9);
-            shieldMotes = CreateMotes("ShieldMote", 11, InkPalette.Ink, 8);
-            shieldShards = CreateMotes("ShieldShard", 18, InkPalette.Ink, 10);
-            shieldShardVelocity = new Vector3[shieldShards.Length];
+            RemoveLegacyGoldenVisuals();
+            // 런타임에 효과 자식이 만들어진 플레이어를 복제해도 새 분신에는 기존
+            // 렌더러가 함께 보이지 않도록 참조만 복구해 숨긴다. 새 오브젝트는 만들지 않는다.
+            BindExistingVisuals();
         }
 
-        void Start()
+        void OnEnable()
         {
-            strokeCapture = FindFirstObjectByType<StrokeCapture>();
-            player.ShieldConsumed += OnShieldConsumed;
+            if (player == null) player = GetComponent<PlayerController>();
+            RemoveLegacyGoldenVisuals();
+            BindExistingVisuals();
+            if (player != null)
+            {
+                player.ShieldConsumed -= OnShieldConsumed;
+                player.ShieldConsumed += OnShieldConsumed;
+            }
         }
 
-        void OnDestroy()
+        void OnDisable()
         {
             if (player != null) player.ShieldConsumed -= OnShieldConsumed;
         }
@@ -66,8 +61,11 @@ namespace MukJump.Items
         {
             bool visible = player != null && player.HasShield && !player.IsDead &&
                            GameManager.Instance != null && GameManager.Instance.State == GameState.Playing;
-            outerRing.enabled = visible;
-            innerRing.enabled = visible;
+            if (visible)
+                EnsureShieldVisuals();
+
+            if (outerRing != null) outerRing.enabled = visible;
+            if (innerRing != null) innerRing.enabled = visible;
             if (visible)
             {
                 UpdateRing(outerRing, ringRadius, Time.time * 2.2f);
@@ -81,7 +79,6 @@ namespace MukJump.Items
             }
             shieldWasVisible = visible;
             UpdateShieldPulse();
-            UpdateGoldenBrush();
             UpdateShieldMotes(visible);
             UpdateShieldShards();
 
@@ -89,6 +86,8 @@ namespace MukJump.Items
 
         void UpdateShieldPulse()
         {
+            if (shieldPulse == null) return;
+
             if (shieldPulseTime <= 0f)
             {
                 shieldPulse.enabled = false;
@@ -105,63 +104,21 @@ namespace MukJump.Items
             shieldPulse.startColor = shieldPulse.endColor = color;
         }
 
-        void UpdateGoldenBrush()
+        public void RequestSharedGoldenBrush(StrokeCapture capture)
         {
-            bool visible = strokeCapture != null && strokeCapture.HasUnlimitedInk && !player.IsDead &&
-                           GameManager.Instance != null && GameManager.Instance.State == GameState.Playing;
-            if (visible && !goldenWasVisible)
-                VfxAudioManager.Instance?.PlayOneShot(goldenBrushFullClip);
-            goldenWasVisible = visible;
-            for (int i = 0; i < goldenStrokes.Length; i++)
-            {
-                var line = goldenStrokes[i];
-                line.enabled = visible;
-                if (!visible) continue;
-
-                float phase = Time.time * (2.4f + i * 0.35f) + i * 2.1f;
-                for (int point = 0; point < line.positionCount; point++)
-                {
-                    float t = point / (float)(line.positionCount - 1);
-                    float x = Mathf.Lerp(-0.62f, 0.62f, t);
-                    float y = -0.62f + i * 0.08f + Mathf.Sin(t * Mathf.PI * 2f + phase) * 0.07f;
-                    line.SetPosition(point, new Vector3(x, y, 0f));
-                }
-                Color gold = InkPalette.Gold;
-                gold.a = 0.42f + 0.28f * (0.5f + 0.5f * Mathf.Sin(phase));
-                line.startColor = line.endColor = gold;
-            }
-
-            goldenAura.enabled = visible;
-            if (visible)
-            {
-                float pulse = 0.52f + Mathf.Sin(Time.time * 4.5f) * 0.06f;
-                UpdateRing(goldenAura, pulse, -Time.time * 2.8f);
-                Color auraColor = InkPalette.Gold;
-                auraColor.a = 0.55f + Mathf.Sin(Time.time * 4.5f) * 0.18f;
-                goldenAura.startColor = goldenAura.endColor = auraColor;
-            }
-            for (int i = 0; i < goldenMotes.Length; i++)
-            {
-                var mote = goldenMotes[i];
-                mote.enabled = visible;
-                if (!visible) continue;
-                float angle = i * Mathf.PI * 2f / goldenMotes.Length + Time.time * (0.45f + i % 3 * 0.12f);
-                float radius = 0.55f + (i % 5) * 0.055f + Mathf.Sin(Time.time * 2f + i) * 0.04f;
-                mote.transform.localPosition = new Vector3(Mathf.Cos(angle) * radius,
-                    -0.2f + Mathf.Sin(angle) * radius * 0.6f, 0f);
-                float scale = 0.035f + (i % 4) * 0.012f;
-                mote.transform.localScale = Vector3.one * scale;
-                Color color = InkPalette.Gold;
-                color.a = 0.35f + 0.4f * (0.5f + 0.5f * Mathf.Sin(Time.time * 3f + i));
-                mote.color = color;
-            }
+            if (capture == null) return;
+            GoldenBrushEffectView.Request(capture, effectDroplet, goldenBrushFullClip,
+                ringSegments, ringRadius, wobble);
         }
 
         void UpdateShieldMotes(bool visible)
         {
+            if (shieldMotes == null) return;
+
             for (int i = 0; i < shieldMotes.Length; i++)
             {
                 var mote = shieldMotes[i];
+                if (mote == null) continue;
                 mote.enabled = visible;
                 if (!visible) continue;
                 float angle = i * Mathf.PI * 2f / shieldMotes.Length + Time.time * (0.6f + i % 2 * 0.14f);
@@ -174,10 +131,12 @@ namespace MukJump.Items
 
         void OnShieldConsumed()
         {
+            EnsureShieldVisuals();
             shieldPulseTime = 0.42f;
             shieldShardTime = 0.7f;
             for (int i = 0; i < shieldShards.Length; i++)
             {
+                if (shieldShards[i] == null) continue;
                 float angle = Random.Range(-25f, 205f) * Mathf.Deg2Rad;
                 float speed = Random.Range(1.8f, 4.8f);
                 shieldShardVelocity[i] = new Vector3(Mathf.Cos(angle) * speed,
@@ -193,9 +152,13 @@ namespace MukJump.Items
 
         void UpdateShieldShards()
         {
+            if (shieldShards == null || shieldShardVelocity == null) return;
+
             if (shieldShardTime <= 0f)
             {
-                for (int i = 0; i < shieldShards.Length; i++) shieldShards[i].enabled = false;
+                for (int i = 0; i < shieldShards.Length; i++)
+                    if (shieldShards[i] != null)
+                        shieldShards[i].enabled = false;
                 return;
             }
 
@@ -203,6 +166,7 @@ namespace MukJump.Items
             float alpha = Mathf.Clamp01(shieldShardTime / 0.7f);
             for (int i = 0; i < shieldShards.Length; i++)
             {
+                if (shieldShards[i] == null) continue;
                 shieldShardVelocity[i] += Vector3.down * (2.2f * Time.deltaTime);
                 shieldShardVelocity[i] *= Mathf.Exp(-2.8f * Time.deltaTime);
                 shieldShards[i].transform.localPosition += shieldShardVelocity[i] * Time.deltaTime;
@@ -210,6 +174,130 @@ namespace MukJump.Items
                 color.a = alpha;
                 shieldShards[i].color = color;
             }
+        }
+
+        /// 방어막을 실제로 얻거나 소모한 순간에만 관련 렌더러를 준비한다.
+        /// 기존 자식이 있으면 Create*가 재사용하므로 여러 번 호출해도 중복 생성되지 않는다.
+        void EnsureShieldVisuals()
+        {
+            if (outerRing == null) outerRing = CreateRing("InkShieldOuter", 7, 0.105f);
+            if (innerRing == null) innerRing = CreateRing("InkShieldInner", 6, 0.052f);
+            if (shieldPulse == null) shieldPulse = CreateRing("InkShieldPulse", 8, 0.085f);
+            if (NeedsRenderers(shieldMotes, 11))
+                shieldMotes = CreateMotes("ShieldMote", 11, InkPalette.Ink, 8);
+            if (NeedsRenderers(shieldShards, 18))
+                shieldShards = CreateMotes("ShieldShard", 18, InkPalette.Ink, 10);
+            if (shieldShardVelocity == null ||
+                shieldShardVelocity.Length != shieldShards.Length)
+                shieldShardVelocity = new Vector3[shieldShards.Length];
+        }
+
+        /// 이미 효과가 만들어진 원본을 복제한 경우 자식 렌더러 참조만 되찾는다.
+        /// 일반 시작 시에는 찾을 자식이 없으므로 Hierarchy를 전혀 늘리지 않는다.
+        void BindExistingVisuals()
+        {
+            outerRing = FindChildComponent<LineRenderer>("InkShieldOuter");
+            innerRing = FindChildComponent<LineRenderer>("InkShieldInner");
+            shieldPulse = FindChildComponent<LineRenderer>("InkShieldPulse");
+            if (outerRing != null) outerRing.enabled = false;
+            if (innerRing != null) innerRing.enabled = false;
+            if (shieldPulse != null) shieldPulse.enabled = false;
+
+            shieldMotes = FindExistingMotes("ShieldMote", 11);
+            shieldShards = FindExistingMotes("ShieldShard", 18);
+            if (shieldShards != null)
+                shieldShardVelocity = new Vector3[shieldShards.Length];
+        }
+
+        /// 먹분신은 플레이어의 게임 상태만 복제해야 한다. 한 번 생성된 방어막 표현 캐시와
+        /// hot reload 전에 남은 구형 황금 효과를 Instantiate 대상에서 잠시 제외한다.
+        internal void DetachRuntimeVisualsForClone(System.Collections.Generic.List<Transform> buffer)
+        {
+            if (buffer == null) return;
+            buffer.Clear();
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                var child = transform.GetChild(i);
+                if (!IsRuntimeVisual(child.name)) continue;
+                buffer.Add(child);
+                child.SetParent(null, true);
+            }
+        }
+
+        internal void RestoreRuntimeVisualsAfterClone(
+            System.Collections.Generic.List<Transform> buffer)
+        {
+            if (buffer == null) return;
+            for (int i = 0; i < buffer.Count; i++)
+                if (buffer[i] != null)
+                    buffer[i].SetParent(transform, true);
+            buffer.Clear();
+        }
+
+        public void PrepareForRuntimeClone()
+        {
+            DetachRuntimeVisualsForClone(cloneDetachedVisuals);
+        }
+
+        public void RestoreAfterRuntimeClone()
+        {
+            RestoreRuntimeVisualsAfterClone(cloneDetachedVisuals);
+        }
+
+        static bool IsRuntimeVisual(string objectName)
+        {
+            return objectName.StartsWith("InkShield") ||
+                   objectName.StartsWith("GoldenBrush") ||
+                   objectName.StartsWith("GoldenMote") ||
+                   objectName.StartsWith("ShieldMote") ||
+                   objectName.StartsWith("ShieldShard");
+        }
+
+        /// 공유 황금 효과로 전환하기 전 Play 세션의 자식이 hot reload 뒤 남아 있으면
+        /// 즉시 숨기고 한 번만 정리해 플레이어별 구형 캐시가 누적되지 않게 한다.
+        void RemoveLegacyGoldenVisuals()
+        {
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                var child = transform.GetChild(i);
+                if (!child.name.StartsWith("GoldenBrush") &&
+                    !child.name.StartsWith("GoldenMote"))
+                    continue;
+                child.gameObject.SetActive(false);
+                if (Application.isPlaying)
+                    Destroy(child.gameObject);
+                else
+                    DestroyImmediate(child.gameObject);
+            }
+        }
+
+        SpriteRenderer[] FindExistingMotes(string prefix, int count)
+        {
+            SpriteRenderer[] existing = null;
+            for (int i = 0; i < count; i++)
+            {
+                var renderer = FindChildComponent<SpriteRenderer>($"{prefix}{i + 1:00}");
+                if (renderer == null) continue;
+                existing ??= new SpriteRenderer[count];
+                existing[i] = renderer;
+                renderer.enabled = false;
+            }
+            return existing;
+        }
+
+        T FindChildComponent<T>(string objectName) where T : Component
+        {
+            var child = transform.Find(objectName);
+            return child != null ? child.GetComponent<T>() : null;
+        }
+
+        static bool NeedsRenderers(SpriteRenderer[] renderers, int count)
+        {
+            if (renderers == null || renderers.Length != count) return true;
+            for (int i = 0; i < renderers.Length; i++)
+                if (renderers[i] == null)
+                    return true;
+            return false;
         }
 
         SpriteRenderer[] CreateMotes(string prefix, int count, Color color, int sortingOrder)
@@ -244,7 +332,7 @@ namespace MukJump.Items
             ring.positionCount = ringSegments;
             ring.startWidth = ring.endWidth = width;
             ring.numCapVertices = 3;
-            ring.material = FallbackInkStyle.SharedInkMaterial;
+            ring.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
             var color = InkPalette.Ink;
             color.a = objectName.EndsWith("Outer") ? 0.72f : 0.32f;
             ring.startColor = ring.endColor = color;
@@ -253,27 +341,10 @@ namespace MukJump.Items
             return ring;
         }
 
-        LineRenderer CreateGoldenStroke(int index)
-        {
-            string objectName = $"GoldenBrushStroke{index + 1}";
-            var child = transform.Find(objectName);
-            var go = child != null ? child.gameObject : new GameObject(objectName);
-            if (child == null) go.transform.SetParent(transform, false);
-            var line = go.GetComponent<LineRenderer>();
-            if (line == null) line = go.AddComponent<LineRenderer>();
-            line.useWorldSpace = false;
-            line.positionCount = 12;
-            line.startWidth = 0.055f - index * 0.01f;
-            line.endWidth = 0.015f;
-            line.numCapVertices = 3;
-            line.material = FallbackInkStyle.SharedInkMaterial;
-            line.sortingOrder = 8 - index;
-            line.enabled = false;
-            return line;
-        }
-
         void UpdateRing(LineRenderer ring, float radius, float phase)
         {
+            if (ring == null) return;
+
             for (int i = 0; i < ringSegments; i++)
             {
                 float angle = i * Mathf.PI * 2f / ringSegments;

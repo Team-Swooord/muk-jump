@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using MukJump.Player;
+using MukJump.Drawing;
 
 namespace MukJump.Core
 {
@@ -18,7 +20,16 @@ namespace MukJump.Core
         public static GameManager Instance { get; private set; }
 
         public GameState State { get; private set; } = GameState.Lobby;
+        public bool IsPaused { get; private set; }
+        public bool IsTransitioning =>
+            transitionInProgress || (transitionView != null && transitionView.IsPlaying);
         public bool DebugInvincible { get; private set; }
+        /// 스포너·연출이 GameManager 구현을 직접 폴링하지 않고 세션 경계에 반응하는 계약.
+        public event Action<GameState, GameState> StateChanged;
+        /// 일시정지는 Playing 상태를 유지해 풀과 세션 예약을 보존하고 별도 계약으로 알린다.
+        public event Action<bool> PauseChanged;
+        /// 디버그 순간이동 뒤 과거 고도의 스폰 예약을 한 프레임에 소진하지 않게 알린다.
+        public event Action<int> WorldHeightTeleported;
 
         // 게임오버 직후 오터치로 바로 재시작되는 것을 막는 대기 시간
         [SerializeField] float restartDelay = 0.8f;
@@ -26,8 +37,13 @@ namespace MukJump.Core
         float gameOverTime;
         BrushTransitionView transitionView;
         GameOverPopupView gameOverPopupView;
+        PauseMenuView pauseMenuView;
         bool transitionInProgress;
+        float timeScaleBeforePause = 1f;
+        float fixedDeltaBeforePause = 0.02f;
         readonly List<PlayerController> players = new();
+        readonly List<MonoBehaviour> cloneHookBehaviours = new();
+        readonly List<IRuntimeCloneLifecycle> cloneHooks = new();
 
         public int LivingPlayerCount
         {
@@ -70,11 +86,37 @@ namespace MukJump.Core
         {
             Application.targetFrameRate = 60;
             State = GameState.Lobby;
+            // 이전 버전의 Main 씬을 열어도 새 피드백·구간 시스템이 즉시 동작한다.
+            if (GetComponent<GameFeedbackController>() == null)
+                gameObject.AddComponent<GameFeedbackController>();
+            if (GetComponent<HeightZoneController>() == null)
+                gameObject.AddComponent<HeightZoneController>();
+            if (GetComponent<WindWeatherController>() == null)
+                gameObject.AddComponent<WindWeatherController>();
+            if (GetComponent<WindWeatherView>() == null)
+                gameObject.AddComponent<WindWeatherView>();
+            if (GetComponent<RestPlatformSpawner>() == null)
+                gameObject.AddComponent<RestPlatformSpawner>();
+            if (BackgroundMusicController.Instance == null &&
+                FindFirstObjectByType<BackgroundMusicController>() == null)
+            {
+                var musicObject = new GameObject("BackgroundMusic");
+                musicObject.AddComponent<BackgroundMusicController>();
+            }
             transitionView = GetComponent<BrushTransitionView>();
             if (transitionView == null) transitionView = gameObject.AddComponent<BrushTransitionView>();
             gameOverPopupView = GetComponent<GameOverPopupView>();
             if (gameOverPopupView == null) gameOverPopupView = gameObject.AddComponent<GameOverPopupView>();
+            pauseMenuView = GetComponent<PauseMenuView>();
+            if (pauseMenuView == null) pauseMenuView = gameObject.AddComponent<PauseMenuView>();
             RefreshPlayerRegistry();
+        }
+
+        void OnDisable()
+        {
+            if (Instance != this) return;
+            RestorePausedWorld(false);
+            Instance = null;
         }
 
         void Update()
@@ -100,10 +142,72 @@ namespace MukJump.Core
             if (player != null) players.Remove(player);
         }
 
+        /// 바람·카메라 같은 읽기 전용 시스템이 매 프레임 FindObjects 배열을 만들지 않도록
+        /// 현재 생존자 목록을 호출자가 재사용하는 버퍼에 채운다.
+        public void GetLivingPlayersNonAlloc(List<PlayerController> results)
+        {
+            if (results == null) return;
+            results.Clear();
+            CleanupPlayers();
+            for (int i = 0; i < players.Count; i++)
+                if (!players[i].IsDead)
+                    results.Add(players[i]);
+        }
+
         /// 디버그 창에서만 사용하는 무적 모드. 장애물과 화면 하단에서 죽지 않고 되튄다.
         public void ToggleDebugInvincible()
         {
             DebugInvincible = !DebugInvincible;
+        }
+
+        /// 기존 Playing 상태를 바꾸지 않고 물리 시간만 멈춰 활성 풀·분신·날씨를 보존한다.
+        public bool PauseGame()
+        {
+            if (State != GameState.Playing || IsPaused || IsTransitioning)
+                return false;
+
+            PointerInput.SuppressUntilRelease();
+            FindFirstObjectByType<StrokeCapture>()?.CancelActiveStroke();
+            GameFeedbackController.Instance?.PrepareForPause();
+            timeScaleBeforePause = Mathf.Max(0.01f, Time.timeScale);
+            fixedDeltaBeforePause = Mathf.Max(0.001f, Time.fixedDeltaTime);
+            IsPaused = true;
+            Time.timeScale = 0f;
+            AudioListener.pause = true;
+            PauseChanged?.Invoke(true);
+            return true;
+        }
+
+        public bool ResumeGame()
+        {
+            if (!IsPaused || IsTransitioning) return false;
+            PointerInput.SuppressUntilRelease();
+            RestorePausedWorld(true);
+            return true;
+        }
+
+        /// 일시정지 화면에서 현재 씬을 다시 불러 로비와 새 세션으로 안전하게 돌아간다.
+        public bool ReturnToLobby()
+        {
+            if (State != GameState.Playing || !IsPaused || IsTransitioning)
+                return false;
+
+            transitionInProgress = true;
+            PointerInput.SuppressUntilRelease();
+            // 붓 전환음은 들리되 물리는 화면이 완전히 덮일 때까지 멈춘 상태를 유지한다.
+            AudioListener.pause = false;
+            void ReloadLobby()
+            {
+                RestorePausedWorld(true);
+                BrushTransitionView.RequestRevealAfterSceneLoad();
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
+
+            if (transitionView != null)
+                transitionView.Play(ReloadLobby);
+            else
+                ReloadLobby();
+            return true;
         }
 
         /// 한 캐릭터가 죽어도 다른 먹분신이 살아 있으면 게임을 계속한다.
@@ -127,33 +231,71 @@ namespace MukJump.Core
         void EnterGameOver()
         {
             if (State == GameState.GameOver) return;
-            State = GameState.GameOver;
-            gameOverTime = Time.unscaledTime;
+            SetState(GameState.GameOver);
+            var feedback = GameFeedbackController.Instance;
+            float revealDelay = feedback != null ? feedback.GameOverRevealDelay : 0.62f;
+            feedback?.PlayGameOver();
+            gameOverTime = float.PositiveInfinity;
             int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
             int previousBest = ScoreManager.Instance != null ? ScoreManager.Instance.Best : 0;
-            bool reachedNewBest = height > previousBest;
+            bool reachedNewBest =
+                (ScoreManager.Instance != null && ScoreManager.Instance.IsNewBestThisRun) ||
+                height > previousBest;
             ScoreManager.Instance?.SaveBest();
             int best = ScoreManager.Instance != null ? ScoreManager.Instance.Best : previousBest;
-            gameOverPopupView.Show(height, best, reachedNewBest);
+            StartCoroutine(ShowGameOverAfterDeath(revealDelay, height, best, reachedNewBest));
         }
 
-        /// 먹분신은 최대 두 마리까지만 유지한다. 한 마리가 남았다면 다시 보충할 수 있다.
+        System.Collections.IEnumerator ShowGameOverAfterDeath(float delay, int height, int best,
+            bool reachedNewBest)
+        {
+            yield return new WaitForSecondsRealtime(delay);
+            gameOverPopupView.Show(height, best, reachedNewBest);
+            // 팝업이 나타난 뒤 restartDelay 동안은 오터치 재시작을 막는다.
+            gameOverTime = Time.unscaledTime;
+        }
+
+        /// 먹분신 아이템을 먹을 때마다 생존 캐릭터를 한 마리씩 추가한다.
         public bool TryCreateInkClone(PlayerController source)
         {
-            if (State != GameState.Playing || source == null || source.IsDead ||
-                LivingPlayerCount >= 2)
+            if (State != GameState.Playing || source == null || source.IsDead)
                 return false;
 
             var sourceBody = source.GetComponent<Rigidbody2D>();
-            float direction = source.transform.position.x <= 0f ? 1f : -1f;
-            Vector3 spawnPosition = source.transform.position + Vector3.right * (direction * 0.9f);
+            int cloneIndex = Mathf.Max(1, LivingPlayerCount);
+            float direction = cloneIndex % 2 == 0 ? -1f : 1f;
+            float offset = 0.7f + Mathf.Min(1.2f, cloneIndex * 0.16f);
+            Vector3 spawnPosition = source.transform.position + Vector3.right * (direction * offset);
             if (Camera.main != null)
             {
                 float halfWidth = Camera.main.orthographicSize * Camera.main.aspect;
                 spawnPosition.x = Mathf.Clamp(spawnPosition.x, -halfWidth + 0.6f, halfWidth - 0.6f);
             }
 
-            var cloneObject = Instantiate(source.gameObject, spawnPosition, source.transform.rotation);
+            // 구체적인 아이템·VFX 타입을 모른 채 복제 생명주기 계약만 호출한다.
+            // 각 기능은 동기 Instantiate 동안 게임 상태가 아닌 캐시 자식을 스스로 분리한다.
+            cloneHookBehaviours.Clear();
+            cloneHooks.Clear();
+            source.GetComponents(cloneHookBehaviours);
+            for (int i = 0; i < cloneHookBehaviours.Count; i++)
+                if (cloneHookBehaviours[i] is IRuntimeCloneLifecycle hook)
+                    cloneHooks.Add(hook);
+
+            GameObject cloneObject;
+            try
+            {
+                for (int i = 0; i < cloneHooks.Count; i++)
+                    cloneHooks[i].PrepareForRuntimeClone();
+                cloneObject = Instantiate(source.gameObject, spawnPosition,
+                    source.transform.rotation);
+            }
+            finally
+            {
+                for (int i = cloneHooks.Count - 1; i >= 0; i--)
+                    cloneHooks[i].RestoreAfterRuntimeClone();
+                cloneHooks.Clear();
+                cloneHookBehaviours.Clear();
+            }
             cloneObject.name = "Player (먹분신)";
             var clone = cloneObject.GetComponent<PlayerController>();
             if (clone == null)
@@ -168,9 +310,35 @@ namespace MukJump.Core
                 cloneBody.linearVelocity = sourceBody.linearVelocity +
                                            Vector2.right * (direction * 0.45f);
 
-            IgnorePlayerCollision(source, clone);
+            CleanupPlayers();
+            for (int i = 0; i < players.Count; i++)
+                if (players[i] != clone)
+                    IgnorePlayerCollision(players[i], clone);
             RegisterPlayer(clone);
             return true;
+        }
+
+        /// 디버그 패널에서 고도별 맵과 스폰을 즉시 검증하기 위한 순간이동.
+        public void DebugTeleportToHeight(int targetHeight)
+        {
+            if (State != GameState.Playing) return;
+            var primary = HighestLivingPlayer;
+            if (primary == null) return;
+
+            int currentHeight = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
+            float deltaY = Mathf.Max(0, targetHeight) - currentHeight;
+            CleanupPlayers();
+            for (int i = 0; i < players.Count; i++)
+                if (!players[i].IsDead)
+                    players[i].DebugTeleportBy(Vector2.up * deltaY);
+
+            primary = HighestLivingPlayer;
+            ScoreManager.Instance?.DebugSetHeight(targetHeight, primary != null ? primary.transform : null);
+            Camera.main?.GetComponent<CameraFollow>()?.DebugSnapTo(primary != null
+                ? primary.transform
+                : null);
+            RestPlatformSpawner.Instance?.DebugResetSchedule(targetHeight);
+            WorldHeightTeleported?.Invoke(Mathf.Max(0, targetHeight));
         }
 
         void IgnorePlayerCollision(PlayerController first, PlayerController second)
@@ -208,7 +376,7 @@ namespace MukJump.Core
             if (State != GameState.Lobby) return;
 
             var player = HighestLivingPlayer;
-            State = GameState.Playing;
+            SetState(GameState.Playing);
             player?.BeginFromLobby();
             if (player != null)
                 ScoreManager.Instance?.ResetOrigin(player.transform.position.y);
@@ -225,6 +393,29 @@ namespace MukJump.Core
                 BrushTransitionView.RequestRevealAfterSceneLoad();
                 SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             });
+        }
+
+        void RestorePausedWorld(bool notify)
+        {
+            bool wasPaused = IsPaused;
+            AudioListener.pause = false;
+            if (!wasPaused) return;
+            if (fixedDeltaBeforePause > 0f)
+                Time.fixedDeltaTime = fixedDeltaBeforePause;
+            Time.timeScale = Mathf.Max(0.01f, timeScaleBeforePause);
+            IsPaused = false;
+            timeScaleBeforePause = 1f;
+            fixedDeltaBeforePause = 0.02f;
+            if (notify && wasPaused)
+                PauseChanged?.Invoke(false);
+        }
+
+        void SetState(GameState nextState)
+        {
+            if (State == nextState) return;
+            GameState previousState = State;
+            State = nextState;
+            StateChanged?.Invoke(previousState, nextState);
         }
     }
 }

@@ -37,6 +37,20 @@ namespace MukJump.Core
             source.PlayOneShot(clip, Mathf.Clamp01(volume) * masterVolume);
         }
 
+        /// 일시정지 전에 재생 중인 짧은 효과음을 비워, 재개 시 뒤늦게 이어지지 않게 한다.
+        public void StopAll()
+        {
+            EnsureSources();
+            if (sources == null) return;
+            for (int i = 0; i < sources.Length; i++)
+            {
+                if (sources[i] == null) continue;
+                sources[i].Stop();
+                sources[i].clip = null;
+            }
+            nextSource = 0;
+        }
+
         void EnsureSources()
         {
             int count = Mathf.Clamp(sourceCount, 2, 12);

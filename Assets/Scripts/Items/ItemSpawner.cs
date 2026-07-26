@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using MukJump.Core;
+using MukJump.Core.Pooling;
 
 namespace MukJump.Items
 {
@@ -16,37 +17,62 @@ namespace MukJump.Items
         [SerializeField] Sprite inkShieldSprite;
         [Tooltip("먹분신 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
         [SerializeField] Sprite inkCloneSprite;
+        [Tooltip("붓 여유 게이지 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
+        [SerializeField] Sprite inkReserveSprite;
         [SerializeField] Vector2 verticalSpacing = new(15f, 25f);
         [SerializeField] Vector2 horizontalRange = new(-4f, 4f);
         [SerializeField] float firstSpawnHeight = 12f;
         [SerializeField] float spawnAhead = 12f;
         [SerializeField] float despawnBelow = 10f;
-        [Tooltip("GameplayCanvas 테스트 아이콘(Set Native Size / 9)과 비슷하게 보이는 월드 폭")]
-        [SerializeField] float itemWorldWidth = 1.7f;
+        // 씬에 저장된 예전 직렬화 값과 무관하게 모든 아이템의 크기를 동일하게 유지한다.
+        const float ItemWorldWidth = 0.9f;
+        const int PoolCapacity = 8;
 
         readonly List<ItemPickup> active = new();
+        ComponentPool<ItemPickup> pool;
+        GameManager subscribedManager;
         Camera cam;
         float nextSpawnY;
+
+        void OnEnable()
+        {
+            TrySubscribeToGameManager();
+        }
 
         void Start()
         {
             cam = Camera.main;
             nextSpawnY = firstSpawnHeight;
+            EnsurePool();
+            TrySubscribeToGameManager();
+        }
+
+        void OnDisable()
+        {
+            UnsubscribeFromGameManager();
+            ReleaseAllActive();
         }
 
         void Update()
         {
+            TrySubscribeToGameManager();
             if (cam == null || placeholderSprite == null || GameManager.Instance == null ||
                 GameManager.Instance.State != GameState.Playing) return;
 
             float cameraTop = cam.transform.position.y + cam.orthographicSize;
+            float cutoff = cam.transform.position.y - cam.orthographicSize - despawnBelow;
+
+            // 디버그 순간이동이나 카메라 급상승 뒤 화면 아래의 과거 예약 슬롯은
+            // 오브젝트를 만들지 않고 건너뛰어 한 프레임 생성/파괴 폭증을 막는다.
+            while (nextSpawnY < cutoff)
+                nextSpawnY += NextSpacing();
+
             while (nextSpawnY <= cameraTop + spawnAhead)
             {
                 Spawn(nextSpawnY);
-                nextSpawnY += Random.Range(verticalSpacing.x, verticalSpacing.y);
+                nextSpawnY += NextSpacing();
             }
 
-            float cutoff = cam.transform.position.y - cam.orthographicSize - despawnBelow;
             for (int i = active.Count - 1; i >= 0; i--)
             {
                 if (active[i] == null)
@@ -55,36 +81,126 @@ namespace MukJump.Items
                     continue;
                 }
                 if (active[i].transform.position.y >= cutoff) continue;
-                Destroy(active[i].gameObject);
-                active.RemoveAt(i);
+                ReleaseAt(i);
             }
         }
 
         void Spawn(float y)
         {
-            var type = (ItemType)Random.Range(0, 4);
+            EnsurePool();
+            var type = (ItemType)Random.Range(0, 5);
             Sprite sprite = SpriteFor(type);
             bool usesDedicatedSprite = sprite != placeholderSprite;
-            var go = new GameObject($"Item_{type}")
-            {
-                layer = LayerMask.NameToLayer("Item"),
-            };
+            var pickup = pool.Acquire();
+            var go = pickup.gameObject;
+            go.name = $"Item_{type}";
+            go.layer = LayerMask.NameToLayer("Item");
             go.transform.position = new Vector3(Random.Range(horizontalRange.x, horizontalRange.y), y, 0f);
+            go.transform.rotation = Quaternion.identity;
 
-            var renderer = go.AddComponent<SpriteRenderer>();
+            var renderer = go.GetComponent<SpriteRenderer>();
             renderer.sprite = sprite;
             renderer.sortingOrder = 4;
             renderer.color = usesDedicatedSprite ? Color.white : ColorFor(type);
             float width = sprite.bounds.size.x;
-            go.transform.localScale = Vector3.one * (width > 0f ? itemWorldWidth / width : 1f);
+            go.transform.localScale = Vector3.one * (width > 0f ? ItemWorldWidth / width : 1f);
 
-            var trigger = go.AddComponent<CircleCollider2D>();
+            var trigger = go.GetComponent<CircleCollider2D>();
             trigger.isTrigger = true;
+            trigger.enabled = true;
             trigger.radius = Mathf.Min(sprite.bounds.extents.x, sprite.bounds.extents.y) * 0.72f;
 
-            var pickup = go.AddComponent<ItemPickup>();
+            pickup.ReleaseRequested -= OnReleaseRequested;
+            pickup.ReleaseRequested += OnReleaseRequested;
             pickup.Configure(type, Random.Range(0f, Mathf.PI * 2f));
             active.Add(pickup);
+        }
+
+        ItemPickup CreatePooledItem()
+        {
+            var go = new GameObject("PooledItem")
+            {
+                layer = LayerMask.NameToLayer("Item"),
+            };
+            go.transform.SetParent(transform, false);
+            go.SetActive(false);
+            go.AddComponent<SpriteRenderer>();
+            var trigger = go.AddComponent<CircleCollider2D>();
+            trigger.isTrigger = true;
+            return go.AddComponent<ItemPickup>();
+        }
+
+        void EnsurePool()
+        {
+            if (pool != null) return;
+            pool = new ComponentPool<ItemPickup>(CreatePooledItem, PoolCapacity);
+            var existing = GetComponentsInChildren<ItemPickup>(true);
+            for (int i = 0; i < existing.Length; i++)
+                pool.Adopt(existing[i]);
+        }
+
+        void OnReleaseRequested(ItemPickup pickup)
+        {
+            int index = active.IndexOf(pickup);
+            if (index < 0) return;
+            ReleaseAt(index);
+        }
+
+        void ReleaseAt(int index)
+        {
+            var pickup = active[index];
+            active.RemoveAt(index);
+            if (pickup == null || pool == null) return;
+            pickup.ReleaseRequested -= OnReleaseRequested;
+            pool.Release(pickup);
+        }
+
+        void ReleaseAllActive()
+        {
+            for (int i = active.Count - 1; i >= 0; i--)
+                ReleaseAt(i);
+        }
+
+        float NextSpacing()
+        {
+            float minimum = Mathf.Max(0.1f, verticalSpacing.x);
+            float maximum = Mathf.Max(minimum, verticalSpacing.y);
+            return Random.Range(minimum, maximum);
+        }
+
+        void TrySubscribeToGameManager()
+        {
+            var manager = GameManager.Instance;
+            if (subscribedManager == manager) return;
+            UnsubscribeFromGameManager();
+            if (manager == null) return;
+            subscribedManager = manager;
+            subscribedManager.StateChanged += OnStateChanged;
+            subscribedManager.WorldHeightTeleported += OnWorldHeightTeleported;
+        }
+
+        void UnsubscribeFromGameManager()
+        {
+            if (subscribedManager == null) return;
+            subscribedManager.StateChanged -= OnStateChanged;
+            subscribedManager.WorldHeightTeleported -= OnWorldHeightTeleported;
+            subscribedManager = null;
+        }
+
+        void OnStateChanged(GameState previous, GameState next)
+        {
+            if (next != GameState.Playing)
+                ReleaseAllActive();
+        }
+
+        void OnWorldHeightTeleported(int targetHeight)
+        {
+            ReleaseAllActive();
+            if (cam == null) cam = Camera.main;
+            float visibleBottom = cam != null
+                ? cam.transform.position.y - cam.orthographicSize
+                : Mathf.Max(firstSpawnHeight, targetHeight);
+            nextSpawnY = Mathf.Max(firstSpawnHeight, visibleBottom);
         }
 
         Sprite SpriteFor(ItemType type)
@@ -95,6 +211,7 @@ namespace MukJump.Items
                 ItemType.GoldenBrush when goldenBrushSprite != null => goldenBrushSprite,
                 ItemType.InkShield when inkShieldSprite != null => inkShieldSprite,
                 ItemType.InkClone when inkCloneSprite != null => inkCloneSprite,
+                ItemType.InkReserve when inkReserveSprite != null => inkReserveSprite,
                 _ => placeholderSprite,
             };
         }
@@ -106,6 +223,7 @@ namespace MukJump.Items
                 ItemType.InkDrop => new Color(0.42f, 0.62f, 0.72f),
                 ItemType.GoldenBrush => new Color(0.95f, 0.72f, 0.2f),
                 ItemType.InkShield => new Color(0.72f, 0.18f, 0.28f),
+                ItemType.InkReserve => new Color(0.2f, 0.58f, 0.48f),
                 _ => new Color(0.2f, 0.18f, 0.16f),
             };
         }

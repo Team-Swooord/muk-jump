@@ -48,16 +48,33 @@ namespace MukJump.EditorTools
 
         const string ScenePath = "Assets/Scenes/Main.unity";
         const string BgPath = "Assets/Art/Background/background_ink_landscape.png";
+        static readonly string[] MapBackgroundPaths =
+        {
+            "Assets/Art/Background/Maps/map_00_quiet_mountain.png",
+            "Assets/Art/Background/Maps/map_01_wind_ridge.png",
+            "Assets/Art/Background/Maps/map_02_ink_rain_valley.png",
+            "Assets/Art/Background/Maps/map_03_black_cliff.png",
+        };
+        static readonly string[] EndlessMapBackgroundPaths =
+        {
+            "Assets/Resources/MukJump/Background/Endless/map_04_ink_galaxy_gate.png",
+            "Assets/Resources/MukJump/Background/Endless/map_05_celestial_lotus.png",
+            "Assets/Resources/MukJump/Background/Endless/map_06_heavenly_ink_river.png",
+        };
         const string CharSheetPath = "Assets/Art/Character/Player/muk_spritesheet.png";
         const string ObstaclePath = "Assets/Art/Character/Obstacles/anermy_01.png";
         const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
         const string LobbyLogoPath = "Assets/Art/UI/muk_logo.png";
         const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";
+        const string GaugeFillPath = "Assets/Art/UI/muk_gauge_fill.png";
+        const string GaugeTrackPath = "Assets/Art/UI/muk_gauge_track.png";
         const string LineSpritePrefabPath = "Assets/Art/UI/LineSprite.prefab";
         const string InkDropItemPath = "Assets/Art/UI/ink_drop.png";
         const string GoldenBrushItemPath = "Assets/Art/UI/golden_brush.png";
         const string InkShieldItemPath = "Assets/Art/UI/ink_shield.png";
         const string InkCloneItemPath = "Assets/Art/UI/ink_clone.png";
+        const string UiFontPath =
+            "Assets/Resources/MukJump/Fonts/HealthsetJoritdaeStd.otf";
         const string DeathSplashPath = "Assets/Art/Character/Death/ink_death_splash.png";
         const string InkDropVfxRoot = "Assets/MukJump/VFX/InkDropJump";
         const string InkDropVfxTextureRoot = InkDropVfxRoot + "/Textures/";
@@ -108,6 +125,8 @@ namespace MukJump.EditorTools
             ConfigureFallingInkRockSprite();
             ConfigureItemSprites();
             ConfigureInkDropJumpVfxAssets();
+            if (AssetDatabase.LoadAssetAtPath<Font>(UiFontPath) == null)
+                Debug.LogWarning($"[MukJump] UI 폰트를 찾을 수 없음: {UiFontPath}");
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -155,9 +174,36 @@ namespace MukJump.EditorTools
             go.transform.SetParent(cameraTransform);
             go.transform.localPosition = new Vector3(0f, 0f, 10f);
 
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(BgPath);
-            sr.sortingOrder = -10;
+            var currentObject = new GameObject("BackgroundCurrent");
+            currentObject.transform.SetParent(go.transform, false);
+            var current = currentObject.AddComponent<SpriteRenderer>();
+            current.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(MapBackgroundPaths[0]) ??
+                             AssetDatabase.LoadAssetAtPath<Sprite>(BgPath);
+            current.sortingOrder = -10;
+
+            var nextObject = new GameObject("BackgroundNext");
+            nextObject.transform.SetParent(go.transform, false);
+            var next = nextObject.AddComponent<SpriteRenderer>();
+            next.sortingOrder = -9;
+            next.color = Color.clear;
+
+            var view = go.AddComponent<MapBackgroundView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("worldCamera").objectReferenceValue =
+                cameraTransform.GetComponent<Camera>();
+            so.FindProperty("currentRenderer").objectReferenceValue = current;
+            so.FindProperty("nextRenderer").objectReferenceValue = next;
+            var stages = so.FindProperty("stageSprites");
+            stages.arraySize = MapBackgroundPaths.Length;
+            for (int i = 0; i < MapBackgroundPaths.Length; i++)
+                stages.GetArrayElementAtIndex(i).objectReferenceValue =
+                    AssetDatabase.LoadAssetAtPath<Sprite>(MapBackgroundPaths[i]);
+            var endlessStages = so.FindProperty("endlessStageSprites");
+            endlessStages.arraySize = EndlessMapBackgroundPaths.Length;
+            for (int i = 0; i < EndlessMapBackgroundPaths.Length; i++)
+                endlessStages.GetArrayElementAtIndex(i).objectReferenceValue =
+                    AssetDatabase.LoadAssetAtPath<Sprite>(EndlessMapBackgroundPaths[i]);
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         static GameObject BuildPlayer()
@@ -259,12 +305,21 @@ namespace MukJump.EditorTools
 
         static void BuildSystems(Camera camera, GameObject player)
         {
+            var music = new GameObject("BackgroundMusic");
+            music.AddComponent<BackgroundMusicController>();
+
             var go = new GameObject("Systems");
             go.AddComponent<GameManager>();
             go.AddComponent<BrushTransitionView>();
             go.AddComponent<GameOverPopupView>();
+            go.AddComponent<PauseMenuView>();
             go.AddComponent<ScoreManager>();
             go.AddComponent<VfxAudioManager>();
+            go.AddComponent<GameFeedbackController>();
+            go.AddComponent<HeightZoneController>();
+            go.AddComponent<WindWeatherController>();
+            go.AddComponent<WindWeatherView>();
+            go.AddComponent<RestPlatformSpawner>();
             go.AddComponent<SketchToInkService>();
             var strokeCapture = go.AddComponent<StrokeCapture>();
             var strokeSo = new SerializedObject(strokeCapture);
@@ -308,6 +363,7 @@ namespace MukJump.EditorTools
                 AssetDatabase.LoadAssetAtPath<Sprite>(InkShieldItemPath);
             itemSo.FindProperty("inkCloneSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(InkCloneItemPath);
+            itemSo.FindProperty("inkReserveSprite").objectReferenceValue = null;
             itemSo.ApplyModifiedPropertiesWithoutUndo();
 
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem),
@@ -398,12 +454,15 @@ namespace MukJump.EditorTools
                 CopyPreservedDisplayLayout("GameplayCanvas/HeightDisplay", display, anchor,
                     copyHeightDisplayPosition);
 
-            var label = CreateText("Label", display, value, 46, FontStyle.Bold,
+            var label = CreateText("Label", display, value, 50, FontStyle.Normal,
                 new Vector2(0.5f, 0.5f), new Vector2(400f, 80f), Color.white);
             bool hasPreservedLabel = preservedUiLayouts.ContainsKey(HierarchyPath(label.rectTransform));
             RestoreUiLayout(label.rectTransform);
             if (!hasPreservedLabel)
                 CopyPreservedTextLayout("GameplayCanvas/HeightDisplay/HeightText", label);
+            label.fontSize = 50;
+            label.fontStyle = FontStyle.Normal;
+            label.color = InkPalette.Paper;
             label.resizeTextForBestFit = false;
             label.alignByGeometry = true;
             return label;
@@ -456,37 +515,52 @@ namespace MukJump.EditorTools
             scaler.referenceResolution = new Vector2(1080f, 1920f);
             scaler.matchWidthOrHeight = 1f;
 
-            ConfigureUiTexture(StartButtonPath);
-            var display = CreateUiObject("HeightDisplay", root.transform, new Vector2(0.5f, 0.94f),
-                new Vector2(500f, 110f));
-            var background = display.gameObject.AddComponent<RawImage>();
-            background.texture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
-            background.raycastTarget = false;
-            RestoreUiLayout(display);
+            ConfigureUiTexture(GaugeTrackPath);
+            var paperTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeTrackPath);
+            var topHudRoot = CreateUiObject("TopHudRoot", root.transform, new Vector2(0.5f, 1f),
+                new Vector2(1016f, 124f));
+            topHudRoot.pivot = new Vector2(0.5f, 1f);
+            topHudRoot.anchoredPosition = new Vector2(0f, -52f);
+            var topHudBackground = topHudRoot.gameObject.AddComponent<RawImage>();
+            topHudBackground.texture = paperTexture;
+            topHudBackground.color = new Color(1f, 1f, 1f, 0.78f);
+            topHudBackground.raycastTarget = false;
 
-            var label = CreateText("HeightText", display, "고도 0", 46, FontStyle.Bold,
-                new Vector2(0.5f, 0.5f), new Vector2(400f, 80f), Color.white);
-            RestoreUiLayout(label.rectTransform);
+            var display = CreateUiObject("HeightDisplay", topHudRoot, new Vector2(0.5f, 0.5f),
+                new Vector2(360f, 108f));
+            var heightCaption = CreateText("HeightCaption", topHudRoot, "고도", 24,
+                FontStyle.Normal, new Vector2(0.5f, 0.78f), new Vector2(110f, 32f),
+                InkPalette.TextDark);
+            heightCaption.resizeTextForBestFit = false;
+            var label = CreateText("HeightText", display, "0m", 56, FontStyle.Normal,
+                new Vector2(0.5f, 0.33f), new Vector2(340f, 66f), InkPalette.TextDark);
+            label.rectTransform.anchoredPosition = new Vector2(0f, -3f);
             label.resizeTextForBestFit = false;
             label.alignByGeometry = true;
-            var bestLabel = CreateText("BestText", root.transform, "최고 0", 30, FontStyle.Normal,
-                new Vector2(0.5f, 0.89f), new Vector2(360f, 60f), InkPalette.TextMuted);
-            RestoreUiLayout(bestLabel.rectTransform);
+
+            var bestCaption = CreateText("BestCaption", topHudRoot, "최고", 24,
+                FontStyle.Normal, new Vector2(0.82f, 0.75f), new Vector2(150f, 32f),
+                InkPalette.TextDark);
+            bestCaption.resizeTextForBestFit = false;
+            var bestLabel = CreateText("BestText", topHudRoot, "0m", 36, FontStyle.Normal,
+                new Vector2(0.82f, 0.35f), new Vector2(220f, 50f), InkPalette.TextDark);
             bestLabel.resizeTextForBestFit = false;
             bestLabel.alignByGeometry = true;
+            var newBestIndicator = CreateNewBestIndicator(topHudRoot);
+            var windIndicator = CreateWindIndicator(topHudRoot);
 
             var testControls = CreateUiObject("ItemTestControls", root.transform,
-                new Vector2(0f, 0.5f), new Vector2(210f, 900f));
+                new Vector2(0f, 0.5f), new Vector2(410f, 1200f));
             testControls.pivot = new Vector2(0f, 0.5f);
             testControls.anchoredPosition = Vector2.zero;
             RestoreUiLayout(testControls);
 
             var debugToggleButton = CreateDebugTextButton("DebugToggleButton", testControls,
-                new Vector2(8f, 370f), new Vector2(194f, 64f), "DEBUG");
+                new Vector2(8f, 520f), new Vector2(194f, 64f), "DEBUG");
             var debugPanel = CreateUiObject("DebugPanel", testControls,
-                new Vector2(0f, 0.5f), new Vector2(194f, 720f));
+                new Vector2(0f, 0.5f), new Vector2(390f, 980f));
             debugPanel.pivot = new Vector2(0f, 0.5f);
-            debugPanel.anchoredPosition = new Vector2(8f, -30f);
+            debugPanel.anchoredPosition = new Vector2(8f, -10f);
             var panelBackground = debugPanel.gameObject.AddComponent<Image>();
             panelBackground.color = new Color(0.11f, 0.105f, 0.1f, 0.82f);
 
@@ -496,26 +570,49 @@ namespace MukJump.EditorTools
             var inkShieldTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(InkShieldItemPath);
             var inkCloneTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(InkCloneItemPath);
             var inkDropButton = CreateItemTestButton("InkDropButton", debugPanel, inkDropTexture,
-                new Vector2(32f, 245f), Color.white, "50m");
+                new Vector2(22f, 300f), Color.white, "50m");
             var goldenBrushButton = CreateItemTestButton("GoldenBrushButton", debugPanel,
                 goldenBrushTexture != null ? goldenBrushTexture : placeholderTexture,
-                new Vector2(32f, 95f), goldenBrushTexture != null ? Color.white : new Color(0.95f, 0.72f, 0.2f), "무한");
+                new Vector2(22f, 145f), goldenBrushTexture != null ? Color.white : new Color(0.95f, 0.72f, 0.2f), "무한");
             var inkShieldButton = CreateItemTestButton("InkShieldButton", debugPanel,
                 inkShieldTexture != null ? inkShieldTexture : placeholderTexture,
-                new Vector2(32f, -55f), inkShieldTexture != null ? Color.white : new Color(0.72f, 0.18f, 0.28f), "방어");
+                new Vector2(22f, -10f), inkShieldTexture != null ? Color.white : new Color(0.72f, 0.18f, 0.28f), "방어");
             var inkCloneButton = CreateItemTestButton("InkCloneButton", debugPanel,
                 inkCloneTexture != null ? inkCloneTexture : placeholderTexture,
-                new Vector2(32f, -205f), inkCloneTexture != null ? Color.white : InkPalette.Ink, "분신");
+                new Vector2(22f, -165f), inkCloneTexture != null ? Color.white : InkPalette.Ink, "분신");
+            var inkReserveButton = CreateItemTestButton("InkReserveButton", debugPanel,
+                placeholderTexture, new Vector2(22f, -320f),
+                new Color(0.2f, 0.58f, 0.48f), "여유 +35%");
+
+            CreateText("MapDebugTitle", debugPanel, "맵 이동", 30, FontStyle.Bold,
+                new Vector2(0.76f, 0.9f), new Vector2(175f, 55f), InkPalette.Paper);
+            var mapStartButton = CreateDebugTextButton("MapStartButton", debugPanel,
+                new Vector2(190f, 300f), new Vector2(175f, 62f), "산길 0m");
+            var mapWindButton = CreateDebugTextButton("MapWindButton", debugPanel,
+                new Vector2(190f, 220f), new Vector2(175f, 62f), "바람 250m");
+            var mapRainButton = CreateDebugTextButton("MapRainButton", debugPanel,
+                new Vector2(190f, 140f), new Vector2(175f, 62f), "먹비 500m");
+            var mapGorgeButton = CreateDebugTextButton("MapGorgeButton", debugPanel,
+                new Vector2(190f, 60f), new Vector2(175f, 62f), "협곡 750m");
+            var updraftButton = CreateDebugTextButton("UpdraftButton", debugPanel,
+                new Vector2(190f, -40f), new Vector2(175f, 78f), "상승기류");
+            var windDirectionButton = CreateDebugTextButton("WindDirectionButton", debugPanel,
+                new Vector2(190f, -130f), new Vector2(175f, 72f), "풍향 전환");
+            var windPlatformButton = CreateDebugTextButton("WindPlatformButton", debugPanel,
+                new Vector2(190f, -220f), new Vector2(175f, 72f), "풍맥 발판");
             var invincibleButton = CreateDebugTextButton("InvincibleButton", debugPanel,
-                new Vector2(22f, -325f), new Vector2(150f, 72f), "무적 OFF");
+                new Vector2(190f, -310f), new Vector2(175f, 72f), "무적 OFF");
             var invincibleLabel = invincibleButton.transform.Find("Label")?.GetComponent<Text>();
             debugPanel.gameObject.SetActive(false);
 
             var view = root.GetComponent<GameplayHudView>();
             var so = new SerializedObject(view);
             so.FindProperty("canvas").objectReferenceValue = canvas;
+            so.FindProperty("topHudRoot").objectReferenceValue = topHudRoot;
             so.FindProperty("heightText").objectReferenceValue = label;
+            so.FindProperty("heightCaption").objectReferenceValue = heightCaption;
             so.FindProperty("bestText").objectReferenceValue = bestLabel;
+            so.FindProperty("bestCaption").objectReferenceValue = bestCaption;
             so.FindProperty("itemTestControls").objectReferenceValue = testControls;
             so.FindProperty("debugPanel").objectReferenceValue = debugPanel;
             so.FindProperty("debugToggleButton").objectReferenceValue = debugToggleButton;
@@ -525,10 +622,117 @@ namespace MukJump.EditorTools
             so.FindProperty("goldenBrushButton").objectReferenceValue = goldenBrushButton;
             so.FindProperty("inkShieldButton").objectReferenceValue = inkShieldButton;
             so.FindProperty("inkCloneButton").objectReferenceValue = inkCloneButton;
+            so.FindProperty("inkReserveButton").objectReferenceValue = inkReserveButton;
+            so.FindProperty("mapStartButton").objectReferenceValue = mapStartButton;
+            so.FindProperty("mapWindButton").objectReferenceValue = mapWindButton;
+            so.FindProperty("mapRainButton").objectReferenceValue = mapRainButton;
+            so.FindProperty("mapGorgeButton").objectReferenceValue = mapGorgeButton;
+            so.FindProperty("updraftButton").objectReferenceValue = updraftButton;
+            so.FindProperty("windDirectionButton").objectReferenceValue = windDirectionButton;
+            so.FindProperty("windPlatformButton").objectReferenceValue = windPlatformButton;
+            so.FindProperty("windIndicator").objectReferenceValue = windIndicator;
+            so.FindProperty("newBestIndicator").objectReferenceValue = newBestIndicator;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             // LineSprite 프리팹은 StrokeCapture의 붓결 텍스처 원본으로만 사용한다.
             // GameplayCanvas에 표시 인스턴스를 만들면 화면 중앙에 불필요한 획이 남는다.
+        }
+
+        static NewBestIndicatorView CreateNewBestIndicator(Transform parent)
+        {
+            var root = CreateUiObject("NewBestInkSeal", parent, new Vector2(0.955f, 0.5f),
+                new Vector2(50f, 50f));
+            var group = root.gameObject.AddComponent<CanvasGroup>();
+            group.interactable = false;
+            group.blocksRaycasts = false;
+
+            var sealRoot = CreateUiObject("RecordSeal", root, new Vector2(0.5f, 0.5f),
+                new Vector2(50f, 50f));
+            sealRoot.localRotation = Quaternion.Euler(0f, 0f, -4f);
+            var seal = sealRoot.gameObject.AddComponent<Image>();
+            seal.color = InkPalette.Red;
+            seal.raycastTarget = false;
+            var sealText = CreateText("SealText", sealRoot, "신", 22, FontStyle.Normal,
+                new Vector2(0.5f, 0.5f), new Vector2(38f, 36f), InkPalette.Paper);
+            sealText.resizeTextForBestFit = false;
+
+            var view = root.gameObject.AddComponent<NewBestIndicatorView>();
+            var viewSo = new SerializedObject(view);
+            viewSo.FindProperty("rootGroup").objectReferenceValue = group;
+            viewSo.FindProperty("stampRoot").objectReferenceValue = sealRoot;
+            viewSo.FindProperty("sealImage").objectReferenceValue = seal;
+            viewSo.FindProperty("sealText").objectReferenceValue = sealText;
+            viewSo.ApplyModifiedPropertiesWithoutUndo();
+            return view;
+        }
+
+        static WindIndicatorView CreateWindIndicator(Transform parent)
+        {
+            ConfigureUiTexture(GaugeFillPath);
+            var brushTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeFillPath);
+
+            var root = CreateUiObject("WindInkIndicator", parent, new Vector2(0.16f, 0.5f),
+                new Vector2(284f, 84f));
+
+            var group = root.gameObject.AddComponent<CanvasGroup>();
+            group.interactable = false;
+            group.blocksRaycasts = false;
+
+            var sealRect = CreateUiObject("WindAlertSeal", root, new Vector2(0.1f, 0.5f),
+                new Vector2(32f, 32f));
+            sealRect.localRotation = Quaternion.Euler(0f, 0f, -4f);
+            var alertSeal = sealRect.gameObject.AddComponent<Image>();
+            alertSeal.color = new Color(
+                InkPalette.Red.r, InkPalette.Red.g, InkPalette.Red.b, 0.62f);
+            alertSeal.raycastTarget = false;
+            var sealText = CreateText("SealText", sealRect, "풍", 21, FontStyle.Normal,
+                new Vector2(0.5f, 0.5f), new Vector2(26f, 26f), InkPalette.Paper);
+            sealText.resizeTextForBestFit = false;
+
+            var arrow = CreateUiObject("DirectionArrow", root, new Vector2(0.42f, 0.5f),
+                new Vector2(76f, 36f));
+            var shaft = CreateWindArrowPart("Shaft", arrow, new Vector2(-5f, 0f),
+                new Vector2(44f, 7f), 0f, brushTexture);
+            var upper = CreateWindArrowPart("UpperHead", arrow, new Vector2(15f, 7f),
+                new Vector2(20f, 6f), -40f, brushTexture);
+            var lower = CreateWindArrowPart("LowerHead", arrow, new Vector2(15f, -7f),
+                new Vector2(20f, 6f), 40f, brushTexture);
+
+            var state = CreateText("WindStateText", root, "산들", 26, FontStyle.Normal,
+                new Vector2(0.78f, 0.5f), new Vector2(128f, 46f),
+                InkPalette.TextDark);
+            state.resizeTextForBestFit = false;
+            state.alignByGeometry = true;
+
+            var view = root.gameObject.AddComponent<WindIndicatorView>();
+            var viewSo = new SerializedObject(view);
+            viewSo.FindProperty("rootGroup").objectReferenceValue = group;
+            viewSo.FindProperty("directionArrow").objectReferenceValue = arrow;
+            viewSo.FindProperty("stateText").objectReferenceValue = state;
+            var arrowGraphics = viewSo.FindProperty("arrowGraphics");
+            arrowGraphics.arraySize = 3;
+            arrowGraphics.GetArrayElementAtIndex(0).objectReferenceValue = shaft;
+            arrowGraphics.GetArrayElementAtIndex(1).objectReferenceValue = upper;
+            arrowGraphics.GetArrayElementAtIndex(2).objectReferenceValue = lower;
+            var brushGraphics = viewSo.FindProperty("strengthBrushes");
+            brushGraphics.arraySize = 0;
+            viewSo.FindProperty("alertSeal").objectReferenceValue = alertSeal;
+            viewSo.FindProperty("sealText").objectReferenceValue = sealText;
+            viewSo.ApplyModifiedPropertiesWithoutUndo();
+            return view;
+        }
+
+        static RawImage CreateWindArrowPart(string name, Transform parent, Vector2 position,
+            Vector2 size, float angle, Texture2D brushTexture)
+        {
+            var rect = CreateUiObject(name, parent, new Vector2(0.5f, 0.5f), size);
+            rect.anchoredPosition = position;
+            rect.localRotation = Quaternion.Euler(0f, 0f, angle);
+            var image = rect.gameObject.AddComponent<RawImage>();
+            image.texture = brushTexture;
+            image.color = InkPalette.Ink;
+            image.raycastTarget = false;
+            return image;
         }
 
         static Button CreateDebugTextButton(string name, Transform parent, Vector2 position,
@@ -541,7 +745,7 @@ namespace MukJump.EditorTools
             background.color = new Color(0.92f, 0.89f, 0.82f, 0.94f);
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = background;
-            var label = CreateText("Label", rect, labelText, 24, FontStyle.Bold,
+            var label = CreateText("Label", rect, labelText, 27, FontStyle.Bold,
                 new Vector2(0.5f, 0.5f), size - new Vector2(12f, 10f), InkPalette.Ink);
             label.raycastTarget = false;
             return button;
@@ -550,7 +754,7 @@ namespace MukJump.EditorTools
         static Button CreateItemTestButton(string name, Transform parent, Texture2D iconTexture,
             Vector2 position, Color iconColor, string labelText)
         {
-            var rect = CreateUiObject(name, parent, new Vector2(0f, 0.5f), new Vector2(130f, 130f));
+            var rect = CreateUiObject(name, parent, new Vector2(0f, 0.5f), new Vector2(145f, 136f));
             rect.pivot = new Vector2(0f, 0.5f);
             rect.anchoredPosition = position;
 
@@ -565,12 +769,21 @@ namespace MukJump.EditorTools
             iconImage.color = iconColor;
             iconImage.raycastTarget = false;
 
-            var label = CreateText("Label", rect, labelText, 24, FontStyle.Bold,
-                new Vector2(0.5f, 0.12f), new Vector2(110f, 34f), InkPalette.Ink);
+            var label = CreateText("Label", rect, labelText, 26, FontStyle.Bold,
+                new Vector2(0.5f, 0.12f), new Vector2(132f, 40f), InkPalette.Ink);
             label.raycastTarget = false;
             RestoreUiLayout(rect);
             RestoreUiLayout(icon);
             RestoreUiLayout(label.rectTransform);
+            // 보존 레이아웃이 이전의 작은 라벨 규격을 되살려도 새 가독성 기준은 유지한다.
+            rect.sizeDelta = new Vector2(145f, 136f);
+            label.rectTransform.sizeDelta = new Vector2(132f, 40f);
+            label.fontSize = 26;
+            label.fontStyle = FontStyle.Bold;
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 22;
+            label.resizeTextMaxSize = 26;
+            label.color = InkPalette.Ink;
             SetNativeSizeDivided(iconImage, 9f);
             return button;
         }
@@ -703,7 +916,7 @@ namespace MukJump.EditorTools
             var rect = CreateUiObject(name, parent, anchor, size);
             var text = rect.gameObject.AddComponent<Text>();
             text.text = value;
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = AssetDatabase.LoadAssetAtPath<Font>(UiFontPath) ?? InkPalette.UiFont;
             text.fontSize = fontSize;
             text.fontStyle = fontStyle;
             text.alignment = TextAnchor.MiddleCenter;
@@ -847,10 +1060,29 @@ namespace MukJump.EditorTools
         /// 배경 이미지의 픽셀 폭이 얼마든 월드 폭 10.8유닛(화면 가득)이 되도록 PPU를 계산한다
         static void ConfigureBackground()
         {
-            ConfigureSprite(BgPath, pixelsPerUnit: 100); // 우선 임포트 확정
-            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(BgPath);
-            if (tex == null) return;
-            ConfigureSprite(BgPath, pixelsPerUnit: tex.width / WorldScreenWidth);
+            ConfigureBackgroundSet(MapBackgroundPaths);
+            ConfigureBackgroundSet(EndlessMapBackgroundPaths);
+        }
+
+        static void ConfigureBackgroundSet(string[] paths)
+        {
+            for (int i = 0; i < paths.Length; i++)
+            {
+                string path = paths[i];
+                ConfigureSprite(path, pixelsPerUnit: 100f);
+                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+                if (tex == null) continue;
+                ConfigureSprite(path, pixelsPerUnit: tex.width / WorldScreenWidth);
+                var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+                if (importer == null) continue;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.mipmapEnabled = false;
+                importer.alphaIsTransparency = false;
+                importer.maxTextureSize = 2048;
+                importer.textureCompression = TextureImporterCompression.CompressedHQ;
+                importer.SaveAndReimport();
+            }
         }
 
         static void ConfigureSprite(string path, float pixelsPerUnit)

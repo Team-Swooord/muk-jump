@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace MukJump.Core
@@ -11,6 +12,12 @@ namespace MukJump.Core
 
         public int Height { get; private set; }
         public int Best { get; private set; }
+        public int RunBestToBeat { get; private set; }
+        public bool IsNewBestThisRun { get; private set; }
+        public int DisplayBest => Mathf.Max(Best, Height);
+
+        /// 이전 최고 기록을 처음 넘어선 순간에만 한 판에 한 번 발생한다.
+        public event Action<int, int> NewBestReached;
 
         Transform target;
         float startY;
@@ -24,6 +31,7 @@ namespace MukJump.Core
         void Awake()
         {
             Best = PlayerPrefs.GetInt(BestKey, 0);
+            RunBestToBeat = Best;
         }
 
         void Start()
@@ -44,6 +52,16 @@ namespace MukJump.Core
             if (livingPlayer != null) target = livingPlayer.transform;
             if (target == null) return;
             Height = Mathf.Max(Height, Mathf.RoundToInt(target.position.y - startY));
+            if (!IsNewBestThisRun && BeatsRecord(Height, RunBestToBeat))
+            {
+                IsNewBestThisRun = true;
+                NewBestReached?.Invoke(Height, RunBestToBeat);
+            }
+        }
+
+        public static bool BeatsRecord(int height, int record)
+        {
+            return height > 0 && height > record;
         }
 
         public void SaveBest()
@@ -57,11 +75,21 @@ namespace MukJump.Core
         /// 로비에서 선택한 시작 발판으로 이동한 직후 그 위치를 이번 도전의 0m로 삼는다.
         public void ResetOrigin(float worldY)
         {
-            if (target == null) return;
             startY = worldY;
             Height = 0;
+            RunBestToBeat = Best;
+            IsNewBestThisRun = false;
         }
 
         public float HeightAt(float worldY) => worldY - startY;
+
+        public void DebugSetHeight(int height, Transform newTarget)
+        {
+            target = newTarget;
+            Height = Mathf.Max(0, height);
+            if (target != null)
+                startY = target.position.y - Height;
+            IsNewBestThisRun = BeatsRecord(Height, RunBestToBeat);
+        }
     }
 }
