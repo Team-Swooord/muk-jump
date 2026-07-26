@@ -11,7 +11,7 @@
 flowchart TD
     Builder["MukJumpSceneBuilder<br/>씬 구성"]
     Manager["GameManager<br/>세션 상태·생존자 등록"]
-    Contracts["Core 계약<br/>StateChanged · WorldHeightTeleported"]
+    Contracts["Core 계약<br/>StateChanged · PauseChanged · WorldHeightTeleported"]
     Player["Player<br/>이동·점프·피격"]
     Drawing["Drawing<br/>입력·발판·먹 자원"]
     Items["Items<br/>스폰·획득·효과"]
@@ -121,11 +121,28 @@ flowchart TD
 - 풍맥 상승은 위쪽 접촉에서만 발동한다.
 - 시각용 검정 외곽선·바람 문양에는 콜라이더를 추가하지 않는다.
 
-## 6. 변경 시 체크리스트
+## 6. 일시정지 경계
+
+일시정지는 `GameState.Paused`로 전환하지 않는다. 아이템·장애물·낙묵석 스포너는
+`Playing`이 아닌 상태를 세션 종료로 해석해 활성 풀을 반납하므로, 상태를 바꾸면
+계속하기 직후 기존 오브젝트와 예약이 사라질 수 있기 때문이다.
+
+- `GameManager.IsPaused`와 `PauseChanged`가 일시정지 여부만 별도로 전달한다.
+- `Time.timeScale = 0`으로 물리·발판 수명·날씨·스폰 예약을 그 자리에서 보존한다.
+- 진행 중 스트로크와 히트스톱을 먼저 정리해 정지 중 선이 완성되거나 시간이 다시
+  흐르는 경합을 막는다.
+- 효과음은 `AudioListener.pause`로 멈추고, 별도 리스너 정지 예외인 BGM만 낮은 음량으로
+  유지한다.
+- `계속하기`는 이전 `timeScale`·`fixedDeltaTime`을 복원한다.
+- `로비로`는 물리를 멈춘 채 붓 전환을 끝낸 뒤 현재 씬을 다시 불러 런타임 풀과
+  분신을 새 세션으로 초기화하고, 저장된 최고 기록은 유지한다.
+
+## 7. 변경 시 체크리스트
 
 - 새 반복 객체는 생성자와 제거자를 흩어 두지 말고 한 소유자에 모았는가?
 - 풀 객체의 코루틴, 이벤트, 속도, 콜라이더, 렌더러를 반납 시 모두 초기화했는가?
 - 세션 상태를 매 프레임 검색하는 대신 기존 이벤트 계약으로 해결할 수 있는가?
+- 일시정지만을 위해 `GameState`를 바꿔 활성 풀과 스폰 예약을 지우고 있지 않은가?
 - `FindObjectsByType` 결과 배열이나 Material을 매 프레임 새로 만들고 있지 않은가?
 - 일반 발판과 특수 발판의 충돌 정책을 함께 바꾸지 않았는가?
 - 바람 물리가 `gravityScale`이나 발판 접착 상태를 직접 변경하지 않는가?

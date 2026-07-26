@@ -936,3 +936,26 @@
   런타임·에디터 어셈블리 독립 컴파일을 통과했다. 사용자 소유 `Main.unity`와 기존 맵
   메타 4개는 건드리지 않았으며, Unity Play Mode에서 1000/1250/1500/1750m 전환과
   실제 셰이더 색감은 최종 확인할 예정이다.
+
+### 2026-07-26 — 한지 일시정지판·전역 텍스트 가독성 보강
+
+- 사용 도구: OpenAI Codex
+- 목적: 플레이 세션을 잃지 않고 잠시 멈추거나 로비로 돌아갈 수 있게 하고, 모바일
+  화면에서 작고 흐리던 주요 수치·상태·버튼 문구를 빠르게 읽을 수 있게 개선
+- 주요 프롬프트/지시: 일시정지판에 로비 이동을 추가하고, 전체 텍스트를 조금 더
+  진하거나 크게 만들어 가독성을 높인다.
+- 결과물: `PauseMenuView.cs`, `GameManager.cs`, `StrokeCapture.cs`,
+  `GameFeedbackController.cs`, `BackgroundMusicController.cs`, `CameraFollow.cs`,
+  `GameplayHudView.cs`, `LobbyView.cs`, `GameOverPopupView.cs`,
+  `NewBestIndicatorView.cs`, `WindIndicatorView.cs`, `PrototypeHud.cs`,
+  `InkPalette.cs`, `MukJumpSceneBuilder.cs`, 관련 Editor 테스트와 문서
+- 구현 메모: `Playing`을 유지하는 별도 `IsPaused` 계약과 `Time.timeScale = 0`을 사용해
+  분신·발판·아이템·날씨·기능별 풀을 보존한다. 진행 중 획과 히트스톱 경합을 정리하고,
+  효과음은 멈추되 BGM은 낮은 음량으로 유지한다. Safe Area를 따르는 수묵 쉼 버튼과
+  한지 패널에는 큰 계속·로비 버튼을 두었고, 진입·퇴장은 0.18초/0.12초의 짧은
+  투명도·스케일 전환만 사용한다. 고도·최고 기록·풍향·신기록 낙관·디버그·결과창·
+  구간 알림은 글자 크기와 전경 대비를 함께 높였다.
+- 사람의 수정/검토 내용: 런타임·에디터 어셈블리 독립 컴파일과 일시정지 버튼의
+  raycast 대상·패널 차단 상태·최소 글자 크기 회귀 테스트 코드를 확인했다. Unity가
+  닫혀 있어 Test Runner와 Play Mode는 실행하지 않았으며, 9:16 Safe Area, 일시정지 중
+  완전 정지, 계속하기 위치 보존, 붓 전환 뒤 로비 복귀와 실제 폰트 렌더링을 최종 확인한다.
