@@ -171,7 +171,9 @@ namespace MukJump.Core
             gameOverTime = float.PositiveInfinity;
             int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
             int previousBest = ScoreManager.Instance != null ? ScoreManager.Instance.Best : 0;
-            bool reachedNewBest = height > previousBest;
+            bool reachedNewBest =
+                (ScoreManager.Instance != null && ScoreManager.Instance.IsNewBestThisRun) ||
+                height > previousBest;
             ScoreManager.Instance?.SaveBest();
             int best = ScoreManager.Instance != null ? ScoreManager.Instance.Best : previousBest;
             StartCoroutine(ShowGameOverAfterDeath(revealDelay, height, best, reachedNewBest));

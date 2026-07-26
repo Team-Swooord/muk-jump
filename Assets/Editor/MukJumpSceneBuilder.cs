@@ -60,6 +60,8 @@ namespace MukJump.EditorTools
         const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
         const string LobbyLogoPath = "Assets/Art/UI/muk_logo.png";
         const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";
+        const string GaugeFillPath = "Assets/Art/UI/muk_gauge_fill.png";
+        const string GaugeTrackPath = "Assets/Art/UI/muk_gauge_track.png";
         const string LineSpritePrefabPath = "Assets/Art/UI/LineSprite.prefab";
         const string InkDropItemPath = "Assets/Art/UI/ink_drop.png";
         const string GoldenBrushItemPath = "Assets/Art/UI/golden_brush.png";
@@ -516,6 +518,7 @@ namespace MukJump.EditorTools
             RestoreUiLayout(bestLabel.rectTransform);
             bestLabel.resizeTextForBestFit = false;
             bestLabel.alignByGeometry = true;
+            var newBestIndicator = CreateNewBestIndicator(root.transform);
             var windIndicator = CreateWindIndicator(root.transform);
 
             var testControls = CreateUiObject("ItemTestControls", root.transform,
@@ -597,83 +600,143 @@ namespace MukJump.EditorTools
             so.FindProperty("windDirectionButton").objectReferenceValue = windDirectionButton;
             so.FindProperty("windPlatformButton").objectReferenceValue = windPlatformButton;
             so.FindProperty("windIndicator").objectReferenceValue = windIndicator;
+            so.FindProperty("newBestIndicator").objectReferenceValue = newBestIndicator;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             // LineSprite 프리팹은 StrokeCapture의 붓결 텍스처 원본으로만 사용한다.
             // GameplayCanvas에 표시 인스턴스를 만들면 화면 중앙에 불필요한 획이 남는다.
         }
 
+        static NewBestIndicatorView CreateNewBestIndicator(Transform parent)
+        {
+            ConfigureUiTexture(GaugeTrackPath);
+            var paperTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeTrackPath);
+
+            var root = CreateUiObject("NewBestInkSeal", parent, new Vector2(0.5f, 0.835f),
+                new Vector2(460f, 108f));
+            var group = root.gameObject.AddComponent<CanvasGroup>();
+            group.interactable = false;
+            group.blocksRaycasts = false;
+
+            var paper = root.gameObject.AddComponent<RawImage>();
+            paper.texture = paperTexture;
+            paper.color = new Color(1f, 1f, 1f, 0.9f);
+            paper.raycastTarget = false;
+
+            var sealRoot = CreateUiObject("RecordSeal", root, new Vector2(0.13f, 0.5f),
+                new Vector2(74f, 74f));
+            sealRoot.localRotation = Quaternion.Euler(0f, 0f, -5f);
+            var seal = sealRoot.gameObject.AddComponent<Image>();
+            seal.color = InkPalette.Red;
+            seal.raycastTarget = false;
+            var sealText = CreateText("SealText", sealRoot, "최고", 23, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), new Vector2(62f, 58f), InkPalette.Paper);
+            sealText.resizeTextForBestFit = false;
+
+            var value = CreateText("RecordText", root, "지금 기록이 최고 · 123m", 28,
+                FontStyle.Bold, new Vector2(0.61f, 0.51f), new Vector2(350f, 64f),
+                InkPalette.Red);
+            value.resizeTextForBestFit = false;
+            value.alignByGeometry = true;
+
+            var view = root.gameObject.AddComponent<NewBestIndicatorView>();
+            var viewSo = new SerializedObject(view);
+            viewSo.FindProperty("rootGroup").objectReferenceValue = group;
+            viewSo.FindProperty("stampRoot").objectReferenceValue = sealRoot;
+            viewSo.FindProperty("sealImage").objectReferenceValue = seal;
+            viewSo.FindProperty("valueText").objectReferenceValue = value;
+            viewSo.ApplyModifiedPropertiesWithoutUndo();
+            return view;
+        }
+
         static WindIndicatorView CreateWindIndicator(Transform parent)
         {
-            var root = CreateUiObject("WindIndicator", parent, Vector2.one,
-                new Vector2(300f, 104f));
+            ConfigureUiTexture(GaugeFillPath);
+            ConfigureUiTexture(GaugeTrackPath);
+            var brushTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeFillPath);
+            var paperTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeTrackPath);
+
+            var root = CreateUiObject("WindInkIndicator", parent, Vector2.one,
+                new Vector2(280f, 92f));
             root.pivot = Vector2.one;
-            root.anchoredPosition = new Vector2(-28f, -150f);
-            RestoreUiLayout(root);
+            root.anchoredPosition = new Vector2(-24f, -138f);
 
             var group = root.gameObject.AddComponent<CanvasGroup>();
             group.interactable = false;
             group.blocksRaycasts = false;
 
             var background = root.gameObject.AddComponent<RawImage>();
-            background.texture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
-            background.color = new Color(1f, 1f, 1f, 0.66f);
+            background.texture = paperTexture;
+            background.color = new Color(1f, 1f, 1f, 0.9f);
             background.raycastTarget = false;
 
-            var arrow = CreateUiObject("DirectionArrow", root, new Vector2(0.2f, 0.58f),
-                new Vector2(82f, 54f));
+            var arrow = CreateUiObject("DirectionArrow", root, new Vector2(0.2f, 0.56f),
+                new Vector2(86f, 56f));
             var shaft = CreateWindArrowPart("Shaft", arrow, new Vector2(-5f, 0f),
-                new Vector2(52f, 8f), 0f);
+                new Vector2(54f, 10f), 0f, brushTexture);
             var upper = CreateWindArrowPart("UpperHead", arrow, new Vector2(18f, 9f),
-                new Vector2(28f, 8f), -38f);
+                new Vector2(25f, 7f), -40f, brushTexture);
             var lower = CreateWindArrowPart("LowerHead", arrow, new Vector2(18f, -9f),
-                new Vector2(28f, 8f), 38f);
+                new Vector2(25f, 7f), 40f, brushTexture);
 
             var state = CreateText("WindStateText", root, "산들바람", 25, FontStyle.Bold,
-                new Vector2(0.66f, 0.65f), new Vector2(170f, 46f), InkPalette.WindAccent);
+                new Vector2(0.67f, 0.67f), new Vector2(165f, 42f), InkPalette.TextDark);
             state.resizeTextForBestFit = false;
             state.alignByGeometry = true;
 
-            var track = CreateUiObject("StrengthTrack", root, new Vector2(0.66f, 0.25f),
-                new Vector2(150f, 10f));
-            var trackImage = track.gameObject.AddComponent<Image>();
-            trackImage.color = new Color(InkPalette.Ink.r, InkPalette.Ink.g,
-                InkPalette.Ink.b, 0.18f);
-            trackImage.raycastTarget = false;
-            var fill = CreateUiObject("Fill", track, new Vector2(0.5f, 0.5f),
-                new Vector2(150f, 10f));
-            var fillImage = fill.gameObject.AddComponent<Image>();
-            fillImage.color = InkPalette.WindAccent;
-            fillImage.type = Image.Type.Filled;
-            fillImage.fillMethod = Image.FillMethod.Horizontal;
-            fillImage.fillOrigin = (int)Image.OriginHorizontal.Left;
-            fillImage.fillAmount = 0.4f;
-            fillImage.raycastTarget = false;
+            var strengthBrushes = new RawImage[3];
+            float[] widths = { 28f, 38f, 48f };
+            float[] positions = { -45f, 0f, 49f };
+            for (int i = 0; i < strengthBrushes.Length; i++)
+            {
+                var stroke = CreateUiObject($"WindStrengthStroke{i + 1}", root,
+                    new Vector2(0.67f, 0.25f), new Vector2(widths[i], 7f));
+                stroke.anchoredPosition = new Vector2(positions[i], 0f);
+                stroke.localRotation = Quaternion.Euler(0f, 0f, -2f + i * 2f);
+                var strokeImage = stroke.gameObject.AddComponent<RawImage>();
+                strokeImage.texture = brushTexture;
+                strokeImage.color = new Color(
+                    InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.5f);
+                strokeImage.raycastTarget = false;
+                strengthBrushes[i] = strokeImage;
+            }
+
+            var alertRect = CreateUiObject("WindAlertSeal", root, new Vector2(0.94f, 0.78f),
+                new Vector2(22f, 22f));
+            alertRect.localRotation = Quaternion.Euler(0f, 0f, 8f);
+            var alertSeal = alertRect.gameObject.AddComponent<Image>();
+            alertSeal.color = InkPalette.Red;
+            alertSeal.raycastTarget = false;
 
             var view = root.gameObject.AddComponent<WindIndicatorView>();
             var viewSo = new SerializedObject(view);
             viewSo.FindProperty("rootGroup").objectReferenceValue = group;
             viewSo.FindProperty("directionArrow").objectReferenceValue = arrow;
             viewSo.FindProperty("stateText").objectReferenceValue = state;
-            viewSo.FindProperty("strengthFill").objectReferenceValue = fillImage;
-            var tintGraphics = viewSo.FindProperty("tintGraphics");
-            tintGraphics.arraySize = 4;
-            tintGraphics.GetArrayElementAtIndex(0).objectReferenceValue = shaft;
-            tintGraphics.GetArrayElementAtIndex(1).objectReferenceValue = upper;
-            tintGraphics.GetArrayElementAtIndex(2).objectReferenceValue = lower;
-            tintGraphics.GetArrayElementAtIndex(3).objectReferenceValue = state;
+            var arrowGraphics = viewSo.FindProperty("arrowGraphics");
+            arrowGraphics.arraySize = 3;
+            arrowGraphics.GetArrayElementAtIndex(0).objectReferenceValue = shaft;
+            arrowGraphics.GetArrayElementAtIndex(1).objectReferenceValue = upper;
+            arrowGraphics.GetArrayElementAtIndex(2).objectReferenceValue = lower;
+            var brushGraphics = viewSo.FindProperty("strengthBrushes");
+            brushGraphics.arraySize = strengthBrushes.Length;
+            for (int i = 0; i < strengthBrushes.Length; i++)
+                brushGraphics.GetArrayElementAtIndex(i).objectReferenceValue =
+                    strengthBrushes[i];
+            viewSo.FindProperty("alertSeal").objectReferenceValue = alertSeal;
             viewSo.ApplyModifiedPropertiesWithoutUndo();
             return view;
         }
 
-        static Image CreateWindArrowPart(string name, Transform parent, Vector2 position,
-            Vector2 size, float angle)
+        static RawImage CreateWindArrowPart(string name, Transform parent, Vector2 position,
+            Vector2 size, float angle, Texture2D brushTexture)
         {
             var rect = CreateUiObject(name, parent, new Vector2(0.5f, 0.5f), size);
             rect.anchoredPosition = position;
             rect.localRotation = Quaternion.Euler(0f, 0f, angle);
-            var image = rect.gameObject.AddComponent<Image>();
-            image.color = InkPalette.WindAccent;
+            var image = rect.gameObject.AddComponent<RawImage>();
+            image.texture = brushTexture;
+            image.color = InkPalette.Ink;
             image.raycastTarget = false;
             return image;
         }

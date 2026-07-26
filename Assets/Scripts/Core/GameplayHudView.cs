@@ -32,6 +32,7 @@ namespace MukJump.Core
         [SerializeField] Button windDirectionButton;
         [SerializeField] Button windPlatformButton;
         [SerializeField] WindIndicatorView windIndicator;
+        [SerializeField] NewBestIndicatorView newBestIndicator;
 
         public static GameplayHudView Instance { get; private set; }
 
@@ -40,6 +41,8 @@ namespace MukJump.Core
             Instance = this;
             ApplyCrispTextSettings();
             if (!Application.isPlaying) return;
+            if (newBestIndicator == null)
+                newBestIndicator = NewBestIndicatorView.CreateRuntime(transform);
             debugToggleButton?.onClick.AddListener(ToggleDebugPanel);
             invincibleButton?.onClick.AddListener(ToggleInvincible);
             inkDropButton?.onClick.AddListener(UseInkDrop);
@@ -175,17 +178,24 @@ namespace MukJump.Core
 
             bool visible = GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby;
             if (canvas != null) canvas.enabled = visible;
-            windIndicator?.SetVisible(GameManager.Instance != null &&
-                                      GameManager.Instance.State == GameState.Playing);
+            bool playing = GameManager.Instance != null &&
+                           GameManager.Instance.State == GameState.Playing;
+            windIndicator?.SetVisible(playing);
+            newBestIndicator?.SetVisible(playing);
             if (!visible || heightText == null) return;
             RefreshInvincibleButton();
 
-            int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
+            var score = ScoreManager.Instance;
+            int height = score != null ? score.Height : 0;
             heightText.text = $"고도 {height}";
             if (bestText != null)
             {
-                int best = ScoreManager.Instance != null ? ScoreManager.Instance.Best : 0;
-                bestText.text = $"최고 {best}";
+                bool newBest = score != null && score.IsNewBestThisRun;
+                int best = score != null
+                    ? (newBest ? score.DisplayBest : score.Best)
+                    : 0;
+                bestText.text = newBest ? $"신기록 {best}" : $"최고 {best}";
+                bestText.color = newBest ? InkPalette.Red : InkPalette.TextMuted;
             }
         }
     }

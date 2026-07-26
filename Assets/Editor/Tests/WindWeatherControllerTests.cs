@@ -95,4 +95,19 @@ namespace MukJump.EditorTests
                 Is.GreaterThan(0f));
         }
     }
+
+    public sealed class ScoreManagerRecordTests
+    {
+        [TestCase(0, 0, false)]
+        [TestCase(10, 10, false)]
+        [TestCase(11, 10, true)]
+        [TestCase(1, 0, true)]
+        public void BeatsRecord_이전_기록을_실제로_넘을_때만_신기록이다(
+            int height, int previousBest, bool expected)
+        {
+            Assert.That(
+                ScoreManager.BeatsRecord(height, previousBest),
+                Is.EqualTo(expected));
+        }
+    }
 }
