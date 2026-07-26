@@ -45,8 +45,8 @@ AI 수묵 변환은 네트워크·API 키가 없어도 내장 먹 텍스처 폴�
 플레이 중 화면 왼쪽 `DEBUG` 버튼을 누르면 아이템 5종을 즉시 적용할 수 있다.
 `무적 ON`에서는 장애물 충돌 시 반동하고 화면 아래로 떨어지면 다시 상승한다.
 산길 0m·바람 250m·먹비 500m·협곡 750m 버튼으로 맵 전환 지점에 즉시 이동하고,
-안전 발판과 풍맥 발판을 현재 캐릭터 앞에 즉시 생성할 수 있다. 두 특수 발판은 위·아래
-양쪽에서 캐릭터를 막고, 풍맥 발판은 위에 착지한 캐릭터마다 한 번씩 상승 기류를 제공한다.
+안전 발판과 풍맥 발판을 현재 캐릭터 앞에 즉시 생성할 수 있다. 두 특수 발판은 아래에서
+위로 통과할 수 있고, 풍맥 발판은 위에 착지한 캐릭터마다 한 번씩 상승 기류를 제공한다.
 `안전 발판` 버튼으로 현재 위치 근처에 쉼터를 생성할 수 있다.
 제출 플레이에서는 패널을 닫아 두며, 닫힌 패널은 드로잉 입력을 가로채지 않는다.
 
@@ -57,14 +57,23 @@ Assets/
   Art/                캐릭터·고도 맵 배경 4종·UI 원본 (PNG)
   MukJump/VFX/        Codex로 생성한 자체 VFX·SFX
   Scripts/
-    Core/             GameManager, ScoreManager, CameraFollow
+    Core/             GameManager, ScoreManager, CameraFollow, 공용 Pooling 계약
     Player/           AutoJump, PlayerController, 화면 경계
     Drawing/          StrokeCapture, BezierSmoother, PlatformCollider
+    Items/            아이템 스폰·획득·효과와 기능 전용 풀
+    Obstacles/        이동 장애물·낙묵석과 기능 전용 풀
     AI/               SketchToInkService(수묵 변환), 폴백 잉크 스타일
   Scenes/Main.unity   메인 씬
 docs/ai-usage-log.md  AI 활용 내역 (제출물 4번 원본 자료)
+docs/architecture.md  기능 경계·풀링·발판 충돌 정책
 docs/project-brief.md 프로젝트 기획과 현재 구현 상태를 정리한 전달용 브리핑
 ```
+
+반복 생성되는 아이템·장애물·낙묵석·짧은 피드백·먹물점프 합성 연출은 기능별 지연 풀로
+재사용한다. 먹물점프 합성 풀은 모든 분신이 게임 전체 3묶음을, 황금 붓 표현은 24개
+렌더러 한 묶음을 공유한다. 결과창, 전환 UI, 아이템 효과, 날씨선은 실제로 필요할 때
+처음 생성한다.
+세부 의존 방향과 생명주기는 `docs/architecture.md`에 고정한다.
 
 ## 팀
 

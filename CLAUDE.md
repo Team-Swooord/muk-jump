@@ -214,16 +214,19 @@ Assets/
     Background/    bg_muk_landscape.svg, background_ink_landscape.png
   Scripts/
     Player/        AutoJump.cs, PlayerController.cs
-    Drawing/        StrokeCapture.cs, BezierSmoother.cs, PlatformCollider.cs
-    AI/             SketchToInkService.cs (API 연동), FallbackInkShader.shader
-    Core/           GameManager.cs, ScoreManager.cs
+    Drawing/       StrokeCapture.cs, BezierSmoother.cs, PlatformCollider.cs
+    Items/         ItemSpawner.cs, ItemPickup.cs, 아이템 VFX
+    Obstacles/     ObstacleSpawner.cs, FallingInkRockSpawner.cs
+    AI/            SketchToInkService.cs (API 연동), FallbackInkStyle.cs
+    Core/          GameManager.cs, ScoreManager.cs, Pooling/
   Scenes/
     Main.unity
 docs/
   ai-usage-log.md   AI 도구·프롬프트 활용 내역 (개발 중 계속 기록, 13절 참고)
+  architecture.md   런타임 기능 경계와 생명주기 규칙
 ```
 
-## 11. 현재 저장소 상태 (2026-07-25 기준, 중요)
+## 11. 현재 저장소 상태 (2026-07-26 기준, 중요)
 
 - GitHub Public 레포 `Team-Swooord/muk-jump`, Unity 6000.3.10f1, URP 2D 프로젝트
 - 로비 → 플레이 → 게임오버 → 즉시 재도전의 전체 게임 루프 구현
@@ -243,8 +246,8 @@ docs/
 - 최고 고도만 점수로 사용하며 250m마다 바람·먹비·낙묵석 빈도 변화 구간 순환
 - 약 38~58m 랜덤 간격의 영구 안전 먹 발판과 착지 후 2.4초 휴식 점프 구현
 - 일반 발판은 먹색, 안전 발판은 검정 붓 외곽의 금색, 풍맥 발판은 검정 붓 외곽의
-  청회색으로 효과를 구분하고 붉은 낙관·바람 문양을 유지한다. 특수 발판은 위·아래
-  양쪽에서 캐릭터를 막되 휴식·풍맥 효과는 위에 착지했을 때만 발동한다.
+  청회색으로 효과를 구분하고 붉은 낙관·바람 문양을 유지한다. 특수 발판은 아래에서
+  위로 통과할 수 있고 휴식·풍맥 효과는 위에 착지했을 때만 발동한다.
 - 맵 단계는 0m 산길·250m 바람 능선·500m 먹비 계곡·750m 검은 절벽의 둥근
   저채도 수채화 배경 4종으로 1초 교차 전환
 - 이동 먹가시와 낙묵석은 플레이어보다 위에 표시하고, 한지색 받침과 붉은 위험선을
@@ -257,6 +260,14 @@ docs/
   정보 카드로 표시
 - 개발 검증용 왼쪽 접이식 DEBUG 패널: 아이템 5종, 무적, 안전·풍맥 발판 생성,
   0/250/500/750m 맵 구간 즉시 이동
+- 아이템·이동 장애물·낙묵석·짧은 피드백·먹물점프 합성 VFX는 기능별 지연 풀로
+  재사용하고, 먹물점프 합성 풀은 모든 분신이 게임 전체 3묶음을 공유한다. 전역 황금 붓
+  표현도 최고 생존자를 따라가는 24개 렌더러 한 묶음만 공유한다.
+  결과창·화면 전환·아이템 효과·구간 날씨선은 첫 사용 때 생성하며, 디버그 고도 이동 시
+  지나간 스폰 예약은 객체를 만들지 않고 건너뛴다.
+- 세션 전환과 고도 순간이동은 `GameManager` 이벤트 계약으로 전달하고, 분신 표현 캐시
+  제외는 `IRuntimeCloneLifecycle` 계약에 위임한다. 기능별 소유권·의존 규칙은
+  `docs/architecture.md`를 기준으로 한다.
 - AI 수묵 변환은 API 키 없이 작동하는 `FallbackInkStyle`이 기본이며 원격 API는 선택 확장
 - `Assets/Scenes/Main.unity`는 `MukJumpSceneBuilder.cs`로만 생성하며 수동 편집하지 않는다.
 - PR #7로 기능별 커밋을 일반 merge해 `main`에 반영했으며 UI·연출 작업은
@@ -303,7 +314,7 @@ docs/
 ### 진행 — 폴리시와 검증
 - 실제 모바일 해상도에서 UI·아이템 크기·가독성 검증
 - 분신 동시 사망, 방패 중복 충돌, 장애물과 발판 조합 회귀 테스트
-- 프레임 드롭과 장시간 플레이 시 오브젝트 누적 프로파일링
+- 프레임 드롭과 장시간 플레이 시 풀 보존 상한·활성 오브젝트 수 프로파일링
 
 ### Week 3 (빌드·문서·영상)
 - Android APK 빌드 (keystore 서명), 실기기 테스트
@@ -335,6 +346,7 @@ docs/
 
 1. 실제 Unity Play Mode에서 DEBUG 패널로 아이템 5종과 특수 발판·무적 모드 회귀 테스트
 2. 다중 먹분신의 카메라·점수·동시 사망·재획득 흐름 검증
-3. 장시간 플레이 프로파일링과 Android 실기기 성능·입력 테스트
+3. 장시간 플레이에서 풀 보존 상한·활성 객체 수를 프로파일링하고 Android 실기기
+   성능·입력을 테스트
 4. Android APK 서명·빌드 및 30~60초 플레이 영상 촬영
 5. 게임 소개서, AI 활용 기술 문서, 팀원 롤 기술서 PDF 완성

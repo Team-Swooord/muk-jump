@@ -818,3 +818,34 @@
   충돌은 휴식·풍맥·접착·착지 피드백을 발동하지 않도록 상단 접촉을 따로 판정한다.
 - 사람의 수정/검토 내용: Unity Play Mode를 다시 시작한 뒤 9:16 화면에서 두 발판의
   색 대비, 아래쪽 고속 충돌 차단, 위쪽 착지 효과와 일반 대각선 발판 매달리기를 확인할 예정
+
+### 2026-07-26 — 기능별 오브젝트 풀링·지연 생성·런타임 경계 정리
+
+- 사용 도구: OpenAI Codex
+- 목적: 로비 진입과 장시간 플레이 중 반복 생성·파괴로 인한 오브젝트 수 증가와 GC를 줄이고,
+  한 기능의 생명주기 변경이 다른 스포너·물리 규칙에 전파되지 않게 구조화
+- 주요 프롬프트/지시: 게임 실행 시 너무 많은 오브젝트가 생성되므로 풀링을 적용하고,
+  아키텍처별로 구조를 나눠 수정 영향 범위를 줄이며, 특수 발판은 다시 아래에서 통과하게 변경
+- 결과물: `Assets/Scripts/Core/Pooling/`, `IRuntimeCloneLifecycle.cs`, `GameManager.cs`,
+  `GameFeedbackController.cs`,
+  `HeightZoneController.cs`, `BrushTransitionView.cs`, `GameOverPopupView.cs`,
+  `StrokeCapture.cs`, `ItemEffectView.cs`, `ItemPickup.cs`, `ItemSpawner.cs`,
+  `InkDropJumpVfx.cs`, `InkDropJumpVfxPool.cs`, `InkDropJumpVfxInstance.cs`,
+  `GoldenBrushEffectView.cs`,
+  `Obstacle.cs`, `ObstacleSpawner.cs`,
+  `FallingInkRock.cs`, `FallingInkRockSpawner.cs`, `ObstacleVisibilityView.cs`,
+  `PlatformCollider.cs`, 관련 Editor 테스트, `docs/architecture.md`
+- 구현 메모: 아이템·이동 장애물·낙묵석·피드백·먹물점프 합성 VFX를 기능별 lazy pool로
+  분리하고 대여/반납 초기화 계약을 추가했다. 숨은 결과창·전환·아이템 효과·날씨선은 실제
+  첫 사용까지 만들지 않으며, 고도 순간이동은 과거 예약을 생성 없이 재기준화한다.
+  먹물점프 풀은 플레이어 계층 밖에서 모든 분신이 게임 전체 3묶음을 공유하게 해
+  분신 수에 따른 VFX 자식 누적을 차단했다. 방어막·황금붓 표현 캐시도 분신 Instantiate
+  대상에서 제외한다. 이 제외는 Core의 `IRuntimeCloneLifecycle` 계약으로 역전해
+  `GameManager`가 아이템 표현 타입을 직접 참조하지 않는다. 전역 황금 붓 표현은 최고
+  생존자를 따라가는 렌더러 24개 한 묶음으로 고정했다. Play 중 재컴파일 뒤 남은 비활성
+  풀 객체는 새 managed 풀에 다시 편입하고 유실된 managed 풀도 재구성한다. 동시
+  사망·착지 피드백은 활성 선 8개·방울 16개의 하드 상한 안에서만 표시한다. 특수 발판은
+  단방향 Effector를 사용해 아래에서 통과하고, 일반 대각선 발판은 양방향 매달리기를 유지한다.
+- 사람의 수정/검토 내용: 런타임·에디터 어셈블리 컴파일과 풀 재사용·중복 반납·상태 초기화·
+  합성 자식 수 불변·특수 발판 충돌 정책 테스트를 확인했다. Unity Play Mode에서는 첫 진입
+  Hierarchy 수, 750m DEBUG 이동 프레임, 연속 아이템 획득, 특수 발판 밑 통과를 추가 확인한다.
