@@ -3,6 +3,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using MukJump.AI;
 using MukJump.Core;
 using MukJump.Core.Pooling;
 using MukJump.Drawing;
@@ -121,6 +122,32 @@ public class FallingInkRockTests
             Assert.That(x, Is.InRange(-4f, 4f));
             Assert.GreaterOrEqual(Mathf.Abs(x), 0.7f);
         }
+    }
+
+    [Test]
+    public void VisibilityUsesOnlyThinRedOutline()
+    {
+        var root = Track(new GameObject("VisibleObstacle"));
+        root.AddComponent<SpriteRenderer>().sortingOrder = 6;
+        var view = root.AddComponent<ObstacleVisibilityView>();
+
+        view.Configure(0.5f, 6);
+
+        var paperHalo = root.transform.Find("PaperHalo");
+        Assert.IsTrue(paperHalo == null ||
+                      !paperHalo.GetComponent<SpriteRenderer>().enabled);
+
+        var dangerRing = root.transform.Find("DangerRing")?.GetComponent<LineRenderer>();
+        Assert.IsNotNull(dangerRing);
+        Assert.LessOrEqual(dangerRing.startWidth, 0.015f);
+        Assert.AreEqual(5, dangerRing.sortingOrder);
+        Assert.AreSame(FallbackInkStyle.SharedTintableBrushMaterial,
+            dangerRing.sharedMaterial);
+
+        view.SetVisible(false);
+        Assert.IsFalse(dangerRing.enabled);
+        view.SetVisible(true);
+        Assert.IsTrue(dangerRing.enabled);
     }
 
     [Test]
