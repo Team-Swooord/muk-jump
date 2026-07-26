@@ -94,7 +94,7 @@ namespace MukJump.Core
                 typeof(CanvasGroup));
             var root = rootObject.GetComponent<RectTransform>();
             root.SetParent(parent, false);
-            root.anchorMin = root.anchorMax = new Vector2(0.955f, 0.5f);
+            root.anchorMin = root.anchorMax = new Vector2(0.97f, 0.5f);
             root.pivot = new Vector2(0.5f, 0.5f);
             root.sizeDelta = new Vector2(50f, 50f);
             root.anchoredPosition = Vector2.zero;
@@ -106,8 +106,8 @@ namespace MukJump.Core
             seal.sprite = InkUiTextureFactory.CreateBlobSprite();
             seal.color = InkPalette.Red;
             seal.raycastTarget = false;
-            var recordText = CreateText("SealText", sealRoot, "신", 22, InkPalette.Paper,
-                new Vector2(0.5f, 0.5f), new Vector2(38f, 36f));
+            var recordText = CreateText("SealText", sealRoot, "신", 26, InkPalette.Paper,
+                new Vector2(0.5f, 0.5f), new Vector2(42f, 40f));
 
             var view = rootObject.AddComponent<NewBestIndicatorView>();
             view.rootGroup = rootObject.GetComponent<CanvasGroup>();
@@ -243,8 +243,8 @@ namespace MukJump.Core
             {
                 sealText.text = "신";
                 sealText.font = InkPalette.UiFont;
-                sealText.fontSize = 22;
-                sealText.fontStyle = FontStyle.Normal;
+                sealText.fontSize = 26;
+                sealText.fontStyle = FontStyle.Bold;
                 sealText.alignment = TextAnchor.MiddleCenter;
                 sealText.color = InkPalette.Paper;
                 sealText.raycastTarget = false;
@@ -273,7 +273,7 @@ namespace MukJump.Core
         {
             if (transform is RectTransform root)
             {
-                root.anchorMin = root.anchorMax = new Vector2(0.955f, 0.5f);
+                root.anchorMin = root.anchorMax = new Vector2(0.97f, 0.5f);
                 root.pivot = new Vector2(0.5f, 0.5f);
                 root.anchoredPosition = Vector2.zero;
                 root.sizeDelta = new Vector2(50f, 50f);
@@ -318,7 +318,7 @@ namespace MukJump.Core
             text.text = value;
             text.font = InkPalette.UiFont;
             text.fontSize = fontSize;
-            text.fontStyle = FontStyle.Normal;
+            text.fontStyle = FontStyle.Bold;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = color;
             text.resizeTextForBestFit = false;

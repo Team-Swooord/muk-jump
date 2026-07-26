@@ -418,7 +418,8 @@ namespace MukJump.Core
             pauseButtonRect.anchorMin = pauseButtonRect.anchorMax =
                 new Vector2(maximum.x, maximum.y);
             pauseButtonRect.pivot = new Vector2(0.5f, 0.5f);
-            pauseButtonRect.anchoredPosition = new Vector2(-62f, -205f);
+            // 가독성 보강으로 높아진 상단 HUD와 겹치지 않도록 한 칸 아래에 둔다.
+            pauseButtonRect.anchoredPosition = new Vector2(-62f, -245f);
             pauseButtonRect.sizeDelta = new Vector2(78f, 78f);
 
             lastScreenWidth = Screen.width;

@@ -70,10 +70,10 @@ namespace MukJump.Core
         {
             if (transform is RectTransform root)
             {
-                root.anchorMin = root.anchorMax = new Vector2(0.16f, 0.5f);
+                root.anchorMin = root.anchorMax = new Vector2(0.165f, 0.5f);
                 root.pivot = new Vector2(0.5f, 0.5f);
                 root.anchoredPosition = Vector2.zero;
-                root.sizeDelta = new Vector2(284f, 84f);
+                root.sizeDelta = new Vector2(280f, 104f);
             }
 
             var oldCard = GetComponent<Graphic>();
@@ -82,28 +82,33 @@ namespace MukJump.Core
             if (directionArrow != null)
             {
                 directionArrow.anchorMin = directionArrow.anchorMax =
-                    new Vector2(0.42f, 0.5f);
+                    new Vector2(0.4f, 0.5f);
                 directionArrow.pivot = new Vector2(0.5f, 0.5f);
                 directionArrow.anchoredPosition = Vector2.zero;
-                directionArrow.sizeDelta = new Vector2(76f, 36f);
+                directionArrow.sizeDelta = new Vector2(84f, 42f);
                 ConfigureArrowPart("Shaft", new Vector2(-5f, 0f),
-                    new Vector2(44f, 7f), 0f);
-                ConfigureArrowPart("UpperHead", new Vector2(15f, 7f),
-                    new Vector2(20f, 6f), -40f);
-                ConfigureArrowPart("LowerHead", new Vector2(15f, -7f),
-                    new Vector2(20f, 6f), 40f);
+                    new Vector2(50f, 8f), 0f);
+                ConfigureArrowPart("UpperHead", new Vector2(18f, 8f),
+                    new Vector2(22f, 7f), -40f);
+                ConfigureArrowPart("LowerHead", new Vector2(18f, -8f),
+                    new Vector2(22f, 7f), 40f);
             }
 
             if (stateText != null)
             {
                 var rect = stateText.rectTransform;
-                rect.anchorMin = rect.anchorMax = new Vector2(0.78f, 0.5f);
+                rect.anchorMin = rect.anchorMax = new Vector2(0.8f, 0.5f);
                 rect.pivot = new Vector2(0.5f, 0.5f);
                 rect.anchoredPosition = Vector2.zero;
-                rect.sizeDelta = new Vector2(128f, 46f);
-                stateText.fontSize = 26;
-                stateText.fontStyle = FontStyle.Normal;
+                rect.sizeDelta = new Vector2(132f, 58f);
+                stateText.fontSize = 34;
+                stateText.fontStyle = FontStyle.Bold;
                 stateText.alignment = TextAnchor.MiddleCenter;
+                stateText.resizeTextForBestFit = true;
+                stateText.resizeTextMinSize = 26;
+                stateText.resizeTextMaxSize = 34;
+                stateText.alignByGeometry = true;
+                EnsureTextWeight(stateText);
             }
 
             if (strengthFill != null)
@@ -118,10 +123,10 @@ namespace MukJump.Core
             if (alertSeal != null)
             {
                 var rect = alertSeal.rectTransform;
-                rect.anchorMin = rect.anchorMax = new Vector2(0.1f, 0.5f);
+                rect.anchorMin = rect.anchorMax = new Vector2(0.09f, 0.5f);
                 rect.pivot = new Vector2(0.5f, 0.5f);
                 rect.anchoredPosition = Vector2.zero;
-                rect.sizeDelta = new Vector2(32f, 32f);
+                rect.sizeDelta = new Vector2(40f, 40f);
                 rect.localRotation = Quaternion.Euler(0f, 0f, -4f);
                 alertSeal.enabled = true;
             }
@@ -198,16 +203,16 @@ namespace MukJump.Core
                 {
                     if (arrowGraphics[i] == null) continue;
                     Color ink = InkPalette.Ink;
-                    ink.a = Mathf.Lerp(0.48f, 0.84f, Mathf.Clamp01(strength));
-                    if (lastPhase == WindWeatherPhase.Updraft) ink.a = 0.92f;
+                    ink.a = Mathf.Lerp(0.72f, 1f, Mathf.Clamp01(strength));
+                    if (lastPhase == WindWeatherPhase.Updraft) ink.a = 1f;
                     arrowGraphics[i].color = ink;
                 }
             }
 
             if (stateText != null)
             {
-                Color textColor = alert ? InkPalette.Red : InkPalette.TextDark;
-                textColor.a = (alert ? 0.96f : 0.92f) * stateFade;
+                Color textColor = alert ? InkPalette.Red : InkPalette.Ink;
+                textColor.a = stateFade;
                 stateText.color = textColor;
             }
 
@@ -253,8 +258,9 @@ namespace MukJump.Core
             if (stateText != null)
             {
                 stateText.font = InkPalette.UiFont;
-                stateText.fontStyle = FontStyle.Normal;
-                stateText.color = InkPalette.TextDark;
+                stateText.fontSize = 34;
+                stateText.fontStyle = FontStyle.Bold;
+                stateText.color = InkPalette.Ink;
             }
             if (alertSeal != null)
             {
@@ -266,8 +272,8 @@ namespace MukJump.Core
             {
                 sealText.text = "풍";
                 sealText.font = InkPalette.UiFont;
-                sealText.fontSize = 21;
-                sealText.fontStyle = FontStyle.Normal;
+                sealText.fontSize = 26;
+                sealText.fontStyle = FontStyle.Bold;
                 sealText.alignment = TextAnchor.MiddleCenter;
                 sealText.color = InkPalette.Paper;
             }
@@ -296,7 +302,7 @@ namespace MukJump.Core
             if (alertSeal == null)
             {
                 alertSeal = CreateRuntimeImage("WindAlertSeal",
-                    new Vector2(0.1f, 0.5f), new Vector2(32f, 32f), Vector2.zero);
+                    new Vector2(0.09f, 0.5f), new Vector2(40f, 40f), Vector2.zero);
                 alertSeal.rectTransform.localRotation =
                     Quaternion.Euler(0f, 0f, -4f);
             }
@@ -309,9 +315,22 @@ namespace MukJump.Core
                 var rect = go.GetComponent<RectTransform>();
                 rect.SetParent(alertSeal.transform, false);
                 rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-                rect.sizeDelta = new Vector2(26f, 26f);
+                rect.sizeDelta = new Vector2(32f, 32f);
                 sealText = go.GetComponent<Text>();
             }
+        }
+
+        static void EnsureTextWeight(Text text)
+        {
+            if (text == null) return;
+            var outline = text.GetComponent<Outline>();
+            if (outline == null && Application.isPlaying)
+                outline = text.gameObject.AddComponent<Outline>();
+            if (outline == null) return;
+            Color ink = InkPalette.Ink;
+            outline.effectColor = new Color(ink.r, ink.g, ink.b, 0.22f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            outline.useGraphicAlpha = true;
         }
 
         void ConfigureArrowPart(string name, Vector2 position, Vector2 size, float angle)

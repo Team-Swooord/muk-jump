@@ -10,6 +10,10 @@ namespace MukJump.Core
     [ExecuteAlways]
     public class GameplayHudView : MonoBehaviour
     {
+        const float TopHudWidth = 900f;
+        const float TopHudHeight = 148f;
+        const float TopHudSideMargin = 48f;
+
         [SerializeField] Canvas canvas;
         [SerializeField] RectTransform topHudRoot;
         [SerializeField] Text heightText;
@@ -217,10 +221,12 @@ namespace MukJump.Core
                 background.raycastTarget = false;
             }
 
+            // 작은 보조 캡션은 실제 420px 화면에서 10px 미만으로 축소된다.
+            // 구형 씬에 남은 참조만 찾아 숨기고, 새 캡션은 만들지 않는다.
             if (heightCaption == null)
-                heightCaption = FindOrCreateHudText("HeightCaption", "고도");
+                heightCaption = topHudRoot.Find("HeightCaption")?.GetComponent<Text>();
             if (bestCaption == null)
-                bestCaption = FindOrCreateHudText("BestCaption", "최고");
+                bestCaption = topHudRoot.Find("BestCaption")?.GetComponent<Text>();
         }
 
         void ApplyPolishedRuntimeLayout()
@@ -232,10 +238,13 @@ namespace MukJump.Core
             if (background != null)
             {
                 Color paper = InkPalette.Paper;
-                paper.a = 0.78f;
+                paper.a = 0.9f;
                 background.color = paper;
                 background.raycastTarget = false;
             }
+
+            SetCaptionHidden(heightCaption);
+            SetCaptionHidden(bestCaption);
 
             if (heightText != null)
             {
@@ -246,41 +255,25 @@ namespace MukJump.Core
                     display.anchorMin = display.anchorMax = new Vector2(0.5f, 0.5f);
                     display.pivot = new Vector2(0.5f, 0.5f);
                     display.anchoredPosition = Vector2.zero;
-                    display.sizeDelta = new Vector2(360f, 108f);
+                    display.sizeDelta = new Vector2(320f, 118f);
 
                     var oldBackground = display.GetComponent<Graphic>();
                     if (oldBackground != null) oldBackground.enabled = false;
                 }
 
-                var heightRect = heightText.rectTransform;
-                heightRect.anchorMin = heightRect.anchorMax = new Vector2(0.5f, 0.33f);
-                heightRect.anchoredPosition = new Vector2(0f, -3f);
-                heightRect.sizeDelta = new Vector2(340f, 66f);
-                heightText.fontSize = 56;
-                heightText.fontStyle = FontStyle.Normal;
-                heightText.alignment = TextAnchor.MiddleCenter;
-                heightText.color = InkPalette.TextDark;
+                ConfigurePrimaryHudText(
+                    heightText, new Vector2(0.5f, 0.5f),
+                    new Vector2(315f, 84f), 60, 46);
             }
-
-            ConfigureHudCaption(
-                heightCaption, new Vector2(0.5f, 0.78f), new Vector2(110f, 32f), "고도");
 
             if (bestText != null)
             {
                 var bestRect = bestText.rectTransform;
                 bestRect.SetParent(topHudRoot, false);
-                bestRect.anchorMin = bestRect.anchorMax = new Vector2(0.82f, 0.35f);
-                bestRect.pivot = new Vector2(0.5f, 0.5f);
-                bestRect.anchoredPosition = Vector2.zero;
-                bestRect.sizeDelta = new Vector2(220f, 50f);
-                bestText.fontSize = 36;
-                bestText.fontStyle = FontStyle.Normal;
-                bestText.alignment = TextAnchor.MiddleCenter;
-                bestText.color = InkPalette.TextDark;
+                ConfigurePrimaryHudText(
+                    bestText, new Vector2(0.805f, 0.5f),
+                    new Vector2(235f, 76f), 50, 38);
             }
-
-            ConfigureHudCaption(
-                bestCaption, new Vector2(0.82f, 0.75f), new Vector2(150f, 32f), "최고");
 
             if (windIndicator != null)
             {
@@ -297,38 +290,40 @@ namespace MukJump.Core
             ApplyDebugReadabilityLayout();
         }
 
-        Text FindOrCreateHudText(string name, string value)
-        {
-            var existing = topHudRoot.Find(name)?.GetComponent<Text>();
-            if (existing != null) return existing;
-
-            var go = new GameObject(
-                name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            var rect = go.GetComponent<RectTransform>();
-            rect.SetParent(topHudRoot, false);
-            var text = go.GetComponent<Text>();
-            text.text = value;
-            text.font = InkPalette.UiFont;
-            text.raycastTarget = false;
-            return text;
-        }
-
-        static void ConfigureHudCaption(
-            Text text, Vector2 anchor, Vector2 size, string value)
+        static void SetCaptionHidden(Text text)
         {
             if (text == null) return;
-            var rect = text.rectTransform;
+            text.gameObject.SetActive(false);
+        }
+
+        static void ConfigurePrimaryHudText(
+            Text text, Vector2 anchor, Vector2 size, int fontSize, int minimumFontSize)
+        {
+            if (text == null) return;
+            text.gameObject.SetActive(true);
+            RectTransform rect = text.rectTransform;
             rect.anchorMin = rect.anchorMax = anchor;
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = Vector2.zero;
             rect.sizeDelta = size;
-            text.text = value;
             text.font = InkPalette.UiFont;
-            text.fontSize = 24;
-            text.fontStyle = FontStyle.Normal;
+            text.fontSize = fontSize;
+            text.fontStyle = FontStyle.Bold;
             text.alignment = TextAnchor.MiddleCenter;
-            text.color = InkPalette.TextDark;
+            text.color = InkPalette.Ink;
             text.raycastTarget = false;
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = minimumFontSize;
+            text.resizeTextMaxSize = fontSize;
+            text.alignByGeometry = true;
+
+            var outline = text.GetComponent<Outline>();
+            if (outline == null)
+                outline = text.gameObject.AddComponent<Outline>();
+            Color ink = InkPalette.Ink;
+            outline.effectColor = new Color(ink.r, ink.g, ink.b, 0.25f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            outline.useGraphicAlpha = true;
         }
 
         void ApplySafeAreaLayout()
@@ -337,11 +332,12 @@ namespace MukJump.Core
             float scale = Screen.height > 0 ? 1920f / Screen.height : 1f;
             float topInset = Mathf.Max(0f, Screen.height - Screen.safeArea.yMax) * scale;
             float logicalWidth = Mathf.Max(720f, Screen.width * scale);
-            float hudScale = Mathf.Min(1f, (logicalWidth - 64f) / 1016f);
+            float hudScale = Mathf.Min(
+                1f, (logicalWidth - TopHudSideMargin) / TopHudWidth);
             topHudRoot.anchorMin = topHudRoot.anchorMax = new Vector2(0.5f, 1f);
             topHudRoot.pivot = new Vector2(0.5f, 1f);
             topHudRoot.anchoredPosition = new Vector2(0f, -(topInset + 52f));
-            topHudRoot.sizeDelta = new Vector2(1016f, 124f);
+            topHudRoot.sizeDelta = new Vector2(TopHudWidth, TopHudHeight);
             topHudRoot.localScale = Vector3.one * hudScale;
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
@@ -351,7 +347,6 @@ namespace MukJump.Core
         static void ConfigureText(Text text)
         {
             if (text == null) return;
-            text.resizeTextForBestFit = false;
             text.alignByGeometry = true;
         }
 
@@ -427,7 +422,7 @@ namespace MukJump.Core
             if (height != lastHeight)
             {
                 lastHeight = height;
-                heightText.text = $"{height}m";
+                heightText.text = $"고도 {FormatHeight(height)}";
             }
 
             bool newBest = score != null && score.IsNewBestThisRun;
@@ -439,11 +434,16 @@ namespace MukJump.Core
             {
                 lastBest = best;
                 lastNewBest = newBest;
-                bestText.text = $"{best}m";
-                bestText.color = newBest ? InkPalette.Red : InkPalette.TextDark;
-                if (bestCaption != null)
-                    bestCaption.text = newBest ? "현재 최고" : "최고";
+                bestText.text = $"최고 {FormatHeight(best)}";
+                bestText.color = newBest ? InkPalette.Red : InkPalette.Ink;
             }
+        }
+
+        static string FormatHeight(int meters)
+        {
+            return meters >= 10000
+                ? $"{meters / 1000f:0.#}km"
+                : $"{meters}m";
         }
     }
 }

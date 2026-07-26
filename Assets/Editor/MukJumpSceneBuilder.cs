@@ -518,34 +518,32 @@ namespace MukJump.EditorTools
             ConfigureUiTexture(GaugeTrackPath);
             var paperTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeTrackPath);
             var topHudRoot = CreateUiObject("TopHudRoot", root.transform, new Vector2(0.5f, 1f),
-                new Vector2(1016f, 124f));
+                new Vector2(900f, 148f));
             topHudRoot.pivot = new Vector2(0.5f, 1f);
             topHudRoot.anchoredPosition = new Vector2(0f, -52f);
             var topHudBackground = topHudRoot.gameObject.AddComponent<RawImage>();
             topHudBackground.texture = paperTexture;
-            topHudBackground.color = new Color(1f, 1f, 1f, 0.78f);
+            topHudBackground.color = new Color(
+                InkPalette.Paper.r, InkPalette.Paper.g, InkPalette.Paper.b, 0.9f);
             topHudBackground.raycastTarget = false;
 
             var display = CreateUiObject("HeightDisplay", topHudRoot, new Vector2(0.5f, 0.5f),
-                new Vector2(360f, 108f));
-            var heightCaption = CreateText("HeightCaption", topHudRoot, "고도", 24,
-                FontStyle.Normal, new Vector2(0.5f, 0.78f), new Vector2(110f, 32f),
-                InkPalette.TextDark);
-            heightCaption.resizeTextForBestFit = false;
-            var label = CreateText("HeightText", display, "0m", 56, FontStyle.Normal,
-                new Vector2(0.5f, 0.33f), new Vector2(340f, 66f), InkPalette.TextDark);
-            label.rectTransform.anchoredPosition = new Vector2(0f, -3f);
-            label.resizeTextForBestFit = false;
+                new Vector2(320f, 118f));
+            var label = CreateText("HeightText", display, "고도 0m", 60, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), new Vector2(315f, 84f), InkPalette.Ink);
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 46;
+            label.resizeTextMaxSize = 60;
             label.alignByGeometry = true;
+            AddReadableTextWeight(label, 0.25f);
 
-            var bestCaption = CreateText("BestCaption", topHudRoot, "최고", 24,
-                FontStyle.Normal, new Vector2(0.82f, 0.75f), new Vector2(150f, 32f),
-                InkPalette.TextDark);
-            bestCaption.resizeTextForBestFit = false;
-            var bestLabel = CreateText("BestText", topHudRoot, "0m", 36, FontStyle.Normal,
-                new Vector2(0.82f, 0.35f), new Vector2(220f, 50f), InkPalette.TextDark);
-            bestLabel.resizeTextForBestFit = false;
+            var bestLabel = CreateText("BestText", topHudRoot, "최고 0m", 50, FontStyle.Bold,
+                new Vector2(0.805f, 0.5f), new Vector2(235f, 76f), InkPalette.Ink);
+            bestLabel.resizeTextForBestFit = true;
+            bestLabel.resizeTextMinSize = 38;
+            bestLabel.resizeTextMaxSize = 50;
             bestLabel.alignByGeometry = true;
+            AddReadableTextWeight(bestLabel, 0.25f);
             var newBestIndicator = CreateNewBestIndicator(topHudRoot);
             var windIndicator = CreateWindIndicator(topHudRoot);
 
@@ -610,9 +608,7 @@ namespace MukJump.EditorTools
             so.FindProperty("canvas").objectReferenceValue = canvas;
             so.FindProperty("topHudRoot").objectReferenceValue = topHudRoot;
             so.FindProperty("heightText").objectReferenceValue = label;
-            so.FindProperty("heightCaption").objectReferenceValue = heightCaption;
             so.FindProperty("bestText").objectReferenceValue = bestLabel;
-            so.FindProperty("bestCaption").objectReferenceValue = bestCaption;
             so.FindProperty("itemTestControls").objectReferenceValue = testControls;
             so.FindProperty("debugPanel").objectReferenceValue = debugPanel;
             so.FindProperty("debugToggleButton").objectReferenceValue = debugToggleButton;
@@ -640,7 +636,7 @@ namespace MukJump.EditorTools
 
         static NewBestIndicatorView CreateNewBestIndicator(Transform parent)
         {
-            var root = CreateUiObject("NewBestInkSeal", parent, new Vector2(0.955f, 0.5f),
+            var root = CreateUiObject("NewBestInkSeal", parent, new Vector2(0.97f, 0.5f),
                 new Vector2(50f, 50f));
             var group = root.gameObject.AddComponent<CanvasGroup>();
             group.interactable = false;
@@ -652,8 +648,8 @@ namespace MukJump.EditorTools
             var seal = sealRoot.gameObject.AddComponent<Image>();
             seal.color = InkPalette.Red;
             seal.raycastTarget = false;
-            var sealText = CreateText("SealText", sealRoot, "신", 22, FontStyle.Normal,
-                new Vector2(0.5f, 0.5f), new Vector2(38f, 36f), InkPalette.Paper);
+            var sealText = CreateText("SealText", sealRoot, "신", 26, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), new Vector2(42f, 40f), InkPalette.Paper);
             sealText.resizeTextForBestFit = false;
 
             var view = root.gameObject.AddComponent<NewBestIndicatorView>();
@@ -671,38 +667,41 @@ namespace MukJump.EditorTools
             ConfigureUiTexture(GaugeFillPath);
             var brushTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeFillPath);
 
-            var root = CreateUiObject("WindInkIndicator", parent, new Vector2(0.16f, 0.5f),
-                new Vector2(284f, 84f));
+            var root = CreateUiObject("WindInkIndicator", parent, new Vector2(0.165f, 0.5f),
+                new Vector2(280f, 104f));
 
             var group = root.gameObject.AddComponent<CanvasGroup>();
             group.interactable = false;
             group.blocksRaycasts = false;
 
-            var sealRect = CreateUiObject("WindAlertSeal", root, new Vector2(0.1f, 0.5f),
-                new Vector2(32f, 32f));
+            var sealRect = CreateUiObject("WindAlertSeal", root, new Vector2(0.09f, 0.5f),
+                new Vector2(40f, 40f));
             sealRect.localRotation = Quaternion.Euler(0f, 0f, -4f);
             var alertSeal = sealRect.gameObject.AddComponent<Image>();
             alertSeal.color = new Color(
                 InkPalette.Red.r, InkPalette.Red.g, InkPalette.Red.b, 0.62f);
             alertSeal.raycastTarget = false;
-            var sealText = CreateText("SealText", sealRect, "풍", 21, FontStyle.Normal,
-                new Vector2(0.5f, 0.5f), new Vector2(26f, 26f), InkPalette.Paper);
+            var sealText = CreateText("SealText", sealRect, "풍", 26, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), new Vector2(32f, 32f), InkPalette.Paper);
             sealText.resizeTextForBestFit = false;
 
-            var arrow = CreateUiObject("DirectionArrow", root, new Vector2(0.42f, 0.5f),
-                new Vector2(76f, 36f));
+            var arrow = CreateUiObject("DirectionArrow", root, new Vector2(0.4f, 0.5f),
+                new Vector2(84f, 42f));
             var shaft = CreateWindArrowPart("Shaft", arrow, new Vector2(-5f, 0f),
-                new Vector2(44f, 7f), 0f, brushTexture);
-            var upper = CreateWindArrowPart("UpperHead", arrow, new Vector2(15f, 7f),
-                new Vector2(20f, 6f), -40f, brushTexture);
-            var lower = CreateWindArrowPart("LowerHead", arrow, new Vector2(15f, -7f),
-                new Vector2(20f, 6f), 40f, brushTexture);
+                new Vector2(50f, 8f), 0f, brushTexture);
+            var upper = CreateWindArrowPart("UpperHead", arrow, new Vector2(18f, 8f),
+                new Vector2(22f, 7f), -40f, brushTexture);
+            var lower = CreateWindArrowPart("LowerHead", arrow, new Vector2(18f, -8f),
+                new Vector2(22f, 7f), 40f, brushTexture);
 
-            var state = CreateText("WindStateText", root, "산들", 26, FontStyle.Normal,
-                new Vector2(0.78f, 0.5f), new Vector2(128f, 46f),
-                InkPalette.TextDark);
-            state.resizeTextForBestFit = false;
+            var state = CreateText("WindStateText", root, "산들", 34, FontStyle.Bold,
+                new Vector2(0.8f, 0.5f), new Vector2(132f, 58f),
+                InkPalette.Ink);
+            state.resizeTextForBestFit = true;
+            state.resizeTextMinSize = 26;
+            state.resizeTextMaxSize = 34;
             state.alignByGeometry = true;
+            AddReadableTextWeight(state, 0.22f);
 
             var view = root.gameObject.AddComponent<WindIndicatorView>();
             var viewSo = new SerializedObject(view);
@@ -926,6 +925,16 @@ namespace MukJump.EditorTools
             text.resizeTextMinSize = 24;
             text.resizeTextMaxSize = fontSize;
             return text;
+        }
+
+        static void AddReadableTextWeight(Text text, float alpha)
+        {
+            if (text == null) return;
+            var outline = text.gameObject.AddComponent<Outline>();
+            Color ink = InkPalette.Ink;
+            outline.effectColor = new Color(ink.r, ink.g, ink.b, Mathf.Clamp01(alpha));
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            outline.useGraphicAlpha = true;
         }
 
         static void AssignHudTexture(SerializedObject so, string field, string path)
