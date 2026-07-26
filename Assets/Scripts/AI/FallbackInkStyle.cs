@@ -45,7 +45,8 @@ namespace MukJump.AI
         /// 발판 LineRenderer에 붓선 스타일을 적용한다
         public static void Apply(LineRenderer line, float strokeLength)
         {
-            line.material = SharedInkMaterial;
+            // 개별 Renderer.material 인스턴스를 만들지 않고 모든 붓선을 공유 재질로 묶는다.
+            line.sharedMaterial = SharedInkMaterial;
             line.textureMode = LineTextureMode.Stretch;
             line.numCapVertices = 5;
             line.numCornerVertices = 5;

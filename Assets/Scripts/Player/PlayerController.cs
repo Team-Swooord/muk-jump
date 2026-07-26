@@ -62,6 +62,11 @@ namespace MukJump.Player
             GameManager.Instance?.RegisterPlayer(this);
         }
 
+        void OnDisable()
+        {
+            GameManager.Instance?.UnregisterPlayer(this);
+        }
+
         /// 로비에서는 시작선을 그리는 동안 캐릭터가 먼저 추락하지 않도록 그 자리에 고정한다.
         /// 선이 완성되면 현재 위치에서 물리를 시작하므로 아래에 그린 선만 첫 발판이 된다.
         public void BeginFromLobby()
@@ -309,8 +314,8 @@ namespace MukJump.Player
                 var contact = collision.GetContact(i);
                 if (platform != null)
                 {
-                    // 자동 생성 특수 발판은 양방향으로 막되, 아래·옆면 접촉을 착지나
-                    // 휴식/풍맥 효과로 처리하지 않는다.
+                    // 자동 생성 특수 발판은 아래에서 통과한다. Effector 경계에서 발생할 수
+                    // 있는 아래·옆면 접촉도 착지나 휴식/풍맥 효과로 처리하지 않는다.
                     if ((platform.IsRestPlatform || platform.IsWindCurrentPlatform) &&
                         contact.normal.y < groundNormalMinY)
                         continue;

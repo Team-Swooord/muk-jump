@@ -16,8 +16,9 @@ namespace MukJump.Obstacles
         public void Configure(float localRadius, int spriteSortingOrder)
         {
             fallingRock = GetComponent<FallingInkRock>();
-            CreatePaperHalo(localRadius, spriteSortingOrder - 2);
-            CreateDangerRing(localRadius, spriteSortingOrder + 1);
+            ConfigurePaperHalo(localRadius, spriteSortingOrder - 2);
+            ConfigureDangerRing(localRadius, spriteSortingOrder + 1);
+            SetVisible(true);
         }
 
         void Update()
@@ -49,11 +50,25 @@ namespace MukJump.Obstacles
             paperHalo.color = paper;
         }
 
-        void CreatePaperHalo(float localRadius, int sortingOrder)
+        public void SetVisible(bool visible)
         {
-            var go = new GameObject("PaperHalo");
-            go.transform.SetParent(transform, false);
-            paperHalo = go.AddComponent<SpriteRenderer>();
+            if (paperHalo != null) paperHalo.enabled = visible;
+            if (dangerRing != null) dangerRing.enabled = visible;
+        }
+
+        void ConfigurePaperHalo(float localRadius, int sortingOrder)
+        {
+            if (paperHalo == null)
+            {
+                var existing = transform.Find("PaperHalo");
+                var go = existing != null ? existing.gameObject : new GameObject("PaperHalo");
+                if (existing == null) go.transform.SetParent(transform, false);
+                paperHalo = go.GetComponent<SpriteRenderer>();
+                if (paperHalo == null) paperHalo = go.AddComponent<SpriteRenderer>();
+            }
+
+            paperHalo.transform.localPosition = Vector3.zero;
+            paperHalo.transform.localRotation = Quaternion.identity;
             paperHalo.sprite = InkUiTextureFactory.CreateBlobSprite();
             paperHalo.sortingOrder = sortingOrder;
             Color paper = InkPalette.Paper;
@@ -69,11 +84,20 @@ namespace MukJump.Obstacles
             paperHalo.transform.localScale = haloBaseScale;
         }
 
-        void CreateDangerRing(float localRadius, int sortingOrder)
+        void ConfigureDangerRing(float localRadius, int sortingOrder)
         {
-            var go = new GameObject("DangerRing");
-            go.transform.SetParent(transform, false);
-            dangerRing = go.AddComponent<LineRenderer>();
+            if (dangerRing == null)
+            {
+                var existing = transform.Find("DangerRing");
+                var go = existing != null ? existing.gameObject : new GameObject("DangerRing");
+                if (existing == null) go.transform.SetParent(transform, false);
+                dangerRing = go.GetComponent<LineRenderer>();
+                if (dangerRing == null) dangerRing = go.AddComponent<LineRenderer>();
+            }
+
+            dangerRing.transform.localPosition = Vector3.zero;
+            dangerRing.transform.localRotation = Quaternion.identity;
+            dangerRing.transform.localScale = Vector3.one;
             dangerRing.useWorldSpace = false;
             dangerRing.loop = true;
             dangerRing.positionCount = 36;

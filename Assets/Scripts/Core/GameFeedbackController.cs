@@ -1,9 +1,11 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using MukJump.AI;
 using MukJump.Items;
+using MukJump.Core.Pooling;
 
 namespace MukJump.Core
 {
@@ -11,6 +13,9 @@ namespace MukJump.Core
     /// 외부 음원 없이 짧은 효과음을 런타임에 합성해 API 키나 추가 에셋 없이 동작한다.
     public class GameFeedbackController : MonoBehaviour
     {
+        const int LineVfxCapacity = 8;
+        const int SpriteVfxCapacity = 16;
+
         public static GameFeedbackController Instance { get; private set; }
 
         AudioClip jumpClip;
@@ -52,6 +57,11 @@ namespace MukJump.Core
         Canvas overlayCanvas;
         Text bannerText;
         Coroutine bannerRoutine;
+        Transform transientPoolRoot;
+        ComponentPool<TransientVfxElement> lineVfxPool;
+        ComponentPool<TransientVfxElement> spriteVfxPool;
+        readonly HashSet<TransientVfxElement> leasedLineVfx = new();
+        readonly HashSet<TransientVfxElement> leasedSpriteVfx = new();
 
         void OnEnable()
         {
@@ -61,9 +71,18 @@ namespace MukJump.Core
 
         void OnDisable()
         {
+            // 코루틴을 먼저 멈춘 뒤 모두 반납해야, 재활성화 후 같은 요소를 다시 빌렸을 때
+            // 이전 코루틴이 새 연출의 위치·색을 덮어쓰지 않는다.
+            StopAllCoroutines();
+            gameOverSoundRoutine = null;
+            hitStopRoutine = null;
+            gamepadHapticRoutine = null;
+            bannerRoutine = null;
+            ReturnAllTransientVfx();
             if (Instance == this) Instance = null;
             RestoreTimeScale();
             if (Gamepad.current != null) Gamepad.current.SetMotorSpeeds(0f, 0f);
+            if (bannerText != null) bannerText.color = Color.clear;
         }
 
         void Awake()
@@ -105,8 +124,6 @@ namespace MukJump.Core
                     bannerText = existingBanner.GetComponent<Text>();
                     overlayCanvas = existingBanner.GetComponentInParent<Canvas>();
                 }
-                else
-                    CreateOverlay();
             }
         }
 
@@ -252,6 +269,7 @@ namespace MukJump.Core
         public void ShowZone(string title, string subtitle)
         {
             EnsureInitialized();
+            EnsureOverlay();
             VfxAudioManager.Instance?.PlayOneShot(milestoneClip, 0.72f);
             if (bannerRoutine != null) StopCoroutine(bannerRoutine);
             bannerRoutine = StartCoroutine(AnimateBanner(title, subtitle));
@@ -260,14 +278,15 @@ namespace MukJump.Core
         IEnumerator AnimateRing(Vector3 position, Color color, float startRadius, float endRadius,
             float duration, float width, float startAlpha, float yScale = 1f)
         {
-            var go = new GameObject("FeedbackRing");
-            go.transform.position = position;
-            go.transform.localScale = new Vector3(1f, yScale, 1f);
-            var line = go.AddComponent<LineRenderer>();
+            var element = TryAcquireLineVfx("FeedbackRing");
+            if (element == null) yield break;
+            element.transform.position = position;
+            element.transform.localScale = new Vector3(1f, yScale, 1f);
+            var line = element.UseLine();
             line.useWorldSpace = false;
             line.loop = true;
             line.positionCount = 32;
-            line.material = FallbackInkStyle.SharedInkMaterial;
+            line.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
             line.sortingOrder = 12;
             line.startWidth = line.endWidth = width;
 
@@ -288,7 +307,7 @@ namespace MukJump.Core
                 line.startColor = line.endColor = color;
                 yield return null;
             }
-            Destroy(go);
+            ReleaseLineVfx(element);
         }
 
         IEnumerator HitStopRoutine(float duration)
@@ -385,12 +404,14 @@ namespace MukJump.Core
 
         IEnumerator AnimateBrushStreak(Vector3 position)
         {
-            var go = new GameObject("JumpBrushStreak");
-            go.transform.position = position;
-            var line = go.AddComponent<LineRenderer>();
+            var element = TryAcquireLineVfx("JumpBrushStreak");
+            if (element == null) yield break;
+            element.transform.position = position;
+            var line = element.UseLine();
             line.useWorldSpace = false;
+            line.loop = false;
             line.positionCount = 4;
-            line.material = FallbackInkStyle.SharedInkMaterial;
+            line.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
             line.sortingOrder = 11;
             line.startWidth = 0.16f;
             line.endWidth = 0.025f;
@@ -407,20 +428,25 @@ namespace MukJump.Core
                 line.startColor = line.endColor = color;
                 yield return null;
             }
-            Destroy(go);
+            ReleaseLineVfx(element);
         }
 
         IEnumerator AnimateInvalidSeal(Vector3 position)
         {
-            var root = new GameObject("InvalidStrokeSeal");
-            root.transform.position = position;
+            var slashes = new TransientVfxElement[2];
+            int acquiredCount = 0;
             for (int i = 0; i < 2; i++)
             {
-                var line = new GameObject($"Slash_{i}").AddComponent<LineRenderer>();
-                line.transform.SetParent(root.transform, false);
+                var element = TryAcquireLineVfx($"InvalidStrokeSlash_{i + 1}");
+                if (element == null) continue;
+                slashes[i] = element;
+                acquiredCount++;
+                element.transform.position = position;
+                var line = element.UseLine();
                 line.useWorldSpace = false;
+                line.loop = false;
                 line.positionCount = 2;
-                line.material = FallbackInkStyle.SharedInkMaterial;
+                line.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
                 line.sortingOrder = 13;
                 line.startWidth = line.endWidth = 0.1f;
                 float sign = i == 0 ? 1f : -1f;
@@ -428,28 +454,37 @@ namespace MukJump.Core
                 line.SetPosition(1, new Vector3(0.28f, 0.28f * sign));
                 line.startColor = line.endColor = InkPalette.Red;
             }
+            if (acquiredCount == 0) yield break;
             float elapsed = 0f;
             while (elapsed < 0.38f)
             {
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / 0.38f);
-                root.transform.localScale = Vector3.one * Mathf.Lerp(0.55f, 1f, t);
+                float scale = Mathf.Lerp(0.55f, 1f, t);
+                for (int i = 0; i < slashes.Length; i++)
+                    if (slashes[i] != null)
+                        slashes[i].transform.localScale = Vector3.one * scale;
                 yield return null;
             }
-            Destroy(root);
+            for (int i = 0; i < slashes.Length; i++)
+                ReleaseLineVfx(slashes[i]);
         }
 
         void SpawnDroplets(Vector3 position, int count, Color color)
         {
             for (int i = 0; i < count; i++)
-                StartCoroutine(AnimateDroplet(position, color, i, count));
+            {
+                var element = TryAcquireSpriteVfx("FeedbackDroplet");
+                if (element == null) break;
+                StartCoroutine(AnimateDroplet(element, position, color, i, count));
+            }
         }
 
-        IEnumerator AnimateDroplet(Vector3 position, Color color, int index, int count)
+        IEnumerator AnimateDroplet(TransientVfxElement element, Vector3 position, Color color,
+            int index, int count)
         {
-            var go = new GameObject("FeedbackDroplet");
-            go.transform.position = position;
-            var renderer = go.AddComponent<SpriteRenderer>();
+            element.transform.position = position;
+            var renderer = element.UseSprite();
             renderer.sprite = dotSprite;
             renderer.sortingOrder = 12;
             renderer.color = color;
@@ -457,18 +492,104 @@ namespace MukJump.Core
             float speed = Random.Range(1.1f, 2.5f);
             Vector3 velocity = new(Mathf.Cos(angle) * speed, Mathf.Sin(angle) * speed, 0f);
             float scale = Random.Range(0.035f, 0.085f);
-            go.transform.localScale = Vector3.one * scale;
+            element.transform.localScale = Vector3.one * scale;
             float elapsed = 0f;
             while (elapsed < 0.45f)
             {
                 elapsed += Time.deltaTime;
                 velocity += Vector3.down * (4.5f * Time.deltaTime);
-                go.transform.position += velocity * Time.deltaTime;
+                element.transform.position += velocity * Time.deltaTime;
                 color.a = 1f - elapsed / 0.45f;
                 renderer.color = color;
                 yield return null;
             }
-            Destroy(go);
+            ReleaseSpriteVfx(element);
+        }
+
+        TransientVfxElement TryAcquireLineVfx(string objectName)
+        {
+            EnsureTransientPools();
+            if (lineVfxPool.LeasedCount >= LineVfxCapacity) return null;
+            var element = lineVfxPool.Acquire();
+            element.gameObject.name = objectName;
+            leasedLineVfx.Add(element);
+            return element;
+        }
+
+        TransientVfxElement TryAcquireSpriteVfx(string objectName)
+        {
+            EnsureTransientPools();
+            if (spriteVfxPool.LeasedCount >= SpriteVfxCapacity) return null;
+            var element = spriteVfxPool.Acquire();
+            element.gameObject.name = objectName;
+            leasedSpriteVfx.Add(element);
+            return element;
+        }
+
+        void ReleaseLineVfx(TransientVfxElement element)
+        {
+            if (element == null || !leasedLineVfx.Remove(element)) return;
+            lineVfxPool?.Release(element);
+        }
+
+        void ReleaseSpriteVfx(TransientVfxElement element)
+        {
+            if (element == null || !leasedSpriteVfx.Remove(element)) return;
+            spriteVfxPool?.Release(element);
+        }
+
+        void EnsureTransientPools()
+        {
+            if (transientPoolRoot == null)
+            {
+                var existing = transform.Find("TransientFeedbackPool");
+                if (existing != null)
+                    transientPoolRoot = existing;
+                else
+                {
+                    var root = new GameObject("TransientFeedbackPool");
+                    root.transform.SetParent(transform, false);
+                    transientPoolRoot = root.transform;
+                }
+            }
+
+            bool rebuildPools = lineVfxPool == null || spriteVfxPool == null;
+            lineVfxPool ??= new ComponentPool<TransientVfxElement>(
+                () => CreateTransientElement("TransientLineVfx"), LineVfxCapacity);
+            spriteVfxPool ??= new ComponentPool<TransientVfxElement>(
+                () => CreateTransientElement("TransientSpriteVfx"), SpriteVfxCapacity);
+
+            if (!rebuildPools) return;
+            var existingElements =
+                transientPoolRoot.GetComponentsInChildren<TransientVfxElement>(true);
+            for (int i = 0; i < existingElements.Length; i++)
+            {
+                var element = existingElements[i];
+                if (element.GetComponent<SpriteRenderer>() != null)
+                    spriteVfxPool.Adopt(element);
+                else
+                    lineVfxPool.Adopt(element);
+            }
+        }
+
+        TransientVfxElement CreateTransientElement(string objectName)
+        {
+            var go = new GameObject(objectName);
+            go.transform.SetParent(transientPoolRoot, false);
+            return go.AddComponent<TransientVfxElement>();
+        }
+
+        void ReturnAllTransientVfx()
+        {
+            if (lineVfxPool != null)
+                foreach (var element in leasedLineVfx)
+                    lineVfxPool.Release(element);
+            leasedLineVfx.Clear();
+
+            if (spriteVfxPool != null)
+                foreach (var element in leasedSpriteVfx)
+                    spriteVfxPool.Release(element);
+            leasedSpriteVfx.Clear();
         }
 
         void CreateOverlay()
@@ -495,6 +616,19 @@ namespace MukJump.Core
             bannerText.fontStyle = FontStyle.Bold;
             bannerText.alignment = TextAnchor.MiddleCenter;
             bannerText.color = Color.clear;
+        }
+
+        void EnsureOverlay()
+        {
+            if (bannerText != null) return;
+            var existingBanner = transform.Find("FeedbackOverlay/ZoneBanner");
+            if (existingBanner != null)
+            {
+                bannerText = existingBanner.GetComponent<Text>();
+                overlayCanvas = existingBanner.GetComponentInParent<Canvas>();
+                return;
+            }
+            CreateOverlay();
         }
 
         IEnumerator AnimateBanner(string title, string subtitle)

@@ -20,8 +20,6 @@ namespace MukJump.Core
         Image bestGlow;
         Coroutine showRoutine;
 
-        void Awake() => BuildIfNeeded();
-
         public void Show(int height, int best, bool reachedNewBest)
         {
             BuildIfNeeded();

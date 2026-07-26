@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using MukJump.Core;
+using MukJump.Core.Pooling;
 using MukJump.Drawing;
 using MukJump.Player;
 
@@ -15,7 +16,7 @@ namespace MukJump.Obstacles
 
     /// 화면 상단에서 예고한 뒤 수직 낙하하여 플레이어 또는 드로잉 발판과 충돌하는 낙묵석.
     [RequireComponent(typeof(SpriteRenderer), typeof(Rigidbody2D), typeof(CircleCollider2D))]
-    public class FallingInkRock : MonoBehaviour
+    public class FallingInkRock : MonoBehaviour, IPoolableEntity
     {
         [Header("예고")]
         [Min(0.05f), SerializeField] float warningDuration = 0.9f;
@@ -65,7 +66,11 @@ namespace MukJump.Obstacles
 
             baseScale = transform.localScale;
             baseColor = spriteRenderer.color;
+            warningElapsed = 0f;
+            lifetimeElapsed = 0f;
+            fallSpeed = 0f;
             State = FallingInkRockState.Warning;
+            spriteRenderer.enabled = true;
             hitbox.enabled = false;
             body.simulated = false;
         }
@@ -175,7 +180,7 @@ namespace MukJump.Obstacles
             if (dissolve && dissolveDuration > 0f)
                 StartCoroutine(Dissolve());
             else
-                Destroy(gameObject);
+                ReleaseOrDestroy();
         }
 
         bool TryEnterResolvedState()
@@ -203,12 +208,66 @@ namespace MukJump.Obstacles
                     startScale * dissolveScale, t);
                 yield return null;
             }
-            Destroy(gameObject);
+            ReleaseOrDestroy();
         }
 
         public void ResolveImmediately()
         {
             BeginResolve(false);
+        }
+
+        void ReleaseOrDestroy()
+        {
+            if (owner != null)
+                owner.Release(this);
+            else
+                Destroy(gameObject);
+        }
+
+        public void OnPoolAcquire()
+        {
+            EnsureComponents();
+            StopAllCoroutines();
+            owner = null;
+            worldCamera = null;
+            warningElapsed = 0f;
+            lifetimeElapsed = 0f;
+            fallSpeed = 0f;
+            State = FallingInkRockState.Warning;
+            spriteRenderer.enabled = true;
+            spriteRenderer.color = baseColor;
+            transform.localScale = baseScale;
+            body.simulated = false;
+            body.linearVelocity = Vector2.zero;
+            body.angularVelocity = 0f;
+            hitbox.enabled = false;
+        }
+
+        public void OnPoolRelease()
+        {
+            EnsureComponents();
+            StopAllCoroutines();
+            State = FallingInkRockState.Resolved;
+            hitbox.enabled = false;
+            body.simulated = false;
+            body.linearVelocity = Vector2.zero;
+            body.angularVelocity = 0f;
+            spriteRenderer.color = baseColor;
+            spriteRenderer.enabled = false;
+            transform.localScale = baseScale;
+            GetComponent<ObstacleVisibilityView>()?.SetVisible(false);
+            owner = null;
+            worldCamera = null;
+            warningElapsed = 0f;
+            lifetimeElapsed = 0f;
+            fallSpeed = 0f;
+        }
+
+        void EnsureComponents()
+        {
+            if (spriteRenderer == null) spriteRenderer = GetComponent<SpriteRenderer>();
+            if (body == null) body = GetComponent<Rigidbody2D>();
+            if (hitbox == null) hitbox = GetComponent<CircleCollider2D>();
         }
 
         float WorldRadius => hitbox.radius * Mathf.Max(

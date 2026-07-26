@@ -330,16 +330,24 @@ namespace MukJump.Drawing
 
         void CreatePreview()
         {
-            var go = new GameObject("StrokePreview");
-            preview = go.AddComponent<LineRenderer>();
-            preview.useWorldSpace = true;
-            preview.startWidth = preview.endWidth = previewWidth;
-            preview.material = AI.FallbackInkStyle.SharedInkMaterial;
-            var faint = InkPalette.Ink;
-            faint.a = 0.35f;
-            preview.startColor = preview.endColor = faint;
-            preview.numCapVertices = 4;
-            preview.sortingOrder = 10;
+            // 매 획마다 생성/파괴하면 드로잉 빈도만큼 GC가 발생하므로 미리보기 하나를
+            // 최초 사용 시 만들고 이후에는 활성 상태만 전환한다.
+            if (preview == null)
+            {
+                var go = new GameObject("StrokePreview");
+                preview = go.AddComponent<LineRenderer>();
+                preview.useWorldSpace = true;
+                preview.startWidth = preview.endWidth = previewWidth;
+                preview.sharedMaterial = AI.FallbackInkStyle.SharedInkMaterial;
+                var faint = InkPalette.Ink;
+                faint.a = 0.35f;
+                preview.startColor = preview.endColor = faint;
+                preview.numCapVertices = 4;
+                preview.sortingOrder = 10;
+            }
+            else
+                preview.gameObject.SetActive(true);
+
             UpdatePreview();
         }
 
@@ -364,8 +372,9 @@ namespace MukJump.Drawing
 
         void DestroyPreview()
         {
-            if (preview != null) Destroy(preview.gameObject);
-            preview = null;
+            if (preview == null) return;
+            preview.positionCount = 0;
+            preview.gameObject.SetActive(false);
         }
     }
 }

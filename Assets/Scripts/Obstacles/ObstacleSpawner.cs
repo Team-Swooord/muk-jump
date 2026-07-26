@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using MukJump.Core;
+using MukJump.Core.Pooling;
 
 namespace MukJump.Obstacles
 {
@@ -22,32 +23,54 @@ namespace MukJump.Obstacles
         [SerializeField] float maxSpeedHeight = 300f;
         [Tooltip("최고 난도에서의 좌우 이동 속도 범위")]
         [SerializeField] Vector2 maxMoveSpeedRange = new(1.35f, 1.8f);
+        const int PoolCapacity = 10;
 
         readonly List<Obstacle> active = new();
+        ComponentPool<Obstacle> pool;
+        GameManager subscribedManager;
         Camera cam;
         float nextSpawnY;
+
+        void OnEnable()
+        {
+            TrySubscribeToGameManager();
+        }
 
         void Start()
         {
             cam = Camera.main;
             nextSpawnY = firstSpawnHeight;
+            EnsurePool();
+            TrySubscribeToGameManager();
             if (obstacleSprite == null)
                 Debug.LogWarning("[MukJump] 장애물 스프라이트가 없어 장애물을 생성하지 않습니다.", this);
         }
 
+        void OnDisable()
+        {
+            UnsubscribeFromGameManager();
+            ReleaseAllActive();
+        }
+
         void Update()
         {
+            TrySubscribeToGameManager();
             if (cam == null || obstacleSprite == null || GameManager.Instance == null ||
                 GameManager.Instance.State != GameState.Playing) return;
 
             float cameraTop = cam.transform.position.y + cam.orthographicSize;
+            float cutoff = cam.transform.position.y - cam.orthographicSize - despawnBelow;
+
+            // 디버그 순간이동 등으로 이미 화면 아래가 된 예약 슬롯은 생성 없이 넘긴다.
+            while (nextSpawnY < cutoff)
+                nextSpawnY += NextSpacing();
+
             while (nextSpawnY <= cameraTop + spawnAhead)
             {
                 Spawn(nextSpawnY);
-                nextSpawnY += Random.Range(verticalSpacing.x, verticalSpacing.y);
+                nextSpawnY += NextSpacing();
             }
 
-            float cutoff = cam.transform.position.y - cam.orthographicSize - despawnBelow;
             for (int i = active.Count - 1; i >= 0; i--)
             {
                 if (active[i] == null)
@@ -56,13 +79,13 @@ namespace MukJump.Obstacles
                     continue;
                 }
                 if (active[i].transform.position.y >= cutoff) continue;
-                Destroy(active[i].gameObject);
-                active.RemoveAt(i);
+                ReleaseAt(i);
             }
         }
 
         void Spawn(float y)
         {
+            EnsurePool();
             float courseHeight = ScoreManager.Instance != null ? ScoreManager.Instance.HeightAt(y) : y;
             ObstacleMotion motion = ObstacleMotion.Horizontal;
             float amplitude = Random.Range(moveAmplitudeRange.x, moveAmplitudeRange.y);
@@ -74,35 +97,117 @@ namespace MukJump.Obstacles
                 maxX -= amplitude;
             }
 
-            var go = new GameObject("InkObstacle")
-            {
-                layer = LayerMask.NameToLayer("Obstacle"),
-            };
+            var obstacle = pool.Acquire();
+            var go = obstacle.gameObject;
+            go.name = "InkObstacle";
+            go.layer = LayerMask.NameToLayer("Obstacle");
             go.transform.position = new Vector3(Random.Range(minX, maxX), y, 0f);
+            go.transform.rotation = Quaternion.identity;
 
-            var renderer = go.AddComponent<SpriteRenderer>();
+            var renderer = go.GetComponent<SpriteRenderer>();
             renderer.sprite = obstacleSprite;
             renderer.sortingOrder = 6;
+            renderer.color = Color.white;
+            renderer.enabled = true;
             float spriteWidth = obstacleSprite.bounds.size.x;
             float scale = spriteWidth > 0f ? obstacleWorldWidth / spriteWidth : 1f;
             go.transform.localScale = Vector3.one * scale;
 
-            var circle = go.AddComponent<CircleCollider2D>();
+            var circle = go.GetComponent<CircleCollider2D>();
             circle.isTrigger = true;
+            circle.enabled = true;
             // 바깥쪽 반투명 먹 번짐보다 실제 가시 몸통에 맞춰 판정을 약간 줄인다.
             circle.radius = obstacleSprite.bounds.extents.x * 0.78f;
 
-            var obstacle = go.AddComponent<Obstacle>();
             float visualRadius = Mathf.Max(obstacleSprite.bounds.extents.x,
                 obstacleSprite.bounds.extents.y);
-            go.AddComponent<ObstacleVisibilityView>().Configure(visualRadius,
-                renderer.sortingOrder);
+            go.GetComponent<ObstacleVisibilityView>().Configure(visualRadius, renderer.sortingOrder);
             float difficulty = Mathf.InverseLerp(0f, maxSpeedHeight, courseHeight);
             float minSpeed = Mathf.Lerp(baseMoveSpeedRange.x, maxMoveSpeedRange.x, difficulty);
             float maxSpeed = Mathf.Lerp(baseMoveSpeedRange.y, maxMoveSpeedRange.y, difficulty);
             obstacle.Configure(motion, amplitude,
                 Random.Range(minSpeed, maxSpeed), Random.Range(0f, Mathf.PI * 2f));
             active.Add(obstacle);
+        }
+
+        Obstacle CreatePooledObstacle()
+        {
+            var go = new GameObject("PooledObstacle")
+            {
+                layer = LayerMask.NameToLayer("Obstacle"),
+            };
+            go.transform.SetParent(transform, false);
+            go.SetActive(false);
+            go.AddComponent<SpriteRenderer>();
+            var circle = go.AddComponent<CircleCollider2D>();
+            circle.isTrigger = true;
+            go.AddComponent<ObstacleVisibilityView>();
+            return go.AddComponent<Obstacle>();
+        }
+
+        void EnsurePool()
+        {
+            if (pool != null) return;
+            pool = new ComponentPool<Obstacle>(CreatePooledObstacle, PoolCapacity);
+            var existing = GetComponentsInChildren<Obstacle>(true);
+            for (int i = 0; i < existing.Length; i++)
+                pool.Adopt(existing[i]);
+        }
+
+        void ReleaseAt(int index)
+        {
+            var obstacle = active[index];
+            active.RemoveAt(index);
+            if (obstacle != null && pool != null)
+                pool.Release(obstacle);
+        }
+
+        void ReleaseAllActive()
+        {
+            for (int i = active.Count - 1; i >= 0; i--)
+                ReleaseAt(i);
+        }
+
+        float NextSpacing()
+        {
+            float minimum = Mathf.Max(0.1f, verticalSpacing.x);
+            float maximum = Mathf.Max(minimum, verticalSpacing.y);
+            return Random.Range(minimum, maximum);
+        }
+
+        void TrySubscribeToGameManager()
+        {
+            var manager = GameManager.Instance;
+            if (subscribedManager == manager) return;
+            UnsubscribeFromGameManager();
+            if (manager == null) return;
+            subscribedManager = manager;
+            subscribedManager.StateChanged += OnStateChanged;
+            subscribedManager.WorldHeightTeleported += OnWorldHeightTeleported;
+        }
+
+        void UnsubscribeFromGameManager()
+        {
+            if (subscribedManager == null) return;
+            subscribedManager.StateChanged -= OnStateChanged;
+            subscribedManager.WorldHeightTeleported -= OnWorldHeightTeleported;
+            subscribedManager = null;
+        }
+
+        void OnStateChanged(GameState previous, GameState next)
+        {
+            if (next != GameState.Playing)
+                ReleaseAllActive();
+        }
+
+        void OnWorldHeightTeleported(int targetHeight)
+        {
+            ReleaseAllActive();
+            if (cam == null) cam = Camera.main;
+            float visibleBottom = cam != null
+                ? cam.transform.position.y - cam.orthographicSize
+                : Mathf.Max(firstSpawnHeight, targetHeight);
+            nextSpawnY = Mathf.Max(firstSpawnHeight, visibleBottom);
         }
     }
 }

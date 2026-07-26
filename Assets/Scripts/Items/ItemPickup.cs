@@ -1,5 +1,6 @@
 using UnityEngine;
 using MukJump.Core;
+using MukJump.Core.Pooling;
 using MukJump.Drawing;
 using MukJump.Player;
 
@@ -33,7 +34,11 @@ namespace MukJump.Items
                     player.GetComponent<InkDropJumpVfx>()?.Play();
                     break;
                 case ItemType.GoldenBrush:
-                    Object.FindFirstObjectByType<StrokeCapture>()?.ActivateUnlimitedInk(8f);
+                    var strokeCapture =
+                        UnityEngine.Object.FindFirstObjectByType<StrokeCapture>();
+                    strokeCapture?.ActivateUnlimitedInk(8f);
+                    player.GetComponent<ItemEffectView>()?
+                        .RequestSharedGoldenBrush(strokeCapture);
                     break;
                 case ItemType.InkShield:
                     player.GrantShield();
@@ -42,7 +47,8 @@ namespace MukJump.Items
                     GameManager.Instance.TryCreateInkClone(player);
                     break;
                 case ItemType.InkReserve:
-                    Object.FindFirstObjectByType<StrokeCapture>()?.AddInkReserve(0.35f);
+                    UnityEngine.Object.FindFirstObjectByType<StrokeCapture>()?
+                        .AddInkReserve(0.35f);
                     break;
             }
         }
@@ -50,7 +56,7 @@ namespace MukJump.Items
 
     /// 닿는 즉시 효과를 적용하는 아이템. 임시 비주얼은 종류별 색상으로 구분한다.
     [RequireComponent(typeof(SpriteRenderer), typeof(CircleCollider2D))]
-    public class ItemPickup : MonoBehaviour
+    public class ItemPickup : MonoBehaviour, IPoolableEntity
     {
         [SerializeField] ItemType type;
         [SerializeField] float bobAmount = 0.18f;
@@ -63,15 +69,31 @@ namespace MukJump.Items
         bool collected;
         bool telegraphed;
         Camera worldCamera;
+        SpriteRenderer spriteRenderer;
+        CircleCollider2D trigger;
+
+        /// 획득된 아이템을 Destroy하지 않고 소유 스포너가 명시적으로 반납한다.
+        public event System.Action<ItemPickup> ReleaseRequested;
+
+        void Awake()
+        {
+            EnsureComponents();
+        }
 
         public void Configure(ItemType itemType, float phaseOffset)
         {
+            EnsureComponents();
             type = itemType;
             phase = phaseOffset;
             origin = transform.position;
             baseScale = transform.localScale;
+            collected = false;
+            telegraphed = false;
+            telegraphTime = 0f;
             transform.localScale = baseScale * 0.86f;
             worldCamera = Camera.main;
+            spriteRenderer.enabled = true;
+            trigger.enabled = true;
         }
 
         void Update()
@@ -121,8 +143,41 @@ namespace MukJump.Items
             if (player == null) return;
 
             collected = true;
+            trigger.enabled = false;
             ItemEffect.Apply(type, player);
-            Destroy(gameObject);
+            if (ReleaseRequested != null)
+                ReleaseRequested.Invoke(this);
+            else
+                Destroy(gameObject);
+        }
+
+        public void OnPoolAcquire()
+        {
+            EnsureComponents();
+            collected = false;
+            telegraphed = false;
+            telegraphTime = 0f;
+            phase = 0f;
+            worldCamera = Camera.main;
+            spriteRenderer.enabled = true;
+            trigger.enabled = true;
+        }
+
+        public void OnPoolRelease()
+        {
+            EnsureComponents();
+            collected = true;
+            telegraphed = false;
+            telegraphTime = 0f;
+            transform.localScale = baseScale == Vector3.zero ? Vector3.one : baseScale;
+            spriteRenderer.enabled = false;
+            trigger.enabled = false;
+        }
+
+        void EnsureComponents()
+        {
+            if (spriteRenderer == null) spriteRenderer = GetComponent<SpriteRenderer>();
+            if (trigger == null) trigger = GetComponent<CircleCollider2D>();
         }
     }
 }

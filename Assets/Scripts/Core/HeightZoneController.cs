@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using MukJump.Player;
 using MukJump.Drawing;
@@ -30,6 +31,7 @@ namespace MukJump.Core
         MapBackgroundView backgroundView;
         LineRenderer[] weatherLines;
         LineRenderer[] gorgeLines;
+        readonly List<PlayerController> livingPlayers = new();
 
         public Zone CurrentZone => currentZone;
         public int CurrentMapStage { get; private set; }
@@ -40,8 +42,6 @@ namespace MukJump.Core
             rockSpawner = FindFirstObjectByType<FallingInkRockSpawner>();
             worldCamera = Camera.main;
             backgroundView = FindFirstObjectByType<MapBackgroundView>();
-            CreateWeatherLines();
-            CreateGorgeLines();
             ApplyZone(0);
         }
 
@@ -65,6 +65,11 @@ namespace MukJump.Core
             currentBand = band;
             currentZone = (Zone)(band % 4);
             ApplyMapStage(Mathf.Clamp(band, 0, 3));
+            if ((currentZone == Zone.WindPass || currentZone == Zone.InkRain) &&
+                weatherLines == null)
+                CreateWeatherLines();
+            if (CurrentMapStage >= 3 && gorgeLines == null)
+                CreateGorgeLines();
             PlatformCollider.RuntimeLifetimeMultiplier =
                 currentZone == Zone.InkRain ? rainPlatformLifetimeMultiplier : 1f;
             if (rockSpawner == null) rockSpawner = FindFirstObjectByType<FallingInkRockSpawner>();
@@ -102,13 +107,14 @@ namespace MukJump.Core
 
         void ApplyWind()
         {
-            var players = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            var manager = GameManager.Instance;
+            if (manager == null) return;
+            manager.GetLivingPlayersNonAlloc(livingPlayers);
             float direction = Mathf.Sin(Time.time * 0.42f) >= 0f ? 1f : -1f;
             float pulse = 0.55f + 0.45f * Mathf.Abs(Mathf.Sin(Time.time * 0.85f));
-            for (int i = 0; i < players.Length; i++)
+            for (int i = 0; i < livingPlayers.Count; i++)
             {
-                if (players[i].IsDead) continue;
-                var body = players[i].GetComponent<Rigidbody2D>();
+                var body = livingPlayers[i].GetComponent<Rigidbody2D>();
                 if (body != null && body.bodyType == RigidbodyType2D.Dynamic)
                     body.AddForce(Vector2.right * (direction * windAcceleration * pulse),
                         ForceMode2D.Force);
@@ -125,7 +131,7 @@ namespace MukJump.Core
                 var line = lineObject.AddComponent<LineRenderer>();
                 line.useWorldSpace = true;
                 line.positionCount = 2;
-                line.material = FallbackInkStyle.SharedInkMaterial;
+                line.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
                 line.sortingOrder = 1;
                 line.startWidth = line.endWidth = 0.025f + i % 3 * 0.009f;
                 line.enabled = false;
@@ -143,7 +149,7 @@ namespace MukJump.Core
                 var line = lineObject.AddComponent<LineRenderer>();
                 line.useWorldSpace = true;
                 line.positionCount = 6;
-                line.material = FallbackInkStyle.SharedInkMaterial;
+                line.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
                 line.sortingOrder = -1;
                 line.startWidth = line.endWidth = 0.05f + i % 2 * 0.025f;
                 line.enabled = false;

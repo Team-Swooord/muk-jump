@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using MukJump.Core;
+using MukJump.Core.Pooling;
 using MukJump.Player;
 
 namespace MukJump.Obstacles
@@ -37,6 +38,7 @@ namespace MukJump.Obstacles
         [Min(0.1f), SerializeField] float maxLifetime = 8f;
 
         readonly List<FallingInkRock> active = new();
+        ComponentPool<FallingInkRock> pool;
         GameState previousState = GameState.Lobby;
         bool heightUnlocked;
         float spawnTimer;
@@ -49,8 +51,16 @@ namespace MukJump.Obstacles
             if (player == null) player = FindFirstObjectByType<PlayerController>();
             if (collisionMask.value == 0)
                 collisionMask = LayerMask.GetMask("Default", "Platform");
+            EnsurePool();
             ValidateReferences();
             ResetSchedule();
+        }
+
+        void OnDisable()
+        {
+            ClearActive();
+            ResetSchedule();
+            previousState = GameState.Lobby;
         }
 
         void Update()
@@ -100,40 +110,72 @@ namespace MukJump.Obstacles
                 new Vector3(0.5f, 1f, cameraDistance)).y;
             float x = ChooseSafestX(left, right);
 
-            var go = new GameObject("FallingInkRock")
-            {
-                layer = LayerMask.NameToLayer("Obstacle"),
-            };
-            go.transform.SetParent(transform, false);
+            EnsurePool();
+            var rock = pool.Acquire();
+            var go = rock.gameObject;
+            go.name = "FallingInkRock";
+            go.layer = LayerMask.NameToLayer("Obstacle");
             go.transform.position = new Vector3(x, top - halfHeight - topInset, 0f);
+            go.transform.rotation = Quaternion.identity;
             go.transform.localScale = Vector3.one * scale;
 
-            var renderer = go.AddComponent<SpriteRenderer>();
+            var renderer = go.GetComponent<SpriteRenderer>();
             renderer.sprite = fallingInkRockSprite;
             renderer.sortingOrder = 6;
+            renderer.color = Color.white;
+            renderer.enabled = true;
 
-            var body = go.AddComponent<Rigidbody2D>();
+            var body = go.GetComponent<Rigidbody2D>();
             body.bodyType = RigidbodyType2D.Kinematic;
             body.gravityScale = 0f;
             body.freezeRotation = true;
             body.interpolation = RigidbodyInterpolation2D.Interpolate;
+            body.linearVelocity = Vector2.zero;
+            body.angularVelocity = 0f;
             // 고속 관통은 FallingInkRock의 이동 구간 CircleCast가 담당한다.
             body.collisionDetectionMode = CollisionDetectionMode2D.Discrete;
 
-            var circle = go.AddComponent<CircleCollider2D>();
+            var circle = go.GetComponent<CircleCollider2D>();
             circle.isTrigger = true;
             circle.radius = Mathf.Min(fallingInkRockSprite.bounds.extents.x,
                 fallingInkRockSprite.bounds.extents.y) * 0.83f;
             circle.enabled = false;
 
-            var rock = go.AddComponent<FallingInkRock>();
             rock.Initialize(this, worldCamera, collisionMask, warningDuration,
                 initialFallSpeed, maxFallSpeed, fallAcceleration, maxLifetime);
             float visualRadius = Mathf.Max(fallingInkRockSprite.bounds.extents.x,
                 fallingInkRockSprite.bounds.extents.y);
-            go.AddComponent<ObstacleVisibilityView>().Configure(visualRadius,
+            go.GetComponent<ObstacleVisibilityView>().Configure(visualRadius,
                 renderer.sortingOrder);
             active.Add(rock);
+        }
+
+        FallingInkRock CreatePooledRock()
+        {
+            var go = new GameObject("PooledFallingInkRock")
+            {
+                layer = LayerMask.NameToLayer("Obstacle"),
+            };
+            go.transform.SetParent(transform, false);
+            go.SetActive(false);
+            go.AddComponent<SpriteRenderer>();
+            var body = go.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Kinematic;
+            body.gravityScale = 0f;
+            body.freezeRotation = true;
+            var circle = go.AddComponent<CircleCollider2D>();
+            circle.isTrigger = true;
+            go.AddComponent<ObstacleVisibilityView>();
+            return go.AddComponent<FallingInkRock>();
+        }
+
+        void EnsurePool()
+        {
+            if (pool != null) return;
+            pool = new ComponentPool<FallingInkRock>(CreatePooledRock, 2);
+            var existing = GetComponentsInChildren<FallingInkRock>(true);
+            for (int i = 0; i < existing.Length; i++)
+                pool.Adopt(existing[i]);
         }
 
         float ChooseSafestX(float left, float right)
@@ -192,7 +234,9 @@ namespace MukJump.Obstacles
         {
             for (int i = active.Count - 1; i >= 0; i--)
             {
-                if (active[i] == null || active[i].IsResolved)
+                // Resolved 상태라도 짧은 용해 코루틴이 끝나 소유 풀로 돌아오기 전까지는
+                // 추적을 유지한다. 먼저 목록에서 빼면 비활성화 시 leased 객체가 고립된다.
+                if (active[i] == null)
                     active.RemoveAt(i);
             }
         }
@@ -201,8 +245,17 @@ namespace MukJump.Obstacles
         {
             for (int i = active.Count - 1; i >= 0; i--)
             {
-                if (active[i] != null)
-                    active[i].ResolveImmediately();
+                var rock = active[i];
+                if (rock == null)
+                {
+                    active.RemoveAt(i);
+                    continue;
+                }
+
+                if (rock.IsResolved)
+                    Release(rock);
+                else
+                    rock.ResolveImmediately();
             }
             active.Clear();
         }
@@ -210,6 +263,15 @@ namespace MukJump.Obstacles
         public void NotifyRemoved(FallingInkRock rock)
         {
             active.Remove(rock);
+        }
+
+        /// 낙묵석의 해결 경로가 Destroy와 목록 정리에 의존하지 않고 소유 풀로 돌아오게 한다.
+        public void Release(FallingInkRock rock)
+        {
+            if (rock == null) return;
+            active.Remove(rock);
+            if (pool != null && pool.Release(rock)) return;
+            Destroy(rock.gameObject);
         }
 
         void OnValidate()

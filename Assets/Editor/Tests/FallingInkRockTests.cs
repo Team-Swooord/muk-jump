@@ -4,6 +4,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using MukJump.Core;
+using MukJump.Core.Pooling;
 using MukJump.Drawing;
 using MukJump.EditorTools;
 using MukJump.Items;
@@ -54,6 +55,29 @@ public class FallingInkRockTests
         Assert.AreEqual(FallingInkRockState.Resolved, rock.State);
         Assert.IsFalse(rock.GetComponent<CircleCollider2D>().enabled);
         Assert.IsFalse(rock.GetComponent<Rigidbody2D>().simulated);
+    }
+
+    [Test]
+    public void PoolReuseResetsWarningPhysicsAndTimers()
+    {
+        var pool = new ComponentPool<FallingInkRock>(() => CreateRock(0.8f), 1);
+        var first = pool.Acquire();
+        SetField(first, "warningElapsed", 0.6f);
+        SetField(first, "lifetimeElapsed", 3f);
+        first.GetComponent<CircleCollider2D>().enabled = true;
+        first.GetComponent<Rigidbody2D>().simulated = true;
+        first.GetComponent<SpriteRenderer>().enabled = false;
+
+        Assert.IsTrue(pool.Release(first));
+        var reused = pool.Acquire();
+
+        Assert.AreSame(first, reused);
+        Assert.AreEqual(FallingInkRockState.Warning, reused.State);
+        Assert.IsFalse(reused.GetComponent<CircleCollider2D>().enabled);
+        Assert.IsFalse(reused.GetComponent<Rigidbody2D>().simulated);
+        Assert.IsTrue(reused.GetComponent<SpriteRenderer>().enabled);
+        Assert.AreEqual(0f, (float)GetField(reused, "warningElapsed"));
+        Assert.AreEqual(0f, (float)GetField(reused, "lifetimeElapsed"));
     }
 
     [Test]
@@ -183,6 +207,12 @@ public class FallingInkRockTests
     {
         target.GetType().GetField(fieldName,
             BindingFlags.Instance | BindingFlags.NonPublic)?.SetValue(target, value);
+    }
+
+    static object GetField(object target, string fieldName)
+    {
+        return target.GetType().GetField(fieldName,
+            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(target);
     }
 
     static object Invoke(object target, string methodName, params object[] arguments)

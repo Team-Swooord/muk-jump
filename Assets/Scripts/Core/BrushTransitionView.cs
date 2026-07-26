@@ -24,12 +24,11 @@ namespace MukJump.Core
 
         void Awake()
         {
+            if (!revealAfterSceneLoad) return;
+
+            revealAfterSceneLoad = false;
             BuildIfNeeded();
-            if (revealAfterSceneLoad)
-            {
-                revealAfterSceneLoad = false;
-                StartCoroutine(RevealLoadedSceneRoutine());
-            }
+            StartCoroutine(RevealLoadedSceneRoutine());
         }
 
         public static void RequestRevealAfterSceneLoad() => revealAfterSceneLoad = true;
