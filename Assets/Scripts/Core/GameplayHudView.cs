@@ -81,7 +81,7 @@ namespace MukJump.Core
 
         void OnValidate()
         {
-            ApplyCrispTextSettings();
+            ApplyCrispTextSettings(false);
         }
 
         void OnDisable()
@@ -151,7 +151,7 @@ namespace MukJump.Core
                     : new Color(0.92f, 0.89f, 0.82f, 0.94f);
         }
 
-        void ApplyCrispTextSettings()
+        void ApplyCrispTextSettings(bool resizeItemIcons = true)
         {
             if (canvas != null) canvas.pixelPerfect = true;
             var texts = GetComponentsInChildren<Text>(true);
@@ -164,11 +164,14 @@ namespace MukJump.Core
             ConfigureText(invincibleLabel);
             SetButtonLabel(updraftButton, "상승기류");
             SetButtonLabel(windDirectionButton, "풍향 전환");
-            SetItemIconNativeSize(inkDropButton);
-            SetItemIconNativeSize(goldenBrushButton);
-            SetItemIconNativeSize(inkShieldButton);
-            SetItemIconNativeSize(inkCloneButton);
-            SetItemIconNativeSize(inkReserveButton);
+            if (resizeItemIcons)
+            {
+                SetItemIconNativeSize(inkDropButton);
+                SetItemIconNativeSize(goldenBrushButton);
+                SetItemIconNativeSize(inkShieldButton);
+                SetItemIconNativeSize(inkCloneButton);
+                SetItemIconNativeSize(inkReserveButton);
+            }
         }
 
         /// 예전 Main 씬도 재생 순간 동일한 한지 상단 HUD 계층으로 이관한다.
