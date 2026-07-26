@@ -55,6 +55,12 @@ namespace MukJump.EditorTools
             "Assets/Art/Background/Maps/map_02_ink_rain_valley.png",
             "Assets/Art/Background/Maps/map_03_black_cliff.png",
         };
+        static readonly string[] EndlessMapBackgroundPaths =
+        {
+            "Assets/Resources/MukJump/Background/Endless/map_04_ink_galaxy_gate.png",
+            "Assets/Resources/MukJump/Background/Endless/map_05_celestial_lotus.png",
+            "Assets/Resources/MukJump/Background/Endless/map_06_heavenly_ink_river.png",
+        };
         const string CharSheetPath = "Assets/Art/Character/Player/muk_spritesheet.png";
         const string ObstaclePath = "Assets/Art/Character/Obstacles/anermy_01.png";
         const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
@@ -192,6 +198,11 @@ namespace MukJump.EditorTools
             for (int i = 0; i < MapBackgroundPaths.Length; i++)
                 stages.GetArrayElementAtIndex(i).objectReferenceValue =
                     AssetDatabase.LoadAssetAtPath<Sprite>(MapBackgroundPaths[i]);
+            var endlessStages = so.FindProperty("endlessStageSprites");
+            endlessStages.arraySize = EndlessMapBackgroundPaths.Length;
+            for (int i = 0; i < EndlessMapBackgroundPaths.Length; i++)
+                endlessStages.GetArrayElementAtIndex(i).objectReferenceValue =
+                    AssetDatabase.LoadAssetAtPath<Sprite>(EndlessMapBackgroundPaths[i]);
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -1036,9 +1047,15 @@ namespace MukJump.EditorTools
         /// 배경 이미지의 픽셀 폭이 얼마든 월드 폭 10.8유닛(화면 가득)이 되도록 PPU를 계산한다
         static void ConfigureBackground()
         {
-            for (int i = 0; i < MapBackgroundPaths.Length; i++)
+            ConfigureBackgroundSet(MapBackgroundPaths);
+            ConfigureBackgroundSet(EndlessMapBackgroundPaths);
+        }
+
+        static void ConfigureBackgroundSet(string[] paths)
+        {
+            for (int i = 0; i < paths.Length; i++)
             {
-                string path = MapBackgroundPaths[i];
+                string path = paths[i];
                 ConfigureSprite(path, pixelsPerUnit: 100f);
                 var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
                 if (tex == null) continue;

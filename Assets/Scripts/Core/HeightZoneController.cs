@@ -22,6 +22,8 @@ namespace MukJump.Core
         [SerializeField, Range(0.4f, 1f)] float rainPlatformLifetimeMultiplier = 0.72f;
         [SerializeField, Range(0.35f, 1f)] float gorgeRockIntervalMultiplier = 0.62f;
 
+        const int DefaultBaseMapCount = 4;
+
         Zone currentZone;
         int currentBand = -1;
         FallingInkRockSpawner rockSpawner;
@@ -59,10 +61,20 @@ namespace MukJump.Core
         {
             currentBand = band;
             currentZone = (Zone)(band % 4);
-            ApplyMapStage(Mathf.Clamp(band, 0, 3));
+            if (backgroundView == null)
+                backgroundView = FindFirstObjectByType<MapBackgroundView>();
+            int baseMapCount = backgroundView != null
+                ? Mathf.Max(1, backgroundView.BaseStageCount)
+                : DefaultBaseMapCount;
+            int endlessMapCount = backgroundView != null
+                ? backgroundView.EndlessStageCount
+                : 0;
+            int mapStage = ResolveMapStage(band, baseMapCount, endlessMapCount);
+            bool mirrorMap = ResolveMapMirror(band, baseMapCount, endlessMapCount);
+            ApplyMapStage(mapStage, mirrorMap);
             if (currentZone == Zone.InkRain && weatherLines == null)
                 CreateWeatherLines();
-            if (CurrentMapStage >= 3 && gorgeLines == null)
+            if (currentZone == Zone.RockGorge && gorgeLines == null)
                 CreateGorgeLines();
             PlatformCollider.RuntimeLifetimeMultiplier =
                 currentZone == Zone.InkRain ? rainPlatformLifetimeMultiplier : 1f;
@@ -72,21 +84,51 @@ namespace MukJump.Core
                     currentZone == Zone.RockGorge ? gorgeRockIntervalMultiplier : 1f;
 
             if (band <= 0) return;
-            (string title, string subtitle) = currentZone switch
-            {
-                Zone.WindPass => ("바람 고개", "산등성이의 바람이 조금 거세집니다"),
-                Zone.InkRain => ("먹비 골짜기", "그린 발판이 더 빨리 마릅니다"),
-                Zone.RockGorge => ("낙묵 협곡", "낙묵석이 더 자주 떨어집니다"),
-                _ => ("고요한 산길", "잠시 숨을 고르세요"),
-            };
+            (string title, string subtitle) = mapStage >= baseMapCount
+                ? CosmicAnnouncement(mapStage - baseMapCount)
+                : currentZone switch
+                {
+                    Zone.WindPass => ("바람 고개", "산등성이의 바람이 조금 거세집니다"),
+                    Zone.InkRain => ("먹비 골짜기", "그린 발판이 더 빨리 마릅니다"),
+                    Zone.RockGorge => ("낙묵 협곡", "낙묵석이 더 자주 떨어집니다"),
+                    _ => ("고요한 산길", "잠시 숨을 고르세요"),
+                };
             GameFeedbackController.Instance?.ShowZone(title, subtitle);
         }
 
-        void ApplyMapStage(int stage)
+        public static int ResolveMapStage(int band, int baseMapCount, int endlessMapCount)
+        {
+            int safeBand = Mathf.Max(0, band);
+            int safeBaseCount = Mathf.Max(1, baseMapCount);
+            if (safeBand < safeBaseCount) return safeBand;
+            if (endlessMapCount <= 0) return safeBaseCount - 1;
+            return safeBaseCount +
+                   (safeBand - safeBaseCount) % endlessMapCount;
+        }
+
+        public static bool ResolveMapMirror(int band, int baseMapCount, int endlessMapCount)
+        {
+            int safeBaseCount = Mathf.Max(1, baseMapCount);
+            if (band < safeBaseCount || endlessMapCount <= 0) return false;
+            int cycle = (band - safeBaseCount) / endlessMapCount;
+            return cycle % 2 == 1;
+        }
+
+        static (string title, string subtitle) CosmicAnnouncement(int cosmicStage)
+        {
+            return (cosmicStage % 3) switch
+            {
+                0 => ("먹빛 성문", "산과 별이 한 획으로 이어집니다"),
+                1 => ("월련 성해", "달빛 연꽃 성운이 피어납니다"),
+                _ => ("천하수", "은하가 먹강처럼 흐릅니다"),
+            };
+        }
+
+        void ApplyMapStage(int stage, bool mirrorX = false)
         {
             CurrentMapStage = stage;
             if (backgroundView == null) backgroundView = FindFirstObjectByType<MapBackgroundView>();
-            backgroundView?.SetStage(stage);
+            backgroundView?.SetStage(stage, false, mirrorX);
             if (worldCamera != null)
             {
                 worldCamera.backgroundColor = stage switch
@@ -94,6 +136,9 @@ namespace MukJump.Core
                     1 => new Color(0.9f, 0.9f, 0.84f),
                     2 => new Color(0.87f, 0.87f, 0.81f),
                     3 => new Color(0.84f, 0.81f, 0.73f),
+                    4 => new Color(0.86f, 0.85f, 0.8f),
+                    5 => new Color(0.87f, 0.86f, 0.9f),
+                    6 => new Color(0.84f, 0.86f, 0.87f),
                     _ => InkPalette.Paper,
                 };
             }
@@ -165,7 +210,7 @@ namespace MukJump.Core
         void UpdateGorgeVisuals()
         {
             if (gorgeLines == null || worldCamera == null) return;
-            bool visible = CurrentMapStage >= 3;
+            bool visible = currentZone == Zone.RockGorge;
             float halfHeight = worldCamera.orthographicSize;
             float halfWidth = halfHeight * worldCamera.aspect;
             Vector3 center = worldCamera.transform.position;

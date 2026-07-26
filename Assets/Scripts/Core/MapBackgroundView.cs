@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MukJump.Core
@@ -10,14 +11,49 @@ namespace MukJump.Core
         [SerializeField] SpriteRenderer currentRenderer;
         [SerializeField] SpriteRenderer nextRenderer;
         [SerializeField] Sprite[] stageSprites;
+        [SerializeField] Sprite[] endlessStageSprites;
         [SerializeField, Min(0.2f)] float transitionDuration = 1f;
 
+        const string EndlessResourcePath = "MukJump/Background/Endless";
+
+        Sprite[] resolvedStageSprites;
+        int resolvedBaseStageCount;
+        int resolvedEndlessStageCount;
         int currentStage = -1;
+        bool currentMirrored;
         Coroutine transitionRoutine;
+
+        public int BaseStageCount
+        {
+            get
+            {
+                ResolveStageSprites();
+                return resolvedBaseStageCount;
+            }
+        }
+
+        public int EndlessStageCount
+        {
+            get
+            {
+                ResolveStageSprites();
+                return resolvedEndlessStageCount;
+            }
+        }
+
+        public int StageCount
+        {
+            get
+            {
+                ResolveStageSprites();
+                return resolvedStageSprites.Length;
+            }
+        }
 
         void Awake()
         {
             if (worldCamera == null) worldCamera = Camera.main;
+            ResolveStageSprites();
             SetStage(0, true);
         }
 
@@ -26,14 +62,20 @@ namespace MukJump.Core
             if (currentStage < 0) SetStage(0, true);
         }
 
-        public void SetStage(int stage, bool immediate = false)
+        public void SetStage(int stage, bool immediate = false, bool mirrorX = false)
         {
-            if (stageSprites == null || stageSprites.Length == 0 ||
+            ResolveStageSprites();
+            if (resolvedStageSprites.Length == 0 ||
                 currentRenderer == null || nextRenderer == null)
                 return;
 
-            int clamped = Mathf.Clamp(stage, 0, stageSprites.Length - 1);
-            if (clamped == currentStage && !immediate) return;
+            int clamped = Mathf.Clamp(stage, 0, resolvedStageSprites.Length - 1);
+            bool resolvedMirror = clamped >= resolvedBaseStageCount && mirrorX;
+            if (transitionRoutine == null &&
+                clamped == currentStage &&
+                resolvedMirror == currentMirrored &&
+                !immediate)
+                return;
             if (transitionRoutine != null)
             {
                 StopCoroutine(transitionRoutine);
@@ -43,21 +85,26 @@ namespace MukJump.Core
             if (immediate || currentStage < 0)
             {
                 currentStage = clamped;
-                currentRenderer.sprite = stageSprites[clamped];
+                currentMirrored = resolvedMirror;
+                currentRenderer.sprite = resolvedStageSprites[clamped];
+                currentRenderer.flipX = resolvedMirror;
                 currentRenderer.color = Color.white;
                 nextRenderer.color = Color.clear;
+                nextRenderer.flipX = false;
                 FitToCamera(currentRenderer);
                 return;
             }
 
-            transitionRoutine = StartCoroutine(TransitionTo(clamped));
+            transitionRoutine = StartCoroutine(TransitionTo(clamped, resolvedMirror));
         }
 
-        IEnumerator TransitionTo(int stage)
+        IEnumerator TransitionTo(int stage, bool mirrorX)
         {
-            nextRenderer.sprite = stageSprites[stage];
+            nextRenderer.sprite = resolvedStageSprites[stage];
+            nextRenderer.flipX = mirrorX;
             nextRenderer.sortingOrder = -9;
             currentRenderer.sortingOrder = -10;
+            currentRenderer.color = Color.white;
             nextRenderer.color = new Color(1f, 1f, 1f, 0f);
             FitToCamera(currentRenderer);
             FitToCamera(nextRenderer);
@@ -79,7 +126,46 @@ namespace MukJump.Core
             currentRenderer.sortingOrder = -10;
             nextRenderer.sortingOrder = -9;
             currentStage = stage;
+            currentMirrored = mirrorX;
             transitionRoutine = null;
+        }
+
+        void ResolveStageSprites()
+        {
+            if (resolvedStageSprites != null) return;
+
+            var baseSprites = new List<Sprite>();
+            AddValidSprites(baseSprites, stageSprites);
+
+            var endlessSprites = new List<Sprite>();
+            AddValidSprites(endlessSprites, endlessStageSprites);
+            var loaded = Resources.LoadAll<Sprite>(EndlessResourcePath);
+            for (int i = 0; i < loaded.Length; i++)
+            {
+                Sprite sprite = loaded[i];
+                if (sprite != null && !endlessSprites.Contains(sprite))
+                    endlessSprites.Add(sprite);
+            }
+            endlessSprites.Sort((left, right) =>
+                string.CompareOrdinal(left.name, right.name));
+
+            resolvedBaseStageCount = baseSprites.Count;
+            resolvedEndlessStageCount = endlessSprites.Count;
+            baseSprites.AddRange(endlessSprites);
+            resolvedStageSprites = baseSprites.ToArray();
+        }
+
+        static void AddValidSprites(List<Sprite> target, Sprite[] source)
+        {
+            if (source == null) return;
+            for (int i = 0; i < source.Length; i++)
+                if (source[i] != null)
+                    target.Add(source[i]);
+        }
+
+        void OnValidate()
+        {
+            resolvedStageSprites = null;
         }
 
         void FitToCamera(SpriteRenderer renderer)
