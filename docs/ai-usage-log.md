@@ -26,11 +26,11 @@
 |---|---|---|
 | 캐릭터/배경 아트 | 팀 자체 제작 (AI 보조 드로잉 후 수작업 검수) | 자체 저작물 |
 | Unity 패키지 | Unity Technologies (URP, Input System 등 공식 패키지) | Unity Companion License |
-| `Inkdrop Ascent.mp3` | 팀 Suno Pro 계정에서 직접 생성 | 생성 당시 유료 구독 상업 이용 권한 |
-| `SFX_Brush_Community.mp3` | Pixabay `brush` · Reitanna (Freesound), ID 83215 | Pixabay Content License |
-| `SFX_Character_Death_Slime.mp3` | Pixabay `Slime Squish 5` · floraphonic, ID 218569 | Pixabay Content License |
-| `SFX_Game_Over_Ink_Spill.mp3` | Pixabay 다운로드 `freesound_community-2`, ID 108080 | Pixabay Content License |
-| `HealthsetJoritdaeStd.otf` | 제주조릿대 RIS사업단·한그리아 제작, 사용자 제공 OTF | 회사·개인 용도 제한 없이 상업적 이용 가능, 유료 재판매 금지. 원본 재배포 조건은 최종 제출 전 원 배포처 재확인 |
+| `Inkdrop Ascent.mp3` | 팀 Suno Pro 계정에서 직접 생성 · https://suno.com/s/QSWGYbCTx9j2gTGd | 생성 당시 유료 구독 상업 이용 권한. 구독·생성 시점 증빙 보관 |
+| `SFX_Brush_Community.mp3` | Freesound `brush.wav` · Reitanna, sound 332666 (Pixabay 경유) | Creative Commons 0. 원본: https://freesound.org/people/Reitanna/sounds/332666/ |
+| `SFX_Character_Death_Slime.mp3` | Pixabay `Slime Squish 5` · floraphonic, ID 218569 | Pixabay Content License. Public 소스의 raw 원본 재배포 허용 범위는 제출 전 재확인 |
+| `SFX_Game_Over_Ink_Spill.mp3` | Pixabay 다운로드 `freesound_community-2`, ID 108080 | Pixabay Content License. Public 소스의 raw 원본 재배포 허용 범위는 제출 전 재확인 |
+| `HealthsetJoritdaeStd.otf` | 제주조릿대 RIS사업단·한그리아 제작, 사용자 제공 OTF | 프로그램 임베딩 가능. 무단전제·배포 및 폰트 파일 복제·배포 금지이므로 Public GitHub 원본 탑재 불가. https://noonnu.cc/font_page/124 |
 
 ---
 
@@ -144,7 +144,7 @@
 
 - 사용 도구: OpenAI Codex CLI
 - 목적: 절차적 전환 획을 제공된 8장 PNG로 교체하고 위에서 아래로 칠하는 동작 구현
-- 주요 프롬프트/지시: `/Users/seungyeoning/Downloads/brush_strokes_png` 사용, 상단부터 내려오는 느낌 강화
+- 주요 프롬프트/지시: 사용자 제공 `brush_strokes_png` 폴더 사용, 상단부터 내려오는 느낌 강화
 - 결과물: `Assets/Resources/MukJump/BrushTransitions`, `Assets/Scripts/Core/BrushTransitionView.cs`
 - 사람의 수정/검토 내용: 각 PNG 원본 비율을 유지하고 `RectMask2D`로 세로 노출
 
@@ -213,7 +213,9 @@
 - 결과물: `Assets/Art/Background/background_ink_landscape.png`,
   `Assets/Art/Character/character_muk_bangul_v3.png`, `muk_jump_hackathon_final.pptx`
 - 사람의 수정/검토 내용: v1(구름형) → v2(능선+붓나무) → v3(소나무형) 시안 비교 후 최종본 선정,
-  팔레트(INK/PAPER/RED 낙관) 직접 확정
+  팔레트(INK/PAPER/RED 낙관) 직접 확정. 초기 프롬프트의 제3자 캐릭터 참조가 최종
+  결과물에 남았는지는 제출 전 독자 디자인성 검토를 거치고, 필요하면 실루엣·눈·다리
+  비율을 리디자인한다.
 
 ### 2026-07-20 — 코어 루프 스크립트 초기 구현
 
@@ -673,8 +675,8 @@
 - 결과물: `Assets/Resources/MukJump/Audio/SFX/SFX_Brush_Community.mp3`
 - 구현 메모: 드로잉 중에는 터치 시작부터 종료까지 반복하고 화면 전환에서는 한 번 재생한다.
   외부 파일 로드 실패 시 자체 제작 붓 WAV와 런타임 합성 순서로 폴백한다.
-- 출처·라이선스: Pixabay `brush`(ID 83215), Reitanna (Freesound),
-  Pixabay Content License
+- 출처·라이선스: Freesound `brush.wav`, Reitanna, sound 332666,
+  Creative Commons 0 (Pixabay ID 83215 경유)
 
 ### 2026-07-24 — 캐릭터 사망음 `찍` 톤 재조정
 
@@ -981,3 +983,53 @@
   물리 픽셀 크기를 계산했고 런타임·에디터 어셈블리 독립 컴파일과 문자열 압축 회귀
   테스트 코드를 확인했다. Unity Play Mode에서는 `고도 4m`·`최고 494m`·`산들`의
   실제 렌더링과 일시정지 버튼 간격을 최종 확인한다.
+
+### 2026-07-26 — 게임플레이 결정론 난수 분리·일시정지 상태 회귀 검증
+
+- 사용 도구: OpenAI Codex
+- 목적: 아이템·장애물·날씨·발판·자동 점프의 규칙 난수가 사운드와 VFX의 연출 난수
+  호출 횟수에 따라 바뀌는 결합을 제거하고, 같은 seed로 문제 상황을 재현 가능하게 만들기
+- 주요 프롬프트/지시: 게임 전체 코드를 제출 품질로 검수하고 아키텍처 경계를 보강하며,
+  일시정지 중에는 플레이 상태와 자동 점프 충전 상태를 잃지 않도록 회귀 검증
+- 결과물: `GameplayRandom.cs`, `GameManager.cs`, `ItemSpawner.cs`,
+  `ObstacleSpawner.cs`, `FallingInkRockSpawner.cs`, `WindWeatherController.cs`,
+  `RestPlatformSpawner.cs`, `AutoJump.cs`, `GameplayRandomTests.cs`,
+  `PauseMenuViewTests.cs`
+- 구현 메모: 판 시작 seed에서 아이템·장애물·낙묵석·날씨·발판·플레이어용 독립
+  xorshift32 스트림을 파생했다. 연출은 기존 `UnityEngine.Random`을 유지해 연출
+  추가가 난이도와 스폰 순서를 바꾸지 않는다. 같은 seed 재설정도 새 세션으로 식별하는
+  세대 번호를 두고, 발판 예약과 자동 점프 배회 방향은 판 시작 뒤 초기화한다.
+- 사람의 수정/검토 내용: Unity EditMode에서 같은 seed 재현성·스트림 독립성·연출 난수
+  비간섭·범위 경계·세션 세대 테스트 5개와 일시정지 메뉴·게임 틱·자동 점프 충전 보존
+  테스트 3개를 모두 통과했다. 전체 대상 파일의 `git diff --check`와 Unity 컴파일
+  로그에서 C# 오류 및 예외가 없음을 확인했다.
+
+### 2026-07-26 — 제출 전 전체 코드·보안·아키텍처 감사
+
+- 사용 도구: OpenAI Codex 멀티 에이전트, Unity Test Framework, ripgrep, jscpd
+- 목적: 해커톤 공개 제출 전에 모든 런타임 코드와 씬 빌더를 검수하고, 릴리스 치트 노출,
+  물리·일시정지·풀·예외·native 자원 누수·비정상 입력·결정론·불필요 코드와 패키지를
+  제출 품질로 보강
+- 주요 프롬프트/지시: 게임의 취약점과 의미 없는 코드를 전수 검증하고, 유사 공개 게임과
+  Unity 공식 아키텍처 사례를 비교하며 시간이 걸려도 전체 작업과 검증을 완료
+- 결과물: 게임 상태·점수·입력·물리·풀·피드백·스포너·로컬 수묵 스타일 코드,
+  `GameplayRandom.cs`, `MukJumpSceneBuilder.cs`, Editor 회귀 테스트 10종,
+  `docs/architecture.md`, `docs/code-audit-2026-07-26.md`, README·프로젝트 브리핑
+- 구현 메모: Editor/Development Build에서만 DEBUG 도구를 허용하고 치트 사용 기록은
+  최고 기록에서 제외했다. 분신 자기 충돌을 레이어로 차단하고 움직이는 화면 벽을
+  kinematic body로 전환했다. 획의 먹 소모·NaN·정점 폭주를 방어하고 안전 구간 계산의
+  장면 검색·O(n²) 비용을 제거했다. 기능별 규칙 난수를 독립 스트림으로 분리하고, 풀
+  예외·hot reload와 붓 전환 예외 경로를 복구 가능하게 했다. 런타임 생성 AudioClip·
+  Sprite·Texture·Material을 명시적으로 해제하고 사용하지 않는 원격 API scaffold,
+  필드, 분기와 직접 패키지 10개를 제거했다. 아이템 적용 성공 계약, 풍맥 간격·자동
+  점프·사망 FPS의 비정상 값 방어와 스폰 따라잡기 상한을 추가했으며, 씬 빌더 테스트는
+  preview scene에 격리했다.
+- 사람의 수정/검토 내용: Unity 6000.3.10f1에서 실제 Play 상태 Physics2D 통합 1건을
+  포함한 전체 105/105 통과, 컴파일 오류·경고
+  0, 관련 `git diff --check` 통과, 비밀 키·런타임 네트워크·구형 Input API 발견 0,
+  동일 조건(`min-lines=5`, `min-tokens=50`) jscpd 중복도 1.14%를 확인했다. 외부
+  구현은 Unity 공식 Game Programming Patterns,
+  Open Project 1, `ObjectPool<T>`와 공개 MIT Doodle Jump 샘플을 비교 기준으로만
+  검토했다. 폰트 원본 재배포·게임 임베딩, Pixabay raw MP3 재배포, Android 서명
+  실기기 테스트와 필수 PDF/영상은 코드로 확정할 수 없어 제출 전 수동 차단 항목으로
+  남겼다.

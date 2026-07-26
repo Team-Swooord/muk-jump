@@ -6,8 +6,8 @@ NHN NAN 2026 · Game × AI Hackathon 제출작 — Team-Swooord
 
 동양화(수묵화) 감성의 드로잉 클라이밍 게임입니다. 캐릭터 **먹방울이**는 일정 주기마다
 스스로 점프하고, 플레이어는 화면에 손가락으로 선을 그어 발판을 만들어 점프의
-방향과 높이를 유도합니다. 플레이어가 대충 그린 스케치는 AI가 수묵화 붓질 질감의
-발판으로 완성해, 화면 전체가 하나의 산수화가 됩니다.
+방향과 높이를 유도합니다. AI로 탐색·제작한 수묵 아트 방향을 런타임의 로컬 갈필
+스타일러가 즉시 적용해, 네트워크 없이도 화면 전체가 하나의 산수화처럼 유지됩니다.
 
 ## 게임 방법
 
@@ -32,7 +32,7 @@ NHN NAN 2026 · Game × AI Hackathon 제출작 — Team-Swooord
 ### APK (제출 빌드)
 
 Android 기기에서 APK 설치 후 바로 실행. 별도 계정·유료 라이선스 불필요.
-AI 수묵 변환은 네트워크·API 키가 없어도 내장 먹 텍스처 폴백으로 동일하게 동작합니다.
+발판의 수묵 변환은 로컬 절차적 스타일러만 사용하므로 네트워크·API 키가 필요 없습니다.
 
 ### 에디터에서 실행 (소스 빌드)
 
@@ -63,10 +63,11 @@ Assets/
     Drawing/          StrokeCapture, BezierSmoother, PlatformCollider
     Items/            아이템 스폰·획득·효과와 기능 전용 풀
     Obstacles/        이동 장애물·낙묵석과 기능 전용 풀
-    AI/               SketchToInkService(수묵 변환), 폴백 잉크 스타일
+    AI/               SketchToInkService(로컬 수묵 스타일), FallbackInkStyle
   Scenes/Main.unity   메인 씬
 docs/ai-usage-log.md  AI 활용 내역 (제출물 4번 원본 자료)
 docs/architecture.md  기능 경계·풀링·발판 충돌 정책
+docs/code-audit-2026-07-26.md 제출 전 코드·보안·라이선스 감사 결과
 docs/project-brief.md 프로젝트 기획과 현재 구현 상태를 정리한 전달용 브리핑
 ```
 
@@ -92,7 +93,9 @@ docs/project-brief.md 프로젝트 기획과 현재 구현 상태를 정리한 �
 ## 에셋 · 라이선스
 
 - 캐릭터·배경 아트: 팀 자체 제작 (AI 보조, 상세 내역은 `docs/ai-usage-log.md`)
-- 게임 VFX·SFX: OpenAI Codex로 제작한 절차적 연출과 프로젝트 내 PCM WAV 자체 제작 음원
+- 게임 VFX·SFX: 자체 제작 음원과 출처를 기록한 Pixabay 음원 혼용
 - 배경음악 `Inkdrop Ascent`: 팀이 Suno Pro 구독 중 직접 생성한 AI 음원
-- UI 폰트 `헬스셋 조릿대`: 제주조릿대 RIS사업단·한그리아 제작 무료 배포 서체
-- 외부 유료 에셋 없음
+- UI 폰트 `헬스셋 조릿대`: 게임 임베딩은 허용되지만 폰트 파일 복제·배포는 금지되어
+  현재 Public GitHub의 OTF를 제출 전에 OFL 대체 서체로 교체하거나 저장소에서 제거해야 함
+- 전체 외부 에셋 출처·확인 상태: `docs/ai-usage-log.md`
+- 제출 전 기술·라이선스 잔여 항목: `docs/code-audit-2026-07-26.md`
