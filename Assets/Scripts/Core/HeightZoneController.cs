@@ -1,13 +1,12 @@
-using System.Collections.Generic;
 using UnityEngine;
-using MukJump.Player;
 using MukJump.Drawing;
 using MukJump.Obstacles;
 using MukJump.AI;
 
 namespace MukJump.Core
 {
-    /// 고도에 따라 바람·먹비·낙묵석 협곡 규칙을 순환시켜 한 판 안에 변화를 만든다.
+    /// 고도에 따라 맵·먹비·낙묵석 협곡 규칙을 순환시켜 한 판 안에 변화를 만든다.
+    /// 전 맵 공통 바람과 상승기류는 WindWeatherController가 독립적으로 관리한다.
     /// 점수는 기존처럼 최고 고도만 사용하며 구간 자체는 추가 점수를 주지 않는다.
     public class HeightZoneController : MonoBehaviour
     {
@@ -20,7 +19,6 @@ namespace MukJump.Core
         }
 
         [SerializeField, Min(20f)] float zoneHeight = 250f;
-        [SerializeField] float windAcceleration = 1.8f;
         [SerializeField, Range(0.4f, 1f)] float rainPlatformLifetimeMultiplier = 0.72f;
         [SerializeField, Range(0.35f, 1f)] float gorgeRockIntervalMultiplier = 0.62f;
 
@@ -31,7 +29,6 @@ namespace MukJump.Core
         MapBackgroundView backgroundView;
         LineRenderer[] weatherLines;
         LineRenderer[] gorgeLines;
-        readonly List<PlayerController> livingPlayers = new();
 
         public Zone CurrentZone => currentZone;
         public int CurrentMapStage { get; private set; }
@@ -54,8 +51,6 @@ namespace MukJump.Core
             int band = Mathf.Max(0, Mathf.FloorToInt(height / zoneHeight));
             if (band != currentBand) ApplyZone(band);
 
-            if (currentZone == Zone.WindPass)
-                ApplyWind();
             UpdateWeatherVisuals();
             UpdateGorgeVisuals();
         }
@@ -65,8 +60,7 @@ namespace MukJump.Core
             currentBand = band;
             currentZone = (Zone)(band % 4);
             ApplyMapStage(Mathf.Clamp(band, 0, 3));
-            if ((currentZone == Zone.WindPass || currentZone == Zone.InkRain) &&
-                weatherLines == null)
+            if (currentZone == Zone.InkRain && weatherLines == null)
                 CreateWeatherLines();
             if (CurrentMapStage >= 3 && gorgeLines == null)
                 CreateGorgeLines();
@@ -80,7 +74,7 @@ namespace MukJump.Core
             if (band <= 0) return;
             (string title, string subtitle) = currentZone switch
             {
-                Zone.WindPass => ("바람 고개", "옆바람이 먹방울을 밀어냅니다"),
+                Zone.WindPass => ("바람 고개", "산등성이의 바람이 조금 거세집니다"),
                 Zone.InkRain => ("먹비 골짜기", "그린 발판이 더 빨리 마릅니다"),
                 Zone.RockGorge => ("낙묵 협곡", "낙묵석이 더 자주 떨어집니다"),
                 _ => ("고요한 산길", "잠시 숨을 고르세요"),
@@ -102,22 +96,6 @@ namespace MukJump.Core
                     3 => new Color(0.84f, 0.81f, 0.73f),
                     _ => InkPalette.Paper,
                 };
-            }
-        }
-
-        void ApplyWind()
-        {
-            var manager = GameManager.Instance;
-            if (manager == null) return;
-            manager.GetLivingPlayersNonAlloc(livingPlayers);
-            float direction = Mathf.Sin(Time.time * 0.42f) >= 0f ? 1f : -1f;
-            float pulse = 0.55f + 0.45f * Mathf.Abs(Mathf.Sin(Time.time * 0.85f));
-            for (int i = 0; i < livingPlayers.Count; i++)
-            {
-                var body = livingPlayers[i].GetComponent<Rigidbody2D>();
-                if (body != null && body.bodyType == RigidbodyType2D.Dynamic)
-                    body.AddForce(Vector2.right * (direction * windAcceleration * pulse),
-                        ForceMode2D.Force);
             }
         }
 
@@ -160,7 +138,6 @@ namespace MukJump.Core
         void UpdateWeatherVisuals()
         {
             if (weatherLines == null || worldCamera == null) return;
-            bool wind = currentZone == Zone.WindPass;
             bool rain = currentZone == Zone.InkRain;
             float halfHeight = worldCamera.orthographicSize;
             float halfWidth = halfHeight * worldCamera.aspect;
@@ -169,31 +146,19 @@ namespace MukJump.Core
             for (int i = 0; i < weatherLines.Length; i++)
             {
                 var line = weatherLines[i];
-                line.enabled = wind || rain;
+                line.enabled = rain;
                 if (!line.enabled) continue;
 
-                float phase = Mathf.Repeat(Time.time * (wind ? 1.7f : 3.1f) +
-                                           i * 0.173f, 1f);
+                float phase = Mathf.Repeat(Time.time * 3.1f + i * 0.173f, 1f);
                 float x = center.x - halfWidth + Mathf.Repeat(i * 1.71f, halfWidth * 2f);
                 float y = center.y - halfHeight + phase * halfHeight * 2f;
                 Color color = InkPalette.Ink;
-                color.a = wind ? 0.12f : 0.18f;
+                color.a = 0.18f;
                 line.startColor = line.endColor = color;
 
-                if (wind)
-                {
-                    float direction = Mathf.Sin(Time.time * 0.42f) >= 0f ? 1f : -1f;
-                    float length = 0.6f + i % 4 * 0.22f;
-                    line.SetPosition(0, new Vector3(x - direction * length * 0.5f, y, 0f));
-                    line.SetPosition(1, new Vector3(x + direction * length * 0.5f,
-                        y + Mathf.Sin(i * 1.4f) * 0.08f, 0f));
-                }
-                else
-                {
-                    float length = 0.8f + i % 4 * 0.2f;
-                    line.SetPosition(0, new Vector3(x + 0.18f, y + length, 0f));
-                    line.SetPosition(1, new Vector3(x - 0.18f, y, 0f));
-                }
+                float length = 0.8f + i % 4 * 0.2f;
+                line.SetPosition(0, new Vector3(x + 0.18f, y + length, 0f));
+                line.SetPosition(1, new Vector3(x - 0.18f, y, 0f));
             }
         }
 

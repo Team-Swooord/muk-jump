@@ -177,7 +177,6 @@ namespace MukJump.Player
         {
             if (IsDead) return;
             if (IsInkDropBoosted) return;
-            if (IsGrounded && CurrentPlatform != null && CurrentPlatform.IsRestPlatform) return;
             if (Time.time < damageInvulnerableUntil) return;
             GameFeedbackController.Instance?.PlayHitStop();
             if (GameManager.Instance != null && GameManager.Instance.DebugInvincible)
@@ -314,10 +313,9 @@ namespace MukJump.Player
                 var contact = collision.GetContact(i);
                 if (platform != null)
                 {
-                    // 자동 생성 특수 발판은 아래에서 통과한다. Effector 경계에서 발생할 수
-                    // 있는 아래·옆면 접촉도 착지나 휴식/풍맥 효과로 처리하지 않는다.
-                    if ((platform.IsRestPlatform || platform.IsWindCurrentPlatform) &&
-                        contact.normal.y < groundNormalMinY)
+                    // 풍맥 발판은 아래에서 통과한다. Effector 경계에서 발생할 수 있는
+                    // 아래·옆면 접촉도 착지나 풍맥 효과로 처리하지 않는다.
+                    if (platform.IsWindCurrentPlatform && contact.normal.y < groundNormalMinY)
                         continue;
                     // 먹물방울 상승 중에는 방금 떨어져 나온 대각선 발판이 같은 물리
                     // 스텝에서 다시 캐릭터를 붙잡아 점프 속도를 덮지 못하게 한다.
@@ -381,8 +379,7 @@ namespace MukJump.Player
                 return;
             }
 
-            bool isSpecialPlatform = platform != null &&
-                (platform.IsRestPlatform || platform.IsWindCurrentPlatform);
+            bool isSpecialPlatform = platform != null && platform.IsWindCurrentPlatform;
             bool landed = hasTopContact || (platform != null && !isSpecialPlatform);
             if (landed)
                 GameFeedbackController.Instance?.PlayLanding(transform.position,

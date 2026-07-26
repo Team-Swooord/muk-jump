@@ -21,21 +21,10 @@ public sealed class SpecialPlatformTests
     }
 
     [Test]
-    public void RestPlatformIsOneWayAndUsesSafePlatformColor()
-    {
-        var platform = Track(PlatformCollider.SpawnRestPlatform(CreatePoints()));
-
-        Assert.IsTrue(platform.IsRestPlatform);
-        Assert.IsFalse(platform.IsWindCurrentPlatform);
-        AssertOneWayTintablePlatform(platform, InkPalette.SafePlatform);
-    }
-
-    [Test]
     public void WindPlatformIsOneWayAndUsesWindPlatformColor()
     {
         var platform = Track(PlatformCollider.SpawnWindCurrentPlatform(CreatePoints()));
 
-        Assert.IsFalse(platform.IsRestPlatform);
         Assert.IsTrue(platform.IsWindCurrentPlatform);
         AssertOneWayTintablePlatform(platform, InkPalette.WindPlatform);
     }
@@ -45,7 +34,6 @@ public sealed class SpecialPlatformTests
     {
         var platform = Track(PlatformCollider.Spawn(CreatePoints()));
 
-        Assert.IsFalse(platform.IsRestPlatform);
         Assert.IsFalse(platform.IsWindCurrentPlatform);
         Assert.IsNull(platform.GetComponent<PlatformEffector2D>(),
             "일반 드로잉 발판에는 단방향 Effector를 적용하면 안 됩니다.");
@@ -94,7 +82,7 @@ public sealed class SpecialPlatformTests
         Assert.AreSame(FallbackInkStyle.SharedTintableBrushMaterial, line.sharedMaterial,
             "특수 발판 안쪽 선은 효과색을 보존하는 전용 붓 재질을 사용해야 합니다.");
         Assert.AreNotSame(FallbackInkStyle.SharedInkMaterial, line.sharedMaterial,
-            "검정 먹선 재질을 사용하면 안전·풍맥 효과색이 검게 곱해집니다.");
+            "검정 먹선 재질을 사용하면 풍맥 효과색이 검게 곱해집니다.");
 
         expectedColor.a = 0.96f;
         AssertColor(expectedColor, line.startColor);

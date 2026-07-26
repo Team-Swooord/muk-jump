@@ -83,6 +83,10 @@ namespace MukJump.Core
                 gameObject.AddComponent<GameFeedbackController>();
             if (GetComponent<HeightZoneController>() == null)
                 gameObject.AddComponent<HeightZoneController>();
+            if (GetComponent<WindWeatherController>() == null)
+                gameObject.AddComponent<WindWeatherController>();
+            if (GetComponent<WindWeatherView>() == null)
+                gameObject.AddComponent<WindWeatherView>();
             if (GetComponent<RestPlatformSpawner>() == null)
                 gameObject.AddComponent<RestPlatformSpawner>();
             if (BackgroundMusicController.Instance == null &&

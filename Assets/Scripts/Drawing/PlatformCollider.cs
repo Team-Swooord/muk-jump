@@ -17,12 +17,10 @@ namespace MukJump.Drawing
         [Tooltip("생성 후 유지 시간(초). 0 이하면 영구 발판")]
         [SerializeField] float lifetime = 6.5f;
         [SerializeField] float fadeDuration = 1.2f;
-        [SerializeField] bool restPlatform;
         [SerializeField] bool windCurrentPlatform;
 
         public float Length { get; private set; }
         public LineRenderer Line { get; private set; }
-        public bool IsRestPlatform => restPlatform;
         public bool IsWindCurrentPlatform => windCurrentPlatform;
         EdgeCollider2D edge;
         readonly HashSet<int> windUsers = new();
@@ -49,23 +47,6 @@ namespace MukJump.Drawing
                 active[0].BeginFade(); // 가장 오래된 발판부터 먹이 마른다
 
             SketchToInkService.Instance?.Stylize(platform);
-            return platform;
-        }
-
-        /// 일정 고도마다 등장하는 영구 안전 발판. 아래에서는 통과하는 단방향 발판이다.
-        public static PlatformCollider SpawnRestPlatform(List<Vector2> worldPoints)
-        {
-            var go = new GameObject("RestInkPlatform")
-            {
-                layer = LayerMask.NameToLayer("Platform"),
-            };
-            var platform = go.AddComponent<PlatformCollider>();
-            platform.lifetime = 0f;
-            platform.restPlatform = true;
-            platform.Build(worldPoints);
-            platform.ConfigureOneWay();
-            SketchToInkService.Instance?.Stylize(platform);
-            platform.ApplySpecialVisual(InkPalette.SafePlatform, 0.82f, 1.08f);
             return platform;
         }
 
@@ -128,7 +109,7 @@ namespace MukJump.Drawing
             ApplyVisual(local);
         }
 
-        /// 안전·풍맥 발판만 아래에서 통과하도록 단방향 Effector를 설정한다.
+        /// 풍맥 발판만 아래에서 통과하도록 단방향 Effector를 설정한다.
         /// 풀에서 다시 활성화해도 Effector가 중복 추가되지 않도록 기존 컴포넌트를 재사용한다.
         void ConfigureOneWay()
         {
@@ -217,10 +198,10 @@ namespace MukJump.Drawing
                 Destroy(gameObject);
         }
 
-        /// 낙하 위험물에 맞은 발판을 자연 소멸과 같은 등록 해제 규칙으로 안전하게 제거한다.
+        /// 풍맥 발판은 유지하고, 낙하 위험물에 맞은 일반 먹 발판만 등록 해제 후 제거한다.
         public bool BreakFromHazard()
         {
-            if (restPlatform || windCurrentPlatform) return false;
+            if (windCurrentPlatform) return false;
             if (!TryBeginHazardRemoval()) return false;
             Destroy(gameObject);
             return true;
