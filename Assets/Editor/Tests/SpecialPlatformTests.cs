@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using MukJump.AI;
@@ -42,6 +43,62 @@ public sealed class SpecialPlatformTests
         Assert.IsNotNull(edge);
         Assert.IsFalse(edge.usedByEffector,
             "일반 드로잉 발판은 양방향 충돌과 대각선 매달리기를 유지해야 합니다.");
+    }
+
+    [Test]
+    public void DrawnPlatformCollisionBudgetNeverExceedsFour()
+    {
+        var platforms = new List<PlatformCollider>();
+        for (int i = 0; i < 8; i++)
+            platforms.Add(Track(PlatformCollider.Spawn(CreatePoints())));
+
+        int enabledColliderCount = 0;
+        for (int i = 0; i < platforms.Count; i++)
+        {
+            var edge = platforms[i].GetComponent<EdgeCollider2D>();
+            Assert.IsNotNull(edge);
+            if (edge.enabled) enabledColliderCount++;
+
+            Assert.That(edge.enabled, Is.EqualTo(i >= 4),
+                $"최근 네 발판만 충돌 가능해야 합니다. index={i}");
+        }
+
+        Assert.That(enabledColliderCount, Is.EqualTo(4));
+        Assert.IsTrue(platforms[0].Line.enabled,
+            "예산에서 밀린 발판은 먹이 마르는 비주얼을 위해 즉시 삭제하지 않습니다.");
+    }
+
+    [TestCase(0f, 0f)]
+    [TestCase(-20f, -3f)]
+    [TestCase(128f, 82f)]
+    public void WindScheduleAlwaysAdvancesWithInvalidOrReversedRange(float min, float max)
+    {
+        var root = new GameObject("RestPlatformSpawnerTests");
+        cleanup.Add(root);
+        var spawner = root.AddComponent<RestPlatformSpawner>();
+        SetField(spawner, "windHeightIntervalRange", new Vector2(min, max));
+
+        spawner.DebugResetSchedule(40);
+
+        float next = (float)GetField(spawner, "nextWindHeight");
+        Assert.That(next, Is.GreaterThan(40f),
+            "풍맥 간격이 0 이하이면 Update의 while이 끝나지 않을 수 있습니다.");
+    }
+
+    [Test]
+    public void WindScheduleRepairsNonFiniteRange()
+    {
+        var root = new GameObject("RestPlatformSpawnerFiniteTests");
+        cleanup.Add(root);
+        var spawner = root.AddComponent<RestPlatformSpawner>();
+        SetField(spawner, "windHeightIntervalRange",
+            new Vector2(float.NaN, float.PositiveInfinity));
+
+        spawner.DebugResetSchedule(75);
+
+        float next = (float)GetField(spawner, "nextWindHeight");
+        Assert.That(float.IsNaN(next) || float.IsInfinity(next), Is.False);
+        Assert.That(next, Is.GreaterThan(75f));
     }
 
     PlatformCollider Track(PlatformCollider platform)
@@ -96,5 +153,19 @@ public sealed class SpecialPlatformTests
         Assert.That(actual.g, Is.EqualTo(expected.g).Within(tolerance));
         Assert.That(actual.b, Is.EqualTo(expected.b).Within(tolerance));
         Assert.That(actual.a, Is.EqualTo(expected.a).Within(tolerance));
+    }
+
+    static void SetField(object target, string fieldName, object value)
+    {
+        target.GetType().GetField(
+            fieldName, BindingFlags.Instance | BindingFlags.NonPublic)
+            ?.SetValue(target, value);
+    }
+
+    static object GetField(object target, string fieldName)
+    {
+        return target.GetType().GetField(
+            fieldName, BindingFlags.Instance | BindingFlags.NonPublic)
+            ?.GetValue(target);
     }
 }

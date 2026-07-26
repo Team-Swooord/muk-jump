@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using UnityEngine;
 using MukJump.Core.Pooling;
@@ -20,7 +21,7 @@ namespace MukJump.EditorTests
         public void TearDown()
         {
             if (root != null)
-                Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(root);
         }
 
         [Test]
@@ -71,7 +72,7 @@ namespace MukJump.EditorTests
             var pool = CreatePool();
             var probe = pool.Acquire();
 
-            Object.DestroyImmediate(probe.gameObject);
+            UnityEngine.Object.DestroyImmediate(probe.gameObject);
 
             Assert.That(pool.Release(probe), Is.True);
             Assert.That(pool.LeasedCount, Is.Zero);
@@ -92,6 +93,31 @@ namespace MukJump.EditorTests
 
             Assert.That(acquired, Is.SameAs(orphan));
             Assert.That(acquired.IsAcquired, Is.True);
+        }
+
+        [Test]
+        public void Acquire_초기화_예외가_대여_목록을_오염시키지_않는다()
+        {
+            var pool = CreatePool();
+            var probe = CreateProbe();
+            probe.ThrowOnAcquire = true;
+            var failingPool = new ComponentPool<ComponentPoolProbe>(() => probe, 1);
+
+            Assert.Throws<InvalidOperationException>(() => failingPool.Acquire());
+            Assert.That(failingPool.LeasedCount, Is.Zero);
+            Assert.That(probe == null || !probe.gameObject.activeSelf, Is.True);
+        }
+
+        [Test]
+        public void Release_정리_예외가_활성_고아를_남기지_않는다()
+        {
+            var pool = CreatePool();
+            var probe = pool.Acquire();
+            probe.ThrowOnRelease = true;
+
+            Assert.Throws<InvalidOperationException>(() => pool.Release(probe));
+            Assert.That(pool.LeasedCount, Is.Zero);
+            Assert.That(probe == null || !probe.gameObject.activeSelf, Is.True);
         }
 
         ComponentPool<ComponentPoolProbe> CreatePool()
@@ -117,15 +143,21 @@ namespace MukJump.EditorTests
         public int AcquireCount { get; private set; }
         public int ReleaseCount { get; private set; }
         public bool IsAcquired { get; set; }
+        public bool ThrowOnAcquire { get; set; }
+        public bool ThrowOnRelease { get; set; }
 
         public void OnPoolAcquire()
         {
+            if (ThrowOnAcquire)
+                throw new InvalidOperationException("Acquire callback failed.");
             AcquireCount++;
             IsAcquired = true;
         }
 
         public void OnPoolRelease()
         {
+            if (ThrowOnRelease)
+                throw new InvalidOperationException("Release callback failed.");
             ReleaseCount++;
             IsAcquired = false;
         }

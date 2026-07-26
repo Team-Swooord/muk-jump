@@ -3,6 +3,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using MukJump.Core;
 using MukJump.Core.Pooling;
 using MukJump.Drawing;
@@ -15,10 +16,15 @@ using UnityEngine.UI;
 public class FallingInkRockTests
 {
     readonly List<Object> cleanup = new();
+    Scene builderTestScene;
 
     [TearDown]
     public void TearDown()
     {
+        if (builderTestScene.IsValid() && builderTestScene.isLoaded)
+            MukJumpSceneBuilder.CloseTestScene(builderTestScene);
+        builderTestScene = default;
+
         for (int i = cleanup.Count - 1; i >= 0; i--)
         {
             if (cleanup[i] != null) Object.DestroyImmediate(cleanup[i]);
@@ -85,6 +91,25 @@ public class FallingInkRockTests
     }
 
     [Test]
+    public void MovingObstacleUsesKinematicBodyAndFixedStep()
+    {
+        var go = Track(new GameObject("TestMovingObstacle"));
+        var obstacle = go.AddComponent<Obstacle>();
+        Invoke(obstacle, "Awake");
+
+        var body = go.GetComponent<Rigidbody2D>();
+        Assert.IsNotNull(body);
+        Assert.AreEqual(RigidbodyType2D.Kinematic, body.bodyType);
+        Assert.AreEqual(0f, body.gravityScale);
+        Assert.That(body.constraints & RigidbodyConstraints2D.FreezeRotation,
+            Is.Not.EqualTo(0));
+        Assert.IsNotNull(typeof(Obstacle).GetMethod(
+            "FixedUpdate", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.IsNull(typeof(Obstacle).GetMethod(
+            "Update", BindingFlags.Instance | BindingFlags.NonPublic));
+    }
+
+    [Test]
     public void ThinPlatformIsCastableAndRemovalIsIdempotent()
     {
         var platform = PlatformCollider.Spawn(new List<Vector2>
@@ -128,6 +153,32 @@ public class FallingInkRockTests
     }
 
     [Test]
+    public void SpawnerRebindsToLivingCloneAfterOriginalPlayerIsGone()
+    {
+        var managerObject = Track(new GameObject("TestGameManager"));
+        var manager = managerObject.AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+
+        var playerObject = Track(new GameObject("LivingClone"));
+        playerObject.AddComponent<Rigidbody2D>();
+        playerObject.AddComponent<CircleCollider2D>();
+        var livingClone = playerObject.AddComponent<PlayerController>();
+        Invoke(livingClone, "Awake");
+        manager.RegisterPlayer(livingClone);
+
+        var cameraObject = Track(new GameObject("TestCamera"));
+        var camera = cameraObject.AddComponent<Camera>();
+        var spawnerObject = Track(new GameObject("TestSpawner"));
+        var spawner = spawnerObject.AddComponent<FallingInkRockSpawner>();
+        SetField(spawner, "fallingInkRockSprite", CreateSprite());
+        SetField(spawner, "worldCamera", camera);
+        SetField(spawner, "player", null);
+
+        Assert.IsTrue((bool)Invoke(spawner, "ValidateReferences"));
+        Assert.AreSame(livingClone, GetField(spawner, "player"));
+    }
+
+    [Test]
     public void VisibilityTintsBodyAndDisablesLegacyDecorations()
     {
         var root = Track(new GameObject("VisibleObstacle"));
@@ -156,18 +207,73 @@ public class FallingInkRockTests
         Assert.IsFalse(paperHalo.enabled);
         Assert.IsFalse(dangerRing.enabled);
 
-        view.SetVisible(false);
+        view.DisableLegacyDecorations();
         Assert.IsFalse(dangerRing.enabled);
-        view.SetVisible(true);
-        Assert.IsFalse(dangerRing.enabled);
+    }
+
+    [Test]
+    public void VisibilitySharedMaterialIsReleasedAtSubsystemReset()
+    {
+        var reset = typeof(ObstacleVisibilityView).GetMethod(
+            "ReleaseRuntimeAssets", BindingFlags.Static | BindingFlags.NonPublic);
+        var materialField = typeof(ObstacleVisibilityView).GetField(
+            "sharedPaperRedMaterial", BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.IsNotNull(reset);
+        Assert.IsNotNull(materialField);
+        reset.Invoke(null, null);
+
+        var root = Track(new GameObject("VisibilityResourceOwner"));
+        var body = root.AddComponent<SpriteRenderer>();
+        var view = root.AddComponent<ObstacleVisibilityView>();
+        view.Configure();
+        var first = body.sharedMaterial;
+
+        Assert.IsNotNull(first);
+        reset.Invoke(null, null);
+
+        Assert.IsNull(materialField.GetValue(null));
+        Assert.IsTrue(first == null,
+            "공유 런타임 Material은 SubsystemRegistration에서 해제되어야 합니다.");
+        view.Configure();
+        Assert.IsNotNull(body.sharedMaterial);
+        Assert.AreNotSame(first, body.sharedMaterial);
+        reset.Invoke(null, null);
     }
 
     [Test]
     public void SceneBuilderCreatesSingleConfiguredSpawner()
     {
-        MukJumpSceneBuilder.Build();
+        const string mainScenePath = "Assets/Scenes/Main.unity";
+        Scene activeSceneBefore = SceneManager.GetActiveScene();
+        Hash128 mainSceneHashBefore = AssetDatabase.GetAssetDependencyHash(mainScenePath);
+        UIOrientation orientationBefore = PlayerSettings.defaultInterfaceOrientation;
+        EditorBuildSettingsScene[] buildScenesBefore = EditorBuildSettings.scenes;
+        string[] hudTexturePaths =
+        {
+            "Assets/Art/UI/muk_gauge_fill.png",
+            "Assets/Art/UI/muk_gauge_track.png",
+            "Assets/Art/UI/muk_brush_icon.png",
+        };
+        var hudTextureHashesBefore = new Hash128[hudTexturePaths.Length];
+        for (int i = 0; i < hudTexturePaths.Length; i++)
+            hudTextureHashesBefore[i] =
+                AssetDatabase.GetAssetDependencyHash(hudTexturePaths[i]);
 
-        var spawners = Object.FindObjectsByType<FallingInkRockSpawner>(FindObjectsSortMode.None);
+        builderTestScene = MukJumpSceneBuilder.BuildForTests();
+
+        Assert.AreEqual(string.Empty, builderTestScene.path);
+        Assert.AreEqual(activeSceneBefore, SceneManager.GetActiveScene());
+        Assert.AreEqual(mainSceneHashBefore, AssetDatabase.GetAssetDependencyHash(mainScenePath));
+        Assert.AreEqual(orientationBefore, PlayerSettings.defaultInterfaceOrientation);
+        AssertBuildSettingsUnchanged(buildScenesBefore, EditorBuildSettings.scenes);
+        for (int i = 0; i < hudTexturePaths.Length; i++)
+        {
+            Assert.AreEqual(hudTextureHashesBefore[i],
+                AssetDatabase.GetAssetDependencyHash(hudTexturePaths[i]),
+                $"테스트 빌더가 importer를 변경했습니다: {hudTexturePaths[i]}");
+        }
+
+        var spawners = FindAllInScene<FallingInkRockSpawner>(builderTestScene);
         Assert.AreEqual(1, spawners.Length);
         Assert.AreEqual("Obstacles", spawners[0].gameObject.name);
 
@@ -177,14 +283,14 @@ public class FallingInkRockTests
         Assert.IsNotNull(serialized.FindProperty("player").objectReferenceValue);
         Assert.AreNotEqual(0, serialized.FindProperty("collisionMask").intValue);
 
-        var itemSpawner = Object.FindFirstObjectByType<ItemSpawner>();
+        var itemSpawner = FindFirstInScene<ItemSpawner>(builderTestScene);
         Assert.IsNotNull(itemSpawner);
         var itemSerialized = new SerializedObject(itemSpawner);
         Assert.IsNotNull(itemSerialized.FindProperty("inkDropSprite").objectReferenceValue);
         Assert.IsNotNull(itemSerialized.FindProperty("goldenBrushSprite").objectReferenceValue);
         Assert.IsNotNull(itemSerialized.FindProperty("inkShieldSprite").objectReferenceValue);
 
-        var inkDropVfx = Object.FindFirstObjectByType<InkDropJumpVfx>();
+        var inkDropVfx = FindFirstInScene<InkDropJumpVfx>(builderTestScene);
         Assert.IsNotNull(inkDropVfx);
         var vfxSerialized = new SerializedObject(inkDropVfx);
         Assert.IsNotNull(vfxSerialized.FindProperty("groundBlob").objectReferenceValue);
@@ -192,18 +298,20 @@ public class FallingInkRockTests
         Assert.IsNotNull(vfxSerialized.FindProperty("shockRing").objectReferenceValue);
         Assert.IsNotNull(vfxSerialized.FindProperty("verticalBrush").objectReferenceValue);
         Assert.IsNotNull(vfxSerialized.FindProperty("immediateClip").objectReferenceValue);
-        Assert.IsNotNull(Object.FindFirstObjectByType<VfxAudioManager>());
+        Assert.IsNotNull(FindFirstInScene<VfxAudioManager>(builderTestScene));
 
-        var lobby = Object.FindFirstObjectByType<LobbyView>();
+        var lobby = FindFirstInScene<LobbyView>(builderTestScene);
         Assert.IsNotNull(lobby);
         var lobbySerialized = new SerializedObject(lobby);
         var lobbyBest = lobbySerialized.FindProperty("bestText").objectReferenceValue as Text;
         Assert.IsNotNull(lobbyBest);
         Assert.AreEqual(50, lobbyBest.fontSize);
         Assert.AreEqual(InkPalette.Paper, lobbyBest.color);
-        Assert.AreEqual(2, lobby.GetComponentsInChildren<RawImage>(true).Length - 2);
+        Assert.IsNotNull(lobby.transform.Find("Logo")?.GetComponent<RawImage>());
+        Assert.IsNotNull(lobby.transform.Find("BrushGuide")?.GetComponent<RawImage>());
+        Assert.IsNotNull(lobby.transform.Find("BestDisplay")?.GetComponent<RawImage>());
 
-        var gameplayHud = Object.FindFirstObjectByType<GameplayHudView>();
+        var gameplayHud = FindFirstInScene<GameplayHudView>(builderTestScene);
         Assert.IsNotNull(gameplayHud);
         var hudSerialized = new SerializedObject(gameplayHud);
         var topHud = hudSerialized.FindProperty("topHudRoot").objectReferenceValue
@@ -252,7 +360,7 @@ public class FallingInkRockTests
         Assert.IsNull(windIndicator.transform.Find("WindStrengthStroke1"));
         Assert.That(((RectTransform)newBestIndicator.transform).sizeDelta.x,
             Is.LessThanOrEqualTo(50f));
-        Assert.IsNotNull(Object.FindFirstObjectByType<PauseMenuView>());
+        Assert.IsNotNull(FindFirstInScene<PauseMenuView>(builderTestScene));
 
         var importer = (TextureImporter)AssetImporter.GetAtPath(
             "Assets/Art/Character/Obstacles/anermy_02.png");
@@ -295,6 +403,34 @@ public class FallingInkRockTests
     {
         cleanup.Add(value);
         return value;
+    }
+
+    static T FindFirstInScene<T>(Scene scene) where T : Component
+    {
+        var matches = FindAllInScene<T>(scene);
+        return matches.Length > 0 ? matches[0] : null;
+    }
+
+    static T[] FindAllInScene<T>(Scene scene) where T : Component
+    {
+        var matches = new List<T>();
+        if (!scene.IsValid() || !scene.isLoaded) return matches.ToArray();
+
+        var roots = scene.GetRootGameObjects();
+        for (int i = 0; i < roots.Length; i++)
+            matches.AddRange(roots[i].GetComponentsInChildren<T>(true));
+        return matches.ToArray();
+    }
+
+    static void AssertBuildSettingsUnchanged(
+        EditorBuildSettingsScene[] before, EditorBuildSettingsScene[] after)
+    {
+        Assert.AreEqual(before.Length, after.Length);
+        for (int i = 0; i < before.Length; i++)
+        {
+            Assert.AreEqual(before[i].path, after[i].path);
+            Assert.AreEqual(before[i].enabled, after[i].enabled);
+        }
     }
 
     static void SetField(object target, string fieldName, object value)

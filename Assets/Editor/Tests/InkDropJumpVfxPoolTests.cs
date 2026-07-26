@@ -9,12 +9,15 @@ public sealed class InkDropJumpVfxPoolTests
     GameObject owner;
     GameObject secondOwner;
     GameObject sharedPoolRoot;
+    GameObject inactivePoolRoot;
 
     [TearDown]
     public void TearDown()
     {
         if (sharedPoolRoot != null)
             Object.DestroyImmediate(sharedPoolRoot);
+        if (inactivePoolRoot != null)
+            Object.DestroyImmediate(inactivePoolRoot);
         if (secondOwner != null)
             Object.DestroyImmediate(secondOwner);
         if (owner != null)
@@ -86,5 +89,20 @@ public sealed class InkDropJumpVfxPoolTests
         Assert.AreSame(service, reconfigured);
         Assert.IsNotNull(poolField.GetValue(service),
             "Play 중 스크립트 리로드로 managed 풀이 사라지면 즉시 다시 구성해야 합니다.");
+    }
+
+    [Test]
+    public void InactiveServiceIsNotReusedForPlayback()
+    {
+        inactivePoolRoot = new GameObject("InactiveInkDropJumpVfxPool");
+        var inactiveService = inactivePoolRoot.AddComponent<InkDropJumpVfxPool>();
+        inactivePoolRoot.SetActive(false);
+
+        var service = InkDropJumpVfxPool.GetOrCreate(default, 4, 3);
+        sharedPoolRoot = service.gameObject;
+
+        Assert.AreNotSame(inactiveService, service);
+        Assert.That(service.isActiveAndEnabled, Is.True);
+        Assert.That(service.gameObject.activeInHierarchy, Is.True);
     }
 }
