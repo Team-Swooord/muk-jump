@@ -58,6 +58,12 @@ namespace MukJump.Core
             if (livingPlayer != null) target = livingPlayer.transform;
             if (target == null) return;
 
+            if (GameManager.Instance != null && GameManager.Instance.IsPaused)
+            {
+                // 줌·흔들림 중간 프레임까지 포함해 화면을 그대로 얼리고 재개한다.
+                return;
+            }
+
             // 사망 팝 연출을 따라 카메라까지 올라가면 게임오버 배경과 다음 도전의 기준점이
             // 흔들린다. 마지막 플레이 위치에서 카메라를 고정해 죽음 연출만 화면 안에서 보인다.
             if (GameManager.Instance != null && GameManager.Instance.State == GameState.GameOver)

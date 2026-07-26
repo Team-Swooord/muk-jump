@@ -11,6 +11,7 @@ namespace MukJump.Core
 
         [SerializeField, Range(0f, 1f)] float lobbyVolume = 0.32f;
         [SerializeField, Range(0f, 1f)] float playingVolume = 0.48f;
+        [SerializeField, Range(0f, 1f)] float pausedVolume = 0.2f;
         [SerializeField, Range(0f, 1f)] float gameOverVolume = 0.18f;
         [SerializeField, Min(0.01f)] float fadeSpeed = 0.45f;
 
@@ -61,7 +62,9 @@ namespace MukJump.Core
 
             float targetVolume = GameManager.Instance == null
                 ? lobbyVolume
-                : GameManager.Instance.State switch
+                : GameManager.Instance.IsPaused
+                    ? pausedVolume
+                    : GameManager.Instance.State switch
                 {
                     GameState.Playing => playingVolume,
                     GameState.GameOver => gameOverVolume,
@@ -83,6 +86,7 @@ namespace MukJump.Core
         {
             lobbyVolume = Mathf.Clamp01(lobbyVolume);
             playingVolume = Mathf.Clamp01(playingVolume);
+            pausedVolume = Mathf.Clamp01(pausedVolume);
             gameOverVolume = Mathf.Clamp01(gameOverVolume);
             fadeSpeed = Mathf.Max(0.01f, fadeSpeed);
         }

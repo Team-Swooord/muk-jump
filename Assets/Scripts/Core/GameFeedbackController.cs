@@ -257,13 +257,35 @@ namespace MukJump.Core
 
         public void PlayHitStop(float duration = 0.055f)
         {
-            if (!isActiveAndEnabled) return;
+            if (!isActiveAndEnabled ||
+                (GameManager.Instance != null && GameManager.Instance.IsPaused))
+                return;
             if (hitStopRoutine != null)
             {
                 StopCoroutine(hitStopRoutine);
                 RestoreTimeScale();
             }
             hitStopRoutine = StartCoroutine(HitStopRoutine(Mathf.Clamp(duration, 0.02f, 0.09f)));
+        }
+
+        /// 일시정지 직전에 실시간 코루틴이 뒤늦게 timeScale을 되살리지 않도록 정리한다.
+        public void PrepareForPause()
+        {
+            StopBrushDrawing();
+            if (accentSource != null) accentSource.Stop();
+            VfxAudioManager.Instance?.StopAll();
+            if (hitStopRoutine != null)
+            {
+                StopCoroutine(hitStopRoutine);
+                hitStopRoutine = null;
+                RestoreTimeScale();
+            }
+            if (gamepadHapticRoutine != null)
+            {
+                StopCoroutine(gamepadHapticRoutine);
+                gamepadHapticRoutine = null;
+            }
+            Gamepad.current?.SetMotorSpeeds(0f, 0f);
         }
 
         public void ShowZone(string title, string subtitle)
@@ -326,7 +348,9 @@ namespace MukJump.Core
         {
             if (hitStopPreviousFixedDelta > 0f)
                 Time.fixedDeltaTime = hitStopPreviousFixedDelta;
-            if (Time.timeScale <= 0.051f)
+            if (GameManager.Instance != null && GameManager.Instance.IsPaused)
+                Time.timeScale = 0f;
+            else if (Time.timeScale <= 0.051f)
                 Time.timeScale = Mathf.Max(0.01f, hitStopPreviousScale);
             hitStopPreviousFixedDelta = 0f;
         }
@@ -609,12 +633,9 @@ namespace MukJump.Core
             textObject.transform.SetParent(canvasObject.transform, false);
             var rect = textObject.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.78f);
-            rect.sizeDelta = new Vector2(840f, 150f);
+            rect.sizeDelta = new Vector2(860f, 180f);
             bannerText = textObject.GetComponent<Text>();
-            bannerText.font = InkPalette.UiFont;
-            bannerText.fontSize = 42;
-            bannerText.fontStyle = FontStyle.Bold;
-            bannerText.alignment = TextAnchor.MiddleCenter;
+            ConfigureBannerText();
             bannerText.color = Color.clear;
         }
 
@@ -626,6 +647,7 @@ namespace MukJump.Core
             {
                 bannerText = existingBanner.GetComponent<Text>();
                 overlayCanvas = existingBanner.GetComponentInParent<Canvas>();
+                ConfigureBannerText();
                 return;
             }
             CreateOverlay();
@@ -633,7 +655,7 @@ namespace MukJump.Core
 
         IEnumerator AnimateBanner(string title, string subtitle)
         {
-            bannerText.text = $"{title}\n<size=25>{subtitle}</size>";
+            bannerText.text = $"{title}\n<size=30>{subtitle}</size>";
             float duration = 2.2f;
             float elapsed = 0f;
             while (elapsed < duration)
@@ -649,6 +671,20 @@ namespace MukJump.Core
             }
             bannerText.color = Color.clear;
             bannerRoutine = null;
+        }
+
+        void ConfigureBannerText()
+        {
+            if (bannerText == null) return;
+            bannerText.font = InkPalette.UiFont;
+            bannerText.fontSize = 48;
+            bannerText.fontStyle = FontStyle.Bold;
+            bannerText.alignment = TextAnchor.MiddleCenter;
+            bannerText.resizeTextForBestFit = false;
+            bannerText.alignByGeometry = true;
+            bannerText.raycastTarget = false;
+            var rect = bannerText.rectTransform;
+            rect.sizeDelta = new Vector2(860f, 180f);
         }
 
         static AudioClip CreateTone(string name, float duration, float startFrequency,

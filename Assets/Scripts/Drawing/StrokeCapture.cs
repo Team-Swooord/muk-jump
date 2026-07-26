@@ -140,12 +140,19 @@ namespace MukJump.Drawing
                 return;
             }
 
+            if (GameManager.Instance.IsPaused)
+            {
+                if (drawing) CancelStroke();
+                return;
+            }
+
             if (!drawing)
                 ink = Mathf.Min(inkCapacity, ink + inkRegenPerSecond * Time.deltaTime);
 
             if (PointerInput.TryGetPressed(out var screenPos))
             {
-                if (GameplayHudView.IsPointerOverItemTestControls(screenPos))
+                if (GameplayHudView.IsPointerOverItemTestControls(screenPos) ||
+                    PauseMenuView.IsPointerOverControls(screenPos))
                 {
                     if (drawing) CancelStroke();
                     return;
@@ -282,6 +289,14 @@ namespace MukJump.Drawing
             drawing = false;
             GameFeedbackController.Instance?.StopBrushDrawing();
             DestroyPreview();
+        }
+
+        public void CancelActiveStroke()
+        {
+            if (drawing)
+                CancelStroke();
+            else
+                GameFeedbackController.Instance?.StopBrushDrawing();
         }
 
         /// 캐릭터와 겹치는 부분만 잘라내고 가장 긴 안전 구간은 살린다.

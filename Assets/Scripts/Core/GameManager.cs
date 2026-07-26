@@ -20,9 +20,14 @@ namespace MukJump.Core
         public static GameManager Instance { get; private set; }
 
         public GameState State { get; private set; } = GameState.Lobby;
+        public bool IsPaused { get; private set; }
+        public bool IsTransitioning =>
+            transitionInProgress || (transitionView != null && transitionView.IsPlaying);
         public bool DebugInvincible { get; private set; }
         /// 스포너·연출이 GameManager 구현을 직접 폴링하지 않고 세션 경계에 반응하는 계약.
         public event Action<GameState, GameState> StateChanged;
+        /// 일시정지는 Playing 상태를 유지해 풀과 세션 예약을 보존하고 별도 계약으로 알린다.
+        public event Action<bool> PauseChanged;
         /// 디버그 순간이동 뒤 과거 고도의 스폰 예약을 한 프레임에 소진하지 않게 알린다.
         public event Action<int> WorldHeightTeleported;
 
@@ -32,7 +37,10 @@ namespace MukJump.Core
         float gameOverTime;
         BrushTransitionView transitionView;
         GameOverPopupView gameOverPopupView;
+        PauseMenuView pauseMenuView;
         bool transitionInProgress;
+        float timeScaleBeforePause = 1f;
+        float fixedDeltaBeforePause = 0.02f;
         readonly List<PlayerController> players = new();
         readonly List<MonoBehaviour> cloneHookBehaviours = new();
         readonly List<IRuntimeCloneLifecycle> cloneHooks = new();
@@ -99,7 +107,16 @@ namespace MukJump.Core
             if (transitionView == null) transitionView = gameObject.AddComponent<BrushTransitionView>();
             gameOverPopupView = GetComponent<GameOverPopupView>();
             if (gameOverPopupView == null) gameOverPopupView = gameObject.AddComponent<GameOverPopupView>();
+            pauseMenuView = GetComponent<PauseMenuView>();
+            if (pauseMenuView == null) pauseMenuView = gameObject.AddComponent<PauseMenuView>();
             RefreshPlayerRegistry();
+        }
+
+        void OnDisable()
+        {
+            if (Instance != this) return;
+            RestorePausedWorld(false);
+            Instance = null;
         }
 
         void Update()
@@ -141,6 +158,56 @@ namespace MukJump.Core
         public void ToggleDebugInvincible()
         {
             DebugInvincible = !DebugInvincible;
+        }
+
+        /// 기존 Playing 상태를 바꾸지 않고 물리 시간만 멈춰 활성 풀·분신·날씨를 보존한다.
+        public bool PauseGame()
+        {
+            if (State != GameState.Playing || IsPaused || IsTransitioning)
+                return false;
+
+            PointerInput.SuppressUntilRelease();
+            FindFirstObjectByType<StrokeCapture>()?.CancelActiveStroke();
+            GameFeedbackController.Instance?.PrepareForPause();
+            timeScaleBeforePause = Mathf.Max(0.01f, Time.timeScale);
+            fixedDeltaBeforePause = Mathf.Max(0.001f, Time.fixedDeltaTime);
+            IsPaused = true;
+            Time.timeScale = 0f;
+            AudioListener.pause = true;
+            PauseChanged?.Invoke(true);
+            return true;
+        }
+
+        public bool ResumeGame()
+        {
+            if (!IsPaused || IsTransitioning) return false;
+            PointerInput.SuppressUntilRelease();
+            RestorePausedWorld(true);
+            return true;
+        }
+
+        /// 일시정지 화면에서 현재 씬을 다시 불러 로비와 새 세션으로 안전하게 돌아간다.
+        public bool ReturnToLobby()
+        {
+            if (State != GameState.Playing || !IsPaused || IsTransitioning)
+                return false;
+
+            transitionInProgress = true;
+            PointerInput.SuppressUntilRelease();
+            // 붓 전환음은 들리되 물리는 화면이 완전히 덮일 때까지 멈춘 상태를 유지한다.
+            AudioListener.pause = false;
+            void ReloadLobby()
+            {
+                RestorePausedWorld(true);
+                BrushTransitionView.RequestRevealAfterSceneLoad();
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
+
+            if (transitionView != null)
+                transitionView.Play(ReloadLobby);
+            else
+                ReloadLobby();
+            return true;
         }
 
         /// 한 캐릭터가 죽어도 다른 먹분신이 살아 있으면 게임을 계속한다.
@@ -326,6 +393,21 @@ namespace MukJump.Core
                 BrushTransitionView.RequestRevealAfterSceneLoad();
                 SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             });
+        }
+
+        void RestorePausedWorld(bool notify)
+        {
+            bool wasPaused = IsPaused;
+            AudioListener.pause = false;
+            if (!wasPaused) return;
+            if (fixedDeltaBeforePause > 0f)
+                Time.fixedDeltaTime = fixedDeltaBeforePause;
+            Time.timeScale = Mathf.Max(0.01f, timeScaleBeforePause);
+            IsPaused = false;
+            timeScaleBeforePause = 1f;
+            fixedDeltaBeforePause = 0.02f;
+            if (notify && wasPaused)
+                PauseChanged?.Invoke(false);
         }
 
         void SetState(GameState nextState)
