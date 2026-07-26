@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using MukJump.Items;
 using MukJump.Drawing;
@@ -26,8 +27,11 @@ namespace MukJump.Core
         [SerializeField] Button mapWindButton;
         [SerializeField] Button mapRainButton;
         [SerializeField] Button mapGorgeButton;
-        [SerializeField] Button restPlatformButton;
+        [FormerlySerializedAs("restPlatformButton")]
+        [SerializeField] Button updraftButton;
+        [SerializeField] Button windDirectionButton;
         [SerializeField] Button windPlatformButton;
+        [SerializeField] WindIndicatorView windIndicator;
 
         public static GameplayHudView Instance { get; private set; }
 
@@ -47,7 +51,8 @@ namespace MukJump.Core
             mapWindButton?.onClick.AddListener(() => MoveToHeight(250));
             mapRainButton?.onClick.AddListener(() => MoveToHeight(500));
             mapGorgeButton?.onClick.AddListener(() => MoveToHeight(750));
-            restPlatformButton?.onClick.AddListener(SpawnRestPlatform);
+            updraftButton?.onClick.AddListener(TriggerUpdraft);
+            windDirectionButton?.onClick.AddListener(FlipWindDirection);
             windPlatformButton?.onClick.AddListener(SpawnWindPlatform);
         }
 
@@ -66,7 +71,8 @@ namespace MukJump.Core
             mapWindButton?.onClick.RemoveAllListeners();
             mapRainButton?.onClick.RemoveAllListeners();
             mapGorgeButton?.onClick.RemoveAllListeners();
-            restPlatformButton?.onClick.RemoveListener(SpawnRestPlatform);
+            updraftButton?.onClick.RemoveListener(TriggerUpdraft);
+            windDirectionButton?.onClick.RemoveListener(FlipWindDirection);
             windPlatformButton?.onClick.RemoveListener(SpawnWindPlatform);
         }
 
@@ -90,7 +96,8 @@ namespace MukJump.Core
         void UseInkClone() => ItemEffect.Apply(ItemType.InkClone);
         void UseInkReserve() => ItemEffect.Apply(ItemType.InkReserve);
         void MoveToHeight(int height) => GameManager.Instance?.DebugTeleportToHeight(height);
-        void SpawnRestPlatform() => RestPlatformSpawner.Instance?.DebugSpawnNearPlayer();
+        void TriggerUpdraft() => WindWeatherController.Instance?.DebugTriggerUpdraft();
+        void FlipWindDirection() => WindWeatherController.Instance?.DebugFlipDirection();
         void SpawnWindPlatform() => RestPlatformSpawner.Instance?.DebugSpawnWindNearPlayer();
 
         void ToggleDebugPanel()
@@ -125,6 +132,8 @@ namespace MukJump.Core
             ConfigureText(heightText);
             ConfigureText(bestText);
             ConfigureText(invincibleLabel);
+            SetButtonLabel(updraftButton, "상승기류");
+            SetButtonLabel(windDirectionButton, "풍향 전환");
             SetItemIconNativeSize(inkDropButton);
             SetItemIconNativeSize(goldenBrushButton);
             SetItemIconNativeSize(inkShieldButton);
@@ -148,6 +157,12 @@ namespace MukJump.Core
             icon.rectTransform.sizeDelta /= 9f;
         }
 
+        static void SetButtonLabel(Button button, string label)
+        {
+            var text = button != null ? button.transform.Find("Label")?.GetComponent<Text>() : null;
+            if (text != null) text.text = label;
+        }
+
         void Update()
         {
             if (!Application.isPlaying)
@@ -160,6 +175,8 @@ namespace MukJump.Core
 
             bool visible = GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby;
             if (canvas != null) canvas.enabled = visible;
+            windIndicator?.SetVisible(GameManager.Instance != null &&
+                                      GameManager.Instance.State == GameState.Playing);
             if (!visible || heightText == null) return;
             RefreshInvincibleButton();
 
