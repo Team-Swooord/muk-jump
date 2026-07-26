@@ -162,8 +162,30 @@ namespace MukJump.Core
             ConfigureText(bestText);
             ConfigureText(bestCaption);
             ConfigureText(invincibleLabel);
-            SetButtonLabel(updraftButton, "상승기류");
-            SetButtonLabel(windDirectionButton, "풍향 전환");
+            ConfigureDebugButton(debugToggleButton, null, 27);
+            ConfigureDebugButton(invincibleButton, null, 27);
+            ConfigureDebugButton(mapStartButton, null, 27);
+            ConfigureDebugButton(mapWindButton, null, 27);
+            ConfigureDebugButton(mapRainButton, null, 27);
+            ConfigureDebugButton(mapGorgeButton, null, 27);
+            ConfigureDebugButton(updraftButton, "상승기류", 27);
+            ConfigureDebugButton(windDirectionButton, "풍향 전환", 27);
+            ConfigureDebugButton(windPlatformButton, null, 27);
+            ConfigureDebugButton(inkDropButton, null, 26);
+            ConfigureDebugButton(goldenBrushButton, null, 26);
+            ConfigureDebugButton(inkShieldButton, null, 26);
+            ConfigureDebugButton(inkCloneButton, null, 26);
+            ConfigureDebugButton(inkReserveButton, null, 26);
+            var mapTitle = debugPanel != null
+                ? debugPanel.Find("MapDebugTitle")?.GetComponent<Text>()
+                : null;
+            if (mapTitle != null)
+            {
+                mapTitle.font = InkPalette.UiFont;
+                mapTitle.fontSize = 30;
+                mapTitle.fontStyle = FontStyle.Bold;
+                mapTitle.color = InkPalette.Paper;
+            }
             if (resizeItemIcons)
             {
                 SetItemIconNativeSize(inkDropButton);
@@ -224,41 +246,41 @@ namespace MukJump.Core
                     display.anchorMin = display.anchorMax = new Vector2(0.5f, 0.5f);
                     display.pivot = new Vector2(0.5f, 0.5f);
                     display.anchoredPosition = Vector2.zero;
-                    display.sizeDelta = new Vector2(360f, 96f);
+                    display.sizeDelta = new Vector2(360f, 108f);
 
                     var oldBackground = display.GetComponent<Graphic>();
                     if (oldBackground != null) oldBackground.enabled = false;
                 }
 
                 var heightRect = heightText.rectTransform;
-                heightRect.anchorMin = heightRect.anchorMax = new Vector2(0.5f, 0.34f);
-                heightRect.anchoredPosition = new Vector2(0f, -2f);
-                heightRect.sizeDelta = new Vector2(300f, 58f);
-                heightText.fontSize = 50;
+                heightRect.anchorMin = heightRect.anchorMax = new Vector2(0.5f, 0.33f);
+                heightRect.anchoredPosition = new Vector2(0f, -3f);
+                heightRect.sizeDelta = new Vector2(340f, 66f);
+                heightText.fontSize = 56;
                 heightText.fontStyle = FontStyle.Normal;
                 heightText.alignment = TextAnchor.MiddleCenter;
                 heightText.color = InkPalette.TextDark;
             }
 
             ConfigureHudCaption(
-                heightCaption, new Vector2(0.5f, 0.77f), new Vector2(100f, 28f), "고도");
+                heightCaption, new Vector2(0.5f, 0.78f), new Vector2(110f, 32f), "고도");
 
             if (bestText != null)
             {
                 var bestRect = bestText.rectTransform;
                 bestRect.SetParent(topHudRoot, false);
-                bestRect.anchorMin = bestRect.anchorMax = new Vector2(0.82f, 0.36f);
+                bestRect.anchorMin = bestRect.anchorMax = new Vector2(0.82f, 0.35f);
                 bestRect.pivot = new Vector2(0.5f, 0.5f);
                 bestRect.anchoredPosition = Vector2.zero;
-                bestRect.sizeDelta = new Vector2(180f, 42f);
-                bestText.fontSize = 30;
+                bestRect.sizeDelta = new Vector2(220f, 50f);
+                bestText.fontSize = 36;
                 bestText.fontStyle = FontStyle.Normal;
                 bestText.alignment = TextAnchor.MiddleCenter;
                 bestText.color = InkPalette.TextDark;
             }
 
             ConfigureHudCaption(
-                bestCaption, new Vector2(0.82f, 0.73f), new Vector2(140f, 28f), "최고");
+                bestCaption, new Vector2(0.82f, 0.75f), new Vector2(150f, 32f), "최고");
 
             if (windIndicator != null)
             {
@@ -271,6 +293,8 @@ namespace MukJump.Core
                 newBestIndicator.transform.SetParent(topHudRoot, false);
                 newBestIndicator.ApplyPolishedLayout();
             }
+
+            ApplyDebugReadabilityLayout();
         }
 
         Text FindOrCreateHudText(string name, string value)
@@ -300,10 +324,10 @@ namespace MukJump.Core
             rect.sizeDelta = size;
             text.text = value;
             text.font = InkPalette.UiFont;
-            text.fontSize = 20;
+            text.fontSize = 24;
             text.fontStyle = FontStyle.Normal;
             text.alignment = TextAnchor.MiddleCenter;
-            text.color = InkPalette.TextMuted;
+            text.color = InkPalette.TextDark;
             text.raycastTarget = false;
         }
 
@@ -317,7 +341,7 @@ namespace MukJump.Core
             topHudRoot.anchorMin = topHudRoot.anchorMax = new Vector2(0.5f, 1f);
             topHudRoot.pivot = new Vector2(0.5f, 1f);
             topHudRoot.anchoredPosition = new Vector2(0f, -(topInset + 52f));
-            topHudRoot.sizeDelta = new Vector2(1016f, 112f);
+            topHudRoot.sizeDelta = new Vector2(1016f, 124f);
             topHudRoot.localScale = Vector3.one * hudScale;
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
@@ -340,10 +364,40 @@ namespace MukJump.Core
             icon.rectTransform.sizeDelta /= 9f;
         }
 
-        static void SetButtonLabel(Button button, string label)
+        static void ConfigureDebugButton(Button button, string label, int fontSize)
         {
             var text = button != null ? button.transform.Find("Label")?.GetComponent<Text>() : null;
-            if (text != null) text.text = label;
+            if (text == null) return;
+            if (!string.IsNullOrEmpty(label)) text.text = label;
+            text.font = InkPalette.UiFont;
+            text.fontSize = fontSize;
+            text.fontStyle = FontStyle.Bold;
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = 22;
+            text.resizeTextMaxSize = fontSize;
+            text.color = InkPalette.Ink;
+        }
+
+        void ApplyDebugReadabilityLayout()
+        {
+            Button[] itemButtons =
+            {
+                inkDropButton, goldenBrushButton, inkShieldButton,
+                inkCloneButton, inkReserveButton,
+            };
+            for (int i = 0; i < itemButtons.Length; i++)
+            {
+                var buttonRect = itemButtons[i] != null
+                    ? itemButtons[i].transform as RectTransform
+                    : null;
+                if (buttonRect != null)
+                    buttonRect.sizeDelta = new Vector2(145f, 136f);
+                var label = itemButtons[i] != null
+                    ? itemButtons[i].transform.Find("Label") as RectTransform
+                    : null;
+                if (label != null)
+                    label.sizeDelta = new Vector2(132f, 40f);
+            }
         }
 
         void Update()

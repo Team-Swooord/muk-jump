@@ -96,18 +96,18 @@ namespace MukJump.Core
             root.SetParent(parent, false);
             root.anchorMin = root.anchorMax = new Vector2(0.955f, 0.5f);
             root.pivot = new Vector2(0.5f, 0.5f);
-            root.sizeDelta = new Vector2(46f, 46f);
+            root.sizeDelta = new Vector2(50f, 50f);
             root.anchoredPosition = Vector2.zero;
 
             var sealRoot = CreateRect(
-                "RecordSeal", root, new Vector2(0.5f, 0.5f), new Vector2(46f, 46f));
+                "RecordSeal", root, new Vector2(0.5f, 0.5f), new Vector2(50f, 50f));
             sealRoot.localRotation = Quaternion.Euler(0f, 0f, -4f);
             var seal = sealRoot.gameObject.AddComponent<Image>();
             seal.sprite = InkUiTextureFactory.CreateBlobSprite();
             seal.color = InkPalette.Red;
             seal.raycastTarget = false;
-            var recordText = CreateText("SealText", sealRoot, "신", 20, InkPalette.Paper,
-                new Vector2(0.5f, 0.5f), new Vector2(34f, 32f));
+            var recordText = CreateText("SealText", sealRoot, "신", 22, InkPalette.Paper,
+                new Vector2(0.5f, 0.5f), new Vector2(38f, 36f));
 
             var view = rootObject.AddComponent<NewBestIndicatorView>();
             view.rootGroup = rootObject.GetComponent<CanvasGroup>();
@@ -243,7 +243,7 @@ namespace MukJump.Core
             {
                 sealText.text = "신";
                 sealText.font = InkPalette.UiFont;
-                sealText.fontSize = 20;
+                sealText.fontSize = 22;
                 sealText.fontStyle = FontStyle.Normal;
                 sealText.alignment = TextAnchor.MiddleCenter;
                 sealText.color = InkPalette.Paper;
@@ -276,7 +276,7 @@ namespace MukJump.Core
                 root.anchorMin = root.anchorMax = new Vector2(0.955f, 0.5f);
                 root.pivot = new Vector2(0.5f, 0.5f);
                 root.anchoredPosition = Vector2.zero;
-                root.sizeDelta = new Vector2(46f, 46f);
+                root.sizeDelta = new Vector2(50f, 50f);
             }
 
             var legacyBackground = GetComponent<Graphic>();
@@ -287,7 +287,7 @@ namespace MukJump.Core
             stampRoot.anchorMin = stampRoot.anchorMax = new Vector2(0.5f, 0.5f);
             stampRoot.pivot = new Vector2(0.5f, 0.5f);
             stampRoot.anchoredPosition = Vector2.zero;
-            stampRoot.sizeDelta = new Vector2(46f, 46f);
+            stampRoot.sizeDelta = new Vector2(50f, 50f);
         }
 
         static float EaseOutCubic(float value)

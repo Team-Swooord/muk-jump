@@ -78,7 +78,7 @@ namespace MukJump.Core
                 new Vector2(800f, 860f), Color.clear);
             contentGroup = content.gameObject.AddComponent<CanvasGroup>();
 
-            CreateText("Title", content.transform, "플레이 결과", 56, new Vector2(0f, 354f),
+            CreateText("Title", content.transform, "플레이 결과", 62, new Vector2(0f, 354f),
                 new Vector2(620f, 90f), InkPalette.TextDark, FontStyle.Normal);
             CreateImage("TitleDivider", content.transform, null, new Vector2(0f, 294f),
                 new Vector2(610f, 3f), new Color(InkPalette.Red.r, InkPalette.Red.g,
@@ -90,12 +90,12 @@ namespace MukJump.Core
             bestText = CreateResultBlock("BestResult", content.transform, "최고 고도",
                 new Vector2(0f, -82f), out bestGlow);
 
-            newBestText = CreateText("NewBest", content.transform, "신기록", 34,
+            newBestText = CreateText("NewBest", content.transform, "신기록", 40,
                 new Vector2(0f, -230f), new Vector2(280f, 58f),
                 InkPalette.Red, FontStyle.Normal);
-            CreateText("TouchHint", content.transform, "화면을 터치해 다시 도전", 30,
+            CreateText("TouchHint", content.transform, "화면을 터치해 다시 도전", 34,
                 new Vector2(0f, -356f), new Vector2(700f, 70f),
-                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.62f),
+                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.86f),
                 FontStyle.Normal);
         }
 
@@ -206,9 +206,9 @@ namespace MukJump.Core
             highlight = CreateImage("Highlight", border.transform, null, Vector2.zero,
                 new Vector2(688f, 192f), new Color(InkPalette.Gold.r, InkPalette.Gold.g,
                     InkPalette.Gold.b, 0.2f));
-            CreateText("Caption", border.transform, caption, 28, new Vector2(0f, 48f),
-                new Vector2(560f, 48f), InkPalette.TextMuted, FontStyle.Normal);
-            return CreateText("Value", border.transform, "0 m", 72, new Vector2(0f, -32f),
+            CreateText("Caption", border.transform, caption, 32, new Vector2(0f, 48f),
+                new Vector2(560f, 52f), InkPalette.TextMuted, FontStyle.Normal);
+            return CreateText("Value", border.transform, "0 m", 78, new Vector2(0f, -32f),
                 new Vector2(620f, 105f), InkPalette.TextDark, FontStyle.Normal);
         }
 

@@ -197,8 +197,10 @@ public class FallingInkRockTests
         var lobby = Object.FindFirstObjectByType<LobbyView>();
         Assert.IsNotNull(lobby);
         var lobbySerialized = new SerializedObject(lobby);
-        Assert.IsNotNull(lobbySerialized.FindProperty("bestText").objectReferenceValue);
-        Assert.IsNotNull(lobbySerialized.FindProperty("rankingText").objectReferenceValue);
+        var lobbyBest = lobbySerialized.FindProperty("bestText").objectReferenceValue as Text;
+        Assert.IsNotNull(lobbyBest);
+        Assert.AreEqual(50, lobbyBest.fontSize);
+        Assert.AreEqual(InkPalette.Paper, lobbyBest.color);
         Assert.AreEqual(2, lobby.GetComponentsInChildren<RawImage>(true).Length - 2);
 
         var gameplayHud = Object.FindFirstObjectByType<GameplayHudView>();
@@ -209,9 +211,17 @@ public class FallingInkRockTests
         Assert.IsNotNull(topHud);
         Assert.AreEqual("TopHudRoot", topHud.name);
         Assert.That(topHud.sizeDelta.x, Is.EqualTo(1016f).Within(0.01f));
-        Assert.That(topHud.sizeDelta.y, Is.EqualTo(112f).Within(0.01f));
+        Assert.That(topHud.sizeDelta.y, Is.EqualTo(124f).Within(0.01f));
         Assert.IsNotNull(hudSerialized.FindProperty("heightCaption").objectReferenceValue);
         Assert.IsNotNull(hudSerialized.FindProperty("bestCaption").objectReferenceValue);
+        var heightText = hudSerialized.FindProperty("heightText").objectReferenceValue as Text;
+        var bestText = hudSerialized.FindProperty("bestText").objectReferenceValue as Text;
+        Assert.IsNotNull(heightText);
+        Assert.IsNotNull(bestText);
+        Assert.AreEqual(56, heightText.fontSize);
+        Assert.AreEqual(36, bestText.fontSize);
+        Assert.GreaterOrEqual(heightText.rectTransform.sizeDelta.x, 340f);
+        Assert.GreaterOrEqual(bestText.rectTransform.sizeDelta.x, 220f);
 
         var windIndicator = hudSerialized.FindProperty("windIndicator").objectReferenceValue
             as WindIndicatorView;
@@ -219,11 +229,16 @@ public class FallingInkRockTests
             as NewBestIndicatorView;
         Assert.IsNotNull(windIndicator);
         Assert.IsNotNull(newBestIndicator);
+        var windSerialized = new SerializedObject(windIndicator);
+        var windState = windSerialized.FindProperty("stateText").objectReferenceValue as Text;
+        Assert.IsNotNull(windState);
+        Assert.AreEqual(26, windState.fontSize);
         Assert.AreSame(topHud, windIndicator.transform.parent);
         Assert.AreSame(topHud, newBestIndicator.transform.parent);
         Assert.IsNull(windIndicator.transform.Find("WindStrengthStroke1"));
         Assert.That(((RectTransform)newBestIndicator.transform).sizeDelta.x,
-            Is.LessThanOrEqualTo(46f));
+            Is.LessThanOrEqualTo(50f));
+        Assert.IsNotNull(Object.FindFirstObjectByType<PauseMenuView>());
 
         var importer = (TextureImporter)AssetImporter.GetAtPath(
             "Assets/Art/Character/Obstacles/anermy_02.png");

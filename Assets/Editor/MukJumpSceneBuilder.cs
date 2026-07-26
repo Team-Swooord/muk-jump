@@ -312,6 +312,7 @@ namespace MukJump.EditorTools
             go.AddComponent<GameManager>();
             go.AddComponent<BrushTransitionView>();
             go.AddComponent<GameOverPopupView>();
+            go.AddComponent<PauseMenuView>();
             go.AddComponent<ScoreManager>();
             go.AddComponent<VfxAudioManager>();
             go.AddComponent<GameFeedbackController>();
@@ -453,12 +454,15 @@ namespace MukJump.EditorTools
                 CopyPreservedDisplayLayout("GameplayCanvas/HeightDisplay", display, anchor,
                     copyHeightDisplayPosition);
 
-            var label = CreateText("Label", display, value, 46, FontStyle.Bold,
+            var label = CreateText("Label", display, value, 50, FontStyle.Normal,
                 new Vector2(0.5f, 0.5f), new Vector2(400f, 80f), Color.white);
             bool hasPreservedLabel = preservedUiLayouts.ContainsKey(HierarchyPath(label.rectTransform));
             RestoreUiLayout(label.rectTransform);
             if (!hasPreservedLabel)
                 CopyPreservedTextLayout("GameplayCanvas/HeightDisplay/HeightText", label);
+            label.fontSize = 50;
+            label.fontStyle = FontStyle.Normal;
+            label.color = InkPalette.Paper;
             label.resizeTextForBestFit = false;
             label.alignByGeometry = true;
             return label;
@@ -514,7 +518,7 @@ namespace MukJump.EditorTools
             ConfigureUiTexture(GaugeTrackPath);
             var paperTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeTrackPath);
             var topHudRoot = CreateUiObject("TopHudRoot", root.transform, new Vector2(0.5f, 1f),
-                new Vector2(1016f, 112f));
+                new Vector2(1016f, 124f));
             topHudRoot.pivot = new Vector2(0.5f, 1f);
             topHudRoot.anchoredPosition = new Vector2(0f, -52f);
             var topHudBackground = topHudRoot.gameObject.AddComponent<RawImage>();
@@ -523,23 +527,23 @@ namespace MukJump.EditorTools
             topHudBackground.raycastTarget = false;
 
             var display = CreateUiObject("HeightDisplay", topHudRoot, new Vector2(0.5f, 0.5f),
-                new Vector2(360f, 96f));
-            var heightCaption = CreateText("HeightCaption", topHudRoot, "고도", 20,
-                FontStyle.Normal, new Vector2(0.5f, 0.77f), new Vector2(100f, 28f),
-                InkPalette.TextMuted);
+                new Vector2(360f, 108f));
+            var heightCaption = CreateText("HeightCaption", topHudRoot, "고도", 24,
+                FontStyle.Normal, new Vector2(0.5f, 0.78f), new Vector2(110f, 32f),
+                InkPalette.TextDark);
             heightCaption.resizeTextForBestFit = false;
-            var label = CreateText("HeightText", display, "0m", 50, FontStyle.Normal,
-                new Vector2(0.5f, 0.34f), new Vector2(300f, 58f), InkPalette.TextDark);
-            label.rectTransform.anchoredPosition = new Vector2(0f, -2f);
+            var label = CreateText("HeightText", display, "0m", 56, FontStyle.Normal,
+                new Vector2(0.5f, 0.33f), new Vector2(340f, 66f), InkPalette.TextDark);
+            label.rectTransform.anchoredPosition = new Vector2(0f, -3f);
             label.resizeTextForBestFit = false;
             label.alignByGeometry = true;
 
-            var bestCaption = CreateText("BestCaption", topHudRoot, "최고", 20,
-                FontStyle.Normal, new Vector2(0.82f, 0.73f), new Vector2(140f, 28f),
-                InkPalette.TextMuted);
+            var bestCaption = CreateText("BestCaption", topHudRoot, "최고", 24,
+                FontStyle.Normal, new Vector2(0.82f, 0.75f), new Vector2(150f, 32f),
+                InkPalette.TextDark);
             bestCaption.resizeTextForBestFit = false;
-            var bestLabel = CreateText("BestText", topHudRoot, "0m", 30, FontStyle.Normal,
-                new Vector2(0.82f, 0.36f), new Vector2(180f, 42f), InkPalette.TextDark);
+            var bestLabel = CreateText("BestText", topHudRoot, "0m", 36, FontStyle.Normal,
+                new Vector2(0.82f, 0.35f), new Vector2(220f, 50f), InkPalette.TextDark);
             bestLabel.resizeTextForBestFit = false;
             bestLabel.alignByGeometry = true;
             var newBestIndicator = CreateNewBestIndicator(topHudRoot);
@@ -580,7 +584,7 @@ namespace MukJump.EditorTools
                 placeholderTexture, new Vector2(22f, -320f),
                 new Color(0.2f, 0.58f, 0.48f), "여유 +35%");
 
-            CreateText("MapDebugTitle", debugPanel, "맵 이동", 26, FontStyle.Bold,
+            CreateText("MapDebugTitle", debugPanel, "맵 이동", 30, FontStyle.Bold,
                 new Vector2(0.76f, 0.9f), new Vector2(175f, 55f), InkPalette.Paper);
             var mapStartButton = CreateDebugTextButton("MapStartButton", debugPanel,
                 new Vector2(190f, 300f), new Vector2(175f, 62f), "산길 0m");
@@ -637,19 +641,19 @@ namespace MukJump.EditorTools
         static NewBestIndicatorView CreateNewBestIndicator(Transform parent)
         {
             var root = CreateUiObject("NewBestInkSeal", parent, new Vector2(0.955f, 0.5f),
-                new Vector2(46f, 46f));
+                new Vector2(50f, 50f));
             var group = root.gameObject.AddComponent<CanvasGroup>();
             group.interactable = false;
             group.blocksRaycasts = false;
 
             var sealRoot = CreateUiObject("RecordSeal", root, new Vector2(0.5f, 0.5f),
-                new Vector2(46f, 46f));
+                new Vector2(50f, 50f));
             sealRoot.localRotation = Quaternion.Euler(0f, 0f, -4f);
             var seal = sealRoot.gameObject.AddComponent<Image>();
             seal.color = InkPalette.Red;
             seal.raycastTarget = false;
-            var sealText = CreateText("SealText", sealRoot, "신", 20, FontStyle.Normal,
-                new Vector2(0.5f, 0.5f), new Vector2(34f, 32f), InkPalette.Paper);
+            var sealText = CreateText("SealText", sealRoot, "신", 22, FontStyle.Normal,
+                new Vector2(0.5f, 0.5f), new Vector2(38f, 36f), InkPalette.Paper);
             sealText.resizeTextForBestFit = false;
 
             var view = root.gameObject.AddComponent<NewBestIndicatorView>();
@@ -668,7 +672,7 @@ namespace MukJump.EditorTools
             var brushTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeFillPath);
 
             var root = CreateUiObject("WindInkIndicator", parent, new Vector2(0.16f, 0.5f),
-                new Vector2(270f, 84f));
+                new Vector2(284f, 84f));
 
             var group = root.gameObject.AddComponent<CanvasGroup>();
             group.interactable = false;
@@ -681,7 +685,7 @@ namespace MukJump.EditorTools
             alertSeal.color = new Color(
                 InkPalette.Red.r, InkPalette.Red.g, InkPalette.Red.b, 0.62f);
             alertSeal.raycastTarget = false;
-            var sealText = CreateText("SealText", sealRect, "풍", 19, FontStyle.Normal,
+            var sealText = CreateText("SealText", sealRect, "풍", 21, FontStyle.Normal,
                 new Vector2(0.5f, 0.5f), new Vector2(26f, 26f), InkPalette.Paper);
             sealText.resizeTextForBestFit = false;
 
@@ -694,8 +698,8 @@ namespace MukJump.EditorTools
             var lower = CreateWindArrowPart("LowerHead", arrow, new Vector2(15f, -7f),
                 new Vector2(20f, 6f), 40f, brushTexture);
 
-            var state = CreateText("WindStateText", root, "산들", 22, FontStyle.Normal,
-                new Vector2(0.76f, 0.5f), new Vector2(112f, 40f),
+            var state = CreateText("WindStateText", root, "산들", 26, FontStyle.Normal,
+                new Vector2(0.78f, 0.5f), new Vector2(128f, 46f),
                 InkPalette.TextDark);
             state.resizeTextForBestFit = false;
             state.alignByGeometry = true;
@@ -741,7 +745,7 @@ namespace MukJump.EditorTools
             background.color = new Color(0.92f, 0.89f, 0.82f, 0.94f);
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = background;
-            var label = CreateText("Label", rect, labelText, 24, FontStyle.Bold,
+            var label = CreateText("Label", rect, labelText, 27, FontStyle.Bold,
                 new Vector2(0.5f, 0.5f), size - new Vector2(12f, 10f), InkPalette.Ink);
             label.raycastTarget = false;
             return button;
@@ -750,7 +754,7 @@ namespace MukJump.EditorTools
         static Button CreateItemTestButton(string name, Transform parent, Texture2D iconTexture,
             Vector2 position, Color iconColor, string labelText)
         {
-            var rect = CreateUiObject(name, parent, new Vector2(0f, 0.5f), new Vector2(130f, 130f));
+            var rect = CreateUiObject(name, parent, new Vector2(0f, 0.5f), new Vector2(145f, 136f));
             rect.pivot = new Vector2(0f, 0.5f);
             rect.anchoredPosition = position;
 
@@ -765,12 +769,21 @@ namespace MukJump.EditorTools
             iconImage.color = iconColor;
             iconImage.raycastTarget = false;
 
-            var label = CreateText("Label", rect, labelText, 24, FontStyle.Bold,
-                new Vector2(0.5f, 0.12f), new Vector2(110f, 34f), InkPalette.Ink);
+            var label = CreateText("Label", rect, labelText, 26, FontStyle.Bold,
+                new Vector2(0.5f, 0.12f), new Vector2(132f, 40f), InkPalette.Ink);
             label.raycastTarget = false;
             RestoreUiLayout(rect);
             RestoreUiLayout(icon);
             RestoreUiLayout(label.rectTransform);
+            // 보존 레이아웃이 이전의 작은 라벨 규격을 되살려도 새 가독성 기준은 유지한다.
+            rect.sizeDelta = new Vector2(145f, 136f);
+            label.rectTransform.sizeDelta = new Vector2(132f, 40f);
+            label.fontSize = 26;
+            label.fontStyle = FontStyle.Bold;
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 22;
+            label.resizeTextMaxSize = 26;
+            label.color = InkPalette.Ink;
             SetNativeSizeDivided(iconImage, 9f);
             return button;
         }

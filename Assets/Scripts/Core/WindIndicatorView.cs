@@ -73,7 +73,7 @@ namespace MukJump.Core
                 root.anchorMin = root.anchorMax = new Vector2(0.16f, 0.5f);
                 root.pivot = new Vector2(0.5f, 0.5f);
                 root.anchoredPosition = Vector2.zero;
-                root.sizeDelta = new Vector2(270f, 84f);
+                root.sizeDelta = new Vector2(284f, 84f);
             }
 
             var oldCard = GetComponent<Graphic>();
@@ -97,11 +97,11 @@ namespace MukJump.Core
             if (stateText != null)
             {
                 var rect = stateText.rectTransform;
-                rect.anchorMin = rect.anchorMax = new Vector2(0.76f, 0.5f);
+                rect.anchorMin = rect.anchorMax = new Vector2(0.78f, 0.5f);
                 rect.pivot = new Vector2(0.5f, 0.5f);
                 rect.anchoredPosition = Vector2.zero;
-                rect.sizeDelta = new Vector2(112f, 40f);
-                stateText.fontSize = 22;
+                rect.sizeDelta = new Vector2(128f, 46f);
+                stateText.fontSize = 26;
                 stateText.fontStyle = FontStyle.Normal;
                 stateText.alignment = TextAnchor.MiddleCenter;
             }
@@ -207,7 +207,7 @@ namespace MukJump.Core
             if (stateText != null)
             {
                 Color textColor = alert ? InkPalette.Red : InkPalette.TextDark;
-                textColor.a = (alert ? 0.9f : 0.72f) * stateFade;
+                textColor.a = (alert ? 0.96f : 0.92f) * stateFade;
                 stateText.color = textColor;
             }
 
@@ -266,7 +266,7 @@ namespace MukJump.Core
             {
                 sealText.text = "풍";
                 sealText.font = InkPalette.UiFont;
-                sealText.fontSize = 19;
+                sealText.fontSize = 21;
                 sealText.fontStyle = FontStyle.Normal;
                 sealText.alignment = TextAnchor.MiddleCenter;
                 sealText.color = InkPalette.Paper;
