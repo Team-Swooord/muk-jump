@@ -21,23 +21,39 @@ public sealed class SpecialPlatformTests
     }
 
     [Test]
-    public void RestPlatformIsSolidAndUsesSafePlatformColor()
+    public void RestPlatformIsOneWayAndUsesSafePlatformColor()
     {
         var platform = Track(PlatformCollider.SpawnRestPlatform(CreatePoints()));
 
         Assert.IsTrue(platform.IsRestPlatform);
         Assert.IsFalse(platform.IsWindCurrentPlatform);
-        AssertSolidTintablePlatform(platform, InkPalette.SafePlatform);
+        AssertOneWayTintablePlatform(platform, InkPalette.SafePlatform);
     }
 
     [Test]
-    public void WindPlatformIsSolidAndUsesWindPlatformColor()
+    public void WindPlatformIsOneWayAndUsesWindPlatformColor()
     {
         var platform = Track(PlatformCollider.SpawnWindCurrentPlatform(CreatePoints()));
 
         Assert.IsFalse(platform.IsRestPlatform);
         Assert.IsTrue(platform.IsWindCurrentPlatform);
-        AssertSolidTintablePlatform(platform, InkPalette.WindPlatform);
+        AssertOneWayTintablePlatform(platform, InkPalette.WindPlatform);
+    }
+
+    [Test]
+    public void DrawnPlatformRemainsBidirectionalWithoutEffector()
+    {
+        var platform = Track(PlatformCollider.Spawn(CreatePoints()));
+
+        Assert.IsFalse(platform.IsRestPlatform);
+        Assert.IsFalse(platform.IsWindCurrentPlatform);
+        Assert.IsNull(platform.GetComponent<PlatformEffector2D>(),
+            "일반 드로잉 발판에는 단방향 Effector를 적용하면 안 됩니다.");
+
+        var edge = platform.GetComponent<EdgeCollider2D>();
+        Assert.IsNotNull(edge);
+        Assert.IsFalse(edge.usedByEffector,
+            "일반 드로잉 발판은 양방향 충돌과 대각선 매달리기를 유지해야 합니다.");
     }
 
     PlatformCollider Track(PlatformCollider platform)
@@ -56,15 +72,22 @@ public sealed class SpecialPlatformTests
         };
     }
 
-    static void AssertSolidTintablePlatform(PlatformCollider platform, Color expectedColor)
+    static void AssertOneWayTintablePlatform(PlatformCollider platform, Color expectedColor)
     {
-        Assert.IsNull(platform.GetComponentInChildren<PlatformEffector2D>(true),
-            "양방향 특수 발판에는 PlatformEffector2D가 없어야 합니다.");
+        var effectors = platform.GetComponents<PlatformEffector2D>();
+        Assert.That(effectors, Has.Length.EqualTo(1),
+            "특수 발판에는 중복 없이 하나의 PlatformEffector2D만 있어야 합니다.");
+        var effector = effectors[0];
+        Assert.IsTrue(effector.enabled);
+        Assert.IsTrue(effector.useOneWay,
+            "특수 발판은 아래에서 통과하는 단방향 충돌이어야 합니다.");
+        Assert.That(effector.surfaceArc, Is.EqualTo(165f).Within(0.001f));
+        Assert.IsFalse(effector.useColliderMask);
 
         var edge = platform.GetComponent<EdgeCollider2D>();
         Assert.IsNotNull(edge);
-        Assert.IsFalse(edge.usedByEffector,
-            "양방향 특수 발판의 EdgeCollider2D는 Effector를 사용하면 안 됩니다.");
+        Assert.IsTrue(edge.usedByEffector,
+            "특수 발판의 EdgeCollider2D가 단방향 Effector를 사용해야 합니다.");
 
         var line = platform.Line;
         Assert.IsNotNull(line);

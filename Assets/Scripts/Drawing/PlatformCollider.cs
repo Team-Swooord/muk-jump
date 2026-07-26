@@ -26,9 +26,13 @@ namespace MukJump.Drawing
         public bool IsWindCurrentPlatform => windCurrentPlatform;
         EdgeCollider2D edge;
         readonly HashSet<int> windUsers = new();
+        readonly Gradient fadeGradient = new();
+        readonly GradientColorKey[] fadeColorKeys = new GradientColorKey[2];
+        readonly GradientAlphaKey[] fadeAlphaKeys = new GradientAlphaKey[4];
         Vector2[] originalPoints;
         float age;
         bool removalRequested;
+        int lastColliderCutoff = -1;
 
         /// 스무딩 완료된 월드 좌표 점열로 발판을 생성한다 (런타임 드로잉 경로)
         public static PlatformCollider Spawn(List<Vector2> worldPoints)
@@ -48,7 +52,7 @@ namespace MukJump.Drawing
             return platform;
         }
 
-        /// 일정 고도마다 등장하는 영구 안전 발판. 아래에서도 통과하지 않는 양방향 발판이다.
+        /// 일정 고도마다 등장하는 영구 안전 발판. 아래에서는 통과하는 단방향 발판이다.
         public static PlatformCollider SpawnRestPlatform(List<Vector2> worldPoints)
         {
             var go = new GameObject("RestInkPlatform")
@@ -59,12 +63,13 @@ namespace MukJump.Drawing
             platform.lifetime = 0f;
             platform.restPlatform = true;
             platform.Build(worldPoints);
+            platform.ConfigureOneWay();
             SketchToInkService.Instance?.Stylize(platform);
             platform.ApplySpecialVisual(InkPalette.SafePlatform, 0.82f, 1.08f);
             return platform;
         }
 
-        /// 아래에서도 통과하지 않고, 위에 착지하면 상승 기류를 받는 영구 풍맥 발판.
+        /// 아래에서는 통과하고, 위에 착지하면 상승 기류를 받는 영구 풍맥 발판.
         public static PlatformCollider SpawnWindCurrentPlatform(List<Vector2> worldPoints)
         {
             var go = new GameObject("WindCurrentPlatform")
@@ -75,6 +80,7 @@ namespace MukJump.Drawing
             platform.lifetime = 0f;
             platform.windCurrentPlatform = true;
             platform.Build(worldPoints);
+            platform.ConfigureOneWay();
             SketchToInkService.Instance?.Stylize(platform);
             platform.ApplySpecialVisual(InkPalette.WindPlatform, 0.62f, 0.84f);
             return platform;
@@ -84,6 +90,8 @@ namespace MukJump.Drawing
         {
             Line = GetComponent<LineRenderer>();
             edge = GetComponent<EdgeCollider2D>();
+            fadeColorKeys[0] = new GradientColorKey(InkPalette.Ink, 0f);
+            fadeColorKeys[1] = new GradientColorKey(InkPalette.Ink, 1f);
         }
 
         void Start()
@@ -115,8 +123,26 @@ namespace MukJump.Drawing
             edge = GetComponent<EdgeCollider2D>();
             edge.points = local.ToArray();
             edge.edgeRadius = 0.06f;
+            lastColliderCutoff = -1;
 
             ApplyVisual(local);
+        }
+
+        /// 안전·풍맥 발판만 아래에서 통과하도록 단방향 Effector를 설정한다.
+        /// 풀에서 다시 활성화해도 Effector가 중복 추가되지 않도록 기존 컴포넌트를 재사용한다.
+        void ConfigureOneWay()
+        {
+            edge ??= GetComponent<EdgeCollider2D>();
+            edge.usedByEffector = true;
+
+            var effector = GetComponent<PlatformEffector2D>();
+            if (effector == null)
+                effector = gameObject.AddComponent<PlatformEffector2D>();
+
+            effector.enabled = true;
+            effector.useOneWay = true;
+            effector.surfaceArc = 165f;
+            effector.useColliderMask = false;
         }
 
         /// 같은 캐릭터가 같은 풍맥 발판에서 연속 충돌해 중복 발사되지 않게 한 번만 허용한다.
@@ -137,7 +163,7 @@ namespace MukJump.Drawing
         }
 
         /// 특수 발판은 같은 붓결의 검정 외곽선 위에 효과색 획을 겹쳐 물리 종류를 구분한다.
-        /// 외곽선에는 콜라이더를 붙이지 않아 실제 양방향 충돌과 풍맥 발동 횟수에 영향을 주지 않는다.
+        /// 외곽선에는 콜라이더를 붙이지 않아 실제 단방향 충돌과 풍맥 발동 횟수에 영향을 주지 않는다.
         void ApplySpecialVisual(Color innerColor, float innerWidth, float outlineWidth)
         {
             if (Line == null || Line.positionCount < 2) return;
@@ -215,24 +241,15 @@ namespace MukJump.Drawing
         {
             const float feather = 0.3f; // 투명↔불투명 경계의 부드러운 폭
 
-            var ink = InkPalette.Ink;
             float front = Mathf.Lerp(0f, 1f + feather, t); // t=1이면 끝까지 완전히 투명
 
-            var gradient = new Gradient();
-            gradient.SetKeys(
-                new[]
-                {
-                    new GradientColorKey(ink, 0f),
-                    new GradientColorKey(ink, 1f),
-                },
-                new[]
-                {
-                    new GradientAlphaKey(0f, 0f),
-                    new GradientAlphaKey(0f, Mathf.Clamp01(front - feather)),
-                    new GradientAlphaKey(0.96f, Mathf.Clamp01(front)),
-                    new GradientAlphaKey(0.96f, 1f),
-                });
-            Line.colorGradient = gradient;
+            // 페이드 중 매 프레임 Gradient와 키 배열을 새로 만들지 않고 버퍼를 재사용한다.
+            fadeAlphaKeys[0] = new GradientAlphaKey(0f, 0f);
+            fadeAlphaKeys[1] = new GradientAlphaKey(0f, Mathf.Clamp01(front - feather));
+            fadeAlphaKeys[2] = new GradientAlphaKey(0.96f, Mathf.Clamp01(front));
+            fadeAlphaKeys[3] = new GradientAlphaKey(0.96f, 1f);
+            fadeGradient.SetKeys(fadeColorKeys, fadeAlphaKeys);
+            Line.colorGradient = fadeGradient;
         }
 
         /// 투명해진 구간은 밟을 수 없도록 콜라이더도 같은 진행도로 잘라낸다 (비주얼은 그대로)
@@ -240,7 +257,11 @@ namespace MukJump.Drawing
         {
             if (originalPoints == null || originalPoints.Length < 2) return;
 
-            int cutoff = Mathf.Clamp(Mathf.FloorToInt(t * (originalPoints.Length - 1)), 0, originalPoints.Length - 2);
+            int cutoff = Mathf.Clamp(Mathf.FloorToInt(t * (originalPoints.Length - 1)), 0,
+                originalPoints.Length - 2);
+            if (cutoff == lastColliderCutoff) return;
+            lastColliderCutoff = cutoff;
+
             var remainingPoints = new Vector2[originalPoints.Length - cutoff];
             for (int i = 0; i < remainingPoints.Length; i++)
                 remainingPoints[i] = originalPoints[cutoff + i];
