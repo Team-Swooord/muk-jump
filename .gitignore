@@ -72,4 +72,12 @@ crashlytics-build.properties
 # AI API 키 등 민감정보
 .env
 *.secrets.json
+.claude/settings.local.json
+
+# Android/iOS signing keys and private certificates
+*.keystore
+*.jks
+*.p12
+*.pem
+*.key
 .DS_Store
