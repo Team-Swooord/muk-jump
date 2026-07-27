@@ -39,6 +39,8 @@ namespace MukJump.EditorTools
         const string ObstaclePath = "Assets/Art/Character/Obstacles/anermy_01.png";
         const string DragonObstaclePath =
             "Assets/Resources/MukJump/Obstacles/child_ink_dragon.png";
+        const string DragonObstacleSheetPath =
+            "Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame.png";
         const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
         const string LobbyLogoPath = "Assets/Art/UI/muk_logo.png";
         const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";
@@ -98,7 +100,7 @@ namespace MukJump.EditorTools
             ConfigureCharacterSheet();
             ConfigureDeathSprites();
             ConfigureObstacleSprite();
-            ConfigureDragonObstacleSprite();
+            ConfigureDragonObstacleSprites();
             ConfigureFallingInkRockSprite();
             ConfigureItemSprites();
             ConfigureInkDropJumpVfxAssets();
@@ -115,6 +117,13 @@ namespace MukJump.EditorTools
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
 
             Debug.Log("[MukJump] Main 씬 구성 완료 — Game 뷰를 9:16으로 두고 Play 하세요.");
+        }
+
+        [MenuItem("MukJump/Configure Dragon Obstacle Sprites")]
+        public static void ConfigureDragonObstacleSprites()
+        {
+            ConfigureDragonObstacleSprite();
+            AssetDatabase.SaveAssets();
         }
 
         /// 테스트가 실제 Main 씬, Build Settings, Player Settings, import 설정을 변경하지 않고
@@ -376,8 +385,16 @@ namespace MukJump.EditorTools
             var obstacleSo = new SerializedObject(obstacleSpawner);
             obstacleSo.FindProperty("obstacleSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(ObstaclePath);
+            var dragonFrames = LoadDragonObstacleFrames();
             obstacleSo.FindProperty("dragonSprite").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<Sprite>(DragonObstaclePath);
+                dragonFrames.Length > 0
+                    ? dragonFrames[0]
+                    : AssetDatabase.LoadAssetAtPath<Sprite>(DragonObstaclePath);
+            var dragonFrameProperty = obstacleSo.FindProperty("dragonFrames");
+            dragonFrameProperty.arraySize = dragonFrames.Length;
+            for (int i = 0; i < dragonFrames.Length; i++)
+                dragonFrameProperty.GetArrayElementAtIndex(i).objectReferenceValue =
+                    dragonFrames[i];
             obstacleSo.FindProperty("firstSpawnHeight").floatValue = 30f;
             obstacleSo.ApplyModifiedPropertiesWithoutUndo();
 
@@ -872,11 +889,91 @@ namespace MukJump.EditorTools
         {
             ConfigureSprite(DragonObstaclePath, pixelsPerUnit: 700f);
             var importer = (TextureImporter)AssetImporter.GetAtPath(DragonObstaclePath);
-            if (importer == null) return;
+            if (importer != null)
+            {
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.maxTextureSize = 2048;
+                importer.SaveAndReimport();
+            }
+
+            ConfigureDragonObstacleSheet();
+        }
+
+        static void ConfigureDragonObstacleSheet()
+        {
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                DragonObstacleSheetPath);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(
+                DragonObstacleSheetPath);
+            if (texture == null || importer == null)
+            {
+                Debug.LogWarning(
+                    $"[MukJump] 어린 용 애니메이션 시트를 찾을 수 없음: {DragonObstacleSheetPath}");
+                return;
+            }
+
+            const int columns = 2;
+            const int rows = 2;
+            importer.GetSourceTextureWidthAndHeight(
+                out int sourceWidth, out int sourceHeight);
+            if (sourceWidth % columns != 0 || sourceHeight % rows != 0)
+            {
+                Debug.LogError(
+                    $"[MukJump] 어린 용 시트 크기는 2×2로 나누어져야 함: " +
+                    $"{sourceWidth}×{sourceHeight}");
+                return;
+            }
+            int frameWidth = sourceWidth / columns;
+            int frameHeight = sourceHeight / rows;
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Multiple;
+            importer.spritePixelsPerUnit = 700f;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.filterMode = FilterMode.Bilinear;
             importer.maxTextureSize = 2048;
+            var importerSettings = new TextureImporterSettings();
+            importer.ReadTextureSettings(importerSettings);
+            importerSettings.spriteMeshType = SpriteMeshType.FullRect;
+            importer.SetTextureSettings(importerSettings);
+
+            var metas = new SpriteMetaData[columns * rows];
+            for (int i = 0; i < metas.Length; i++)
+            {
+                int column = i % columns;
+                int row = i / columns;
+                metas[i] = new SpriteMetaData
+                {
+                    name = $"child_ink_dragon_frame_{i:00}",
+                    rect = new Rect(
+                        column * frameWidth,
+                        (rows - 1 - row) * frameHeight,
+                        frameWidth,
+                        frameHeight),
+                    alignment = (int)SpriteAlignment.Center,
+                    pivot = new Vector2(0.5f, 0.5f),
+                };
+            }
+#pragma warning disable CS0618
+            importer.spritesheet = metas;
+#pragma warning restore CS0618
             importer.SaveAndReimport();
+        }
+
+        static Sprite[] LoadDragonObstacleFrames()
+        {
+            var allAssets = AssetDatabase.LoadAllAssetsAtPath(
+                DragonObstacleSheetPath);
+            var frames = new List<Sprite>(4);
+            for (int i = 0; i < allAssets.Length; i++)
+                if (allAssets[i] is Sprite sprite)
+                    frames.Add(sprite);
+            frames.Sort((left, right) =>
+                string.CompareOrdinal(left.name, right.name));
+            return frames.ToArray();
         }
 
         static void ConfigureFallingInkRockSprite()

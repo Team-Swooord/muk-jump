@@ -91,7 +91,7 @@ public class FallingInkRockTests
     }
 
     [Test]
-    public void MovingObstacleUsesKinematicBodyAndFixedStep()
+    public void MovingObstacleUsesKinematicBodyFixedStepAndVisualUpdate()
     {
         var go = Track(new GameObject("TestMovingObstacle"));
         var obstacle = go.AddComponent<Obstacle>();
@@ -105,7 +105,7 @@ public class FallingInkRockTests
             Is.Not.EqualTo(0));
         Assert.IsNotNull(typeof(Obstacle).GetMethod(
             "FixedUpdate", BindingFlags.Instance | BindingFlags.NonPublic));
-        Assert.IsNull(typeof(Obstacle).GetMethod(
+        Assert.IsNotNull(typeof(Obstacle).GetMethod(
             "Update", BindingFlags.Instance | BindingFlags.NonPublic));
     }
 
@@ -289,6 +289,16 @@ public class FallingInkRockTests
         var movingSerialized = new SerializedObject(movingSpawner);
         Assert.IsNotNull(movingSerialized.FindProperty("obstacleSprite").objectReferenceValue);
         Assert.IsNotNull(movingSerialized.FindProperty("dragonSprite").objectReferenceValue);
+        var dragonFrames = movingSerialized.FindProperty("dragonFrames");
+        Assert.AreEqual(4, dragonFrames.arraySize);
+        for (int i = 0; i < dragonFrames.arraySize; i++)
+        {
+            var frame = dragonFrames.GetArrayElementAtIndex(i).objectReferenceValue as Sprite;
+            Assert.IsNotNull(frame);
+            Assert.AreEqual($"child_ink_dragon_frame_{i:00}", frame.name);
+        }
+        Assert.AreSame(dragonFrames.GetArrayElementAtIndex(0).objectReferenceValue,
+            movingSerialized.FindProperty("dragonSprite").objectReferenceValue);
         Assert.AreEqual(30f, movingSerialized.FindProperty("firstSpawnHeight").floatValue);
 
         var itemSpawner = FindFirstInScene<ItemSpawner>(builderTestScene);
@@ -403,6 +413,35 @@ public class FallingInkRockTests
         Assert.AreEqual(SpriteImportMode.Single, dragonImporter.spriteImportMode);
         Assert.AreEqual(700f, dragonImporter.spritePixelsPerUnit);
         Assert.AreEqual(TextureWrapMode.Clamp, dragonImporter.wrapMode);
+
+        const string dragonSheetPath =
+            "Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame.png";
+        var dragonSheetImporter =
+            (TextureImporter)AssetImporter.GetAtPath(dragonSheetPath);
+        Assert.IsNotNull(dragonSheetImporter);
+        Assert.AreEqual(TextureImporterType.Sprite, dragonSheetImporter.textureType);
+        Assert.AreEqual(SpriteImportMode.Multiple, dragonSheetImporter.spriteImportMode);
+        Assert.AreEqual(700f, dragonSheetImporter.spritePixelsPerUnit);
+        Assert.AreEqual(TextureWrapMode.Clamp, dragonSheetImporter.wrapMode);
+
+        var dragonSheetAssets = AssetDatabase.LoadAllAssetsAtPath(dragonSheetPath);
+        var importedFrames = new List<Sprite>(4);
+        for (int i = 0; i < dragonSheetAssets.Length; i++)
+            if (dragonSheetAssets[i] is Sprite frame)
+                importedFrames.Add(frame);
+        importedFrames.Sort((left, right) =>
+            string.CompareOrdinal(left.name, right.name));
+        Assert.AreEqual(4, importedFrames.Count);
+        for (int i = 0; i < importedFrames.Count; i++)
+        {
+            Assert.AreEqual($"child_ink_dragon_frame_{i:00}", importedFrames[i].name);
+            Assert.That(importedFrames[i].rect.width, Is.EqualTo(768f).Within(0.01f));
+            Assert.That(importedFrames[i].rect.height, Is.EqualTo(512f).Within(0.01f));
+            Assert.That(importedFrames[i].rect.x,
+                Is.EqualTo((i % 2) * 768f).Within(0.01f));
+            Assert.That(importedFrames[i].rect.y,
+                Is.EqualTo((1 - i / 2) * 512f).Within(0.01f));
+        }
     }
 
     FallingInkRock CreateRock(float warningDuration)

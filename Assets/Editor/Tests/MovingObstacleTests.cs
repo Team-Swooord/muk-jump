@@ -67,15 +67,34 @@ public sealed class MovingObstacleTests
     }
 
     [Test]
+    public void RuntimeFallbackLoadsFourSortedDragonFrames()
+    {
+        var spawnerObject = Track(new GameObject("ObstacleSpawner"));
+        var spawner = spawnerObject.AddComponent<ObstacleSpawner>();
+        SetField(spawner, "dragonSprite", null);
+        SetField(spawner, "dragonFrames", null);
+
+        Invoke(spawner, "LoadDragonVisuals");
+
+        var frames = (Sprite[])GetField(spawner, "dragonFrames");
+        Assert.IsNotNull(frames);
+        Assert.AreEqual(4, frames.Length);
+        for (int i = 0; i < frames.Length; i++)
+            Assert.AreEqual($"child_ink_dragon_frame_{i:00}", frames[i].name);
+        Assert.AreSame(frames[0], GetField(spawner, "dragonSprite"));
+    }
+
+    [Test]
     public void DragonSpawnStaysInsideHorizontalBoundsAndUsesFairCapsule()
     {
         GameplayRandom.ResetSession(20260727);
         var spawnerObject = Track(new GameObject("ObstacleSpawner"));
         var spawner = spawnerObject.AddComponent<ObstacleSpawner>();
         var spike = CreateSprite(100, 100);
-        var dragon = CreateSprite(300, 100);
+        var dragonFrames = CreateDragonFrames(300, 100);
         SetField(spawner, "obstacleSprite", spike);
-        SetField(spawner, "dragonSprite", dragon);
+        SetField(spawner, "dragonSprite", dragonFrames[0]);
+        SetField(spawner, "dragonFrames", dragonFrames);
         SetField(spawner, "dragonUnlockHeight", 60f);
         SetField(spawner, "firstDragonPending", true);
 
@@ -86,6 +105,7 @@ public sealed class MovingObstacleTests
         var obstacle = (Obstacle)active[0];
         cleanup.Add(obstacle.gameObject);
         Assert.AreEqual(ObstacleKind.ChildDragon, obstacle.Kind);
+        Assert.AreEqual(4, obstacle.AnimationFrameCount);
 
         float halfWorldWidth = 1.6f;
         float amplitude = (float)GetField(obstacle, "amplitude");
@@ -102,6 +122,46 @@ public sealed class MovingObstacleTests
         Assert.That(worldSize.y, Is.EqualTo(0.523f).Within(0.02f));
         Assert.IsFalse(obstacle.GetComponent<CircleCollider2D>().enabled);
         Assert.IsTrue(capsule.enabled);
+    }
+
+    [Test]
+    public void DragonAnimationLoopsKeepsFacingAndClearsAcrossPoolReuse()
+    {
+        var go = Track(new GameObject("AnimatedDragon"));
+        var obstacle = go.AddComponent<Obstacle>();
+        Invoke(obstacle, "Awake");
+        var renderer = go.GetComponent<SpriteRenderer>();
+        var frames = CreateDragonFrames(300, 100);
+
+        obstacle.OnPoolAcquire();
+        obstacle.ConfigureSpriteAnimation(frames, 0.2f);
+        obstacle.Configure(1f, 0.6f, 0f, ObstacleKind.ChildDragon);
+        Assert.AreSame(frames[0], renderer.sprite);
+        Assert.AreEqual(0, obstacle.CurrentAnimationFrameIndex);
+        Assert.IsTrue(renderer.flipX, "오른쪽 이동 중에는 왼쪽 얼굴 원본을 뒤집어야 합니다.");
+
+        Invoke(obstacle, "AdvanceSpriteAnimation", 0.21f);
+        Assert.AreSame(frames[1], renderer.sprite);
+        Assert.AreEqual(1, obstacle.CurrentAnimationFrameIndex);
+        Assert.IsTrue(renderer.flipX, "프레임 교체가 이동 방향 반전을 지우면 안 됩니다.");
+
+        Invoke(obstacle, "AdvanceSpriteAnimation", 0.6f);
+        Assert.AreSame(frames[0], renderer.sprite);
+        Assert.AreEqual(0, obstacle.CurrentAnimationFrameIndex);
+
+        obstacle.OnPoolRelease();
+        Assert.AreEqual(0, obstacle.AnimationFrameCount);
+        Assert.AreEqual(0, obstacle.CurrentAnimationFrameIndex);
+
+        obstacle.OnPoolAcquire();
+        renderer.sprite = CreateSprite(100, 100);
+        obstacle.ConfigureSpriteAnimation(null, 0.2f);
+        obstacle.Configure(1f, 0.6f, Mathf.PI, ObstacleKind.Spike);
+        Invoke(obstacle, "AdvanceSpriteAnimation", 1f);
+        Assert.AreEqual(0, obstacle.AnimationFrameCount);
+        Assert.AreEqual(ObstacleKind.Spike, obstacle.Kind);
+        Assert.IsTrue(go.GetComponent<CircleCollider2D>().enabled);
+        Assert.IsFalse(go.GetComponent<CapsuleCollider2D>().enabled);
     }
 
     [Test]
@@ -133,6 +193,17 @@ public sealed class MovingObstacleTests
             new Vector2(0.5f, 0.5f), 100f);
         cleanup.Add(sprite);
         return sprite;
+    }
+
+    Sprite[] CreateDragonFrames(int width, int height)
+    {
+        var frames = new Sprite[4];
+        for (int i = 0; i < frames.Length; i++)
+        {
+            frames[i] = CreateSprite(width, height);
+            frames[i].name = $"child_ink_dragon_frame_{i:00}";
+        }
+        return frames;
     }
 
     T Track<T>(T value) where T : Object

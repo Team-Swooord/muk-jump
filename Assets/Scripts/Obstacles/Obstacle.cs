@@ -26,8 +26,15 @@ namespace MukJump.Obstacles
         CapsuleCollider2D capsuleTrigger;
         Rigidbody2D body;
         ObstacleVisibilityView visibility;
+        Sprite[] animationFrames;
+        float animationFrameSeconds;
+        float animationElapsed;
+        int animationFrameIndex;
 
         public ObstacleKind Kind { get; private set; }
+        public int AnimationFrameCount =>
+            animationFrames != null ? animationFrames.Length : 0;
+        public int CurrentAnimationFrameIndex => animationFrameIndex;
 
         void Awake()
         {
@@ -50,6 +57,42 @@ namespace MukJump.Obstacles
             capsuleTrigger.enabled = kind == ObstacleKind.ChildDragon;
             spriteRenderer.flipX = kind == ObstacleKind.ChildDragon &&
                                    Mathf.Cos(phase) > 0f;
+        }
+
+        /// 풀 오브젝트 자체를 교체하지 않고 SpriteRenderer 프레임만 순환한다.
+        public void ConfigureSpriteAnimation(Sprite[] frames, float frameSeconds)
+        {
+            EnsureComponents();
+            animationFrames = frames != null && frames.Length > 1
+                ? frames
+                : null;
+            animationFrameSeconds = Mathf.Max(0.04f, frameSeconds);
+            animationElapsed = 0f;
+            animationFrameIndex = 0;
+            if (frames != null && frames.Length > 0 && frames[0] != null)
+                spriteRenderer.sprite = frames[0];
+        }
+
+        void Update()
+        {
+            if (animationFrames == null || animationFrames.Length <= 1) return;
+            if (GameManager.Instance != null &&
+                !GameManager.Instance.IsGameplayTicking) return;
+            AdvanceSpriteAnimation(Time.deltaTime);
+        }
+
+        void AdvanceSpriteAnimation(float deltaTime)
+        {
+            if (animationFrames == null || animationFrames.Length <= 1) return;
+            animationElapsed += Mathf.Max(0f, deltaTime);
+            int steps = Mathf.FloorToInt(animationElapsed / animationFrameSeconds);
+            if (steps <= 0) return;
+
+            animationElapsed -= steps * animationFrameSeconds;
+            animationFrameIndex =
+                (animationFrameIndex + steps) % animationFrames.Length;
+            var next = animationFrames[animationFrameIndex];
+            if (next != null) spriteRenderer.sprite = next;
         }
 
         void FixedUpdate()
@@ -89,6 +132,7 @@ namespace MukJump.Obstacles
             spriteRenderer.enabled = true;
             spriteRenderer.color = Color.white;
             spriteRenderer.flipX = false;
+            ResetSpriteAnimation();
             Kind = ObstacleKind.Spike;
             // Configure가 종류별 판정을 선택하기 전에는 ghost trigger가 없어야 한다.
             circleTrigger.enabled = false;
@@ -109,8 +153,17 @@ namespace MukJump.Obstacles
             spriteRenderer.color = Color.white;
             spriteRenderer.enabled = false;
             spriteRenderer.flipX = false;
+            ResetSpriteAnimation();
             visibility?.DisableLegacyDecorations();
             transform.localRotation = Quaternion.identity;
+        }
+
+        void ResetSpriteAnimation()
+        {
+            animationFrames = null;
+            animationFrameSeconds = 0f;
+            animationElapsed = 0f;
+            animationFrameIndex = 0;
         }
 
         void EnsureComponents()

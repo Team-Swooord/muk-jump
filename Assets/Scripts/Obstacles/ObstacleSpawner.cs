@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using MukJump.Core;
@@ -12,6 +13,8 @@ namespace MukJump.Obstacles
         [SerializeField] Sprite obstacleSprite;
         [Tooltip("초등학생이 그린 듯한 동양 용 장애물 스프라이트")]
         [SerializeField] Sprite dragonSprite;
+        [Tooltip("2×2 시트에서 분리한 어린 용 루프 프레임")]
+        [SerializeField] Sprite[] dragonFrames;
         [Tooltip("게임 시작점 기준 첫 이동 장애물 고도")]
         [SerializeField] float firstSpawnHeight = 30f;
         [SerializeField] Vector2 verticalSpacing = new(8f, 12f);
@@ -30,6 +33,8 @@ namespace MukJump.Obstacles
         [Min(30f), SerializeField] float dragonUnlockHeight = 60f;
         [Range(0f, 1f), SerializeField] float dragonChance = 0.28f;
         [Min(0.1f), SerializeField] float dragonWorldWidth = 3.2f;
+        [Min(0.1f), SerializeField] float dragonColliderWorldHeight = 0.52f;
+        [Min(0.04f), SerializeField] float dragonFrameSeconds = 0.2f;
         [SerializeField] Vector2 dragonMoveAmplitudeRange = new(1f, 1.6f);
         [SerializeField] Vector2 dragonMoveSpeedRange = new(0.45f, 0.7f);
         const int PoolCapacity = 10;
@@ -53,9 +58,7 @@ namespace MukJump.Obstacles
             // 구형 Main 씬의 20m 첫 장애물 값을 안전 구간 규칙으로 승격한다.
             firstSpawnHeight = 30f;
             dragonUnlockHeight = Mathf.Max(60f, dragonUnlockHeight);
-            if (dragonSprite == null)
-                dragonSprite = Resources.Load<Sprite>(
-                    "MukJump/Obstacles/child_ink_dragon");
+            LoadDragonVisuals();
             EnsurePool();
             TrySubscribeToGameManager();
             if (obstacleSprite == null)
@@ -156,9 +159,14 @@ namespace MukJump.Obstacles
             capsule.offset = Vector2.zero;
             capsule.size = new Vector2(
                 selectedSprite.bounds.size.x * 0.8f,
-                selectedSprite.bounds.size.y * 0.49f);
+                useDragon
+                    ? dragonColliderWorldHeight / Mathf.Max(0.0001f, scale)
+                    : selectedSprite.bounds.size.y * 0.49f);
 
             go.GetComponent<ObstacleVisibilityView>().Configure();
+            obstacle.ConfigureSpriteAnimation(
+                useDragon ? dragonFrames : null,
+                dragonFrameSeconds);
             float minSpeed;
             float maxSpeed;
             if (useDragon)
@@ -177,6 +185,29 @@ namespace MukJump.Obstacles
                 GameplayRandom.Range(GameplayRandomStream.Obstacles, 0f, Mathf.PI * 2f),
                 useDragon ? ObstacleKind.ChildDragon : ObstacleKind.Spike);
             active.Add(obstacle);
+        }
+
+        void LoadDragonVisuals()
+        {
+            if (dragonFrames == null || dragonFrames.Length == 0)
+            {
+                dragonFrames = Resources.LoadAll<Sprite>(
+                    "MukJump/Obstacles/child_ink_dragon_4frame");
+                if (dragonFrames != null && dragonFrames.Length > 1)
+                    Array.Sort(dragonFrames,
+                        (left, right) => string.CompareOrdinal(left.name, right.name));
+            }
+
+            if (dragonFrames != null && dragonFrames.Length > 0 &&
+                dragonFrames[0] != null)
+            {
+                dragonSprite = dragonFrames[0];
+                return;
+            }
+
+            if (dragonSprite == null)
+                dragonSprite = Resources.Load<Sprite>(
+                    "MukJump/Obstacles/child_ink_dragon");
         }
 
         bool ShouldSpawnDragon(float courseHeight)
@@ -328,6 +359,8 @@ namespace MukJump.Obstacles
             dragonUnlockHeight = Mathf.Max(firstSpawnHeight, dragonUnlockHeight);
             dragonChance = Mathf.Clamp01(dragonChance);
             dragonWorldWidth = Mathf.Max(0.1f, dragonWorldWidth);
+            dragonColliderWorldHeight = Mathf.Max(0.1f, dragonColliderWorldHeight);
+            dragonFrameSeconds = Mathf.Max(0.04f, dragonFrameSeconds);
         }
     }
 }
