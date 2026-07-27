@@ -1,0 +1,147 @@
+name: Weekday main merge
+
+on:
+  schedule:
+    # GitHub cron은 UTC 기준이다. 12:00 UTC = 21:00 Asia/Seoul.
+    - cron: "0 12 * * 1-5"
+  workflow_dispatch:
+
+concurrency:
+  group: weekday-ui-polish-to-main
+  cancel-in-progress: false
+
+jobs:
+  merge-ui-polish:
+    name: Merge feature/ui-polish into main
+    if: >-
+      github.repository == 'Team-Swooord/muk-jump' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BASE_BRANCH: main
+      TARGET_BRANCH: feature/ui-polish
+
+    steps:
+      - name: Inspect and preflight the remote branches
+        id: inspect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! base_sha="$(
+            gh api "repos/${GH_REPO}/git/ref/heads/${BASE_BRANCH}" \
+              --jq '.object.sha'
+          )"; then
+            echo "Base branch lookup failed." >&2
+            exit 1
+          fi
+
+          if ! target_sha="$(
+            gh api "repos/${GH_REPO}/git/ref/heads/${TARGET_BRANCH}" \
+              --jq '.object.sha' 2>/dev/null
+          )"; then
+            echo "ready=false" >> "${GITHUB_OUTPUT}"
+            echo "reason=target branch does not exist" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          comparison="$(
+            gh api \
+              "repos/${GH_REPO}/compare/${base_sha}...${target_sha}"
+          )"
+          ahead_count="$(jq -r '.ahead_by' <<< "${comparison}")"
+
+          if [ "${ahead_count}" -eq 0 ]; then
+            echo "ready=false" >> "${GITHUB_OUTPUT}"
+            echo "reason=no new commits" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          merge_check="${RUNNER_TEMP}/weekday-main-merge"
+          git init --quiet "${merge_check}"
+          git -C "${merge_check}" remote add origin \
+            "https://github.com/${GH_REPO}.git"
+          git -C "${merge_check}" fetch --quiet --no-tags --filter=blob:none \
+            origin \
+            "refs/heads/${BASE_BRANCH}:refs/remotes/origin/base" \
+            "refs/heads/${TARGET_BRANCH}:refs/remotes/origin/target"
+
+          fetched_base="$(
+            git -C "${merge_check}" rev-parse refs/remotes/origin/base
+          )"
+          fetched_target="$(
+            git -C "${merge_check}" rev-parse refs/remotes/origin/target
+          )"
+
+          if ! git -C "${merge_check}" merge-tree --write-tree \
+            "${fetched_base}" "${fetched_target}" >/dev/null; then
+            echo "ready=false" >> "${GITHUB_OUTPUT}"
+            echo "reason=merge conflict detected" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          latest_base="$(
+            gh api "repos/${GH_REPO}/git/ref/heads/${BASE_BRANCH}" \
+              --jq '.object.sha'
+          )"
+          latest_target="$(
+            gh api "repos/${GH_REPO}/git/ref/heads/${TARGET_BRANCH}" \
+              --jq '.object.sha'
+          )"
+
+          if [ "${latest_base}" != "${fetched_base}" ] ||
+             [ "${latest_target}" != "${fetched_target}" ]; then
+            echo "ready=false" >> "${GITHUB_OUTPUT}"
+            echo "reason=branch changed during inspection" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "ready=true" >> "${GITHUB_OUTPUT}"
+          echo "reason=${ahead_count} new commit(s), conflict-free" \
+            >> "${GITHUB_OUTPUT}"
+          echo "head_sha=${fetched_target}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create a normal merge commit
+        id: merge
+        if: steps.inspect.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! merge_json="$(
+            gh api --method POST "repos/${GH_REPO}/merges" \
+              -f base="${BASE_BRANCH}" \
+              -f head="${{ steps.inspect.outputs.head_sha }}" \
+              -f commit_message="chore: 평일 UI 작업 자동 병합"
+          )"; then
+            echo "Merge API rejected the current branch state." >&2
+            exit 1
+          fi
+
+          merge_sha="$(jq -r '.sha // empty' <<< "${merge_json}")"
+          if [ -z "${merge_sha}" ]; then
+            echo "GitHub did not return a merge commit." >&2
+            exit 1
+          fi
+
+          echo "merged=true" >> "${GITHUB_OUTPUT}"
+          echo "reason=created merge commit ${merge_sha}" \
+            >> "${GITHUB_OUTPUT}"
+
+      - name: Write run summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Weekday main merge"
+            echo
+            echo "- Source: \`${TARGET_BRANCH}\`"
+            echo "- Target: \`${BASE_BRANCH}\`"
+            echo "- Inspection: ${{ steps.inspect.outputs.reason }}"
+            echo "- Merge: ${{ steps.merge.outputs.reason || 'not attempted' }}"
+          } >> "${GITHUB_STEP_SUMMARY}"

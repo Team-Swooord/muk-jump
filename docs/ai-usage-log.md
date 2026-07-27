@@ -1181,3 +1181,22 @@
   조릿대를 유지했다. 격리된 Unity 6000.3.10f1 프로젝트에서 실제 Main 씬 생성과
   전체 EditMode 테스트 160/160 통과, C# 컴파일 오류 0건을 확인했고
   로고·기록 칸·글자 배치를 수치 단위 회귀 테스트로 고정했다.
+
+### 2026-07-28 — 평일 21시 UI 브랜치 자동 병합
+
+- 사용 도구: OpenAI Codex, GitHub Actions, GitHub CLI
+- 목적: 평일 오후 9시마다 `feature/ui-polish`의 완료된 원격 커밋을 `main`에
+  커밋 기록이 보존되는 일반 Merge commit 방식으로 자동 병합한다.
+- 주요 프롬프트/지시: “앞으로 평일 오후 9시마다 자동으로 메인이랑 머지해.”
+  로컬 미커밋 작업은 건드리지 않고, 새 커밋이 없거나 병합 충돌·Draft·비정상 PR
+  상태가 감지되면 강제로 병합하지 않고 해당 실행을 건너뛴다.
+- 결과물: `.github/workflows/weekday-main-merge.yml`
+- 구현 메모: GitHub cron의 `12:00 UTC`를 한국 시간 `21:00 KST`로 사용한다.
+  조직 정책이 Actions의 PR 생성을 금지하므로, 별도 임시 Git 저장소에서 두 원격
+  커밋을 체크아웃 없이 받아 `git merge-tree`로 충돌을 사전 검사하고 GitHub Branch
+  Merge API로 일반 Merge commit을 만든다. 병합 직전 두 브랜치 SHA를 재검증한다.
+  소스 브랜치는 다음 작업을 계속 받을 수 있도록 자동 삭제하지 않는다.
+- 사람의 수정/검토 내용: 자동화 대상을 `feature/ui-polish → main`으로 한정하고,
+  원격에 이미 커밋된 변경만 대상으로 삼았다. 로컬 워킹트리 커밋·강제 푸시·
+  Squash/Rebase merge는 자동화에 포함하지 않았다. 저장소·조직의 Actions 권한
+  설정은 변경하지 않고, 워크플로 작업에 필요한 `contents: write`만 선언한다.
