@@ -40,6 +40,7 @@
 |---|---|---|
 | `MukJump_InkDropJump_VFX_Pack` 텍스처·효과음·연출 사양 | OpenAI Codex | 프로젝트를 위해 직접 생성한 AI 산출물이며 외부 에셋이 아님 |
 | 고도 맵 배경 7종 (`Assets/Art/Background/Maps/`, `Assets/Resources/MukJump/Background/Endless/`) | OpenAI ImageGen + Codex | 프로젝트 전용으로 생성·검수한 자체 수채화 배경이며 외부 에셋이 아님 |
+| `child_ink_dragon.png` 어린 동양 용 장애물 | OpenAI ImageGen + Codex | 프로젝트 전용으로 생성·투명화·크기 최적화한 자체 게임 스프라이트이며 외부 에셋이 아님 |
 
 ---
 
@@ -1033,3 +1034,32 @@
   검토했다. 폰트 원본 재배포·게임 임베딩, Pixabay raw MP3 재배포, Android 서명
   실기기 테스트와 필수 PDF/영상은 코드로 확정할 수 없어 제출 전 수동 차단 항목으로
   남겼다.
+
+### 2026-07-27 — 먹떼 밸런스와 어린 동양 용 장애물
+
+- 사용 도구: OpenAI Codex 멀티 에이전트, OpenAI ImageGen, Unity Test Framework
+- 목적: 20m 부근부터 급격히 어려워지던 초반 난도를 낮추고, 분신이 많이 모이는
+  플레이 정체성과 어린이가 그린 듯한 좌우 이동 동양 용 장애물을 추가
+- 주요 프롬프트/지시: 먹 회복을 빠르게 하고 발판은 빨리 사라지게 하며, 공격 장애물은
+  30m 이후부터 등장하고 그 전에 분신 하나를 보장한다. 분신은 매우 자주 나오게
+  기획하되 모바일 성능을 보호한다. 용은 “8세 어린이가 굵고 삐뚤한 먹붓·크레용으로
+  그린 귀엽고 서툰 긴 동양 용, 왼쪽의 단순한 얼굴·작은 뿔·수염·구불한 몸·짧은 네 다리,
+  날개·서양 용·비늘 디테일·3D·그림자·문자 없음, 단색 `#00FF00` 배경”으로 생성
+- 결과물: `Assets/Resources/MukJump/Obstacles/child_ink_dragon.png`,
+  `GameManager.cs`, `CameraFollow.cs`, `StrokeCapture.cs`, `PlatformCollider.cs`,
+  `ItemSpawner.cs`, `ItemEffectView.cs`, `PlayerController.cs`,
+  `Obstacle.cs`, `ObstacleSpawner.cs`, `FallingInkRockSpawner.cs`,
+  `GameFeedbackController.cs`, `MukJumpSceneBuilder.cs`와 관련 회귀 테스트
+- 구현 메모: 생성본의 크로마 배경을 알파로 제거하고 1536×514 RGBA로 축소했다.
+  12m 첫 먹분신을 보장하고 이후 분신 가중치를 35→50%, 생존 상한을 24로 정했다.
+  획득 한 번에 고도별 +3/+4/+5를 0.08초 간격으로 생성한다. 먹 회복은 초당 2.6,
+  발판은 5초+0.9초 페이드다. 이동 장애물과 낙묵석은 30m부터,
+  어린 용은 60m 첫 슬롯 보장·이후 28%·화면당 한 마리다. 용은 기존 장애물 풀을
+  공유하며 수평 Capsule 판정과 붉은 한지 리맵 셰이더를 쓴다.
+- 사람의 수정/검토 내용: 생성 PNG의 알파·가로 실루엣·모바일 축소 가독성을 직접
+  확인했다. 긴 용의 캡슐을 실제 몸통 폭 80%·높이 49%로 줄여 머리와 꼬리 끝은
+  비판정으로 남겼다. 대량 분신은 카메라·위험 해금의 하위 중앙값 공유, 빈 화면 후보
+  배치, 단조 증가하는 구간 진행, 모든 분신을 피하는 낙묵석 후보, 분신 방어막 입자
+  축소, 실제 Collider2D 외곽으로 물리 비중첩을 보장하는 드로잉 안전 여백과 마지막 목숨을 보존하는
+  0.14초 동시 사망 피드백 병합으로 보강했다. Unity 6000.3.10f1 전체 EditMode 회귀
+  테스트 126/126과 C# 컴파일 오류 0건을 확인했다.
