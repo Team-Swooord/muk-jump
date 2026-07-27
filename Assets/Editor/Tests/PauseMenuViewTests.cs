@@ -64,27 +64,41 @@ public class PauseMenuViewTests
         Assert.IsNotNull(overlayGroup);
         Assert.IsFalse(overlayGroup.blocksRaycasts);
 
-        var panel = overlay.Find("SafeAreaRoot/PauseScroll");
+        var panel = overlay.Find("SafeAreaRoot/PauseScroll") as RectTransform;
         Assert.IsNotNull(panel);
         var title = panel.Find("Title")?.GetComponent<Text>();
         var resume = panel.Find("ResumeButton")?.GetComponent<Button>();
         var lobby = panel.Find("LobbyButton")?.GetComponent<Button>();
+        var resumeRect = resume?.transform as RectTransform;
+        var lobbyRect = lobby?.transform as RectTransform;
         Assert.IsNotNull(title);
         Assert.IsNotNull(resume);
         Assert.IsNotNull(lobby);
-        Assert.GreaterOrEqual(title.fontSize, 60);
+        Assert.GreaterOrEqual(title.fontSize, 54);
         Assert.GreaterOrEqual(
-            resume.transform.Find("Label").GetComponent<Text>().fontSize, 36);
+            resume.transform.Find("Label").GetComponent<Text>().fontSize, 38);
         Assert.GreaterOrEqual(
-            lobby.transform.Find("Label").GetComponent<Text>().fontSize, 36);
+            lobby.transform.Find("Label").GetComponent<Text>().fontSize, 32);
         Assert.IsTrue(resume.GetComponent<Graphic>().raycastTarget);
         Assert.IsTrue(resume.targetGraphic.raycastTarget);
         Assert.IsTrue(lobby.GetComponent<Graphic>().raycastTarget);
         Assert.IsTrue(lobby.targetGraphic.raycastTarget);
+        Assert.That(panel.anchoredPosition, Is.EqualTo(Vector2.zero));
+        Assert.Greater(title.rectTransform.anchoredPosition.y,
+            resumeRect.anchoredPosition.y);
+        Assert.Greater(resumeRect.anchoredPosition.y, lobbyRect.anchoredPosition.y);
+        Assert.That(resumeRect.sizeDelta, Is.EqualTo(lobbyRect.sizeDelta));
+        Assert.GreaterOrEqual(resumeRect.sizeDelta.y, 96f);
+        Assert.IsNotNull(panel.Find("ScrollBody/HanjiPaper"));
+        Assert.IsNotNull(panel.Find("TopRoll"));
+        Assert.IsNotNull(panel.Find("BottomRoll"));
+        Assert.IsNull(panel.Find("PauseSeal"));
+        Assert.IsNull(panel.Find("Subtitle"));
+        Assert.IsNull(panel.Find("SessionHint"));
     }
 
     [Test]
-    public void BuildsTallReadableGameOverScrollOnlyOnce()
+    public void BuildsSimpleReadableGameOverLayoutOnlyOnce()
     {
         host = new GameObject("GameOverHost");
         var view = host.AddComponent<GameOverPopupView>();
@@ -108,8 +122,10 @@ public class PauseMenuViewTests
         var panel = canvasRoot.Find("SafeAreaRoot/ScrollResultPopup")
             as RectTransform;
         Assert.IsNotNull(panel);
-        Assert.GreaterOrEqual(panel.sizeDelta.y, 1300f);
-        Assert.Greater(panel.sizeDelta.y, panel.sizeDelta.x * 1.5f);
+        Assert.That(panel.anchoredPosition, Is.EqualTo(Vector2.zero));
+        Assert.LessOrEqual(panel.sizeDelta.x, 840f);
+        Assert.LessOrEqual(panel.sizeDelta.y, 1000f);
+        Assert.GreaterOrEqual(panel.sizeDelta.y, 820f);
 
         var scrollBody = panel.Find("ScrollBody");
         var topRoll = panel.Find("TopRoll");
@@ -120,10 +136,6 @@ public class PauseMenuViewTests
         Assert.IsNotNull(scrollBody.Find("ScrollPaper")?.GetComponent<Image>().sprite);
         Assert.IsNotNull(topRoll.Find("PaperRoll")?.GetComponent<Image>().sprite);
         Assert.IsNotNull(bottomRoll.Find("PaperRoll")?.GetComponent<Image>().sprite);
-        Assert.IsNotNull(topRoll.Find("LeftCap/Axis"));
-        Assert.IsNotNull(topRoll.Find("RightCap/Axis"));
-        Assert.IsNotNull(bottomRoll.Find("LeftCap/Axis"));
-        Assert.IsNotNull(bottomRoll.Find("RightCap/Axis"));
 
         var content = panel.Find("ResultContent");
         Assert.IsNotNull(content);
@@ -137,13 +149,26 @@ public class PauseMenuViewTests
         Assert.IsNotNull(bestValue);
         Assert.IsNotNull(currentCaption);
         Assert.IsNotNull(hint);
-        Assert.GreaterOrEqual(title.fontSize, 60);
-        Assert.GreaterOrEqual(currentValue.fontSize, 108);
-        Assert.GreaterOrEqual(bestValue.fontSize, 68);
-        Assert.GreaterOrEqual(currentCaption.fontSize, 30);
+        Assert.GreaterOrEqual(title.fontSize, 54);
+        Assert.Greater(currentValue.fontSize, bestValue.fontSize * 2);
+        Assert.Greater(bestValue.fontSize, currentCaption.fontSize);
         Assert.GreaterOrEqual(hint.fontSize, 32);
+        var currentResult = content.Find("CurrentResult") as RectTransform;
+        var bestResult = content.Find("BestResult") as RectTransform;
+        var retry = content.Find("RetryBrush") as RectTransform;
+        Assert.Greater(title.rectTransform.anchoredPosition.y,
+            currentResult.anchoredPosition.y);
+        Assert.Greater(currentResult.anchoredPosition.y,
+            bestResult.anchoredPosition.y);
+        Assert.Greater(bestResult.anchoredPosition.y,
+            retry.anchoredPosition.y);
+        Assert.GreaterOrEqual(retry.sizeDelta.x, 560f);
+        Assert.GreaterOrEqual(retry.sizeDelta.y, 96f);
         Assert.IsNull(content.Find("CurrentResult")?.GetComponent<Image>());
         Assert.IsNull(content.Find("BestResult")?.GetComponent<Image>());
+        Assert.IsNull(content.Find("ResultSeal"));
+        Assert.IsNull(content.Find("Subtitle"));
+        Assert.IsNull(content.Find("Footer"));
     }
 
     [Test]
@@ -159,21 +184,18 @@ public class PauseMenuViewTests
         var currentValue = content.Find("CurrentResult/Value")?.GetComponent<Text>();
         var bestValue = content.Find("BestResult/Value")?.GetComponent<Text>();
         var newBestSeal = content.Find("NewBestSeal");
-        var bestGlow = content.Find("BestResult/Highlight");
 
         Invoke(view, "BindResults", 12345, 23456, true);
 
         Assert.AreEqual("12.3 km", currentValue?.text);
         Assert.AreEqual("23.5 km", bestValue?.text);
         Assert.IsTrue(newBestSeal != null && newBestSeal.gameObject.activeSelf);
-        Assert.IsTrue(bestGlow != null && bestGlow.gameObject.activeSelf);
 
         Invoke(view, "BindResults", -10, 845, false);
 
         Assert.AreEqual("0 m", currentValue?.text);
         Assert.AreEqual("845 m", bestValue?.text);
         Assert.IsFalse(newBestSeal != null && newBestSeal.gameObject.activeSelf);
-        Assert.IsFalse(bestGlow != null && bestGlow.gameObject.activeSelf);
     }
 
     [Test]
@@ -196,7 +218,10 @@ public class PauseMenuViewTests
         var newBestGroup = newBestSeal.GetComponent<CanvasGroup>();
 
         Invoke(view, "ApplyRevealPose", 0f, true);
+        float closedPanelScale = panel.localScale.x;
         float closedScale = body.localScale.y;
+        Assert.GreaterOrEqual(closedPanelScale, 0.94f);
+        Assert.Less(closedPanelScale, 1f);
         Assert.Greater(closedScale, 0f);
         Assert.That(topRoll.anchoredPosition.y, Is.Zero);
         Assert.That(bottomRoll.anchoredPosition.y, Is.Zero);
@@ -204,6 +229,7 @@ public class PauseMenuViewTests
         Invoke(view, "ApplyRevealPose", 0.5f, true);
         float middleScale = body.localScale.y;
         Assert.Greater(middleScale, closedScale);
+        Assert.GreaterOrEqual(panel.localScale.x, closedPanelScale);
         Assert.Greater(topRoll.anchoredPosition.y, 0f);
         Assert.Less(bottomRoll.anchoredPosition.y, 0f);
         Assert.That(
@@ -212,14 +238,39 @@ public class PauseMenuViewTests
 
         Invoke(view, "ApplyRevealPose", 1f, true);
         Assert.That(body.localScale.y, Is.EqualTo(1f).Within(0.001f));
-        Assert.That(topRoll.anchoredPosition.y, Is.EqualTo(600f).Within(0.01f));
-        Assert.That(bottomRoll.anchoredPosition.y, Is.EqualTo(-600f).Within(0.01f));
+        Assert.Greater(topRoll.anchoredPosition.y, 250f);
+        Assert.That(topRoll.anchoredPosition.y,
+            Is.EqualTo(-bottomRoll.anchoredPosition.y).Within(0.01f));
         Assert.That(panel.localScale.x, Is.EqualTo(1f).Within(0.001f));
         Assert.That(content.anchoredPosition, Is.EqualTo(Vector2.zero));
         Assert.That(rootGroup.alpha, Is.EqualTo(1f).Within(0.001f));
         Assert.That(contentGroup.alpha, Is.EqualTo(1f).Within(0.001f));
         Assert.That(newBestGroup.alpha, Is.EqualTo(1f).Within(0.001f));
         Assert.That(newBestSeal.localScale.x, Is.EqualTo(1f).Within(0.001f));
+    }
+
+    [Test]
+    public void PauseOverlayVisibilityControlsRaycastBlocking()
+    {
+        host = new GameObject("PauseHost");
+        var view = host.AddComponent<PauseMenuView>();
+        Invoke(view, "BuildIfNeeded");
+
+        var overlay = host.transform.Find("PauseMenuCanvas/PauseOverlay");
+        var group = overlay?.GetComponent<CanvasGroup>();
+        Assert.IsNotNull(group);
+
+        Invoke(view, "SetOverlayVisible", true, false);
+
+        Assert.That(group.alpha, Is.EqualTo(1f));
+        Assert.IsTrue(group.interactable);
+        Assert.IsTrue(group.blocksRaycasts);
+
+        Invoke(view, "SetOverlayVisible", false, false);
+
+        Assert.That(group.alpha, Is.Zero);
+        Assert.IsFalse(group.interactable);
+        Assert.IsFalse(group.blocksRaycasts);
     }
 
     [Test]

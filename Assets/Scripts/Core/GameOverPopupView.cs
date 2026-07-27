@@ -4,14 +4,14 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 게임 종료 기록을 세로로 펼쳐지는 한지 두루마리로 보여준다.
+    /// 짧은 반복 플레이 흐름을 방해하지 않는 간결한 게임 종료 두루마리.
     /// MonoBehaviour 파일명과 클래스명을 일치시켜 씬 직렬화 시 Missing Script를 방지한다.
     public sealed class GameOverPopupView : MonoBehaviour
     {
         const int CanvasSortingOrder = 5000;
-        const float RevealDuration = 0.5f;
-        const float RollOpenDistance = 600f;
-        const float ClosedPaperScale = 0.12f;
+        const float RevealDuration = 0.3f;
+        const float RollOpenDistance = 360f;
+        const float ClosedPaperScale = 0.18f;
 
         CanvasGroup rootGroup;
         RectTransform safeAreaRoot;
@@ -25,7 +25,6 @@ namespace MukJump.Core
         CanvasGroup newBestGroup;
         Text heightText;
         Text bestText;
-        Image bestGlow;
         Coroutine showRoutine;
 
         public void Show(int height, int best, bool reachedNewBest)
@@ -49,6 +48,15 @@ namespace MukJump.Core
         {
             if (rootGroup != null) return;
 
+            var existing = transform.Find("GameOverPopupCanvas");
+            if (existing != null)
+            {
+                if (Application.isPlaying)
+                    Destroy(existing.gameObject);
+                else
+                    DestroyImmediate(existing.gameObject);
+            }
+
             var root = new GameObject(
                 "GameOverPopupCanvas",
                 typeof(RectTransform),
@@ -65,6 +73,7 @@ namespace MukJump.Core
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080f, 1920f);
             scaler.matchWidthOrHeight = 1f;
+
             rootGroup = root.GetComponent<CanvasGroup>();
             rootGroup.alpha = 0f;
             rootGroup.interactable = false;
@@ -73,7 +82,7 @@ namespace MukJump.Core
             var backdrop = CreateStretchImage(
                 "InkWash",
                 root.transform,
-                new Color(0.035f, 0.032f, 0.028f, 0.6f));
+                new Color(0.035f, 0.032f, 0.028f, 0.56f));
             backdrop.raycastTarget = false;
 
             safeAreaRoot = CreateStretchRect("SafeAreaRoot", root.transform);
@@ -81,7 +90,7 @@ namespace MukJump.Core
                 "ScrollResultPopup",
                 safeAreaRoot,
                 Vector2.zero,
-                new Vector2(860f, 1390f));
+                new Vector2(800f, 900f));
 
             BuildScrollPaper();
             BuildContent();
@@ -97,15 +106,15 @@ namespace MukJump.Core
                 "ScrollBody",
                 panel,
                 Vector2.zero,
-                new Vector2(760f, 1194f));
+                new Vector2(700f, 720f));
 
             var shadow = CreateImage(
                 "InkBleedShadow",
                 scrollBody,
                 brush,
-                new Vector2(14f, -18f),
-                new Vector2(1208f, 786f),
-                new Color(0f, 0f, 0f, 0.16f));
+                new Vector2(12f, -14f),
+                new Vector2(742f, 712f),
+                new Color(0f, 0f, 0f, 0.15f));
             shadow.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
 
             var outline = CreateImage(
@@ -113,7 +122,7 @@ namespace MukJump.Core
                 scrollBody,
                 brush,
                 Vector2.zero,
-                new Vector2(1198f, 778f),
+                new Vector2(728f, 704f),
                 InkPalette.Ink);
             outline.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
 
@@ -122,13 +131,9 @@ namespace MukJump.Core
                 scrollBody,
                 brush,
                 Vector2.zero,
-                new Vector2(1170f, 748f),
+                new Vector2(708f, 680f),
                 InkPalette.Paper);
             paper.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
-
-            CreateDeckledEdge(scrollBody, "LeftDeckle", -362f, brush);
-            CreateDeckledEdge(scrollBody, "RightDeckle", 362f, brush);
-            CreatePaperFibers(scrollBody, brush);
 
             topRoll = CreateScrollRoll(panel, RollOpenDistance, true);
             bottomRoll = CreateScrollRoll(panel, -RollOpenDistance, false);
@@ -143,80 +148,77 @@ namespace MukJump.Core
                 "ResultContent",
                 panel,
                 Vector2.zero,
-                new Vector2(740f, 1170f));
+                new Vector2(650f, 650f));
             contentGroup = contentRect.gameObject.AddComponent<CanvasGroup>();
-
-            var headerSeal = CreateImage(
-                "ResultSeal",
-                contentRect,
-                blob,
-                new Vector2(-288f, 466f),
-                new Vector2(72f, 72f),
-                InkPalette.Red);
-            CreateText(
-                "SealText",
-                headerSeal.transform,
-                "결",
-                28,
-                Vector2.zero,
-                new Vector2(54f, 52f),
-                InkPalette.Paper,
-                FontStyle.Normal);
 
             var title = CreateText(
                 "Title",
                 contentRect,
-                "도전 기록",
-                66,
-                new Vector2(0f, 466f),
-                new Vector2(550f, 92f),
+                "도전 끝",
+                58,
+                new Vector2(0f, 270f),
+                new Vector2(520f, 78f),
                 InkPalette.TextDark,
                 FontStyle.Normal);
             AddSoftWeight(title, InkPalette.Ink, 0.2f);
 
-            CreateText(
-                "Subtitle",
-                contentRect,
-                "먹길에 남긴 오늘의 높이",
-                30,
-                new Vector2(0f, 388f),
-                new Vector2(620f, 58f),
-                ReadableMutedColor(),
-                FontStyle.Normal);
-
-            CreateImage(
-                "TitleDivider",
-                contentRect,
-                brush,
-                new Vector2(0f, 334f),
-                new Vector2(520f, 16f),
-                new Color(InkPalette.Red.r, InkPalette.Red.g, InkPalette.Red.b, 0.68f));
-
-            heightText = CreateResultBlock(
+            var currentResult = CreateRect(
                 "CurrentResult",
                 contentRect,
+                new Vector2(0f, 100f),
+                new Vector2(650f, 230f));
+            CreateText(
+                "Caption",
+                currentResult,
                 "이번 고도",
-                new Vector2(0f, 165f),
-                116,
-                false,
-                out _);
+                32,
+                new Vector2(0f, 80f),
+                new Vector2(420f, 52f),
+                ReadableMutedColor(),
+                FontStyle.Normal);
+            heightText = CreateText(
+                "Value",
+                currentResult,
+                "0 m",
+                112,
+                new Vector2(0f, -15f),
+                new Vector2(640f, 150f),
+                InkPalette.TextDark,
+                FontStyle.Normal);
+            AddSoftWeight(heightText, InkPalette.Ink, 0.22f);
 
             CreateImage(
                 "RecordDivider",
                 contentRect,
                 brush,
-                new Vector2(0f, 34f),
-                new Vector2(500f, 10f),
-                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.2f));
+                new Vector2(0f, -25f),
+                new Vector2(360f, 8f),
+                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.16f));
 
-            bestText = CreateResultBlock(
+            var bestResult = CreateRect(
                 "BestResult",
                 contentRect,
+                new Vector2(0f, -90f),
+                new Vector2(610f, 82f));
+            CreateText(
+                "Caption",
+                bestResult,
                 "최고 고도",
-                new Vector2(0f, -112f),
-                70,
-                true,
-                out bestGlow);
+                30,
+                new Vector2(-150f, 0f),
+                new Vector2(250f, 58f),
+                ReadableMutedColor(),
+                FontStyle.Normal);
+            bestText = CreateText(
+                "Value",
+                bestResult,
+                "0 m",
+                48,
+                new Vector2(125f, 0f),
+                new Vector2(330f, 72f),
+                InkPalette.TextDark,
+                FontStyle.Normal);
+            AddSoftWeight(bestText, InkPalette.Ink, 0.16f);
 
             BuildNewBestSeal(contentRect, blob);
 
@@ -224,29 +226,19 @@ namespace MukJump.Core
                 "RetryBrush",
                 contentRect,
                 brush,
-                new Vector2(0f, -430f),
-                new Vector2(640f, 106f),
+                new Vector2(0f, -245f),
+                new Vector2(580f, 104f),
                 InkPalette.Ink);
             var touchHint = CreateText(
                 "TouchHint",
                 retryBrush.transform,
-                "화면을 터치해 다시 도전",
+                "터치하여 다시 도전",
                 36,
                 Vector2.zero,
-                new Vector2(550f, 76f),
+                new Vector2(500f, 74f),
                 InkPalette.Paper,
                 FontStyle.Normal);
             AddSoftWeight(touchHint, Color.black, 0.2f);
-
-            CreateText(
-                "Footer",
-                contentRect,
-                "먹길은 다시 이어집니다",
-                27,
-                new Vector2(0f, -508f),
-                new Vector2(580f, 48f),
-                ReadableMutedColor(),
-                FontStyle.Normal);
         }
 
         void BuildNewBestSeal(Transform parent, Sprite blob)
@@ -254,8 +246,8 @@ namespace MukJump.Core
             newBestSeal = CreateRect(
                 "NewBestSeal",
                 parent,
-                new Vector2(246f, -136f),
-                new Vector2(104f, 104f));
+                new Vector2(236f, 75f),
+                new Vector2(100f, 100f));
             newBestSeal.localEulerAngles = new Vector3(0f, 0f, -7f);
             newBestGroup = newBestSeal.gameObject.AddComponent<CanvasGroup>();
 
@@ -263,32 +255,32 @@ namespace MukJump.Core
                 "Shadow",
                 newBestSeal,
                 blob,
-                new Vector2(5f, -6f),
-                new Vector2(96f, 96f),
-                new Color(0f, 0f, 0f, 0.18f));
+                new Vector2(4f, -5f),
+                new Vector2(92f, 92f),
+                new Color(0f, 0f, 0f, 0.17f));
             CreateImage(
                 "Seal",
                 newBestSeal,
                 blob,
                 Vector2.zero,
-                new Vector2(92f, 92f),
+                new Vector2(88f, 88f),
                 InkPalette.Red);
             CreateText(
                 "NewBest",
                 newBestSeal,
                 "신",
-                34,
-                new Vector2(0f, 10f),
-                new Vector2(62f, 46f),
+                32,
+                new Vector2(0f, 9f),
+                new Vector2(58f, 44f),
                 InkPalette.Paper,
                 FontStyle.Normal);
             CreateText(
                 "Label",
                 newBestSeal,
                 "기록",
-                18,
-                new Vector2(0f, -23f),
-                new Vector2(64f, 28f),
+                17,
+                new Vector2(0f, -22f),
+                new Vector2(60f, 26f),
                 InkPalette.Paper,
                 FontStyle.Normal);
         }
@@ -298,7 +290,6 @@ namespace MukJump.Core
             heightText.text = FormatHeight(height);
             bestText.text = FormatHeight(best);
             newBestSeal.gameObject.SetActive(reachedNewBest);
-            bestGlow.gameObject.SetActive(reachedNewBest);
         }
 
         IEnumerator ShowRoutine(bool reachedNewBest)
@@ -318,16 +309,16 @@ namespace MukJump.Core
             showRoutine = null;
         }
 
-        /// 시간 대기 없이 펼침 자세를 검증할 수 있도록 정규화된 진행률만 적용한다.
+        /// 시간 대기 없이 팝업 진입 자세를 검증할 수 있도록 정규화된 진행률만 적용한다.
         void ApplyRevealPose(float progress, bool reachedNewBest)
         {
             float t = Mathf.Clamp01(progress);
-            float appear = EaseOutCubic(Mathf.InverseLerp(0f, 0.24f, t));
-            float unroll = EaseOutCubic(Mathf.InverseLerp(0.03f, 0.82f, t));
-            float content = EaseOutCubic(Mathf.InverseLerp(0.34f, 0.9f, t));
+            float appear = EaseOutCubic(Mathf.InverseLerp(0f, 0.2f, t));
+            float unroll = EaseOutCubic(Mathf.InverseLerp(0.02f, 0.82f, t));
+            float content = EaseOutCubic(Mathf.InverseLerp(0.22f, 0.78f, t));
 
             rootGroup.alpha = appear;
-            panel.localScale = Vector3.one * Mathf.Lerp(0.96f, 1f, unroll);
+            panel.localScale = Vector3.one * Mathf.Lerp(0.97f, 1f, unroll);
             panel.localEulerAngles = Vector3.zero;
             scrollBody.localScale = new Vector3(
                 1f,
@@ -336,27 +327,27 @@ namespace MukJump.Core
             topRoll.anchoredPosition = Vector2.up * (RollOpenDistance * unroll);
             bottomRoll.anchoredPosition = Vector2.down * (RollOpenDistance * unroll);
             contentGroup.alpha = content;
-            contentRect.anchoredPosition = Vector2.down * (18f * (1f - content));
+            contentRect.anchoredPosition = Vector2.down * (12f * (1f - content));
 
             if (!reachedNewBest)
             {
                 newBestGroup.alpha = 0f;
                 newBestSeal.localScale = Vector3.one * 0.9f;
-                newBestSeal.localEulerAngles = new Vector3(0f, 0f, -13f);
+                newBestSeal.localEulerAngles = new Vector3(0f, 0f, -12f);
                 return;
             }
 
-            float stamp = Mathf.Clamp01(Mathf.InverseLerp(0.68f, 1f, t));
+            float stamp = Mathf.Clamp01(Mathf.InverseLerp(0.62f, 1f, t));
             float stampScale;
             if (stamp < 0.58f)
             {
                 float press = EaseOutCubic(stamp / 0.58f);
-                stampScale = Mathf.Lerp(0.86f, 1.04f, press);
+                stampScale = Mathf.Lerp(0.88f, 1.035f, press);
             }
             else
             {
                 float settle = Smooth01(Mathf.InverseLerp(0.58f, 1f, stamp));
-                stampScale = Mathf.Lerp(1.04f, 1f, settle);
+                stampScale = Mathf.Lerp(1.035f, 1f, settle);
             }
 
             newBestGroup.alpha = EaseOutCubic(stamp);
@@ -364,12 +355,7 @@ namespace MukJump.Core
             newBestSeal.localEulerAngles = new Vector3(
                 0f,
                 0f,
-                Mathf.Lerp(-13f, -7f, EaseOutCubic(stamp)));
-            bestGlow.color = new Color(
-                InkPalette.Gold.r,
-                InkPalette.Gold.g,
-                InkPalette.Gold.b,
-                0.14f * newBestGroup.alpha);
+                Mathf.Lerp(-12f, -7f, EaseOutCubic(stamp)));
         }
 
         void ApplySafeArea()
@@ -388,38 +374,6 @@ namespace MukJump.Core
             safeAreaRoot.offsetMax = Vector2.zero;
         }
 
-        static void CreateDeckledEdge(
-            Transform parent, string objectName, float x, Sprite brush)
-        {
-            var edge = CreateImage(
-                objectName,
-                parent,
-                brush,
-                new Vector2(x, 0f),
-                new Vector2(1100f, 22f),
-                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.22f));
-            edge.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
-        }
-
-        static void CreatePaperFibers(Transform parent, Sprite brush)
-        {
-            float[] yPositions = { 392f, 116f, -184f, -398f };
-            float[] widths = { 530f, 610f, 470f, 575f };
-            float[] rotations = { -1.2f, 0.7f, -0.5f, 1.1f };
-            for (int i = 0; i < yPositions.Length; i++)
-            {
-                var fiber = CreateImage(
-                    $"PaperFiber{i + 1}",
-                    parent,
-                    brush,
-                    new Vector2((i % 2 == 0 ? -1f : 1f) * 18f, yPositions[i]),
-                    new Vector2(widths[i], 13f),
-                    new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.035f));
-                fiber.rectTransform.localEulerAngles =
-                    new Vector3(0f, 0f, rotations[i]);
-            }
-        }
-
         static RectTransform CreateScrollRoll(Transform parent, float y, bool top)
         {
             Sprite brush = InkUiTextureFactory.CreateBrushSprite();
@@ -428,43 +382,36 @@ namespace MukJump.Core
                 top ? "TopRoll" : "BottomRoll",
                 parent,
                 new Vector2(0f, y),
-                new Vector2(850f, 122f));
+                new Vector2(760f, 96f));
 
             CreateImage(
                 "Shadow",
                 root,
                 brush,
-                new Vector2(10f, -9f),
-                new Vector2(824f, 96f),
-                new Color(0f, 0f, 0f, 0.18f));
+                new Vector2(8f, -7f),
+                new Vector2(734f, 78f),
+                new Color(0f, 0f, 0f, 0.17f));
             var roll = CreateImage(
                 "PaperRoll",
                 root,
                 brush,
                 Vector2.zero,
-                new Vector2(834f, 94f),
+                new Vector2(744f, 78f),
                 InkPalette.Ink);
             CreateImage(
                 "Paper",
                 roll.transform,
                 brush,
                 Vector2.zero,
-                new Vector2(804f, 70f),
+                new Vector2(718f, 58f),
                 InkPalette.Paper2);
             CreateImage(
                 "FoldShade",
                 roll.transform,
                 brush,
-                new Vector2(0f, top ? -17f : 17f),
-                new Vector2(750f, 10f),
-                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.14f));
-            CreateImage(
-                "FoldHighlight",
-                roll.transform,
-                brush,
-                new Vector2(0f, top ? 14f : -14f),
-                new Vector2(760f, 8f),
-                new Color(InkPalette.Paper.r, InkPalette.Paper.g, InkPalette.Paper.b, 0.88f));
+                new Vector2(0f, top ? -13f : 13f),
+                new Vector2(680f, 8f),
+                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.12f));
 
             for (int side = -1; side <= 1; side += 2)
             {
@@ -472,72 +419,25 @@ namespace MukJump.Core
                     side < 0 ? "LeftCap" : "RightCap",
                     root,
                     blob,
-                    new Vector2(side * 402f, 0f),
-                    new Vector2(98f, 98f),
+                    new Vector2(side * 358f, 0f),
+                    new Vector2(82f, 82f),
                     InkPalette.Ink);
                 CreateImage(
                     "Paper",
                     cap.transform,
                     blob,
                     Vector2.zero,
-                    new Vector2(74f, 74f),
+                    new Vector2(62f, 62f),
                     InkPalette.Paper2);
                 CreateImage(
                     "Axis",
                     cap.transform,
                     blob,
                     Vector2.zero,
-                    new Vector2(22f, 22f),
+                    new Vector2(19f, 19f),
                     InkPalette.Ink);
             }
             return root;
-        }
-
-        static Text CreateResultBlock(
-            string objectName,
-            Transform parent,
-            string caption,
-            Vector2 position,
-            int valueFontSize,
-            bool createHighlight,
-            out Image highlight)
-        {
-            Sprite brush = InkUiTextureFactory.CreateBrushSprite();
-            var root = CreateRect(
-                objectName,
-                parent,
-                position,
-                new Vector2(700f, 220f));
-            highlight = createHighlight
-                ? CreateImage(
-                    "Highlight",
-                    root,
-                    brush,
-                    new Vector2(0f, -20f),
-                    new Vector2(510f, 104f),
-                    new Color(InkPalette.Gold.r, InkPalette.Gold.g, InkPalette.Gold.b, 0.14f))
-                : null;
-
-            CreateText(
-                "Caption",
-                root,
-                caption,
-                34,
-                new Vector2(0f, 65f),
-                new Vector2(560f, 56f),
-                ReadableMutedColor(),
-                FontStyle.Normal);
-            var value = CreateText(
-                "Value",
-                root,
-                "0 m",
-                valueFontSize,
-                new Vector2(0f, -28f),
-                new Vector2(650f, 142f),
-                InkPalette.TextDark,
-                FontStyle.Normal);
-            AddSoftWeight(value, InkPalette.Ink, createHighlight ? 0.18f : 0.22f);
-            return value;
         }
 
         static string FormatHeight(int meters)

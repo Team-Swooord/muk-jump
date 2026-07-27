@@ -278,42 +278,24 @@ namespace MukJump.Core
             overlayGroup.blocksRaycasts = false;
 
             var backdrop = CreateStretchImage(
-                "InkDim", overlayRoot, new Color(0.035f, 0.032f, 0.028f, 0.58f));
+                "InkDim", overlayRoot, new Color(0.035f, 0.032f, 0.028f, 0.56f));
             backdrop.raycastTarget = true;
 
             safeAreaRoot = CreateStretchRect("SafeAreaRoot", overlayRoot);
             panel = CreateRect("PauseScroll", safeAreaRoot, Vector2.zero,
-                new Vector2(800f, 680f));
+                new Vector2(760f, 680f));
 
-            Sprite blob = InkUiTextureFactory.CreateBlobSprite();
-            CreateImage("InkBorder", panel, blob, Vector2.zero,
-                new Vector2(800f, 680f), InkPalette.Ink);
-            CreateImage("HanjiPaper", panel, blob, Vector2.zero,
-                new Vector2(752f, 632f), InkPalette.Paper);
+            BuildPauseScrollFrame(panel);
 
-            var seal = CreateImage("PauseSeal", panel, blob, new Vector2(-284f, 220f),
-                new Vector2(72f, 72f), InkPalette.Red);
-            CreateText("SealText", seal.transform, "쉼", 28, Vector2.zero,
-                new Vector2(58f, 52f), InkPalette.Paper, FontStyle.Normal);
-
-            var title = CreateText("Title", panel, "잠시 멈춤", 62,
-                new Vector2(0f, 206f), new Vector2(530f, 90f),
+            var title = CreateText("Title", panel, "잠시 멈춤", 58,
+                new Vector2(0f, 165f), new Vector2(520f, 78f),
                 InkPalette.TextDark, FontStyle.Normal);
-            AddSoftWeight(title, InkPalette.Ink, 0.18f);
-            CreateText("Subtitle", panel, "먹길을 잠시 쉬어갑니다", 30,
-                new Vector2(0f, 126f), new Vector2(580f, 58f),
-                ReadableMutedColor(), FontStyle.Normal);
-            CreateImage("Divider", panel, null, new Vector2(0f, 78f),
-                new Vector2(520f, 3f),
-                new Color(InkPalette.Red.r, InkPalette.Red.g, InkPalette.Red.b, 0.72f));
+            AddSoftWeight(title, InkPalette.Ink, 0.2f);
 
             resumeButton = CreateBrushButton("ResumeButton", panel, "계속하기",
-                new Vector2(0f, -18f), true);
+                new Vector2(0f, 25f), true);
             lobbyButton = CreateBrushButton("LobbyButton", panel, "로비로",
-                new Vector2(0f, -154f), false);
-            CreateText("SessionHint", panel, "현재 도전은 그대로 보존됩니다", 27,
-                new Vector2(0f, -264f), new Vector2(620f, 48f),
-                ReadableMutedColor(), FontStyle.Normal);
+                new Vector2(0f, -120f), false);
 
             ApplySafeArea();
         }
@@ -352,6 +334,111 @@ namespace MukJump.Core
             return true;
         }
 
+        static void BuildPauseScrollFrame(Transform parent)
+        {
+            Sprite brush = InkUiTextureFactory.CreateBrushSprite();
+            var body = CreateRect(
+                "ScrollBody",
+                parent,
+                Vector2.zero,
+                new Vector2(700f, 560f));
+
+            var shadow = CreateImage(
+                "InkBleedShadow",
+                body,
+                brush,
+                new Vector2(10f, -12f),
+                new Vector2(580f, 720f),
+                new Color(0f, 0f, 0f, 0.14f));
+            shadow.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
+
+            var outline = CreateImage(
+                "ScrollBodyOutline",
+                body,
+                brush,
+                Vector2.zero,
+                new Vector2(568f, 708f),
+                InkPalette.Ink);
+            outline.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
+
+            var paper = CreateImage(
+                "HanjiPaper",
+                body,
+                brush,
+                Vector2.zero,
+                new Vector2(548f, 680f),
+                InkPalette.Paper);
+            paper.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
+
+            CreatePauseRoll(parent, 285f, true);
+            CreatePauseRoll(parent, -285f, false);
+        }
+
+        static void CreatePauseRoll(Transform parent, float y, bool top)
+        {
+            Sprite brush = InkUiTextureFactory.CreateBrushSprite();
+            Sprite blob = InkUiTextureFactory.CreateBlobSprite();
+            var root = CreateRect(
+                top ? "TopRoll" : "BottomRoll",
+                parent,
+                new Vector2(0f, y),
+                new Vector2(750f, 88f));
+
+            CreateImage(
+                "Shadow",
+                root,
+                brush,
+                new Vector2(7f, -6f),
+                new Vector2(724f, 72f),
+                new Color(0f, 0f, 0f, 0.16f));
+            var roll = CreateImage(
+                "PaperRoll",
+                root,
+                brush,
+                Vector2.zero,
+                new Vector2(736f, 74f),
+                InkPalette.Ink);
+            CreateImage(
+                "Paper",
+                roll.transform,
+                brush,
+                Vector2.zero,
+                new Vector2(710f, 54f),
+                InkPalette.Paper2);
+            CreateImage(
+                "FoldShade",
+                roll.transform,
+                brush,
+                new Vector2(0f, top ? -12f : 12f),
+                new Vector2(670f, 7f),
+                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.12f));
+
+            for (int side = -1; side <= 1; side += 2)
+            {
+                var cap = CreateImage(
+                    side < 0 ? "LeftCap" : "RightCap",
+                    root,
+                    blob,
+                    new Vector2(side * 352f, 0f),
+                    new Vector2(78f, 78f),
+                    InkPalette.Ink);
+                CreateImage(
+                    "Paper",
+                    cap.transform,
+                    blob,
+                    Vector2.zero,
+                    new Vector2(58f, 58f),
+                    InkPalette.Paper2);
+                CreateImage(
+                    "Axis",
+                    cap.transform,
+                    blob,
+                    Vector2.zero,
+                    new Vector2(18f, 18f),
+                    InkPalette.Ink);
+            }
+        }
+
         Button CreatePauseButton(Transform parent)
         {
             Sprite blob = InkUiTextureFactory.CreateBlobSprite();
@@ -376,13 +463,13 @@ namespace MukJump.Core
         {
             Sprite brush = InkUiTextureFactory.CreateBrushSprite();
             var outer = CreateImage(objectName, parent, brush, position,
-                new Vector2(580f, 112f), InkPalette.Ink);
+                new Vector2(580f, 104f), InkPalette.Ink);
             Image target = outer;
             Color textColor = InkPalette.Paper;
             if (!filled)
             {
                 target = CreateImage("Paper", outer.transform, brush, Vector2.zero,
-                    new Vector2(558f, 92f), InkPalette.Paper2);
+                    new Vector2(560f, 84f), InkPalette.Paper2);
                 textColor = InkPalette.TextDark;
             }
 
@@ -391,7 +478,8 @@ namespace MukJump.Core
             EnableFullButtonRaycast(button);
             button.colors = ReadableButtonColors();
             button.navigation = new Navigation { mode = Navigation.Mode.None };
-            var text = CreateText("Label", outer.transform, label, 38, Vector2.zero,
+            var text = CreateText(
+                "Label", outer.transform, label, filled ? 40 : 36, Vector2.zero,
                 new Vector2(470f, 76f), textColor, FontStyle.Bold);
             AddSoftWeight(text, InkPalette.Ink, 0.14f);
             return button;
@@ -497,13 +585,6 @@ namespace MukJump.Core
             shadow.effectColor = new Color(color.r, color.g, color.b, alpha);
             shadow.effectDistance = new Vector2(1f, -1f);
             shadow.useGraphicAlpha = true;
-        }
-
-        static Color ReadableMutedColor()
-        {
-            Color color = InkPalette.TextDark;
-            color.a = 0.84f;
-            return color;
         }
 
         static ColorBlock ReadableButtonColors()
