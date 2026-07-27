@@ -375,7 +375,7 @@ namespace MukJump.EditorTools
                 ? linePrefab.GetComponent<RawImage>()?.texture as Texture2D
                 : null;
             strokeSo.FindProperty("lineSpriteTexture").objectReferenceValue = lineTexture;
-            strokeSo.FindProperty("inkRegenPerSecond").floatValue = 2.6f;
+            strokeSo.FindProperty("inkRegenPerSecond").floatValue = 3f;
             strokeSo.ApplyModifiedPropertiesWithoutUndo();
 
             var obstaclesRoot = new GameObject("Obstacles");

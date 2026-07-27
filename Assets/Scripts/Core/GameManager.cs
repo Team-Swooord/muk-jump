@@ -20,9 +20,6 @@ namespace MukJump.Core
         /// 먹분신은 각각 물리·애니메이션을 가진 실제 목숨이다. 모바일에서 한 판이
         /// 무한히 무거워지지 않으면서도 화면을 먹떼로 채울 수 있는 안전 상한이다.
         public const int MaxLivingPlayers = 24;
-        const float CloneBurstInterval = 0.08f;
-        static readonly WaitForSeconds CloneBurstDelay =
-            new(CloneBurstInterval);
 
         public static GameManager Instance { get; private set; }
 
@@ -340,7 +337,7 @@ namespace MukJump.Core
             gameOverTime = Time.unscaledTime;
         }
 
-        /// 먹분신 한 마리를 즉시 추가한다. 먹떼 아이템은 이 원자 연산을 시간차로 호출한다.
+        /// 먹분신 아이템 하나당 한 마리를 즉시 추가한다.
         public bool TryCreateInkClone(PlayerController source)
         {
             if (!CanCreateInkClone || source == null || source.IsDead)
@@ -391,48 +388,6 @@ namespace MukJump.Core
 
             RegisterPlayer(clone);
             return true;
-        }
-
-        /// 먹분신 아이템 하나가 초반 +3, 중반 +4, 후반 +5마리의 작은 떼를 만든다.
-        /// 첫 마리는 즉시 생성하고 나머지는 프레임 스파이크를 피하도록 시간차를 둔다.
-        public bool TryCreateInkCloneBurst(PlayerController source)
-        {
-            int height = ScoreManager.Instance != null
-                ? ScoreManager.Instance.Height
-                : Mathf.RoundToInt(SwarmProgressHeight);
-            int requested = Mathf.Min(
-                ResolveInkCloneBurstCount(height),
-                MaxLivingPlayers - LivingPlayerCount);
-            if (requested <= 0 || !TryCreateInkClone(source))
-                return false;
-
-            if (requested > 1)
-                StartCoroutine(SpawnInkCloneBurst(source, requested - 1));
-            return true;
-        }
-
-        public static int ResolveInkCloneBurstCount(float height)
-        {
-            if (height >= 150f) return 5;
-            if (height >= 60f) return 4;
-            return 3;
-        }
-
-        System.Collections.IEnumerator SpawnInkCloneBurst(
-            PlayerController preferredSource,
-            int remaining)
-        {
-            for (int i = 0; i < remaining; i++)
-            {
-                yield return CloneBurstDelay;
-                if (!IsGameplayTicking) yield break;
-
-                var source = preferredSource != null && !preferredSource.IsDead
-                    ? preferredSource
-                    : HighestLivingPlayer;
-                if (source == null || !TryCreateInkClone(source))
-                    yield break;
-            }
         }
 
         /// 분신 수가 많아져도 두 고정 X 좌표에 겹치지 않도록 화면 안 후보 중

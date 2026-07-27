@@ -21,6 +21,7 @@ const DEFAULT_SKILL_RUNS = 100_000;
 const DEFAULT_SCENARIOS = 50_000;
 const MAX_ATTEMPTS = 50;
 const MAX_LIVING_PLAYERS = 24;
+const CLONES_PER_PICKUP = 1;
 const STREAM_COUNT = 6;
 const UINT_RANGE = 0x1_0000_0000;
 const FLOAT_UNIT = 1 / 16_777_216;
@@ -134,12 +135,6 @@ function lerp(a, b, t) {
   return a + (b - a) * Math.max(0, Math.min(1, t));
 }
 
-function cloneBurstAt(height) {
-  if (height < 60) return 3;
-  if (height < 150) return 4;
-  return 5;
-}
-
 function simulateItems(seed, pickupChance, heightLimit = COURSE_HEIGHT) {
   const gameplay = new GameplayRng(seed);
   const pickup = new BehaviorRng(seed, 17);
@@ -205,7 +200,7 @@ function simulateItems(seed, pickupChance, heightLimit = COURSE_HEIGHT) {
       clonePickupCount += 1;
       livingPlayers = Math.min(
         MAX_LIVING_PLAYERS,
-        livingPlayers + cloneBurstAt(nextHeight),
+        livingPlayers + CLONES_PER_PICKUP,
       );
       if (
         livingPlayers === MAX_LIVING_PLAYERS &&
@@ -530,7 +525,9 @@ function printContent(aggregate, count) {
   );
 
   console.log("\n## 먹분신 포화");
-  console.log("| 아이템 획득률 | 분신 획득 | 24마리 도달률 | 도달 고도 P50 | P90 |");
+  console.log(
+    "| 아이템 획득률 | 분신 획득 | 24마리 도달률 | 도달자 고도 P50 | P90 |",
+  );
   console.log("|---:|---:|---:|---:|---:|");
   for (const profile of pickupProfiles) {
     const result = aggregate.pickupResults[profile.name];

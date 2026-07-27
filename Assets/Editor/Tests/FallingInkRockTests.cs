@@ -317,7 +317,7 @@ public class FallingInkRockTests
         var capture = FindFirstInScene<StrokeCapture>(builderTestScene);
         Assert.IsNotNull(capture);
         var captureSerialized = new SerializedObject(capture);
-        Assert.AreEqual(2.6f,
+        Assert.AreEqual(3f,
             captureSerialized.FindProperty("inkRegenPerSecond").floatValue);
 
         var player = FindFirstInScene<PlayerController>(builderTestScene);

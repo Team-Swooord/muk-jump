@@ -26,7 +26,7 @@ namespace MukJump.Drawing
         [Tooltip("먹 총량 (월드 단위 길이). 그은 만큼 소모된다")]
         [SerializeField] float inkCapacity = 12f;
         [Tooltip("초당 먹 회복량 (그리는 중에는 회복하지 않음)")]
-        [SerializeField] float inkRegenPerSecond = 2.6f;
+        [SerializeField] float inkRegenPerSecond = 3f;
         [Tooltip("먹이 이보다 적으면 새 획을 시작할 수 없다")]
         [SerializeField] float minInkToStart = 0.8f;
 
@@ -61,8 +61,8 @@ namespace MukJump.Drawing
         void Start()
         {
             cam = Camera.main;
-            // 구형 Main 씬의 직렬화 값(1.8)이 남아 있어도 최신 밸런스를 즉시 적용한다.
-            inkRegenPerSecond = 2.6f;
+            // 구형 Main 씬의 직렬화 값이 남아 있어도 최신 밸런스를 즉시 적용한다.
+            inkRegenPerSecond = 3f;
             if (cam == null)
                 Debug.LogError("[MukJump] MainCamera를 찾을 수 없어 드로잉 좌표를 변환할 수 없습니다.", this);
             ink = inkCapacity;

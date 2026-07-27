@@ -15,8 +15,8 @@ namespace MukJump.Drawing
         public static float RuntimeLifetimeMultiplier { get; set; } = 1f;
 
         [Tooltip("생성 후 유지 시간(초). 0 이하면 영구 발판")]
-        [SerializeField] float lifetime = 5f;
-        [SerializeField] float fadeDuration = 0.9f;
+        [SerializeField] float lifetime = 4.5f;
+        [SerializeField] float fadeDuration = 0.8f;
         [SerializeField] bool windCurrentPlatform;
 
         public float Length { get; private set; }

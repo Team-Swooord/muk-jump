@@ -80,9 +80,9 @@ public sealed class ItemSpawnerBalanceTests
         var platform = Track(new GameObject("Platform"))
             .AddComponent<MukJump.Drawing.PlatformCollider>();
 
-        Assert.AreEqual(2.6f, (float)GetField(capture, "inkRegenPerSecond"));
-        Assert.AreEqual(5f, (float)GetField(platform, "lifetime"));
-        Assert.AreEqual(0.9f, (float)GetField(platform, "fadeDuration"));
+        Assert.AreEqual(3f, (float)GetField(capture, "inkRegenPerSecond"));
+        Assert.AreEqual(4.5f, (float)GetField(platform, "lifetime"));
+        Assert.AreEqual(0.8f, (float)GetField(platform, "fadeDuration"));
     }
 
     [Test]
@@ -126,14 +126,29 @@ public sealed class ItemSpawnerBalanceTests
         Assert.AreEqual(10f, representative.transform.position.y, 0.001f);
     }
 
-    [TestCase(0f, 3)]
-    [TestCase(59.99f, 3)]
-    [TestCase(60f, 4)]
-    [TestCase(149.99f, 4)]
-    [TestCase(150f, 5)]
-    public void ClonePickupCreatesHeightScaledBurst(float height, int expected)
+    [Test]
+    public void ClonePickupAddsExactlyOnePlayer()
     {
-        Assert.AreEqual(expected, GameManager.ResolveInkCloneBurstCount(height));
+        var manager = Track(new GameObject("GameManager")).AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+        Invoke(manager, "SetState", GameState.Playing);
+
+        var sourceObject = Track(new GameObject("CloneSource"));
+        sourceObject.AddComponent<Rigidbody2D>();
+        sourceObject.AddComponent<CircleCollider2D>();
+        var source = sourceObject.AddComponent<PlayerController>();
+        manager.RegisterPlayer(source);
+
+        Assert.AreEqual(1, manager.LivingPlayerCount);
+        Assert.IsTrue(ItemEffect.Apply(ItemType.InkClone, source));
+        Assert.AreEqual(2, manager.LivingPlayerCount,
+            "먹분신 아이템 한 번은 정확히 한 마리만 늘려야 합니다.");
+
+        var living = new List<PlayerController>();
+        manager.GetLivingPlayersNonAlloc(living);
+        for (int i = 0; i < living.Count; i++)
+            if (living[i] != source)
+                Track(living[i].gameObject);
     }
 
     [Test]
