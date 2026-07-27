@@ -20,7 +20,7 @@ namespace MukJump.Player
         [SerializeField] Sprite land;
         [Tooltip("죽음 포즈들 (X 눈) — 죽음 연출 동안 순환 재생 (허우적거리는 느낌)")]
         [SerializeField] Sprite[] deadFrames;
-        [SerializeField] float deadFps = 10f;
+        [SerializeField, Min(0f)] float deadFps = 12f;
 
         [Header("공중 상태 전환 속도 구간")]
         [Tooltip("수직 속도가 이보다 크면 도약(launch) 포즈")]
@@ -60,7 +60,10 @@ namespace MukJump.Player
                 if (deadFrames != null && deadFrames.Length > 0)
                 {
                     // 한 번만 재생하고 마지막 포즈에서 멈춘다
-                    int frame = Mathf.Min((int)(deathTime * deadFps), deadFrames.Length - 1);
+                    float playbackFps = SafeDeadFps;
+                    int frame = Mathf.Min(
+                        Mathf.Max(0, (int)(deathTime * playbackFps)),
+                        deadFrames.Length - 1);
                     sr.sprite = deadFrames[frame];
                 }
                 return;
@@ -101,5 +104,15 @@ namespace MukJump.Player
             if (vy > -highBand) return fall;
             return dive;
         }
+
+        void OnValidate()
+        {
+            deadFps = SafeDeadFps;
+        }
+
+        float SafeDeadFps =>
+            float.IsNaN(deadFps) || float.IsInfinity(deadFps)
+                ? 12f
+                : Mathf.Max(0f, deadFps);
     }
 }

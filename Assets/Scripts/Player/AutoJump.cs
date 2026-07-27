@@ -8,9 +8,11 @@ namespace MukJump.Player
     [RequireComponent(typeof(Rigidbody2D), typeof(PlayerController))]
     public class AutoJump : MonoBehaviour
     {
+        const float MinJumpInterval = 0.05f;
+
         [Header("점프 주기")]
         [Tooltip("점프 정점부터 다음 자동 점프까지 충전되는 시간")]
-        [SerializeField] float jumpIntervalSeconds = 1f;
+        [SerializeField, Min(MinJumpInterval)] float jumpIntervalSeconds = 1f;
 
         [Header("점프 궤적")]
         [SerializeField] float baseJumpSpeed = 12f;
@@ -37,23 +39,27 @@ namespace MukJump.Player
         bool wasRising;
         bool chargeStarted;
         float wanderDirection;
+        int randomSessionVersion = -1;
 
         /// 첫 점프는 접지 중, 이후 점프는 정점부터 다음 점프를 준비한다 (HUD 게이지용).
         public bool IsCharging => player != null && (chargeStarted || (!hasLaunched && player.IsGrounded)) &&
                                   GameManager.Instance != null &&
-                                  GameManager.Instance.State == GameState.Playing;
-        public float ChargeRatio => Mathf.Clamp01(chargeTimer / jumpIntervalSeconds);
+                                  GameManager.Instance.IsGameplayTicking;
+        public float ChargeRatio =>
+            Mathf.Clamp01(chargeTimer / SafeJumpInterval);
 
         void Awake()
         {
             rb = GetComponent<Rigidbody2D>();
             player = GetComponent<PlayerController>();
-            wanderDirection = Random.value < 0.5f ? -1f : 1f;
+            // Instantiate된 분신도 원본의 난수 진행 상태를 복사하지 않고 자체 값을 뽑는다.
+            randomSessionVersion = -1;
         }
 
         void Update()
         {
-            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing ||
+            if (GameManager.Instance == null ||
+                GameManager.Instance.State != GameState.Playing ||
                 player == null || player.IsDead)
             {
                 chargeTimer = 0f;
@@ -62,7 +68,11 @@ namespace MukJump.Player
                 wasRising = false;
                 return;
             }
+            // 일시정지는 현재 충전·상승 상태를 보존한 채 시간만 멈춘다.
+            if (!GameManager.Instance.IsGameplayTicking)
+                return;
 
+            EnsureSessionRandomState();
             float verticalSpeed = rb.linearVelocity.y;
             if (verticalSpeed > 0.1f)
             {
@@ -86,7 +96,7 @@ namespace MukJump.Player
             if (!hasLaunched && player.IsGrounded)
                 chargeStarted = true;
 
-            float chargeDuration = jumpIntervalSeconds;
+            float chargeDuration = SafeJumpInterval;
             if (chargeStarted)
                 chargeTimer = Mathf.Min(chargeDuration, chargeTimer + Time.deltaTime);
 
@@ -107,7 +117,8 @@ namespace MukJump.Player
             float horizontal = direction.x * power + rb.linearVelocity.x * horizontalMomentumRetention;
             if (Mathf.Abs(direction.x) < 0.08f)
             {
-                if (Random.value < 0.3f) wanderDirection = -wanderDirection;
+                if (GameplayRandom.Value(GameplayRandomStream.Player) < 0.3f)
+                    wanderDirection = -wanderDirection;
                 horizontal += wanderDirection * flatPlatformWanderSpeed;
             }
 
@@ -126,5 +137,24 @@ namespace MukJump.Player
             float t = Mathf.InverseLerp(platformLengthRange.x, platformLengthRange.y, platform.Length);
             return Mathf.Lerp(powerMultiplierRange.x, powerMultiplierRange.y, t);
         }
+
+        void EnsureSessionRandomState()
+        {
+            int version = GameplayRandom.SessionVersion;
+            if (randomSessionVersion == version) return;
+            randomSessionVersion = version;
+            wanderDirection = GameplayRandom.Value(
+                GameplayRandomStream.Player) < 0.5f ? -1f : 1f;
+        }
+
+        void OnValidate()
+        {
+            jumpIntervalSeconds = SafeJumpInterval;
+        }
+
+        float SafeJumpInterval =>
+            float.IsNaN(jumpIntervalSeconds) || float.IsInfinity(jumpIntervalSeconds)
+                ? 1f
+                : Mathf.Max(MinJumpInterval, jumpIntervalSeconds);
     }
 }

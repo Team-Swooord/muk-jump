@@ -10,7 +10,7 @@ using MukJump.Core.Pooling;
 namespace MukJump.Core
 {
     /// 점프·착지·드로잉·아이템 등 순간 피드백을 한곳에서 관리한다.
-    /// 외부 음원 없이 짧은 효과음을 런타임에 합성해 API 키나 추가 에셋 없이 동작한다.
+    /// 내장 효과음을 우선 사용하고, 누락된 소리는 런타임 합성 폴백으로 보완한다.
     public class GameFeedbackController : MonoBehaviour
     {
         const int LineVfxCapacity = 8;
@@ -37,6 +37,11 @@ namespace MukJump.Core
         float hitStopPreviousScale = 1f;
         float hitStopPreviousFixedDelta;
         float lastLandingHapticTime = -10f;
+        float lastLandingFeedbackTime = -10f;
+        float lastJumpFeedbackTime = -10f;
+        float lastDeathFeedbackTime = -10f;
+        float lastHitStopRequestTime = -10f;
+        float lastWallHitFeedbackTime = -10f;
 
         enum HapticPattern
         {
@@ -54,7 +59,6 @@ namespace MukJump.Core
             }
         }
         Sprite dotSprite;
-        Canvas overlayCanvas;
         Text bannerText;
         Coroutine bannerRoutine;
         Transform transientPoolRoot;
@@ -62,11 +66,16 @@ namespace MukJump.Core
         ComponentPool<TransientVfxElement> spriteVfxPool;
         readonly HashSet<TransientVfxElement> leasedLineVfx = new();
         readonly HashSet<TransientVfxElement> leasedSpriteVfx = new();
+        readonly List<AudioClip> ownedRuntimeClips = new();
+
+        public int ActiveLineVfxCount => lineVfxPool?.LeasedCount ?? 0;
+        public int ActiveSpriteVfxCount => spriteVfxPool?.LeasedCount ?? 0;
 
         void OnEnable()
         {
             Instance = this;
             EnsureInitialized();
+            PrewarmTransientPools();
         }
 
         void OnDisable()
@@ -83,6 +92,7 @@ namespace MukJump.Core
             RestoreTimeScale();
             if (Gamepad.current != null) Gamepad.current.SetMotorSpeeds(0f, 0f);
             if (bannerText != null) bannerText.color = Color.clear;
+            DisposeRuntimeAssets();
         }
 
         void Awake()
@@ -90,30 +100,73 @@ namespace MukJump.Core
             EnsureInitialized();
         }
 
+        void OnDestroy()
+        {
+            DisposeRuntimeAssets();
+        }
+
+        void DisposeRuntimeAssets()
+        {
+            if (brushSource != null)
+            {
+                brushSource.Stop();
+                brushSource.clip = null;
+            }
+            accentSource?.Stop();
+
+            for (int i = 0; i < ownedRuntimeClips.Count; i++)
+                DestroyOwnedObject(ownedRuntimeClips[i]);
+            ownedRuntimeClips.Clear();
+
+            if (dotSprite != null)
+            {
+                Texture2D texture = dotSprite.texture;
+                DestroyOwnedObject(dotSprite);
+                DestroyOwnedObject(texture);
+                dotSprite = null;
+            }
+
+            jumpClip = null;
+            landingClip = null;
+            drawClip = null;
+            invalidClip = null;
+            itemClip = null;
+            milestoneClip = null;
+            brushLoopClip = null;
+            brushTransitionClip = null;
+            wallHitClip = null;
+            deathSqueakClip = null;
+            gameOverClip = null;
+        }
+
         void EnsureInitialized()
         {
             if (jumpClip != null && brushSource != null && accentSource != null) return;
 
-            jumpClip = CreateTone("JumpBrush", 0.16f, 240f, 520f, 0.18f, 0.04f);
-            landingClip = CreateTone("LandingInk", 0.13f, 150f, 82f, 0.24f, 0.18f);
-            drawClip = CreateTone("DrawSet", 0.1f, 390f, 320f, 0.12f, 0.08f);
-            invalidClip = CreateTone("InvalidStroke", 0.12f, 170f, 125f, 0.16f, 0.2f);
-            itemClip = CreateTone("ItemPickup", 0.22f, 420f, 760f, 0.16f, 0.03f);
-            milestoneClip = CreateTone("MilestoneSeal", 0.34f, 220f, 440f, 0.2f, 0.08f);
+            jumpClip = CreateOwnedTone("JumpBrush", 0.16f, 240f, 520f, 0.18f, 0.04f);
+            landingClip = CreateOwnedTone("LandingInk", 0.13f, 150f, 82f, 0.24f, 0.18f);
+            drawClip = CreateOwnedTone("DrawSet", 0.1f, 390f, 320f, 0.12f, 0.08f);
+            invalidClip = CreateOwnedTone("InvalidStroke", 0.12f, 170f, 125f, 0.16f, 0.2f);
+            itemClip = CreateOwnedTone("ItemPickup", 0.22f, 420f, 760f, 0.16f, 0.03f);
+            milestoneClip = CreateOwnedTone(
+                "MilestoneSeal", 0.34f, 220f, 440f, 0.2f, 0.08f);
             brushLoopClip = LoadSfx("SFX_Brush_Community") ??
                             LoadSfx("SFX_Brush_Draw_Loop") ??
-                            CreateBrushNoise("BrushDrawing", 0.42f, 0.16f);
+                            CreateOwnedBrushNoise("BrushDrawing", 0.42f, 0.16f);
             brushTransitionClip = LoadSfx("SFX_Brush_Community") ??
                                   LoadSfx("SFX_Brush_Transition") ??
-                                  CreateBrushNoise("BrushTransition", 1.15f, 0.3f, true);
+                                  CreateOwnedBrushNoise(
+                                      "BrushTransition", 1.15f, 0.3f, true);
             wallHitClip = LoadSfx("SFX_Wall_Hit") ??
-                          CreateTone("WallHit", 0.11f, 120f, 72f, 0.28f, 0.32f);
+                          CreateOwnedTone("WallHit", 0.11f, 120f, 72f, 0.28f, 0.32f);
             deathSqueakClip = LoadSfx("SFX_Character_Death_Slime") ??
                               LoadSfx("SFX_Character_Death") ??
-                              CreateTone("DeathSqueak", 0.32f, 1080f, 185f, 0.68f, 0.025f);
+                              CreateOwnedTone(
+                                  "DeathSqueak", 0.32f, 1080f, 185f, 0.68f, 0.025f);
             gameOverClip = LoadSfx("SFX_Game_Over_Ink_Spill") ??
                            LoadSfx("SFX_Game_Over") ??
-                           CreateTone("GameOver", 0.58f, 310f, 92f, 0.42f, 0.08f);
+                           CreateOwnedTone(
+                               "GameOver", 0.58f, 310f, 92f, 0.42f, 0.08f);
             CreateDedicatedAudioSources();
             if (dotSprite == null) dotSprite = CreateDotSprite();
             if (bannerText == null)
@@ -122,7 +175,6 @@ namespace MukJump.Core
                 if (existingBanner != null)
                 {
                     bannerText = existingBanner.GetComponent<Text>();
-                    overlayCanvas = existingBanner.GetComponentInParent<Canvas>();
                 }
             }
         }
@@ -160,10 +212,19 @@ namespace MukJump.Core
             VfxAudioManager.Instance?.PlayOneShot(brushTransitionClip, 0.78f);
         }
 
-        public void PlayWallHit()
+        public void PlayWallHit(Vector3 position, float inwardDirection)
         {
             EnsureInitialized();
+            if (Time.unscaledTime - lastWallHitFeedbackTime < 0.08f) return;
+            lastWallHitFeedbackTime = Time.unscaledTime;
             VfxAudioManager.Instance?.PlayOneShot(wallHitClip, 0.78f);
+            StartCoroutine(AnimateWallImpact(position, Mathf.Sign(inwardDirection)));
+            SpawnDroplets(
+                position,
+                5,
+                InkPalette.Ink,
+                VfxImportance.Normal,
+                2);
         }
 
         public void PlayGameOver()
@@ -176,19 +237,30 @@ namespace MukJump.Core
         public void PlayJump(Vector3 position)
         {
             EnsureInitialized();
+            // 먹떼가 거의 동시에 점프할 때 동일 피드백을 한 번으로 묶어
+            // 소리 채널과 순간 풀을 분신 수만큼 소모하지 않는다.
+            if (Time.unscaledTime - lastJumpFeedbackTime < 0.045f) return;
+            lastJumpFeedbackTime = Time.unscaledTime;
             VfxAudioManager.Instance?.PlayOneShot(jumpClip, 0.72f);
-            StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.18f, 0.78f, 0.24f, 0.07f, 0.2f));
+            StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.18f, 0.78f,
+                0.24f, 0.07f, 0.2f));
             StartCoroutine(AnimateBrushStreak(position + Vector3.down * 0.25f));
         }
 
         public void PlayLanding(Vector3 position, float impactSpeed)
         {
             EnsureInitialized();
+            if (Time.unscaledTime - lastLandingFeedbackTime < 0.06f) return;
+            lastLandingFeedbackTime = Time.unscaledTime;
             float strength = Mathf.InverseLerp(2f, 14f, impactSpeed);
             VfxAudioManager.Instance?.PlayOneShot(landingClip, Mathf.Lerp(0.45f, 0.9f, strength));
             StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.12f,
                 Mathf.Lerp(0.55f, 1.05f, strength), 0.28f, 0.09f, 0.12f, 0.35f));
-            SpawnDroplets(position, 5 + Mathf.RoundToInt(strength * 4f), InkPalette.Ink);
+            SpawnDroplets(
+                position,
+                5 + Mathf.RoundToInt(strength * 4f),
+                InkPalette.Ink,
+                VfxImportance.Decorative);
             if (strength >= 0.34f && Time.unscaledTime - lastLandingHapticTime >= 0.18f)
             {
                 lastLandingHapticTime = Time.unscaledTime;
@@ -202,7 +274,8 @@ namespace MukJump.Core
             if (valid)
             {
                 VfxAudioManager.Instance?.PlayOneShot(drawClip, 0.55f);
-                StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.08f, 0.48f, 0.2f, 0.05f, 0.2f));
+                StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.08f, 0.48f,
+                    0.2f, 0.05f, 0.2f, 1f, VfxImportance.Decorative));
             }
             else
             {
@@ -216,8 +289,10 @@ namespace MukJump.Core
             EnsureInitialized();
             Color color = ItemColor(type);
             VfxAudioManager.Instance?.PlayOneShot(itemClip, 0.72f);
-            StartCoroutine(AnimateRing(position, color, 0.2f, 1.15f, 0.38f, 0.08f, 0.15f));
-            SpawnDroplets(position, 9, color);
+            StartCoroutine(AnimateRing(position, color, 0.2f, 1.15f,
+                0.38f, 0.08f, 0.15f, 1f, VfxImportance.Important));
+            StartCoroutine(AnimateItemSignature(position, type, color));
+            SpawnDroplets(position, 9, color, VfxImportance.Normal, 4);
         }
 
         public void PlayItemTelegraph(Vector3 position, ItemType type)
@@ -225,8 +300,11 @@ namespace MukJump.Core
             EnsureInitialized();
             Color color = ItemColor(type);
             VfxAudioManager.Instance?.PlayOneShot(itemClip, 0.2f);
-            StartCoroutine(AnimateRing(position, color, 0.12f, 0.72f, 0.42f, 0.035f, 0.22f));
-            StartCoroutine(AnimateRing(position, color, 0.32f, 1.02f, 0.55f, 0.025f, 0.13f));
+            StartCoroutine(AnimateRing(position, color, 0.12f, 0.72f,
+                0.42f, 0.035f, 0.22f, 1f, VfxImportance.Important));
+            if (VfxQualityRuntime.Tier >= VfxQualityTier.Medium)
+                StartCoroutine(AnimateRing(position, color, 0.32f, 1.02f,
+                    0.55f, 0.025f, 0.13f, 1f, VfxImportance.Decorative));
         }
 
         static Color ItemColor(ItemType type)
@@ -239,20 +317,82 @@ namespace MukJump.Core
             };
         }
 
-        public void PlayDeath(Vector3 position)
+        public void PlayDeath(Vector3 position, bool force = false)
         {
             EnsureInitialized();
+            // 같은 장애물에 먹떼가 한 물리 프레임에 닿아도 소리·진동·VFX는 한 번만 낸다.
+            // 단, 마지막 목숨은 결과창 전에 반드시 사망 피드백을 들려준다.
+            if (!force && Time.unscaledTime - lastDeathFeedbackTime < 0.14f) return;
+            lastDeathFeedbackTime = Time.unscaledTime;
             StopBrushDrawing();
             PlayAccent(deathSqueakClip, 1f);
             StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.1f, 1.35f,
-                0.42f, 0.12f, 0.75f));
-            SpawnDroplets(position, 14, InkPalette.Ink);
+                0.42f, 0.12f, 0.75f, 1f, VfxImportance.Critical));
+            SpawnDroplets(
+                position,
+                4,
+                InkPalette.Ink,
+                VfxImportance.Critical,
+                4);
+            SpawnDroplets(
+                position,
+                10,
+                InkPalette.Ink,
+                VfxImportance.Decorative);
             PlayHaptic(HapticPattern.Death, 1f);
         }
 
-        public void PlayShieldBreak()
+        public void PlayShieldBreak(Vector3 position)
         {
+            EnsureInitialized();
+            StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.5f, 1.42f,
+                0.36f, 0.09f, 0.72f, 0.9f, VfxImportance.Important));
+            SpawnDroplets(
+                position,
+                8,
+                InkPalette.Ink,
+                VfxImportance.Important,
+                4);
             PlayHaptic(HapticPattern.ShieldBreak, 1f);
+        }
+
+        /// 분신이 실제로 생긴 위치에 두 번째 실루엣을 찍어 아이템 결과를 즉시 읽게 한다.
+        public void PlayCloneArrival(Vector3 position)
+        {
+            EnsureInitialized();
+            StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.14f, 0.92f,
+                0.34f, 0.07f, 0.52f, 1f, VfxImportance.Important));
+            StartCoroutine(AnimateItemSignature(
+                position,
+                ItemType.InkClone,
+                InkPalette.Ink));
+            SpawnDroplets(
+                position,
+                7,
+                InkPalette.Ink,
+                VfxImportance.Normal,
+                3);
+        }
+
+        public void PlayRecordStamp()
+        {
+            EnsureInitialized();
+            VfxAudioManager.Instance?.PlayOneShot(milestoneClip, 0.82f);
+            PlayHaptic(HapticPattern.Landing, 0.7f);
+        }
+
+        /// 낙묵석이 실제로 충돌한 순간의 붉은 낙관형 결과 피드백.
+        public void PlayHazardImpact(Vector3 position)
+        {
+            EnsureInitialized();
+            StartCoroutine(AnimateRing(position, InkPalette.Red, 0.08f, 0.88f,
+                0.28f, 0.085f, 0.82f, 0.56f, VfxImportance.Important));
+            SpawnDroplets(
+                position,
+                7,
+                InkPalette.Ink,
+                VfxImportance.Normal,
+                3);
         }
 
         public void PlayHitStop(float duration = 0.055f)
@@ -260,6 +400,8 @@ namespace MukJump.Core
             if (!isActiveAndEnabled ||
                 (GameManager.Instance != null && GameManager.Instance.IsPaused))
                 return;
+            if (Time.unscaledTime - lastHitStopRequestTime < 0.04f) return;
+            lastHitStopRequestTime = Time.unscaledTime;
             if (hitStopRoutine != null)
             {
                 StopCoroutine(hitStopRoutine);
@@ -298,16 +440,17 @@ namespace MukJump.Core
         }
 
         IEnumerator AnimateRing(Vector3 position, Color color, float startRadius, float endRadius,
-            float duration, float width, float startAlpha, float yScale = 1f)
+            float duration, float width, float startAlpha, float yScale = 1f,
+            VfxImportance importance = VfxImportance.Normal)
         {
-            var element = TryAcquireLineVfx("FeedbackRing");
+            var element = TryAcquireLineVfx("FeedbackRing", importance);
             if (element == null) yield break;
             element.transform.position = position;
             element.transform.localScale = new Vector3(1f, yScale, 1f);
             var line = element.UseLine();
             line.useWorldSpace = false;
             line.loop = true;
-            line.positionCount = 32;
+            line.positionCount = VfxQualityRuntime.Profile.TransientRingSegments;
             line.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
             line.sortingOrder = 12;
             line.startWidth = line.endWidth = width;
@@ -428,7 +571,9 @@ namespace MukJump.Core
 
         IEnumerator AnimateBrushStreak(Vector3 position)
         {
-            var element = TryAcquireLineVfx("JumpBrushStreak");
+            var element = TryAcquireLineVfx(
+                "JumpBrushStreak",
+                VfxImportance.Decorative);
             if (element == null) yield break;
             element.transform.position = position;
             var line = element.UseLine();
@@ -461,7 +606,9 @@ namespace MukJump.Core
             int acquiredCount = 0;
             for (int i = 0; i < 2; i++)
             {
-                var element = TryAcquireLineVfx($"InvalidStrokeSlash_{i + 1}");
+                var element = TryAcquireLineVfx(
+                    $"InvalidStrokeSlash_{i + 1}",
+                    VfxImportance.Important);
                 if (element == null) continue;
                 slashes[i] = element;
                 acquiredCount++;
@@ -494,13 +641,174 @@ namespace MukJump.Core
                 ReleaseLineVfx(slashes[i]);
         }
 
-        void SpawnDroplets(Vector3 position, int count, Color color)
+        IEnumerator AnimateItemSignature(Vector3 position, ItemType type, Color color)
         {
-            for (int i = 0; i < count; i++)
+            var element = TryAcquireLineVfx(
+                $"ItemSignature_{type}",
+                VfxImportance.Important);
+            if (element == null) yield break;
+
+            element.transform.position = position;
+            var line = element.UseLine();
+            line.useWorldSpace = false;
+            line.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
+            line.sortingOrder = 14;
+            line.startWidth = line.endWidth = 0.055f;
+            ConfigureItemSignature(line, type);
+
+            float elapsed = 0f;
+            const float Duration = 0.44f;
+            while (elapsed < Duration)
             {
-                var element = TryAcquireSpriteVfx("FeedbackDroplet");
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / Duration);
+                float strike = 1f - Mathf.Pow(1f - Mathf.Clamp01(t / 0.58f), 3f);
+                float settle = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.58f, 1f, t));
+                float scale = t < 0.58f
+                    ? Mathf.Lerp(0.42f, 1.16f, strike)
+                    : Mathf.Lerp(1.16f, 1f, settle);
+                element.transform.localScale = Vector3.one * scale;
+                element.transform.localRotation = Quaternion.Euler(
+                    0f,
+                    0f,
+                    Mathf.Lerp(-8f, 3f, t));
+                color.a = Mathf.Min(
+                    Mathf.InverseLerp(0f, 0.12f, t),
+                    1f - Mathf.InverseLerp(0.72f, 1f, t));
+                line.startColor = line.endColor = color;
+                yield return null;
+            }
+
+            ReleaseLineVfx(element);
+        }
+
+        static void ConfigureItemSignature(LineRenderer line, ItemType type)
+        {
+            switch (type)
+            {
+                case ItemType.InkDrop:
+                    line.loop = true;
+                    line.positionCount = 12;
+                    for (int i = 0; i < line.positionCount; i++)
+                    {
+                        float t = i / (float)line.positionCount;
+                        float angle = t * Mathf.PI * 2f;
+                        float width = 0.18f + 0.16f * Mathf.Clamp01(-Mathf.Cos(angle));
+                        line.SetPosition(i, new Vector3(
+                            Mathf.Sin(angle) * width,
+                            Mathf.Cos(angle) * 0.34f - 0.03f,
+                            0f));
+                    }
+                    break;
+                case ItemType.GoldenBrush:
+                    line.loop = true;
+                    line.positionCount = 8;
+                    for (int i = 0; i < line.positionCount; i++)
+                    {
+                        float angle = i * Mathf.PI * 2f / line.positionCount;
+                        float radius = i % 2 == 0 ? 0.38f : 0.12f;
+                        line.SetPosition(i, new Vector3(
+                            Mathf.Cos(angle) * radius,
+                            Mathf.Sin(angle) * radius,
+                            0f));
+                    }
+                    break;
+                case ItemType.InkShield:
+                    line.loop = true;
+                    line.positionCount = 7;
+                    line.SetPosition(0, new Vector3(-0.28f, 0.24f));
+                    line.SetPosition(1, new Vector3(0f, 0.34f));
+                    line.SetPosition(2, new Vector3(0.28f, 0.24f));
+                    line.SetPosition(3, new Vector3(0.24f, -0.08f));
+                    line.SetPosition(4, new Vector3(0f, -0.36f));
+                    line.SetPosition(5, new Vector3(-0.24f, -0.08f));
+                    line.SetPosition(6, new Vector3(-0.28f, 0.24f));
+                    break;
+                case ItemType.InkClone:
+                    line.loop = true;
+                    line.positionCount = 16;
+                    for (int i = 0; i < line.positionCount; i++)
+                    {
+                        float angle = i * Mathf.PI * 2f / line.positionCount;
+                        line.SetPosition(i, new Vector3(
+                            Mathf.Sin(angle) * 0.38f,
+                            Mathf.Sin(angle * 2f) * 0.22f,
+                            0f));
+                    }
+                    break;
+                default:
+                    line.loop = false;
+                    line.positionCount = 5;
+                    line.SetPosition(0, new Vector3(-0.34f, -0.2f));
+                    line.SetPosition(1, new Vector3(-0.12f, -0.2f));
+                    line.SetPosition(2, new Vector3(-0.12f, 0f));
+                    line.SetPosition(3, new Vector3(0.12f, 0f));
+                    line.SetPosition(4, new Vector3(0.34f, 0.26f));
+                    break;
+            }
+        }
+
+        IEnumerator AnimateWallImpact(Vector3 position, float inwardDirection)
+        {
+            var element = TryAcquireLineVfx(
+                "WallInkImpact",
+                VfxImportance.Normal);
+            if (element == null) yield break;
+
+            element.transform.position = position;
+            element.transform.localRotation = Quaternion.Euler(
+                0f,
+                0f,
+                inwardDirection >= 0f ? -8f : 8f);
+            var line = element.UseLine();
+            line.useWorldSpace = false;
+            line.loop = false;
+            line.positionCount = 5;
+            line.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
+            line.sortingOrder = 13;
+            line.startWidth = 0.12f;
+            line.endWidth = 0.018f;
+            line.SetPosition(0, new Vector3(0f, -0.42f));
+            line.SetPosition(1, new Vector3(inwardDirection * 0.12f, -0.16f));
+            line.SetPosition(2, new Vector3(0f, 0.02f));
+            line.SetPosition(3, new Vector3(inwardDirection * 0.16f, 0.2f));
+            line.SetPosition(4, new Vector3(inwardDirection * 0.05f, 0.48f));
+
+            float elapsed = 0f;
+            const float Duration = 0.24f;
+            while (elapsed < Duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / Duration);
+                Color color = InkPalette.Ink;
+                color.a = 1f - t;
+                line.startColor = line.endColor = color;
+                element.transform.localScale = Vector3.one * Mathf.Lerp(0.72f, 1.08f, t);
+                yield return null;
+            }
+            ReleaseLineVfx(element);
+        }
+
+        void SpawnDroplets(
+            Vector3 position,
+            int count,
+            Color color,
+            VfxImportance importance,
+            int minimumCount = 0)
+        {
+            int scaledCount = VfxQualityRuntime.Profile.ScaleDecorativeCount(
+                count,
+                minimumCount);
+            for (int i = 0; i < scaledCount; i++)
+            {
+                var element = TryAcquireSpriteVfx("FeedbackDroplet", importance);
                 if (element == null) break;
-                StartCoroutine(AnimateDroplet(element, position, color, i, count));
+                StartCoroutine(AnimateDroplet(
+                    element,
+                    position,
+                    color,
+                    i,
+                    scaledCount));
             }
         }
 
@@ -530,23 +838,55 @@ namespace MukJump.Core
             ReleaseSpriteVfx(element);
         }
 
-        TransientVfxElement TryAcquireLineVfx(string objectName)
+        TransientVfxElement TryAcquireLineVfx(
+            string objectName,
+            VfxImportance importance = VfxImportance.Normal)
         {
             EnsureTransientPools();
-            if (lineVfxPool.LeasedCount >= LineVfxCapacity) return null;
+            int active = lineVfxPool.LeasedCount;
+            int softLimit = VfxQualityRuntime.Profile.TransientLineLimit;
+            int allowed = importance switch
+            {
+                VfxImportance.Critical => LineVfxCapacity,
+                VfxImportance.Important => LineVfxCapacity - 1,
+                _ => softLimit,
+            };
+            if (active >= allowed)
+            {
+                VfxRuntimeMonitor.Instance?.RecordDropped(importance);
+                return null;
+            }
             var element = lineVfxPool.Acquire();
             element.gameObject.name = objectName;
             leasedLineVfx.Add(element);
+            ReportTransientUsage();
             return element;
         }
 
-        TransientVfxElement TryAcquireSpriteVfx(string objectName)
+        TransientVfxElement TryAcquireSpriteVfx(
+            string objectName,
+            VfxImportance importance = VfxImportance.Decorative)
         {
             EnsureTransientPools();
-            if (spriteVfxPool.LeasedCount >= SpriteVfxCapacity) return null;
+            int active = spriteVfxPool.LeasedCount;
+            int softLimit = VfxQualityRuntime.Profile.TransientSpriteLimit;
+            int allowed = importance switch
+            {
+                VfxImportance.Critical => SpriteVfxCapacity,
+                VfxImportance.Important => SpriteVfxCapacity - 4,
+                // Normal이 High 소프트 예산 12개를 모두 차지해 Important를
+                // 굶기지 않도록 2개를 추가 예약한다.
+                _ => Mathf.Min(softLimit, SpriteVfxCapacity - 6),
+            };
+            if (active >= allowed)
+            {
+                VfxRuntimeMonitor.Instance?.RecordDropped(importance);
+                return null;
+            }
             var element = spriteVfxPool.Acquire();
             element.gameObject.name = objectName;
             leasedSpriteVfx.Add(element);
+            ReportTransientUsage();
             return element;
         }
 
@@ -554,12 +894,14 @@ namespace MukJump.Core
         {
             if (element == null || !leasedLineVfx.Remove(element)) return;
             lineVfxPool?.Release(element);
+            ReportTransientUsage();
         }
 
         void ReleaseSpriteVfx(TransientVfxElement element)
         {
             if (element == null || !leasedSpriteVfx.Remove(element)) return;
             spriteVfxPool?.Release(element);
+            ReportTransientUsage();
         }
 
         void EnsureTransientPools()
@@ -596,6 +938,41 @@ namespace MukJump.Core
             }
         }
 
+        /// 로비에서 현재 품질 예산과 Critical 예약 슬롯까지 구성해 첫 사망·피격
+        /// 프레임에 GameObject와 Renderer를 몰아서 추가하지 않는다.
+        void PrewarmTransientPools()
+        {
+            EnsureTransientPools();
+            int lineCount = Mathf.Min(
+                LineVfxCapacity,
+                VfxQualityRuntime.Profile.TransientLineLimit + 2);
+            int spriteCount = Mathf.Min(
+                SpriteVfxCapacity,
+                VfxQualityRuntime.Profile.TransientSpriteLimit + 4);
+            PrewarmTransientPool(lineVfxPool, lineCount, useSprite: false);
+            PrewarmTransientPool(spriteVfxPool, spriteCount, useSprite: true);
+            ReportTransientUsage();
+        }
+
+        static void PrewarmTransientPool(
+            ComponentPool<TransientVfxElement> pool,
+            int count,
+            bool useSprite)
+        {
+            if (pool == null || count <= 0) return;
+            var borrowed = new TransientVfxElement[count];
+            for (int i = 0; i < count; i++)
+            {
+                borrowed[i] = pool.Acquire();
+                if (useSprite)
+                    borrowed[i].UseSprite();
+                else
+                    borrowed[i].UseLine();
+            }
+            for (int i = borrowed.Length - 1; i >= 0; i--)
+                pool.Release(borrowed[i]);
+        }
+
         TransientVfxElement CreateTransientElement(string objectName)
         {
             var go = new GameObject(objectName);
@@ -614,6 +991,14 @@ namespace MukJump.Core
                 foreach (var element in leasedSpriteVfx)
                     spriteVfxPool.Release(element);
             leasedSpriteVfx.Clear();
+            ReportTransientUsage();
+        }
+
+        void ReportTransientUsage()
+        {
+            VfxRuntimeMonitor.Instance?.ReportTransientUsage(
+                lineVfxPool?.LeasedCount ?? 0,
+                spriteVfxPool?.LeasedCount ?? 0);
         }
 
         void CreateOverlay()
@@ -621,9 +1006,9 @@ namespace MukJump.Core
             var canvasObject = new GameObject("FeedbackOverlay", typeof(Canvas),
                 typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasObject.transform.SetParent(transform, false);
-            overlayCanvas = canvasObject.GetComponent<Canvas>();
-            overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            overlayCanvas.sortingOrder = 140;
+            var canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 140;
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080f, 1920f);
@@ -646,7 +1031,6 @@ namespace MukJump.Core
             if (existingBanner != null)
             {
                 bannerText = existingBanner.GetComponent<Text>();
-                overlayCanvas = existingBanner.GetComponentInParent<Canvas>();
                 ConfigureBannerText();
                 return;
             }
@@ -707,6 +1091,15 @@ namespace MukJump.Core
             }
             var clip = AudioClip.Create(name, count, 1, sampleRate, false);
             clip.SetData(samples, 0);
+            return clip;
+        }
+
+        AudioClip CreateOwnedTone(string name, float duration, float startFrequency,
+            float endFrequency, float volume, float noiseAmount)
+        {
+            AudioClip clip = CreateTone(
+                name, duration, startFrequency, endFrequency, volume, noiseAmount);
+            ownedRuntimeClips.Add(clip);
             return clip;
         }
 
@@ -779,6 +1172,14 @@ namespace MukJump.Core
             return clip;
         }
 
+        AudioClip CreateOwnedBrushNoise(string name, float duration, float volume,
+            bool fadeOut = false)
+        {
+            AudioClip clip = CreateBrushNoise(name, duration, volume, fadeOut);
+            ownedRuntimeClips.Add(clip);
+            return clip;
+        }
+
         static Sprite CreateDotSprite()
         {
             const int size = 32;
@@ -801,6 +1202,15 @@ namespace MukJump.Core
             texture.Apply();
             return Sprite.Create(texture, new Rect(0f, 0f, size, size),
                 new Vector2(0.5f, 0.5f), size);
+        }
+
+        static void DestroyOwnedObject(UnityEngine.Object ownedObject)
+        {
+            if (ownedObject == null) return;
+            if (Application.isPlaying)
+                Destroy(ownedObject);
+            else
+                DestroyImmediate(ownedObject);
         }
     }
 }

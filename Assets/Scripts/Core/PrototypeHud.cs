@@ -3,7 +3,7 @@ using MukJump.Drawing;
 
 namespace MukJump.Core
 {
-    /// 그레이박스 단계용 임시 HUD (OnGUI). Week 2에서 한지 스타일 uGUI로 교체 예정.
+    /// 화면 하단의 붓 획 모양 먹 잔량과 붓 여유를 표시하는 경량 HUD.
     public class PrototypeHud : MonoBehaviour
     {
         [Header("먹 게이지 이미지 (붓 획 모양) — 미할당 시 단색 막대로 폴백")]
@@ -18,6 +18,7 @@ namespace MukJump.Core
 
         StrokeCapture strokeCapture;
         Texture2D goldenBrushIcon;
+        bool ownsGoldenBrushIcon;
 
         void Start()
         {
@@ -25,6 +26,20 @@ namespace MukJump.Core
             goldenBrushIcon = goldenBrushItemIcon != null
                 ? goldenBrushItemIcon
                 : CreateColoredSilhouette(inkBrushIcon, new Color(1f, 0.68f, 0.08f));
+            ownsGoldenBrushIcon = goldenBrushItemIcon == null && goldenBrushIcon != null;
+        }
+
+        void OnDestroy()
+        {
+            if (ownsGoldenBrushIcon)
+            {
+                if (Application.isPlaying)
+                    Destroy(goldenBrushIcon);
+                else
+                    DestroyImmediate(goldenBrushIcon);
+            }
+            goldenBrushIcon = null;
+            ownsGoldenBrushIcon = false;
         }
 
         void OnGUI()

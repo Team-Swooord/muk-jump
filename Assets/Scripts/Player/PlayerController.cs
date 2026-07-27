@@ -3,7 +3,6 @@ using MukJump.Core;
 using MukJump.Drawing;
 using MukJump.Items;
 using System;
-using System.Collections.Generic;
 
 namespace MukJump.Player
 {
@@ -23,7 +22,7 @@ namespace MukJump.Player
         [Tooltip("방어막 소모 직후 겹친 장애물에 같은 프레임으로 다시 맞는 것을 막는 시간")]
         [SerializeField, Min(0f)] float shieldHitGraceDuration = 0.35f;
         [Tooltip("새 분신이 장애물 위에 생성되어 즉사하지 않도록 보호하는 시간")]
-        [SerializeField, Min(0f)] float cloneSpawnGraceDuration = 0.6f;
+        [SerializeField, Min(0f)] float cloneSpawnGraceDuration = 1f;
         [Tooltip("접촉 노멀의 y가 이 값 이상이어야 '발판 위'로 인정")]
         [SerializeField] float groundNormalMinY = 0.4f;
         [Tooltip("먹 방어막으로 추락을 막았을 때 다시 튀어 오르는 목표 높이")]
@@ -46,16 +45,49 @@ namespace MukJump.Player
         public PlatformCollider CurrentPlatform { get; private set; }
         public bool HasShield { get; private set; }
         public bool IsInkDropBoosted { get; private set; }
+        public bool IsRuntimeClone => isRuntimeClone;
         public float NormalGravityScale => normalGravityScale;
+        public Rigidbody2D Body => rb;
+        public Collider2D PrimaryCollider
+        {
+            get
+            {
+                if (primaryCollider == null)
+                    primaryCollider = GetComponent<Collider2D>();
+                return primaryCollider;
+            }
+        }
         public event Action ShieldConsumed;
 
         Rigidbody2D rb;
+        Collider2D primaryCollider;
         Camera cam;
         float camHalfHeight;
         bool inkDropHasRisen;
         float normalGravityScale;
         float damageInvulnerableUntil;
-        static readonly Queue<GameObject> deathStains = new();
+        [SerializeField, HideInInspector] bool isRuntimeClone;
+        static DeathInkStainPool deathStainPool;
+
+        static DeathInkStainPool DeathStainPool =>
+            deathStainPool ??= new DeathInkStainPool(CreateDeathStainObject);
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetDeathStainPool()
+        {
+            // Domain Reload를 꺼도 이전 Play 세션의 managed 참조를 유지하지 않는다.
+            deathStainPool = null;
+        }
+
+        static GameObject CreateDeathStainObject()
+        {
+            var stainObject = new GameObject("DeathInkStain (Pooled)");
+            if (GameManager.Instance != null)
+                stainObject.transform.SetParent(GameManager.Instance.transform, false);
+            stainObject.AddComponent<SpriteRenderer>();
+            stainObject.SetActive(false);
+            return stainObject;
+        }
 
         void OnEnable()
         {
@@ -82,12 +114,18 @@ namespace MukJump.Player
         /// 분신에는 원본이 기억하는 정상 중력을 별도로 전달한다.
         public void ConfigureAsClone(float sourceNormalGravityScale)
         {
+            // EditMode 테스트와 Play 중 도메인 재로드에서는 Awake 캐시보다
+            // 런타임 복제 설정이 먼저 호출될 수 있으므로 의존성을 즉시 복구한다.
+            if (rb == null)
+                rb = GetComponent<Rigidbody2D>();
+            isRuntimeClone = true;
             normalGravityScale = Mathf.Max(0.01f, sourceNormalGravityScale);
             rb.gravityScale = normalGravityScale;
             IsGrounded = false;
             CurrentPlatform = null;
             GroundNormal = Vector2.up;
-            damageInvulnerableUntil = Time.time + cloneSpawnGraceDuration;
+            damageInvulnerableUntil = Time.time +
+                                      Mathf.Max(1f, cloneSpawnGraceDuration);
             rb.WakeUp();
         }
 
@@ -106,6 +144,7 @@ namespace MukJump.Player
         void Awake()
         {
             rb = GetComponent<Rigidbody2D>();
+            primaryCollider = GetComponent<Collider2D>();
             normalGravityScale = rb.gravityScale;
             rb.freezeRotation = true;
             // 정지 상태에서 Rigidbody가 잠들면 충돌 콜백이 멈춰 접지 판정이 풀린다 → 잠들지 않게 유지
@@ -115,6 +154,7 @@ namespace MukJump.Player
         void Start()
         {
             GameManager.Instance?.RegisterPlayer(this);
+            DeathStainPool.Prewarm(maxDeathStains);
             cam = Camera.main;
             if (cam == null)
             {
@@ -187,7 +227,6 @@ namespace MukJump.Player
             }
             if (ConsumeShield())
             {
-                damageInvulnerableUntil = Time.time + shieldHitGraceDuration;
                 LaunchToHeight(12f);
                 return;
             }
@@ -219,8 +258,9 @@ namespace MukJump.Player
         {
             if (!HasShield) return false;
             HasShield = false;
+            damageInvulnerableUntil = Time.time + shieldHitGraceDuration;
             ShieldConsumed?.Invoke();
-            GameFeedbackController.Instance?.PlayShieldBreak();
+            GameFeedbackController.Instance?.PlayShieldBreak(transform.position);
             return true;
         }
 
@@ -237,7 +277,6 @@ namespace MukJump.Player
         {
             if (IsDead) return;
 
-            GameFeedbackController.Instance?.PlayDeath(transform.position);
             IsDead = true;
             IsInkDropBoosted = false;
             IsGrounded = false;
@@ -248,6 +287,8 @@ namespace MukJump.Player
 
             bool isLastPlayer = GameManager.Instance == null ||
                                 GameManager.Instance.NotifyPlayerDied(this);
+            GameFeedbackController.Instance?.PlayDeath(
+                transform.position, isLastPlayer);
             StartCoroutine(DeathSequence(isLastPlayer));
         }
 
@@ -258,22 +299,23 @@ namespace MukJump.Player
             rb.simulated = false;
 
             var playerRenderer = GetComponent<SpriteRenderer>();
-            if (playerRenderer != null) playerRenderer.enabled = false;
+            // CharacterAnimator의 사망 프레임이 먹 번짐과 함께 실제로 보이도록
+            // 연출이 끝날 때까지 본체 렌더러를 유지한다.
+            if (playerRenderer != null) playerRenderer.enabled = true;
 
             if (deathSplashSprite != null)
             {
                 // 죽은 분신 오브젝트가 정리되어도 한지 위 먹 자국은 월드에 남긴다.
-                var splashObject = new GameObject("DeathInkStain");
-                splashObject.transform.position = transform.position;
-                splashObject.transform.rotation =
-                    Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(-18f, 18f));
-                var splashRenderer = splashObject.AddComponent<SpriteRenderer>();
-                splashRenderer.sprite = deathSplashSprite;
-                // 캐릭터와 아이템 아래, 드로잉 발판 위에 종이 얼룩처럼 남는다.
-                splashRenderer.sortingOrder = 2;
-
                 float spriteWidth = Mathf.Max(0.01f, deathSplashSprite.bounds.size.x);
                 float finalScale = deathSplashWorldWidth / spriteWidth;
+                // 캐릭터와 아이템 아래, 드로잉 발판 위에 종이 얼룩처럼 남는다.
+                DeathInkStainPool.Lease stain = DeathStainPool.Show(
+                    deathSplashSprite,
+                    transform.position,
+                    Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(-18f, 18f)),
+                    finalScale * 0.18f,
+                    2,
+                    maxDeathStains);
                 float elapsed = 0f;
                 while (elapsed < deathSplashDuration)
                 {
@@ -281,19 +323,18 @@ namespace MukJump.Player
                     float t = Mathf.Clamp01(elapsed / deathSplashDuration);
                     float eased = 1f - Mathf.Pow(1f - t, 3f);
                     float scale = Mathf.Lerp(finalScale * 0.18f, finalScale, eased);
-                    splashObject.transform.localScale = Vector3.one * scale;
+                    // 용량 초과로 같은 인스턴스가 다음 죽음에 재사용됐다면
+                    // 이전 코루틴이 새 자국의 크기를 덮어쓰지 않는다.
+                    GameObject currentStain = stain.GameObject;
+                    if (currentStain != null)
+                        currentStain.transform.localScale = Vector3.one * scale;
                     yield return null;
-                }
-
-                deathStains.Enqueue(splashObject);
-                while (deathStains.Count > Mathf.Max(1, maxDeathStains))
-                {
-                    var oldest = deathStains.Dequeue();
-                    if (oldest != null) Destroy(oldest);
                 }
             }
             else
                 yield return new WaitForSeconds(deathSplashDuration);
+
+            if (playerRenderer != null) playerRenderer.enabled = false;
 
             // 마지막 캐릭터는 게임오버 씬이 유지하므로 숨긴 채 남기고,
             // 먹분신이 살아 있으면 죽은 개체만 정리한다.
@@ -387,8 +428,8 @@ namespace MukJump.Player
 
             if (collision.collider.GetComponent<ScreenSideWall>() == null) return;
 
-            GameFeedbackController.Instance?.PlayWallHit();
             float inwardDirection = transform.position.x >= collision.transform.position.x ? 1f : -1f;
+            GameFeedbackController.Instance?.PlayWallHit(transform.position, inwardDirection);
             float bounceSpeed = Mathf.Max(sideWallBounceSpeed, Mathf.Abs(rb.linearVelocity.x) * 0.55f);
             rb.linearVelocity = new Vector2(inwardDirection * bounceSpeed, rb.linearVelocity.y);
         }

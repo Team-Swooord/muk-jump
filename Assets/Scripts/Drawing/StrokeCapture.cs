@@ -26,7 +26,7 @@ namespace MukJump.Drawing
         [Tooltip("먹 총량 (월드 단위 길이). 그은 만큼 소모된다")]
         [SerializeField] float inkCapacity = 12f;
         [Tooltip("초당 먹 회복량 (그리는 중에는 회복하지 않음)")]
-        [SerializeField] float inkRegenPerSecond = 1.8f;
+        [SerializeField] float inkRegenPerSecond = 3f;
         [Tooltip("먹이 이보다 적으면 새 획을 시작할 수 없다")]
         [SerializeField] float minInkToStart = 0.8f;
 
@@ -38,10 +38,15 @@ namespace MukJump.Drawing
         float inkReserve;
         LineRenderer preview;
         float unlimitedInkUntil;
+        readonly List<Player.PlayerController> livingPlayers = new();
+        readonly List<Vector2> safeSegment = new();
+        readonly List<Vector2> safeSegmentCandidate = new();
 
         /// HUD 먹 게이지용. 1을 넘는 값은 아이템으로 쌓은 일회성 여유분이다.
         public bool HasUnlimitedInk => Time.time < unlimitedInkUntil;
-        public float InkRemaining01 => HasUnlimitedInk ? 1f : (ink + inkReserve) / inkCapacity;
+        public float InkRemaining01 => HasUnlimitedInk
+            ? 1f
+            : (ink + inkReserve) / Mathf.Max(0.001f, inkCapacity);
 
         public void AddInkReserve(float capacityRatio)
         {
@@ -56,6 +61,8 @@ namespace MukJump.Drawing
         void Start()
         {
             cam = Camera.main;
+            // 구형 Main 씬의 직렬화 값이 남아 있어도 최신 밸런스를 즉시 적용한다.
+            inkRegenPerSecond = 3f;
             if (cam == null)
                 Debug.LogError("[MukJump] MainCamera를 찾을 수 없어 드로잉 좌표를 변환할 수 없습니다.", this);
             ink = inkCapacity;
@@ -230,12 +237,41 @@ namespace MukJump.Drawing
                 return;
             }
 
+            bool exhaustsInk = false;
+            if (!lobbyStroke && !HasUnlimitedInk)
+            {
+                float availableInk = Mathf.Max(0f, ink) + Mathf.Max(0f, inkReserve);
+                float affordableStep = LimitStepToAvailableInk(step, ink, inkReserve);
+                exhaustsInk = availableInk <= step;
+                if (affordableStep <= 0f)
+                {
+                    EndStroke();
+                    return;
+                }
+
+                // 포인터가 한 프레임에 멀리 이동해도 남은 먹으로 지불할 수 있는
+                // 지점까지만 선과 콜라이더를 만든다.
+                world = Vector2.MoveTowards(points[^1], world, affordableStep);
+                step = affordableStep;
+            }
+
             strokeLength += step;
             if (!lobbyStroke && !HasUnlimitedInk)
                 ConsumeInk(step);
             points.Add(world);
             GameFeedbackController.Instance?.PlayBrushMovement(step);
             UpdatePreview();
+
+            if (exhaustsInk)
+                EndStroke();
+        }
+
+        static float LimitStepToAvailableInk(float requestedStep, float currentInk,
+            float reserve)
+        {
+            return Mathf.Min(
+                Mathf.Max(0f, requestedStep),
+                Mathf.Max(0f, currentInk) + Mathf.Max(0f, reserve));
         }
 
         void ConsumeInk(float amount)
@@ -303,20 +339,63 @@ namespace MukJump.Drawing
         /// 획 전체를 취소해 입력이 먹히지 않은 것처럼 보이던 불편을 줄인다.
         List<Vector2> LongestSafeSegment(List<Vector2> strokePoints)
         {
-            var players = FindObjectsByType<Player.PlayerController>(FindObjectsSortMode.None);
-            if (players.Length == 0) return strokePoints;
+            livingPlayers.Clear();
+            GameManager.Instance?.GetLivingPlayersNonAlloc(livingPlayers);
+            if (livingPlayers.Count == 0) return strokePoints;
 
-            var longest = new List<Vector2>();
-            var current = new List<Vector2>();
+            return SelectLongestSafeSegment(strokePoints, livingPlayers, playerClearance,
+                safeSegment, safeSegmentCandidate);
+        }
+
+        /// 실제 캐릭터 콜라이더 바깥에서 발판 Edge 반경 0.06m까지 포함한 여백이다.
+        /// 먹떼가 커져도 물리 겹침이 생기지 않는 0.08m 아래로는 줄이지 않는다.
+        static float ResolvePlayerSurfacePadding(int livingCount)
+        {
+            return Mathf.Lerp(
+                0.15f,
+                0.08f,
+                Mathf.InverseLerp(1f, GameManager.MaxLivingPlayers, livingCount));
+        }
+
+        static List<Vector2> SelectLongestSafeSegment(
+            IReadOnlyList<Vector2> strokePoints,
+            IReadOnlyList<Player.PlayerController> players,
+            float clearance,
+            List<Vector2> longest,
+            List<Vector2> current)
+        {
+            longest.Clear();
+            current.Clear();
+            float longestLength = 0f;
+            float currentLength = 0f;
+            float clearanceSquared = Mathf.Max(0f, clearance);
+            clearanceSquared *= clearanceSquared;
+            float surfacePadding = ResolvePlayerSurfacePadding(players.Count);
+            float surfacePaddingSquared = surfacePadding * surfacePadding;
+
             for (int pointIndex = 0; pointIndex < strokePoints.Count; pointIndex++)
             {
                 Vector2 point = strokePoints[pointIndex];
                 bool blocked = false;
-                for (int playerIndex = 0; playerIndex < players.Length; playerIndex++)
+                for (int playerIndex = 0; playerIndex < players.Count; playerIndex++)
                 {
-                    if (players[playerIndex].IsDead) continue;
-                    if (Vector2.Distance(point, players[playerIndex].transform.position) <
-                        playerClearance)
+                    var player = players[playerIndex];
+                    if (player == null || player.IsDead) continue;
+                    var bodyShape = player.PrimaryCollider;
+                    bool overlapsPlayer;
+                    if (bodyShape != null && bodyShape.enabled)
+                    {
+                        Vector2 closest = bodyShape.ClosestPoint(point);
+                        overlapsPlayer =
+                            (point - closest).sqrMagnitude < surfacePaddingSquared;
+                    }
+                    else
+                    {
+                        Vector2 playerPosition = player.transform.position;
+                        overlapsPlayer =
+                            (point - playerPosition).sqrMagnitude < clearanceSquared;
+                    }
+                    if (overlapsPlayer)
                     {
                         blocked = true;
                         break;
@@ -325,20 +404,31 @@ namespace MukJump.Drawing
 
                 if (!blocked)
                 {
+                    if (current.Count > 0)
+                        currentLength += Vector2.Distance(current[^1], point);
                     current.Add(point);
                     continue;
                 }
 
-                if (BezierSmoother.PolylineLength(current) >
-                    BezierSmoother.PolylineLength(longest))
-                    longest = new List<Vector2>(current);
+                KeepLongerSegment(current, currentLength, longest, ref longestLength);
                 current.Clear();
+                currentLength = 0f;
             }
 
-            if (BezierSmoother.PolylineLength(current) >
-                BezierSmoother.PolylineLength(longest))
-                longest = current;
+            KeepLongerSegment(current, currentLength, longest, ref longestLength);
             return longest;
+        }
+
+        static void KeepLongerSegment(
+            List<Vector2> candidate,
+            float candidateLength,
+            List<Vector2> longest,
+            ref float longestLength)
+        {
+            if (candidateLength <= longestLength) return;
+            longest.Clear();
+            longest.AddRange(candidate);
+            longestLength = candidateLength;
         }
 
         // ---- 그리는 동안 옅은 먹선 미리보기 ----
@@ -390,6 +480,18 @@ namespace MukJump.Drawing
             if (preview == null) return;
             preview.positionCount = 0;
             preview.gameObject.SetActive(false);
+        }
+
+        void OnValidate()
+        {
+            minPointDistance = Mathf.Max(0.001f, minPointDistance);
+            maxContinuousStrokeLength = Mathf.Max(minPointDistance, maxContinuousStrokeLength);
+            minStrokeLength = Mathf.Max(minPointDistance, minStrokeLength);
+            previewWidth = Mathf.Max(0.01f, previewWidth);
+            playerClearance = Mathf.Max(0f, playerClearance);
+            inkCapacity = Mathf.Max(0.001f, inkCapacity);
+            inkRegenPerSecond = Mathf.Max(0f, inkRegenPerSecond);
+            minInkToStart = Mathf.Clamp(minInkToStart, 0f, inkCapacity);
         }
     }
 }

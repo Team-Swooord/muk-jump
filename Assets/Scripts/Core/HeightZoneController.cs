@@ -33,8 +33,13 @@ namespace MukJump.Core
         LineRenderer[] gorgeLines;
 
         public Zone CurrentZone => currentZone;
-        public int CurrentMapStage { get; private set; }
-        public float ZoneHeight => zoneHeight;
+
+        void OnEnable()
+        {
+            // OnDisable에서 전역 배율을 기본값으로 되돌리므로 재활성화 시 같은
+            // 고도 구간이라도 반드시 설정을 다시 적용한다.
+            currentBand = -1;
+        }
 
         void Start()
         {
@@ -46,10 +51,10 @@ namespace MukJump.Core
 
         void Update()
         {
-            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing)
+            if (GameManager.Instance == null || !GameManager.Instance.IsGameplayTicking)
                 return;
 
-            int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
+            int height = Mathf.RoundToInt(GameManager.Instance.SwarmProgressHeight);
             int band = Mathf.Max(0, Mathf.FloorToInt(height / zoneHeight));
             if (band != currentBand) ApplyZone(band);
 
@@ -126,7 +131,6 @@ namespace MukJump.Core
 
         void ApplyMapStage(int stage, bool mirrorX = false)
         {
-            CurrentMapStage = stage;
             if (backgroundView == null) backgroundView = FindFirstObjectByType<MapBackgroundView>();
             backgroundView?.SetStage(stage, false, mirrorX);
             if (worldCamera != null)
@@ -240,6 +244,7 @@ namespace MukJump.Core
 
         void OnDisable()
         {
+            currentBand = -1;
             PlatformCollider.RuntimeLifetimeMultiplier = 1f;
             if (rockSpawner != null) rockSpawner.RuntimeIntervalMultiplier = 1f;
             if (weatherLines != null)

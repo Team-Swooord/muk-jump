@@ -49,6 +49,9 @@
 - 스크립트 수정 후 사용자에게 테스트를 요청하기 전에
   `~/Library/Logs/Unity/Editor.log`를 grep(`error CS|Exception`)해서 먼저 확인.
 - Unity 에디터가 열려 있는 동안 배치모드(-batchmode) 실행 불가 (프로젝트 잠금).
+- VFX 작업 전에는 `docs/VFX/SKILL.md`를 읽고 모바일 성능·풀링·품질 등급 기준을
+  참고한다. 단, 이 저장소의 `AGENTS.md`와 `CLAUDE.md`, 현재 Unity 6000.3.10f1
+  설정이 우선하며 패키지나 ProjectSettings는 호환성 감사 없이 적용하지 않는다.
 
 ## 5. 제출 요건 관련 (어기면 실격 사유)
 

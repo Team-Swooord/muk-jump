@@ -16,7 +16,7 @@ namespace MukJump.Obstacles
         [SerializeField] LayerMask collisionMask;
 
         [Header("출현 조건")]
-        [Min(0f), SerializeField] float startHeight = 8f;
+        [Min(0f), SerializeField] float startHeight = 30f;
         [Min(0f), SerializeField] float initialDelay = 3f;
         [SerializeField] Vector2 lowHeightInterval = new(5f, 8f);
         [SerializeField] Vector2 highHeightInterval = new(3.5f, 5f);
@@ -38,26 +38,41 @@ namespace MukJump.Obstacles
         [Min(0.1f), SerializeField] float maxLifetime = 8f;
 
         readonly List<FallingInkRock> active = new();
+        readonly List<PlayerController> livingPlayers =
+            new(GameManager.MaxLivingPlayers);
         ComponentPool<FallingInkRock> pool;
+        bool poolPrewarmed;
+        GameManager subscribedManager;
         GameState previousState = GameState.Lobby;
         bool heightUnlocked;
         float spawnTimer;
         bool missingReferenceLogged;
         public float RuntimeIntervalMultiplier { get; set; } = 1f;
 
+        void OnEnable()
+        {
+            TrySubscribeToGameManager();
+        }
+
         void Start()
         {
+            // 구형 Main 씬의 8m 직렬화 값보다 30m 안전 구간이 항상 우선한다.
+            startHeight = Mathf.Max(30f, startHeight);
             if (worldCamera == null) worldCamera = Camera.main;
             if (player == null) player = FindFirstObjectByType<PlayerController>();
             if (collisionMask.value == 0)
-                collisionMask = LayerMask.GetMask("Default", "Platform");
+                collisionMask = LayerMask.GetMask("Default", "Platform", "Player");
+            else
+                collisionMask |= LayerMask.GetMask("Player");
             EnsurePool();
             ValidateReferences();
             ResetSchedule();
+            TrySubscribeToGameManager();
         }
 
         void OnDisable()
         {
+            UnsubscribeFromGameManager();
             ClearActive();
             ResetSchedule();
             previousState = GameState.Lobby;
@@ -65,6 +80,7 @@ namespace MukJump.Obstacles
 
         void Update()
         {
+            TrySubscribeToGameManager();
             var manager = GameManager.Instance;
             GameState state = manager != null ? manager.State : GameState.Lobby;
             if (state != previousState)
@@ -76,9 +92,11 @@ namespace MukJump.Obstacles
             }
 
             CleanupList();
-            if (state != GameState.Playing || !ValidateReferences()) return;
+            if (manager == null || !manager.IsGameplayTicking || !ValidateReferences()) return;
 
-            float height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0f;
+            // 선두 한 마리의 먹물방울 부스트가 30m 안전 구간을 조기 해제하지 않도록
+            // 카메라와 동일한 먹떼 중앙 진행 고도를 사용한다.
+            float height = manager.SwarmProgressHeight;
             if (height < startHeight) return;
 
             if (!heightUnlocked)
@@ -173,24 +191,36 @@ namespace MukJump.Obstacles
             var existing = GetComponentsInChildren<FallingInkRock>(true);
             for (int i = 0; i < existing.Length; i++)
                 pool.Adopt(existing[i]);
+            if (!poolPrewarmed)
+            {
+                var warmRock = pool.Acquire();
+                pool.Release(warmRock);
+                poolPrewarmed = true;
+            }
         }
 
         float ChooseSafestX(float left, float right)
         {
             if (right <= left) return (left + right) * 0.5f;
-            var livingPlayer = GameManager.Instance != null
-                ? GameManager.Instance.HighestLivingPlayer
-                : null;
-            if (livingPlayer != null) player = livingPlayer;
+            livingPlayers.Clear();
+            GameManager.Instance?.GetLivingPlayersNonAlloc(livingPlayers);
+            if (livingPlayers.Count == 0 && player != null)
+                livingPlayers.Add(player);
 
             float safestX = (left + right) * 0.5f;
             float safestDistance = -1f;
             for (int i = 0; i < xSelectionAttempts; i++)
             {
-                float candidate = Random.Range(left, right);
-                float distance = player != null
-                    ? Mathf.Abs(candidate - player.transform.position.x)
-                    : float.MaxValue;
+                float candidate = GameplayRandom.Range(
+                    GameplayRandomStream.FallingRocks, left, right);
+                float distance = float.MaxValue;
+                for (int playerIndex = 0; playerIndex < livingPlayers.Count; playerIndex++)
+                {
+                    var candidatePlayer = livingPlayers[playerIndex];
+                    if (candidatePlayer == null || candidatePlayer.IsDead) continue;
+                    distance = Mathf.Min(distance,
+                        Mathf.Abs(candidate - candidatePlayer.transform.position.x));
+                }
                 if (distance > safestDistance)
                 {
                     safestDistance = distance;
@@ -207,17 +237,29 @@ namespace MukJump.Obstacles
             float difficulty = Mathf.InverseLerp(startHeight, highDifficultyHeight, height);
             float minimum = Mathf.Lerp(lowHeightInterval.x, highHeightInterval.x, difficulty);
             float maximum = Mathf.Lerp(lowHeightInterval.y, highHeightInterval.y, difficulty);
-            return Random.Range(minimum, maximum) * Mathf.Clamp(RuntimeIntervalMultiplier, 0.35f, 1f);
+            return GameplayRandom.Range(
+                       GameplayRandomStream.FallingRocks, minimum, maximum) *
+                   Mathf.Clamp(RuntimeIntervalMultiplier, 0.35f, 1f);
         }
 
         bool ValidateReferences()
         {
+            if (worldCamera == null) worldCamera = Camera.main;
+            if (player == null)
+            {
+                player = GameManager.Instance != null
+                    ? GameManager.Instance.HighestLivingPlayer
+                    : FindFirstObjectByType<PlayerController>();
+            }
+
             bool valid = fallingInkRockSprite != null && worldCamera != null && player != null;
             if (!valid && !missingReferenceLogged)
             {
                 Debug.LogWarning("[MukJump] 낙묵석 Sprite/Camera/Player 참조가 없어 스폰을 중지합니다.", this);
                 missingReferenceLogged = true;
             }
+            else if (valid)
+                missingReferenceLogged = false;
             return valid;
         }
 
@@ -225,6 +267,29 @@ namespace MukJump.Obstacles
         {
             heightUnlocked = false;
             spawnTimer = initialDelay;
+        }
+
+        void TrySubscribeToGameManager()
+        {
+            var manager = GameManager.Instance;
+            if (manager == subscribedManager) return;
+            UnsubscribeFromGameManager();
+            if (manager == null) return;
+            subscribedManager = manager;
+            subscribedManager.WorldHeightTeleported += HandleWorldHeightTeleported;
+        }
+
+        void UnsubscribeFromGameManager()
+        {
+            if (subscribedManager == null) return;
+            subscribedManager.WorldHeightTeleported -= HandleWorldHeightTeleported;
+            subscribedManager = null;
+        }
+
+        void HandleWorldHeightTeleported(int targetHeight)
+        {
+            ClearActive();
+            ResetSchedule();
         }
 
         void CleanupList()

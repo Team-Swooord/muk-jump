@@ -3,6 +3,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using MukJump.Core;
 using MukJump.Core.Pooling;
 using MukJump.Drawing;
@@ -15,10 +16,15 @@ using UnityEngine.UI;
 public class FallingInkRockTests
 {
     readonly List<Object> cleanup = new();
+    Scene builderTestScene;
 
     [TearDown]
     public void TearDown()
     {
+        if (builderTestScene.IsValid() && builderTestScene.isLoaded)
+            MukJumpSceneBuilder.CloseTestScene(builderTestScene);
+        builderTestScene = default;
+
         for (int i = cleanup.Count - 1; i >= 0; i--)
         {
             if (cleanup[i] != null) Object.DestroyImmediate(cleanup[i]);
@@ -85,6 +91,25 @@ public class FallingInkRockTests
     }
 
     [Test]
+    public void MovingObstacleUsesKinematicBodyFixedStepAndVisualUpdate()
+    {
+        var go = Track(new GameObject("TestMovingObstacle"));
+        var obstacle = go.AddComponent<Obstacle>();
+        Invoke(obstacle, "Awake");
+
+        var body = go.GetComponent<Rigidbody2D>();
+        Assert.IsNotNull(body);
+        Assert.AreEqual(RigidbodyType2D.Kinematic, body.bodyType);
+        Assert.AreEqual(0f, body.gravityScale);
+        Assert.That(body.constraints & RigidbodyConstraints2D.FreezeRotation,
+            Is.Not.EqualTo(0));
+        Assert.IsNotNull(typeof(Obstacle).GetMethod(
+            "FixedUpdate", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.IsNotNull(typeof(Obstacle).GetMethod(
+            "Update", BindingFlags.Instance | BindingFlags.NonPublic));
+    }
+
+    [Test]
     public void ThinPlatformIsCastableAndRemovalIsIdempotent()
     {
         var platform = PlatformCollider.Spawn(new List<Vector2>
@@ -128,6 +153,32 @@ public class FallingInkRockTests
     }
 
     [Test]
+    public void SpawnerRebindsToLivingCloneAfterOriginalPlayerIsGone()
+    {
+        var managerObject = Track(new GameObject("TestGameManager"));
+        var manager = managerObject.AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+
+        var playerObject = Track(new GameObject("LivingClone"));
+        playerObject.AddComponent<Rigidbody2D>();
+        playerObject.AddComponent<CircleCollider2D>();
+        var livingClone = playerObject.AddComponent<PlayerController>();
+        Invoke(livingClone, "Awake");
+        manager.RegisterPlayer(livingClone);
+
+        var cameraObject = Track(new GameObject("TestCamera"));
+        var camera = cameraObject.AddComponent<Camera>();
+        var spawnerObject = Track(new GameObject("TestSpawner"));
+        var spawner = spawnerObject.AddComponent<FallingInkRockSpawner>();
+        SetField(spawner, "fallingInkRockSprite", CreateSprite());
+        SetField(spawner, "worldCamera", camera);
+        SetField(spawner, "player", null);
+
+        Assert.IsTrue((bool)Invoke(spawner, "ValidateReferences"));
+        Assert.AreSame(livingClone, GetField(spawner, "player"));
+    }
+
+    [Test]
     public void VisibilityTintsBodyAndDisablesLegacyDecorations()
     {
         var root = Track(new GameObject("VisibleObstacle"));
@@ -156,18 +207,73 @@ public class FallingInkRockTests
         Assert.IsFalse(paperHalo.enabled);
         Assert.IsFalse(dangerRing.enabled);
 
-        view.SetVisible(false);
+        view.DisableLegacyDecorations();
         Assert.IsFalse(dangerRing.enabled);
-        view.SetVisible(true);
-        Assert.IsFalse(dangerRing.enabled);
+    }
+
+    [Test]
+    public void VisibilitySharedMaterialIsReleasedAtSubsystemReset()
+    {
+        var reset = typeof(ObstacleVisibilityView).GetMethod(
+            "ReleaseRuntimeAssets", BindingFlags.Static | BindingFlags.NonPublic);
+        var materialField = typeof(ObstacleVisibilityView).GetField(
+            "sharedPaperRedMaterial", BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.IsNotNull(reset);
+        Assert.IsNotNull(materialField);
+        reset.Invoke(null, null);
+
+        var root = Track(new GameObject("VisibilityResourceOwner"));
+        var body = root.AddComponent<SpriteRenderer>();
+        var view = root.AddComponent<ObstacleVisibilityView>();
+        view.Configure();
+        var first = body.sharedMaterial;
+
+        Assert.IsNotNull(first);
+        reset.Invoke(null, null);
+
+        Assert.IsNull(materialField.GetValue(null));
+        Assert.IsTrue(first == null,
+            "공유 런타임 Material은 SubsystemRegistration에서 해제되어야 합니다.");
+        view.Configure();
+        Assert.IsNotNull(body.sharedMaterial);
+        Assert.AreNotSame(first, body.sharedMaterial);
+        reset.Invoke(null, null);
     }
 
     [Test]
     public void SceneBuilderCreatesSingleConfiguredSpawner()
     {
-        MukJumpSceneBuilder.Build();
+        const string mainScenePath = "Assets/Scenes/Main.unity";
+        Scene activeSceneBefore = SceneManager.GetActiveScene();
+        Hash128 mainSceneHashBefore = AssetDatabase.GetAssetDependencyHash(mainScenePath);
+        UIOrientation orientationBefore = PlayerSettings.defaultInterfaceOrientation;
+        EditorBuildSettingsScene[] buildScenesBefore = EditorBuildSettings.scenes;
+        string[] hudTexturePaths =
+        {
+            "Assets/Art/UI/muk_gauge_fill.png",
+            "Assets/Art/UI/muk_gauge_track.png",
+            "Assets/Art/UI/muk_brush_icon.png",
+        };
+        var hudTextureHashesBefore = new Hash128[hudTexturePaths.Length];
+        for (int i = 0; i < hudTexturePaths.Length; i++)
+            hudTextureHashesBefore[i] =
+                AssetDatabase.GetAssetDependencyHash(hudTexturePaths[i]);
 
-        var spawners = Object.FindObjectsByType<FallingInkRockSpawner>(FindObjectsSortMode.None);
+        builderTestScene = MukJumpSceneBuilder.BuildForTests();
+
+        Assert.AreEqual(string.Empty, builderTestScene.path);
+        Assert.AreEqual(activeSceneBefore, SceneManager.GetActiveScene());
+        Assert.AreEqual(mainSceneHashBefore, AssetDatabase.GetAssetDependencyHash(mainScenePath));
+        Assert.AreEqual(orientationBefore, PlayerSettings.defaultInterfaceOrientation);
+        AssertBuildSettingsUnchanged(buildScenesBefore, EditorBuildSettings.scenes);
+        for (int i = 0; i < hudTexturePaths.Length; i++)
+        {
+            Assert.AreEqual(hudTextureHashesBefore[i],
+                AssetDatabase.GetAssetDependencyHash(hudTexturePaths[i]),
+                $"테스트 빌더가 importer를 변경했습니다: {hudTexturePaths[i]}");
+        }
+
+        var spawners = FindAllInScene<FallingInkRockSpawner>(builderTestScene);
         Assert.AreEqual(1, spawners.Length);
         Assert.AreEqual("Obstacles", spawners[0].gameObject.name);
 
@@ -176,15 +282,51 @@ public class FallingInkRockTests
         Assert.IsNotNull(serialized.FindProperty("worldCamera").objectReferenceValue);
         Assert.IsNotNull(serialized.FindProperty("player").objectReferenceValue);
         Assert.AreNotEqual(0, serialized.FindProperty("collisionMask").intValue);
+        Assert.AreEqual(30f, serialized.FindProperty("startHeight").floatValue);
 
-        var itemSpawner = Object.FindFirstObjectByType<ItemSpawner>();
+        var movingSpawner = FindFirstInScene<ObstacleSpawner>(builderTestScene);
+        Assert.IsNotNull(movingSpawner);
+        var movingSerialized = new SerializedObject(movingSpawner);
+        Assert.IsNotNull(movingSerialized.FindProperty("obstacleSprite").objectReferenceValue);
+        Assert.IsNotNull(movingSerialized.FindProperty("dragonSprite").objectReferenceValue);
+        var dragonFrames = movingSerialized.FindProperty("dragonFrames");
+        Assert.AreEqual(4, dragonFrames.arraySize);
+        for (int i = 0; i < dragonFrames.arraySize; i++)
+        {
+            var frame = dragonFrames.GetArrayElementAtIndex(i).objectReferenceValue as Sprite;
+            Assert.IsNotNull(frame);
+            Assert.AreEqual($"child_ink_dragon_frame_{i:00}", frame.name);
+        }
+        Assert.AreSame(dragonFrames.GetArrayElementAtIndex(0).objectReferenceValue,
+            movingSerialized.FindProperty("dragonSprite").objectReferenceValue);
+        Assert.AreEqual(30f, movingSerialized.FindProperty("firstSpawnHeight").floatValue);
+
+        var itemSpawner = FindFirstInScene<ItemSpawner>(builderTestScene);
         Assert.IsNotNull(itemSpawner);
         var itemSerialized = new SerializedObject(itemSpawner);
         Assert.IsNotNull(itemSerialized.FindProperty("inkDropSprite").objectReferenceValue);
         Assert.IsNotNull(itemSerialized.FindProperty("goldenBrushSprite").objectReferenceValue);
         Assert.IsNotNull(itemSerialized.FindProperty("inkShieldSprite").objectReferenceValue);
+        Assert.IsNotNull(itemSerialized.FindProperty("inkCloneSprite").objectReferenceValue);
+        Assert.AreEqual(new Vector2(10f, 16f),
+            itemSerialized.FindProperty("verticalSpacing").vector2Value);
+        Assert.AreEqual(12f, itemSerialized.FindProperty("firstSpawnHeight").floatValue);
+        Assert.AreEqual(0.35f, itemSerialized.FindProperty("cloneChanceAt30m").floatValue);
+        Assert.AreEqual(0.5f, itemSerialized.FindProperty("cloneChanceAt250m").floatValue);
 
-        var inkDropVfx = Object.FindFirstObjectByType<InkDropJumpVfx>();
+        var capture = FindFirstInScene<StrokeCapture>(builderTestScene);
+        Assert.IsNotNull(capture);
+        var captureSerialized = new SerializedObject(capture);
+        Assert.AreEqual(3f,
+            captureSerialized.FindProperty("inkRegenPerSecond").floatValue);
+
+        var player = FindFirstInScene<PlayerController>(builderTestScene);
+        Assert.IsNotNull(player);
+        var playerSerialized = new SerializedObject(player);
+        Assert.AreEqual(1f,
+            playerSerialized.FindProperty("cloneSpawnGraceDuration").floatValue);
+
+        var inkDropVfx = FindFirstInScene<InkDropJumpVfx>(builderTestScene);
         Assert.IsNotNull(inkDropVfx);
         var vfxSerialized = new SerializedObject(inkDropVfx);
         Assert.IsNotNull(vfxSerialized.FindProperty("groundBlob").objectReferenceValue);
@@ -192,53 +334,105 @@ public class FallingInkRockTests
         Assert.IsNotNull(vfxSerialized.FindProperty("shockRing").objectReferenceValue);
         Assert.IsNotNull(vfxSerialized.FindProperty("verticalBrush").objectReferenceValue);
         Assert.IsNotNull(vfxSerialized.FindProperty("immediateClip").objectReferenceValue);
-        Assert.IsNotNull(Object.FindFirstObjectByType<VfxAudioManager>());
+        Assert.IsNotNull(FindFirstInScene<VfxAudioManager>(builderTestScene));
+        Assert.IsNotNull(FindFirstInScene<VfxRuntimeMonitor>(builderTestScene));
+        var feedbackAudio = FindFirstInScene<VfxAudioManager>(builderTestScene);
+        Assert.AreEqual(6, feedbackAudio.GetComponents<AudioSource>().Length);
+        Assert.IsNotNull(feedbackAudio.transform.Find("BrushDrawingAudio")
+            ?.GetComponent<AudioSource>());
+        Assert.IsNotNull(feedbackAudio.transform.Find("PriorityAccentAudio")
+            ?.GetComponent<AudioSource>());
 
-        var lobby = Object.FindFirstObjectByType<LobbyView>();
+        var builtCamera = FindFirstInScene<Camera>(builderTestScene);
+        Assert.IsNotNull(builtCamera);
+        Assert.IsFalse(builtCamera.allowHDR);
+        Assert.IsFalse(builtCamera.allowMSAA);
+
+        var lobby = FindFirstInScene<LobbyView>(builderTestScene);
         Assert.IsNotNull(lobby);
         var lobbySerialized = new SerializedObject(lobby);
         var lobbyBest = lobbySerialized.FindProperty("bestText").objectReferenceValue as Text;
         Assert.IsNotNull(lobbyBest);
-        Assert.AreEqual(50, lobbyBest.fontSize);
-        Assert.AreEqual(InkPalette.Paper, lobbyBest.color);
-        Assert.AreEqual(2, lobby.GetComponentsInChildren<RawImage>(true).Length - 2);
+        Assert.AreEqual(InkPalette.UiFont, lobbyBest.font);
+        Assert.AreEqual(37, lobbyBest.fontSize);
+        Assert.AreEqual(FontStyle.Normal, lobbyBest.fontStyle);
+        Assert.AreEqual(TextAnchor.MiddleCenter, lobbyBest.alignment);
+        Assert.AreEqual(Color.white, lobbyBest.color);
+        Assert.IsFalse(lobbyBest.resizeTextForBestFit);
+        Assert.IsTrue(lobbyBest.alignByGeometry);
+        Assert.That(lobbyBest.rectTransform.anchoredPosition.x, Is.EqualTo(-87f).Within(0.01f));
+        Assert.That(lobbyBest.rectTransform.anchoredPosition.y, Is.EqualTo(-5f).Within(0.01f));
+        Assert.That(lobbyBest.rectTransform.sizeDelta.x, Is.EqualTo(400f).Within(0.01f));
+        Assert.That(lobbyBest.rectTransform.sizeDelta.y, Is.EqualTo(80f).Within(0.01f));
 
-        var gameplayHud = Object.FindFirstObjectByType<GameplayHudView>();
+        var lobbyLogo = lobby.transform.Find("Logo") as RectTransform;
+        Assert.IsNotNull(lobbyLogo?.GetComponent<RawImage>());
+        Assert.That(lobbyLogo.anchoredPosition.x, Is.EqualTo(12f).Within(0.01f));
+        Assert.That(lobbyLogo.anchoredPosition.y, Is.EqualTo(79f).Within(0.01f));
+        Assert.That(lobbyLogo.sizeDelta.x, Is.EqualTo(1281.776f).Within(0.01f));
+        Assert.That(lobbyLogo.sizeDelta.y, Is.EqualTo(854.518f).Within(0.01f));
+        Assert.IsNotNull(lobby.transform.Find("BrushGuide")?.GetComponent<RawImage>());
+        var bestDisplay = lobby.transform.Find("BestDisplay") as RectTransform;
+        Assert.IsNotNull(bestDisplay?.GetComponent<RawImage>());
+        Assert.That(bestDisplay.anchoredPosition.x, Is.EqualTo(89f).Within(0.01f));
+        Assert.That(bestDisplay.anchoredPosition.y, Is.EqualTo(-12f).Within(0.01f));
+        Assert.That(bestDisplay.sizeDelta.x, Is.EqualTo(610.273f).Within(0.01f));
+        Assert.That(bestDisplay.sizeDelta.y, Is.EqualTo(130.157f).Within(0.01f));
+
+        var gameplayHud = FindFirstInScene<GameplayHudView>(builderTestScene);
         Assert.IsNotNull(gameplayHud);
         var hudSerialized = new SerializedObject(gameplayHud);
         var topHud = hudSerialized.FindProperty("topHudRoot").objectReferenceValue
             as RectTransform;
         Assert.IsNotNull(topHud);
         Assert.AreEqual("TopHudRoot", topHud.name);
-        Assert.That(topHud.sizeDelta.x, Is.EqualTo(1016f).Within(0.01f));
-        Assert.That(topHud.sizeDelta.y, Is.EqualTo(124f).Within(0.01f));
-        Assert.IsNotNull(hudSerialized.FindProperty("heightCaption").objectReferenceValue);
-        Assert.IsNotNull(hudSerialized.FindProperty("bestCaption").objectReferenceValue);
+        Assert.That(topHud.sizeDelta.x, Is.EqualTo(900f).Within(0.01f));
+        Assert.That(topHud.sizeDelta.y, Is.EqualTo(148f).Within(0.01f));
+        Assert.IsNull(hudSerialized.FindProperty("heightCaption").objectReferenceValue);
+        Assert.IsNull(hudSerialized.FindProperty("bestCaption").objectReferenceValue);
+        Assert.IsNull(topHud.Find("HeightCaption"));
+        Assert.IsNull(topHud.Find("BestCaption"));
         var heightText = hudSerialized.FindProperty("heightText").objectReferenceValue as Text;
         var bestText = hudSerialized.FindProperty("bestText").objectReferenceValue as Text;
         Assert.IsNotNull(heightText);
         Assert.IsNotNull(bestText);
-        Assert.AreEqual(56, heightText.fontSize);
-        Assert.AreEqual(36, bestText.fontSize);
-        Assert.GreaterOrEqual(heightText.rectTransform.sizeDelta.x, 340f);
-        Assert.GreaterOrEqual(bestText.rectTransform.sizeDelta.x, 220f);
+        Assert.AreEqual("고도 0m", heightText.text);
+        Assert.AreEqual("최고 0m", bestText.text);
+        Assert.AreEqual(60, heightText.fontSize);
+        Assert.AreEqual(50, bestText.fontSize);
+        Assert.AreEqual(FontStyle.Bold, heightText.fontStyle);
+        Assert.AreEqual(FontStyle.Bold, bestText.fontStyle);
+        Assert.GreaterOrEqual(heightText.rectTransform.sizeDelta.x, 315f);
+        Assert.GreaterOrEqual(bestText.rectTransform.sizeDelta.x, 235f);
+        Assert.That(heightText.rectTransform.anchorMin.y, Is.EqualTo(0.5f).Within(0.001f));
+        Assert.That(bestText.rectTransform.anchorMin.y, Is.EqualTo(0.5f).Within(0.001f));
+        Assert.IsTrue(heightText.resizeTextForBestFit);
+        Assert.IsTrue(bestText.resizeTextForBestFit);
+        Assert.IsNotNull(heightText.GetComponent<Outline>());
+        Assert.IsNotNull(bestText.GetComponent<Outline>());
 
         var windIndicator = hudSerialized.FindProperty("windIndicator").objectReferenceValue
             as WindIndicatorView;
         var newBestIndicator = hudSerialized.FindProperty("newBestIndicator").objectReferenceValue
             as NewBestIndicatorView;
+        Assert.IsNotNull(
+            hudSerialized.FindProperty("vfxQualityButton").objectReferenceValue as Button);
+        Assert.IsNotNull(
+            hudSerialized.FindProperty("vfxStatsText").objectReferenceValue as Text);
         Assert.IsNotNull(windIndicator);
         Assert.IsNotNull(newBestIndicator);
         var windSerialized = new SerializedObject(windIndicator);
         var windState = windSerialized.FindProperty("stateText").objectReferenceValue as Text;
         Assert.IsNotNull(windState);
-        Assert.AreEqual(26, windState.fontSize);
+        Assert.AreEqual(34, windState.fontSize);
+        Assert.AreEqual(FontStyle.Bold, windState.fontStyle);
+        Assert.IsNotNull(windState.GetComponent<Outline>());
         Assert.AreSame(topHud, windIndicator.transform.parent);
         Assert.AreSame(topHud, newBestIndicator.transform.parent);
         Assert.IsNull(windIndicator.transform.Find("WindStrengthStroke1"));
         Assert.That(((RectTransform)newBestIndicator.transform).sizeDelta.x,
             Is.LessThanOrEqualTo(50f));
-        Assert.IsNotNull(Object.FindFirstObjectByType<PauseMenuView>());
+        Assert.IsNotNull(FindFirstInScene<PauseMenuView>(builderTestScene));
 
         var importer = (TextureImporter)AssetImporter.GetAtPath(
             "Assets/Art/Character/Obstacles/anermy_02.png");
@@ -247,6 +441,43 @@ public class FallingInkRockTests
         Assert.AreEqual(SpriteImportMode.Single, importer.spriteImportMode);
         Assert.AreEqual(700f, importer.spritePixelsPerUnit);
         Assert.AreEqual(TextureWrapMode.Clamp, importer.wrapMode);
+
+        var dragonImporter = (TextureImporter)AssetImporter.GetAtPath(
+            "Assets/Resources/MukJump/Obstacles/child_ink_dragon.png");
+        Assert.IsNotNull(dragonImporter);
+        Assert.AreEqual(TextureImporterType.Sprite, dragonImporter.textureType);
+        Assert.AreEqual(SpriteImportMode.Single, dragonImporter.spriteImportMode);
+        Assert.AreEqual(700f, dragonImporter.spritePixelsPerUnit);
+        Assert.AreEqual(TextureWrapMode.Clamp, dragonImporter.wrapMode);
+
+        const string dragonSheetPath =
+            "Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame_v3.png";
+        var dragonSheetImporter =
+            (TextureImporter)AssetImporter.GetAtPath(dragonSheetPath);
+        Assert.IsNotNull(dragonSheetImporter);
+        Assert.AreEqual(TextureImporterType.Sprite, dragonSheetImporter.textureType);
+        Assert.AreEqual(SpriteImportMode.Multiple, dragonSheetImporter.spriteImportMode);
+        Assert.AreEqual(700f, dragonSheetImporter.spritePixelsPerUnit);
+        Assert.AreEqual(TextureWrapMode.Clamp, dragonSheetImporter.wrapMode);
+
+        var dragonSheetAssets = AssetDatabase.LoadAllAssetsAtPath(dragonSheetPath);
+        var importedFrames = new List<Sprite>(4);
+        for (int i = 0; i < dragonSheetAssets.Length; i++)
+            if (dragonSheetAssets[i] is Sprite frame)
+                importedFrames.Add(frame);
+        importedFrames.Sort((left, right) =>
+            string.CompareOrdinal(left.name, right.name));
+        Assert.AreEqual(4, importedFrames.Count);
+        for (int i = 0; i < importedFrames.Count; i++)
+        {
+            Assert.AreEqual($"child_ink_dragon_frame_{i:00}", importedFrames[i].name);
+            Assert.That(importedFrames[i].rect.width, Is.EqualTo(768f).Within(0.01f));
+            Assert.That(importedFrames[i].rect.height, Is.EqualTo(512f).Within(0.01f));
+            Assert.That(importedFrames[i].rect.x,
+                Is.EqualTo((i % 2) * 768f).Within(0.01f));
+            Assert.That(importedFrames[i].rect.y,
+                Is.EqualTo((1 - i / 2) * 512f).Within(0.01f));
+        }
     }
 
     FallingInkRock CreateRock(float warningDuration)
@@ -281,6 +512,34 @@ public class FallingInkRockTests
     {
         cleanup.Add(value);
         return value;
+    }
+
+    static T FindFirstInScene<T>(Scene scene) where T : Component
+    {
+        var matches = FindAllInScene<T>(scene);
+        return matches.Length > 0 ? matches[0] : null;
+    }
+
+    static T[] FindAllInScene<T>(Scene scene) where T : Component
+    {
+        var matches = new List<T>();
+        if (!scene.IsValid() || !scene.isLoaded) return matches.ToArray();
+
+        var roots = scene.GetRootGameObjects();
+        for (int i = 0; i < roots.Length; i++)
+            matches.AddRange(roots[i].GetComponentsInChildren<T>(true));
+        return matches.ToArray();
+    }
+
+    static void AssertBuildSettingsUnchanged(
+        EditorBuildSettingsScene[] before, EditorBuildSettingsScene[] after)
+    {
+        Assert.AreEqual(before.Length, after.Length);
+        for (int i = 0; i < before.Length; i++)
+        {
+            Assert.AreEqual(before[i].path, after[i].path);
+            Assert.AreEqual(before[i].enabled, after[i].enabled);
+        }
     }
 
     static void SetField(object target, string fieldName, object value)

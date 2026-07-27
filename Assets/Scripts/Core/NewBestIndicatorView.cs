@@ -14,7 +14,6 @@ namespace MukJump.Core
         [SerializeField] RectTransform stampRoot;
         [SerializeField] Image sealImage;
         [SerializeField] Text sealText;
-        [SerializeField] Text valueText;
 
         ScoreManager boundScore;
         bool gameplayVisible = true;
@@ -54,7 +53,6 @@ namespace MukJump.Core
             if (!Application.isPlaying)
             {
                 recordVisible = true;
-                UpdateValueText();
                 ApplyVisibility();
                 return;
             }
@@ -66,7 +64,6 @@ namespace MukJump.Core
             else if (!shouldShow && recordVisible)
                 HideRecord();
 
-            UpdateValueText();
             UpdateStampAnimation();
             UpdateRestingEmphasis();
             ApplyVisibility();
@@ -94,7 +91,7 @@ namespace MukJump.Core
                 typeof(CanvasGroup));
             var root = rootObject.GetComponent<RectTransform>();
             root.SetParent(parent, false);
-            root.anchorMin = root.anchorMax = new Vector2(0.955f, 0.5f);
+            root.anchorMin = root.anchorMax = new Vector2(0.97f, 0.5f);
             root.pivot = new Vector2(0.5f, 0.5f);
             root.sizeDelta = new Vector2(50f, 50f);
             root.anchoredPosition = Vector2.zero;
@@ -106,8 +103,8 @@ namespace MukJump.Core
             seal.sprite = InkUiTextureFactory.CreateBlobSprite();
             seal.color = InkPalette.Red;
             seal.raycastTarget = false;
-            var recordText = CreateText("SealText", sealRoot, "신", 22, InkPalette.Paper,
-                new Vector2(0.5f, 0.5f), new Vector2(38f, 36f));
+            var recordText = CreateText("SealText", sealRoot, "신", 26, InkPalette.Paper,
+                new Vector2(0.5f, 0.5f), new Vector2(42f, 40f));
 
             var view = rootObject.AddComponent<NewBestIndicatorView>();
             view.rootGroup = rootObject.GetComponent<CanvasGroup>();
@@ -149,6 +146,7 @@ namespace MukJump.Core
         void HandleNewBestReached(int height, int previousBest)
         {
             ShowRecord(true);
+            GameFeedbackController.Instance?.PlayRecordStamp();
         }
 
         void ShowRecord(bool animate)
@@ -165,7 +163,6 @@ namespace MukJump.Core
                     ? Quaternion.Euler(0f, 0f, -8f)
                     : Quaternion.Euler(0f, 0f, -4f);
             }
-            UpdateValueText();
             ApplyVisibility();
         }
 
@@ -215,13 +212,6 @@ namespace MukJump.Core
                 (1f - RestingAlpha) / 0.18f * Time.unscaledDeltaTime);
         }
 
-        void UpdateValueText()
-        {
-            if (valueText == null || !valueText.gameObject.activeSelf) return;
-            int best = boundScore != null ? boundScore.DisplayBest : 0;
-            valueText.text = $"신기록 · {best}m";
-        }
-
         void ConfigureVisuals()
         {
             if (stampRoot != null && sealText == null)
@@ -233,18 +223,12 @@ namespace MukJump.Core
                 sealImage.color = InkPalette.Red;
                 sealImage.raycastTarget = false;
             }
-            if (valueText != null)
-            {
-                valueText.font = InkPalette.UiFont;
-                valueText.color = InkPalette.Red;
-                valueText.raycastTarget = false;
-            }
             if (sealText != null)
             {
                 sealText.text = "신";
                 sealText.font = InkPalette.UiFont;
-                sealText.fontSize = 22;
-                sealText.fontStyle = FontStyle.Normal;
+                sealText.fontSize = 26;
+                sealText.fontStyle = FontStyle.Bold;
                 sealText.alignment = TextAnchor.MiddleCenter;
                 sealText.color = InkPalette.Paper;
                 sealText.raycastTarget = false;
@@ -273,7 +257,7 @@ namespace MukJump.Core
         {
             if (transform is RectTransform root)
             {
-                root.anchorMin = root.anchorMax = new Vector2(0.955f, 0.5f);
+                root.anchorMin = root.anchorMax = new Vector2(0.97f, 0.5f);
                 root.pivot = new Vector2(0.5f, 0.5f);
                 root.anchoredPosition = Vector2.zero;
                 root.sizeDelta = new Vector2(50f, 50f);
@@ -281,7 +265,6 @@ namespace MukJump.Core
 
             var legacyBackground = GetComponent<Graphic>();
             if (legacyBackground != null) legacyBackground.enabled = false;
-            if (valueText != null) valueText.gameObject.SetActive(false);
 
             if (stampRoot == null) return;
             stampRoot.anchorMin = stampRoot.anchorMax = new Vector2(0.5f, 0.5f);
@@ -318,7 +301,7 @@ namespace MukJump.Core
             text.text = value;
             text.font = InkPalette.UiFont;
             text.fontSize = fontSize;
-            text.fontStyle = FontStyle.Normal;
+            text.fontStyle = FontStyle.Bold;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = color;
             text.resizeTextForBestFit = false;

@@ -26,11 +26,11 @@
 |---|---|---|
 | 캐릭터/배경 아트 | 팀 자체 제작 (AI 보조 드로잉 후 수작업 검수) | 자체 저작물 |
 | Unity 패키지 | Unity Technologies (URP, Input System 등 공식 패키지) | Unity Companion License |
-| `Inkdrop Ascent.mp3` | 팀 Suno Pro 계정에서 직접 생성 | 생성 당시 유료 구독 상업 이용 권한 |
-| `SFX_Brush_Community.mp3` | Pixabay `brush` · Reitanna (Freesound), ID 83215 | Pixabay Content License |
-| `SFX_Character_Death_Slime.mp3` | Pixabay `Slime Squish 5` · floraphonic, ID 218569 | Pixabay Content License |
-| `SFX_Game_Over_Ink_Spill.mp3` | Pixabay 다운로드 `freesound_community-2`, ID 108080 | Pixabay Content License |
-| `HealthsetJoritdaeStd.otf` | 제주조릿대 RIS사업단·한그리아 제작, 사용자 제공 OTF | 회사·개인 용도 제한 없이 상업적 이용 가능, 유료 재판매 금지. 원본 재배포 조건은 최종 제출 전 원 배포처 재확인 |
+| `Inkdrop Ascent.mp3` | 팀 Suno Pro 계정에서 직접 생성 · https://suno.com/s/QSWGYbCTx9j2gTGd | 생성 당시 유료 구독 상업 이용 권한. 구독·생성 시점 증빙 보관 |
+| `SFX_Brush_Community.mp3` | Freesound `brush.wav` · Reitanna, sound 332666 (Pixabay 경유) | Creative Commons 0. 원본: https://freesound.org/people/Reitanna/sounds/332666/ |
+| `SFX_Character_Death_Slime.mp3` | Pixabay `Slime Squish 5` · floraphonic, ID 218569 | Pixabay Content License. Public 소스의 raw 원본 재배포 허용 범위는 제출 전 재확인 |
+| `SFX_Game_Over_Ink_Spill.mp3` | Pixabay 다운로드 `freesound_community-2`, ID 108080 | Pixabay Content License. Public 소스의 raw 원본 재배포 허용 범위는 제출 전 재확인 |
+| `HealthsetJoritdaeStd.otf` | 제주조릿대 RIS사업단·한그리아 제작, 사용자 제공 OTF | 프로그램 임베딩 가능. 무단전제·배포 및 폰트 파일 복제·배포 금지이므로 Public GitHub 원본 탑재 불가. https://noonnu.cc/font_page/124 |
 
 ---
 
@@ -40,6 +40,8 @@
 |---|---|---|
 | `MukJump_InkDropJump_VFX_Pack` 텍스처·효과음·연출 사양 | OpenAI Codex | 프로젝트를 위해 직접 생성한 AI 산출물이며 외부 에셋이 아님 |
 | 고도 맵 배경 7종 (`Assets/Art/Background/Maps/`, `Assets/Resources/MukJump/Background/Endless/`) | OpenAI ImageGen + Codex | 프로젝트 전용으로 생성·검수한 자체 수채화 배경이며 외부 에셋이 아님 |
+| `child_ink_dragon.png` 어린 동양 용 장애물 | OpenAI ImageGen + Codex | 프로젝트 전용으로 생성·투명화·크기 최적화한 자체 게임 스프라이트이며 외부 에셋이 아님 |
+| `child_ink_dragon_4frame.png` 어린 동양 용 4프레임 시트 | OpenAI ImageGen + Codex | 기존 자체 용을 캐릭터 기준으로 생성·투명화한 프로젝트 전용 루프 애니메이션 시트 |
 
 ---
 
@@ -144,7 +146,7 @@
 
 - 사용 도구: OpenAI Codex CLI
 - 목적: 절차적 전환 획을 제공된 8장 PNG로 교체하고 위에서 아래로 칠하는 동작 구현
-- 주요 프롬프트/지시: `/Users/seungyeoning/Downloads/brush_strokes_png` 사용, 상단부터 내려오는 느낌 강화
+- 주요 프롬프트/지시: 사용자 제공 `brush_strokes_png` 폴더 사용, 상단부터 내려오는 느낌 강화
 - 결과물: `Assets/Resources/MukJump/BrushTransitions`, `Assets/Scripts/Core/BrushTransitionView.cs`
 - 사람의 수정/검토 내용: 각 PNG 원본 비율을 유지하고 `RectMask2D`로 세로 노출
 
@@ -213,7 +215,9 @@
 - 결과물: `Assets/Art/Background/background_ink_landscape.png`,
   `Assets/Art/Character/character_muk_bangul_v3.png`, `muk_jump_hackathon_final.pptx`
 - 사람의 수정/검토 내용: v1(구름형) → v2(능선+붓나무) → v3(소나무형) 시안 비교 후 최종본 선정,
-  팔레트(INK/PAPER/RED 낙관) 직접 확정
+  팔레트(INK/PAPER/RED 낙관) 직접 확정. 초기 프롬프트의 제3자 캐릭터 참조가 최종
+  결과물에 남았는지는 제출 전 독자 디자인성 검토를 거치고, 필요하면 실루엣·눈·다리
+  비율을 리디자인한다.
 
 ### 2026-07-20 — 코어 루프 스크립트 초기 구현
 
@@ -673,8 +677,8 @@
 - 결과물: `Assets/Resources/MukJump/Audio/SFX/SFX_Brush_Community.mp3`
 - 구현 메모: 드로잉 중에는 터치 시작부터 종료까지 반복하고 화면 전환에서는 한 번 재생한다.
   외부 파일 로드 실패 시 자체 제작 붓 WAV와 런타임 합성 순서로 폴백한다.
-- 출처·라이선스: Pixabay `brush`(ID 83215), Reitanna (Freesound),
-  Pixabay Content License
+- 출처·라이선스: Freesound `brush.wav`, Reitanna, sound 332666,
+  Creative Commons 0 (Pixabay ID 83215 경유)
 
 ### 2026-07-24 — 캐릭터 사망음 `찍` 톤 재조정
 
@@ -959,3 +963,221 @@
   raycast 대상·패널 차단 상태·최소 글자 크기 회귀 테스트 코드를 확인했다. Unity가
   닫혀 있어 Test Runner와 Play Mode는 실행하지 않았으며, 9:16 Safe Area, 일시정지 중
   완전 정지, 계속하기 위치 보존, 붓 전환 뒤 로비 복귀와 실제 폰트 렌더링을 최종 확인한다.
+
+### 2026-07-26 — 420px 실화면 기준 상단 HUD 재설계
+
+- 사용 도구: OpenAI Codex
+- 목적: 기준 해상도 수치상으로만 키웠던 텍스트가 실제 Device Simulator 축소 화면에서
+  흐려지는 문제를 제거하고, 플레이 중 고도와 최고 기록을 한눈에 읽게 하기
+- 주요 프롬프트/지시: 실제 플레이 화면을 보면 상단 글씨가 보이지 않으므로 직접 확인하고
+  읽을 수 있는 크기와 굵기로 다시 수정한다.
+- 결과물: `GameplayHudView.cs`, `WindIndicatorView.cs`, `NewBestIndicatorView.cs`,
+  `PauseMenuView.cs`, `MukJumpSceneBuilder.cs`, HUD 관련 Editor 테스트와 문서
+- 구현 메모: 캡처 안의 약 421px 폭 게임 화면에서 Canvas와 Safe Area 축척이 겹쳐
+  기존 24pt 캡션이 약
+  9.5px, 풍향 26pt가 약 10px로 표시되는 것을 확인했다. 별도 캡션을 제거하고
+  `고도 4m`·`최고 494m` 한 줄 형식으로 통합했으며, HUD 내부 기준 폭을 1016에서
+  900으로 줄여 같은 화면 폭에서 내부 글자를 약 15% 더 크게 표시한다. 고도 60pt,
+  최고 50pt, 풍향 34pt의 Bold와 1.5단위 먹색 Outline을 적용하고 한지 배경 대비를
+  0.9로 높였다. 긴 기록은 10,000m부터 km로 압축하며, 높아진 패널과 겹치지 않도록
+  일시정지 버튼을 아래로 옮겼다.
+- 사람의 수정/검토 내용: 제공된 655×916 전체 캡처에서 실제 게임 viewport를 기준으로
+  물리 픽셀 크기를 계산했고 런타임·에디터 어셈블리 독립 컴파일과 문자열 압축 회귀
+  테스트 코드를 확인했다. Unity Play Mode에서는 `고도 4m`·`최고 494m`·`산들`의
+  실제 렌더링과 일시정지 버튼 간격을 최종 확인한다.
+
+### 2026-07-26 — 게임플레이 결정론 난수 분리·일시정지 상태 회귀 검증
+
+- 사용 도구: OpenAI Codex
+- 목적: 아이템·장애물·날씨·발판·자동 점프의 규칙 난수가 사운드와 VFX의 연출 난수
+  호출 횟수에 따라 바뀌는 결합을 제거하고, 같은 seed로 문제 상황을 재현 가능하게 만들기
+- 주요 프롬프트/지시: 게임 전체 코드를 제출 품질로 검수하고 아키텍처 경계를 보강하며,
+  일시정지 중에는 플레이 상태와 자동 점프 충전 상태를 잃지 않도록 회귀 검증
+- 결과물: `GameplayRandom.cs`, `GameManager.cs`, `ItemSpawner.cs`,
+  `ObstacleSpawner.cs`, `FallingInkRockSpawner.cs`, `WindWeatherController.cs`,
+  `RestPlatformSpawner.cs`, `AutoJump.cs`, `GameplayRandomTests.cs`,
+  `PauseMenuViewTests.cs`
+- 구현 메모: 판 시작 seed에서 아이템·장애물·낙묵석·날씨·발판·플레이어용 독립
+  xorshift32 스트림을 파생했다. 연출은 기존 `UnityEngine.Random`을 유지해 연출
+  추가가 난이도와 스폰 순서를 바꾸지 않는다. 같은 seed 재설정도 새 세션으로 식별하는
+  세대 번호를 두고, 발판 예약과 자동 점프 배회 방향은 판 시작 뒤 초기화한다.
+- 사람의 수정/검토 내용: Unity EditMode에서 같은 seed 재현성·스트림 독립성·연출 난수
+  비간섭·범위 경계·세션 세대 테스트 5개와 일시정지 메뉴·게임 틱·자동 점프 충전 보존
+  테스트 3개를 모두 통과했다. 전체 대상 파일의 `git diff --check`와 Unity 컴파일
+  로그에서 C# 오류 및 예외가 없음을 확인했다.
+
+### 2026-07-26 — 제출 전 전체 코드·보안·아키텍처 감사
+
+- 사용 도구: OpenAI Codex 멀티 에이전트, Unity Test Framework, ripgrep, jscpd
+- 목적: 해커톤 공개 제출 전에 모든 런타임 코드와 씬 빌더를 검수하고, 릴리스 치트 노출,
+  물리·일시정지·풀·예외·native 자원 누수·비정상 입력·결정론·불필요 코드와 패키지를
+  제출 품질로 보강
+- 주요 프롬프트/지시: 게임의 취약점과 의미 없는 코드를 전수 검증하고, 유사 공개 게임과
+  Unity 공식 아키텍처 사례를 비교하며 시간이 걸려도 전체 작업과 검증을 완료
+- 결과물: 게임 상태·점수·입력·물리·풀·피드백·스포너·로컬 수묵 스타일 코드,
+  `GameplayRandom.cs`, `MukJumpSceneBuilder.cs`, Editor 회귀 테스트 10종,
+  `docs/architecture.md`, `docs/code-audit-2026-07-26.md`, README·프로젝트 브리핑
+- 구현 메모: Editor/Development Build에서만 DEBUG 도구를 허용하고 치트 사용 기록은
+  최고 기록에서 제외했다. 분신 자기 충돌을 레이어로 차단하고 움직이는 화면 벽을
+  kinematic body로 전환했다. 획의 먹 소모·NaN·정점 폭주를 방어하고 안전 구간 계산의
+  장면 검색·O(n²) 비용을 제거했다. 기능별 규칙 난수를 독립 스트림으로 분리하고, 풀
+  예외·hot reload와 붓 전환 예외 경로를 복구 가능하게 했다. 런타임 생성 AudioClip·
+  Sprite·Texture·Material을 명시적으로 해제하고 사용하지 않는 원격 API scaffold,
+  필드, 분기와 직접 패키지 10개를 제거했다. 아이템 적용 성공 계약, 풍맥 간격·자동
+  점프·사망 FPS의 비정상 값 방어와 스폰 따라잡기 상한을 추가했으며, 씬 빌더 테스트는
+  preview scene에 격리했다.
+- 사람의 수정/검토 내용: Unity 6000.3.10f1에서 실제 Play 상태 Physics2D 통합 1건을
+  포함한 전체 105/105 통과, 컴파일 오류·경고
+  0, 관련 `git diff --check` 통과, 비밀 키·런타임 네트워크·구형 Input API 발견 0,
+  동일 조건(`min-lines=5`, `min-tokens=50`) jscpd 중복도 1.14%를 확인했다. 외부
+  구현은 Unity 공식 Game Programming Patterns,
+  Open Project 1, `ObjectPool<T>`와 공개 MIT Doodle Jump 샘플을 비교 기준으로만
+  검토했다. 폰트 원본 재배포·게임 임베딩, Pixabay raw MP3 재배포, Android 서명
+  실기기 테스트와 필수 PDF/영상은 코드로 확정할 수 없어 제출 전 수동 차단 항목으로
+  남겼다.
+
+### 2026-07-27 — 먹떼 밸런스와 어린 동양 용 장애물
+
+- 사용 도구: OpenAI Codex 멀티 에이전트, OpenAI ImageGen, Unity Test Framework
+- 목적: 20m 부근부터 급격히 어려워지던 초반 난도를 낮추고, 분신이 많이 모이는
+  플레이 정체성과 어린이가 그린 듯한 좌우 이동 동양 용 장애물을 추가
+- 주요 프롬프트/지시: 먹 회복을 빠르게 하고 발판은 빨리 사라지게 하며, 공격 장애물은
+  30m 이후부터 등장하고 그 전에 분신 하나를 보장한다. 분신은 매우 자주 나오게
+  기획하되 모바일 성능을 보호한다. 용은 “8세 어린이가 굵고 삐뚤한 먹붓·크레용으로
+  그린 귀엽고 서툰 긴 동양 용, 왼쪽의 단순한 얼굴·작은 뿔·수염·구불한 몸·짧은 네 다리,
+  날개·서양 용·비늘 디테일·3D·그림자·문자 없음, 단색 `#00FF00` 배경”으로 생성
+- 결과물: `Assets/Resources/MukJump/Obstacles/child_ink_dragon.png`,
+  `GameManager.cs`, `CameraFollow.cs`, `StrokeCapture.cs`, `PlatformCollider.cs`,
+  `ItemSpawner.cs`, `ItemEffectView.cs`, `PlayerController.cs`,
+  `Obstacle.cs`, `ObstacleSpawner.cs`, `FallingInkRockSpawner.cs`,
+  `GameFeedbackController.cs`, `MukJumpSceneBuilder.cs`와 관련 회귀 테스트
+- 구현 메모: 생성본의 크로마 배경을 알파로 제거하고 1536×514 RGBA로 축소했다.
+  12m 첫 먹분신을 보장하고 이후 분신 가중치를 35→50%, 생존 상한을 24로 정했다.
+  획득 한 번에 고도별 +3/+4/+5를 0.08초 간격으로 생성한다. 먹 회복은 초당 2.6,
+  발판은 5초+0.9초 페이드다. 이동 장애물과 낙묵석은 30m부터,
+  어린 용은 60m 첫 슬롯 보장·이후 28%·화면당 한 마리다. 용은 기존 장애물 풀을
+  공유하며 수평 Capsule 판정과 붉은 한지 리맵 셰이더를 쓴다.
+- 사람의 수정/검토 내용: 생성 PNG의 알파·가로 실루엣·모바일 축소 가독성을 직접
+  확인했다. 긴 용의 캡슐을 실제 몸통 폭 80%·높이 49%로 줄여 머리와 꼬리 끝은
+  비판정으로 남겼다. 대량 분신은 카메라·위험 해금의 하위 중앙값 공유, 빈 화면 후보
+  배치, 단조 증가하는 구간 진행, 모든 분신을 피하는 낙묵석 후보, 분신 방어막 입자
+  축소, 실제 Collider2D 외곽으로 물리 비중첩을 보장하는 드로잉 안전 여백과 마지막 목숨을 보존하는
+  0.14초 동시 사망 피드백 병합으로 보강했다. Unity 6000.3.10f1 전체 EditMode 회귀
+  테스트 126/126과 C# 컴파일 오류 0건을 확인했다.
+
+### 2026-07-27 — 어린 동양 용 4프레임 루프 애니메이션
+
+- 사용 도구: OpenAI ImageGen, OpenAI Codex
+- 목적: 정지 상태였던 어린 용 장애물이 원본의 귀여운 낙서풍을 유지하면서 몸을
+  통통 흔들고 다리를 교차하는 짧은 반복 동작을 갖게 한다.
+- 주요 프롬프트/지시: `child_ink_dragon.png`를 캐릭터 기준 이미지로 고정하고,
+  왼쪽을 보는 얼굴·점눈·작은 뿔·수염·긴 몸·등가시·네 다리·꼬리와 굵고 삐뚤한
+  먹크레용 선을 보존한다. 2×2 순서로 중립 → 위로 통통 → 중립 통과 → 아래로 통통의
+  4프레임을 만들고, 모든 셀은 같은 크기·기준점·선 굵기를 사용하며 단색
+  `#00FF00` 배경 외에는 그림자·텍스트·프레임 선을 넣지 않는다.
+- 결과물: `Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame.png`,
+  용 프레임 슬라이싱·런타임 루프 코드와 관련 회귀 테스트
+- 구현 메모: ImageGen 생성본의 크로마키를 로컬 알파로 변환한 1536×1024 RGBA
+  2×2 시트다. 원본 단일 프레임은 구형 씬 폴백으로 유지한다.
+- 사람의 수정/검토 내용: 알파 가장자리, 네 셀의 완전한 실루엣, 왼쪽 얼굴 방향,
+  프레임 간 크기·위치와 루프 흐름을 육안 검수했다. Unity 임포트·풀 재사용·좌우 반전·
+  콜라이더 불변성과 부분 프레임 손상 복구를 포함한 전체 EditMode 회귀 테스트
+  129/129 통과와 C# 컴파일 오류
+  0건을 별도 검증 사본에서 확인했다.
+
+### 2026-07-27 — 코드 기반 밸런스 몬테카를로·목표 퍼널
+
+- 사용 도구: OpenAI Codex 멀티 에이전트, Node.js 결정론 시뮬레이터
+- 목적: 현재 콘텐츠 밀도와 먹분신 포화 속도를 대량 seed로 검증하고, 실제 사용자
+  로그 수집 전 먹떼 진행 고도 1,000m의 목표 퍼널과 위험 구간 사전 가설을 만든다.
+- 주요 프롬프트/지시: 게임을 여러 번 실행한 것처럼 반복 밸런스 테스트하고, 시도할수록
+  숙련되는 가상 플레이어를 비교해 최고 목표 점수까지 몇 판이 필요한지 추정한다.
+- 결과물: `tools/run_balance_simulation.mjs`,
+  `docs/balance-report-2026-07-27.md`, `CLAUDE.md`, `docs/project-brief.md`
+- 구현 메모: `GameplayRandom`의 기능별 xorshift32와 아이템·분신·이동 장애물·
+  어린 용·풍맥·상승기류 상수를 반영해 100,000개 세션 seed를 실행했다. 고정 통과율
+  400,000판과 50,000개×50판 목표 퍼널 민감도 모델을 별도로 돌렸으며, 무한 고도
+  구조라 절대 최대점 대신 먹떼 진행 1,000m 첫 코스와 2,000~3,000m 장시간 QA를
+  분리했다.
+- 사람의 수정/검토 내용: 아이템 획득률과 피격 전 분신 수를 실제 생존 예측으로
+  오해하지 않도록 상한 실험으로 분리했다. 사람의 드로잉 판단을 Unity 물리만으로
+  재현할 수 없어 10m 조건부 통과율을 입력한 예시 시나리오이며 게임을 자동 플레이하거나
+  로그로 학습한 예측값이 아님을 명시하고, 게임 값은 변경하지 않았다. 24마리 상한
+  중앙 234.4m(70% 획득·무피격 가정)와 먹떼 진행 고도 1,000m 목표 퍼널은 여러
+  테스터의 반복 수동 로그로 보정하도록 후속 기준을 남겼다. 가장 높은 한 마리의
+  최고 점수와 하위 중앙 먹떼 진행 고도를 실측에서 분리하도록 했다.
+
+### 2026-07-27 — 먹분신 단일 증가·먹 순환 템포 재조정
+
+- 사용 도구: OpenAI Codex 멀티 에이전트, Unity Test Framework, Node.js 결정론
+  시뮬레이터
+- 목적: 먹분신 한 번에 여러 마리가 생기던 규칙을 획득당 한 마리로 바꾸고, 그린
+  발판은 조금 더 빨리 사라지는 대신 먹 게이지 회복을 높여 다시 그리는 템포를
+  빠르게 만든다.
+- 주요 프롬프트/지시: “분신은 한 마리만 늘어나야 하고, 좀 더 빨리 사라지고 빨리
+  회복되게(먹 게이지)”를 기존 초반 난도와 24마리 모바일 성능 상한을 해치지 않는
+  범위에서 적용한다.
+- 결과물: `GameManager.cs`, `ItemPickup.cs`, `StrokeCapture.cs`,
+  `PlatformCollider.cs`, `PlayerController.cs`, `MukJumpSceneBuilder.cs`,
+  관련 EditMode 테스트, `tools/run_balance_simulation.mjs`,
+  `docs/balance-report-2026-07-27.md`와 기획·아키텍처 문서
+- 구현 메모: 먹분신은 아이템 하나마다 정확히 +1로 단순화하고 기존 고도별
+  +3/+4/+5 코루틴과 0.08초 분산 생성 코드를 제거했다. 일반 드로잉 발판은 총
+  4.5초 중 마지막 0.8초 페이드, 먹은 초당 3.0 회복으로 조정했다. 시작 발판과
+  풍맥 발판의 `0초=영구` 규칙은 유지한다. 3m 길이 획으로 소모한 먹은 약 1초에 회복되며,
+  먹비 구간의 실제 발판 수명 배율 0.72도 그대로 적용된다.
+- 사람의 수정/검토 내용: 획득당 +1과 동시에 발판을 4.0초 이하로 줄이면 초반
+  완충이 과도하게 약해질 수 있어 4.5초·0.8초·3.0/s의 보수적 조합을 선택했다.
+  별도 임시 프로젝트에서 Unity 6000.3.10f1 전체 EditMode 테스트 125/125 통과와
+  C# 컴파일 오류 0건을 확인했다. 100,000개 seed 재실행 결과 70% 획득·무피격
+  상한 실험은 1,000m까지 80.83%가 24마리에 도달했고 도달자 P50은 831.6m였다.
+  이는 실제 생존·숙련 예측이 아니므로 여러 테스터의 수동 로그로 후속 검증한다.
+
+### 2026-07-27 — Unity 2D URP Android VFX 표준 이식과 모바일 고도화
+
+- 사용 도구: 사용자 제공 `SKILL.md`, OpenAI Codex 멀티 에이전트,
+  Unity Test Framework
+- 목적: 범용 VFX 설계서를 현재 먹점프의 URP 2D 수묵 렌더링 구조에 맞게 이식하고,
+  대량 분신·연속 아이템·낙묵석 상황에서도 핵심 피드백과 Android 성능을 함께 보존
+- 주요 프롬프트/지시: “이걸 토대로 우리 게임에 업데이트할 수 있는 것은 모두 적용해
+  한 번 더 고도화”. 문서의 패키지와 예제를 무조건 설치하지 말고 Unity·URP·렌더러·
+  Android 설정과 충돌을 먼저 감사하며 Low/Medium/High 예산, 풀링, 품질 강등,
+  실기 점검 기준을 현재 아키텍처에 맞춰 구현
+- 결과물: `docs/VFX/SKILL.md`, `docs/VFX/PROJECT_IMPLEMENTATION.md`,
+  `VfxQualityRuntime.cs`, `VfxRuntimeMonitor.cs`, `MukJumpVfxAudit.cs`,
+  `DeathInkStainPool.cs`와 아이템·분신·벽·방어막·최고 기록·낙묵석 피드백 코드
+- 구현 메모: 새 외부 패키지·Shader Graph·VFX Graph 의존성을 추가하지 않고 기존
+  `SpriteRenderer`·`LineRenderer` 미감을 유지했다. 품질별 소프트 예산과 Critical
+  예약 슬롯, 플레이 구간 평균 FPS 기반 단계 강등, Low Memory 대응, 품질별 합성 VFX와
+  짧은 피드백 프리웜·단일 시뮬레이션 루프, 사망 먹 자국 20개 프리웜·순환 풀,
+  씬 빌더의 AudioSource 사전
+  구성을 적용했다. 생성 씬 카메라의 불필요한 HDR/MSAA만 끄고 Graphics API,
+  URP 에셋, Android API와 압축 정책은 실기 비교 전 변경하지 않았다.
+- 사람의 수정/검토 내용: 아이템별 중심 문양, 분신 도착 먹 번짐, 방향성 벽 충돌,
+  방어막 파괴, 최고 기록 낙관, 낙묵석 하단 목표 낙관과 충돌 연출의 중요도를 구분했다.
+  품질 추천·예약 슬롯·사망 먹 자국 재사용·씬 빌더 구성을 회귀 테스트로 고정하고
+  별도 검증 사본에서 Unity 6000.3.10f1 전체 EditMode 테스트 160/160 통과,
+  C# 컴파일 오류 0건과 모바일 VFX 감사 메뉴 실행을 확인했다.
+
+### 2026-07-27 — 사용자 로비 배치 복원과 씬 빌더 회귀 방지
+
+- 사용 도구: OpenAI Codex 멀티 에이전트, Git 이력 분석, Unity Test Framework
+- 목적: VFX 작업 중 Main 씬을 재생성하면서 초기값으로 돌아간 로비 `먹점프` 로고와
+  최고 기록 칸을 사용자가 직접 조정했던 배치로 복원하고, 이후 씬 재생성에서도
+  같은 문제가 반복되지 않게 한다.
+- 주요 프롬프트/지시: “메인에 있는 먹점프와 최고 점수 칸이 예전에 수동 수정한 대로
+  나오지 않고 다시 마음대로 바뀌었다.” 과거 씬을 직접 되돌리지 말고 사용자가 저장한
+  커밋의 정확한 값을 찾아 재현 가능한 씬 빌더 설정과 회귀 테스트로 고정한다.
+- 결과물: `Assets/Editor/MukJumpSceneBuilder.cs`,
+  `Assets/Scripts/Core/LobbyView.cs`, `Assets/Editor/Tests/FallingInkRockTests.cs`
+- 구현 메모: `14a6141`과 VFX 직전 `6ed8835`의 씬을 비교해 로고
+  `(12, 79) / 1281.776×854.518`, 최고 기록 칸
+  `(89, -12) / 610.273×130.157`, 글자 `37px / (-87, -5)` 값을 복원했다.
+  과거 임시 UI 보존 사전을 되살리지 않고 이 값을 빌더의 공식 레이아웃으로 선언해
+  `BuildForTests`와 실제 Main 생성 결과가 항상 같게 했다. `LobbyView.OnEnable()`에서
+  최고 기록 글자를 다시 50px·종이색으로 덮던 런타임 강제 스타일도 제거했다.
+- 사람의 수정/검토 내용: 과거 씬의 내장 폰트는 전체 UI에 조릿대 서체를 쓰기로 한
+  최신 규칙과 충돌하므로, 위치·크기·37px·흰색은 그대로 복원하되 폰트 자산만 현재
+  조릿대를 유지했다. 격리된 Unity 6000.3.10f1 프로젝트에서 실제 Main 씬 생성과
+  전체 EditMode 테스트 160/160 통과, C# 컴파일 오류 0건을 확인했고
+  로고·기록 칸·글자 배치를 수치 단위 회귀 테스트로 고정했다.

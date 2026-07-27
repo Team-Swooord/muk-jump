@@ -13,31 +13,48 @@ namespace MukJump.Obstacles
         static Material sharedPaperRedMaterial;
 
         SpriteRenderer bodyRenderer;
+        Material defaultSpriteMaterial;
+        bool hasCapturedDefaultMaterial;
         SpriteRenderer paperHalo;
         LineRenderer dangerRing;
 
-        public void Configure()
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ReleaseRuntimeAssets()
+        {
+            DestroyRuntimeObject(sharedPaperRedMaterial);
+            sharedPaperRedMaterial = null;
+        }
+
+        public void Configure(bool preserveInkOutlines = false)
         {
             if (bodyRenderer == null) bodyRenderer = GetComponent<SpriteRenderer>();
             DisableLegacyDecorations();
             if (bodyRenderer == null) return;
 
+            if (!hasCapturedDefaultMaterial)
+            {
+                defaultSpriteMaterial = bodyRenderer.sharedMaterial;
+                hasCapturedDefaultMaterial = true;
+            }
+
             Color paperRed = InkPalette.ObstaclePaperRed;
             paperRed.a = bodyRenderer.color.a;
             bodyRenderer.color = paperRed;
+
+            // 용은 밝은 종이색 몸과 검은 먹선을 함께 쓰므로 단순 색 곱으로
+            // 검은 외곽선을 보존한다. 어두운 먹가시는 명암 치환 셰이더가 필요하다.
+            if (preserveInkOutlines)
+            {
+                bodyRenderer.sharedMaterial = defaultSpriteMaterial;
+                return;
+            }
 
             var material = SharedPaperRedMaterial;
             if (material != null)
                 bodyRenderer.sharedMaterial = material;
         }
 
-        public void SetVisible(bool visible)
-        {
-            if (paperHalo != null) paperHalo.enabled = false;
-            if (dangerRing != null) dangerRing.enabled = false;
-        }
-
-        void DisableLegacyDecorations()
+        public void DisableLegacyDecorations()
         {
             var existing = transform.Find("PaperHalo");
             paperHalo = existing != null ? existing.GetComponent<SpriteRenderer>() : null;
@@ -62,6 +79,15 @@ namespace MukJump.Obstacles
                 };
                 return sharedPaperRedMaterial;
             }
+        }
+
+        static void DestroyRuntimeObject(Object value)
+        {
+            if (value == null) return;
+            if (Application.isPlaying)
+                Destroy(value);
+            else
+                DestroyImmediate(value);
         }
     }
 }

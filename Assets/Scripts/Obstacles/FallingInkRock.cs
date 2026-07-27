@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using MukJump.AI;
 using MukJump.Core;
 using MukJump.Core.Pooling;
 using MukJump.Drawing;
@@ -50,6 +51,8 @@ namespace MukJump.Obstacles
         float warningElapsed;
         float lifetimeElapsed;
         float fallSpeed;
+        LineRenderer warningMarker;
+        LineRenderer warningGuide;
 
         public void Initialize(FallingInkRockSpawner spawner, Camera camera, LayerMask hitMask,
             float warningSeconds, float startSpeed, float maximumSpeed, float acceleration,
@@ -73,6 +76,8 @@ namespace MukJump.Obstacles
             spriteRenderer.enabled = true;
             hitbox.enabled = false;
             body.simulated = false;
+            EnsureWarningVisuals();
+            UpdateWarningVisuals(0.5f);
         }
 
         void Awake()
@@ -88,11 +93,15 @@ namespace MukJump.Obstacles
         {
             if (State == FallingInkRockState.Resolved) return;
 
-            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing)
+            if (GameManager.Instance == null ||
+                GameManager.Instance.State != GameState.Playing)
             {
                 ResolveImmediately();
                 return;
             }
+            // 일시정지·화면 전환 동안에는 활성 낙묵석의 예고/낙하 상태를 보존한다.
+            if (!GameManager.Instance.IsGameplayTicking)
+                return;
 
             lifetimeElapsed += Time.deltaTime;
             if (lifetimeElapsed >= maxLifetime)
@@ -137,6 +146,7 @@ namespace MukJump.Obstacles
             color.a = Mathf.Lerp(warningMinAlpha, warningMaxAlpha, wave);
             spriteRenderer.color = color;
             transform.localScale = baseScale * Mathf.Lerp(warningMinScale, warningMaxScale, wave);
+            UpdateWarningVisuals(wave);
 
             if (warningElapsed < warningDuration) return;
 
@@ -145,6 +155,7 @@ namespace MukJump.Obstacles
             fallSpeed = initialFallSpeed;
             body.simulated = true;
             hitbox.enabled = true;
+            SetWarningVisible(false);
             State = FallingInkRockState.Falling;
         }
 
@@ -161,6 +172,7 @@ namespace MukJump.Obstacles
             var player = other.GetComponentInParent<PlayerController>();
             if (player != null)
             {
+                GameFeedbackController.Instance?.PlayHazardImpact(transform.position);
                 BeginResolve(false);
                 player.TakeHit();
                 return true;
@@ -169,6 +181,7 @@ namespace MukJump.Obstacles
             var platform = other.GetComponentInParent<PlatformCollider>();
             if (platform == null || !platform.BreakFromHazard()) return false;
 
+            GameFeedbackController.Instance?.PlayHazardImpact(transform.position);
             BeginResolve(true);
             return true;
         }
@@ -189,6 +202,7 @@ namespace MukJump.Obstacles
             State = FallingInkRockState.Resolved;
             hitbox.enabled = false;
             body.simulated = false;
+            SetWarningVisible(false);
             return true;
         }
 
@@ -199,7 +213,8 @@ namespace MukJump.Obstacles
             Vector3 startScale = transform.localScale;
             while (elapsed < dissolveDuration)
             {
-                elapsed += Time.unscaledDeltaTime;
+                // 일시정지는 월드 물리와 함께 용해·풀 반납도 그 자리에서 멈춘다.
+                elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / dissolveDuration);
                 Color color = startColor;
                 color.a = startColor.a * (1f - t);
@@ -241,6 +256,8 @@ namespace MukJump.Obstacles
             body.linearVelocity = Vector2.zero;
             body.angularVelocity = 0f;
             hitbox.enabled = false;
+            EnsureWarningVisuals();
+            SetWarningVisible(false);
         }
 
         public void OnPoolRelease()
@@ -255,7 +272,8 @@ namespace MukJump.Obstacles
             spriteRenderer.color = baseColor;
             spriteRenderer.enabled = false;
             transform.localScale = baseScale;
-            GetComponent<ObstacleVisibilityView>()?.SetVisible(false);
+            SetWarningVisible(false);
+            GetComponent<ObstacleVisibilityView>()?.DisableLegacyDecorations();
             owner = null;
             worldCamera = null;
             warningElapsed = 0f;
@@ -268,6 +286,88 @@ namespace MukJump.Obstacles
             if (spriteRenderer == null) spriteRenderer = GetComponent<SpriteRenderer>();
             if (body == null) body = GetComponent<Rigidbody2D>();
             if (hitbox == null) hitbox = GetComponent<CircleCollider2D>();
+        }
+
+        void EnsureWarningVisuals()
+        {
+            if (warningMarker == null)
+                warningMarker = CreateWarningLine(
+                    "FallingRockImpactSeal",
+                    loop: true,
+                    positionCount: 16,
+                    width: 0.065f,
+                    sortingOrder: 11);
+            if (warningGuide == null)
+                warningGuide = CreateWarningLine(
+                    "FallingRockGuide",
+                    loop: false,
+                    positionCount: 2,
+                    width: 0.025f,
+                    sortingOrder: 10);
+        }
+
+        LineRenderer CreateWarningLine(
+            string objectName,
+            bool loop,
+            int positionCount,
+            float width,
+            int sortingOrder)
+        {
+            var child = transform.Find(objectName);
+            var go = child != null ? child.gameObject : new GameObject(objectName);
+            if (child == null) go.transform.SetParent(transform, false);
+            var line = go.GetComponent<LineRenderer>();
+            if (line == null) line = go.AddComponent<LineRenderer>();
+            line.useWorldSpace = true;
+            line.loop = loop;
+            line.positionCount = positionCount;
+            line.startWidth = line.endWidth = width;
+            line.numCapVertices = 3;
+            line.sharedMaterial = FallbackInkStyle.SharedTintableBrushMaterial;
+            line.sortingOrder = sortingOrder;
+            line.enabled = false;
+            return line;
+        }
+
+        void UpdateWarningVisuals(float wave)
+        {
+            if (worldCamera == null) return;
+            EnsureWarningVisuals();
+            float cameraDistance = -worldCamera.transform.position.z;
+            float markerY = worldCamera.ViewportToWorldPoint(
+                new Vector3(0.5f, 0.09f, cameraDistance)).y;
+            Vector3 markerCenter = new(transform.position.x, markerY, 0f);
+            float pulse = Mathf.Lerp(0.3f, 0.42f, wave);
+            for (int i = 0; i < warningMarker.positionCount; i++)
+            {
+                float angle = i * Mathf.PI * 2f / warningMarker.positionCount;
+                float wobble = 1f + Mathf.Sin(angle * 5f + warningElapsed * 9f) * 0.06f;
+                warningMarker.SetPosition(i, markerCenter + new Vector3(
+                    Mathf.Cos(angle) * pulse * wobble,
+                    Mathf.Sin(angle) * pulse * 0.58f * wobble,
+                    0f));
+            }
+
+            Color red = InkPalette.Red;
+            red.a = Mathf.Lerp(0.58f, 0.95f, wave);
+            warningMarker.startColor = warningMarker.endColor = red;
+            warningMarker.enabled = true;
+
+            bool showGuide = VfxQualityRuntime.Tier >= VfxQualityTier.Medium;
+            warningGuide.enabled = showGuide;
+            if (!showGuide) return;
+            Color guideColor = red;
+            guideColor.a *= 0.28f;
+            warningGuide.startColor = warningGuide.endColor = guideColor;
+            warningGuide.SetPosition(0, markerCenter + Vector3.up * 0.35f);
+            warningGuide.SetPosition(1, transform.position + Vector3.down * WorldRadius);
+        }
+
+        void SetWarningVisible(bool visible)
+        {
+            if (warningMarker != null) warningMarker.enabled = visible;
+            if (warningGuide != null) warningGuide.enabled = visible &&
+                VfxQualityRuntime.Tier >= VfxQualityTier.Medium;
         }
 
         float WorldRadius => hitbox.radius * Mathf.Max(

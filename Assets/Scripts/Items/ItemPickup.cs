@@ -18,14 +18,16 @@ namespace MukJump.Items
     /// 실제 픽업과 테스트 버튼이 동일한 아이템 효과를 사용하도록 모아 둔 진입점.
     public static class ItemEffect
     {
-        public static void Apply(ItemType type, PlayerController player = null)
+        /// 효과가 실제로 적용됐을 때만 true를 반환한다. 물리 콜백 순서상 같은 프레임에
+        /// 사망한 플레이어나 필수 시스템이 없는 경우 픽업을 소비하지 않는다.
+        public static bool Apply(ItemType type, PlayerController player = null)
         {
-            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing)
-                return;
+            var manager = GameManager.Instance;
+            if (manager == null || !manager.IsGameplayTicking)
+                return false;
 
-            player ??= GameManager.Instance.HighestLivingPlayer;
-            if (player == null) return;
-            GameFeedbackController.Instance?.PlayItemPickup(player.transform.position, type);
+            player ??= manager.HighestLivingPlayer;
+            if (player == null || player.IsDead) return false;
 
             switch (type)
             {
@@ -36,7 +38,8 @@ namespace MukJump.Items
                 case ItemType.GoldenBrush:
                     var strokeCapture =
                         UnityEngine.Object.FindFirstObjectByType<StrokeCapture>();
-                    strokeCapture?.ActivateUnlimitedInk(8f);
+                    if (strokeCapture == null) return false;
+                    strokeCapture.ActivateUnlimitedInk(8f);
                     player.GetComponent<ItemEffectView>()?
                         .RequestSharedGoldenBrush(strokeCapture);
                     break;
@@ -44,13 +47,20 @@ namespace MukJump.Items
                     player.GrantShield();
                     break;
                 case ItemType.InkClone:
-                    GameManager.Instance.TryCreateInkClone(player);
+                    if (!manager.TryCreateInkClone(player)) return false;
                     break;
                 case ItemType.InkReserve:
-                    UnityEngine.Object.FindFirstObjectByType<StrokeCapture>()?
-                        .AddInkReserve(0.35f);
+                    var reserveTarget =
+                        UnityEngine.Object.FindFirstObjectByType<StrokeCapture>();
+                    if (reserveTarget == null) return false;
+                    reserveTarget.AddInkReserve(0.35f);
                     break;
+                default:
+                    return false;
             }
+
+            GameFeedbackController.Instance?.PlayItemPickup(player.transform.position, type);
+            return true;
         }
     }
 
@@ -98,7 +108,7 @@ namespace MukJump.Items
 
         void Update()
         {
-            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing)
+            if (GameManager.Instance == null || !GameManager.Instance.IsGameplayTicking)
                 return;
 
             transform.position = origin + Vector3.up *
@@ -141,10 +151,10 @@ namespace MukJump.Items
             if (collected) return;
             var player = other.GetComponentInParent<PlayerController>();
             if (player == null) return;
+            if (!ItemEffect.Apply(type, player)) return;
 
             collected = true;
             trigger.enabled = false;
-            ItemEffect.Apply(type, player);
             if (ReleaseRequested != null)
                 ReleaseRequested.Invoke(this);
             else

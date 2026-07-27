@@ -202,9 +202,20 @@ namespace MukJump.Items
 
         void AnimateVisuals()
         {
+            int visibleStrokeCount = VfxQualityRuntime.Tier switch
+            {
+                VfxQualityTier.Low => 1,
+                VfxQualityTier.Medium => 2,
+                _ => strokes.Length,
+            };
             for (int i = 0; i < strokes.Length; i++)
             {
                 var line = strokes[i];
+                if (i >= visibleStrokeCount)
+                {
+                    line.enabled = false;
+                    continue;
+                }
                 line.enabled = true;
                 float phase = Time.time * (2.4f + i * 0.35f) + i * 2.1f;
                 for (int point = 0; point < line.positionCount; point++)
@@ -227,11 +238,19 @@ namespace MukJump.Items
             auraColor.a = 0.55f + Mathf.Sin(Time.time * 4.5f) * 0.18f;
             aura.startColor = aura.endColor = auraColor;
 
+            int visibleMoteCount = VfxQualityRuntime.Profile.ScaleDecorativeCount(
+                motes.Length,
+                6);
             for (int i = 0; i < motes.Length; i++)
             {
                 var mote = motes[i];
+                if (i >= visibleMoteCount)
+                {
+                    mote.enabled = false;
+                    continue;
+                }
                 mote.enabled = true;
-                float angle = i * Mathf.PI * 2f / motes.Length +
+                float angle = i * Mathf.PI * 2f / visibleMoteCount +
                               Time.time * (0.45f + i % 3 * 0.12f);
                 float radius = 0.55f + (i % 5) * 0.055f +
                                Mathf.Sin(Time.time * 2f + i) * 0.04f;
@@ -248,11 +267,14 @@ namespace MukJump.Items
 
         void UpdateRing(LineRenderer ring, float radius, float phase)
         {
-            if (ring.positionCount != ringSegments)
-                ring.positionCount = ringSegments;
-            for (int i = 0; i < ringSegments; i++)
+            int visibleSegments = Mathf.Min(
+                ringSegments,
+                VfxQualityRuntime.Profile.PersistentRingSegments);
+            if (ring.positionCount != visibleSegments)
+                ring.positionCount = visibleSegments;
+            for (int i = 0; i < visibleSegments; i++)
             {
-                float angle = i * Mathf.PI * 2f / ringSegments;
+                float angle = i * Mathf.PI * 2f / visibleSegments;
                 float noise = Mathf.Sin(angle * 5f + phase) * wobble +
                               Mathf.Sin(angle * 9f - phase * 0.7f) * wobble * 0.4f;
                 float value = radius + noise;

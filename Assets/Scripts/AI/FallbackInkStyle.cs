@@ -12,6 +12,22 @@ namespace MukJump.AI
         static Material tintableBrushMaterial;
         static Texture2D brushTexture;
         static Texture2D tintableBrushTexture;
+        static bool ownsBrushTexture;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ReleaseRuntimeAssets()
+        {
+            DestroyRuntimeObject(inkMaterial);
+            DestroyRuntimeObject(tintableBrushMaterial);
+            if (ownsBrushTexture)
+                DestroyRuntimeObject(brushTexture);
+            DestroyRuntimeObject(tintableBrushTexture);
+            inkMaterial = null;
+            tintableBrushMaterial = null;
+            brushTexture = null;
+            tintableBrushTexture = null;
+            ownsBrushTexture = false;
+        }
 
         public static Material SharedInkMaterial
         {
@@ -37,9 +53,14 @@ namespace MukJump.AI
         /// Main UI의 LineSprite 텍스처를 실제 드로잉 발판 붓결로 교체한다.
         public static void SetBrushTexture(Texture2D texture)
         {
-            if (texture == null) return;
+            if (texture == null || texture == brushTexture) return;
+            Texture2D previousTexture = brushTexture;
+            bool destroyPrevious = ownsBrushTexture;
             brushTexture = texture;
+            ownsBrushTexture = false;
             if (inkMaterial != null) inkMaterial.mainTexture = texture;
+            if (destroyPrevious)
+                DestroyRuntimeObject(previousTexture);
         }
 
         /// 발판 LineRenderer에 붓선 스타일을 적용한다
@@ -59,27 +80,14 @@ namespace MukJump.AI
                 new Keyframe(0.18f, 1f),
                 new Keyframe(0.75f, 0.9f),
                 new Keyframe(1f, 0.2f));
-
-            int count = Mathf.Max(line.positionCount, 2);
-            var widths = new float[count];
-            for (int i = 0; i < count; i++)
-                widths[i] = baseWidth * taper.Evaluate(i / (float)(count - 1));
-            ApplyWidths(line, widths);
+            // 정점 수만큼 배열과 Keyframe을 매번 만들 필요 없이 동일한 4키 테이퍼를
+            // 기준 곡선으로 사용하고 전체 두께만 multiplier로 조절한다.
+            line.widthCurve = taper;
+            line.widthMultiplier = baseWidth;
 
             var ink = InkPalette.Ink;
             ink.a = 0.96f;
             line.startColor = line.endColor = ink;
-        }
-
-        /// 정점별 두께 배열을 widthCurve로 변환해 적용한다 (LineRenderer에는 정점별
-        /// 두께 API가 없어 커브의 키를 정점 위치마다 찍는 방식으로 굽는다)
-        static void ApplyWidths(LineRenderer line, float[] widths)
-        {
-            var keys = new Keyframe[widths.Length];
-            for (int i = 0; i < widths.Length; i++)
-                keys[i] = new Keyframe(i / (float)(widths.Length - 1), widths[i]);
-            line.widthCurve = new AnimationCurve(keys);
-            line.widthMultiplier = 1f;
         }
 
         /// 마른 붓(갈필) 질감: 세로 방향 가장자리가 노이즈로 거칠게 끊기는 잉크 띠
@@ -89,6 +97,7 @@ namespace MukJump.AI
             {
                 if (brushTexture != null) return brushTexture;
                 brushTexture = CreateProceduralBrushTexture("MukJump_InkBrushTexture");
+                ownsBrushTexture = true;
                 return brushTexture;
             }
         }
@@ -113,6 +122,7 @@ namespace MukJump.AI
                 wrapMode = TextureWrapMode.Clamp,
                 filterMode = FilterMode.Bilinear,
             };
+            var pixels = new Color32[w * h];
 
             for (int y = 0; y < h; y++)
             {
@@ -126,9 +136,11 @@ namespace MukJump.AI
                     float grain = Mathf.PerlinNoise(u * 40f, y * 0.15f) * 0.25f;
                     float a = Mathf.Clamp01(edge * 1.4f - (1f - streak) * 0.7f - grain);
                     a = Mathf.SmoothStep(0f, 1f, a);
-                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+                    pixels[y * w + x] =
+                        new Color32(255, 255, 255, (byte)Mathf.RoundToInt(a * 255f));
                 }
             }
+            texture.SetPixels32(pixels);
             texture.Apply(false, true);
             return texture;
         }
@@ -138,6 +150,15 @@ namespace MukJump.AI
             var shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
             if (shader == null) shader = Shader.Find("Sprites/Default");
             return new Material(shader) { mainTexture = texture };
+        }
+
+        static void DestroyRuntimeObject(Object value)
+        {
+            if (value == null) return;
+            if (Application.isPlaying)
+                Object.Destroy(value);
+            else
+                Object.DestroyImmediate(value);
         }
     }
 }

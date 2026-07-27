@@ -20,32 +20,6 @@ namespace MukJump.EditorTools
     /// (씬 구성을 코드로 남겨 두면 협업 시 씬 머지 충돌을 피하고 재현 가능)
     public static class MukJumpSceneBuilder
     {
-        struct UiLayout
-        {
-            public Vector2 AnchorMin;
-            public Vector2 AnchorMax;
-            public Vector2 Pivot;
-            public Vector2 AnchoredPosition;
-            public Vector2 SizeDelta;
-        }
-
-        struct UiTextStyle
-        {
-            public int FontSize;
-            public FontStyle FontStyle;
-            public TextAnchor Alignment;
-            public Color Color;
-            public bool ResizeForBestFit;
-            public int ResizeMin;
-            public int ResizeMax;
-        }
-
-        static readonly Dictionary<string, UiLayout> preservedUiLayouts = new();
-        static readonly Dictionary<string, UiTextStyle> preservedTextStyles = new();
-        static readonly Dictionary<string, Color> preservedImageColors = new();
-        static readonly Dictionary<string, Texture> preservedRawImageTextures = new();
-        static readonly Dictionary<string, Sprite> preservedImageSprites = new();
-
         const string ScenePath = "Assets/Scenes/Main.unity";
         const string BgPath = "Assets/Art/Background/background_ink_landscape.png";
         static readonly string[] MapBackgroundPaths =
@@ -63,6 +37,10 @@ namespace MukJump.EditorTools
         };
         const string CharSheetPath = "Assets/Art/Character/Player/muk_spritesheet.png";
         const string ObstaclePath = "Assets/Art/Character/Obstacles/anermy_01.png";
+        const string DragonObstaclePath =
+            "Assets/Resources/MukJump/Obstacles/child_ink_dragon.png";
+        const string DragonObstacleSheetPath =
+            "Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame_v3.png";
         const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
         const string LobbyLogoPath = "Assets/Art/UI/muk_logo.png";
         const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";
@@ -79,6 +57,17 @@ namespace MukJump.EditorTools
         const string InkDropVfxRoot = "Assets/MukJump/VFX/InkDropJump";
         const string InkDropVfxTextureRoot = InkDropVfxRoot + "/Textures/";
         const string InkDropVfxAudioRoot = InkDropVfxRoot + "/Audio/";
+        // 14a6141의 사용자 수동 로비 배치를 빌더의 공식 값으로 고정한다.
+        // Main 씬을 다시 생성해도 로고와 최고 기록 칸이 초기 배치로 돌아가면 안 된다.
+        static readonly Vector2 LobbyLogoAnchor = new(0.5f, 0.68f);
+        static readonly Vector2 LobbyLogoPosition = new(12f, 79f);
+        static readonly Vector2 LobbyLogoSize = new(1281.776f, 854.518f);
+        static readonly Vector2 LobbyBestAnchor = new(0.5f, 0.94f);
+        static readonly Vector2 LobbyBestPosition = new(89f, -12f);
+        static readonly Vector2 LobbyBestSize = new(610.273f, 130.157f);
+        static readonly Vector2 LobbyBestLabelPosition = new(-87f, -5f);
+        static readonly Vector2 LobbyBestLabelSize = new(400f, 80f);
+        const int LobbyBestFontSize = 37;
         static readonly string[] DeathFramePaths =
         {
             "Assets/Art/Character/Death/mukbangul_death_01_idle.png",
@@ -114,14 +103,15 @@ namespace MukJump.EditorTools
         [MenuItem("MukJump/Build Main Scene")]
         public static void Build()
         {
-            CaptureUiLayouts();
             EnsureLayer("Platform");
             EnsureLayer("Obstacle");
             EnsureLayer("Item");
+            EnsureLayer("Player");
             ConfigureBackground();
             ConfigureCharacterSheet();
             ConfigureDeathSprites();
             ConfigureObstacleSprite();
+            ConfigureDragonObstacleSprites();
             ConfigureFallingInkRockSprite();
             ConfigureItemSprites();
             ConfigureInkDropJumpVfxAssets();
@@ -130,17 +120,7 @@ namespace MukJump.EditorTools
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            var camera = BuildCamera();
-            BuildBackground(camera.transform);
-            var player = BuildPlayer();
-            BuildSystems(camera, player);
-            BuildLobbyUi();
-            BuildGameplayUi();
-
-            var follow = camera.GetComponent<CameraFollow>();
-            var so = new SerializedObject(follow);
-            so.FindProperty("target").objectReferenceValue = player.transform;
-            so.ApplyModifiedPropertiesWithoutUndo();
+            BuildSceneContents(configureUiImporters: true);
 
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
 
@@ -148,6 +128,77 @@ namespace MukJump.EditorTools
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
 
             Debug.Log("[MukJump] Main 씬 구성 완료 — Game 뷰를 9:16으로 두고 Play 하세요.");
+        }
+
+        [MenuItem("MukJump/Configure Dragon Obstacle Sprites")]
+        public static void ConfigureDragonObstacleSprites()
+        {
+            ConfigureDragonObstacleSprite();
+            AssetDatabase.SaveAssets();
+        }
+
+        /// 테스트가 실제 Main 씬, Build Settings, Player Settings, import 설정을 변경하지 않고
+        /// 빌더 결과를 검증할 수 있도록 저장되지 않는 additive 씬에 같은 오브젝트 그래프를 만든다.
+        public static Scene BuildForTests()
+        {
+            Scene previousScene = SceneManager.GetActiveScene();
+            Scene testScene = default;
+            var existingRootIds = new HashSet<int>();
+            if (!previousScene.IsValid() || !previousScene.isLoaded)
+                throw new System.InvalidOperationException(
+                    "빌더 테스트를 실행할 활성 씬이 없습니다.");
+            foreach (var root in previousScene.GetRootGameObjects())
+                existingRootIds.Add(root.GetInstanceID());
+
+            try
+            {
+                // EditorTestRunner는 저장되지 않은 기본 씬을 활성화한 채 시작할 수 있다.
+                // 일반 additive 씬은 그 상태에서 생성할 수 없으므로 저장 대상이 될 수 없는
+                // preview 씬을 만들고, 새로 만든 루트만 그 씬으로 옮겨 완전히 격리한다.
+                testScene = EditorSceneManager.NewPreviewScene();
+                BuildSceneContents(configureUiImporters: false);
+
+                var rootsAfterBuild = previousScene.GetRootGameObjects();
+                for (int i = 0; i < rootsAfterBuild.Length; i++)
+                {
+                    var root = rootsAfterBuild[i];
+                    if (!existingRootIds.Contains(root.GetInstanceID()))
+                        SceneManager.MoveGameObjectToScene(root, testScene);
+                }
+                return testScene;
+            }
+            catch
+            {
+                if (testScene.IsValid() && testScene.isLoaded)
+                    EditorSceneManager.ClosePreviewScene(testScene);
+                foreach (var root in previousScene.GetRootGameObjects())
+                {
+                    if (!existingRootIds.Contains(root.GetInstanceID()))
+                        Object.DestroyImmediate(root);
+                }
+                throw;
+            }
+        }
+
+        public static void CloseTestScene(Scene scene)
+        {
+            if (!scene.IsValid() || !scene.isLoaded) return;
+            EditorSceneManager.ClosePreviewScene(scene);
+        }
+
+        static void BuildSceneContents(bool configureUiImporters)
+        {
+            var camera = BuildCamera();
+            BuildBackground(camera.transform);
+            var player = BuildPlayer();
+            BuildSystems(camera, player, configureUiImporters);
+            BuildLobbyUi(configureUiImporters);
+            BuildGameplayUi(configureUiImporters);
+
+            var follow = camera.GetComponent<CameraFollow>();
+            var so = new SerializedObject(follow);
+            so.FindProperty("target").objectReferenceValue = player.transform;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         static Camera BuildCamera()
@@ -160,6 +211,10 @@ namespace MukJump.EditorTools
             cam.orthographicSize = OrthoSize;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = InkPalette.Paper;
+            // 현재 프로젝트는 후처리·HDR 색을 쓰지 않는 2D 수묵 렌더링이다.
+            // 모바일에서 불필요한 HDR/MSAA 렌더 타깃을 만들지 않게 명시한다.
+            cam.allowHDR = false;
+            cam.allowMSAA = false;
 
             go.AddComponent<UniversalAdditionalCameraData>();
             go.AddComponent<AudioListener>();
@@ -210,7 +265,10 @@ namespace MukJump.EditorTools
         {
             var frames = LoadCharacterFrames();
 
-            var go = new GameObject("Player (먹방울이)");
+            var go = new GameObject("Player (먹방울이)")
+            {
+                layer = LayerMask.NameToLayer("Player"),
+            };
             go.transform.position = new Vector3(0f, -6f, 0f);
 
             var sr = go.AddComponent<SpriteRenderer>();
@@ -231,6 +289,7 @@ namespace MukJump.EditorTools
             var playerSo = new SerializedObject(playerController);
             playerSo.FindProperty("deathSplashSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(DeathSplashPath);
+            playerSo.FindProperty("cloneSpawnGraceDuration").floatValue = 1f;
             playerSo.ApplyModifiedPropertiesWithoutUndo();
             var itemEffectView = go.AddComponent<ItemEffectView>();
             var itemEffectSo = new SerializedObject(itemEffectView);
@@ -303,7 +362,10 @@ namespace MukJump.EditorTools
             return frames;
         }
 
-        static void BuildSystems(Camera camera, GameObject player)
+        static void BuildSystems(
+            Camera camera,
+            GameObject player,
+            bool configureUiImporters)
         {
             var music = new GameObject("BackgroundMusic");
             music.AddComponent<BackgroundMusicController>();
@@ -314,7 +376,12 @@ namespace MukJump.EditorTools
             go.AddComponent<GameOverPopupView>();
             go.AddComponent<PauseMenuView>();
             go.AddComponent<ScoreManager>();
+            for (int i = 0; i < 6; i++)
+                ConfigureAudioSource(go.AddComponent<AudioSource>(), loop: false, priority: 128);
+            CreateFeedbackAudioChild(go.transform, "BrushDrawingAudio", loop: true, priority: 128);
+            CreateFeedbackAudioChild(go.transform, "PriorityAccentAudio", loop: false, priority: 32);
             go.AddComponent<VfxAudioManager>();
+            go.AddComponent<VfxRuntimeMonitor>();
             go.AddComponent<GameFeedbackController>();
             go.AddComponent<HeightZoneController>();
             go.AddComponent<WindWeatherController>();
@@ -328,6 +395,7 @@ namespace MukJump.EditorTools
                 ? linePrefab.GetComponent<RawImage>()?.texture as Texture2D
                 : null;
             strokeSo.FindProperty("lineSpriteTexture").objectReferenceValue = lineTexture;
+            strokeSo.FindProperty("inkRegenPerSecond").floatValue = 3f;
             strokeSo.ApplyModifiedPropertiesWithoutUndo();
 
             var obstaclesRoot = new GameObject("Obstacles");
@@ -337,6 +405,17 @@ namespace MukJump.EditorTools
             var obstacleSo = new SerializedObject(obstacleSpawner);
             obstacleSo.FindProperty("obstacleSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(ObstaclePath);
+            var dragonFrames = LoadDragonObstacleFrames();
+            obstacleSo.FindProperty("dragonSprite").objectReferenceValue =
+                dragonFrames.Length > 0
+                    ? dragonFrames[0]
+                    : AssetDatabase.LoadAssetAtPath<Sprite>(DragonObstaclePath);
+            var dragonFrameProperty = obstacleSo.FindProperty("dragonFrames");
+            dragonFrameProperty.arraySize = dragonFrames.Length;
+            for (int i = 0; i < dragonFrames.Length; i++)
+                dragonFrameProperty.GetArrayElementAtIndex(i).objectReferenceValue =
+                    dragonFrames[i];
+            obstacleSo.FindProperty("firstSpawnHeight").floatValue = 30f;
             obstacleSo.ApplyModifiedPropertiesWithoutUndo();
 
             var fallingRockSprite = AssetDatabase.LoadAssetAtPath<Sprite>(FallingInkRockPath);
@@ -348,7 +427,8 @@ namespace MukJump.EditorTools
             fallingSo.FindProperty("worldCamera").objectReferenceValue = camera;
             fallingSo.FindProperty("player").objectReferenceValue = player.GetComponent<PlayerController>();
             fallingSo.FindProperty("collisionMask").intValue =
-                LayerMask.GetMask("Default", "Platform");
+                LayerMask.GetMask("Default", "Platform", "Player");
+            fallingSo.FindProperty("startHeight").floatValue = 30f;
             fallingSo.ApplyModifiedPropertiesWithoutUndo();
 
             var itemSpawner = go.AddComponent<ItemSpawner>();
@@ -364,6 +444,10 @@ namespace MukJump.EditorTools
             itemSo.FindProperty("inkCloneSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(InkCloneItemPath);
             itemSo.FindProperty("inkReserveSprite").objectReferenceValue = null;
+            itemSo.FindProperty("verticalSpacing").vector2Value = new Vector2(10f, 16f);
+            itemSo.FindProperty("firstSpawnHeight").floatValue = 12f;
+            itemSo.FindProperty("cloneChanceAt30m").floatValue = 0.35f;
+            itemSo.FindProperty("cloneChanceAt250m").floatValue = 0.5f;
             itemSo.ApplyModifiedPropertiesWithoutUndo();
 
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem),
@@ -372,15 +456,37 @@ namespace MukJump.EditorTools
 
             var hud = go.AddComponent<PrototypeHud>();
             var so = new SerializedObject(hud);
-            AssignHudTexture(so, "inkGaugeFill", "Assets/Art/UI/muk_gauge_fill.png");
-            AssignHudTexture(so, "inkGaugeTrack", "Assets/Art/UI/muk_gauge_track.png");
-            AssignHudTexture(so, "inkBrushIcon", "Assets/Art/UI/muk_brush_icon.png");
+            AssignHudTexture(so, "inkGaugeFill", "Assets/Art/UI/muk_gauge_fill.png",
+                configureUiImporters);
+            AssignHudTexture(so, "inkGaugeTrack", "Assets/Art/UI/muk_gauge_track.png",
+                configureUiImporters);
+            AssignHudTexture(so, "inkBrushIcon", "Assets/Art/UI/muk_brush_icon.png",
+                configureUiImporters);
             so.FindProperty("goldenBrushItemIcon").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Texture2D>(GoldenBrushItemPath);
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        static void BuildLobbyUi()
+        static void CreateFeedbackAudioChild(
+            Transform parent,
+            string objectName,
+            bool loop,
+            int priority)
+        {
+            var child = new GameObject(objectName);
+            child.transform.SetParent(parent, false);
+            ConfigureAudioSource(child.AddComponent<AudioSource>(), loop, priority);
+        }
+
+        static void ConfigureAudioSource(AudioSource source, bool loop, int priority)
+        {
+            source.playOnAwake = false;
+            source.loop = loop;
+            source.spatialBlend = 0f;
+            source.priority = priority;
+        }
+
+        static void BuildLobbyUi(bool configureUiImporters)
         {
             var root = new GameObject("LobbyCanvas", typeof(RectTransform), typeof(Canvas),
                 typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(LobbyView));
@@ -397,33 +503,34 @@ namespace MukJump.EditorTools
             Texture2D logoTexture = null;
             if (AssetDatabase.GetMainAssetTypeAtPath(LobbyLogoPath) != null)
             {
-                ConfigureUiTexture(LobbyLogoPath);
+                if (configureUiImporters)
+                    ConfigureUiTexture(LobbyLogoPath);
                 logoTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(LobbyLogoPath);
             }
 
             if (logoTexture != null)
             {
-                var logo = CreateUiObject("Logo", root.transform, new Vector2(0.5f, 0.68f),
-                    new Vector2(900f, 600f));
+                var logo = CreateUiObject("Logo", root.transform, LobbyLogoAnchor, LobbyLogoSize);
+                logo.anchoredPosition = LobbyLogoPosition;
                 var image = logo.gameObject.AddComponent<RawImage>();
                 image.texture = logoTexture;
                 image.raycastTarget = false;
                 image.uvRect = new Rect(0f, 0f, 1f, 1f);
-                RestoreUiLayout(logo);
             }
             else
             {
-                CreateText("Logo", root.transform, "먹점프", 112, FontStyle.Bold,
-                    new Vector2(0.5f, 0.68f), new Vector2(720f, 220f), InkPalette.Ink);
+                var logo = CreateText("Logo", root.transform, "먹점프", 112, FontStyle.Bold,
+                    LobbyLogoAnchor, LobbyLogoSize, InkPalette.Ink);
+                logo.rectTransform.anchoredPosition = LobbyLogoPosition;
             }
 
-            ConfigureUiTexture(StartButtonPath);
+            if (configureUiImporters)
+                ConfigureUiTexture(StartButtonPath);
             var lobbyBest = CreateLobbyRecordDisplay("BestDisplay", root.transform, "최고 0",
-                new Vector2(0.5f, 0.94f), copyHeightDisplayPosition: true);
+                LobbyBestAnchor);
             var brush = CreateUiObject("BrushGuide", root.transform, new Vector2(0.5f, 0.5f),
                 new Vector2(105f, 105f));
             brush.anchoredPosition = new Vector2(0f, -620f);
-            RestoreUiLayout(brush);
             var brushImage = brush.gameObject.AddComponent<RawImage>();
             brushImage.texture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/UI/muk_brush_icon.png");
             brushImage.raycastTarget = false;
@@ -441,66 +548,27 @@ namespace MukJump.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        static Text CreateLobbyRecordDisplay(string name, Transform parent, string value, Vector2 anchor,
-            bool copyHeightDisplayPosition)
+        static Text CreateLobbyRecordDisplay(
+            string name, Transform parent, string value, Vector2 anchor)
         {
-            var display = CreateUiObject(name, parent, anchor, new Vector2(500f, 110f));
-            bool hasPreservedDisplay = preservedUiLayouts.ContainsKey(HierarchyPath(display));
+            var display = CreateUiObject(name, parent, anchor, LobbyBestSize);
+            display.anchoredPosition = LobbyBestPosition;
             var background = display.gameObject.AddComponent<RawImage>();
             background.texture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
             background.raycastTarget = false;
-            RestoreUiLayout(display);
-            if (!hasPreservedDisplay)
-                CopyPreservedDisplayLayout("GameplayCanvas/HeightDisplay", display, anchor,
-                    copyHeightDisplayPosition);
 
-            var label = CreateText("Label", display, value, 50, FontStyle.Normal,
-                new Vector2(0.5f, 0.5f), new Vector2(400f, 80f), Color.white);
-            bool hasPreservedLabel = preservedUiLayouts.ContainsKey(HierarchyPath(label.rectTransform));
-            RestoreUiLayout(label.rectTransform);
-            if (!hasPreservedLabel)
-                CopyPreservedTextLayout("GameplayCanvas/HeightDisplay/HeightText", label);
-            label.fontSize = 50;
+            var label = CreateText("Label", display, value, LobbyBestFontSize, FontStyle.Normal,
+                new Vector2(0.5f, 0.5f), LobbyBestLabelSize, Color.white);
+            label.rectTransform.anchoredPosition = LobbyBestLabelPosition;
+            label.fontSize = LobbyBestFontSize;
             label.fontStyle = FontStyle.Normal;
-            label.color = InkPalette.Paper;
+            label.color = Color.white;
             label.resizeTextForBestFit = false;
             label.alignByGeometry = true;
             return label;
         }
 
-        static void CopyPreservedDisplayLayout(string sourcePath, RectTransform target,
-            Vector2 targetAnchor, bool copyPosition)
-        {
-            if (!preservedUiLayouts.TryGetValue(sourcePath, out var layout)) return;
-            target.anchorMin = copyPosition ? layout.AnchorMin : targetAnchor;
-            target.anchorMax = copyPosition ? layout.AnchorMax : targetAnchor;
-            target.pivot = layout.Pivot;
-            target.sizeDelta = layout.SizeDelta;
-            target.anchoredPosition = copyPosition ? layout.AnchoredPosition : Vector2.zero;
-        }
-
-        static void CopyPreservedTextLayout(string sourcePath, Text target)
-        {
-            if (target == null) return;
-            if (preservedUiLayouts.TryGetValue(sourcePath, out var layout))
-            {
-                target.rectTransform.anchorMin = layout.AnchorMin;
-                target.rectTransform.anchorMax = layout.AnchorMax;
-                target.rectTransform.pivot = layout.Pivot;
-                target.rectTransform.anchoredPosition = layout.AnchoredPosition;
-                target.rectTransform.sizeDelta = layout.SizeDelta;
-            }
-            if (!preservedTextStyles.TryGetValue(sourcePath, out var style)) return;
-            target.fontSize = style.FontSize;
-            target.fontStyle = style.FontStyle;
-            target.alignment = style.Alignment;
-            target.color = style.Color;
-            target.resizeTextForBestFit = style.ResizeForBestFit;
-            target.resizeTextMinSize = style.ResizeMin;
-            target.resizeTextMaxSize = style.ResizeMax;
-        }
-
-        static void BuildGameplayUi()
+        static void BuildGameplayUi(bool configureUiImporters)
         {
             var root = new GameObject("GameplayCanvas", typeof(RectTransform), typeof(Canvas),
                 typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(GameplayHudView));
@@ -515,45 +583,43 @@ namespace MukJump.EditorTools
             scaler.referenceResolution = new Vector2(1080f, 1920f);
             scaler.matchWidthOrHeight = 1f;
 
-            ConfigureUiTexture(GaugeTrackPath);
+            if (configureUiImporters)
+                ConfigureUiTexture(GaugeTrackPath);
             var paperTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeTrackPath);
             var topHudRoot = CreateUiObject("TopHudRoot", root.transform, new Vector2(0.5f, 1f),
-                new Vector2(1016f, 124f));
+                new Vector2(900f, 148f));
             topHudRoot.pivot = new Vector2(0.5f, 1f);
             topHudRoot.anchoredPosition = new Vector2(0f, -52f);
             var topHudBackground = topHudRoot.gameObject.AddComponent<RawImage>();
             topHudBackground.texture = paperTexture;
-            topHudBackground.color = new Color(1f, 1f, 1f, 0.78f);
+            topHudBackground.color = new Color(
+                InkPalette.Paper.r, InkPalette.Paper.g, InkPalette.Paper.b, 0.9f);
             topHudBackground.raycastTarget = false;
 
             var display = CreateUiObject("HeightDisplay", topHudRoot, new Vector2(0.5f, 0.5f),
-                new Vector2(360f, 108f));
-            var heightCaption = CreateText("HeightCaption", topHudRoot, "고도", 24,
-                FontStyle.Normal, new Vector2(0.5f, 0.78f), new Vector2(110f, 32f),
-                InkPalette.TextDark);
-            heightCaption.resizeTextForBestFit = false;
-            var label = CreateText("HeightText", display, "0m", 56, FontStyle.Normal,
-                new Vector2(0.5f, 0.33f), new Vector2(340f, 66f), InkPalette.TextDark);
-            label.rectTransform.anchoredPosition = new Vector2(0f, -3f);
-            label.resizeTextForBestFit = false;
+                new Vector2(320f, 118f));
+            var label = CreateText("HeightText", display, "고도 0m", 60, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), new Vector2(315f, 84f), InkPalette.Ink);
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 46;
+            label.resizeTextMaxSize = 60;
             label.alignByGeometry = true;
+            AddReadableTextWeight(label, 0.25f);
 
-            var bestCaption = CreateText("BestCaption", topHudRoot, "최고", 24,
-                FontStyle.Normal, new Vector2(0.82f, 0.75f), new Vector2(150f, 32f),
-                InkPalette.TextDark);
-            bestCaption.resizeTextForBestFit = false;
-            var bestLabel = CreateText("BestText", topHudRoot, "0m", 36, FontStyle.Normal,
-                new Vector2(0.82f, 0.35f), new Vector2(220f, 50f), InkPalette.TextDark);
-            bestLabel.resizeTextForBestFit = false;
+            var bestLabel = CreateText("BestText", topHudRoot, "최고 0m", 50, FontStyle.Bold,
+                new Vector2(0.805f, 0.5f), new Vector2(235f, 76f), InkPalette.Ink);
+            bestLabel.resizeTextForBestFit = true;
+            bestLabel.resizeTextMinSize = 38;
+            bestLabel.resizeTextMaxSize = 50;
             bestLabel.alignByGeometry = true;
+            AddReadableTextWeight(bestLabel, 0.25f);
             var newBestIndicator = CreateNewBestIndicator(topHudRoot);
-            var windIndicator = CreateWindIndicator(topHudRoot);
+            var windIndicator = CreateWindIndicator(topHudRoot, configureUiImporters);
 
             var testControls = CreateUiObject("ItemTestControls", root.transform,
                 new Vector2(0f, 0.5f), new Vector2(410f, 1200f));
             testControls.pivot = new Vector2(0f, 0.5f);
             testControls.anchoredPosition = Vector2.zero;
-            RestoreUiLayout(testControls);
 
             var debugToggleButton = CreateDebugTextButton("DebugToggleButton", testControls,
                 new Vector2(8f, 520f), new Vector2(194f, 64f), "DEBUG");
@@ -603,6 +669,15 @@ namespace MukJump.EditorTools
             var invincibleButton = CreateDebugTextButton("InvincibleButton", debugPanel,
                 new Vector2(190f, -310f), new Vector2(175f, 72f), "무적 OFF");
             var invincibleLabel = invincibleButton.transform.Find("Label")?.GetComponent<Text>();
+            var vfxQualityButton = CreateDebugTextButton("VfxQualityButton", debugPanel,
+                new Vector2(190f, -400f), new Vector2(175f, 72f), "VFX 자동");
+            var vfxQualityLabel =
+                vfxQualityButton.transform.Find("Label")?.GetComponent<Text>();
+            var vfxStatsText = CreateText("VfxStatsText", debugPanel,
+                "60 FPS · L0 S0 C0\n피크 0 · 생략 0", 21, FontStyle.Bold,
+                new Vector2(0.74f, 0.035f), new Vector2(180f, 72f), InkPalette.Paper);
+            vfxStatsText.resizeTextMinSize = 16;
+            vfxStatsText.resizeTextMaxSize = 21;
             debugPanel.gameObject.SetActive(false);
 
             var view = root.GetComponent<GameplayHudView>();
@@ -610,9 +685,7 @@ namespace MukJump.EditorTools
             so.FindProperty("canvas").objectReferenceValue = canvas;
             so.FindProperty("topHudRoot").objectReferenceValue = topHudRoot;
             so.FindProperty("heightText").objectReferenceValue = label;
-            so.FindProperty("heightCaption").objectReferenceValue = heightCaption;
             so.FindProperty("bestText").objectReferenceValue = bestLabel;
-            so.FindProperty("bestCaption").objectReferenceValue = bestCaption;
             so.FindProperty("itemTestControls").objectReferenceValue = testControls;
             so.FindProperty("debugPanel").objectReferenceValue = debugPanel;
             so.FindProperty("debugToggleButton").objectReferenceValue = debugToggleButton;
@@ -630,6 +703,9 @@ namespace MukJump.EditorTools
             so.FindProperty("updraftButton").objectReferenceValue = updraftButton;
             so.FindProperty("windDirectionButton").objectReferenceValue = windDirectionButton;
             so.FindProperty("windPlatformButton").objectReferenceValue = windPlatformButton;
+            so.FindProperty("vfxQualityButton").objectReferenceValue = vfxQualityButton;
+            so.FindProperty("vfxQualityLabel").objectReferenceValue = vfxQualityLabel;
+            so.FindProperty("vfxStatsText").objectReferenceValue = vfxStatsText;
             so.FindProperty("windIndicator").objectReferenceValue = windIndicator;
             so.FindProperty("newBestIndicator").objectReferenceValue = newBestIndicator;
             so.ApplyModifiedPropertiesWithoutUndo();
@@ -640,7 +716,7 @@ namespace MukJump.EditorTools
 
         static NewBestIndicatorView CreateNewBestIndicator(Transform parent)
         {
-            var root = CreateUiObject("NewBestInkSeal", parent, new Vector2(0.955f, 0.5f),
+            var root = CreateUiObject("NewBestInkSeal", parent, new Vector2(0.97f, 0.5f),
                 new Vector2(50f, 50f));
             var group = root.gameObject.AddComponent<CanvasGroup>();
             group.interactable = false;
@@ -652,8 +728,8 @@ namespace MukJump.EditorTools
             var seal = sealRoot.gameObject.AddComponent<Image>();
             seal.color = InkPalette.Red;
             seal.raycastTarget = false;
-            var sealText = CreateText("SealText", sealRoot, "신", 22, FontStyle.Normal,
-                new Vector2(0.5f, 0.5f), new Vector2(38f, 36f), InkPalette.Paper);
+            var sealText = CreateText("SealText", sealRoot, "신", 26, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), new Vector2(42f, 40f), InkPalette.Paper);
             sealText.resizeTextForBestFit = false;
 
             var view = root.gameObject.AddComponent<NewBestIndicatorView>();
@@ -666,43 +742,47 @@ namespace MukJump.EditorTools
             return view;
         }
 
-        static WindIndicatorView CreateWindIndicator(Transform parent)
+        static WindIndicatorView CreateWindIndicator(Transform parent, bool configureUiImporters)
         {
-            ConfigureUiTexture(GaugeFillPath);
+            if (configureUiImporters)
+                ConfigureUiTexture(GaugeFillPath);
             var brushTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeFillPath);
 
-            var root = CreateUiObject("WindInkIndicator", parent, new Vector2(0.16f, 0.5f),
-                new Vector2(284f, 84f));
+            var root = CreateUiObject("WindInkIndicator", parent, new Vector2(0.165f, 0.5f),
+                new Vector2(280f, 104f));
 
             var group = root.gameObject.AddComponent<CanvasGroup>();
             group.interactable = false;
             group.blocksRaycasts = false;
 
-            var sealRect = CreateUiObject("WindAlertSeal", root, new Vector2(0.1f, 0.5f),
-                new Vector2(32f, 32f));
+            var sealRect = CreateUiObject("WindAlertSeal", root, new Vector2(0.09f, 0.5f),
+                new Vector2(40f, 40f));
             sealRect.localRotation = Quaternion.Euler(0f, 0f, -4f);
             var alertSeal = sealRect.gameObject.AddComponent<Image>();
             alertSeal.color = new Color(
                 InkPalette.Red.r, InkPalette.Red.g, InkPalette.Red.b, 0.62f);
             alertSeal.raycastTarget = false;
-            var sealText = CreateText("SealText", sealRect, "풍", 21, FontStyle.Normal,
-                new Vector2(0.5f, 0.5f), new Vector2(26f, 26f), InkPalette.Paper);
+            var sealText = CreateText("SealText", sealRect, "풍", 26, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), new Vector2(32f, 32f), InkPalette.Paper);
             sealText.resizeTextForBestFit = false;
 
-            var arrow = CreateUiObject("DirectionArrow", root, new Vector2(0.42f, 0.5f),
-                new Vector2(76f, 36f));
+            var arrow = CreateUiObject("DirectionArrow", root, new Vector2(0.4f, 0.5f),
+                new Vector2(84f, 42f));
             var shaft = CreateWindArrowPart("Shaft", arrow, new Vector2(-5f, 0f),
-                new Vector2(44f, 7f), 0f, brushTexture);
-            var upper = CreateWindArrowPart("UpperHead", arrow, new Vector2(15f, 7f),
-                new Vector2(20f, 6f), -40f, brushTexture);
-            var lower = CreateWindArrowPart("LowerHead", arrow, new Vector2(15f, -7f),
-                new Vector2(20f, 6f), 40f, brushTexture);
+                new Vector2(50f, 8f), 0f, brushTexture);
+            var upper = CreateWindArrowPart("UpperHead", arrow, new Vector2(18f, 8f),
+                new Vector2(22f, 7f), -40f, brushTexture);
+            var lower = CreateWindArrowPart("LowerHead", arrow, new Vector2(18f, -8f),
+                new Vector2(22f, 7f), 40f, brushTexture);
 
-            var state = CreateText("WindStateText", root, "산들", 26, FontStyle.Normal,
-                new Vector2(0.78f, 0.5f), new Vector2(128f, 46f),
-                InkPalette.TextDark);
-            state.resizeTextForBestFit = false;
+            var state = CreateText("WindStateText", root, "산들", 34, FontStyle.Bold,
+                new Vector2(0.8f, 0.5f), new Vector2(132f, 58f),
+                InkPalette.Ink);
+            state.resizeTextForBestFit = true;
+            state.resizeTextMinSize = 26;
+            state.resizeTextMaxSize = 34;
             state.alignByGeometry = true;
+            AddReadableTextWeight(state, 0.22f);
 
             var view = root.gameObject.AddComponent<WindIndicatorView>();
             var viewSo = new SerializedObject(view);
@@ -714,8 +794,6 @@ namespace MukJump.EditorTools
             arrowGraphics.GetArrayElementAtIndex(0).objectReferenceValue = shaft;
             arrowGraphics.GetArrayElementAtIndex(1).objectReferenceValue = upper;
             arrowGraphics.GetArrayElementAtIndex(2).objectReferenceValue = lower;
-            var brushGraphics = viewSo.FindProperty("strengthBrushes");
-            brushGraphics.arraySize = 0;
             viewSo.FindProperty("alertSeal").objectReferenceValue = alertSeal;
             viewSo.FindProperty("sealText").objectReferenceValue = sealText;
             viewSo.ApplyModifiedPropertiesWithoutUndo();
@@ -772,10 +850,6 @@ namespace MukJump.EditorTools
             var label = CreateText("Label", rect, labelText, 26, FontStyle.Bold,
                 new Vector2(0.5f, 0.12f), new Vector2(132f, 40f), InkPalette.Ink);
             label.raycastTarget = false;
-            RestoreUiLayout(rect);
-            RestoreUiLayout(icon);
-            RestoreUiLayout(label.rectTransform);
-            // 보존 레이아웃이 이전의 작은 라벨 규격을 되살려도 새 가독성 기준은 유지한다.
             rect.sizeDelta = new Vector2(145f, 136f);
             label.rectTransform.sizeDelta = new Vector2(132f, 40f);
             label.fontSize = 26;
@@ -807,109 +881,6 @@ namespace MukJump.EditorTools
             return rect;
         }
 
-        /// 씬 빌더를 다시 실행해도 사용자가 Inspector에서 조정한 UI 배치를 보존한다.
-        static void CaptureUiLayouts()
-        {
-            preservedUiLayouts.Clear();
-            preservedTextStyles.Clear();
-            preservedImageColors.Clear();
-            preservedRawImageTextures.Clear();
-            preservedImageSprites.Clear();
-
-            Scene sourceScene = EditorSceneManager.GetActiveScene();
-            bool closeSourceWhenDone = false;
-            if (sourceScene.path != ScenePath)
-            {
-                sourceScene = SceneManager.GetSceneByPath(ScenePath);
-                if (!sourceScene.IsValid() || !sourceScene.isLoaded)
-                {
-                    sourceScene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Additive);
-                    closeSourceWhenDone = true;
-                }
-            }
-
-            foreach (var rect in Object.FindObjectsByType<RectTransform>(FindObjectsSortMode.None))
-            {
-                if (rect.gameObject.scene != sourceScene) continue;
-                string path = HierarchyPath(rect);
-                if (!path.StartsWith("LobbyCanvas/") && !path.StartsWith("GameplayCanvas/")) continue;
-                preservedUiLayouts[path] = new UiLayout
-                {
-                    AnchorMin = rect.anchorMin,
-                    AnchorMax = rect.anchorMax,
-                    Pivot = rect.pivot,
-                    AnchoredPosition = rect.anchoredPosition,
-                    SizeDelta = rect.sizeDelta,
-                };
-
-                var text = rect.GetComponent<Text>();
-                if (text != null)
-                {
-                    preservedTextStyles[path] = new UiTextStyle
-                    {
-                        FontSize = text.fontSize,
-                        FontStyle = text.fontStyle,
-                        Alignment = text.alignment,
-                        Color = text.color,
-                        ResizeForBestFit = text.resizeTextForBestFit,
-                        ResizeMin = text.resizeTextMinSize,
-                        ResizeMax = text.resizeTextMaxSize,
-                    };
-                }
-
-                var image = rect.GetComponent<RawImage>();
-                if (image != null)
-                {
-                    preservedImageColors[path] = image.color;
-                    preservedRawImageTextures[path] = image.texture;
-                }
-                var spriteImage = rect.GetComponent<Image>();
-                if (spriteImage != null)
-                    preservedImageSprites[path] = spriteImage.sprite;
-            }
-
-            if (closeSourceWhenDone)
-                EditorSceneManager.CloseScene(sourceScene, true);
-        }
-
-        static void RestoreUiLayout(RectTransform rect)
-        {
-            if (!preservedUiLayouts.TryGetValue(HierarchyPath(rect), out var layout)) return;
-            rect.anchorMin = layout.AnchorMin;
-            rect.anchorMax = layout.AnchorMax;
-            rect.pivot = layout.Pivot;
-            rect.anchoredPosition = layout.AnchoredPosition;
-            rect.sizeDelta = layout.SizeDelta;
-
-            string path = HierarchyPath(rect);
-            var text = rect.GetComponent<Text>();
-            if (text != null && preservedTextStyles.TryGetValue(path, out var textStyle))
-            {
-                text.fontSize = textStyle.FontSize;
-                text.fontStyle = textStyle.FontStyle;
-                text.alignment = textStyle.Alignment;
-                text.color = textStyle.Color;
-                text.resizeTextForBestFit = textStyle.ResizeForBestFit;
-                text.resizeTextMinSize = textStyle.ResizeMin;
-                text.resizeTextMaxSize = textStyle.ResizeMax;
-            }
-
-            var image = rect.GetComponent<RawImage>();
-            if (image != null && preservedImageColors.TryGetValue(path, out var imageColor))
-                image.color = imageColor;
-        }
-
-        static string HierarchyPath(Transform transform)
-        {
-            string path = transform.name;
-            while (transform.parent != null)
-            {
-                transform = transform.parent;
-                path = transform.name + "/" + path;
-            }
-            return path;
-        }
-
         static Text CreateText(string name, Transform parent, string value, int fontSize,
             FontStyle fontStyle, Vector2 anchor, Vector2 size, Color color)
         {
@@ -928,9 +899,24 @@ namespace MukJump.EditorTools
             return text;
         }
 
-        static void AssignHudTexture(SerializedObject so, string field, string path)
+        static void AddReadableTextWeight(Text text, float alpha)
         {
-            ConfigureUiTexture(path);
+            if (text == null) return;
+            var outline = text.gameObject.AddComponent<Outline>();
+            Color ink = InkPalette.Ink;
+            outline.effectColor = new Color(ink.r, ink.g, ink.b, Mathf.Clamp01(alpha));
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            outline.useGraphicAlpha = true;
+        }
+
+        static void AssignHudTexture(
+            SerializedObject so,
+            string field,
+            string path,
+            bool configureImporter)
+        {
+            if (configureImporter)
+                ConfigureUiTexture(path);
             var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
             if (tex == null)
                 Debug.LogWarning($"[MukJump] HUD 텍스처를 찾을 수 없음: {path}");
@@ -951,6 +937,97 @@ namespace MukJump.EditorTools
         static void ConfigureObstacleSprite()
         {
             ConfigureSprite(ObstaclePath, pixelsPerUnit: 700f);
+        }
+
+        static void ConfigureDragonObstacleSprite()
+        {
+            ConfigureSprite(DragonObstaclePath, pixelsPerUnit: 700f);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(DragonObstaclePath);
+            if (importer != null)
+            {
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.maxTextureSize = 2048;
+                importer.SaveAndReimport();
+            }
+
+            ConfigureDragonObstacleSheet();
+        }
+
+        static void ConfigureDragonObstacleSheet()
+        {
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                DragonObstacleSheetPath);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(
+                DragonObstacleSheetPath);
+            if (texture == null || importer == null)
+            {
+                Debug.LogWarning(
+                    $"[MukJump] 어린 용 애니메이션 시트를 찾을 수 없음: {DragonObstacleSheetPath}");
+                return;
+            }
+
+            const int columns = 2;
+            const int rows = 2;
+            importer.GetSourceTextureWidthAndHeight(
+                out int sourceWidth, out int sourceHeight);
+            if (sourceWidth % columns != 0 || sourceHeight % rows != 0)
+            {
+                Debug.LogError(
+                    $"[MukJump] 어린 용 시트 크기는 2×2로 나누어져야 함: " +
+                    $"{sourceWidth}×{sourceHeight}");
+                return;
+            }
+            int frameWidth = sourceWidth / columns;
+            int frameHeight = sourceHeight / rows;
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Multiple;
+            importer.spritePixelsPerUnit = 700f;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.maxTextureSize = 2048;
+            var importerSettings = new TextureImporterSettings();
+            importer.ReadTextureSettings(importerSettings);
+            importerSettings.spriteMeshType = SpriteMeshType.FullRect;
+            importer.SetTextureSettings(importerSettings);
+
+            var metas = new SpriteMetaData[columns * rows];
+            for (int i = 0; i < metas.Length; i++)
+            {
+                int column = i % columns;
+                int row = i / columns;
+                metas[i] = new SpriteMetaData
+                {
+                    name = $"child_ink_dragon_frame_{i:00}",
+                    rect = new Rect(
+                        column * frameWidth,
+                        (rows - 1 - row) * frameHeight,
+                        frameWidth,
+                        frameHeight),
+                    alignment = (int)SpriteAlignment.Center,
+                    pivot = new Vector2(0.5f, 0.5f),
+                };
+            }
+#pragma warning disable CS0618
+            importer.spritesheet = metas;
+#pragma warning restore CS0618
+            importer.SaveAndReimport();
+        }
+
+        static Sprite[] LoadDragonObstacleFrames()
+        {
+            var allAssets = AssetDatabase.LoadAllAssetsAtPath(
+                DragonObstacleSheetPath);
+            var frames = new List<Sprite>(4);
+            for (int i = 0; i < allAssets.Length; i++)
+                if (allAssets[i] is Sprite sprite)
+                    frames.Add(sprite);
+            frames.Sort((left, right) =>
+                string.CompareOrdinal(left.name, right.name));
+            return frames.ToArray();
         }
 
         static void ConfigureFallingInkRockSprite()

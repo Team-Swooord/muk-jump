@@ -19,20 +19,27 @@ namespace MukJump.Items
         [SerializeField] Sprite inkCloneSprite;
         [Tooltip("붓 여유 게이지 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
         [SerializeField] Sprite inkReserveSprite;
-        [SerializeField] Vector2 verticalSpacing = new(15f, 25f);
+        [SerializeField] Vector2 verticalSpacing = new(10f, 16f);
         [SerializeField] Vector2 horizontalRange = new(-4f, 4f);
+        [Tooltip("게임 시작점 기준 첫 아이템 고도. 첫 슬롯은 항상 먹분신이다.")]
         [SerializeField] float firstSpawnHeight = 12f;
         [SerializeField] float spawnAhead = 12f;
         [SerializeField] float despawnBelow = 10f;
+        [Header("먹떼 출현")]
+        [Range(0f, 1f), SerializeField] float cloneChanceAt30m = 0.35f;
+        [Range(0f, 1f), SerializeField] float cloneChanceAt250m = 0.5f;
         // 씬에 저장된 예전 직렬화 값과 무관하게 모든 아이템의 크기를 동일하게 유지한다.
         const float ItemWorldWidth = 0.9f;
         const int PoolCapacity = 8;
 
         readonly List<ItemPickup> active = new();
+        readonly HashSet<ItemType> missingSpriteWarnings = new();
         ComponentPool<ItemPickup> pool;
         GameManager subscribedManager;
         Camera cam;
-        float nextSpawnY;
+        float nextSpawnHeight;
+        int scheduledSessionVersion = -1;
+        bool introClonePending;
 
         void OnEnable()
         {
@@ -42,7 +49,11 @@ namespace MukJump.Items
         void Start()
         {
             cam = Camera.main;
-            nextSpawnY = firstSpawnHeight;
+            // 씬을 재생성하기 전에도 최신 먹떼 규칙을 동일하게 적용한다.
+            verticalSpacing = new Vector2(10f, 16f);
+            firstSpawnHeight = 12f;
+            cloneChanceAt30m = 0.35f;
+            cloneChanceAt250m = 0.5f;
             EnsurePool();
             TrySubscribeToGameManager();
         }
@@ -56,21 +67,26 @@ namespace MukJump.Items
         void Update()
         {
             TrySubscribeToGameManager();
-            if (cam == null || placeholderSprite == null || GameManager.Instance == null ||
-                GameManager.Instance.State != GameState.Playing) return;
+            if (cam == null || GameManager.Instance == null ||
+                !GameManager.Instance.IsGameplayTicking) return;
 
+            EnsureSessionSchedule();
             float cameraTop = cam.transform.position.y + cam.orthographicSize;
             float cutoff = cam.transform.position.y - cam.orthographicSize - despawnBelow;
+            float cameraTopHeight = GameHeightAtWorldY(cameraTop);
+            float cutoffHeight = GameHeightAtWorldY(cutoff);
 
             // 디버그 순간이동이나 카메라 급상승 뒤 화면 아래의 과거 예약 슬롯은
             // 오브젝트를 만들지 않고 건너뛰어 한 프레임 생성/파괴 폭증을 막는다.
-            while (nextSpawnY < cutoff)
-                nextSpawnY += NextSpacing();
+            while (nextSpawnHeight < cutoffHeight)
+                nextSpawnHeight += NextSpacing();
 
-            while (nextSpawnY <= cameraTop + spawnAhead)
+            while (nextSpawnHeight <= cameraTopHeight + spawnAhead)
             {
-                Spawn(nextSpawnY);
-                nextSpawnY += NextSpacing();
+                bool forceIntroClone = introClonePending;
+                if (Spawn(nextSpawnHeight, forceIntroClone) && forceIntroClone)
+                    introClonePending = false;
+                nextSpawnHeight += NextSpacing();
             }
 
             for (int i = active.Count - 1; i >= 0; i--)
@@ -85,17 +101,25 @@ namespace MukJump.Items
             }
         }
 
-        void Spawn(float y)
+        bool Spawn(float gameHeight, bool forceIntroClone)
         {
             EnsurePool();
-            var type = (ItemType)Random.Range(0, 5);
+            var type = ChooseItemType(gameHeight, forceIntroClone);
             Sprite sprite = SpriteFor(type);
+            if (sprite == null)
+            {
+                if (missingSpriteWarnings.Add(type))
+                    Debug.LogWarning($"[MukJump] {type} 아이템 스프라이트가 없어 해당 스폰을 건너뜁니다.",
+                        this);
+                return false;
+            }
             bool usesDedicatedSprite = sprite != placeholderSprite;
             var pickup = pool.Acquire();
             var go = pickup.gameObject;
             go.name = $"Item_{type}";
             go.layer = LayerMask.NameToLayer("Item");
-            go.transform.position = new Vector3(Random.Range(horizontalRange.x, horizontalRange.y), y, 0f);
+            float x = ChooseSpawnX(forceIntroClone);
+            go.transform.position = new Vector3(x, WorldYAtGameHeight(gameHeight), 0f);
             go.transform.rotation = Quaternion.identity;
 
             var renderer = go.GetComponent<SpriteRenderer>();
@@ -112,8 +136,53 @@ namespace MukJump.Items
 
             pickup.ReleaseRequested -= OnReleaseRequested;
             pickup.ReleaseRequested += OnReleaseRequested;
-            pickup.Configure(type, Random.Range(0f, Mathf.PI * 2f));
+            pickup.Configure(type, GameplayRandom.Range(
+                GameplayRandomStream.Items, 0f, Mathf.PI * 2f));
             active.Add(pickup);
+            return true;
+        }
+
+        ItemType ChooseItemType(float gameHeight, bool forceIntroClone)
+        {
+            var manager = GameManager.Instance;
+            bool canCreateClone = manager == null || manager.CanCreateInkClone;
+            if (forceIntroClone && canCreateClone)
+                return ItemType.InkClone;
+
+            float cloneChance = Mathf.Lerp(
+                cloneChanceAt30m,
+                cloneChanceAt250m,
+                Mathf.InverseLerp(30f, 250f, gameHeight));
+            if (canCreateClone &&
+                GameplayRandom.Value(GameplayRandomStream.Items) < cloneChance)
+                return ItemType.InkClone;
+
+            // 상한에 도달한 뒤에는 먹어도 적용되지 않는 분신 아이템을 만들지 않는다.
+            return GameplayRandom.Range(GameplayRandomStream.Items, 0, 4) switch
+            {
+                0 => ItemType.InkDrop,
+                1 => ItemType.GoldenBrush,
+                2 => ItemType.InkShield,
+                _ => ItemType.InkReserve,
+            };
+        }
+
+        float ChooseSpawnX(bool favorLivingPlayer)
+        {
+            float minimum = Mathf.Min(horizontalRange.x, horizontalRange.y);
+            float maximum = Mathf.Max(horizontalRange.x, horizontalRange.y);
+            if (favorLivingPlayer && GameManager.Instance != null)
+            {
+                var player = GameManager.Instance.HighestLivingPlayer;
+                if (player != null)
+                {
+                    return Mathf.Clamp(
+                        player.transform.position.x +
+                        GameplayRandom.Range(GameplayRandomStream.Items, -1f, 1f),
+                        minimum, maximum);
+                }
+            }
+            return GameplayRandom.Range(GameplayRandomStream.Items, minimum, maximum);
         }
 
         ItemPickup CreatePooledItem()
@@ -165,7 +234,8 @@ namespace MukJump.Items
         {
             float minimum = Mathf.Max(0.1f, verticalSpacing.x);
             float maximum = Mathf.Max(minimum, verticalSpacing.y);
-            return Random.Range(minimum, maximum);
+            return GameplayRandom.Range(
+                GameplayRandomStream.Items, minimum, maximum);
         }
 
         void TrySubscribeToGameManager()
@@ -199,8 +269,33 @@ namespace MukJump.Items
             if (cam == null) cam = Camera.main;
             float visibleBottom = cam != null
                 ? cam.transform.position.y - cam.orthographicSize
-                : Mathf.Max(firstSpawnHeight, targetHeight);
-            nextSpawnY = Mathf.Max(firstSpawnHeight, visibleBottom);
+                : WorldYAtGameHeight(Mathf.Max(firstSpawnHeight, targetHeight));
+            scheduledSessionVersion = GameplayRandom.SessionVersion;
+            introClonePending = targetHeight < firstSpawnHeight;
+            nextSpawnHeight = Mathf.Max(firstSpawnHeight, GameHeightAtWorldY(visibleBottom));
+        }
+
+        void EnsureSessionSchedule()
+        {
+            int version = GameplayRandom.SessionVersion;
+            if (scheduledSessionVersion == version) return;
+            scheduledSessionVersion = version;
+            nextSpawnHeight = firstSpawnHeight;
+            introClonePending = true;
+        }
+
+        float GameHeightAtWorldY(float worldY)
+        {
+            return ScoreManager.Instance != null
+                ? ScoreManager.Instance.HeightAt(worldY)
+                : worldY;
+        }
+
+        float WorldYAtGameHeight(float gameHeight)
+        {
+            if (ScoreManager.Instance == null) return gameHeight;
+            float anchorY = cam != null ? cam.transform.position.y : 0f;
+            return anchorY + gameHeight - ScoreManager.Instance.HeightAt(anchorY);
         }
 
         Sprite SpriteFor(ItemType type)
@@ -226,6 +321,17 @@ namespace MukJump.Items
                 ItemType.InkReserve => new Color(0.2f, 0.58f, 0.48f),
                 _ => new Color(0.2f, 0.18f, 0.16f),
             };
+        }
+
+        void OnValidate()
+        {
+            verticalSpacing.x = Mathf.Max(0.1f, verticalSpacing.x);
+            verticalSpacing.y = Mathf.Max(verticalSpacing.x, verticalSpacing.y);
+            firstSpawnHeight = Mathf.Max(0f, firstSpawnHeight);
+            spawnAhead = Mathf.Max(0f, spawnAhead);
+            despawnBelow = Mathf.Max(0f, despawnBelow);
+            cloneChanceAt30m = Mathf.Clamp01(cloneChanceAt30m);
+            cloneChanceAt250m = Mathf.Clamp(cloneChanceAt250m, cloneChanceAt30m, 1f);
         }
     }
 }

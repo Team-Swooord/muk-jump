@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 하이어라키에서 직접 편집할 수 있는 로비 Canvas의 표시와 붓 안내 연출을 담당한다.
+    /// 씬 빌더가 구성한 로비 Canvas의 표시와 붓 안내 연출을 담당한다.
     [ExecuteAlways]
     public class LobbyView : MonoBehaviour
     {
@@ -12,17 +12,12 @@ namespace MukJump.Core
         [SerializeField] RectTransform canvasRect;
         [SerializeField] Text bestText;
 
-        // 기존 씬에 남아 있는 랭킹 UI를 안전하게 숨기기 위한 임시 참조.
-        [SerializeField] Button rankingButton;
-        [SerializeField] GameObject rankingPopup;
-
         Transform player;
         Camera cam;
 
         void OnEnable()
         {
             ApplyUiFont();
-            HideRankingUi();
         }
 
         void Start()
@@ -30,16 +25,12 @@ namespace MukJump.Core
             var controller = FindFirstObjectByType<Player.PlayerController>();
             if (controller != null) player = controller.transform;
             cam = Camera.main;
-            HideRankingUi();
         }
 
         void Update()
         {
             if (!Application.isPlaying)
-            {
-                HideRankingUi();
                 return;
-            }
 
             bool show = GameManager.Instance != null && GameManager.Instance.State == GameState.Lobby;
             if (gameObject.activeSelf != show)
@@ -65,12 +56,6 @@ namespace MukJump.Core
                 brushCanvasGroup.alpha = 0.46f + 0.12f * Mathf.Sin(Time.unscaledTime * 3.2f);
         }
 
-        void HideRankingUi()
-        {
-            if (rankingButton != null) rankingButton.gameObject.SetActive(false);
-            if (rankingPopup != null) rankingPopup.SetActive(false);
-        }
-
         void ApplyUiFont()
         {
             var texts = GetComponentsInChildren<Text>(true);
@@ -80,11 +65,6 @@ namespace MukJump.Core
                 texts[i].resizeTextForBestFit = false;
                 texts[i].alignByGeometry = true;
             }
-
-            if (bestText == null) return;
-            bestText.fontSize = 50;
-            bestText.fontStyle = FontStyle.Normal;
-            bestText.color = InkPalette.Paper;
         }
     }
 }

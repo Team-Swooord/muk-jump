@@ -42,6 +42,13 @@ namespace MukJump.Items
             audioSource.spatialBlend = 0f;
         }
 
+        void Start()
+        {
+            // 로비 화면이 보이는 동안 현재 품질의 동시 합성 상한까지 준비한다.
+            poolService = GetOrCreatePool();
+            poolService?.PrewarmForCurrentTier();
+        }
+
         public void Play()
         {
             if (!isActiveAndEnabled) return;
@@ -53,11 +60,7 @@ namespace MukJump.Items
                     transform.position.z)
                 : transform.position - Vector3.up * height * 0.5f;
 
-            poolService = InkDropJumpVfxPool.GetOrCreate(
-                new InkDropJumpVfxInstance.AssetSet(
-                    inkDrop, groundBlob, inkSplash, shockRing, verticalBrush, brushFibers,
-                    softFlash, inkStreak, dropletFrames),
-                sprayCount, residualDropCount);
+            poolService = GetOrCreatePool();
             poolService.Play(this, transform, playerRenderer, ground, height,
                 maximumStrokeLength);
 
@@ -75,6 +78,16 @@ namespace MukJump.Items
         {
             poolService?.ReleaseOwner(this);
             poolService = null;
+        }
+
+        InkDropJumpVfxPool GetOrCreatePool()
+        {
+            return InkDropJumpVfxPool.GetOrCreate(
+                new InkDropJumpVfxInstance.AssetSet(
+                    inkDrop, groundBlob, inkSplash, shockRing, verticalBrush, brushFibers,
+                    softFlash, inkStreak, dropletFrames),
+                sprayCount,
+                residualDropCount);
         }
 
         void OnValidate()

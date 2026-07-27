@@ -22,6 +22,8 @@ namespace MukJump.Core
         int currentStage = -1;
         bool currentMirrored;
         Coroutine transitionRoutine;
+        int transitionTargetStage = -1;
+        bool transitionTargetMirrored;
 
         public int BaseStageCount
         {
@@ -38,15 +40,6 @@ namespace MukJump.Core
             {
                 ResolveStageSprites();
                 return resolvedEndlessStageCount;
-            }
-        }
-
-        public int StageCount
-        {
-            get
-            {
-                ResolveStageSprites();
-                return resolvedStageSprites.Length;
             }
         }
 
@@ -95,6 +88,8 @@ namespace MukJump.Core
                 return;
             }
 
+            transitionTargetStage = clamped;
+            transitionTargetMirrored = resolvedMirror;
             transitionRoutine = StartCoroutine(TransitionTo(clamped, resolvedMirror));
         }
 
@@ -128,6 +123,40 @@ namespace MukJump.Core
             currentStage = stage;
             currentMirrored = mirrorX;
             transitionRoutine = null;
+            transitionTargetStage = -1;
+        }
+
+        void OnDisable()
+        {
+            if (transitionRoutine != null)
+            {
+                StopCoroutine(transitionRoutine);
+                transitionRoutine = null;
+            }
+
+            if (transitionTargetStage >= 0 && resolvedStageSprites != null &&
+                transitionTargetStage < resolvedStageSprites.Length &&
+                currentRenderer != null)
+            {
+                currentStage = transitionTargetStage;
+                currentMirrored = transitionTargetMirrored;
+                currentRenderer.sprite = resolvedStageSprites[currentStage];
+                currentRenderer.flipX = currentMirrored;
+                FitToCamera(currentRenderer);
+            }
+
+            if (currentRenderer != null)
+            {
+                currentRenderer.color = Color.white;
+                currentRenderer.sortingOrder = -10;
+            }
+            if (nextRenderer != null)
+            {
+                nextRenderer.color = Color.clear;
+                nextRenderer.flipX = false;
+                nextRenderer.sortingOrder = -9;
+            }
+            transitionTargetStage = -1;
         }
 
         void ResolveStageSprites()

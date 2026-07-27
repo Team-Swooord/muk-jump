@@ -20,15 +20,20 @@ namespace MukJump.Core
         float impulseStrength;
         Vector2 visualShake;
         Camera worldCamera;
-
-        public void SetTarget(Transform t) => target = t;
+        Transform impulseLeader;
 
         public void PlayJumpImpulse(Transform source, float strength)
         {
-            var highest = GameManager.Instance != null
-                ? GameManager.Instance.HighestLivingPlayer
-                : null;
-            if (source == null || (highest != null && highest.transform != source)) return;
+            if (source == null) return;
+            if (impulseLeader == null && GameManager.Instance != null)
+            {
+                GameManager.Instance.TryGetSwarmAnchor(
+                    out var representative, out _);
+                impulseLeader = representative != null
+                    ? representative.transform
+                    : null;
+            }
+            if (impulseLeader != null && impulseLeader != source) return;
             impulseStrength = Mathf.Max(impulseStrength, Mathf.Clamp(strength, 0.55f, 1.5f));
             impulseRemaining = jumpImpulseDuration;
         }
@@ -52,10 +57,17 @@ namespace MukJump.Core
 
         void LateUpdate()
         {
-            var livingPlayer = GameManager.Instance != null
-                ? GameManager.Instance.HighestLivingPlayer
-                : null;
-            if (livingPlayer != null) target = livingPlayer.transform;
+            float followY = target != null ? target.position.y : float.NegativeInfinity;
+            if (GameManager.Instance != null)
+            {
+                if (GameManager.Instance.TryGetSwarmAnchor(
+                        out var representative, out float swarmY))
+                {
+                    followY = swarmY;
+                    target = representative.transform;
+                    impulseLeader = target;
+                }
+            }
             if (target == null) return;
 
             if (GameManager.Instance != null && GameManager.Instance.IsPaused)
@@ -73,7 +85,9 @@ namespace MukJump.Core
                 return;
             }
 
-            float desired = target.position.y + lookAhead;
+            if (float.IsNegativeInfinity(followY))
+                followY = target.position.y;
+            float desired = followY + lookAhead;
             highestY = Mathf.Max(highestY, desired);
 
             var pos = transform.position;
@@ -122,6 +136,7 @@ namespace MukJump.Core
         void OnDisable()
         {
             visualShake = Vector2.zero;
+            impulseLeader = null;
             if (worldCamera != null && baseOrthographicSize > 0f)
                 worldCamera.orthographicSize = baseOrthographicSize;
         }
