@@ -26,7 +26,7 @@ namespace MukJump.Drawing
         [Tooltip("먹 총량 (월드 단위 길이). 그은 만큼 소모된다")]
         [SerializeField] float inkCapacity = 12f;
         [Tooltip("초당 먹 회복량 (그리는 중에는 회복하지 않음)")]
-        [SerializeField] float inkRegenPerSecond = 1.8f;
+        [SerializeField] float inkRegenPerSecond = 2.6f;
         [Tooltip("먹이 이보다 적으면 새 획을 시작할 수 없다")]
         [SerializeField] float minInkToStart = 0.8f;
 
@@ -61,6 +61,8 @@ namespace MukJump.Drawing
         void Start()
         {
             cam = Camera.main;
+            // 구형 Main 씬의 직렬화 값(1.8)이 남아 있어도 최신 밸런스를 즉시 적용한다.
+            inkRegenPerSecond = 2.6f;
             if (cam == null)
                 Debug.LogError("[MukJump] MainCamera를 찾을 수 없어 드로잉 좌표를 변환할 수 없습니다.", this);
             ink = inkCapacity;
@@ -345,6 +347,16 @@ namespace MukJump.Drawing
                 safeSegment, safeSegmentCandidate);
         }
 
+        /// 실제 캐릭터 콜라이더 바깥에서 발판 Edge 반경 0.06m까지 포함한 여백이다.
+        /// 먹떼가 커져도 물리 겹침이 생기지 않는 0.08m 아래로는 줄이지 않는다.
+        static float ResolvePlayerSurfacePadding(int livingCount)
+        {
+            return Mathf.Lerp(
+                0.15f,
+                0.08f,
+                Mathf.InverseLerp(1f, GameManager.MaxLivingPlayers, livingCount));
+        }
+
         static List<Vector2> SelectLongestSafeSegment(
             IReadOnlyList<Vector2> strokePoints,
             IReadOnlyList<Player.PlayerController> players,
@@ -358,6 +370,8 @@ namespace MukJump.Drawing
             float currentLength = 0f;
             float clearanceSquared = Mathf.Max(0f, clearance);
             clearanceSquared *= clearanceSquared;
+            float surfacePadding = ResolvePlayerSurfacePadding(players.Count);
+            float surfacePaddingSquared = surfacePadding * surfacePadding;
 
             for (int pointIndex = 0; pointIndex < strokePoints.Count; pointIndex++)
             {
@@ -367,8 +381,21 @@ namespace MukJump.Drawing
                 {
                     var player = players[playerIndex];
                     if (player == null || player.IsDead) continue;
-                    Vector2 playerPosition = player.transform.position;
-                    if ((point - playerPosition).sqrMagnitude < clearanceSquared)
+                    var bodyShape = player.PrimaryCollider;
+                    bool overlapsPlayer;
+                    if (bodyShape != null && bodyShape.enabled)
+                    {
+                        Vector2 closest = bodyShape.ClosestPoint(point);
+                        overlapsPlayer =
+                            (point - closest).sqrMagnitude < surfacePaddingSquared;
+                    }
+                    else
+                    {
+                        Vector2 playerPosition = player.transform.position;
+                        overlapsPlayer =
+                            (point - playerPosition).sqrMagnitude < clearanceSquared;
+                    }
+                    if (overlapsPlayer)
                     {
                         blocked = true;
                         break;

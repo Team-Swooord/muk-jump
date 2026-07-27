@@ -183,10 +183,14 @@ namespace MukJump.Items
             if (outerRing == null) outerRing = CreateRing("InkShieldOuter", 7, 0.105f);
             if (innerRing == null) innerRing = CreateRing("InkShieldInner", 6, 0.052f);
             if (shieldPulse == null) shieldPulse = CreateRing("InkShieldPulse", 8, 0.085f);
-            if (NeedsRenderers(shieldMotes, 11))
-                shieldMotes = CreateMotes("ShieldMote", 11, InkPalette.Ink, 8);
-            if (NeedsRenderers(shieldShards, 18))
-                shieldShards = CreateMotes("ShieldShard", 18, InkPalette.Ink, 10);
+            // 먹떼의 모든 개체가 원본과 같은 29개 입자를 캐시하면 24마리에서
+            // 696개 자식이 생긴다. 분신은 실루엣을 읽는 데 필요한 최소 밀도만 사용한다.
+            int moteCount = player != null && player.IsRuntimeClone ? 4 : 11;
+            int shardCount = player != null && player.IsRuntimeClone ? 6 : 18;
+            if (NeedsRenderers(shieldMotes, moteCount))
+                shieldMotes = CreateMotes("ShieldMote", moteCount, InkPalette.Ink, 8);
+            if (NeedsRenderers(shieldShards, shardCount))
+                shieldShards = CreateMotes("ShieldShard", shardCount, InkPalette.Ink, 10);
             if (shieldShardVelocity == null ||
                 shieldShardVelocity.Length != shieldShards.Length)
                 shieldShardVelocity = new Vector3[shieldShards.Length];

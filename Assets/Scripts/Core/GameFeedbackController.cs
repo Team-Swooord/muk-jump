@@ -37,6 +37,8 @@ namespace MukJump.Core
         float hitStopPreviousScale = 1f;
         float hitStopPreviousFixedDelta;
         float lastLandingHapticTime = -10f;
+        float lastDeathFeedbackTime = -10f;
+        float lastHitStopRequestTime = -10f;
 
         enum HapticPattern
         {
@@ -282,9 +284,13 @@ namespace MukJump.Core
             };
         }
 
-        public void PlayDeath(Vector3 position)
+        public void PlayDeath(Vector3 position, bool force = false)
         {
             EnsureInitialized();
+            // 같은 장애물에 먹떼가 한 물리 프레임에 닿아도 소리·진동·VFX는 한 번만 낸다.
+            // 단, 마지막 목숨은 결과창 전에 반드시 사망 피드백을 들려준다.
+            if (!force && Time.unscaledTime - lastDeathFeedbackTime < 0.14f) return;
+            lastDeathFeedbackTime = Time.unscaledTime;
             StopBrushDrawing();
             PlayAccent(deathSqueakClip, 1f);
             StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.1f, 1.35f,
@@ -303,6 +309,8 @@ namespace MukJump.Core
             if (!isActiveAndEnabled ||
                 (GameManager.Instance != null && GameManager.Instance.IsPaused))
                 return;
+            if (Time.unscaledTime - lastHitStopRequestTime < 0.04f) return;
+            lastHitStopRequestTime = Time.unscaledTime;
             if (hitStopRoutine != null)
             {
                 StopCoroutine(hitStopRoutine);

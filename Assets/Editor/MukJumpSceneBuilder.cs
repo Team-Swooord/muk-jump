@@ -37,6 +37,8 @@ namespace MukJump.EditorTools
         };
         const string CharSheetPath = "Assets/Art/Character/Player/muk_spritesheet.png";
         const string ObstaclePath = "Assets/Art/Character/Obstacles/anermy_01.png";
+        const string DragonObstaclePath =
+            "Assets/Resources/MukJump/Obstacles/child_ink_dragon.png";
         const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
         const string LobbyLogoPath = "Assets/Art/UI/muk_logo.png";
         const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";
@@ -96,6 +98,7 @@ namespace MukJump.EditorTools
             ConfigureCharacterSheet();
             ConfigureDeathSprites();
             ConfigureObstacleSprite();
+            ConfigureDragonObstacleSprite();
             ConfigureFallingInkRockSprite();
             ConfigureItemSprites();
             ConfigureInkDropJumpVfxAssets();
@@ -262,6 +265,7 @@ namespace MukJump.EditorTools
             var playerSo = new SerializedObject(playerController);
             playerSo.FindProperty("deathSplashSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(DeathSplashPath);
+            playerSo.FindProperty("cloneSpawnGraceDuration").floatValue = 1f;
             playerSo.ApplyModifiedPropertiesWithoutUndo();
             var itemEffectView = go.AddComponent<ItemEffectView>();
             var itemEffectSo = new SerializedObject(itemEffectView);
@@ -362,6 +366,7 @@ namespace MukJump.EditorTools
                 ? linePrefab.GetComponent<RawImage>()?.texture as Texture2D
                 : null;
             strokeSo.FindProperty("lineSpriteTexture").objectReferenceValue = lineTexture;
+            strokeSo.FindProperty("inkRegenPerSecond").floatValue = 2.6f;
             strokeSo.ApplyModifiedPropertiesWithoutUndo();
 
             var obstaclesRoot = new GameObject("Obstacles");
@@ -371,6 +376,9 @@ namespace MukJump.EditorTools
             var obstacleSo = new SerializedObject(obstacleSpawner);
             obstacleSo.FindProperty("obstacleSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(ObstaclePath);
+            obstacleSo.FindProperty("dragonSprite").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(DragonObstaclePath);
+            obstacleSo.FindProperty("firstSpawnHeight").floatValue = 30f;
             obstacleSo.ApplyModifiedPropertiesWithoutUndo();
 
             var fallingRockSprite = AssetDatabase.LoadAssetAtPath<Sprite>(FallingInkRockPath);
@@ -383,6 +391,7 @@ namespace MukJump.EditorTools
             fallingSo.FindProperty("player").objectReferenceValue = player.GetComponent<PlayerController>();
             fallingSo.FindProperty("collisionMask").intValue =
                 LayerMask.GetMask("Default", "Platform", "Player");
+            fallingSo.FindProperty("startHeight").floatValue = 30f;
             fallingSo.ApplyModifiedPropertiesWithoutUndo();
 
             var itemSpawner = go.AddComponent<ItemSpawner>();
@@ -398,6 +407,10 @@ namespace MukJump.EditorTools
             itemSo.FindProperty("inkCloneSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(InkCloneItemPath);
             itemSo.FindProperty("inkReserveSprite").objectReferenceValue = null;
+            itemSo.FindProperty("verticalSpacing").vector2Value = new Vector2(10f, 16f);
+            itemSo.FindProperty("firstSpawnHeight").floatValue = 12f;
+            itemSo.FindProperty("cloneChanceAt30m").floatValue = 0.35f;
+            itemSo.FindProperty("cloneChanceAt250m").floatValue = 0.5f;
             itemSo.ApplyModifiedPropertiesWithoutUndo();
 
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem),
@@ -853,6 +866,17 @@ namespace MukJump.EditorTools
         static void ConfigureObstacleSprite()
         {
             ConfigureSprite(ObstaclePath, pixelsPerUnit: 700f);
+        }
+
+        static void ConfigureDragonObstacleSprite()
+        {
+            ConfigureSprite(DragonObstaclePath, pixelsPerUnit: 700f);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(DragonObstaclePath);
+            if (importer == null) return;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.maxTextureSize = 2048;
+            importer.SaveAndReimport();
         }
 
         static void ConfigureFallingInkRockSprite()

@@ -23,7 +23,7 @@ namespace MukJump.Player
         [Tooltip("방어막 소모 직후 겹친 장애물에 같은 프레임으로 다시 맞는 것을 막는 시간")]
         [SerializeField, Min(0f)] float shieldHitGraceDuration = 0.35f;
         [Tooltip("새 분신이 장애물 위에 생성되어 즉사하지 않도록 보호하는 시간")]
-        [SerializeField, Min(0f)] float cloneSpawnGraceDuration = 0.6f;
+        [SerializeField, Min(0f)] float cloneSpawnGraceDuration = 1f;
         [Tooltip("접촉 노멀의 y가 이 값 이상이어야 '발판 위'로 인정")]
         [SerializeField] float groundNormalMinY = 0.4f;
         [Tooltip("먹 방어막으로 추락을 막았을 때 다시 튀어 오르는 목표 높이")]
@@ -46,16 +46,28 @@ namespace MukJump.Player
         public PlatformCollider CurrentPlatform { get; private set; }
         public bool HasShield { get; private set; }
         public bool IsInkDropBoosted { get; private set; }
+        public bool IsRuntimeClone => isRuntimeClone;
         public float NormalGravityScale => normalGravityScale;
         public Rigidbody2D Body => rb;
+        public Collider2D PrimaryCollider
+        {
+            get
+            {
+                if (primaryCollider == null)
+                    primaryCollider = GetComponent<Collider2D>();
+                return primaryCollider;
+            }
+        }
         public event Action ShieldConsumed;
 
         Rigidbody2D rb;
+        Collider2D primaryCollider;
         Camera cam;
         float camHalfHeight;
         bool inkDropHasRisen;
         float normalGravityScale;
         float damageInvulnerableUntil;
+        [SerializeField, HideInInspector] bool isRuntimeClone;
         static readonly Queue<GameObject> deathStains = new();
 
         void OnEnable()
@@ -83,12 +95,14 @@ namespace MukJump.Player
         /// 분신에는 원본이 기억하는 정상 중력을 별도로 전달한다.
         public void ConfigureAsClone(float sourceNormalGravityScale)
         {
+            isRuntimeClone = true;
             normalGravityScale = Mathf.Max(0.01f, sourceNormalGravityScale);
             rb.gravityScale = normalGravityScale;
             IsGrounded = false;
             CurrentPlatform = null;
             GroundNormal = Vector2.up;
-            damageInvulnerableUntil = Time.time + cloneSpawnGraceDuration;
+            damageInvulnerableUntil = Time.time +
+                                      Mathf.Max(1f, cloneSpawnGraceDuration);
             rb.WakeUp();
         }
 
@@ -107,6 +121,7 @@ namespace MukJump.Player
         void Awake()
         {
             rb = GetComponent<Rigidbody2D>();
+            primaryCollider = GetComponent<Collider2D>();
             normalGravityScale = rb.gravityScale;
             rb.freezeRotation = true;
             // 정지 상태에서 Rigidbody가 잠들면 충돌 콜백이 멈춰 접지 판정이 풀린다 → 잠들지 않게 유지
@@ -238,7 +253,6 @@ namespace MukJump.Player
         {
             if (IsDead) return;
 
-            GameFeedbackController.Instance?.PlayDeath(transform.position);
             IsDead = true;
             IsInkDropBoosted = false;
             IsGrounded = false;
@@ -249,6 +263,8 @@ namespace MukJump.Player
 
             bool isLastPlayer = GameManager.Instance == null ||
                                 GameManager.Instance.NotifyPlayerDied(this);
+            GameFeedbackController.Instance?.PlayDeath(
+                transform.position, isLastPlayer);
             StartCoroutine(DeathSequence(isLastPlayer));
         }
 

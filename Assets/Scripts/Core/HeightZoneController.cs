@@ -54,7 +54,7 @@ namespace MukJump.Core
             if (GameManager.Instance == null || !GameManager.Instance.IsGameplayTicking)
                 return;
 
-            int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
+            int height = Mathf.RoundToInt(GameManager.Instance.SwarmProgressHeight);
             int band = Mathf.Max(0, Mathf.FloorToInt(height / zoneHeight));
             if (band != currentBand) ApplyZone(band);
 

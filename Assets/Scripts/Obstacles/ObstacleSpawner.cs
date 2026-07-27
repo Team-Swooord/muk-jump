@@ -10,7 +10,10 @@ namespace MukJump.Obstacles
     public class ObstacleSpawner : MonoBehaviour
     {
         [SerializeField] Sprite obstacleSprite;
-        [SerializeField] float firstSpawnHeight = 14f;
+        [Tooltip("초등학생이 그린 듯한 동양 용 장애물 스프라이트")]
+        [SerializeField] Sprite dragonSprite;
+        [Tooltip("게임 시작점 기준 첫 이동 장애물 고도")]
+        [SerializeField] float firstSpawnHeight = 30f;
         [SerializeField] Vector2 verticalSpacing = new(8f, 12f);
         [SerializeField] Vector2 horizontalRange = new(-4.1f, 4.1f);
         [SerializeField] float spawnAhead = 14f;
@@ -23,13 +26,21 @@ namespace MukJump.Obstacles
         [SerializeField] float maxSpeedHeight = 300f;
         [Tooltip("최고 난도에서의 좌우 이동 속도 범위")]
         [SerializeField] Vector2 maxMoveSpeedRange = new(1.35f, 1.8f);
+        [Header("어린 용 변형")]
+        [Min(30f), SerializeField] float dragonUnlockHeight = 60f;
+        [Range(0f, 1f), SerializeField] float dragonChance = 0.28f;
+        [Min(0.1f), SerializeField] float dragonWorldWidth = 3.2f;
+        [SerializeField] Vector2 dragonMoveAmplitudeRange = new(1f, 1.6f);
+        [SerializeField] Vector2 dragonMoveSpeedRange = new(0.45f, 0.7f);
         const int PoolCapacity = 10;
 
         readonly List<Obstacle> active = new();
         ComponentPool<Obstacle> pool;
         GameManager subscribedManager;
         Camera cam;
-        float nextSpawnY;
+        float nextSpawnHeight;
+        int scheduledSessionVersion = -1;
+        bool firstDragonPending = true;
 
         void OnEnable()
         {
@@ -39,11 +50,18 @@ namespace MukJump.Obstacles
         void Start()
         {
             cam = Camera.main;
-            nextSpawnY = firstSpawnHeight;
+            // 구형 Main 씬의 20m 첫 장애물 값을 안전 구간 규칙으로 승격한다.
+            firstSpawnHeight = 30f;
+            dragonUnlockHeight = Mathf.Max(60f, dragonUnlockHeight);
+            if (dragonSprite == null)
+                dragonSprite = Resources.Load<Sprite>(
+                    "MukJump/Obstacles/child_ink_dragon");
             EnsurePool();
             TrySubscribeToGameManager();
             if (obstacleSprite == null)
                 Debug.LogWarning("[MukJump] 장애물 스프라이트가 없어 장애물을 생성하지 않습니다.", this);
+            if (dragonSprite == null)
+                Debug.LogWarning("[MukJump] 어린 용 스프라이트가 없어 일반 먹가시만 생성합니다.", this);
         }
 
         void OnDisable()
@@ -58,17 +76,20 @@ namespace MukJump.Obstacles
             if (cam == null || obstacleSprite == null || GameManager.Instance == null ||
                 !GameManager.Instance.IsGameplayTicking) return;
 
+            EnsureSessionSchedule();
             float cameraTop = cam.transform.position.y + cam.orthographicSize;
             float cutoff = cam.transform.position.y - cam.orthographicSize - despawnBelow;
+            float cameraTopHeight = GameHeightAtWorldY(cameraTop);
+            float cutoffHeight = GameHeightAtWorldY(cutoff);
 
             // 디버그 순간이동 등으로 이미 화면 아래가 된 예약 슬롯은 생성 없이 넘긴다.
-            while (nextSpawnY < cutoff)
-                nextSpawnY += NextSpacing();
+            while (nextSpawnHeight < cutoffHeight)
+                nextSpawnHeight += NextSpacing();
 
-            while (nextSpawnY <= cameraTop + spawnAhead)
+            while (nextSpawnHeight <= cameraTopHeight + spawnAhead)
             {
-                Spawn(nextSpawnY);
-                nextSpawnY += NextSpacing();
+                Spawn(nextSpawnHeight);
+                nextSpawnHeight += NextSpacing();
             }
 
             for (int i = active.Count - 1; i >= 0; i--)
@@ -83,48 +104,99 @@ namespace MukJump.Obstacles
             }
         }
 
-        void Spawn(float y)
+        void Spawn(float courseHeight)
         {
             EnsurePool();
-            float courseHeight = ScoreManager.Instance != null ? ScoreManager.Instance.HeightAt(y) : y;
-            float amplitude = GameplayRandom.Range(
-                GameplayRandomStream.Obstacles,
-                moveAmplitudeRange.x, moveAmplitudeRange.y);
-            float minX = horizontalRange.x + amplitude;
-            float maxX = horizontalRange.y - amplitude;
+            bool useDragon = ShouldSpawnDragon(courseHeight);
+            Sprite selectedSprite = useDragon ? dragonSprite : obstacleSprite;
+            float worldWidth = useDragon ? dragonWorldWidth : obstacleWorldWidth;
+            Vector2 amplitudeRange = useDragon ? dragonMoveAmplitudeRange : moveAmplitudeRange;
+            float amplitude = GameplayRandom.Range(GameplayRandomStream.Obstacles,
+                Mathf.Min(amplitudeRange.x, amplitudeRange.y),
+                Mathf.Max(amplitudeRange.x, amplitudeRange.y));
+            float rangeLeft = Mathf.Min(horizontalRange.x, horizontalRange.y);
+            float rangeRight = Mathf.Max(horizontalRange.x, horizontalRange.y);
+            float halfWorldWidth = worldWidth * 0.5f;
+            float maxAmplitude = Mathf.Max(
+                0f, (rangeRight - rangeLeft) * 0.5f - halfWorldWidth - 0.05f);
+            amplitude = Mathf.Min(amplitude, maxAmplitude);
+            float minX = rangeLeft + halfWorldWidth + amplitude;
+            float maxX = rangeRight - halfWorldWidth - amplitude;
+            if (maxX < minX)
+                minX = maxX = (rangeLeft + rangeRight) * 0.5f;
 
             var obstacle = pool.Acquire();
             var go = obstacle.gameObject;
-            go.name = "InkObstacle";
+            go.name = useDragon ? "ChildInkDragon" : "InkObstacle";
             go.layer = LayerMask.NameToLayer("Obstacle");
             go.transform.position = new Vector3(
                 GameplayRandom.Range(GameplayRandomStream.Obstacles, minX, maxX),
-                y, 0f);
+                WorldYAtGameHeight(courseHeight), 0f);
             go.transform.rotation = Quaternion.identity;
 
             var renderer = go.GetComponent<SpriteRenderer>();
-            renderer.sprite = obstacleSprite;
+            renderer.sprite = selectedSprite;
             renderer.sortingOrder = 6;
             renderer.color = Color.white;
             renderer.enabled = true;
-            float spriteWidth = obstacleSprite.bounds.size.x;
-            float scale = spriteWidth > 0f ? obstacleWorldWidth / spriteWidth : 1f;
+            float spriteWidth = selectedSprite.bounds.size.x;
+            float scale = spriteWidth > 0f ? worldWidth / spriteWidth : 1f;
             go.transform.localScale = Vector3.one * scale;
 
             var circle = go.GetComponent<CircleCollider2D>();
             circle.isTrigger = true;
-            circle.enabled = true;
+            circle.enabled = false;
             // 바깥쪽 반투명 먹 번짐보다 실제 가시 몸통에 맞춰 판정을 약간 줄인다.
-            circle.radius = obstacleSprite.bounds.extents.x * 0.78f;
+            circle.radius = selectedSprite.bounds.extents.x * 0.78f;
+
+            var capsule = go.GetComponent<CapsuleCollider2D>();
+            capsule.isTrigger = true;
+            capsule.enabled = false;
+            capsule.direction = CapsuleDirection2D.Horizontal;
+            capsule.offset = Vector2.zero;
+            capsule.size = new Vector2(
+                selectedSprite.bounds.size.x * 0.8f,
+                selectedSprite.bounds.size.y * 0.49f);
 
             go.GetComponent<ObstacleVisibilityView>().Configure();
-            float difficulty = Mathf.InverseLerp(0f, maxSpeedHeight, courseHeight);
-            float minSpeed = Mathf.Lerp(baseMoveSpeedRange.x, maxMoveSpeedRange.x, difficulty);
-            float maxSpeed = Mathf.Lerp(baseMoveSpeedRange.y, maxMoveSpeedRange.y, difficulty);
+            float minSpeed;
+            float maxSpeed;
+            if (useDragon)
+            {
+                minSpeed = Mathf.Min(dragonMoveSpeedRange.x, dragonMoveSpeedRange.y);
+                maxSpeed = Mathf.Max(dragonMoveSpeedRange.x, dragonMoveSpeedRange.y);
+            }
+            else
+            {
+                float difficulty = Mathf.InverseLerp(firstSpawnHeight, maxSpeedHeight, courseHeight);
+                minSpeed = Mathf.Lerp(baseMoveSpeedRange.x, maxMoveSpeedRange.x, difficulty);
+                maxSpeed = Mathf.Lerp(baseMoveSpeedRange.y, maxMoveSpeedRange.y, difficulty);
+            }
             obstacle.Configure(amplitude,
                 GameplayRandom.Range(GameplayRandomStream.Obstacles, minSpeed, maxSpeed),
-                GameplayRandom.Range(GameplayRandomStream.Obstacles, 0f, Mathf.PI * 2f));
+                GameplayRandom.Range(GameplayRandomStream.Obstacles, 0f, Mathf.PI * 2f),
+                useDragon ? ObstacleKind.ChildDragon : ObstacleKind.Spike);
             active.Add(obstacle);
+        }
+
+        bool ShouldSpawnDragon(float courseHeight)
+        {
+            if (dragonSprite == null || courseHeight < dragonUnlockHeight || HasActiveDragon())
+                return false;
+            if (firstDragonPending)
+            {
+                firstDragonPending = false;
+                return true;
+            }
+            return GameplayRandom.Value(GameplayRandomStream.Obstacles) < dragonChance;
+        }
+
+        bool HasActiveDragon()
+        {
+            for (int i = 0; i < active.Count; i++)
+                if (active[i] != null && active[i].Kind == ObstacleKind.ChildDragon)
+                    return true;
+            return false;
         }
 
         Obstacle CreatePooledObstacle()
@@ -142,6 +214,11 @@ namespace MukJump.Obstacles
             body.constraints = RigidbodyConstraints2D.FreezeRotation;
             var circle = go.AddComponent<CircleCollider2D>();
             circle.isTrigger = true;
+            circle.enabled = false;
+            var capsule = go.AddComponent<CapsuleCollider2D>();
+            capsule.isTrigger = true;
+            capsule.direction = CapsuleDirection2D.Horizontal;
+            capsule.enabled = false;
             go.AddComponent<ObstacleVisibilityView>();
             return go.AddComponent<Obstacle>();
         }
@@ -208,8 +285,49 @@ namespace MukJump.Obstacles
             if (cam == null) cam = Camera.main;
             float visibleBottom = cam != null
                 ? cam.transform.position.y - cam.orthographicSize
-                : Mathf.Max(firstSpawnHeight, targetHeight);
-            nextSpawnY = Mathf.Max(firstSpawnHeight, visibleBottom);
+                : WorldYAtGameHeight(Mathf.Max(firstSpawnHeight, targetHeight));
+            scheduledSessionVersion = GameplayRandom.SessionVersion;
+            // DEBUG 고도 이동은 아트·판정 검증 경로다. 60m 이상으로 바로 이동해도
+            // 다음 슬롯에서 첫 어린 용을 확실히 볼 수 있어야 한다.
+            firstDragonPending = true;
+            nextSpawnHeight = Mathf.Max(firstSpawnHeight, GameHeightAtWorldY(visibleBottom));
+        }
+
+        void EnsureSessionSchedule()
+        {
+            int version = GameplayRandom.SessionVersion;
+            if (scheduledSessionVersion == version) return;
+            scheduledSessionVersion = version;
+            nextSpawnHeight = firstSpawnHeight;
+            firstDragonPending = true;
+        }
+
+        float GameHeightAtWorldY(float worldY)
+        {
+            return ScoreManager.Instance != null
+                ? ScoreManager.Instance.HeightAt(worldY)
+                : worldY;
+        }
+
+        float WorldYAtGameHeight(float gameHeight)
+        {
+            if (ScoreManager.Instance == null) return gameHeight;
+            float anchorY = cam != null ? cam.transform.position.y : 0f;
+            return anchorY + gameHeight - ScoreManager.Instance.HeightAt(anchorY);
+        }
+
+        void OnValidate()
+        {
+            firstSpawnHeight = Mathf.Max(30f, firstSpawnHeight);
+            verticalSpacing.x = Mathf.Max(0.1f, verticalSpacing.x);
+            verticalSpacing.y = Mathf.Max(verticalSpacing.x, verticalSpacing.y);
+            spawnAhead = Mathf.Max(0f, spawnAhead);
+            despawnBelow = Mathf.Max(0f, despawnBelow);
+            obstacleWorldWidth = Mathf.Max(0.1f, obstacleWorldWidth);
+            maxSpeedHeight = Mathf.Max(firstSpawnHeight + 0.1f, maxSpeedHeight);
+            dragonUnlockHeight = Mathf.Max(firstSpawnHeight, dragonUnlockHeight);
+            dragonChance = Mathf.Clamp01(dragonChance);
+            dragonWorldWidth = Mathf.Max(0.1f, dragonWorldWidth);
         }
     }
 }

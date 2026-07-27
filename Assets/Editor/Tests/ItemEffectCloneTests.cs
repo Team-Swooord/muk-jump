@@ -70,9 +70,36 @@ public sealed class ItemEffectCloneTests
         Assert.AreEqual(24, root.GetComponentsInChildren<Renderer>(true).Length);
     }
 
+    [Test]
+    public void RuntimeCloneUsesReducedShieldParticleBudget()
+    {
+        player = new GameObject("ShieldedRuntimeClone");
+        var body = player.AddComponent<Rigidbody2D>();
+        body.gravityScale = 2.2f;
+        var controller = player.AddComponent<PlayerController>();
+        Invoke(controller, "Awake");
+        controller.ConfigureAsClone(2.2f);
+        var view = player.AddComponent<ItemEffectView>();
+        Invoke(view, "Awake");
+
+        Invoke(view, "EnsureShieldVisuals");
+
+        var motes = (SpriteRenderer[])GetField(view, "shieldMotes");
+        var shards = (SpriteRenderer[])GetField(view, "shieldShards");
+        Assert.AreEqual(4, motes.Length);
+        Assert.AreEqual(6, shards.Length);
+        Assert.IsTrue(controller.IsRuntimeClone);
+    }
+
     static void Invoke(object target, string methodName, params object[] arguments)
     {
         target.GetType().GetMethod(methodName,
             BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(target, arguments);
+    }
+
+    static object GetField(object target, string fieldName)
+    {
+        return target.GetType().GetField(fieldName,
+            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(target);
     }
 }

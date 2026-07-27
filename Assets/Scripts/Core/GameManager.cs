@@ -17,6 +17,13 @@ namespace MukJump.Core
     /// 게임 상태(로비/플레이/게임오버)와 시작·재도전 흐름을 관리한다.
     public class GameManager : MonoBehaviour
     {
+        /// 먹분신은 각각 물리·애니메이션을 가진 실제 목숨이다. 모바일에서 한 판이
+        /// 무한히 무거워지지 않으면서도 화면을 먹떼로 채울 수 있는 안전 상한이다.
+        public const int MaxLivingPlayers = 24;
+        const float CloneBurstInterval = 0.08f;
+        static readonly WaitForSeconds CloneBurstDelay =
+            new(CloneBurstInterval);
+
         public static GameManager Instance { get; private set; }
 
         /// 치트성 검증 도구는 에디터와 Development Build에서만 사용할 수 있다.
@@ -56,7 +63,10 @@ namespace MukJump.Core
         bool transitionInProgress;
         float timeScaleBeforePause = 1f;
         float fixedDeltaBeforePause = 0.02f;
+        float maxSwarmProgressHeight;
         readonly List<PlayerController> players = new();
+        readonly List<PlayerController> swarmScratch =
+            new(MaxLivingPlayers);
         readonly List<MonoBehaviour> cloneHookBehaviours = new();
         readonly List<IRuntimeCloneLifecycle> cloneHooks = new();
 
@@ -69,6 +79,27 @@ namespace MukJump.Core
                 for (int i = 0; i < players.Count; i++)
                     if (!players[i].IsDead) count++;
                 return count;
+            }
+        }
+
+        public bool CanCreateInkClone =>
+            State == GameState.Playing && LivingPlayerCount < MaxLivingPlayers;
+
+        /// 점수는 선두 기록을 유지하되, 카메라와 난이도 진행은 먹떼의 하위 중앙값을 쓴다.
+        /// 소수의 먹물방울 부스트가 나머지 무리를 화면 아래로 밀거나 위험물을 조기 해금하지
+        /// 않도록 두 기준을 의도적으로 분리한다.
+        public float SwarmProgressHeight
+        {
+            get
+            {
+                if (!TryGetSwarmAnchor(out _, out float worldY))
+                    return maxSwarmProgressHeight;
+                float current = ScoreManager.Instance != null
+                    ? Mathf.Max(0f, ScoreManager.Instance.HeightAt(worldY))
+                    : Mathf.Max(0f, worldY);
+                if (State == GameState.Playing)
+                    maxSwarmProgressHeight = Mathf.Max(maxSwarmProgressHeight, current);
+                return Mathf.Max(maxSwarmProgressHeight, current);
             }
         }
 
@@ -172,6 +203,43 @@ namespace MukJump.Core
                     results.Add(players[i]);
         }
 
+        /// 카메라·위험 스케줄이 공유하는 먹떼 진행 기준을 반환한다.
+        public bool TryGetSwarmAnchor(
+            out PlayerController representative,
+            out float worldY)
+        {
+            GetLivingPlayersNonAlloc(swarmScratch);
+            if (swarmScratch.Count == 0)
+            {
+                representative = null;
+                worldY = float.NegativeInfinity;
+                return false;
+            }
+
+            worldY = ResolveSwarmAnchorY(swarmScratch, out representative);
+            return representative != null;
+        }
+
+        /// 낮은 순서로 정렬한 뒤 하위 중앙값을 선택한다. 두 마리라면 낮은 개체를,
+        /// 24마리라면 12번째 개체를 따라 최소 절반의 무리가 카메라에 남도록 한다.
+        public static float ResolveSwarmAnchorY(
+            List<PlayerController> living,
+            out PlayerController representative)
+        {
+            if (living == null || living.Count == 0)
+            {
+                representative = null;
+                return float.NegativeInfinity;
+            }
+
+            living.Sort(ComparePlayerHeight);
+            int anchorIndex = (living.Count - 1) / 2;
+            representative = living[anchorIndex];
+            return representative != null
+                ? representative.transform.position.y
+                : float.NegativeInfinity;
+        }
+
         /// 디버그 창에서만 사용하는 무적 모드. 장애물과 화면 하단에서 죽지 않고 되튄다.
         public void ToggleDebugInvincible()
         {
@@ -272,22 +340,16 @@ namespace MukJump.Core
             gameOverTime = Time.unscaledTime;
         }
 
-        /// 먹분신 아이템을 먹을 때마다 생존 캐릭터를 한 마리씩 추가한다.
+        /// 먹분신 한 마리를 즉시 추가한다. 먹떼 아이템은 이 원자 연산을 시간차로 호출한다.
         public bool TryCreateInkClone(PlayerController source)
         {
-            if (State != GameState.Playing || source == null || source.IsDead)
+            if (!CanCreateInkClone || source == null || source.IsDead)
                 return false;
 
             var sourceBody = source.GetComponent<Rigidbody2D>();
             int cloneIndex = Mathf.Max(1, LivingPlayerCount);
-            float direction = cloneIndex % 2 == 0 ? -1f : 1f;
-            float offset = 0.7f + Mathf.Min(1.2f, cloneIndex * 0.16f);
-            Vector3 spawnPosition = source.transform.position + Vector3.right * (direction * offset);
-            if (Camera.main != null)
-            {
-                float halfWidth = Camera.main.orthographicSize * Camera.main.aspect;
-                spawnPosition.x = Mathf.Clamp(spawnPosition.x, -halfWidth + 0.6f, halfWidth - 0.6f);
-            }
+            Vector3 spawnPosition = FindCloneSpawnPosition(source, cloneIndex);
+            float direction = spawnPosition.x < source.transform.position.x ? -1f : 1f;
 
             // 구체적인 아이템·VFX 타입을 모른 채 복제 생명주기 계약만 호출한다.
             // 각 기능은 동기 Instantiate 동안 게임 상태가 아닌 캐시 자식을 스스로 분리한다.
@@ -331,6 +393,92 @@ namespace MukJump.Core
             return true;
         }
 
+        /// 먹분신 아이템 하나가 초반 +3, 중반 +4, 후반 +5마리의 작은 떼를 만든다.
+        /// 첫 마리는 즉시 생성하고 나머지는 프레임 스파이크를 피하도록 시간차를 둔다.
+        public bool TryCreateInkCloneBurst(PlayerController source)
+        {
+            int height = ScoreManager.Instance != null
+                ? ScoreManager.Instance.Height
+                : Mathf.RoundToInt(SwarmProgressHeight);
+            int requested = Mathf.Min(
+                ResolveInkCloneBurstCount(height),
+                MaxLivingPlayers - LivingPlayerCount);
+            if (requested <= 0 || !TryCreateInkClone(source))
+                return false;
+
+            if (requested > 1)
+                StartCoroutine(SpawnInkCloneBurst(source, requested - 1));
+            return true;
+        }
+
+        public static int ResolveInkCloneBurstCount(float height)
+        {
+            if (height >= 150f) return 5;
+            if (height >= 60f) return 4;
+            return 3;
+        }
+
+        System.Collections.IEnumerator SpawnInkCloneBurst(
+            PlayerController preferredSource,
+            int remaining)
+        {
+            for (int i = 0; i < remaining; i++)
+            {
+                yield return CloneBurstDelay;
+                if (!IsGameplayTicking) yield break;
+
+                var source = preferredSource != null && !preferredSource.IsDead
+                    ? preferredSource
+                    : HighestLivingPlayer;
+                if (source == null || !TryCreateInkClone(source))
+                    yield break;
+            }
+        }
+
+        /// 분신 수가 많아져도 두 고정 X 좌표에 겹치지 않도록 화면 안 후보 중
+        /// 현재 생존자들과 가장 멀리 떨어진 지점을 고른다.
+        Vector3 FindCloneSpawnPosition(PlayerController source, int cloneIndex)
+        {
+            Vector3 sourcePosition = source.transform.position;
+            var worldCamera = Camera.main;
+            if (worldCamera == null)
+            {
+                float fallbackDirection = cloneIndex % 2 == 0 ? -1f : 1f;
+                return sourcePosition + Vector3.right * (fallbackDirection * 0.9f);
+            }
+
+            const int CandidateCount = 13;
+            float halfWidth = worldCamera.orthographicSize * worldCamera.aspect;
+            float left = worldCamera.transform.position.x - halfWidth + 0.65f;
+            float right = worldCamera.transform.position.x + halfWidth - 0.65f;
+            Vector3 best = sourcePosition;
+            float bestClearance = float.NegativeInfinity;
+            CleanupPlayers();
+
+            for (int candidateIndex = 0; candidateIndex < CandidateCount; candidateIndex++)
+            {
+                float order = (candidateIndex + cloneIndex * 5) % CandidateCount;
+                float x = Mathf.Lerp(left, right, order / (CandidateCount - 1f));
+                float y = sourcePosition.y + ((candidateIndex + cloneIndex) % 3 - 1) * 0.12f;
+                var candidate = new Vector3(x, y, sourcePosition.z);
+                float nearestSqr = float.PositiveInfinity;
+                for (int i = 0; i < players.Count; i++)
+                {
+                    if (players[i] == null || players[i].IsDead) continue;
+                    nearestSqr = Mathf.Min(
+                        nearestSqr,
+                        (players[i].transform.position - candidate).sqrMagnitude);
+                }
+
+                // 거의 같은 여백이면 원본 가까이에 생겨 획득 연출이 자연스러운 후보를 택한다.
+                float score = nearestSqr - Mathf.Abs(x - sourcePosition.x) * 0.01f;
+                if (score <= bestClearance) continue;
+                bestClearance = score;
+                best = candidate;
+            }
+            return best;
+        }
+
         /// 디버그 패널에서 고도별 맵과 스폰을 즉시 검증하기 위한 순간이동.
         public void DebugTeleportToHeight(int targetHeight)
         {
@@ -347,6 +495,8 @@ namespace MukJump.Core
 
             primary = HighestLivingPlayer;
             ScoreManager.Instance?.DebugSetHeight(targetHeight, primary != null ? primary.transform : null);
+            // DEBUG 맵 왕복은 정상 플레이의 단조 진행 규칙보다 명시적 이동 요청이 우선한다.
+            maxSwarmProgressHeight = Mathf.Max(0, targetHeight);
             Camera.main?.GetComponent<CameraFollow>()?.DebugSnapTo(primary != null
                 ? primary.transform
                 : null);
@@ -367,6 +517,14 @@ namespace MukJump.Core
             // 분신마다 모든 기존 캐릭터와 IgnoreCollision 쌍을 추가하면 누적 O(n²)이
             // 된다. 전용 레이어 하나로 같은 캐릭터끼리의 충돌만 전역 차단한다.
             Physics2D.IgnoreLayerCollision(playerLayer, playerLayer, true);
+        }
+
+        static int ComparePlayerHeight(PlayerController left, PlayerController right)
+        {
+            if (ReferenceEquals(left, right)) return 0;
+            if (left == null) return -1;
+            if (right == null) return 1;
+            return left.transform.position.y.CompareTo(right.transform.position.y);
         }
 
         void CleanupPlayers()
@@ -446,6 +604,8 @@ namespace MukJump.Core
             if (State == nextState) return;
             GameState previousState = State;
             State = nextState;
+            if (nextState == GameState.Playing)
+                maxSwarmProgressHeight = 0f;
             StateChanged?.Invoke(previousState, nextState);
         }
     }

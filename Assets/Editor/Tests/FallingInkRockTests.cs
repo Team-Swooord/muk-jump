@@ -282,6 +282,14 @@ public class FallingInkRockTests
         Assert.IsNotNull(serialized.FindProperty("worldCamera").objectReferenceValue);
         Assert.IsNotNull(serialized.FindProperty("player").objectReferenceValue);
         Assert.AreNotEqual(0, serialized.FindProperty("collisionMask").intValue);
+        Assert.AreEqual(30f, serialized.FindProperty("startHeight").floatValue);
+
+        var movingSpawner = FindFirstInScene<ObstacleSpawner>(builderTestScene);
+        Assert.IsNotNull(movingSpawner);
+        var movingSerialized = new SerializedObject(movingSpawner);
+        Assert.IsNotNull(movingSerialized.FindProperty("obstacleSprite").objectReferenceValue);
+        Assert.IsNotNull(movingSerialized.FindProperty("dragonSprite").objectReferenceValue);
+        Assert.AreEqual(30f, movingSerialized.FindProperty("firstSpawnHeight").floatValue);
 
         var itemSpawner = FindFirstInScene<ItemSpawner>(builderTestScene);
         Assert.IsNotNull(itemSpawner);
@@ -289,6 +297,24 @@ public class FallingInkRockTests
         Assert.IsNotNull(itemSerialized.FindProperty("inkDropSprite").objectReferenceValue);
         Assert.IsNotNull(itemSerialized.FindProperty("goldenBrushSprite").objectReferenceValue);
         Assert.IsNotNull(itemSerialized.FindProperty("inkShieldSprite").objectReferenceValue);
+        Assert.IsNotNull(itemSerialized.FindProperty("inkCloneSprite").objectReferenceValue);
+        Assert.AreEqual(new Vector2(10f, 16f),
+            itemSerialized.FindProperty("verticalSpacing").vector2Value);
+        Assert.AreEqual(12f, itemSerialized.FindProperty("firstSpawnHeight").floatValue);
+        Assert.AreEqual(0.35f, itemSerialized.FindProperty("cloneChanceAt30m").floatValue);
+        Assert.AreEqual(0.5f, itemSerialized.FindProperty("cloneChanceAt250m").floatValue);
+
+        var capture = FindFirstInScene<StrokeCapture>(builderTestScene);
+        Assert.IsNotNull(capture);
+        var captureSerialized = new SerializedObject(capture);
+        Assert.AreEqual(2.6f,
+            captureSerialized.FindProperty("inkRegenPerSecond").floatValue);
+
+        var player = FindFirstInScene<PlayerController>(builderTestScene);
+        Assert.IsNotNull(player);
+        var playerSerialized = new SerializedObject(player);
+        Assert.AreEqual(1f,
+            playerSerialized.FindProperty("cloneSpawnGraceDuration").floatValue);
 
         var inkDropVfx = FindFirstInScene<InkDropJumpVfx>(builderTestScene);
         Assert.IsNotNull(inkDropVfx);
@@ -369,6 +395,14 @@ public class FallingInkRockTests
         Assert.AreEqual(SpriteImportMode.Single, importer.spriteImportMode);
         Assert.AreEqual(700f, importer.spritePixelsPerUnit);
         Assert.AreEqual(TextureWrapMode.Clamp, importer.wrapMode);
+
+        var dragonImporter = (TextureImporter)AssetImporter.GetAtPath(
+            "Assets/Resources/MukJump/Obstacles/child_ink_dragon.png");
+        Assert.IsNotNull(dragonImporter);
+        Assert.AreEqual(TextureImporterType.Sprite, dragonImporter.textureType);
+        Assert.AreEqual(SpriteImportMode.Single, dragonImporter.spriteImportMode);
+        Assert.AreEqual(700f, dragonImporter.spritePixelsPerUnit);
+        Assert.AreEqual(TextureWrapMode.Clamp, dragonImporter.wrapMode);
     }
 
     FallingInkRock CreateRock(float warningDuration)
