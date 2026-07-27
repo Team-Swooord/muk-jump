@@ -415,7 +415,7 @@ public class FallingInkRockTests
         Assert.AreEqual(TextureWrapMode.Clamp, dragonImporter.wrapMode);
 
         const string dragonSheetPath =
-            "Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame.png";
+            "Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame_v3.png";
         var dragonSheetImporter =
             (TextureImporter)AssetImporter.GetAtPath(dragonSheetPath);
         Assert.IsNotNull(dragonSheetImporter);

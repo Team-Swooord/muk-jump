@@ -40,7 +40,7 @@ namespace MukJump.EditorTools
         const string DragonObstaclePath =
             "Assets/Resources/MukJump/Obstacles/child_ink_dragon.png";
         const string DragonObstacleSheetPath =
-            "Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame.png";
+            "Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame_v3.png";
         const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
         const string LobbyLogoPath = "Assets/Art/UI/muk_logo.png";
         const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";

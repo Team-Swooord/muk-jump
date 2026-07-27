@@ -10,6 +10,11 @@ namespace MukJump.Obstacles
     /// 높이 올라갈수록 이동 속도가 점진적으로 증가한다.
     public class ObstacleSpawner : MonoBehaviour
     {
+        const string DragonAnimationResourcePath =
+            "MukJump/Obstacles/child_ink_dragon_4frame_v3";
+        const string DragonAnimationTextureName =
+            "child_ink_dragon_4frame_v3";
+
         [SerializeField] Sprite obstacleSprite;
         [Tooltip("초등학생이 그린 듯한 동양 용 장애물 스프라이트")]
         [SerializeField] Sprite dragonSprite;
@@ -163,7 +168,8 @@ namespace MukJump.Obstacles
                     ? dragonColliderWorldHeight / Mathf.Max(0.0001f, scale)
                     : selectedSprite.bounds.size.y * 0.49f);
 
-            go.GetComponent<ObstacleVisibilityView>().Configure();
+            go.GetComponent<ObstacleVisibilityView>().Configure(
+                preserveInkOutlines: useDragon);
             obstacle.ConfigureSpriteAnimation(
                 useDragon ? dragonFrames : null,
                 dragonFrameSeconds);
@@ -192,7 +198,7 @@ namespace MukJump.Obstacles
             if (!HasValidDragonFrames(dragonFrames))
             {
                 var resourceFrames = Resources.LoadAll<Sprite>(
-                    "MukJump/Obstacles/child_ink_dragon_4frame");
+                    DragonAnimationResourcePath);
                 if (resourceFrames != null && resourceFrames.Length > 1)
                     Array.Sort(resourceFrames,
                         (left, right) => string.CompareOrdinal(left.name, right.name));
@@ -218,7 +224,9 @@ namespace MukJump.Obstacles
             for (int i = 0; i < frames.Length; i++)
             {
                 if (frames[i] == null ||
-                    frames[i].name != $"child_ink_dragon_frame_{i:00}")
+                    frames[i].name != $"child_ink_dragon_frame_{i:00}" ||
+                    frames[i].texture == null ||
+                    frames[i].texture.name != DragonAnimationTextureName)
                     return false;
             }
             return true;

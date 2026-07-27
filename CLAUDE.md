@@ -199,7 +199,7 @@ VFX·사운드·코드 제작 과정과 `docs/ai-usage-log.md`에 기록된 사�
 - `Assets/Art/Character/Player/character_muk_bangul_v3.png` — 캐릭터 래스터 (1024×1024, 투명 배경, 최신본)
 - `Assets/Resources/MukJump/Obstacles/child_ink_dragon.png` — 초등학생의 굵은 먹선처럼
   단순화한 좌우 이동 동양 용 원본 (1536×514, 투명 배경)
-- `Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame.png` — 원본 인상을 유지한
+- `Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame_v3.png` — 원본 인상을 유지한
   2×2 어린 용 루프 시트 (1536×1024, 셀 768×512, 좌상→우상→좌하→우하)
 - `bg_muk_landscape.svg` — 배경 벡터 원본 (세로 산수화, 1080×1920 기준)
 - `background_ink_landscape.png` — 배경 래스터 (1080×1920)

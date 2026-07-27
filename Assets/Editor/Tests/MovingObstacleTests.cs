@@ -52,6 +52,35 @@ public sealed class MovingObstacleTests
     }
 
     [Test]
+    public void DragonVisibilityPreservesDefaultMaterialAcrossSpikePoolReuse()
+    {
+        var go = Track(new GameObject("ObstacleVisibility"));
+        var renderer = go.AddComponent<SpriteRenderer>();
+        var defaultMaterial = renderer.sharedMaterial;
+        var visibility = go.AddComponent<ObstacleVisibilityView>();
+
+        visibility.Configure();
+        Assert.AreEqual("MukJump/ObstaclePaperRed",
+            renderer.sharedMaterial.shader.name);
+
+        visibility.Configure(preserveInkOutlines: true);
+
+        Assert.AreSame(defaultMaterial, renderer.sharedMaterial);
+        Assert.That(renderer.color.r,
+            Is.EqualTo(InkPalette.ObstaclePaperRed.r).Within(0.001f));
+        Assert.That(renderer.color.g,
+            Is.EqualTo(InkPalette.ObstaclePaperRed.g).Within(0.001f));
+        Assert.That(renderer.color.b,
+            Is.EqualTo(InkPalette.ObstaclePaperRed.b).Within(0.001f));
+
+        visibility.Configure();
+        Assert.AreEqual("MukJump/ObstaclePaperRed",
+            renderer.sharedMaterial.shader.name);
+        visibility.Configure(preserveInkOutlines: true);
+        Assert.AreSame(defaultMaterial, renderer.sharedMaterial);
+    }
+
+    [Test]
     public void FirstDragonIsGuaranteedAt60mButNeverBeforeUnlock()
     {
         var spawnerObject = Track(new GameObject("ObstacleSpawner"));
@@ -91,7 +120,7 @@ public sealed class MovingObstacleTests
         var spawnerObject = Track(new GameObject("ObstacleSpawner"));
         var spawner = spawnerObject.AddComponent<ObstacleSpawner>();
         var resourceFrames = Resources.LoadAll<Sprite>(
-            "MukJump/Obstacles/child_ink_dragon_4frame");
+            "MukJump/Obstacles/child_ink_dragon_4frame_v3");
         Assert.AreEqual(4, resourceFrames.Length);
         System.Array.Sort(resourceFrames,
             (left, right) => string.CompareOrdinal(left.name, right.name));
@@ -118,10 +147,33 @@ public sealed class MovingObstacleTests
     }
 
     [Test]
+    public void RuntimeFallbackReplacesLegacyMorphingDragonSheet()
+    {
+        var spawnerObject = Track(new GameObject("ObstacleSpawner"));
+        var spawner = spawnerObject.AddComponent<ObstacleSpawner>();
+        var legacyFrames = Resources.LoadAll<Sprite>(
+            "MukJump/Obstacles/child_ink_dragon_4frame");
+        Assert.AreEqual(4, legacyFrames.Length);
+        System.Array.Sort(legacyFrames,
+            (left, right) => string.CompareOrdinal(left.name, right.name));
+        SetField(spawner, "dragonSprite", legacyFrames[0]);
+        SetField(spawner, "dragonFrames", legacyFrames);
+
+        Invoke(spawner, "LoadDragonVisuals");
+
+        var repairedFrames = (Sprite[])GetField(spawner, "dragonFrames");
+        Assert.AreEqual(4, repairedFrames.Length);
+        for (int i = 0; i < repairedFrames.Length; i++)
+            Assert.AreEqual("child_ink_dragon_4frame_v3",
+                repairedFrames[i].texture.name);
+        Assert.AreSame(repairedFrames[0], GetField(spawner, "dragonSprite"));
+    }
+
+    [Test]
     public void DragonSheetUsesDistinctStableSilhouettesWithoutCellEdgeBleed()
     {
         const string assetPath =
-            "Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame.png";
+            "Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame_v3.png";
         string projectRoot = Path.GetDirectoryName(Application.dataPath);
         Assert.IsNotNull(projectRoot);
         string fullPath = Path.Combine(projectRoot, assetPath);
@@ -189,9 +241,9 @@ public sealed class MovingObstacleTests
             centroidY[frameIndex] = sumY / (float)visibleCount;
         }
 
-        Assert.Less(Max(centroidX) - Min(centroidX), 20f,
+        Assert.Less(Max(centroidX) - Min(centroidX), 12f,
             "프레임 중심이 좌우로 튀면 몸 관절보다 전체 이동이 먼저 보입니다.");
-        Assert.Less(Max(centroidY) - Min(centroidY), 32f,
+        Assert.Less(Max(centroidY) - Min(centroidY), 8f,
             "프레임 중심이 위아래로 튀면 몸 관절보다 전체 이동이 먼저 보입니다.");
 
         for (int frameIndex = 0; frameIndex < masks.Length; frameIndex++)
@@ -206,8 +258,11 @@ public sealed class MovingObstacleTests
                 if (current[i] != next[i]) changed++;
             }
 
-            Assert.Greater(changed / (float)union, 0.3f,
-                $"용 프레임 {frameIndex}은 다음 프레임과 실루엣 변화가 부족합니다.");
+            float changeRatio = changed / (float)union;
+            Assert.Greater(changeRatio, 0.05f,
+                $"용 프레임 {frameIndex}은 다음 프레임과 관절 움직임이 부족합니다.");
+            Assert.Less(changeRatio, 0.2f,
+                $"용 프레임 {frameIndex}은 몸 전체가 바뀌는 것처럼 과도하게 변형됩니다.");
         }
     }
 
