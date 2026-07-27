@@ -198,7 +198,9 @@ VFX·사운드·코드 제작 과정과 `docs/ai-usage-log.md`에 기록된 사�
 - `char_muk.svg` — 먹방울이 캐릭터 벡터 원본 (수정 시 이 파일을 편집)
 - `Assets/Art/Character/Player/character_muk_bangul_v3.png` — 캐릭터 래스터 (1024×1024, 투명 배경, 최신본)
 - `Assets/Resources/MukJump/Obstacles/child_ink_dragon.png` — 초등학생의 굵은 먹선처럼
-  단순화한 좌우 이동 동양 용 (1536×514, 투명 배경)
+  단순화한 좌우 이동 동양 용 원본 (1536×514, 투명 배경)
+- `Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame.png` — 원본 인상을 유지한
+  2×2 어린 용 루프 시트 (1536×1024, 셀 768×512, 좌상→우상→좌하→우하)
 - `bg_muk_landscape.svg` — 배경 벡터 원본 (세로 산수화, 1080×1920 기준)
 - `background_ink_landscape.png` — 배경 래스터 (1080×1920)
 - `Assets/Art/Background/Maps/map_00_quiet_mountain.png` — 0m 고요한 산길
@@ -246,7 +248,8 @@ docs/
 - 1초 자동 점프, 대각선 드로잉 발판 접착·회전, 화면 좌우 반동 벽 구현
 - Chaikin 스무딩, EdgeCollider2D, 먹 자원과 시간 회복, 발판 수명·개수 제한 구현
 - 30m까지 공격 장애물이 없는 입문 구간 구현. 이후 이동 먹가시와 예고 후 낙하해
-  발판을 파괴하는 낙묵석이 등장하고, 60m부터 좌우 이동 어린 동양 용이 합류한다.
+  발판을 파괴하는 낙묵석이 등장하고, 60m부터 5fps 4프레임으로 통통 움직이는
+  좌우 이동 어린 동양 용이 합류한다. 프레임 여백은 충돌 판정 크기에 영향을 주지 않는다.
 - 아이템 5종 구현:
   - 먹물방울: 50m 상승과 상승 중 장애물 보호
   - 황금 붓: 8초간 먹 자원 무제한
