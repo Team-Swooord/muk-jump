@@ -25,6 +25,10 @@ Claude Code를 포함한 모든 코딩 에이전트는 다음 순서를 지킨�
 - 기능 단위로 구현하고 Conventional Commit 형식의 작은 커밋을 남긴다.
 - 완료된 커밋은 현재 기능 브랜치까지 `push`한다.
 - `main` 병합은 사용자가 명시적으로 요청했을 때만 PR을 만들어 진행한다.
+- 예외로 `.github/workflows/weekday-main-merge.yml`은 사용자가 사전 승인한 자동화다.
+  평일 21:00 KST에 원격 `feature/ui-polish`의 새 커밋만 대상으로 충돌을 사전
+  검사하고, GitHub Branch Merge API로 일반 Merge commit을 `main`에 만든다.
+  조직 정책상 Actions의 PR 생성이 금지되어 있으므로 이 자동화에만 직접 병합을 허용한다.
 - 커밋 기록 보존을 위해 PR은 `Squash and merge`가 아니라 일반 `Merge pull request`를 쓴다.
 - 병합 후 로컬 `main`을 원격과 동기화하고 병합된 기능 브랜치를 삭제한 뒤 다음
   `feature/*` 브랜치를 만든다.
