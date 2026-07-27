@@ -85,6 +85,38 @@ public sealed class MovingObstacleTests
     }
 
     [Test]
+    public void RuntimeFallbackRepairsPartiallyMissingSerializedFrames()
+    {
+        var spawnerObject = Track(new GameObject("ObstacleSpawner"));
+        var spawner = spawnerObject.AddComponent<ObstacleSpawner>();
+        var resourceFrames = Resources.LoadAll<Sprite>(
+            "MukJump/Obstacles/child_ink_dragon_4frame");
+        Assert.AreEqual(4, resourceFrames.Length);
+        System.Array.Sort(resourceFrames,
+            (left, right) => string.CompareOrdinal(left.name, right.name));
+        SetField(spawner, "dragonSprite", resourceFrames[0]);
+        SetField(spawner, "dragonFrames", new[]
+        {
+            resourceFrames[0],
+            null,
+            resourceFrames[2],
+            resourceFrames[3],
+        });
+
+        Invoke(spawner, "LoadDragonVisuals");
+
+        var repairedFrames = (Sprite[])GetField(spawner, "dragonFrames");
+        Assert.AreEqual(4, repairedFrames.Length);
+        for (int i = 0; i < repairedFrames.Length; i++)
+        {
+            Assert.IsNotNull(repairedFrames[i]);
+            Assert.AreEqual($"child_ink_dragon_frame_{i:00}",
+                repairedFrames[i].name);
+        }
+        Assert.AreSame(repairedFrames[0], GetField(spawner, "dragonSprite"));
+    }
+
+    [Test]
     public void DragonSpawnStaysInsideHorizontalBoundsAndUsesFairCapsule()
     {
         GameplayRandom.ResetSession(20260727);

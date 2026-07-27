@@ -189,17 +189,19 @@ namespace MukJump.Obstacles
 
         void LoadDragonVisuals()
         {
-            if (dragonFrames == null || dragonFrames.Length == 0)
+            if (!HasValidDragonFrames(dragonFrames))
             {
-                dragonFrames = Resources.LoadAll<Sprite>(
+                var resourceFrames = Resources.LoadAll<Sprite>(
                     "MukJump/Obstacles/child_ink_dragon_4frame");
-                if (dragonFrames != null && dragonFrames.Length > 1)
-                    Array.Sort(dragonFrames,
+                if (resourceFrames != null && resourceFrames.Length > 1)
+                    Array.Sort(resourceFrames,
                         (left, right) => string.CompareOrdinal(left.name, right.name));
+                dragonFrames = HasValidDragonFrames(resourceFrames)
+                    ? resourceFrames
+                    : Array.Empty<Sprite>();
             }
 
-            if (dragonFrames != null && dragonFrames.Length > 0 &&
-                dragonFrames[0] != null)
+            if (HasValidDragonFrames(dragonFrames))
             {
                 dragonSprite = dragonFrames[0];
                 return;
@@ -208,6 +210,18 @@ namespace MukJump.Obstacles
             if (dragonSprite == null)
                 dragonSprite = Resources.Load<Sprite>(
                     "MukJump/Obstacles/child_ink_dragon");
+        }
+
+        static bool HasValidDragonFrames(Sprite[] frames)
+        {
+            if (frames == null || frames.Length != 4) return false;
+            for (int i = 0; i < frames.Length; i++)
+            {
+                if (frames[i] == null ||
+                    frames[i].name != $"child_ink_dragon_frame_{i:00}")
+                    return false;
+            }
+            return true;
         }
 
         bool ShouldSpawnDragon(float courseHeight)
