@@ -292,6 +292,35 @@ public sealed class MovingObstacleTests
     }
 
     [Test]
+    public void GameOverFreezesVisibleSpikeUntilReturningToLobby()
+    {
+        GameplayRandom.ResetSession(20260727);
+        var spawnerObject = Track(new GameObject("ObstacleSpawner"));
+        var spawner = spawnerObject.AddComponent<ObstacleSpawner>();
+        SetField(spawner, "obstacleSprite", CreateSprite(100, 100));
+
+        Invoke(spawner, "Spawn", 30f);
+
+        var active = (IList)GetField(spawner, "active");
+        Assert.AreEqual(1, active.Count);
+        var obstacle = (Obstacle)active[0];
+        var renderer = obstacle.GetComponent<SpriteRenderer>();
+
+        Invoke(spawner, "OnStateChanged", GameState.Playing, GameState.GameOver);
+
+        Assert.AreEqual(1, active.Count,
+            "사망 순간의 먹가시는 게임오버 장면에 남아 충돌 위치를 보여야 합니다.");
+        Assert.IsTrue(obstacle.gameObject.activeSelf);
+        Assert.IsTrue(renderer.enabled);
+
+        Invoke(spawner, "OnStateChanged", GameState.GameOver, GameState.Lobby);
+
+        Assert.AreEqual(0, active.Count);
+        Assert.IsFalse(obstacle.gameObject.activeSelf);
+        Assert.IsFalse(renderer.enabled);
+    }
+
+    [Test]
     public void MovingObstacleScheduleStartsAtCourseHeight30()
     {
         var spawnerObject = Track(new GameObject("ObstacleSpawner"));

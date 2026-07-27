@@ -320,7 +320,11 @@ namespace MukJump.Obstacles
 
         void OnStateChanged(GameState previous, GameState next)
         {
-            if (next != GameState.Playing)
+            // 마지막 피격과 동시에 모든 위험물이 사라지면 먹가시가 축소 애니메이션으로
+            // 소멸한 것처럼 보인다. GameOver에서는 현재 장면을 그대로 정지해 충돌 맥락을
+            // 남기고, 새 로비로 돌아갈 때만 풀에 반납한다. 재도전은 씬을 다시 불러
+            // OnDisable에서 먼저 정리되므로 이전 판 장애물이 다음 판에 남지 않는다.
+            if (next == GameState.Lobby)
                 ReleaseAllActive();
         }
 
