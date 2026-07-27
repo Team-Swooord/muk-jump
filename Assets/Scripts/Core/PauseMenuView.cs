@@ -370,6 +370,16 @@ namespace MukJump.Core
                 InkPalette.Paper);
             paper.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
 
+            // 붓 스프라이트 안쪽의 투명 섬유 틈만 막아 세로 빗줄기처럼 보이는
+            // 아티팩트를 없앤다. 외곽의 수묵 붓결은 종이 레이어에서 유지된다.
+            CreateImage(
+                "PaperCore",
+                body,
+                null,
+                Vector2.zero,
+                new Vector2(620f, 520f),
+                InkPalette.Paper);
+
             CreatePauseRoll(parent, 285f, true);
             CreatePauseRoll(parent, -285f, false);
         }

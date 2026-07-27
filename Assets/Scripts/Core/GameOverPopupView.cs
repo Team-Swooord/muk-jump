@@ -135,6 +135,16 @@ namespace MukJump.Core
                 InkPalette.Paper);
             paper.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
 
+            // 회전해 늘린 붓 마스크의 섬유 틈이 어두운 배경을 비처럼 비추지 않도록
+            // 본문 안쪽만 불투명 한지로 채운다. 가장자리의 불규칙한 붓결은 그대로 남긴다.
+            CreateImage(
+                "PaperCore",
+                scrollBody,
+                null,
+                Vector2.zero,
+                new Vector2(620f, 680f),
+                InkPalette.Paper);
+
             topRoll = CreateScrollRoll(panel, RollOpenDistance, true);
             bottomRoll = CreateScrollRoll(panel, -RollOpenDistance, false);
         }

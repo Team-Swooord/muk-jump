@@ -90,6 +90,13 @@ public class PauseMenuViewTests
         Assert.That(resumeRect.sizeDelta, Is.EqualTo(lobbyRect.sizeDelta));
         Assert.GreaterOrEqual(resumeRect.sizeDelta.y, 96f);
         Assert.IsNotNull(panel.Find("ScrollBody/HanjiPaper"));
+        var pausePaperCore = panel.Find("ScrollBody/PaperCore")
+            ?.GetComponent<Image>();
+        Assert.IsNotNull(pausePaperCore);
+        Assert.IsNull(pausePaperCore.sprite);
+        Assert.GreaterOrEqual(pausePaperCore.rectTransform.sizeDelta.x, 600f);
+        Assert.Less(pausePaperCore.rectTransform.sizeDelta.x,
+            (panel.Find("ScrollBody") as RectTransform).sizeDelta.x);
         Assert.IsNotNull(panel.Find("TopRoll"));
         Assert.IsNotNull(panel.Find("BottomRoll"));
         Assert.IsNull(panel.Find("PauseSeal"));
@@ -134,6 +141,12 @@ public class PauseMenuViewTests
         Assert.IsNotNull(topRoll);
         Assert.IsNotNull(bottomRoll);
         Assert.IsNotNull(scrollBody.Find("ScrollPaper")?.GetComponent<Image>().sprite);
+        var resultPaperCore = scrollBody.Find("PaperCore")?.GetComponent<Image>();
+        Assert.IsNotNull(resultPaperCore);
+        Assert.IsNull(resultPaperCore.sprite);
+        Assert.GreaterOrEqual(resultPaperCore.rectTransform.sizeDelta.x, 600f);
+        Assert.Less(resultPaperCore.rectTransform.sizeDelta.x,
+            (scrollBody as RectTransform).sizeDelta.x);
         Assert.IsNotNull(topRoll.Find("PaperRoll")?.GetComponent<Image>().sprite);
         Assert.IsNotNull(bottomRoll.Find("PaperRoll")?.GetComponent<Image>().sprite);
 
