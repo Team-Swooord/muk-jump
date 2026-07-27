@@ -200,6 +200,10 @@ namespace MukJump.EditorTools
             cam.orthographicSize = OrthoSize;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = InkPalette.Paper;
+            // 현재 프로젝트는 후처리·HDR 색을 쓰지 않는 2D 수묵 렌더링이다.
+            // 모바일에서 불필요한 HDR/MSAA 렌더 타깃을 만들지 않게 명시한다.
+            cam.allowHDR = false;
+            cam.allowMSAA = false;
 
             go.AddComponent<UniversalAdditionalCameraData>();
             go.AddComponent<AudioListener>();
@@ -361,7 +365,12 @@ namespace MukJump.EditorTools
             go.AddComponent<GameOverPopupView>();
             go.AddComponent<PauseMenuView>();
             go.AddComponent<ScoreManager>();
+            for (int i = 0; i < 6; i++)
+                ConfigureAudioSource(go.AddComponent<AudioSource>(), loop: false, priority: 128);
+            CreateFeedbackAudioChild(go.transform, "BrushDrawingAudio", loop: true, priority: 128);
+            CreateFeedbackAudioChild(go.transform, "PriorityAccentAudio", loop: false, priority: 32);
             go.AddComponent<VfxAudioManager>();
+            go.AddComponent<VfxRuntimeMonitor>();
             go.AddComponent<GameFeedbackController>();
             go.AddComponent<HeightZoneController>();
             go.AddComponent<WindWeatherController>();
@@ -445,6 +454,25 @@ namespace MukJump.EditorTools
             so.FindProperty("goldenBrushItemIcon").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Texture2D>(GoldenBrushItemPath);
             so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static void CreateFeedbackAudioChild(
+            Transform parent,
+            string objectName,
+            bool loop,
+            int priority)
+        {
+            var child = new GameObject(objectName);
+            child.transform.SetParent(parent, false);
+            ConfigureAudioSource(child.AddComponent<AudioSource>(), loop, priority);
+        }
+
+        static void ConfigureAudioSource(AudioSource source, bool loop, int priority)
+        {
+            source.playOnAwake = false;
+            source.loop = loop;
+            source.spatialBlend = 0f;
+            source.priority = priority;
         }
 
         static void BuildLobbyUi(bool configureUiImporters)
@@ -627,6 +655,15 @@ namespace MukJump.EditorTools
             var invincibleButton = CreateDebugTextButton("InvincibleButton", debugPanel,
                 new Vector2(190f, -310f), new Vector2(175f, 72f), "무적 OFF");
             var invincibleLabel = invincibleButton.transform.Find("Label")?.GetComponent<Text>();
+            var vfxQualityButton = CreateDebugTextButton("VfxQualityButton", debugPanel,
+                new Vector2(190f, -400f), new Vector2(175f, 72f), "VFX 자동");
+            var vfxQualityLabel =
+                vfxQualityButton.transform.Find("Label")?.GetComponent<Text>();
+            var vfxStatsText = CreateText("VfxStatsText", debugPanel,
+                "60 FPS · L0 S0 C0\n피크 0 · 생략 0", 21, FontStyle.Bold,
+                new Vector2(0.74f, 0.035f), new Vector2(180f, 72f), InkPalette.Paper);
+            vfxStatsText.resizeTextMinSize = 16;
+            vfxStatsText.resizeTextMaxSize = 21;
             debugPanel.gameObject.SetActive(false);
 
             var view = root.GetComponent<GameplayHudView>();
@@ -652,6 +689,9 @@ namespace MukJump.EditorTools
             so.FindProperty("updraftButton").objectReferenceValue = updraftButton;
             so.FindProperty("windDirectionButton").objectReferenceValue = windDirectionButton;
             so.FindProperty("windPlatformButton").objectReferenceValue = windPlatformButton;
+            so.FindProperty("vfxQualityButton").objectReferenceValue = vfxQualityButton;
+            so.FindProperty("vfxQualityLabel").objectReferenceValue = vfxQualityLabel;
+            so.FindProperty("vfxStatsText").objectReferenceValue = vfxStatsText;
             so.FindProperty("windIndicator").objectReferenceValue = windIndicator;
             so.FindProperty("newBestIndicator").objectReferenceValue = newBestIndicator;
             so.ApplyModifiedPropertiesWithoutUndo();

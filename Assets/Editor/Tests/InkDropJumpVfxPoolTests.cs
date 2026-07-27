@@ -1,6 +1,7 @@
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using MukJump.Core;
 using MukJump.Core.Pooling;
 using MukJump.Items;
 
@@ -22,6 +23,9 @@ public sealed class InkDropJumpVfxPoolTests
             Object.DestroyImmediate(secondOwner);
         if (owner != null)
             Object.DestroyImmediate(owner);
+        VfxQualityRuntime.SetTier(
+            VfxQualityTier.Medium,
+            VfxQualityChangeReason.DebugOverride);
     }
 
     [Test]
@@ -104,5 +108,73 @@ public sealed class InkDropJumpVfxPoolTests
         Assert.AreNotSame(inactiveService, service);
         Assert.That(service.isActiveAndEnabled, Is.True);
         Assert.That(service.gameObject.activeInHierarchy, Is.True);
+    }
+
+    [Test]
+    public void DisabledServiceOnActiveObjectIsNotReusedForPlayback()
+    {
+        inactivePoolRoot = new GameObject("DisabledInkDropJumpVfxPool");
+        var disabledService = inactivePoolRoot.AddComponent<InkDropJumpVfxPool>();
+        disabledService.enabled = false;
+
+        var service = InkDropJumpVfxPool.GetOrCreate(default, 4, 3);
+        sharedPoolRoot = service.gameObject;
+
+        Assert.AreNotSame(disabledService, service);
+        Assert.That(service.isActiveAndEnabled, Is.True);
+    }
+
+    [Test]
+    public void QualityDowngradeImmediatelyReclaimsOldestCompositeUntilNewLimit()
+    {
+        VfxQualityRuntime.SetTier(
+            VfxQualityTier.High,
+            VfxQualityChangeReason.DebugOverride);
+        owner = new GameObject("InkDropJumpVfxQualityOwner");
+        var ownerVfx = owner.AddComponent<InkDropJumpVfx>();
+        var renderer = owner.GetComponent<SpriteRenderer>();
+        var service = InkDropJumpVfxPool.GetOrCreate(default, 4, 3);
+        sharedPoolRoot = service.gameObject;
+
+        for (int i = 0; i < 3; i++)
+            service.Play(
+                ownerVfx,
+                owner.transform,
+                renderer,
+                Vector3.zero,
+                1f,
+                2f);
+
+        Assert.That(service.ActiveCount, Is.EqualTo(3));
+
+        VfxQualityRuntime.SetTier(
+            VfxQualityTier.Low,
+            VfxQualityChangeReason.DebugOverride);
+
+        Assert.That(service.ActiveCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void HighQualityPrewarmBuildsAllThreeCompositesOnce()
+    {
+        VfxQualityRuntime.SetTier(
+            VfxQualityTier.High,
+            VfxQualityChangeReason.DebugOverride);
+        var service = InkDropJumpVfxPool.GetOrCreate(default, 4, 3);
+        sharedPoolRoot = service.gameObject;
+
+        service.PrewarmForCurrentTier();
+        int firstCount = service.GetComponentsInChildren<InkDropJumpVfxInstance>(true).Length;
+        int firstRendererCount =
+            service.GetComponentsInChildren<SpriteRenderer>(true).Length;
+        service.PrewarmForCurrentTier();
+
+        Assert.That(firstCount, Is.EqualTo(3));
+        Assert.That(
+            service.GetComponentsInChildren<InkDropJumpVfxInstance>(true).Length,
+            Is.EqualTo(firstCount));
+        Assert.That(
+            service.GetComponentsInChildren<SpriteRenderer>(true).Length,
+            Is.EqualTo(firstRendererCount));
     }
 }

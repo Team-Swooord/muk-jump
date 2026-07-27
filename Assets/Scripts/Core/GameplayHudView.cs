@@ -38,6 +38,9 @@ namespace MukJump.Core
         [SerializeField] Button updraftButton;
         [SerializeField] Button windDirectionButton;
         [SerializeField] Button windPlatformButton;
+        [SerializeField] Button vfxQualityButton;
+        [SerializeField] Text vfxQualityLabel;
+        [SerializeField] Text vfxStatsText;
         [SerializeField] WindIndicatorView windIndicator;
         [SerializeField] NewBestIndicatorView newBestIndicator;
 
@@ -49,6 +52,7 @@ namespace MukJump.Core
         int lastScreenWidth;
         int lastScreenHeight;
         Rect lastSafeArea;
+        float nextVfxStatsRefreshTime;
 
         void OnEnable()
         {
@@ -56,6 +60,8 @@ namespace MukJump.Core
             lastHeight = int.MinValue;
             lastBest = int.MinValue;
             lastNewBest = false;
+            if (Application.isPlaying && GameManager.DebugToolsAvailable)
+                EnsureVfxDebugControls();
             ApplyCrispTextSettings();
             SetDebugToolsAvailable(GameManager.DebugToolsAvailable);
             if (!Application.isPlaying) return;
@@ -84,6 +90,7 @@ namespace MukJump.Core
                 updraftButton?.onClick.AddListener(TriggerUpdraft);
                 windDirectionButton?.onClick.AddListener(FlipWindDirection);
                 windPlatformButton?.onClick.AddListener(SpawnWindPlatform);
+                vfxQualityButton?.onClick.AddListener(CycleVfxQuality);
             }
         }
 
@@ -110,6 +117,7 @@ namespace MukJump.Core
             updraftButton?.onClick.RemoveListener(TriggerUpdraft);
             windDirectionButton?.onClick.RemoveListener(FlipWindDirection);
             windPlatformButton?.onClick.RemoveListener(SpawnWindPlatform);
+            vfxQualityButton?.onClick.RemoveListener(CycleVfxQuality);
         }
 
         public static bool IsPointerOverItemTestControls(Vector2 screenPosition)
@@ -155,6 +163,12 @@ namespace MukJump.Core
             RestPlatformSpawner.Instance?.DebugSpawnWindNearPlayer();
         }
 
+        void CycleVfxQuality()
+        {
+            VfxRuntimeMonitor.Instance?.CycleQualityForDebug();
+            RefreshVfxDebugStats(true);
+        }
+
         static void ApplyDebugItem(ItemType type)
         {
             MarkDebugRun();
@@ -178,7 +192,11 @@ namespace MukJump.Core
         void ToggleDebugPanel()
         {
             if (debugPanel != null)
+            {
                 debugPanel.gameObject.SetActive(!debugPanel.gameObject.activeSelf);
+                if (debugPanel.gameObject.activeSelf)
+                    RefreshVfxDebugStats(true);
+            }
         }
 
         void ToggleInvincible()
@@ -218,6 +236,7 @@ namespace MukJump.Core
             ConfigureDebugButton(updraftButton, "상승기류", 27);
             ConfigureDebugButton(windDirectionButton, "풍향 전환", 27);
             ConfigureDebugButton(windPlatformButton, null, 27);
+            ConfigureDebugButton(vfxQualityButton, null, 23);
             ConfigureDebugButton(inkDropButton, null, 26);
             ConfigureDebugButton(goldenBrushButton, null, 26);
             ConfigureDebugButton(inkShieldButton, null, 26);
@@ -232,6 +251,17 @@ namespace MukJump.Core
                 mapTitle.fontSize = 30;
                 mapTitle.fontStyle = FontStyle.Bold;
                 mapTitle.color = InkPalette.Paper;
+            }
+            if (vfxStatsText != null)
+            {
+                vfxStatsText.font = InkPalette.UiFont;
+                vfxStatsText.fontSize = 21;
+                vfxStatsText.fontStyle = FontStyle.Bold;
+                vfxStatsText.alignment = TextAnchor.MiddleCenter;
+                vfxStatsText.color = InkPalette.Paper;
+                vfxStatsText.resizeTextForBestFit = true;
+                vfxStatsText.resizeTextMinSize = 16;
+                vfxStatsText.resizeTextMaxSize = 21;
             }
             if (resizeItemIcons)
             {
@@ -438,6 +468,75 @@ namespace MukJump.Core
             }
         }
 
+        /// 씬 빌더를 아직 다시 실행하지 않은 기존 Main 씬에서도 새 VFX 검증 버튼을
+        /// 사용할 수 있게 Development Build에서만 같은 계층을 복구한다.
+        void EnsureVfxDebugControls()
+        {
+            if (debugPanel == null) return;
+            if (vfxQualityButton == null)
+            {
+                var existing = debugPanel.Find("VfxQualityButton");
+                if (existing != null)
+                    vfxQualityButton = existing.GetComponent<Button>();
+            }
+            if (vfxStatsText == null)
+                vfxStatsText = debugPanel.Find("VfxStatsText")?.GetComponent<Text>();
+
+            if (vfxQualityButton == null)
+            {
+                var buttonObject = new GameObject(
+                    "VfxQualityButton",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image),
+                    typeof(Button));
+                var rect = buttonObject.GetComponent<RectTransform>();
+                rect.SetParent(debugPanel, false);
+                rect.anchorMin = rect.anchorMax = new Vector2(0f, 0.5f);
+                rect.pivot = new Vector2(0f, 0.5f);
+                rect.anchoredPosition = new Vector2(190f, -400f);
+                rect.sizeDelta = new Vector2(175f, 72f);
+                var image = buttonObject.GetComponent<Image>();
+                image.color = new Color(0.92f, 0.89f, 0.82f, 0.94f);
+                vfxQualityButton = buttonObject.GetComponent<Button>();
+                vfxQualityButton.targetGraphic = image;
+
+                var labelObject = new GameObject(
+                    "Label",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Text));
+                var labelRect = labelObject.GetComponent<RectTransform>();
+                labelRect.SetParent(rect, false);
+                labelRect.anchorMin = labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+                labelRect.sizeDelta = new Vector2(163f, 62f);
+                vfxQualityLabel = labelObject.GetComponent<Text>();
+                vfxQualityLabel.text = "VFX 자동";
+                vfxQualityLabel.alignment = TextAnchor.MiddleCenter;
+                vfxQualityLabel.raycastTarget = false;
+            }
+            else if (vfxQualityLabel == null)
+            {
+                vfxQualityLabel =
+                    vfxQualityButton.transform.Find("Label")?.GetComponent<Text>();
+            }
+
+            if (vfxStatsText != null) return;
+            var statsObject = new GameObject(
+                "VfxStatsText",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Text));
+            var statsRect = statsObject.GetComponent<RectTransform>();
+            statsRect.SetParent(debugPanel, false);
+            statsRect.anchorMin = statsRect.anchorMax = new Vector2(0.74f, 0.035f);
+            statsRect.sizeDelta = new Vector2(180f, 72f);
+            vfxStatsText = statsObject.GetComponent<Text>();
+            vfxStatsText.text = "VFX 통계 준비 중";
+            vfxStatsText.alignment = TextAnchor.MiddleCenter;
+            vfxStatsText.raycastTarget = false;
+        }
+
         void Update()
         {
             if (!Application.isPlaying)
@@ -459,6 +558,7 @@ namespace MukJump.Core
             newBestIndicator?.SetVisible(visible);
             if (!visible || heightText == null) return;
             RefreshInvincibleButton();
+            RefreshVfxDebugStats(false);
 
             var score = ScoreManager.Instance;
             int height = score != null ? score.Height : 0;
@@ -487,6 +587,37 @@ namespace MukJump.Core
             return meters >= 10000
                 ? $"{meters / 1000f:0.#}km"
                 : $"{meters}m";
+        }
+
+        void RefreshVfxDebugStats(bool force)
+        {
+            if (!GameManager.DebugToolsAvailable) return;
+            if (debugPanel == null || !debugPanel.gameObject.activeInHierarchy) return;
+            if (!force && Time.unscaledTime < nextVfxStatsRefreshTime) return;
+            nextVfxStatsRefreshTime = Time.unscaledTime + 0.25f;
+
+            var monitor = VfxRuntimeMonitor.Instance;
+            string automatic = monitor != null && monitor.AutomaticQualityEnabled
+                ? "자동 "
+                : string.Empty;
+            if (vfxQualityLabel != null)
+                vfxQualityLabel.text = $"VFX {automatic}{VfxQualityRuntime.Tier}";
+
+            if (vfxStatsText == null) return;
+            if (monitor == null)
+            {
+                vfxStatsText.text = "VFX 통계 준비 중";
+                return;
+            }
+
+            int dropped = monitor.DroppedDecorativeVfx +
+                          monitor.DroppedNormalVfx +
+                          monitor.DroppedImportantVfx +
+                          monitor.DroppedCriticalVfx;
+            vfxStatsText.text =
+                $"{monitor.MeasuredFps:0} FPS · 피드백 " +
+                $"{monitor.ActiveLineVfx}/{monitor.ActiveSpriteVfx}\n" +
+                $"먹점프 {monitor.ActiveCompositeVfx} · 피크 {monitor.PeakActiveVfx}/생략 {dropped}";
         }
     }
 }

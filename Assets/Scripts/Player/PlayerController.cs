@@ -3,7 +3,6 @@ using MukJump.Core;
 using MukJump.Drawing;
 using MukJump.Items;
 using System;
-using System.Collections.Generic;
 
 namespace MukJump.Player
 {
@@ -68,7 +67,27 @@ namespace MukJump.Player
         float normalGravityScale;
         float damageInvulnerableUntil;
         [SerializeField, HideInInspector] bool isRuntimeClone;
-        static readonly Queue<GameObject> deathStains = new();
+        static DeathInkStainPool deathStainPool;
+
+        static DeathInkStainPool DeathStainPool =>
+            deathStainPool ??= new DeathInkStainPool(CreateDeathStainObject);
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetDeathStainPool()
+        {
+            // Domain Reload를 꺼도 이전 Play 세션의 managed 참조를 유지하지 않는다.
+            deathStainPool = null;
+        }
+
+        static GameObject CreateDeathStainObject()
+        {
+            var stainObject = new GameObject("DeathInkStain (Pooled)");
+            if (GameManager.Instance != null)
+                stainObject.transform.SetParent(GameManager.Instance.transform, false);
+            stainObject.AddComponent<SpriteRenderer>();
+            stainObject.SetActive(false);
+            return stainObject;
+        }
 
         void OnEnable()
         {
@@ -135,6 +154,7 @@ namespace MukJump.Player
         void Start()
         {
             GameManager.Instance?.RegisterPlayer(this);
+            DeathStainPool.Prewarm(maxDeathStains);
             cam = Camera.main;
             if (cam == null)
             {
@@ -240,7 +260,7 @@ namespace MukJump.Player
             HasShield = false;
             damageInvulnerableUntil = Time.time + shieldHitGraceDuration;
             ShieldConsumed?.Invoke();
-            GameFeedbackController.Instance?.PlayShieldBreak();
+            GameFeedbackController.Instance?.PlayShieldBreak(transform.position);
             return true;
         }
 
@@ -286,17 +306,16 @@ namespace MukJump.Player
             if (deathSplashSprite != null)
             {
                 // 죽은 분신 오브젝트가 정리되어도 한지 위 먹 자국은 월드에 남긴다.
-                var splashObject = new GameObject("DeathInkStain");
-                splashObject.transform.position = transform.position;
-                splashObject.transform.rotation =
-                    Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(-18f, 18f));
-                var splashRenderer = splashObject.AddComponent<SpriteRenderer>();
-                splashRenderer.sprite = deathSplashSprite;
-                // 캐릭터와 아이템 아래, 드로잉 발판 위에 종이 얼룩처럼 남는다.
-                splashRenderer.sortingOrder = 2;
-
                 float spriteWidth = Mathf.Max(0.01f, deathSplashSprite.bounds.size.x);
                 float finalScale = deathSplashWorldWidth / spriteWidth;
+                // 캐릭터와 아이템 아래, 드로잉 발판 위에 종이 얼룩처럼 남는다.
+                DeathInkStainPool.Lease stain = DeathStainPool.Show(
+                    deathSplashSprite,
+                    transform.position,
+                    Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(-18f, 18f)),
+                    finalScale * 0.18f,
+                    2,
+                    maxDeathStains);
                 float elapsed = 0f;
                 while (elapsed < deathSplashDuration)
                 {
@@ -304,15 +323,12 @@ namespace MukJump.Player
                     float t = Mathf.Clamp01(elapsed / deathSplashDuration);
                     float eased = 1f - Mathf.Pow(1f - t, 3f);
                     float scale = Mathf.Lerp(finalScale * 0.18f, finalScale, eased);
-                    splashObject.transform.localScale = Vector3.one * scale;
+                    // 용량 초과로 같은 인스턴스가 다음 죽음에 재사용됐다면
+                    // 이전 코루틴이 새 자국의 크기를 덮어쓰지 않는다.
+                    GameObject currentStain = stain.GameObject;
+                    if (currentStain != null)
+                        currentStain.transform.localScale = Vector3.one * scale;
                     yield return null;
-                }
-
-                deathStains.Enqueue(splashObject);
-                while (deathStains.Count > Mathf.Max(1, maxDeathStains))
-                {
-                    var oldest = deathStains.Dequeue();
-                    if (oldest != null) Destroy(oldest);
                 }
             }
             else
@@ -412,8 +428,8 @@ namespace MukJump.Player
 
             if (collision.collider.GetComponent<ScreenSideWall>() == null) return;
 
-            GameFeedbackController.Instance?.PlayWallHit();
             float inwardDirection = transform.position.x >= collision.transform.position.x ? 1f : -1f;
+            GameFeedbackController.Instance?.PlayWallHit(transform.position, inwardDirection);
             float bounceSpeed = Mathf.Max(sideWallBounceSpeed, Mathf.Abs(rb.linearVelocity.x) * 0.55f);
             rb.linearVelocity = new Vector2(inwardDirection * bounceSpeed, rb.linearVelocity.y);
         }

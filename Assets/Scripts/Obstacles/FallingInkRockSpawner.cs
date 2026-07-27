@@ -41,6 +41,7 @@ namespace MukJump.Obstacles
         readonly List<PlayerController> livingPlayers =
             new(GameManager.MaxLivingPlayers);
         ComponentPool<FallingInkRock> pool;
+        bool poolPrewarmed;
         GameManager subscribedManager;
         GameState previousState = GameState.Lobby;
         bool heightUnlocked;
@@ -190,6 +191,12 @@ namespace MukJump.Obstacles
             var existing = GetComponentsInChildren<FallingInkRock>(true);
             for (int i = 0; i < existing.Length; i++)
                 pool.Adopt(existing[i]);
+            if (!poolPrewarmed)
+            {
+                var warmRock = pool.Acquire();
+                pool.Release(warmRock);
+                poolPrewarmed = true;
+            }
         }
 
         float ChooseSafestX(float left, float right)

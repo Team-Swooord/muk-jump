@@ -79,10 +79,19 @@ namespace MukJump.Core
             float direction = Mathf.Abs(weather.DirectionBlend) > 0.05f
                 ? Mathf.Sign(weather.DirectionBlend)
                 : weather.DirectionSign;
+            int activeLineCount = Mathf.Clamp(
+                VfxQualityRuntime.Profile.WeatherLineCount,
+                1,
+                lines.Length);
 
             for (int i = 0; i < lines.Length; i++)
             {
                 var line = lines[i];
+                if (i >= activeLineCount)
+                {
+                    line.enabled = false;
+                    continue;
+                }
                 line.enabled = true;
                 Color color = rising ? InkPalette.Gold : InkPalette.WindAccent;
                 color.a = alpha * (0.78f + i % 3 * 0.11f);

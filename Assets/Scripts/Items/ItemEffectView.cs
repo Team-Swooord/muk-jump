@@ -115,13 +115,18 @@ namespace MukJump.Items
         {
             if (shieldMotes == null) return;
 
+            int visibleCount = VfxQualityRuntime.Profile.ScaleDecorativeCount(
+                shieldMotes.Length,
+                Mathf.Min(2, shieldMotes.Length));
             for (int i = 0; i < shieldMotes.Length; i++)
             {
                 var mote = shieldMotes[i];
                 if (mote == null) continue;
-                mote.enabled = visible;
-                if (!visible) continue;
-                float angle = i * Mathf.PI * 2f / shieldMotes.Length + Time.time * (0.6f + i % 2 * 0.14f);
+                bool showMote = visible && i < visibleCount;
+                mote.enabled = showMote;
+                if (!showMote) continue;
+                float angle = i * Mathf.PI * 2f / visibleCount +
+                              Time.time * (0.6f + i % 2 * 0.14f);
                 float radius = ringRadius + Mathf.Sin(Time.time * 1.8f + i) * 0.08f;
                 mote.transform.localPosition = new Vector3(Mathf.Cos(angle) * radius,
                     Mathf.Sin(angle) * radius * 0.9f, 0f);
@@ -134,9 +139,17 @@ namespace MukJump.Items
             EnsureShieldVisuals();
             shieldPulseTime = 0.42f;
             shieldShardTime = 0.7f;
+            int visibleShardCount = VfxQualityRuntime.Profile.ScaleDecorativeCount(
+                shieldShards.Length,
+                Mathf.Min(4, shieldShards.Length));
             for (int i = 0; i < shieldShards.Length; i++)
             {
                 if (shieldShards[i] == null) continue;
+                if (i >= visibleShardCount)
+                {
+                    shieldShards[i].enabled = false;
+                    continue;
+                }
                 float angle = Random.Range(-25f, 205f) * Mathf.Deg2Rad;
                 float speed = Random.Range(1.8f, 4.8f);
                 shieldShardVelocity[i] = new Vector3(Mathf.Cos(angle) * speed,
@@ -349,9 +362,14 @@ namespace MukJump.Items
         {
             if (ring == null) return;
 
-            for (int i = 0; i < ringSegments; i++)
+            int visibleSegments = Mathf.Min(
+                ringSegments,
+                VfxQualityRuntime.Profile.PersistentRingSegments);
+            if (ring.positionCount != visibleSegments)
+                ring.positionCount = visibleSegments;
+            for (int i = 0; i < visibleSegments; i++)
             {
-                float angle = i * Mathf.PI * 2f / ringSegments;
+                float angle = i * Mathf.PI * 2f / visibleSegments;
                 float noise = Mathf.Sin(angle * 5f + phase) * wobble +
                               Mathf.Sin(angle * 9f - phase * 0.7f) * wobble * 0.4f;
                 float r = radius + noise;

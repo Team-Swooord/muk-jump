@@ -335,6 +335,18 @@ public class FallingInkRockTests
         Assert.IsNotNull(vfxSerialized.FindProperty("verticalBrush").objectReferenceValue);
         Assert.IsNotNull(vfxSerialized.FindProperty("immediateClip").objectReferenceValue);
         Assert.IsNotNull(FindFirstInScene<VfxAudioManager>(builderTestScene));
+        Assert.IsNotNull(FindFirstInScene<VfxRuntimeMonitor>(builderTestScene));
+        var feedbackAudio = FindFirstInScene<VfxAudioManager>(builderTestScene);
+        Assert.AreEqual(6, feedbackAudio.GetComponents<AudioSource>().Length);
+        Assert.IsNotNull(feedbackAudio.transform.Find("BrushDrawingAudio")
+            ?.GetComponent<AudioSource>());
+        Assert.IsNotNull(feedbackAudio.transform.Find("PriorityAccentAudio")
+            ?.GetComponent<AudioSource>());
+
+        var builtCamera = FindFirstInScene<Camera>(builderTestScene);
+        Assert.IsNotNull(builtCamera);
+        Assert.IsFalse(builtCamera.allowHDR);
+        Assert.IsFalse(builtCamera.allowMSAA);
 
         var lobby = FindFirstInScene<LobbyView>(builderTestScene);
         Assert.IsNotNull(lobby);
@@ -383,6 +395,10 @@ public class FallingInkRockTests
             as WindIndicatorView;
         var newBestIndicator = hudSerialized.FindProperty("newBestIndicator").objectReferenceValue
             as NewBestIndicatorView;
+        Assert.IsNotNull(
+            hudSerialized.FindProperty("vfxQualityButton").objectReferenceValue as Button);
+        Assert.IsNotNull(
+            hudSerialized.FindProperty("vfxStatsText").objectReferenceValue as Text);
         Assert.IsNotNull(windIndicator);
         Assert.IsNotNull(newBestIndicator);
         var windSerialized = new SerializedObject(windIndicator);

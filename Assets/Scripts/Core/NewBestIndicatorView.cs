@@ -146,6 +146,7 @@ namespace MukJump.Core
         void HandleNewBestReached(int height, int previousBest)
         {
             ShowRecord(true);
+            GameFeedbackController.Instance?.PlayRecordStamp();
         }
 
         void ShowRecord(bool animate)

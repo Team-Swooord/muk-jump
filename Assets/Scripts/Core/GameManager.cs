@@ -130,6 +130,8 @@ namespace MukJump.Core
             Application.targetFrameRate = 60;
             State = GameState.Lobby;
             // 이전 버전의 Main 씬을 열어도 새 피드백·구간 시스템이 즉시 동작한다.
+            if (GetComponent<VfxRuntimeMonitor>() == null)
+                gameObject.AddComponent<VfxRuntimeMonitor>();
             if (GetComponent<GameFeedbackController>() == null)
                 gameObject.AddComponent<GameFeedbackController>();
             if (GetComponent<HeightZoneController>() == null)
@@ -387,6 +389,7 @@ namespace MukJump.Core
                                            Vector2.right * (direction * 0.45f);
 
             RegisterPlayer(clone);
+            GameFeedbackController.Instance?.PlayCloneArrival(clone.transform.position);
             return true;
         }
 

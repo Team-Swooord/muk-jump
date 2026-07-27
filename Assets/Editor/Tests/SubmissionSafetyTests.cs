@@ -79,6 +79,30 @@ namespace MukJump.EditorTests
             }
         }
 
+        [Test]
+        public void MainSceneContainsSerializedVfxFoundationFromBuilder()
+        {
+            const string scenePath = "Assets/Scenes/Main.unity";
+            string source = File.ReadAllText(scenePath);
+            string monitorGuid = AssetDatabase.AssetPathToGUID(
+                "Assets/Scripts/Core/VfxRuntimeMonitor.cs");
+
+            Assert.That(Regex.Matches(source, @"m_Name: VfxQualityButton\b").Count,
+                Is.EqualTo(1));
+            Assert.That(Regex.Matches(source, @"m_Name: VfxStatsText\b").Count,
+                Is.EqualTo(1));
+            Assert.That(Regex.Matches(source, @"m_Name: BrushDrawingAudio\b").Count,
+                Is.EqualTo(1));
+            Assert.That(Regex.Matches(source, @"m_Name: PriorityAccentAudio\b").Count,
+                Is.EqualTo(1));
+            Assert.That(Regex.Matches(
+                    source,
+                    $@"m_Script:\s*\{{[^}}]*guid:\s*{monitorGuid}[^}}]*\}}").Count,
+                Is.EqualTo(1));
+            Assert.That(source, Does.Contain("m_HDR: 0"));
+            Assert.That(source, Does.Contain("m_AllowMSAA: 0"));
+        }
+
         static object Invoke(object target, string methodName)
         {
             return target.GetType().GetMethod(
