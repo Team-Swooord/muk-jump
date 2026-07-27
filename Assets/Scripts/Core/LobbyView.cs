@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 하이어라키에서 직접 편집할 수 있는 로비 Canvas의 표시와 붓 안내 연출을 담당한다.
+    /// 씬 빌더가 구성한 로비 Canvas의 표시와 붓 안내 연출을 담당한다.
     [ExecuteAlways]
     public class LobbyView : MonoBehaviour
     {
@@ -65,11 +65,6 @@ namespace MukJump.Core
                 texts[i].resizeTextForBestFit = false;
                 texts[i].alignByGeometry = true;
             }
-
-            if (bestText == null) return;
-            bestText.fontSize = 50;
-            bestText.fontStyle = FontStyle.Normal;
-            bestText.color = InkPalette.Paper;
         }
     }
 }

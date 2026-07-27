@@ -57,6 +57,17 @@ namespace MukJump.EditorTools
         const string InkDropVfxRoot = "Assets/MukJump/VFX/InkDropJump";
         const string InkDropVfxTextureRoot = InkDropVfxRoot + "/Textures/";
         const string InkDropVfxAudioRoot = InkDropVfxRoot + "/Audio/";
+        // 14a6141의 사용자 수동 로비 배치를 빌더의 공식 값으로 고정한다.
+        // Main 씬을 다시 생성해도 로고와 최고 기록 칸이 초기 배치로 돌아가면 안 된다.
+        static readonly Vector2 LobbyLogoAnchor = new(0.5f, 0.68f);
+        static readonly Vector2 LobbyLogoPosition = new(12f, 79f);
+        static readonly Vector2 LobbyLogoSize = new(1281.776f, 854.518f);
+        static readonly Vector2 LobbyBestAnchor = new(0.5f, 0.94f);
+        static readonly Vector2 LobbyBestPosition = new(89f, -12f);
+        static readonly Vector2 LobbyBestSize = new(610.273f, 130.157f);
+        static readonly Vector2 LobbyBestLabelPosition = new(-87f, -5f);
+        static readonly Vector2 LobbyBestLabelSize = new(400f, 80f);
+        const int LobbyBestFontSize = 37;
         static readonly string[] DeathFramePaths =
         {
             "Assets/Art/Character/Death/mukbangul_death_01_idle.png",
@@ -499,8 +510,8 @@ namespace MukJump.EditorTools
 
             if (logoTexture != null)
             {
-                var logo = CreateUiObject("Logo", root.transform, new Vector2(0.5f, 0.68f),
-                    new Vector2(900f, 600f));
+                var logo = CreateUiObject("Logo", root.transform, LobbyLogoAnchor, LobbyLogoSize);
+                logo.anchoredPosition = LobbyLogoPosition;
                 var image = logo.gameObject.AddComponent<RawImage>();
                 image.texture = logoTexture;
                 image.raycastTarget = false;
@@ -508,14 +519,15 @@ namespace MukJump.EditorTools
             }
             else
             {
-                CreateText("Logo", root.transform, "먹점프", 112, FontStyle.Bold,
-                    new Vector2(0.5f, 0.68f), new Vector2(720f, 220f), InkPalette.Ink);
+                var logo = CreateText("Logo", root.transform, "먹점프", 112, FontStyle.Bold,
+                    LobbyLogoAnchor, LobbyLogoSize, InkPalette.Ink);
+                logo.rectTransform.anchoredPosition = LobbyLogoPosition;
             }
 
             if (configureUiImporters)
                 ConfigureUiTexture(StartButtonPath);
             var lobbyBest = CreateLobbyRecordDisplay("BestDisplay", root.transform, "최고 0",
-                new Vector2(0.5f, 0.94f));
+                LobbyBestAnchor);
             var brush = CreateUiObject("BrushGuide", root.transform, new Vector2(0.5f, 0.5f),
                 new Vector2(105f, 105f));
             brush.anchoredPosition = new Vector2(0f, -620f);
@@ -539,16 +551,18 @@ namespace MukJump.EditorTools
         static Text CreateLobbyRecordDisplay(
             string name, Transform parent, string value, Vector2 anchor)
         {
-            var display = CreateUiObject(name, parent, anchor, new Vector2(500f, 110f));
+            var display = CreateUiObject(name, parent, anchor, LobbyBestSize);
+            display.anchoredPosition = LobbyBestPosition;
             var background = display.gameObject.AddComponent<RawImage>();
             background.texture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
             background.raycastTarget = false;
 
-            var label = CreateText("Label", display, value, 50, FontStyle.Normal,
-                new Vector2(0.5f, 0.5f), new Vector2(400f, 80f), Color.white);
-            label.fontSize = 50;
+            var label = CreateText("Label", display, value, LobbyBestFontSize, FontStyle.Normal,
+                new Vector2(0.5f, 0.5f), LobbyBestLabelSize, Color.white);
+            label.rectTransform.anchoredPosition = LobbyBestLabelPosition;
+            label.fontSize = LobbyBestFontSize;
             label.fontStyle = FontStyle.Normal;
-            label.color = InkPalette.Paper;
+            label.color = Color.white;
             label.resizeTextForBestFit = false;
             label.alignByGeometry = true;
             return label;

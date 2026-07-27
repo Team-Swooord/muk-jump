@@ -353,11 +353,31 @@ public class FallingInkRockTests
         var lobbySerialized = new SerializedObject(lobby);
         var lobbyBest = lobbySerialized.FindProperty("bestText").objectReferenceValue as Text;
         Assert.IsNotNull(lobbyBest);
-        Assert.AreEqual(50, lobbyBest.fontSize);
-        Assert.AreEqual(InkPalette.Paper, lobbyBest.color);
-        Assert.IsNotNull(lobby.transform.Find("Logo")?.GetComponent<RawImage>());
+        Assert.AreEqual(InkPalette.UiFont, lobbyBest.font);
+        Assert.AreEqual(37, lobbyBest.fontSize);
+        Assert.AreEqual(FontStyle.Normal, lobbyBest.fontStyle);
+        Assert.AreEqual(TextAnchor.MiddleCenter, lobbyBest.alignment);
+        Assert.AreEqual(Color.white, lobbyBest.color);
+        Assert.IsFalse(lobbyBest.resizeTextForBestFit);
+        Assert.IsTrue(lobbyBest.alignByGeometry);
+        Assert.That(lobbyBest.rectTransform.anchoredPosition.x, Is.EqualTo(-87f).Within(0.01f));
+        Assert.That(lobbyBest.rectTransform.anchoredPosition.y, Is.EqualTo(-5f).Within(0.01f));
+        Assert.That(lobbyBest.rectTransform.sizeDelta.x, Is.EqualTo(400f).Within(0.01f));
+        Assert.That(lobbyBest.rectTransform.sizeDelta.y, Is.EqualTo(80f).Within(0.01f));
+
+        var lobbyLogo = lobby.transform.Find("Logo") as RectTransform;
+        Assert.IsNotNull(lobbyLogo?.GetComponent<RawImage>());
+        Assert.That(lobbyLogo.anchoredPosition.x, Is.EqualTo(12f).Within(0.01f));
+        Assert.That(lobbyLogo.anchoredPosition.y, Is.EqualTo(79f).Within(0.01f));
+        Assert.That(lobbyLogo.sizeDelta.x, Is.EqualTo(1281.776f).Within(0.01f));
+        Assert.That(lobbyLogo.sizeDelta.y, Is.EqualTo(854.518f).Within(0.01f));
         Assert.IsNotNull(lobby.transform.Find("BrushGuide")?.GetComponent<RawImage>());
-        Assert.IsNotNull(lobby.transform.Find("BestDisplay")?.GetComponent<RawImage>());
+        var bestDisplay = lobby.transform.Find("BestDisplay") as RectTransform;
+        Assert.IsNotNull(bestDisplay?.GetComponent<RawImage>());
+        Assert.That(bestDisplay.anchoredPosition.x, Is.EqualTo(89f).Within(0.01f));
+        Assert.That(bestDisplay.anchoredPosition.y, Is.EqualTo(-12f).Within(0.01f));
+        Assert.That(bestDisplay.sizeDelta.x, Is.EqualTo(610.273f).Within(0.01f));
+        Assert.That(bestDisplay.sizeDelta.y, Is.EqualTo(130.157f).Within(0.01f));
 
         var gameplayHud = FindFirstInScene<GameplayHudView>(builderTestScene);
         Assert.IsNotNull(gameplayHud);
