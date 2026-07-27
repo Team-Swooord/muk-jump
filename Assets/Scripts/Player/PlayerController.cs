@@ -95,6 +95,10 @@ namespace MukJump.Player
         /// 분신에는 원본이 기억하는 정상 중력을 별도로 전달한다.
         public void ConfigureAsClone(float sourceNormalGravityScale)
         {
+            // EditMode 테스트와 Play 중 도메인 재로드에서는 Awake 캐시보다
+            // 런타임 복제 설정이 먼저 호출될 수 있으므로 의존성을 즉시 복구한다.
+            if (rb == null)
+                rb = GetComponent<Rigidbody2D>();
             isRuntimeClone = true;
             normalGravityScale = Mathf.Max(0.01f, sourceNormalGravityScale);
             rb.gravityScale = normalGravityScale;
