@@ -1132,3 +1132,29 @@
   C# 컴파일 오류 0건을 확인했다. 100,000개 seed 재실행 결과 70% 획득·무피격
   상한 실험은 1,000m까지 80.83%가 24마리에 도달했고 도달자 P50은 831.6m였다.
   이는 실제 생존·숙련 예측이 아니므로 여러 테스터의 수동 로그로 후속 검증한다.
+
+### 2026-07-27 — Unity 2D URP Android VFX 표준 이식과 모바일 고도화
+
+- 사용 도구: 사용자 제공 `SKILL.md`, OpenAI Codex 멀티 에이전트,
+  Unity Test Framework
+- 목적: 범용 VFX 설계서를 현재 먹점프의 URP 2D 수묵 렌더링 구조에 맞게 이식하고,
+  대량 분신·연속 아이템·낙묵석 상황에서도 핵심 피드백과 Android 성능을 함께 보존
+- 주요 프롬프트/지시: “이걸 토대로 우리 게임에 업데이트할 수 있는 것은 모두 적용해
+  한 번 더 고도화”. 문서의 패키지와 예제를 무조건 설치하지 말고 Unity·URP·렌더러·
+  Android 설정과 충돌을 먼저 감사하며 Low/Medium/High 예산, 풀링, 품질 강등,
+  실기 점검 기준을 현재 아키텍처에 맞춰 구현
+- 결과물: `docs/VFX/SKILL.md`, `docs/VFX/PROJECT_IMPLEMENTATION.md`,
+  `VfxQualityRuntime.cs`, `VfxRuntimeMonitor.cs`, `MukJumpVfxAudit.cs`,
+  `DeathInkStainPool.cs`와 아이템·분신·벽·방어막·최고 기록·낙묵석 피드백 코드
+- 구현 메모: 새 외부 패키지·Shader Graph·VFX Graph 의존성을 추가하지 않고 기존
+  `SpriteRenderer`·`LineRenderer` 미감을 유지했다. 품질별 소프트 예산과 Critical
+  예약 슬롯, 플레이 구간 평균 FPS 기반 단계 강등, Low Memory 대응, 품질별 합성 VFX와
+  짧은 피드백 프리웜·단일 시뮬레이션 루프, 사망 먹 자국 20개 프리웜·순환 풀,
+  씬 빌더의 AudioSource 사전
+  구성을 적용했다. 생성 씬 카메라의 불필요한 HDR/MSAA만 끄고 Graphics API,
+  URP 에셋, Android API와 압축 정책은 실기 비교 전 변경하지 않았다.
+- 사람의 수정/검토 내용: 아이템별 중심 문양, 분신 도착 먹 번짐, 방향성 벽 충돌,
+  방어막 파괴, 최고 기록 낙관, 낙묵석 하단 목표 낙관과 충돌 연출의 중요도를 구분했다.
+  품질 추천·예약 슬롯·사망 먹 자국 재사용·씬 빌더 구성을 회귀 테스트로 고정하고
+  별도 검증 사본에서 Unity 6000.3.10f1 전체 EditMode 테스트 160/160 통과,
+  C# 컴파일 오류 0건과 모바일 VFX 감사 메뉴 실행을 확인했다.
