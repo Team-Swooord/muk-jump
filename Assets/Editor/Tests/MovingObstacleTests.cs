@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
@@ -114,6 +115,100 @@ public sealed class MovingObstacleTests
                 repairedFrames[i].name);
         }
         Assert.AreSame(repairedFrames[0], GetField(spawner, "dragonSprite"));
+    }
+
+    [Test]
+    public void DragonSheetUsesDistinctStableSilhouettesWithoutCellEdgeBleed()
+    {
+        const string assetPath =
+            "Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame.png";
+        string projectRoot = Path.GetDirectoryName(Application.dataPath);
+        Assert.IsNotNull(projectRoot);
+        string fullPath = Path.Combine(projectRoot, assetPath);
+        Assert.IsTrue(File.Exists(fullPath));
+
+        var texture = Track(new Texture2D(2, 2, TextureFormat.RGBA32, false));
+        Assert.IsTrue(ImageConversion.LoadImage(
+            texture, File.ReadAllBytes(fullPath), false));
+        Assert.AreEqual(1536, texture.width);
+        Assert.AreEqual(1024, texture.height);
+
+        const int columns = 2;
+        const int rows = 2;
+        const int frameWidth = 768;
+        const int frameHeight = 512;
+        const byte visibleAlpha = 128;
+        var pixels = texture.GetPixels32();
+        var masks = new bool[columns * rows][];
+        var centroidX = new float[masks.Length];
+        var centroidY = new float[masks.Length];
+
+        for (int frameIndex = 0; frameIndex < masks.Length; frameIndex++)
+        {
+            int column = frameIndex % columns;
+            int row = frameIndex / columns;
+            int originX = column * frameWidth;
+            int originY = (rows - 1 - row) * frameHeight;
+            int minX = frameWidth;
+            int minY = frameHeight;
+            int maxX = -1;
+            int maxY = -1;
+            int visibleCount = 0;
+            long sumX = 0;
+            long sumY = 0;
+            var mask = new bool[frameWidth * frameHeight];
+            masks[frameIndex] = mask;
+
+            for (int y = 0; y < frameHeight; y++)
+            {
+                for (int x = 0; x < frameWidth; x++)
+                {
+                    int sourceIndex = originX + x +
+                                      (originY + y) * texture.width;
+                    bool visible = pixels[sourceIndex].a >= visibleAlpha;
+                    mask[x + y * frameWidth] = visible;
+                    if (!visible) continue;
+
+                    minX = Mathf.Min(minX, x);
+                    minY = Mathf.Min(minY, y);
+                    maxX = Mathf.Max(maxX, x);
+                    maxY = Mathf.Max(maxY, y);
+                    visibleCount++;
+                    sumX += x;
+                    sumY += y;
+                }
+            }
+
+            Assert.Greater(visibleCount, 45000,
+                $"용 프레임 {frameIndex}의 보이는 실루엣이 비정상적으로 작습니다.");
+            Assert.That(minX, Is.GreaterThanOrEqualTo(8));
+            Assert.That(minY, Is.GreaterThanOrEqualTo(8));
+            Assert.That(maxX, Is.LessThan(frameWidth - 8));
+            Assert.That(maxY, Is.LessThan(frameHeight - 8));
+            centroidX[frameIndex] = sumX / (float)visibleCount;
+            centroidY[frameIndex] = sumY / (float)visibleCount;
+        }
+
+        Assert.Less(Max(centroidX) - Min(centroidX), 20f,
+            "프레임 중심이 좌우로 튀면 몸 관절보다 전체 이동이 먼저 보입니다.");
+        Assert.Less(Max(centroidY) - Min(centroidY), 32f,
+            "프레임 중심이 위아래로 튀면 몸 관절보다 전체 이동이 먼저 보입니다.");
+
+        for (int frameIndex = 0; frameIndex < masks.Length; frameIndex++)
+        {
+            var current = masks[frameIndex];
+            var next = masks[(frameIndex + 1) % masks.Length];
+            int union = 0;
+            int changed = 0;
+            for (int i = 0; i < current.Length; i++)
+            {
+                if (current[i] || next[i]) union++;
+                if (current[i] != next[i]) changed++;
+            }
+
+            Assert.Greater(changed / (float)union, 0.3f,
+                $"용 프레임 {frameIndex}은 다음 프레임과 실루엣 변화가 부족합니다.");
+        }
     }
 
     [Test]
@@ -236,6 +331,22 @@ public sealed class MovingObstacleTests
             frames[i].name = $"child_ink_dragon_frame_{i:00}";
         }
         return frames;
+    }
+
+    static float Min(float[] values)
+    {
+        float result = float.PositiveInfinity;
+        for (int i = 0; i < values.Length; i++)
+            result = Mathf.Min(result, values[i]);
+        return result;
+    }
+
+    static float Max(float[] values)
+    {
+        float result = float.NegativeInfinity;
+        for (int i = 0; i < values.Length; i++)
+            result = Mathf.Max(result, values[i]);
+        return result;
     }
 
     T Track<T>(T value) where T : Object
