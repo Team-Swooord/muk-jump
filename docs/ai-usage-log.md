@@ -1143,7 +1143,7 @@
   캐릭터 기준으로 고정하고, 완만한 S자 → 위로 웅크림 → 반대 S자 → 아래로 길게
   펴짐 순서로 실제 실루엣과 관절을 다시 그린다. 각 셀은 768×512, 전체는
   1536×1024이며 배경은 균일한 `#00FF00`, 구분선·문자·그림자·모션 효과는 제외
-- 결과물: `Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame_v2.png`
+- 결과물: `docs/ai-artifacts/obstacles/child_ink_dragon_4frame_v2.png`
 - 구현 메모: ImageGen 보정본에서 외곽과 연결된 크로마 영역만 판별해 정확한
   `#00FF00`으로 정규화하고, 기존 4프레임 파일을 덮어쓰지 않는 v2로 보존했다.
 - 사람의 수정/검토 내용: 2×2 읽기 순서, 1536×1024 규격, 얼굴의 왼쪽 방향,
@@ -1156,7 +1156,7 @@
 - 주요 프롬프트/지시: 왼쪽 위 → 오른쪽 위 → 왼쪽 아래 → 오른쪽 아래 순서로
   4프레임을 분리하고, 프레임당 200ms인 5fps 무한 반복 GIF로 시각화
 - 결과물:
-  `Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame_v2_preview_5fps.gif`
+  `docs/ai-artifacts/obstacles/child_ink_dragon_4frame_v2_preview_5fps.gif`
 - 사람의 수정/검토 내용: 원본 셀 해상도 768×512를 유지하고 4프레임·무한 반복
   메타데이터와 출력 크기를 확인했다.
 
