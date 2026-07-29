@@ -281,6 +281,23 @@ kinematic body와 fixed step 이동을 사용한다.
 예약한 위치를 당기지 않고 다음 간격 계산부터 길운 배율을 적용한다. 새 세션에서는
 레벨·공용 완충·먹 여유·황금 붓 시간이 함께 초기화된다.
 
+로비 성장·도감은 플레이 중 `GrowthChoiceView`와 다른 경계다.
+
+- `LobbyView`는 씬 빌더가 만든 `시작`·`성장`·`도감` 버튼만 연결하고 게임 규칙을
+  계산하지 않는다. 로비 드로잉은 비활성이라 UI 입력과 발판 생성이 경합하지 않는다.
+- `GrowthFocusProfile`은 실제 적용 가능한 뿌리 하나의 stable ID만 저장한다.
+  `RunGrowthController`는 첫 선택판을 만들 때만 이를 읽고, 기존 몸·드로잉 보장
+  규칙을 보완한다. 화폐·최고 고도·영구 배율은 소유하지 않는다.
+- `RoguelikeGrowthCatalog`는 25계보×4노드의 불변 정의, 선행·상충, 구현 상태와
+  기존 8종 어댑터를 소유한다. `RuntimeReady`만 추첨할 수 있으며 `Planned`는 도감
+  표시 전용이다.
+- `LobbyCollectionView`는 카탈로그를 읽는 표현 계층이다. 전체 100종 수와 무관하게
+  여섯 개 행만 만들고 페이지마다 내용을 교체한다. 도감 UI가 노드를 활성화하거나
+  `RunGrowthController`의 레벨을 직접 변경할 수 없다.
+
+100종의 역할 슬롯 추첨, 계보 진화, 발견 기록과 향후 효과 레지스트리 경계는
+`docs/design/roguelike-growth-architecture.md`를 기준으로 단계적으로 도입한다.
+
 ## 9. 실패·자원 경계
 
 - 화면 전환 콜백이 예외를 던져도 전환 overlay와 raycast 차단을 해제한다.
