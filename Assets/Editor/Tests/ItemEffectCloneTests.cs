@@ -91,6 +91,55 @@ public sealed class ItemEffectCloneTests
         Assert.IsTrue(controller.IsRuntimeClone);
     }
 
+    [Test]
+    public void CloneArrivalVisualIsSingleReusableChildAndCloneStartsClean()
+    {
+        player = new GameObject("PlayerWithCloneArrival");
+        var playerRenderer = player.AddComponent<SpriteRenderer>();
+        playerRenderer.enabled = false;
+        player.AddComponent<Rigidbody2D>();
+        player.AddComponent<CircleCollider2D>();
+        player.AddComponent<PlayerController>();
+        var view = player.AddComponent<InkCloneArrivalView>();
+        Invoke(view, "Awake");
+
+        var visual = player.transform.Find("InkCloneArrivalVisual");
+        Assert.IsNotNull(visual);
+        var arrivalRenderer = visual.GetComponent<SpriteRenderer>();
+        arrivalRenderer.enabled = true;
+
+        var lifecycle = (IRuntimeCloneLifecycle)view;
+        lifecycle.PrepareForRuntimeClone();
+        Assert.IsTrue(playerRenderer.enabled);
+        Assert.IsFalse(arrivalRenderer.enabled);
+
+        clone = Object.Instantiate(player);
+        var cloneVisual = clone.transform.Find("InkCloneArrivalVisual");
+        Assert.IsNotNull(cloneVisual);
+        Assert.AreEqual(1, CountNamedChildren(
+            clone.transform, "InkCloneArrivalVisual"));
+        Assert.IsTrue(clone.GetComponent<SpriteRenderer>().enabled);
+        Assert.IsFalse(cloneVisual.GetComponent<SpriteRenderer>().enabled);
+
+        lifecycle.RestoreAfterRuntimeClone();
+        Assert.IsFalse(playerRenderer.enabled);
+        Assert.IsTrue(arrivalRenderer.enabled);
+
+        Invoke(view, "EnsureVisuals");
+        Assert.AreEqual(1, CountNamedChildren(
+            player.transform, "InkCloneArrivalVisual"),
+            "반복 획득에도 캐릭터마다 보조 렌더러는 하나만 유지해야 합니다.");
+    }
+
+    static int CountNamedChildren(Transform root, string childName)
+    {
+        int count = 0;
+        for (int i = 0; i < root.childCount; i++)
+            if (root.GetChild(i).name == childName)
+                count++;
+        return count;
+    }
+
     static void Invoke(object target, string methodName, params object[] arguments)
     {
         target.GetType().GetMethod(methodName,

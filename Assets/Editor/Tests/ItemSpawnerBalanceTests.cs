@@ -9,10 +9,16 @@ using MukJump.Player;
 public sealed class ItemSpawnerBalanceTests
 {
     readonly List<Object> cleanup = new();
+    readonly List<Camera> retaggedMainCameras = new();
 
     [TearDown]
     public void TearDown()
     {
+        for (int i = 0; i < retaggedMainCameras.Count; i++)
+            if (retaggedMainCameras[i] != null)
+                retaggedMainCameras[i].gameObject.tag = "MainCamera";
+        retaggedMainCameras.Clear();
+
         for (int i = cleanup.Count - 1; i >= 0; i--)
             if (cleanup[i] != null)
                 Object.DestroyImmediate(cleanup[i]);
@@ -216,6 +222,7 @@ public sealed class ItemSpawnerBalanceTests
     [Test]
     public void CloneSpawnChoosesOpenScreenCandidateInsteadOfFixedPile()
     {
+        RetagExistingMainCameras();
         var cameraObject = Track(new GameObject("CloneSpawnCamera"));
         cameraObject.tag = "MainCamera";
         var worldCamera = cameraObject.AddComponent<Camera>();
@@ -245,6 +252,87 @@ public sealed class ItemSpawnerBalanceTests
             "8마리 이후에도 ±1.9 위치에 계속 겹치면 안 됩니다.");
         float halfWidth = worldCamera.orthographicSize * worldCamera.aspect;
         Assert.That(result.x, Is.InRange(-halfWidth + 0.65f, halfWidth - 0.65f));
+    }
+
+    [Test]
+    public void CloneSpawnsOnOppositeSideOfCollectorWithOffsetCamera()
+    {
+        RetagExistingMainCameras();
+        var cameraObject = Track(new GameObject("OffsetCloneSpawnCamera"));
+        cameraObject.tag = "MainCamera";
+        cameraObject.transform.position = new Vector3(3.25f, 14f, -10f);
+        var worldCamera = cameraObject.AddComponent<Camera>();
+        worldCamera.orthographic = true;
+        worldCamera.orthographicSize = 9.6f;
+
+        var manager = Track(new GameObject("OppositeCloneManager"))
+            .AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+        Invoke(manager, "SetState", GameState.Playing);
+
+        var sourceObject = Track(new GameObject("OppositeCloneSource"));
+        sourceObject.AddComponent<Rigidbody2D>();
+        sourceObject.AddComponent<CircleCollider2D>();
+        var source = sourceObject.AddComponent<PlayerController>();
+        manager.RegisterPlayer(source);
+
+        source.transform.position = new Vector3(1.25f, 7f, 0f);
+        Vector3 fromLeft = (Vector3)Invoke(
+            manager, "FindCloneSpawnPosition", source, 1);
+        Assert.Greater(fromLeft.x, cameraObject.transform.position.x,
+            "카메라 왼쪽에서 먹분신을 획득하면 새 분신은 오른쪽 절반에 생겨야 합니다.");
+
+        source.transform.position = new Vector3(5.25f, 7f, 0f);
+        Vector3 fromRight = (Vector3)Invoke(
+            manager, "FindCloneSpawnPosition", source, 2);
+        Assert.Less(fromRight.x, cameraObject.transform.position.x,
+            "카메라 오른쪽에서 먹분신을 획득하면 새 분신은 왼쪽 절반에 생겨야 합니다.");
+    }
+
+    [Test]
+    public void CloneSpawnAtCameraCenterAlternatesSides()
+    {
+        RetagExistingMainCameras();
+        var cameraObject = Track(new GameObject("CenteredCloneSpawnCamera"));
+        cameraObject.tag = "MainCamera";
+        cameraObject.transform.position = new Vector3(-2f, 6f, -10f);
+        var worldCamera = cameraObject.AddComponent<Camera>();
+        worldCamera.orthographic = true;
+        worldCamera.orthographicSize = 9.6f;
+
+        var manager = Track(new GameObject("CenteredCloneManager"))
+            .AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+        Invoke(manager, "SetState", GameState.Playing);
+
+        var sourceObject = Track(new GameObject("CenteredCloneSource"));
+        sourceObject.transform.position = new Vector3(-2f, 2f, 0f);
+        sourceObject.AddComponent<Rigidbody2D>();
+        sourceObject.AddComponent<CircleCollider2D>();
+        var source = sourceObject.AddComponent<PlayerController>();
+        manager.RegisterPlayer(source);
+
+        Vector3 odd = (Vector3)Invoke(
+            manager, "FindCloneSpawnPosition", source, 1);
+        Vector3 even = (Vector3)Invoke(
+            manager, "FindCloneSpawnPosition", source, 2);
+
+        Assert.Greater(odd.x, cameraObject.transform.position.x);
+        Assert.Less(even.x, cameraObject.transform.position.x);
+    }
+
+    void RetagExistingMainCameras()
+    {
+        var cameras = Object.FindObjectsByType<Camera>(
+            FindObjectsInactive.Include,
+            FindObjectsSortMode.None);
+        for (int i = 0; i < cameras.Length; i++)
+        {
+            Camera candidate = cameras[i];
+            if (!candidate.CompareTag("MainCamera")) continue;
+            candidate.gameObject.tag = "Untagged";
+            retaggedMainCameras.Add(candidate);
+        }
     }
 
     T Track<T>(T value) where T : Object

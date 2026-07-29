@@ -99,8 +99,8 @@ namespace MukJump.Player
             GameManager.Instance?.UnregisterPlayer(this);
         }
 
-        /// 로비에서는 시작선을 그리는 동안 캐릭터가 먼저 추락하지 않도록 그 자리에 고정한다.
-        /// 선이 완성되면 현재 위치에서 물리를 시작하므로 아래에 그린 선만 첫 발판이 된다.
+        /// 로비에서는 메뉴를 고르는 동안 캐릭터가 먼저 추락하지 않도록 고정한다.
+        /// 시작 버튼을 누르면 씬에 준비된 영구 시작 발판 위에서 물리를 시작한다.
         public void BeginFromLobby()
         {
             rb.bodyType = RigidbodyType2D.Dynamic;
@@ -216,10 +216,14 @@ namespace MukJump.Player
         public void TakeHit()
         {
             if (IsDead) return;
+            // 성장 두루마리는 물리 콜백 안에서 시간을 멈춘다. 같은 Physics2D 스텝에
+            // 이미 예약된 다른 충돌이 이어져도 선택판 뒤에서 피해가 적용되지 않게 한다.
+            var manager = GameManager.Instance;
+            if (manager != null && !manager.IsGameplayTicking) return;
             if (IsInkDropBoosted) return;
             if (Time.time < damageInvulnerableUntil) return;
             GameFeedbackController.Instance?.PlayHitStop();
-            if (GameManager.Instance != null && GameManager.Instance.DebugInvincible)
+            if (manager != null && manager.DebugInvincible)
             {
                 damageInvulnerableUntil = Time.time + shieldHitGraceDuration;
                 LaunchToHeight(12f);
@@ -230,7 +234,33 @@ namespace MukJump.Player
                 LaunchToHeight(12f);
                 return;
             }
+            if (RunGrowthController.Instance != null &&
+                RunGrowthController.Instance.TryAbsorbObstacleHit(this))
+                return;
             Kill();
+        }
+
+        /// 먹두께 완충으로 장애물 피해를 견딘 뒤 겹친 콜라이더에서 빠져나올 최소한의
+        /// 속도만 준다. 아이템 점프처럼 높이 튀우지 않아 현재 발판 경로를 보존한다.
+        public void ApplyVitalityHitRecovery(float graceSeconds)
+        {
+            if (IsDead) return;
+            if (rb == null)
+                rb = GetComponent<Rigidbody2D>();
+            if (rb == null) return;
+            if (normalGravityScale <= 0f)
+                normalGravityScale = Mathf.Max(0.01f, rb.gravityScale);
+
+            damageInvulnerableUntil = Mathf.Max(
+                damageInvulnerableUntil,
+                Time.time + Mathf.Max(0f, graceSeconds));
+            DetachFromPlatform();
+            Vector2 velocity = rb.linearVelocity;
+            velocity.x *= 0.82f;
+            velocity.y = Mathf.Max(velocity.y, 1.6f);
+            rb.linearVelocity = velocity;
+            rb.WakeUp();
+            GetComponent<ItemEffectView>()?.PlayVitalityHit();
         }
 
         /// 먹물방울: 현재 위치에서 지정 높이까지 오르는 물리 점프 속도를 적용한다.

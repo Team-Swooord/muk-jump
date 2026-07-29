@@ -49,11 +49,6 @@ namespace MukJump.Items
         void Start()
         {
             cam = Camera.main;
-            // 씬을 재생성하기 전에도 최신 먹떼 규칙을 동일하게 적용한다.
-            verticalSpacing = new Vector2(10f, 16f);
-            firstSpawnHeight = 12f;
-            cloneChanceAt30m = 0.35f;
-            cloneChanceAt250m = 0.5f;
             EnsurePool();
             TrySubscribeToGameManager();
         }
@@ -234,8 +229,12 @@ namespace MukJump.Items
         {
             float minimum = Mathf.Max(0.1f, verticalSpacing.x);
             float maximum = Mathf.Max(minimum, verticalSpacing.y);
-            return GameplayRandom.Range(
+            float baseSpacing = GameplayRandom.Range(
                 GameplayRandomStream.Items, minimum, maximum);
+            float growthMultiplier = RunGrowthController.Instance != null
+                ? RunGrowthController.Instance.ItemSpacingMultiplier
+                : 1f;
+            return Mathf.Max(0.1f, baseSpacing * growthMultiplier);
         }
 
         void TrySubscribeToGameManager()

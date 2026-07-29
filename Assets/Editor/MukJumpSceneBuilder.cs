@@ -53,6 +53,22 @@ namespace MukJump.EditorTools
         const string GoldenBrushItemPath = "Assets/Art/UI/golden_brush.png";
         const string InkShieldItemPath = "Assets/Art/UI/ink_shield.png";
         const string InkCloneItemPath = "Assets/Art/UI/ink_clone.png";
+        const string GrowthScrollPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_scroll.png";
+        const string GrowthVitalityPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_vitality.png";
+        const string GrowthJumpPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_jump.png";
+        const string GrowthInkCapacityPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_ink_capacity.png";
+        const string GrowthInkRegenPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_ink_regen.png";
+        const string GrowthPlatformPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_platform.png";
+        const string GrowthGuardPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_guard.png";
+        const string GrowthFortunePath =
+            "Assets/Resources/MukJump/UI/Growth/growth_fortune.png";
         const string UiFontPath =
             "Assets/Resources/MukJump/Fonts/HealthsetJoritdaeStd.otf";
         const string DeathSplashPath = "Assets/Art/Character/Death/ink_death_splash.png";
@@ -201,6 +217,7 @@ namespace MukJump.EditorTools
             var camera = BuildCamera();
             BuildBackground(camera.transform);
             var player = BuildPlayer();
+            BuildStarterPlatform(player);
             BuildSystems(camera, player, configureUiImporters);
             BuildLobbyUi(configureUiImporters);
             BuildGameplayUi(configureUiImporters);
@@ -208,6 +225,8 @@ namespace MukJump.EditorTools
             var follow = camera.GetComponent<CameraFollow>();
             var so = new SerializedObject(follow);
             so.FindProperty("target").objectReferenceValue = player.transform;
+            so.FindProperty("upperFollowViewportY").floatValue = 0.75f;
+            so.FindProperty("hardCeilingViewportY").floatValue = 0.9f;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -314,6 +333,7 @@ namespace MukJump.EditorTools
             itemEffectSo.FindProperty("shieldTailClip").objectReferenceValue =
                 LoadVfxAudio("SFX_InkDropJump_Tail_Stem.wav");
             itemEffectSo.ApplyModifiedPropertiesWithoutUndo();
+            go.AddComponent<InkCloneArrivalView>();
             var inkDropVfx = go.AddComponent<InkDropJumpVfx>();
             var vfxSo = new SerializedObject(inkDropVfx);
             AssignVfxSprite(vfxSo, "inkDrop", "T_VFX_InkDrop_128.png");
@@ -354,6 +374,32 @@ namespace MukJump.EditorTools
             return go;
         }
 
+        /// 시작 버튼 방식에서도 첫 프레임에 추락하지 않도록 씬에 영구 먹 발판을 둔다.
+        /// 런타임 Spawn 발판과 달리 수명·동시 획 예산을 소모하지 않는 재현 가능한 시작 지형이다.
+        static void BuildStarterPlatform(GameObject player)
+        {
+            var go = new GameObject("StarterInkPlatform")
+            {
+                layer = LayerMask.NameToLayer("Platform"),
+            };
+            go.transform.position = new Vector3(
+                player.transform.position.x,
+                player.transform.position.y - 0.42f,
+                0f);
+
+            var line = go.AddComponent<LineRenderer>();
+            line.useWorldSpace = false;
+            line.sortingOrder = 2;
+            var edge = go.AddComponent<EdgeCollider2D>();
+            edge.points = new[]
+            {
+                new Vector2(-1.65f, 0f),
+                new Vector2(1.65f, 0f),
+            };
+            edge.edgeRadius = 0.06f;
+            go.AddComponent<PlatformCollider>();
+        }
+
         static Dictionary<string, Sprite> LoadCharacterFrames()
         {
             var sheetSprites = AssetDatabase.LoadAllAssetsAtPath(CharSheetPath);
@@ -385,6 +431,21 @@ namespace MukJump.EditorTools
             go.AddComponent<BrushTransitionView>();
             go.AddComponent<GameOverPopupView>();
             go.AddComponent<PauseMenuView>();
+            var growthController = go.GetComponent<RunGrowthController>() ??
+                                   go.AddComponent<RunGrowthController>();
+            var growthChoiceView = go.GetComponent<GrowthChoiceView>() ??
+                                   go.AddComponent<GrowthChoiceView>();
+            go.AddComponent<LobbyCollectionView>();
+            go.AddComponent<PermanentGrowthView>();
+            growthChoiceView.SetSprites(
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthVitalityPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthJumpPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthInkCapacityPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthInkRegenPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthPlatformPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthPlatformPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthGuardPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthFortunePath));
             go.AddComponent<ScoreManager>();
             for (int i = 0; i < 6; i++)
                 ConfigureAudioSource(go.AddComponent<AudioSource>(), loop: false, priority: 128);
@@ -479,6 +540,16 @@ namespace MukJump.EditorTools
             itemSo.FindProperty("cloneChanceAt250m").floatValue = 0.5f;
             itemSo.ApplyModifiedPropertiesWithoutUndo();
 
+            var growthSpawner = go.AddComponent<GrowthScrollSpawner>();
+            var growthSpawnerSo = new SerializedObject(growthSpawner);
+            growthSpawnerSo.FindProperty("growthScrollSprite").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthScrollPath);
+            growthSpawnerSo.FindProperty("firstHeight").floatValue =
+                GrowthScrollSpawner.DefaultFirstHeight;
+            growthSpawnerSo.FindProperty("interval").floatValue =
+                GrowthScrollSpawner.DefaultInterval;
+            growthSpawnerSo.ApplyModifiedPropertiesWithoutUndo();
+
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem),
                 typeof(InputSystemUIInputModule));
             eventSystem.transform.SetParent(go.transform);
@@ -557,24 +628,83 @@ namespace MukJump.EditorTools
                 ConfigureUiTexture(StartButtonPath);
             var lobbyBest = CreateLobbyRecordDisplay("BestDisplay", root.transform, "최고 0",
                 LobbyBestAnchor);
-            var brush = CreateUiObject("BrushGuide", root.transform, new Vector2(0.5f, 0.5f),
-                new Vector2(105f, 105f));
-            brush.anchoredPosition = new Vector2(0f, -620f);
-            var brushImage = brush.gameObject.AddComponent<RawImage>();
-            brushImage.texture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/UI/muk_brush_icon.png");
-            brushImage.raycastTarget = false;
-            var brushGroup = brush.gameObject.AddComponent<CanvasGroup>();
-            brushGroup.alpha = 0.5f;
-            brushGroup.interactable = false;
-            brushGroup.blocksRaycasts = false;
+            var buttonTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
+            var startButton = CreateLobbyMenuButton(
+                "StartButton",
+                root.transform,
+                buttonTexture,
+                "시작",
+                new Vector2(0.5f, 0.34f),
+                Vector2.zero,
+                new Vector2(590f, 132f),
+                54);
+            var growthButton = CreateLobbyMenuButton(
+                "GrowthButton",
+                root.transform,
+                buttonTexture,
+                "성장",
+                new Vector2(0.5f, 0.265f),
+                new Vector2(-155f, 0f),
+                new Vector2(280f, 92f),
+                38);
+            var codexButton = CreateLobbyMenuButton(
+                "CodexButton",
+                root.transform,
+                buttonTexture,
+                "도감",
+                new Vector2(0.5f, 0.265f),
+                new Vector2(155f, 0f),
+                new Vector2(280f, 92f),
+                38);
 
             var view = root.GetComponent<LobbyView>();
             var so = new SerializedObject(view);
-            so.FindProperty("brushGuide").objectReferenceValue = brush;
-            so.FindProperty("brushCanvasGroup").objectReferenceValue = brushGroup;
-            so.FindProperty("canvasRect").objectReferenceValue = root.GetComponent<RectTransform>();
             so.FindProperty("bestText").objectReferenceValue = lobbyBest;
+            so.FindProperty("startButton").objectReferenceValue = startButton;
+            so.FindProperty("growthButton").objectReferenceValue = growthButton;
+            so.FindProperty("codexButton").objectReferenceValue = codexButton;
             so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static Button CreateLobbyMenuButton(
+            string name,
+            Transform parent,
+            Texture2D texture,
+            string label,
+            Vector2 anchor,
+            Vector2 position,
+            Vector2 size,
+            int fontSize)
+        {
+            var rect = CreateUiObject(name, parent, anchor, size);
+            rect.anchoredPosition = position;
+            var background = rect.gameObject.AddComponent<RawImage>();
+            background.texture = texture;
+            background.color = Color.white;
+            background.raycastTarget = true;
+
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = background;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            button.transition = Selectable.Transition.ColorTint;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 1f, 1f, 0.9f);
+            colors.pressedColor = new Color(0.8f, 0.77f, 0.68f, 1f);
+            colors.selectedColor = Color.white;
+            colors.disabledColor = new Color(0.3f, 0.3f, 0.3f, 0.45f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+
+            var text = CreateText("Label", rect, label, fontSize, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), size - new Vector2(70f, 18f),
+                InkPalette.TextLight);
+            text.raycastTarget = false;
+            text.resizeTextMinSize = Mathf.Max(26, fontSize - 8);
+            text.resizeTextMaxSize = fontSize;
+            AddReadableTextWeight(text, 0.28f);
+            return button;
         }
 
         static Text CreateLobbyRecordDisplay(
@@ -646,14 +776,14 @@ namespace MukJump.EditorTools
             var windIndicator = CreateWindIndicator(topHudRoot, configureUiImporters);
 
             var testControls = CreateUiObject("ItemTestControls", root.transform,
-                new Vector2(0f, 0.5f), new Vector2(410f, 1200f));
+                new Vector2(0f, 0.5f), new Vector2(410f, 1320f));
             testControls.pivot = new Vector2(0f, 0.5f);
             testControls.anchoredPosition = Vector2.zero;
 
             var debugToggleButton = CreateDebugTextButton("DebugToggleButton", testControls,
-                new Vector2(8f, 520f), new Vector2(194f, 64f), "DEBUG");
+                new Vector2(8f, 580f), new Vector2(194f, 64f), "DEBUG");
             var debugPanel = CreateUiObject("DebugPanel", testControls,
-                new Vector2(0f, 0.5f), new Vector2(390f, 980f));
+                new Vector2(0f, 0.5f), new Vector2(390f, 1160f));
             debugPanel.pivot = new Vector2(0f, 0.5f);
             debugPanel.anchoredPosition = new Vector2(8f, -10f);
             var panelBackground = debugPanel.gameObject.AddComponent<Image>();
@@ -680,6 +810,9 @@ namespace MukJump.EditorTools
                 new Color(0.2f, 0.58f, 0.48f), "여유 +35%");
             var haetaeButton = CreateDebugTextButton("HaetaeButton", debugPanel,
                 new Vector2(22f, -438f), new Vector2(145f, 72f), "먹해태");
+            var growthChoiceButton = CreateDebugTextButton(
+                "GrowthChoiceButton", debugPanel,
+                new Vector2(22f, -526f), new Vector2(145f, 72f), "성장 선택");
 
             CreateText("MapDebugTitle", debugPanel, "맵 이동", 30, FontStyle.Bold,
                 new Vector2(0.76f, 0.9f), new Vector2(175f, 55f), InkPalette.Paper);
@@ -728,6 +861,8 @@ namespace MukJump.EditorTools
             so.FindProperty("inkCloneButton").objectReferenceValue = inkCloneButton;
             so.FindProperty("inkReserveButton").objectReferenceValue = inkReserveButton;
             so.FindProperty("haetaeButton").objectReferenceValue = haetaeButton;
+            so.FindProperty("growthChoiceButton").objectReferenceValue =
+                growthChoiceButton;
             so.FindProperty("mapStartButton").objectReferenceValue = mapStartButton;
             so.FindProperty("mapWindButton").objectReferenceValue = mapWindButton;
             so.FindProperty("mapRainButton").objectReferenceValue = mapRainButton;
@@ -1165,6 +1300,14 @@ namespace MukJump.EditorTools
             ConfigureItemSprite(GoldenBrushItemPath, "황금 붓");
             ConfigureItemSprite(InkShieldItemPath, "먹 방어막");
             ConfigureItemSprite(InkCloneItemPath, "먹분신");
+            ConfigureGrowthSprite(GrowthScrollPath, "성장 두루마리");
+            ConfigureGrowthSprite(GrowthVitalityPath, "먹두께 성장");
+            ConfigureGrowthSprite(GrowthJumpPath, "도약 성장");
+            ConfigureGrowthSprite(GrowthInkCapacityPath, "큰 벼루 성장");
+            ConfigureGrowthSprite(GrowthInkRegenPath, "먹샘 성장");
+            ConfigureGrowthSprite(GrowthPlatformPath, "발판 성장");
+            ConfigureGrowthSprite(GrowthGuardPath, "굳은 획 성장");
+            ConfigureGrowthSprite(GrowthFortunePath, "길운 성장");
         }
 
         static void ConfigureInkDropJumpVfxAssets()
@@ -1250,6 +1393,18 @@ namespace MukJump.EditorTools
             }
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.filterMode = FilterMode.Bilinear;
+            importer.SaveAndReimport();
+        }
+
+        /// 선택 카드에서는 최대 146px, 월드에서는 약 0.9유닛으로 보이는 단순 아이콘이라
+        /// 512가 충분하다. 재사용 가능한 원본 해상도는 보존하고 런타임 GPU 비용만 줄인다.
+        static void ConfigureGrowthSprite(string path, string displayName)
+        {
+            ConfigureItemSprite(path, displayName);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) return;
+            importer.maxTextureSize = 512;
+            importer.textureCompression = TextureImporterCompression.CompressedHQ;
             importer.SaveAndReimport();
         }
 

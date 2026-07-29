@@ -14,6 +14,15 @@ namespace MukJump.Core
         GameOver,
     }
 
+    /// Playing 상태를 유지한 채 시간을 멈춘 주체. 서로 다른 일시정지 UI가
+    /// 상대의 닫기 입력으로 게임을 재개하지 않도록 소유권을 명시한다.
+    public enum GameplayPauseReason
+    {
+        None,
+        UserMenu,
+        GrowthChoice,
+    }
+
     /// 게임 상태(로비/플레이/게임오버)와 시작·재도전 흐름을 관리한다.
     public class GameManager : MonoBehaviour
     {
@@ -38,6 +47,8 @@ namespace MukJump.Core
 
         public GameState State { get; private set; } = GameState.Lobby;
         public bool IsPaused { get; private set; }
+        public GameplayPauseReason PauseReason { get; private set; } =
+            GameplayPauseReason.None;
         public bool IsTransitioning =>
             transitionInProgress || (transitionView != null && transitionView.IsPlaying);
         /// 게임 규칙·스폰·물리가 한 틱 진행되어도 되는 공통 계약.
@@ -61,6 +72,7 @@ namespace MukJump.Core
         float timeScaleBeforePause = 1f;
         float fixedDeltaBeforePause = 0.02f;
         float maxSwarmProgressHeight;
+        [SerializeField, HideInInspector] string currentRunId;
         readonly List<PlayerController> players = new();
         readonly List<PlayerController> swarmScratch =
             new(MaxLivingPlayers);
@@ -154,6 +166,14 @@ namespace MukJump.Core
             if (gameOverPopupView == null) gameOverPopupView = gameObject.AddComponent<GameOverPopupView>();
             if (GetComponent<PauseMenuView>() == null)
                 gameObject.AddComponent<PauseMenuView>();
+            if (GetComponent<RunGrowthController>() == null)
+                gameObject.AddComponent<RunGrowthController>();
+            if (GetComponent<GrowthChoiceView>() == null)
+                gameObject.AddComponent<GrowthChoiceView>();
+            if (GetComponent<LobbyCollectionView>() == null)
+                gameObject.AddComponent<LobbyCollectionView>();
+            if (GetComponent<PermanentGrowthView>() == null)
+                gameObject.AddComponent<PermanentGrowthView>();
             RefreshPlayerRegistry();
         }
 
@@ -251,24 +271,30 @@ namespace MukJump.Core
         /// 기존 Playing 상태를 바꾸지 않고 물리 시간만 멈춰 활성 풀·분신·날씨를 보존한다.
         public bool PauseGame()
         {
-            if (State != GameState.Playing || IsPaused || IsTransitioning)
-                return false;
-
-            PointerInput.SuppressUntilRelease();
-            FindFirstObjectByType<StrokeCapture>()?.CancelActiveStroke();
-            GameFeedbackController.Instance?.PrepareForPause();
-            timeScaleBeforePause = Mathf.Max(0.01f, Time.timeScale);
-            fixedDeltaBeforePause = Mathf.Max(0.001f, Time.fixedDeltaTime);
-            IsPaused = true;
-            Time.timeScale = 0f;
-            AudioListener.pause = true;
-            PauseChanged?.Invoke(true);
-            return true;
+            return BeginPause(GameplayPauseReason.UserMenu);
         }
 
         public bool ResumeGame()
         {
-            if (!IsPaused || IsTransitioning) return false;
+            if (PauseReason != GameplayPauseReason.UserMenu || IsTransitioning)
+                return false;
+            PointerInput.SuppressUntilRelease();
+            RestorePausedWorld(true);
+            return true;
+        }
+
+        /// 성장 두루마리는 메뉴 일시정지와 같은 시간 정지를 쓰되 별도 소유권을 가진다.
+        /// 선택 UI만 이 계약으로 닫을 수 있어 일시정지판과 겹치거나 교차 해제되지 않는다.
+        public bool BeginGrowthChoicePause()
+        {
+            return BeginPause(GameplayPauseReason.GrowthChoice);
+        }
+
+        public bool EndGrowthChoicePause()
+        {
+            if (PauseReason != GameplayPauseReason.GrowthChoice ||
+                IsTransitioning)
+                return false;
             PointerInput.SuppressUntilRelease();
             RestorePausedWorld(true);
             return true;
@@ -277,7 +303,9 @@ namespace MukJump.Core
         /// 일시정지 화면에서 현재 씬을 다시 불러 로비와 새 세션으로 안전하게 돌아간다.
         public bool ReturnToLobby()
         {
-            if (State != GameState.Playing || !IsPaused || IsTransitioning)
+            if (State != GameState.Playing ||
+                PauseReason != GameplayPauseReason.UserMenu ||
+                IsTransitioning)
                 return false;
 
             transitionInProgress = true;
@@ -318,6 +346,14 @@ namespace MukJump.Core
             float revealDelay = feedback != null ? feedback.GameOverRevealDelay : 0.62f;
             feedback?.PlayGameOver();
             gameOverTime = float.PositiveInfinity;
+            GameOverResult result = SettleGameOverResult();
+            StartCoroutine(ShowGameOverAfterDeath(revealDelay, result));
+        }
+
+        /// 결과 표시보다 먼저 최고 기록과 영구 성장 보상을 한 번에 확정한다.
+        /// 저장된 run ID가 도메인 리로드 뒤의 중복 호출도 막는다.
+        GameOverResult SettleGameOverResult()
+        {
             int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
             int previousBest = ScoreManager.Instance != null ? ScoreManager.Instance.Best : 0;
             bool recordsAllowed =
@@ -325,16 +361,34 @@ namespace MukJump.Core
             bool reachedNewBest = recordsAllowed &&
                 ((ScoreManager.Instance != null && ScoreManager.Instance.IsNewBestThisRun) ||
                  height > previousBest);
+            if (string.IsNullOrEmpty(currentRunId))
+                currentRunId = Guid.NewGuid().ToString("N");
+            bool rewardsAllowed =
+                ScoreManager.Instance != null && ScoreManager.Instance.RecordsAllowed;
+            PermanentGrowthSettlement settlement =
+                PermanentGrowthProfile.SettleRun(
+                    currentRunId,
+                    height,
+                    previousBest,
+                    rewardsAllowed);
             ScoreManager.Instance?.SaveBest();
             int best = ScoreManager.Instance != null ? ScoreManager.Instance.Best : previousBest;
-            StartCoroutine(ShowGameOverAfterDeath(revealDelay, height, best, reachedNewBest));
+            var result = new GameOverResult(
+                height,
+                best,
+                reachedNewBest,
+                settlement.Earned,
+                settlement.Balance,
+                rewardsAllowed);
+            return result;
         }
 
-        System.Collections.IEnumerator ShowGameOverAfterDeath(float delay, int height, int best,
-            bool reachedNewBest)
+        System.Collections.IEnumerator ShowGameOverAfterDeath(
+            float delay,
+            GameOverResult result)
         {
             yield return new WaitForSecondsRealtime(delay);
-            gameOverPopupView.Show(height, best, reachedNewBest);
+            gameOverPopupView.Show(result);
             // 팝업이 나타난 뒤 restartDelay 동안은 오터치 재시작을 막는다.
             gameOverTime = Time.unscaledTime;
         }
@@ -344,6 +398,11 @@ namespace MukJump.Core
         {
             if (!CanCreateInkClone || source == null || source.IsDead)
                 return false;
+
+            // 구형 Main 씬도 재생성 없이 같은 분신 연출 계약을 갖도록 첫 획득 때
+            // 원본에 한 번만 보조 뷰를 추가한다. 이후 분신은 이 고정 렌더러를 복제·재사용한다.
+            if (source.GetComponent<InkCloneArrivalView>() == null)
+                source.gameObject.AddComponent<InkCloneArrivalView>();
 
             var sourceBody = source.GetComponent<Rigidbody2D>();
             int cloneIndex = Mathf.Max(1, LivingPlayerCount);
@@ -389,26 +448,45 @@ namespace MukJump.Core
                                            Vector2.right * (direction * 0.45f);
 
             RegisterPlayer(clone);
+            clone.GetComponent<InkCloneArrivalView>()?.Play();
             GameFeedbackController.Instance?.PlayCloneArrival(clone.transform.position);
             return true;
         }
 
-        /// 분신 수가 많아져도 두 고정 X 좌표에 겹치지 않도록 화면 안 후보 중
-        /// 현재 생존자들과 가장 멀리 떨어진 지점을 고른다.
+        /// 먹은 캐릭터의 반대쪽 화면 절반 안에서만 후보를 만들고, 그 안에서 현재
+        /// 생존자들과 가장 멀리 떨어진 지점을 골라 좌우 규칙과 24마리 분산을 함께 지킨다.
         Vector3 FindCloneSpawnPosition(PlayerController source, int cloneIndex)
         {
             Vector3 sourcePosition = source.transform.position;
             var worldCamera = Camera.main;
             if (worldCamera == null)
             {
-                float fallbackDirection = cloneIndex % 2 == 0 ? -1f : 1f;
-                return sourcePosition + Vector3.right * (fallbackDirection * 0.9f);
+                float fallbackDirection = ResolveOppositeCloneSide(
+                    sourcePosition.x, 0f, cloneIndex);
+                float fallbackX = Mathf.Abs(sourcePosition.x) > 0.2f
+                    ? -sourcePosition.x
+                    : fallbackDirection * 0.9f;
+                return new Vector3(fallbackX, sourcePosition.y, sourcePosition.z);
             }
 
             const int CandidateCount = 13;
             float halfWidth = worldCamera.orthographicSize * worldCamera.aspect;
-            float left = worldCamera.transform.position.x - halfWidth + 0.65f;
-            float right = worldCamera.transform.position.x + halfWidth - 0.65f;
+            float cameraCenterX = worldCamera.transform.position.x;
+            float usableHalfWidth = Mathf.Max(0.1f, halfWidth - 0.65f);
+            float left = cameraCenterX - usableHalfWidth;
+            float right = cameraCenterX + usableHalfWidth;
+            float direction = ResolveOppositeCloneSide(
+                sourcePosition.x, cameraCenterX, cloneIndex);
+            float centerGap = Mathf.Min(0.25f, Mathf.Max(0f, (right - left) * 0.08f));
+            float sideStart = cameraCenterX + direction * centerGap;
+            float sideEnd = direction > 0f ? right : left;
+            if ((direction > 0f && sideEnd <= sideStart) ||
+                (direction < 0f && sideEnd >= sideStart))
+            {
+                sideStart = cameraCenterX;
+                sideEnd = direction > 0f ? right : left;
+            }
+
             Vector3 best = sourcePosition;
             float bestClearance = float.NegativeInfinity;
             CleanupPlayers();
@@ -416,7 +494,8 @@ namespace MukJump.Core
             for (int candidateIndex = 0; candidateIndex < CandidateCount; candidateIndex++)
             {
                 float order = (candidateIndex + cloneIndex * 5) % CandidateCount;
-                float x = Mathf.Lerp(left, right, order / (CandidateCount - 1f));
+                float x = Mathf.Lerp(
+                    sideStart, sideEnd, order / (CandidateCount - 1f));
                 float y = sourcePosition.y + ((candidateIndex + cloneIndex) % 3 - 1) * 0.12f;
                 var candidate = new Vector3(x, y, sourcePosition.z);
                 float nearestSqr = float.PositiveInfinity;
@@ -435,6 +514,18 @@ namespace MukJump.Core
                 best = candidate;
             }
             return best;
+        }
+
+        static float ResolveOppositeCloneSide(
+            float sourceX,
+            float cameraCenterX,
+            int cloneIndex)
+        {
+            const float CenterEpsilon = 0.05f;
+            float offset = sourceX - cameraCenterX;
+            if (offset < -CenterEpsilon) return 1f;
+            if (offset > CenterEpsilon) return -1f;
+            return cloneIndex % 2 == 0 ? -1f : 1f;
         }
 
         /// 디버그 패널에서 고도별 맵과 스폰을 즉시 검증하기 위한 순간이동.
@@ -498,13 +589,17 @@ namespace MukJump.Core
                 RegisterPlayer(scenePlayers[i]);
         }
 
-        /// 로비 시작선이 완성되면 캐릭터의 고정을 풀고 현재 위치에서 낙하를 시작한다.
-        public void StartGameFromStroke()
+        /// 로비의 명시적인 시작 버튼에서 호출하는 유일한 새 게임 진입점.
+        /// 씬 빌더가 준비한 영구 시작 발판 위에서 물리를 풀어 첫 자동 점프를 준비한다.
+        public void StartGameFromMenu()
         {
             if (State != GameState.Lobby || transitionInProgress) return;
             PointerInput.SuppressUntilRelease();
             BeginPlayingAfterCover();
         }
+
+        /// 이전 씬·테스트와의 호환을 위한 별칭. 로비 드로잉은 더 이상 이 경로를 호출하지 않는다.
+        public void StartGameFromStroke() => StartGameFromMenu();
 
         void BeginPlayingAfterCover()
         {
@@ -512,6 +607,7 @@ namespace MukJump.Core
 
             // 연출 난수와 분리된 게임 규칙 스트림을 판 시작 직전에 함께 초기화한다.
             GameplayRandom.ResetSession();
+            currentRunId = Guid.NewGuid().ToString("N");
             var player = HighestLivingPlayer;
             SetState(GameState.Playing);
             player?.BeginFromLobby();
@@ -541,16 +637,42 @@ namespace MukJump.Core
                 AudioListener.pause = true;
         }
 
+        bool BeginPause(GameplayPauseReason reason)
+        {
+            if (reason == GameplayPauseReason.None ||
+                State != GameState.Playing ||
+                IsPaused ||
+                IsTransitioning)
+                return false;
+
+            PointerInput.SuppressUntilRelease();
+            FindFirstObjectByType<StrokeCapture>()?.CancelActiveStroke();
+            GameFeedbackController.Instance?.PrepareForPause();
+            timeScaleBeforePause = Mathf.Max(0.01f, Time.timeScale);
+            fixedDeltaBeforePause = Mathf.Max(0.001f, Time.fixedDeltaTime);
+            PauseReason = reason;
+            IsPaused = true;
+            Time.timeScale = 0f;
+            AudioListener.pause = true;
+            PauseChanged?.Invoke(true);
+            return true;
+        }
+
         void RestorePausedWorld(bool notify)
         {
             bool wasPaused = IsPaused;
             AudioListener.pause = false;
-            if (!wasPaused) return;
+            if (!wasPaused)
+            {
+                PauseReason = GameplayPauseReason.None;
+                return;
+            }
             if (fixedDeltaBeforePause > 0f &&
                 !Mathf.Approximately(Time.fixedDeltaTime, fixedDeltaBeforePause))
                 Time.fixedDeltaTime = fixedDeltaBeforePause;
             Time.timeScale = Mathf.Max(0.01f, timeScaleBeforePause);
             IsPaused = false;
+            PauseReason = GameplayPauseReason.None;
             timeScaleBeforePause = 1f;
             fixedDeltaBeforePause = 0.02f;
             if (notify && wasPaused)

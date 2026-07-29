@@ -38,6 +38,8 @@ namespace MukJump.Drawing
         float inkReserve;
         LineRenderer preview;
         float unlimitedInkUntil;
+        RunGrowthController growthController;
+        float appliedInkCapacity;
         readonly List<Player.PlayerController> livingPlayers = new();
         readonly List<Vector2> safeSegment = new();
         readonly List<Vector2> safeSegmentCandidate = new();
@@ -46,11 +48,23 @@ namespace MukJump.Drawing
         public bool HasUnlimitedInk => Time.time < unlimitedInkUntil;
         public float InkRemaining01 => HasUnlimitedInk
             ? 1f
-            : (ink + inkReserve) / Mathf.Max(0.001f, inkCapacity);
+            : (ink + inkReserve) / Mathf.Max(0.001f, EffectiveInkCapacity);
+        public float EffectiveInkCapacity =>
+            inkCapacity *
+            PermanentGrowthProfile.InkCapacityMultiplier *
+            (RunGrowthController.Instance != null
+                ? RunGrowthController.Instance.InkCapacityMultiplier
+                : 1f);
+        public float EffectiveInkRegenPerSecond =>
+            inkRegenPerSecond *
+            PermanentGrowthProfile.InkRecoveryMultiplier *
+            (RunGrowthController.Instance != null
+                ? RunGrowthController.Instance.InkRecoveryMultiplier
+                : 1f);
 
         public void AddInkReserve(float capacityRatio)
         {
-            inkReserve += inkCapacity * Mathf.Max(0f, capacityRatio);
+            inkReserve += EffectiveInkCapacity * Mathf.Max(0f, capacityRatio);
         }
 
         public void ActivateUnlimitedInk(float duration)
@@ -58,14 +72,29 @@ namespace MukJump.Drawing
             unlimitedInkUntil = Mathf.Max(unlimitedInkUntil, Time.time + duration);
         }
 
+        void OnEnable()
+        {
+            PermanentGrowthProfile.Changed += HandlePermanentGrowthChanged;
+            TryBindGrowthController();
+        }
+
+        void OnDisable()
+        {
+            // 컴포넌트 비활성화가 입력 도중 발생해도 미리보기와 붓 루프음이
+            // 다음 화면에 남지 않도록 드로잉 상태까지 함께 정리한다.
+            CancelActiveStroke();
+            PermanentGrowthProfile.Changed -= HandlePermanentGrowthChanged;
+            UnbindGrowthController();
+        }
+
         void Start()
         {
             cam = Camera.main;
-            // 구형 Main 씬의 직렬화 값이 남아 있어도 최신 밸런스를 즉시 적용한다.
-            inkRegenPerSecond = 3f;
             if (cam == null)
                 Debug.LogError("[MukJump] MainCamera를 찾을 수 없어 드로잉 좌표를 변환할 수 없습니다.", this);
-            ink = inkCapacity;
+            TryBindGrowthController();
+            appliedInkCapacity = EffectiveInkCapacity;
+            ink = appliedInkCapacity;
             UseLineSpriteFromMainUi();
         }
 
@@ -128,6 +157,7 @@ namespace MukJump.Drawing
         void Update()
         {
             if (cam == null) return;
+            TryBindGrowthController();
 
             if (GameManager.Instance == null)
             {
@@ -137,7 +167,9 @@ namespace MukJump.Drawing
 
             if (GameManager.Instance.State == GameState.Lobby)
             {
-                UpdateLobbyStroke();
+                // 로비는 명시적인 시작·성장·도감 버튼만 입력받는다.
+                // 여기서 획을 받으면 UI 탭과 동시에 발판이 생기는 입력 경합이 발생한다.
+                if (drawing) CancelStroke();
                 return;
             }
 
@@ -154,7 +186,9 @@ namespace MukJump.Drawing
             }
 
             if (!drawing)
-                ink = Mathf.Min(inkCapacity, ink + inkRegenPerSecond * Time.deltaTime);
+                ink = Mathf.Min(
+                    EffectiveInkCapacity,
+                    ink + EffectiveInkRegenPerSecond * Time.deltaTime);
 
             if (PointerInput.TryGetPressed(out var screenPos))
             {
@@ -173,21 +207,6 @@ namespace MukJump.Drawing
             else if (drawing)
             {
                 EndStroke();
-            }
-        }
-
-        void UpdateLobbyStroke()
-        {
-            if (PointerInput.TryGetPressed(out var screenPos))
-            {
-                if (drawing)
-                    ContinueStroke(screenPos);
-                else
-                    BeginStroke(screenPos);
-            }
-            else if (drawing)
-            {
-                EndStroke(startGame: true);
             }
         }
 
@@ -210,14 +229,12 @@ namespace MukJump.Drawing
 
         void ContinueStroke(Vector2 screenPos)
         {
-            bool lobbyStroke = GameManager.Instance != null &&
-                               GameManager.Instance.State == GameState.Lobby;
             Vector2 world = ToWorld(screenPos);
             float step = Vector2.Distance(points[^1], world);
             if (step < minPointDistance) return;
 
             // 먹이 다 떨어지면 그 지점에서 획이 끝난다 — 회복될 때까지 더 그릴 수 없다
-            if (!lobbyStroke && !HasUnlimitedInk && ink + inkReserve <= 0f)
+            if (!HasUnlimitedInk && ink + inkReserve <= 0f)
             {
                 EndStroke();
                 return;
@@ -228,9 +245,6 @@ namespace MukJump.Drawing
             // 생겨 일직선으로 길게 그은 발판 중간이 붕 뜨는 문제가 있었음)
             if (strokeLength + step > maxContinuousStrokeLength)
             {
-                // 로비의 시작선은 한 획만 인정하므로 최대 길이에 도달하면 손을 뗄 때까지 유지한다.
-                if (lobbyStroke) return;
-
                 Vector2 seam = points[^1];
                 EndStroke();
                 BeginStrokeAtWorld(seam);
@@ -238,7 +252,7 @@ namespace MukJump.Drawing
             }
 
             bool exhaustsInk = false;
-            if (!lobbyStroke && !HasUnlimitedInk)
+            if (!HasUnlimitedInk)
             {
                 float availableInk = Mathf.Max(0f, ink) + Mathf.Max(0f, inkReserve);
                 float affordableStep = LimitStepToAvailableInk(step, ink, inkReserve);
@@ -256,7 +270,7 @@ namespace MukJump.Drawing
             }
 
             strokeLength += step;
-            if (!lobbyStroke && !HasUnlimitedInk)
+            if (!HasUnlimitedInk)
                 ConsumeInk(step);
             points.Add(world);
             GameFeedbackController.Instance?.PlayBrushMovement(step);
@@ -281,7 +295,7 @@ namespace MukJump.Drawing
             ink = Mathf.Max(0f, ink - (amount - reserveUse));
         }
 
-        void EndStroke(bool startGame = false)
+        void EndStroke()
         {
             drawing = false;
             GameFeedbackController.Instance?.StopBrushDrawing();
@@ -303,21 +317,16 @@ namespace MukJump.Drawing
 
             // 캐릭터와 너무 가까운 부분만 잘라내 콜라이더 밀어내기로 캐릭터를
             // 튕겨 올리는 악용은 막되, 나머지 유효한 획은 발판으로 살린다.
-            if (!startGame)
+            smoothed = LongestSafeSegment(smoothed);
+            if (smoothed.Count < 2 ||
+                BezierSmoother.PolylineLength(smoothed) < minStrokeLength)
             {
-                smoothed = LongestSafeSegment(smoothed);
-                if (smoothed.Count < 2 ||
-                    BezierSmoother.PolylineLength(smoothed) < minStrokeLength)
-                {
-                    GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, false);
-                    return;
-                }
+                GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, false);
+                return;
             }
 
             PlatformCollider.Spawn(smoothed);
             GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, true);
-            if (startGame)
-                GameManager.Instance?.StartGameFromStroke();
         }
 
         void CancelStroke()
@@ -333,6 +342,65 @@ namespace MukJump.Drawing
                 CancelStroke();
             else
                 GameFeedbackController.Instance?.StopBrushDrawing();
+        }
+
+        void TryBindGrowthController()
+        {
+            var next = RunGrowthController.Instance;
+            if (growthController == next) return;
+
+            UnbindGrowthController();
+            growthController = next;
+            if (growthController == null) return;
+
+            growthController.UpgradeSelected += HandleGrowthUpgradeSelected;
+            growthController.RunReset += HandleGrowthRunReset;
+            if (appliedInkCapacity <= 0f)
+                appliedInkCapacity = EffectiveInkCapacity;
+        }
+
+        void UnbindGrowthController()
+        {
+            if (growthController != null)
+            {
+                growthController.UpgradeSelected -= HandleGrowthUpgradeSelected;
+                growthController.RunReset -= HandleGrowthRunReset;
+            }
+            growthController = null;
+        }
+
+        void HandleGrowthUpgradeSelected(GrowthUpgradeType upgrade)
+        {
+            if (upgrade != GrowthUpgradeType.InkCapacity) return;
+
+            ApplyCapacityIncrease();
+        }
+
+        void HandlePermanentGrowthChanged()
+        {
+            ApplyCapacityIncrease();
+        }
+
+        void ApplyCapacityIncrease()
+        {
+            float nextCapacity = EffectiveInkCapacity;
+            if (appliedInkCapacity <= 0f)
+            {
+                appliedInkCapacity = nextCapacity;
+                return;
+            }
+            float addedCapacity = Mathf.Max(0f, nextCapacity - appliedInkCapacity);
+            ink = Mathf.Min(nextCapacity, ink + addedCapacity);
+            appliedInkCapacity = nextCapacity;
+        }
+
+        void HandleGrowthRunReset()
+        {
+            CancelActiveStroke();
+            inkReserve = 0f;
+            unlimitedInkUntil = 0f;
+            appliedInkCapacity = EffectiveInkCapacity;
+            ink = appliedInkCapacity;
         }
 
         /// 캐릭터와 겹치는 부분만 잘라내고 가장 긴 안전 구간은 살린다.

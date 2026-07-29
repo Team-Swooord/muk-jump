@@ -15,12 +15,12 @@ namespace MukJump.Obstacles
         Telegraph,
         Pounce,
         Land,
-        Retreat,
+        SealAway,
     }
 
-    /// 화면 옆에서 경로를 예고한 뒤 한 번만 덮치는 중반 수문장 장애물.
+    /// 화면 가장자리의 붉은 낙관에서 실체화해 대각선으로 한 번만 덮치는 중반 수문장 장애물.
     /// 경로와 표적은 예고 시작 순간 고정하며, 플레이어 또는 임시 먹 발판과 처음 닿으면
-    /// 공격을 즉시 소비한다. 경고선과 발자국은 자식 오브젝트를 한 번만 만들어 재사용한다.
+    /// 공격을 즉시 소비한다. 낙관·경고선·발자국은 자식 오브젝트를 한 번만 만들어 재사용한다.
     [RequireComponent(typeof(SpriteRenderer), typeof(Rigidbody2D), typeof(CapsuleCollider2D))]
     public sealed class HaetaeObstacle : MonoBehaviour, IPoolableEntity
     {
@@ -28,8 +28,10 @@ namespace MukJump.Obstacles
         const int PawMarkerCount = 3;
         const int PawPointCount = 10;
         const float DefaultVisibleTopMargin = 0.5f;
-        const float OffscreenHorizontalMargin = 0.72f;
-        const float PounceArcHeight = 0.34f;
+        const float ScreenEdgeInset = 0.52f;
+        const float PounceArcHeight = 0.42f;
+        const float MaterializeDuration = 0.34f;
+        const string MaterializeSealName = "HaetaeMaterializeSeal";
         const int CastHitCapacity = GameManager.MaxLivingPlayers * 2 + 8;
 
         SpriteRenderer spriteRenderer;
@@ -45,12 +47,13 @@ namespace MukJump.Obstacles
         readonly LineRenderer[] pawMarkers = new LineRenderer[PawMarkerCount];
         readonly RaycastHit2D[] castHits = new RaycastHit2D[CastHitCapacity];
         LineRenderer routeGuide;
+        SpriteRenderer materializeSeal;
         PlayerController deferredTarget;
 
         float telegraphDuration = 1.2f;
         float pounceDuration = 0.72f;
         float landDuration = 0.14f;
-        float retreatDuration = 0.35f;
+        float sealAwayDuration = 0.35f;
         float stateElapsed;
         float activationWorldY;
         float deferredVerticalOffset;
@@ -63,8 +66,7 @@ namespace MukJump.Obstacles
         bool hazardReservationRegistered;
         Vector2 lockedStart;
         Vector2 lockedTarget;
-        Vector2 retreatStart;
-        Vector2 retreatEnd;
+        Vector2 sealAwayAnchor;
         Vector3 baseScale = Vector3.one;
         Color baseColor = Color.white;
         int currentFrameIndex;
@@ -80,6 +82,12 @@ namespace MukJump.Obstacles
         public int CurrentFrameIndex => currentFrameIndex;
         public bool IsReleaseRequested => releaseRequested;
         public float ActivationWorldY => activationWorldY;
+        public bool IsMaterializeSealVisible =>
+            materializeSeal != null && materializeSeal.enabled;
+        public float MaterializeSealAlpha =>
+            materializeSeal != null ? materializeSeal.color.a : 0f;
+        public float BodyAlpha =>
+            spriteRenderer != null ? spriteRenderer.color.a : 0f;
 
         void Awake()
         {
@@ -100,7 +108,7 @@ namespace MukJump.Obstacles
             float telegraphSeconds = 1.2f,
             float pounceSeconds = 0.72f,
             float landSeconds = 0.14f,
-            float retreatSeconds = 0.35f,
+            float sealAwaySeconds = 0.35f,
             Vector2? colliderSize = null,
             Vector2? colliderOffset = null,
             Func<PlayerController> currentTargetResolver = null,
@@ -119,7 +127,7 @@ namespace MukJump.Obstacles
             telegraphDuration = Mathf.Max(0.2f, telegraphSeconds);
             pounceDuration = Mathf.Max(0.2f, pounceSeconds);
             landDuration = Mathf.Max(0.02f, landSeconds);
-            retreatDuration = Mathf.Max(0.05f, retreatSeconds);
+            sealAwayDuration = Mathf.Max(0.05f, sealAwaySeconds);
             hitbox.size = colliderSize ?? new Vector2(1.42f, 0.76f);
             hitbox.offset = colliderOffset ?? new Vector2(0.02f, -0.03f);
             SyncWarningSorting();
@@ -132,7 +140,7 @@ namespace MukJump.Obstacles
             PlayerController target,
             float courseWorldY,
             bool fromLeft,
-            float verticalOffset = 0.6f,
+            float verticalOffset = -0.9f,
             float topMargin = DefaultVisibleTopMargin)
         {
             EnsureComponents();
@@ -143,7 +151,7 @@ namespace MukJump.Obstacles
             deferredTarget = target;
             activationWorldY = courseWorldY;
             enterFromLeft = fromLeft;
-            deferredVerticalOffset = Mathf.Clamp(verticalOffset, -1.2f, 1.2f);
+            deferredVerticalOffset = Mathf.Clamp(verticalOffset, -1.5f, 1.5f);
             visibleTopMargin = Mathf.Max(0f, topMargin);
             body.position = new Vector2(body.position.x, courseWorldY);
         }
@@ -211,10 +219,10 @@ namespace MukJump.Obstacles
                 case HaetaeObstacleState.Land:
                     stateElapsed += step;
                     if (stateElapsed >= landDuration)
-                        BeginRetreat();
+                        BeginSealAway();
                     break;
-                case HaetaeObstacleState.Retreat:
-                    AdvanceRetreat(step);
+                case HaetaeObstacleState.SealAway:
+                    AdvanceSealAway(step);
                     break;
             }
         }
@@ -224,8 +232,11 @@ namespace MukJump.Obstacles
             stateElapsed += deltaTime;
             float normalized = Mathf.Clamp01(stateElapsed / telegraphDuration);
             SetFrame(normalized < 0.28f ? 0 : 1);
+            bool materializing = AdvanceMaterializeVisual(stateElapsed);
             float pulse = 0.5f + 0.5f * Mathf.Sin(normalized * Mathf.PI * 6f);
-            transform.localScale = baseScale * Mathf.Lerp(0.97f, 1.035f, pulse);
+            transform.localScale = materializing
+                ? baseScale
+                : baseScale * Mathf.Lerp(0.97f, 1.035f, pulse);
             UpdateWarningAlpha(Mathf.Lerp(0.34f, 0.72f, pulse));
 
             if (stateElapsed < telegraphDuration) return;
@@ -233,6 +244,8 @@ namespace MukJump.Obstacles
             stateElapsed = 0f;
             State = HaetaeObstacleState.Pounce;
             transform.localScale = baseScale;
+            spriteRenderer.color = baseColor;
+            SetMaterializeSealVisible(false);
             SetFrame(2);
             SetWarningVisible(false);
             body.simulated = true;
@@ -262,18 +275,53 @@ namespace MukJump.Obstacles
                 body.MovePosition(nextPosition);
         }
 
-        void AdvanceRetreat(float deltaTime)
+        bool AdvanceMaterializeVisual(float elapsed)
+        {
+            if (elapsed >= MaterializeDuration)
+            {
+                spriteRenderer.color = baseColor;
+                SetMaterializeSealVisible(false);
+                return false;
+            }
+
+            float normalized = Mathf.Clamp01(elapsed / MaterializeDuration);
+            float bodyReveal = SmoothRange(0.08f, 0.82f, normalized);
+            Color color = baseColor;
+            color.a = baseColor.a * bodyReveal;
+            spriteRenderer.color = color;
+
+            float sealAlpha = 1f - SmoothRange(0.3f, 0.95f, normalized);
+            float sealScale = Mathf.Lerp(
+                0.62f,
+                1.08f,
+                1f - Mathf.Pow(1f - normalized, 3f));
+            UpdateMaterializeSeal(sealAlpha, sealScale);
+            return true;
+        }
+
+        void AdvanceSealAway(float deltaTime)
         {
             stateElapsed += deltaTime;
-            float normalized = Mathf.Clamp01(stateElapsed / retreatDuration);
-            float eased = 1f - Mathf.Pow(1f - normalized, 3f);
-            transform.position = Vector2.LerpUnclamped(retreatStart, retreatEnd, eased);
-            float rotationDirection = enterFromLeft ? 1f : -1f;
-            transform.localRotation =
-                Quaternion.Euler(0f, 0f, rotationDirection * 28f * eased);
+            float normalized = Mathf.Clamp01(stateElapsed / sealAwayDuration);
+
+            // 퇴장 중 본체를 날리거나 회전·비균일 축소하지 않는다.
+            // 착지 지점에 고정된 낙관으로 스며들어 공격이 끝났음을 명확히 보여 준다.
+            transform.position = new Vector3(
+                sealAwayAnchor.x, sealAwayAnchor.y, transform.position.z);
+            transform.localRotation = Quaternion.identity;
+            transform.localScale = baseScale;
+
             Color color = baseColor;
-            color.a = baseColor.a * (1f - normalized);
+            color.a = baseColor.a *
+                (1f - SmoothRange(0.08f, 0.82f, normalized));
             spriteRenderer.color = color;
+
+            float sealEnvelope = Mathf.Sin(Mathf.PI * normalized);
+            float sealScale = Mathf.Lerp(
+                0.7f,
+                1.12f,
+                Mathf.SmoothStep(0f, 1f, normalized));
+            UpdateMaterializeSeal(0.82f * sealEnvelope, sealScale);
 
             if (normalized >= 1f)
                 ForceRelease();
@@ -379,19 +427,16 @@ namespace MukJump.Obstacles
                 transform.localScale = baseScale;
         }
 
-        void BeginRetreat()
+        void BeginSealAway()
         {
             stateElapsed = 0f;
-            State = HaetaeObstacleState.Retreat;
+            State = HaetaeObstacleState.SealAway;
             hitbox.enabled = false;
             body.simulated = false;
-            retreatStart = transform.position;
-            Vector2 routeDirection = lockedTarget - lockedStart;
-            if (routeDirection.sqrMagnitude < 0.0001f)
-                routeDirection = enterFromLeft ? Vector2.right : Vector2.left;
-            routeDirection.Normalize();
-            retreatEnd = retreatStart - routeDirection * 0.62f + Vector2.up * 0.2f;
+            sealAwayAnchor = transform.position;
             transform.localScale = baseScale;
+            transform.localRotation = Quaternion.identity;
+            UpdateMaterializeSeal(0.18f, 0.7f);
         }
 
         void LockPathAndBeginTelegraph(Vector2 startPosition, Vector2 targetPosition)
@@ -411,7 +456,9 @@ namespace MukJump.Obstacles
             hitbox.enabled = false;
             State = HaetaeObstacleState.Telegraph;
             spriteRenderer.enabled = true;
-            spriteRenderer.color = baseColor;
+            Color hiddenColor = baseColor;
+            hiddenColor.a = 0f;
+            spriteRenderer.color = hiddenColor;
             Vector2 direction = lockedTarget - lockedStart;
             if (direction.sqrMagnitude > 0.0001f)
                 enterFromLeft = direction.x >= 0f;
@@ -424,6 +471,15 @@ namespace MukJump.Obstacles
             SyncWarningSorting();
             LayoutLockedWarningPath();
             SetWarningVisible(true);
+            UpdateMaterializeSeal(1f, 0.62f);
+        }
+
+        static float SmoothRange(float minimum, float maximum, float value)
+        {
+            return Mathf.SmoothStep(
+                0f,
+                1f,
+                Mathf.InverseLerp(minimum, maximum, value));
         }
 
         Vector2 ResolveScreenEdgeStart(Vector2 targetPosition)
@@ -441,7 +497,7 @@ namespace MukJump.Obstacles
             float edgeX = worldCamera.ViewportToWorldPoint(
                 new Vector3(viewportX, 0.5f, cameraDistance)).x;
             float startX = edgeX +
-                (enterFromLeft ? -OffscreenHorizontalMargin : OffscreenHorizontalMargin);
+                (enterFromLeft ? ScreenEdgeInset : -ScreenEdgeInset);
             return new Vector2(startX, targetPosition.y + deferredVerticalOffset);
         }
 
@@ -505,6 +561,7 @@ namespace MukJump.Obstacles
 
         void EnsureWarningVisuals()
         {
+            EnsureMaterializeSeal();
             if (routeGuide == null)
                 routeGuide = CreateWarningLine(
                     "HaetaeLockedRoute", false, 4, 0.035f, -1);
@@ -515,6 +572,32 @@ namespace MukJump.Obstacles
                         $"HaetaePawMarker{i + 1}", true, PawPointCount, 0.024f, 0);
             }
             SetWarningVisible(false);
+        }
+
+        void EnsureMaterializeSeal()
+        {
+            if (materializeSeal != null) return;
+
+            Transform existing = transform.Find(MaterializeSealName);
+            GameObject sealObject = existing != null
+                ? existing.gameObject
+                : new GameObject(MaterializeSealName);
+            if (existing == null)
+                sealObject.transform.SetParent(transform, false);
+
+            materializeSeal = sealObject.GetComponent<SpriteRenderer>();
+            if (materializeSeal == null)
+                materializeSeal = sealObject.AddComponent<SpriteRenderer>();
+            materializeSeal.sprite = InkUiTextureFactory.CreateBlobSprite();
+            materializeSeal.sharedMaterial =
+                spriteRenderer != null ? spriteRenderer.sharedMaterial : null;
+            materializeSeal.flipX = false;
+            materializeSeal.flipY = false;
+            materializeSeal.enabled = false;
+            sealObject.transform.localPosition = Vector3.zero;
+            sealObject.transform.localRotation = Quaternion.identity;
+            sealObject.transform.localScale = Vector3.one * 0.62f;
+            SyncMaterializeSealSorting();
         }
 
         LineRenderer CreateWarningLine(
@@ -547,19 +630,19 @@ namespace MukJump.Obstacles
             line.sortingOrder = (spriteRenderer != null
                 ? spriteRenderer.sortingOrder
                 : 0) + sortingOffset;
-            Color ink = InkPalette.Ink;
-            ink.a = 0.5f;
-            line.startColor = line.endColor = ink;
+            Color warningRed = InkPalette.Red;
+            warningRed.a = 0.5f;
+            line.startColor = line.endColor = warningRed;
             line.enabled = false;
             return line;
         }
 
         void UpdateWarningAlpha(float alpha)
         {
-            Color ink = InkPalette.Ink;
-            ink.a = alpha;
-            routeGuide.startColor = routeGuide.endColor = ink;
-            Color pawInk = ink;
+            Color warningRed = InkPalette.Red;
+            warningRed.a = alpha;
+            routeGuide.startColor = routeGuide.endColor = warningRed;
+            Color pawInk = warningRed;
             pawInk.a = Mathf.Min(0.82f, alpha + 0.12f);
             for (int i = 0; i < pawMarkers.Length; i++)
                 pawMarkers[i].startColor = pawMarkers[i].endColor = pawInk;
@@ -573,11 +656,44 @@ namespace MukJump.Obstacles
                 routeGuide.sortingLayerID = spriteRenderer.sortingLayerID;
                 routeGuide.sortingOrder = spriteRenderer.sortingOrder - 1;
             }
+            SyncMaterializeSealSorting();
             for (int i = 0; i < pawMarkers.Length; i++)
             {
                 if (pawMarkers[i] == null) continue;
                 pawMarkers[i].sortingLayerID = spriteRenderer.sortingLayerID;
                 pawMarkers[i].sortingOrder = spriteRenderer.sortingOrder;
+            }
+        }
+
+        void SyncMaterializeSealSorting()
+        {
+            if (spriteRenderer == null || materializeSeal == null) return;
+            materializeSeal.sortingLayerID = spriteRenderer.sortingLayerID;
+            materializeSeal.sortingOrder = spriteRenderer.sortingOrder - 2;
+        }
+
+        void UpdateMaterializeSeal(float alpha, float scale)
+        {
+            EnsureMaterializeSeal();
+            Color sealColor = InkPalette.Red;
+            sealColor.a = Mathf.Clamp01(alpha);
+            materializeSeal.color = sealColor;
+            materializeSeal.transform.localPosition = Vector3.zero;
+            materializeSeal.transform.localRotation = Quaternion.identity;
+            materializeSeal.transform.localScale =
+                Vector3.one * Mathf.Max(0.01f, scale);
+            materializeSeal.enabled = sealColor.a > 0.001f;
+        }
+
+        void SetMaterializeSealVisible(bool visible)
+        {
+            if (materializeSeal == null) return;
+            materializeSeal.enabled = visible;
+            if (!visible)
+            {
+                Color sealColor = InkPalette.Red;
+                sealColor.a = 0f;
+                materializeSeal.color = sealColor;
             }
         }
 
@@ -613,6 +729,7 @@ namespace MukJump.Obstacles
             body.simulated = false;
             spriteRenderer.enabled = false;
             SetWarningVisible(false);
+            SetMaterializeSealVisible(false);
             State = HaetaeObstacleState.Hidden;
             Action<HaetaeObstacle> callback = releaseHandler;
             if (callback != null)
@@ -653,8 +770,7 @@ namespace MukJump.Obstacles
             releaseRequested = false;
             lockedStart = Vector2.zero;
             lockedTarget = Vector2.zero;
-            retreatStart = Vector2.zero;
-            retreatEnd = Vector2.zero;
+            sealAwayAnchor = Vector2.zero;
             currentFrameIndex = 0;
             body.linearVelocity = Vector2.zero;
             body.angularVelocity = 0f;
@@ -667,6 +783,7 @@ namespace MukJump.Obstacles
             transform.localRotation = Quaternion.identity;
             SetFrame(0);
             SetWarningVisible(false);
+            SetMaterializeSealVisible(false);
         }
 
         void RegisterHazardReservation()

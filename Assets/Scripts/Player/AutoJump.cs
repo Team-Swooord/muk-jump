@@ -113,7 +113,13 @@ namespace MukJump.Player
             wasRising = true;
 
             Vector2 direction = Vector3.Slerp(Vector3.up, player.GroundNormal, normalInfluence).normalized;
-            float power = baseJumpSpeed * jumpStrengthMultiplier * PowerMultiplier();
+            // 세션 성장은 자동 점프에만 적용한다. 먹물방울·풍맥처럼 높이를 직접
+            // 지정하는 특수 상승은 PlayerController 경로라 기존 밸런스를 유지한다.
+            float growthMultiplier = RunGrowthController.Instance != null
+                ? RunGrowthController.Instance.JumpPowerMultiplier
+                : 1f;
+            float power = baseJumpSpeed * jumpStrengthMultiplier *
+                          PowerMultiplier() * growthMultiplier;
             float horizontal = direction.x * power + rb.linearVelocity.x * horizontalMomentumRetention;
             if (Mathf.Abs(direction.x) < 0.08f)
             {
@@ -149,12 +155,18 @@ namespace MukJump.Player
 
         void OnValidate()
         {
-            jumpIntervalSeconds = SafeJumpInterval;
+            jumpIntervalSeconds = SanitizedJumpInterval;
         }
 
-        float SafeJumpInterval =>
+        float SanitizedJumpInterval =>
             float.IsNaN(jumpIntervalSeconds) || float.IsInfinity(jumpIntervalSeconds)
                 ? 1f
                 : Mathf.Max(MinJumpInterval, jumpIntervalSeconds);
+
+        float SafeJumpInterval =>
+            Mathf.Max(
+                MinJumpInterval,
+                SanitizedJumpInterval *
+                PermanentGrowthProfile.JumpChargeMultiplier);
     }
 }

@@ -314,6 +314,36 @@ public class FallingInkRockTests
         Assert.AreEqual(0.35f, itemSerialized.FindProperty("cloneChanceAt30m").floatValue);
         Assert.AreEqual(0.5f, itemSerialized.FindProperty("cloneChanceAt250m").floatValue);
 
+        var growthController = FindFirstInScene<RunGrowthController>(builderTestScene);
+        var growthChoice = FindFirstInScene<GrowthChoiceView>(builderTestScene);
+        var growthSpawner = FindFirstInScene<GrowthScrollSpawner>(builderTestScene);
+        Assert.IsNotNull(growthController);
+        Assert.IsNotNull(growthChoice);
+        Assert.IsNotNull(growthSpawner);
+        var growthChoiceSerialized = new SerializedObject(growthChoice);
+        var growthIcons = growthChoiceSerialized.FindProperty("growthIcons");
+        Assert.IsNotNull(growthIcons);
+        Assert.AreEqual(8, growthIcons.arraySize);
+        for (int i = 0; i < growthIcons.arraySize; i++)
+        {
+            Assert.IsNotNull(
+                growthIcons.GetArrayElementAtIndex(i).objectReferenceValue,
+                $"성장 선택 아이콘 {i}번 슬롯이 비어 있습니다.");
+        }
+        Assert.AreSame(
+            growthIcons.GetArrayElementAtIndex(4).objectReferenceValue,
+            growthIcons.GetArrayElementAtIndex(5).objectReferenceValue,
+            "긴 여운과 겹친 획은 범용 발판 아이콘을 공유해야 합니다.");
+        var growthSerialized = new SerializedObject(growthSpawner);
+        Assert.IsNotNull(
+            growthSerialized.FindProperty("growthScrollSprite").objectReferenceValue);
+        Assert.AreEqual(
+            GrowthScrollSpawner.DefaultFirstHeight,
+            growthSerialized.FindProperty("firstHeight").floatValue);
+        Assert.AreEqual(
+            GrowthScrollSpawner.DefaultInterval,
+            growthSerialized.FindProperty("interval").floatValue);
+
         var capture = FindFirstInScene<StrokeCapture>(builderTestScene);
         Assert.IsNotNull(capture);
         var captureSerialized = new SerializedObject(capture);
@@ -325,6 +355,18 @@ public class FallingInkRockTests
         var playerSerialized = new SerializedObject(player);
         Assert.AreEqual(1f,
             playerSerialized.FindProperty("cloneSpawnGraceDuration").floatValue);
+        Assert.IsNotNull(player.GetComponent<InkCloneArrivalView>(),
+            "씬 빌더가 먹분신 몸통→완성 팝 연출을 플레이어에 구성해야 합니다.");
+        PlatformCollider starterPlatform = null;
+        var builtPlatforms = FindAllInScene<PlatformCollider>(builderTestScene);
+        for (int i = 0; i < builtPlatforms.Length; i++)
+            if (builtPlatforms[i].name == "StarterInkPlatform")
+                starterPlatform = builtPlatforms[i];
+        Assert.IsNotNull(starterPlatform,
+            "명시적 시작 버튼은 캐릭터가 즉사하지 않을 영구 시작 발판과 함께 생성돼야 합니다.");
+        Assert.AreEqual(2, starterPlatform.GetComponent<EdgeCollider2D>().pointCount);
+        Assert.That(starterPlatform.transform.position.y,
+            Is.EqualTo(player.transform.position.y - 0.42f).Within(0.001f));
 
         var inkDropVfx = FindFirstInScene<InkDropJumpVfx>(builderTestScene);
         Assert.IsNotNull(inkDropVfx);
@@ -347,6 +389,17 @@ public class FallingInkRockTests
         Assert.IsNotNull(builtCamera);
         Assert.IsFalse(builtCamera.allowHDR);
         Assert.IsFalse(builtCamera.allowMSAA);
+        var cameraFollow = builtCamera.GetComponent<CameraFollow>();
+        Assert.IsNotNull(cameraFollow);
+        var cameraFollowSerialized = new SerializedObject(cameraFollow);
+        Assert.AreEqual(0.75f,
+            cameraFollowSerialized.FindProperty("upperFollowViewportY").floatValue,
+            0.001f);
+        Assert.AreEqual(0.9f,
+            cameraFollowSerialized.FindProperty("hardCeilingViewportY").floatValue,
+            0.001f);
+        Assert.AreSame(player.transform,
+            cameraFollowSerialized.FindProperty("target").objectReferenceValue);
 
         var lobby = FindFirstInScene<LobbyView>(builderTestScene);
         Assert.IsNotNull(lobby);
@@ -371,7 +424,25 @@ public class FallingInkRockTests
         Assert.That(lobbyLogo.anchoredPosition.y, Is.EqualTo(79f).Within(0.01f));
         Assert.That(lobbyLogo.sizeDelta.x, Is.EqualTo(1281.776f).Within(0.01f));
         Assert.That(lobbyLogo.sizeDelta.y, Is.EqualTo(854.518f).Within(0.01f));
-        Assert.IsNotNull(lobby.transform.Find("BrushGuide")?.GetComponent<RawImage>());
+        Assert.IsNull(lobby.transform.Find("BrushGuide"),
+            "버튼 시작 로비에는 더 이상 획 시작 안내가 남으면 안 됩니다.");
+        var startButton =
+            lobbySerialized.FindProperty("startButton").objectReferenceValue as Button;
+        var growthButton =
+            lobbySerialized.FindProperty("growthButton").objectReferenceValue as Button;
+        var codexButton =
+            lobbySerialized.FindProperty("codexButton").objectReferenceValue as Button;
+        Assert.IsNotNull(startButton);
+        Assert.IsNotNull(growthButton);
+        Assert.IsNotNull(codexButton);
+        Assert.AreEqual("시작",
+            startButton.transform.Find("Label")?.GetComponent<Text>()?.text);
+        Assert.AreEqual("성장",
+            growthButton.transform.Find("Label")?.GetComponent<Text>()?.text);
+        Assert.AreEqual("도감",
+            codexButton.transform.Find("Label")?.GetComponent<Text>()?.text);
+        Assert.IsNotNull(FindFirstInScene<LobbyCollectionView>(builderTestScene));
+        Assert.IsNotNull(FindFirstInScene<PermanentGrowthView>(builderTestScene));
         var bestDisplay = lobby.transform.Find("BestDisplay") as RectTransform;
         Assert.IsNotNull(bestDisplay?.GetComponent<RawImage>());
         Assert.That(bestDisplay.anchoredPosition.x, Is.EqualTo(89f).Within(0.01f));
@@ -419,6 +490,8 @@ public class FallingInkRockTests
             hudSerialized.FindProperty("vfxQualityButton").objectReferenceValue as Button);
         Assert.IsNotNull(
             hudSerialized.FindProperty("vfxStatsText").objectReferenceValue as Text);
+        Assert.IsNotNull(
+            hudSerialized.FindProperty("growthChoiceButton").objectReferenceValue as Button);
         Assert.IsNotNull(windIndicator);
         Assert.IsNotNull(newBestIndicator);
         var windSerialized = new SerializedObject(windIndicator);

@@ -194,11 +194,29 @@ public sealed class HaetaeObstacleTests
         Assert.AreEqual(HaetaeObstacleState.Telegraph, haetae.State);
         Assert.IsTrue(haetae.HasLockedPath);
         Assert.IsFalse(haetae.IsHitboxEnabled);
+        float cameraDistance = Mathf.Abs(
+            camera.transform.position.z - haetae.transform.position.z);
+        float viewportLeft = camera.ViewportToWorldPoint(
+            new Vector3(0f, 0.5f, cameraDistance)).x;
+        float viewportRight = camera.ViewportToWorldPoint(
+            new Vector3(1f, 0.5f, cameraDistance)).x;
+        Assert.That(
+            lockedStart.y,
+            Is.LessThan(lockedTarget.y - 0.5f),
+            "해태는 위에서 떨어지거나 수평으로 들어오지 않고 아래 측면에서 대각선으로 가로막아야 합니다.");
+        Assert.That(
+            lockedStart.x,
+            Is.InRange(viewportLeft, viewportRight),
+            "낙관과 해태가 화면 밖에서 갑자기 튀어나오지 않도록 시작점은 뷰포트 안쪽이어야 합니다.");
+        Assert.That(lockedStart.x, Is.LessThan(lockedTarget.x));
         Assert.IsTrue(haetae.GetComponent<SpriteRenderer>().flipX,
             "왼쪽에서 오른쪽으로 돌진할 때는 왼쪽 얼굴 원본을 뒤집어야 합니다.");
         Assert.AreEqual(4,
             haetae.GetComponentsInChildren<LineRenderer>(true).Length,
             "경로선 1개와 발자국 3개만 미리 만들어 재사용해야 합니다.");
+        Assert.IsTrue(haetae.IsMaterializeSealVisible,
+            "예고 시작은 화면 가장자리의 붉은 낙관에서 실체화하는 모습이어야 합니다.");
+        Assert.That(haetae.BodyAlpha, Is.EqualTo(0f).Within(0.001f));
 
         target.transform.position = new Vector3(-3.8f, 8.5f, 0f);
         Invoke(haetae, "AdvanceState", 0.6f);
@@ -212,6 +230,85 @@ public sealed class HaetaeObstacleTests
         Assert.AreEqual(HaetaeObstacleState.Pounce, haetae.State);
         Assert.AreEqual(2, haetae.CurrentFrameIndex);
         Assert.IsTrue(haetae.IsHitboxEnabled);
+    }
+
+    [Test]
+    public void TelegraphCrossfadesFixedMaterializeSealWithoutExtendingWarning()
+    {
+        var haetae = CreateConfiguredHaetae("MaterializingHaetae");
+        haetae.Activate(
+            new Vector2(-4.2f, 0.5f),
+            new Vector2(1.1f, 1.8f),
+            true);
+
+        Assert.AreEqual(HaetaeObstacleState.Telegraph, haetae.State);
+        Assert.IsTrue(haetae.IsMaterializeSealVisible);
+        Assert.That(haetae.MaterializeSealAlpha,
+            Is.GreaterThan(0.01f));
+        Assert.That(haetae.BodyAlpha, Is.EqualTo(0f).Within(0.001f));
+        Assert.AreEqual(
+            1,
+            CountNamedSpriteRenderers(haetae, "HaetaeMaterializeSeal"),
+            "낙관 SpriteRenderer는 활성화마다 생성하지 말고 고정 자식 하나만 재사용해야 합니다.");
+
+        Invoke(haetae, "AdvanceState", 0.17f);
+
+        Assert.AreEqual(HaetaeObstacleState.Telegraph, haetae.State);
+        Assert.IsTrue(haetae.IsMaterializeSealVisible);
+        Assert.That(haetae.MaterializeSealAlpha, Is.InRange(0.01f, 0.99f));
+        Assert.That(haetae.BodyAlpha, Is.InRange(0.01f, 0.99f),
+            "낙관과 해태 본체가 교차 페이드되어 순간 팝업처럼 보이지 않아야 합니다.");
+
+        Invoke(haetae, "AdvanceState", 0.18f);
+
+        Assert.AreEqual(HaetaeObstacleState.Telegraph, haetae.State);
+        Assert.IsFalse(haetae.IsMaterializeSealVisible);
+        Assert.That(haetae.BodyAlpha, Is.EqualTo(1f).Within(0.001f));
+
+        Invoke(haetae, "AdvanceState", 0.84f);
+        Assert.AreEqual(HaetaeObstacleState.Telegraph, haetae.State,
+            "실체화 0.34초는 기존 1.2초 예고 안에 포함되어야 합니다.");
+
+        Invoke(haetae, "AdvanceState", 0.02f);
+        Assert.AreEqual(HaetaeObstacleState.Pounce, haetae.State);
+        Assert.IsTrue(haetae.IsHitboxEnabled);
+    }
+
+    [Test]
+    public void SealAwayKeepsLandingPoseAndReusesSealBeforeRelease()
+    {
+        var haetae = CreatePouncingHaetae("SealAwayHaetae");
+        Invoke(haetae, "BeginLand", false);
+        Invoke(haetae, "AdvanceState", 0.15f);
+
+        Assert.AreEqual(HaetaeObstacleState.SealAway, haetae.State);
+        Vector3 landingPosition = haetae.transform.position;
+        Quaternion landingRotation = haetae.transform.localRotation;
+        Vector3 landingScale = haetae.transform.localScale;
+        float initialBodyAlpha = haetae.BodyAlpha;
+        Assert.IsTrue(haetae.IsMaterializeSealVisible,
+            "퇴장은 착지 지점에 남는 붉은 낙관으로 즉시 이어져야 합니다.");
+        Assert.That(haetae.MaterializeSealAlpha, Is.GreaterThan(0f));
+
+        Invoke(haetae, "AdvanceState", 0.16f);
+
+        Assert.AreEqual(HaetaeObstacleState.SealAway, haetae.State);
+        Assert.That(haetae.transform.position, Is.EqualTo(landingPosition),
+            "퇴장 중 뒤로 날아가면 안 됩니다.");
+        Assert.That(haetae.transform.localRotation, Is.EqualTo(landingRotation),
+            "퇴장 중 회전하며 사라지면 안 됩니다.");
+        Assert.That(haetae.transform.localScale, Is.EqualTo(landingScale),
+            "퇴장 중 비균일 축소나 뒤집힘이 생기면 안 됩니다.");
+        Assert.That(haetae.BodyAlpha, Is.LessThan(initialBodyAlpha));
+        Assert.IsTrue(haetae.IsMaterializeSealVisible);
+        Assert.That(haetae.MaterializeSealAlpha, Is.GreaterThan(0f));
+
+        Invoke(haetae, "AdvanceState", 0.20f);
+
+        Assert.AreEqual(HaetaeObstacleState.Hidden, haetae.State);
+        Assert.IsTrue(haetae.IsReleaseRequested);
+        Assert.IsFalse(haetae.IsMaterializeSealVisible);
+        Assert.IsFalse(haetae.IsHitboxEnabled);
     }
 
     [Test]
@@ -388,6 +485,9 @@ public sealed class HaetaeObstacleTests
             "오른쪽에서 왼쪽으로 돌진할 때는 왼쪽을 보는 원본 방향을 유지해야 합니다.");
         int warningObjectCount =
             first.GetComponentsInChildren<LineRenderer>(true).Length;
+        Assert.AreEqual(
+            1,
+            CountNamedSpriteRenderers(first, "HaetaeMaterializeSeal"));
 
         Assert.IsTrue(pool.Release(first));
         var second = pool.Acquire();
@@ -402,6 +502,8 @@ public sealed class HaetaeObstacleTests
         Assert.IsFalse(second.IsReleaseRequested);
         Assert.AreEqual(0, second.CurrentFrameIndex);
         Assert.IsFalse(second.GetComponent<SpriteRenderer>().flipX);
+        Assert.IsFalse(second.IsMaterializeSealVisible);
+        Assert.That(second.MaterializeSealAlpha, Is.EqualTo(0f).Within(0.001f));
         Assert.That(second.transform.localRotation, Is.EqualTo(Quaternion.identity));
         var warningObjects =
             second.GetComponentsInChildren<LineRenderer>(true);
@@ -409,8 +511,93 @@ public sealed class HaetaeObstacleTests
             "풀 재사용 때 경고선과 발자국을 중복 생성하면 안 됩니다.");
         for (int i = 0; i < warningObjects.Length; i++)
             Assert.IsFalse(warningObjects[i].enabled);
+        Assert.AreEqual(
+            1,
+            CountNamedSpriteRenderers(second, "HaetaeMaterializeSeal"),
+            "풀 재사용 뒤에도 낙관 자식은 정확히 하나여야 합니다.");
 
         pool.Release(second);
+    }
+
+    [Test]
+    public void DirectConfigureUsesPaperRedRemapAndCreatesOneReusableSeal()
+    {
+        var go = Track(new GameObject("DirectConfiguredHaetae"));
+        var haetae = go.AddComponent<HaetaeObstacle>();
+        var visibility = go.AddComponent<ObstacleVisibilityView>();
+        var body = go.GetComponent<SpriteRenderer>();
+        body.sprite = CreateSprite(220, 160);
+        body.color = Color.white;
+        var frames = CreateHaetaeFrames();
+
+        visibility.Configure(preserveInkOutlines: false);
+        haetae.Configure(
+            frames,
+            null,
+            Physics2D.DefaultRaycastLayers,
+            null);
+        haetae.Configure(
+            frames,
+            null,
+            Physics2D.DefaultRaycastLayers,
+            null);
+
+        Assert.That(body.color.r,
+            Is.EqualTo(InkPalette.ObstaclePaperRed.r).Within(0.001f));
+        Assert.That(body.color.g,
+            Is.EqualTo(InkPalette.ObstaclePaperRed.g).Within(0.001f));
+        Assert.That(body.color.b,
+            Is.EqualTo(InkPalette.ObstaclePaperRed.b).Within(0.001f));
+        Assert.IsNotNull(body.sharedMaterial);
+        Assert.IsNotNull(body.sharedMaterial.shader);
+        Assert.AreEqual(
+            "MukJump/ObstaclePaperRed",
+            body.sharedMaterial.shader.name);
+        Assert.AreEqual(
+            1,
+            CountNamedSpriteRenderers(haetae, "HaetaeMaterializeSeal"),
+            "Configure를 반복해도 낙관 렌더러를 중복 생성하면 안 됩니다.");
+        Assert.AreEqual(
+            4,
+            haetae.GetComponentsInChildren<LineRenderer>(true).Length,
+            "낙관을 추가해도 기존 경로선·발자국 LineRenderer 예산은 늘리지 않습니다.");
+    }
+
+    [Test]
+    public void SpawnerPoolFactoryIncludesPaperRedVisibilityView()
+    {
+        var spawner = Track(new GameObject("HaetaePoolFactory"))
+            .AddComponent<ObstacleSpawner>();
+
+        var haetae = (HaetaeObstacle)Invoke(spawner, "CreatePooledHaetae");
+        var visibility = haetae.GetComponent<ObstacleVisibilityView>();
+        var body = haetae.GetComponent<SpriteRenderer>();
+        Assert.IsNotNull(visibility,
+            "런타임 풀 팩토리에서 해태 루트에 붉은 한지 가시성 뷰를 반드시 붙여야 합니다.");
+
+        body.sprite = CreateSprite(220, 160);
+        body.color = Color.white;
+        visibility.Configure(preserveInkOutlines: false);
+        haetae.Configure(
+            CreateHaetaeFrames(),
+            null,
+            Physics2D.DefaultRaycastLayers,
+            null);
+
+        Assert.That(body.color.r,
+            Is.EqualTo(InkPalette.ObstaclePaperRed.r).Within(0.001f));
+        Assert.That(body.color.g,
+            Is.EqualTo(InkPalette.ObstaclePaperRed.g).Within(0.001f));
+        Assert.That(body.color.b,
+            Is.EqualTo(InkPalette.ObstaclePaperRed.b).Within(0.001f));
+        Assert.IsNotNull(body.sharedMaterial);
+        Assert.IsNotNull(body.sharedMaterial.shader);
+        Assert.AreEqual(
+            "MukJump/ObstaclePaperRed",
+            body.sharedMaterial.shader.name);
+        Assert.AreEqual(
+            1,
+            CountNamedSpriteRenderers(haetae, "HaetaeMaterializeSeal"));
     }
 
     [Test]
@@ -650,6 +837,20 @@ public sealed class HaetaeObstacleTests
 
         Assert.Fail(
             "ObstacleSpawner에 활성 HaetaeObstacle을 추적하는 필드가 필요합니다.");
+    }
+
+    static int CountNamedSpriteRenderers(
+        HaetaeObstacle haetae,
+        string objectName)
+    {
+        int count = 0;
+        var renderers = haetae.GetComponentsInChildren<SpriteRenderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i].name == objectName)
+                count++;
+        }
+        return count;
     }
 
     bool ReadBoolMember(object target, string memberName)

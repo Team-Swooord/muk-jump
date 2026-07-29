@@ -80,8 +80,10 @@ namespace MukJump.Core
                             visibilityRoutine == null;
             if (pauseButton != null && pauseButton.gameObject.activeSelf != canPause)
                 pauseButton.gameObject.SetActive(canPause);
-            if (boundManager.IsPaused != overlayVisible)
-                SetOverlayVisible(boundManager.IsPaused, true);
+            bool menuPaused =
+                boundManager.PauseReason == GameplayPauseReason.UserMenu;
+            if (menuPaused != overlayVisible)
+                SetOverlayVisible(menuPaused, true);
         }
 
         public static bool IsPointerOverControls(Vector2 screenPosition)
@@ -153,15 +155,20 @@ namespace MukJump.Core
 
         void HandlePauseChanged(bool paused)
         {
-            if (!paused)
+            bool menuPaused = paused &&
+                              boundManager != null &&
+                              boundManager.PauseReason ==
+                              GameplayPauseReason.UserMenu;
+            if (!menuPaused)
             {
                 if (resumeButton != null) resumeButton.interactable = true;
                 if (lobbyButton != null) lobbyButton.interactable = true;
             }
-            SetOverlayVisible(paused, true);
+            SetOverlayVisible(menuPaused, true);
             if (pauseButton != null)
                 pauseButton.gameObject.SetActive(
-                    !paused && boundManager != null &&
+                    boundManager != null &&
+                    !boundManager.IsPaused &&
                     boundManager.State == GameState.Playing &&
                     !boundManager.IsTransitioning &&
                     visibilityRoutine == null);
@@ -170,13 +177,15 @@ namespace MukJump.Core
         void RefreshImmediate()
         {
             ApplySafeArea();
-            bool paused = boundManager != null && boundManager.IsPaused;
-            SetOverlayVisible(paused, false);
+            bool menuPaused = boundManager != null &&
+                              boundManager.PauseReason ==
+                              GameplayPauseReason.UserMenu;
+            SetOverlayVisible(menuPaused, false);
             if (pauseButton != null)
                 pauseButton.gameObject.SetActive(
                     boundManager != null &&
                     boundManager.State == GameState.Playing &&
-                    !paused &&
+                    !boundManager.IsPaused &&
                     !boundManager.IsTransitioning);
         }
 

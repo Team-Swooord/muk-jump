@@ -10,6 +10,8 @@ namespace MukJump.Items
     [RequireComponent(typeof(PlayerController))]
     public class ItemEffectView : MonoBehaviour, IRuntimeCloneLifecycle
     {
+        const float VitalityHitDuration = 0.18f;
+
         [SerializeField] int ringSegments = 48;
         [SerializeField] float ringRadius = 0.78f;
         [SerializeField] float wobble = 0.055f;
@@ -26,14 +28,18 @@ namespace MukJump.Items
         SpriteRenderer[] shieldMotes;
         SpriteRenderer[] shieldShards;
         Vector3[] shieldShardVelocity;
+        SpriteRenderer playerRenderer;
+        SpriteRenderer vitalityHitPuff;
         bool shieldWasVisible;
         float shieldPulseTime;
         float shieldShardTime;
+        float vitalityHitTime;
         readonly System.Collections.Generic.List<Transform> cloneDetachedVisuals = new();
 
         void Awake()
         {
             player = GetComponent<PlayerController>();
+            playerRenderer = GetComponent<SpriteRenderer>();
             RemoveLegacyGoldenVisuals();
             // 런타임에 효과 자식이 만들어진 플레이어를 복제해도 새 분신에는 기존
             // 렌더러가 함께 보이지 않도록 참조만 복구해 숨긴다. 새 오브젝트는 만들지 않는다.
@@ -43,6 +49,7 @@ namespace MukJump.Items
         void OnEnable()
         {
             if (player == null) player = GetComponent<PlayerController>();
+            if (playerRenderer == null) playerRenderer = GetComponent<SpriteRenderer>();
             RemoveLegacyGoldenVisuals();
             BindExistingVisuals();
             if (player != null)
@@ -55,6 +62,8 @@ namespace MukJump.Items
         void OnDisable()
         {
             if (player != null) player.ShieldConsumed -= OnShieldConsumed;
+            if (vitalityHitPuff != null) vitalityHitPuff.enabled = false;
+            vitalityHitTime = 0f;
         }
 
         void Update()
@@ -81,7 +90,7 @@ namespace MukJump.Items
             UpdateShieldPulse();
             UpdateShieldMotes(visible);
             UpdateShieldShards();
-
+            UpdateVitalityHit();
         }
 
         void UpdateShieldPulse()
@@ -109,6 +118,56 @@ namespace MukJump.Items
             if (capture == null) return;
             GoldenBrushEffectView.Request(capture, effectDroplet, goldenBrushFullClip,
                 ringSegments, ringRadius, wobble);
+        }
+
+        /// 먹두께가 피해를 흡수했을 때 캐릭터 뒤의 먹 실루엣 하나를 재사용해
+        /// 짧게 부풀렸다 지운다. 루트 스케일과 콜라이더는 바꾸지 않는다.
+        public void PlayVitalityHit()
+        {
+            if (player == null || player.IsDead) return;
+            EnsureVitalityHitVisual();
+            if (vitalityHitPuff == null) return;
+
+            vitalityHitTime = VitalityHitDuration;
+            vitalityHitPuff.enabled = true;
+            vitalityHitPuff.transform.localPosition = Vector3.zero;
+            vitalityHitPuff.transform.localRotation = Quaternion.identity;
+            vitalityHitPuff.transform.localScale = Vector3.one;
+        }
+
+        void UpdateVitalityHit()
+        {
+            if (vitalityHitPuff == null || vitalityHitTime <= 0f)
+            {
+                if (vitalityHitPuff != null) vitalityHitPuff.enabled = false;
+                return;
+            }
+
+            if (playerRenderer == null)
+                playerRenderer = GetComponent<SpriteRenderer>();
+            if (playerRenderer == null || playerRenderer.sprite == null)
+            {
+                vitalityHitTime = 0f;
+                vitalityHitPuff.enabled = false;
+                return;
+            }
+
+            vitalityHitTime = Mathf.Max(0f, vitalityHitTime - Time.deltaTime);
+            float progress = 1f - vitalityHitTime / VitalityHitDuration;
+            vitalityHitPuff.sprite = playerRenderer.sprite;
+            vitalityHitPuff.flipX = playerRenderer.flipX;
+            vitalityHitPuff.flipY = playerRenderer.flipY;
+            vitalityHitPuff.sharedMaterial = playerRenderer.sharedMaterial;
+            vitalityHitPuff.sortingLayerID = playerRenderer.sortingLayerID;
+            vitalityHitPuff.sortingOrder = playerRenderer.sortingOrder - 1;
+            float eased = 1f - Mathf.Pow(1f - progress, 3f);
+            vitalityHitPuff.transform.localScale =
+                Vector3.one * Mathf.Lerp(1.02f, 1.2f, eased);
+            Color color = InkPalette.Ink;
+            color.a = Mathf.Lerp(0.48f, 0f, progress);
+            vitalityHitPuff.color = color;
+            if (vitalityHitTime <= 0f)
+                vitalityHitPuff.enabled = false;
         }
 
         void UpdateShieldMotes(bool visible)
@@ -224,6 +283,10 @@ namespace MukJump.Items
             shieldShards = FindExistingMotes("ShieldShard", 18);
             if (shieldShards != null)
                 shieldShardVelocity = new Vector3[shieldShards.Length];
+            vitalityHitPuff =
+                FindChildComponent<SpriteRenderer>("GrowthVitalityPuff");
+            if (vitalityHitPuff != null)
+                vitalityHitPuff.enabled = false;
         }
 
         /// 먹분신은 플레이어의 게임 상태만 복제해야 한다. 한 번 생성된 방어막 표현 캐시와
@@ -267,7 +330,8 @@ namespace MukJump.Items
                    objectName.StartsWith("GoldenBrush") ||
                    objectName.StartsWith("GoldenMote") ||
                    objectName.StartsWith("ShieldMote") ||
-                   objectName.StartsWith("ShieldShard");
+                   objectName.StartsWith("ShieldShard") ||
+                   objectName.StartsWith("GrowthVitalityPuff");
         }
 
         /// 공유 황금 효과로 전환하기 전 Play 세션의 자식이 hot reload 뒤 남아 있으면
@@ -315,6 +379,22 @@ namespace MukJump.Items
                 if (renderers[i] == null)
                     return true;
             return false;
+        }
+
+        void EnsureVitalityHitVisual()
+        {
+            if (vitalityHitPuff != null) return;
+
+            var child = transform.Find("GrowthVitalityPuff");
+            var visualObject = child != null
+                ? child.gameObject
+                : new GameObject("GrowthVitalityPuff");
+            if (child == null)
+                visualObject.transform.SetParent(transform, false);
+            vitalityHitPuff = visualObject.GetComponent<SpriteRenderer>();
+            if (vitalityHitPuff == null)
+                vitalityHitPuff = visualObject.AddComponent<SpriteRenderer>();
+            vitalityHitPuff.enabled = false;
         }
 
         SpriteRenderer[] CreateMotes(string prefix, int count, Color color, int sortingOrder)
