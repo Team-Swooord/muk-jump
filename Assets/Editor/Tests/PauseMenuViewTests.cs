@@ -21,6 +21,8 @@ public class PauseMenuViewTests
         originalTimeScale = Time.timeScale;
         originalFixedDeltaTime = Time.fixedDeltaTime;
         originalAudioPause = AudioListener.pause;
+        PermanentGrowthProfile.UseStoreForTests(
+            new MemoryPermanentGrowthStore());
     }
 
     [TearDown]
@@ -37,6 +39,7 @@ public class PauseMenuViewTests
             Object.DestroyImmediate(playerHost);
         if (cameraHost != null)
             Object.DestroyImmediate(cameraHost);
+        PermanentGrowthProfile.RestoreDefaultStoreForTests();
     }
 
     [Test]
@@ -155,11 +158,14 @@ public class PauseMenuViewTests
         var title = content.Find("Title")?.GetComponent<Text>();
         var currentValue = content.Find("CurrentResult/Value")?.GetComponent<Text>();
         var bestValue = content.Find("BestResult/Value")?.GetComponent<Text>();
+        var growthReward =
+            content.Find("PermanentGrowthReward/Value")?.GetComponent<Text>();
         var currentCaption = content.Find("CurrentResult/Caption")?.GetComponent<Text>();
         var hint = content.Find("RetryBrush/TouchHint")?.GetComponent<Text>();
         Assert.IsNotNull(title);
         Assert.IsNotNull(currentValue);
         Assert.IsNotNull(bestValue);
+        Assert.IsNotNull(growthReward);
         Assert.IsNotNull(currentCaption);
         Assert.IsNotNull(hint);
         Assert.GreaterOrEqual(title.fontSize, 54);
@@ -168,11 +174,17 @@ public class PauseMenuViewTests
         Assert.GreaterOrEqual(hint.fontSize, 32);
         var currentResult = content.Find("CurrentResult") as RectTransform;
         var bestResult = content.Find("BestResult") as RectTransform;
+        var permanentGrowthResult =
+            content.Find("PermanentGrowthReward") as RectTransform;
         var retry = content.Find("RetryBrush") as RectTransform;
         Assert.Greater(title.rectTransform.anchoredPosition.y,
             currentResult.anchoredPosition.y);
         Assert.Greater(currentResult.anchoredPosition.y,
             bestResult.anchoredPosition.y);
+        Assert.Greater(bestResult.anchoredPosition.y,
+            permanentGrowthResult.anchoredPosition.y);
+        Assert.Greater(permanentGrowthResult.anchoredPosition.y,
+            retry.anchoredPosition.y);
         Assert.Greater(bestResult.anchoredPosition.y,
             retry.anchoredPosition.y);
         Assert.GreaterOrEqual(retry.sizeDelta.x, 560f);
@@ -209,6 +221,26 @@ public class PauseMenuViewTests
         Assert.AreEqual("0 m", currentValue?.text);
         Assert.AreEqual("845 m", bestValue?.text);
         Assert.IsFalse(newBestSeal != null && newBestSeal.gameObject.activeSelf);
+    }
+
+    [Test]
+    public void GameOverResultShowsPermanentGrowthRewardOrDebugExclusion()
+    {
+        host = new GameObject("GameOverHost");
+        var view = host.AddComponent<GameOverPopupView>();
+        Invoke(view, "BuildIfNeeded");
+
+        Invoke(
+            view,
+            "BindResult",
+            new GameOverResult(120, 120, true, 14, 32, true));
+        Assert.That(view.GrowthRewardLabel, Is.EqualTo("+14 · 보유 32"));
+
+        Invoke(
+            view,
+            "BindResult",
+            new GameOverResult(120, 120, false, 0, 32, false));
+        Assert.That(view.GrowthRewardLabel, Is.EqualTo("디버그 판 · 보상 없음"));
     }
 
     [Test]

@@ -113,7 +113,6 @@ namespace MukJump.Core
         readonly List<GrowthUpgradeType> offerCandidates = new(AllUpgrades.Length);
         GameManager manager;
         bool choiceSelected;
-        bool focusOfferConsumed;
 
         void Awake()
         {
@@ -357,7 +356,6 @@ namespace MukJump.Core
             ItemFortuneLevel = 0;
             HasPendingChoice = false;
             choiceSelected = false;
-            focusOfferConsumed = false;
             currentOffers.Clear();
             RunReset?.Invoke();
             Changed?.Invoke();
@@ -374,25 +372,9 @@ namespace MukJump.Core
         {
             currentOffers.Clear();
 
-            GrowthUpgradeType? focusedUpgrade = null;
-            if (!focusOfferConsumed)
-            {
-                focusOfferConsumed = true;
-                if (GrowthFocusProfile.TryGetRuntimeUpgrade(out var preferred) &&
-                    CanSelectUpgrade(preferred))
-                {
-                    currentOffers.Add(preferred);
-                    focusedUpgrade = preferred;
-                }
-            }
-
             // 몸·드로잉에서 하나씩 먼저 보장해 선택지가 한 계통에만 몰리지 않게 한다.
-            if (!focusedUpgrade.HasValue ||
-                !Contains(BodyUpgrades, focusedUpgrade.Value))
-                TryAddRandomOffer(BodyUpgrades);
-            if (!focusedUpgrade.HasValue ||
-                !Contains(DrawingUpgrades, focusedUpgrade.Value))
-                TryAddRandomOffer(DrawingUpgrades);
+            TryAddRandomOffer(BodyUpgrades);
+            TryAddRandomOffer(DrawingUpgrades);
             if (currentOffers.Count < 3)
                 TryAddRandomOffer(AllUpgrades);
 
@@ -429,14 +411,5 @@ namespace MukJump.Core
             return false;
         }
 
-        static bool Contains(
-            IReadOnlyList<GrowthUpgradeType> source,
-            GrowthUpgradeType upgrade)
-        {
-            for (int i = 0; i < source.Count; i++)
-                if (source[i] == upgrade)
-                    return true;
-            return false;
-        }
     }
 }

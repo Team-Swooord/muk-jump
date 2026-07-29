@@ -13,6 +13,13 @@ namespace MukJump.EditorTests
         GameObject playerObject;
         GameObject itemObject;
 
+        [SetUp]
+        public void SetUp()
+        {
+            PermanentGrowthProfile.UseStoreForTests(
+                new MemoryPermanentGrowthStore());
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -20,6 +27,7 @@ namespace MukJump.EditorTests
                 Object.DestroyImmediate(playerObject);
             if (itemObject != null)
                 Object.DestroyImmediate(itemObject);
+            PermanentGrowthProfile.RestoreDefaultStoreForTests();
         }
 
         [Test]

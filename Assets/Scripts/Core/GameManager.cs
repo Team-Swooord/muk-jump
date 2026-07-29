@@ -72,6 +72,7 @@ namespace MukJump.Core
         float timeScaleBeforePause = 1f;
         float fixedDeltaBeforePause = 0.02f;
         float maxSwarmProgressHeight;
+        [SerializeField, HideInInspector] string currentRunId;
         readonly List<PlayerController> players = new();
         readonly List<PlayerController> swarmScratch =
             new(MaxLivingPlayers);
@@ -171,6 +172,8 @@ namespace MukJump.Core
                 gameObject.AddComponent<GrowthChoiceView>();
             if (GetComponent<LobbyCollectionView>() == null)
                 gameObject.AddComponent<LobbyCollectionView>();
+            if (GetComponent<PermanentGrowthView>() == null)
+                gameObject.AddComponent<PermanentGrowthView>();
             RefreshPlayerRegistry();
         }
 
@@ -343,6 +346,14 @@ namespace MukJump.Core
             float revealDelay = feedback != null ? feedback.GameOverRevealDelay : 0.62f;
             feedback?.PlayGameOver();
             gameOverTime = float.PositiveInfinity;
+            GameOverResult result = SettleGameOverResult();
+            StartCoroutine(ShowGameOverAfterDeath(revealDelay, result));
+        }
+
+        /// 결과 표시보다 먼저 최고 기록과 영구 성장 보상을 한 번에 확정한다.
+        /// 저장된 run ID가 도메인 리로드 뒤의 중복 호출도 막는다.
+        GameOverResult SettleGameOverResult()
+        {
             int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
             int previousBest = ScoreManager.Instance != null ? ScoreManager.Instance.Best : 0;
             bool recordsAllowed =
@@ -350,16 +361,34 @@ namespace MukJump.Core
             bool reachedNewBest = recordsAllowed &&
                 ((ScoreManager.Instance != null && ScoreManager.Instance.IsNewBestThisRun) ||
                  height > previousBest);
+            if (string.IsNullOrEmpty(currentRunId))
+                currentRunId = Guid.NewGuid().ToString("N");
+            bool rewardsAllowed =
+                ScoreManager.Instance != null && ScoreManager.Instance.RecordsAllowed;
+            PermanentGrowthSettlement settlement =
+                PermanentGrowthProfile.SettleRun(
+                    currentRunId,
+                    height,
+                    previousBest,
+                    rewardsAllowed);
             ScoreManager.Instance?.SaveBest();
             int best = ScoreManager.Instance != null ? ScoreManager.Instance.Best : previousBest;
-            StartCoroutine(ShowGameOverAfterDeath(revealDelay, height, best, reachedNewBest));
+            var result = new GameOverResult(
+                height,
+                best,
+                reachedNewBest,
+                settlement.Earned,
+                settlement.Balance,
+                rewardsAllowed);
+            return result;
         }
 
-        System.Collections.IEnumerator ShowGameOverAfterDeath(float delay, int height, int best,
-            bool reachedNewBest)
+        System.Collections.IEnumerator ShowGameOverAfterDeath(
+            float delay,
+            GameOverResult result)
         {
             yield return new WaitForSecondsRealtime(delay);
-            gameOverPopupView.Show(height, best, reachedNewBest);
+            gameOverPopupView.Show(result);
             // 팝업이 나타난 뒤 restartDelay 동안은 오터치 재시작을 막는다.
             gameOverTime = Time.unscaledTime;
         }
@@ -578,6 +607,7 @@ namespace MukJump.Core
 
             // 연출 난수와 분리된 게임 규칙 스트림을 판 시작 직전에 함께 초기화한다.
             GameplayRandom.ResetSession();
+            currentRunId = Guid.NewGuid().ToString("N");
             var player = HighestLivingPlayer;
             SetState(GameState.Playing);
             player?.BeginFromLobby();

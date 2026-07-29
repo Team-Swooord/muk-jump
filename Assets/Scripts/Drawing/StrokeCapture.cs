@@ -50,11 +50,15 @@ namespace MukJump.Drawing
             ? 1f
             : (ink + inkReserve) / Mathf.Max(0.001f, EffectiveInkCapacity);
         public float EffectiveInkCapacity =>
-            inkCapacity * (RunGrowthController.Instance != null
+            inkCapacity *
+            PermanentGrowthProfile.InkCapacityMultiplier *
+            (RunGrowthController.Instance != null
                 ? RunGrowthController.Instance.InkCapacityMultiplier
                 : 1f);
         public float EffectiveInkRegenPerSecond =>
-            inkRegenPerSecond * (RunGrowthController.Instance != null
+            inkRegenPerSecond *
+            PermanentGrowthProfile.InkRecoveryMultiplier *
+            (RunGrowthController.Instance != null
                 ? RunGrowthController.Instance.InkRecoveryMultiplier
                 : 1f);
 
@@ -70,6 +74,7 @@ namespace MukJump.Drawing
 
         void OnEnable()
         {
+            PermanentGrowthProfile.Changed += HandlePermanentGrowthChanged;
             TryBindGrowthController();
         }
 
@@ -78,6 +83,7 @@ namespace MukJump.Drawing
             // 컴포넌트 비활성화가 입력 도중 발생해도 미리보기와 붓 루프음이
             // 다음 화면에 남지 않도록 드로잉 상태까지 함께 정리한다.
             CancelActiveStroke();
+            PermanentGrowthProfile.Changed -= HandlePermanentGrowthChanged;
             UnbindGrowthController();
         }
 
@@ -367,7 +373,22 @@ namespace MukJump.Drawing
         {
             if (upgrade != GrowthUpgradeType.InkCapacity) return;
 
+            ApplyCapacityIncrease();
+        }
+
+        void HandlePermanentGrowthChanged()
+        {
+            ApplyCapacityIncrease();
+        }
+
+        void ApplyCapacityIncrease()
+        {
             float nextCapacity = EffectiveInkCapacity;
+            if (appliedInkCapacity <= 0f)
+            {
+                appliedInkCapacity = nextCapacity;
+                return;
+            }
             float addedCapacity = Mathf.Max(0f, nextCapacity - appliedInkCapacity);
             ink = Mathf.Min(nextCapacity, ink + addedCapacity);
             appliedInkCapacity = nextCapacity;

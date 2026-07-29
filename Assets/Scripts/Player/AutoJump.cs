@@ -155,12 +155,18 @@ namespace MukJump.Player
 
         void OnValidate()
         {
-            jumpIntervalSeconds = SafeJumpInterval;
+            jumpIntervalSeconds = SanitizedJumpInterval;
         }
 
-        float SafeJumpInterval =>
+        float SanitizedJumpInterval =>
             float.IsNaN(jumpIntervalSeconds) || float.IsInfinity(jumpIntervalSeconds)
                 ? 1f
                 : Mathf.Max(MinJumpInterval, jumpIntervalSeconds);
+
+        float SafeJumpInterval =>
+            Mathf.Max(
+                MinJumpInterval,
+                SanitizedJumpInterval *
+                PermanentGrowthProfile.JumpChargeMultiplier);
     }
 }

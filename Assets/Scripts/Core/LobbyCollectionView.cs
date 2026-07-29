@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 메인 로비의 성장 수련과 100종 먹결 도감을 한 개의 페이지형 모달로 제공한다.
+    /// 메인 로비의 한 판 성장 두루마리 100종 먹결 도감을 페이지형 모달로 제공한다.
     /// 100개 행을 한꺼번에 만들지 않고 고정된 6개 행만 재사용해 모바일 UI 비용을 제한한다.
     [DisallowMultipleComponent]
     public sealed class LobbyCollectionView : MonoBehaviour
@@ -16,7 +16,6 @@ namespace MukJump.Core
         enum DisplayMode
         {
             Closed,
-            Growth,
             Codex,
         }
 
@@ -71,12 +70,10 @@ namespace MukJump.Core
         {
             BuildIfNeeded();
             BindManager();
-            GrowthFocusProfile.Changed += HandleFocusChanged;
         }
 
         void OnDisable()
         {
-            GrowthFocusProfile.Changed -= HandleFocusChanged;
             UnbindManager();
             CloseImmediate();
         }
@@ -92,16 +89,6 @@ namespace MukJump.Core
                 Screen.height != lastScreenHeight ||
                 Screen.safeArea != lastSafeArea)
                 ApplySafeArea();
-        }
-
-        public void OpenGrowth()
-        {
-            BuildIfNeeded();
-            mode = DisplayMode.Growth;
-            categoryFilter = null;
-            currentPage = 0;
-            SetVisible(true);
-            RebuildFilter();
         }
 
         public void OpenCodex()
@@ -150,12 +137,6 @@ namespace MukJump.Core
                 Close();
         }
 
-        void HandleFocusChanged()
-        {
-            if (mode == DisplayMode.Growth)
-                RefreshPage();
-        }
-
         void BuildIfNeeded()
         {
             if (rootGroup != null) return;
@@ -195,7 +176,7 @@ namespace MukJump.Core
 
             safeAreaRoot = CreateStretchRect("SafeAreaRoot", root.transform);
             var panel = CreateRect(
-                "GrowthCodexScroll",
+                "CodexScroll",
                 safeAreaRoot,
                 Vector2.zero,
                 new Vector2(900f, 1510f));
@@ -219,9 +200,7 @@ namespace MukJump.Core
 
             for (int i = 0; i < PageSize; i++)
             {
-                int slot = i;
                 var row = CreateEntryRow(panel, i);
-                row.Button.onClick.AddListener(() => HandleRowPressed(slot));
                 rows.Add(row);
             }
 
@@ -326,10 +305,6 @@ namespace MukJump.Core
             for (int i = 0; i < all.Count; i++)
             {
                 var definition = all[i];
-                if (mode == DisplayMode.Growth &&
-                    (definition.Status != ImplementationStatus.RuntimeReady ||
-                     !definition.RuntimeType.HasValue))
-                    continue;
                 if (categoryFilter.HasValue &&
                     definition.Category != categoryFilter.Value)
                     continue;
@@ -345,19 +320,14 @@ namespace MukJump.Core
         {
             if (mode == DisplayMode.Closed) return;
 
-            bool growth = mode == DisplayMode.Growth;
-            titleText.text = growth ? "수련 방향" : "먹결 도감";
-            subtitleText.text = growth
-                ? "고른 먹결은 첫 성장 두루마리에 반드시 나타납니다"
-                : $"25계보 · 100먹결 · 실전 {RoguelikeGrowthCatalog.RuntimeReady.Count}종";
-            categoryText.text = growth
-                ? (GrowthFocusProfile.HasSelection ? "균형으로 되돌리기" : "현재 균형 수련")
-                : categoryFilter.HasValue
-                    ? GetCategoryName(categoryFilter.Value)
-                    : "전체 계보";
+            titleText.text = "두루마리 도감";
+            subtitleText.text =
+                $"이번 판 성장 · 25계보 · 100먹결 · 실전 {RoguelikeGrowthCatalog.RuntimeReady.Count}종";
+            categoryText.text = categoryFilter.HasValue
+                ? GetCategoryName(categoryFilter.Value)
+                : "전체 계보";
 
             int start = currentPage * PageSize;
-            string selected = GrowthFocusProfile.SelectedDefinitionId;
             for (int i = 0; i < rows.Count; i++)
             {
                 int filteredIndex = start + i;
@@ -376,21 +346,12 @@ namespace MukJump.Core
                     .ToString("000");
                 row.Name.text = definition.Name;
                 row.Detail.text = definition.Description;
-                bool isSelected = growth &&
-                                  string.Equals(selected, definition.Id,
-                                      StringComparison.Ordinal);
-                row.State.text = isSelected
-                    ? "집중 중"
-                    : definition.Status == ImplementationStatus.RuntimeReady
-                        ? GetTierName(definition.Tier)
-                        : "기획";
-                row.State.color = isSelected
-                    ? InkPalette.Ink
-                    : ReadableMutedColor();
-                row.Paper.color = isSelected
-                    ? InkPalette.Paper
-                    : InkPalette.Paper2;
-                row.Button.interactable = true;
+                row.State.text = definition.Status == ImplementationStatus.RuntimeReady
+                    ? GetTierName(definition.Tier)
+                    : "기획";
+                row.State.color = ReadableMutedColor();
+                row.Paper.color = InkPalette.Paper2;
+                row.Button.interactable = false;
             }
 
             int pageCount = GetPageCount();
@@ -399,24 +360,8 @@ namespace MukJump.Core
             nextButton.interactable = currentPage + 1 < pageCount;
         }
 
-        void HandleRowPressed(int slot)
-        {
-            if (mode != DisplayMode.Growth || slot < 0 || slot >= rows.Count)
-                return;
-            int index = rows[slot].FilteredIndex;
-            if (index < 0 || index >= filtered.Count)
-                return;
-            GrowthFocusProfile.TrySelect(filtered[index].Id);
-        }
-
         void HandleCategoryPressed()
         {
-            if (mode == DisplayMode.Growth)
-            {
-                GrowthFocusProfile.Clear();
-                RefreshPage();
-                return;
-            }
             if (mode != DisplayMode.Codex) return;
 
             var values = (GrowthCatalogCategory[])Enum.GetValues(

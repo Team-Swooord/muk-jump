@@ -436,6 +436,7 @@ namespace MukJump.EditorTools
             var growthChoiceView = go.GetComponent<GrowthChoiceView>() ??
                                    go.AddComponent<GrowthChoiceView>();
             go.AddComponent<LobbyCollectionView>();
+            go.AddComponent<PermanentGrowthView>();
             growthChoiceView.SetSprites(
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthVitalityPath),
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthJumpPath),

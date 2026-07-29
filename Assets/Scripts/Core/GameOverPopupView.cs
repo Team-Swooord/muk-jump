@@ -25,17 +25,32 @@ namespace MukJump.Core
         CanvasGroup newBestGroup;
         Text heightText;
         Text bestText;
+        Text growthRewardText;
         Coroutine showRoutine;
 
         public void Show(int height, int best, bool reachedNewBest)
         {
+            Show(new GameOverResult(
+                height,
+                best,
+                reachedNewBest,
+                0,
+                0,
+                true));
+        }
+
+        public void Show(GameOverResult result)
+        {
             BuildIfNeeded();
             ApplySafeArea();
-            BindResults(height, best, reachedNewBest);
+            BindResult(result);
             if (showRoutine != null)
                 StopCoroutine(showRoutine);
-            showRoutine = StartCoroutine(ShowRoutine(reachedNewBest));
+            showRoutine = StartCoroutine(ShowRoutine(result.ReachedNewBest));
         }
+
+        public string GrowthRewardLabel =>
+            growthRewardText != null ? growthRewardText.text : string.Empty;
 
         void OnDisable()
         {
@@ -95,7 +110,7 @@ namespace MukJump.Core
             BuildScrollPaper();
             BuildContent();
             ApplySafeArea();
-            BindResults(0, 0, false);
+            BindResult(new GameOverResult(0, 0, false, 0, 0, true));
             ApplyRevealPose(0f, false);
         }
 
@@ -232,17 +247,44 @@ namespace MukJump.Core
 
             BuildNewBestSeal(contentRect, blob);
 
+            var growthResult = CreateRect(
+                "PermanentGrowthReward",
+                contentRect,
+                new Vector2(0f, -174f),
+                new Vector2(610f, 70f));
+            CreateText(
+                "Caption",
+                growthResult,
+                "영구 성장 · 먹빛",
+                28,
+                new Vector2(-128f, 0f),
+                new Vector2(320f, 52f),
+                ReadableMutedColor(),
+                FontStyle.Normal,
+                TextAnchor.MiddleLeft);
+            growthRewardText = CreateText(
+                "Value",
+                growthResult,
+                "+0 · 보유 0",
+                32,
+                new Vector2(178f, 0f),
+                new Vector2(250f, 58f),
+                InkPalette.TextDark,
+                FontStyle.Normal,
+                TextAnchor.MiddleRight);
+            AddSoftWeight(growthRewardText, InkPalette.Ink, 0.14f);
+
             var retryBrush = CreateImage(
                 "RetryBrush",
                 contentRect,
                 brush,
-                new Vector2(0f, -245f),
+                new Vector2(0f, -270f),
                 new Vector2(580f, 104f),
                 InkPalette.Ink);
             var touchHint = CreateText(
                 "TouchHint",
                 retryBrush.transform,
-                "터치하여 다시 도전",
+                "터치하여 로비로",
                 36,
                 Vector2.zero,
                 new Vector2(500f, 74f),
@@ -295,11 +337,27 @@ namespace MukJump.Core
                 FontStyle.Normal);
         }
 
+        void BindResult(GameOverResult result)
+        {
+            heightText.text = FormatHeight(result.Height);
+            bestText.text = FormatHeight(result.Best);
+            growthRewardText.text = result.RewardsAllowed
+                ? $"+{Mathf.Max(0, result.EarnedGrowthCurrency)} · " +
+                  $"보유 {Mathf.Max(0, result.GrowthCurrencyBalance)}"
+                : "디버그 판 · 보상 없음";
+            newBestSeal.gameObject.SetActive(result.ReachedNewBest);
+        }
+
+        // 기존 EditMode 레이아웃 테스트와 구형 호출 경로를 위한 단순 결과 바인딩.
         void BindResults(int height, int best, bool reachedNewBest)
         {
-            heightText.text = FormatHeight(height);
-            bestText.text = FormatHeight(best);
-            newBestSeal.gameObject.SetActive(reachedNewBest);
+            BindResult(new GameOverResult(
+                height,
+                best,
+                reachedNewBest,
+                0,
+                0,
+                true));
         }
 
         IEnumerator ShowRoutine(bool reachedNewBest)
@@ -515,7 +573,8 @@ namespace MukJump.Core
             Vector2 position,
             Vector2 size,
             Color color,
-            FontStyle style)
+            FontStyle style,
+            TextAnchor alignment = TextAnchor.MiddleCenter)
         {
             var rect = CreateRect(objectName, parent, position, size);
             var text = rect.gameObject.AddComponent<Text>();
@@ -523,7 +582,7 @@ namespace MukJump.Core
             text.font = InkPalette.UiFont;
             text.fontSize = fontSize;
             text.fontStyle = style;
-            text.alignment = TextAnchor.MiddleCenter;
+            text.alignment = alignment;
             text.color = color;
             text.raycastTarget = false;
             text.resizeTextForBestFit = false;

@@ -13,6 +13,7 @@ namespace MukJump.Core
         [SerializeField] Button codexButton;
 
         LobbyCollectionView collectionView;
+        PermanentGrowthView permanentGrowthView;
         bool listenersBound;
 
         public Button StartButton => startButton;
@@ -73,16 +74,19 @@ namespace MukJump.Core
         void HandleStartPressed()
         {
             collectionView?.Close();
+            permanentGrowthView?.Close();
             GameManager.Instance?.StartGameFromMenu();
         }
 
         void HandleGrowthPressed()
         {
-            ResolveCollectionView()?.OpenGrowth();
+            ResolveCollectionView()?.Close();
+            ResolvePermanentGrowthView()?.Open();
         }
 
         void HandleCodexPressed()
         {
+            ResolvePermanentGrowthView()?.Close();
             ResolveCollectionView()?.OpenCodex();
         }
 
@@ -91,6 +95,13 @@ namespace MukJump.Core
             if (collectionView == null)
                 collectionView = FindFirstObjectByType<LobbyCollectionView>();
             return collectionView;
+        }
+
+        PermanentGrowthView ResolvePermanentGrowthView()
+        {
+            if (permanentGrowthView == null)
+                permanentGrowthView = FindFirstObjectByType<PermanentGrowthView>();
+            return permanentGrowthView;
         }
 
         void RefreshBest()

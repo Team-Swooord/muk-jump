@@ -49,6 +49,8 @@ namespace MukJump.EditorTests
             originalFixedDeltaTime = Time.fixedDeltaTime;
             originalAudioPause = AudioListener.pause;
             PlatformCollider.RuntimeLifetimeMultiplier = 1f;
+            PermanentGrowthProfile.UseStoreForTests(
+                new MemoryPermanentGrowthStore());
             ClearActivePlatforms();
         }
 
@@ -71,6 +73,7 @@ namespace MukJump.EditorTests
             Time.fixedDeltaTime = originalFixedDeltaTime;
             PlatformCollider.RuntimeLifetimeMultiplier = 1f;
             ClearActivePlatforms();
+            PermanentGrowthProfile.RestoreDefaultStoreForTests();
         }
 
         [Test]
@@ -149,38 +152,6 @@ namespace MukJump.EditorTests
             Assert.That(offers.Any(IsDrawingUpgrade), Is.True,
                 "세 선택지 중 드로잉 성장이 하나는 보장되어야 합니다.");
             Assert.That(growth.CancelChoice(), Is.True);
-        }
-
-        [Test]
-        public void LobbyTrainingFocusIsGuaranteedInFirstGrowthChoice()
-        {
-            Assert.That(
-                RoguelikeGrowthCatalog.TryGetDefinition(
-                    GrowthUpgradeType.ItemFortune,
-                    out var focusedDefinition),
-                Is.True);
-            Assert.That(
-                GrowthFocusProfile.SetForTests(focusedDefinition.Id),
-                Is.True);
-
-            try
-            {
-                GameplayRandom.ResetSession(20260731);
-                CreatePlayingManager(out var growth);
-
-                Assert.That(growth.RequestChoice(), Is.True);
-                var offers = growth.CurrentOffers.ToArray();
-                CollectionAssert.Contains(offers, GrowthUpgradeType.ItemFortune,
-                    "로비에서 고른 수련 방향은 첫 두루마리 한 칸을 보장해야 합니다.");
-                Assert.That(offers, Has.Length.EqualTo(3));
-                Assert.That(offers.Any(IsBodyUpgrade), Is.True);
-                Assert.That(offers.Any(IsDrawingUpgrade), Is.True);
-                Assert.That(growth.CancelChoice(), Is.True);
-            }
-            finally
-            {
-                GrowthFocusProfile.ResetForTests();
-            }
         }
 
         [Test]

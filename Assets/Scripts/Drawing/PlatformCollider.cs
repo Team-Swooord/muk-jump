@@ -328,6 +328,10 @@ namespace MukJump.Drawing
                     : 1f;
                 return lifetime *
                        Mathf.Clamp(RuntimeLifetimeMultiplier, 0.35f, 1f) *
+                       Mathf.Clamp(
+                           PermanentGrowthProfile.PlatformLifetimeMultiplier,
+                           1f,
+                           1.075f) *
                        Mathf.Clamp(growthMultiplier, 1f, 1.3f);
             }
         }

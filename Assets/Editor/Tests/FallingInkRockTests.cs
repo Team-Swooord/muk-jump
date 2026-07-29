@@ -442,6 +442,7 @@ public class FallingInkRockTests
         Assert.AreEqual("도감",
             codexButton.transform.Find("Label")?.GetComponent<Text>()?.text);
         Assert.IsNotNull(FindFirstInScene<LobbyCollectionView>(builderTestScene));
+        Assert.IsNotNull(FindFirstInScene<PermanentGrowthView>(builderTestScene));
         var bestDisplay = lobby.transform.Find("BestDisplay") as RectTransform;
         Assert.IsNotNull(bestDisplay?.GetComponent<RawImage>());
         Assert.That(bestDisplay.anchoredPosition.x, Is.EqualTo(89f).Within(0.01f));
