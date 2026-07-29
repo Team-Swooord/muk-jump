@@ -40,6 +40,7 @@ namespace MukJump.Core
         [SerializeField] Button windDirectionButton;
         [SerializeField] Button windPlatformButton;
         [SerializeField] Button haetaeButton;
+        [SerializeField] Button growthChoiceButton;
         [SerializeField] Button vfxQualityButton;
         [SerializeField] Text vfxQualityLabel;
         [SerializeField] Text vfxStatsText;
@@ -93,6 +94,7 @@ namespace MukJump.Core
                 windDirectionButton?.onClick.AddListener(FlipWindDirection);
                 windPlatformButton?.onClick.AddListener(SpawnWindPlatform);
                 haetaeButton?.onClick.AddListener(SpawnHaetae);
+                growthChoiceButton?.onClick.AddListener(OpenGrowthChoice);
                 vfxQualityButton?.onClick.AddListener(CycleVfxQuality);
             }
         }
@@ -121,6 +123,7 @@ namespace MukJump.Core
             windDirectionButton?.onClick.RemoveListener(FlipWindDirection);
             windPlatformButton?.onClick.RemoveListener(SpawnWindPlatform);
             haetaeButton?.onClick.RemoveListener(SpawnHaetae);
+            growthChoiceButton?.onClick.RemoveListener(OpenGrowthChoice);
             vfxQualityButton?.onClick.RemoveListener(CycleVfxQuality);
         }
 
@@ -171,6 +174,11 @@ namespace MukJump.Core
         {
             MarkDebugRun();
             ObstacleSpawner.Instance?.DebugSpawnHaetae();
+        }
+
+        void OpenGrowthChoice()
+        {
+            RunGrowthController.Instance?.RequestChoice(debug: true);
         }
 
         void CycleVfxQuality()
@@ -247,6 +255,7 @@ namespace MukJump.Core
             ConfigureDebugButton(windDirectionButton, "풍향 전환", 27);
             ConfigureDebugButton(windPlatformButton, null, 27);
             ConfigureDebugButton(haetaeButton, "먹해태", 27);
+            ConfigureDebugButton(growthChoiceButton, "성장 선택", 27);
             ConfigureDebugButton(vfxQualityButton, null, 23);
             ConfigureDebugButton(inkDropButton, null, 26);
             ConfigureDebugButton(goldenBrushButton, null, 26);
@@ -486,6 +495,9 @@ namespace MukJump.Core
             if (debugPanel == null) return;
             if (haetaeButton == null)
                 haetaeButton = debugPanel.Find("HaetaeButton")?.GetComponent<Button>();
+            if (growthChoiceButton == null)
+                growthChoiceButton =
+                    debugPanel.Find("GrowthChoiceButton")?.GetComponent<Button>();
             if (vfxQualityButton == null)
             {
                 var existing = debugPanel.Find("VfxQualityButton");
@@ -537,6 +549,10 @@ namespace MukJump.Core
             if (haetaeButton == null)
                 haetaeButton = CreateRuntimeDebugButton(
                     "HaetaeButton", "먹해태", new Vector2(22f, -438f),
+                    new Vector2(145f, 72f));
+            if (growthChoiceButton == null)
+                growthChoiceButton = CreateRuntimeDebugButton(
+                    "GrowthChoiceButton", "성장 선택", new Vector2(22f, -526f),
                     new Vector2(145f, 72f));
 
             if (vfxStatsText != null) return;

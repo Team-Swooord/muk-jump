@@ -53,6 +53,12 @@ namespace MukJump.EditorTools
         const string GoldenBrushItemPath = "Assets/Art/UI/golden_brush.png";
         const string InkShieldItemPath = "Assets/Art/UI/ink_shield.png";
         const string InkCloneItemPath = "Assets/Art/UI/ink_clone.png";
+        const string GrowthScrollPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_scroll.png";
+        const string GrowthVitalityPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_vitality.png";
+        const string GrowthJumpPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_jump.png";
         const string UiFontPath =
             "Assets/Resources/MukJump/Fonts/HealthsetJoritdaeStd.otf";
         const string DeathSplashPath = "Assets/Art/Character/Death/ink_death_splash.png";
@@ -388,6 +394,13 @@ namespace MukJump.EditorTools
             go.AddComponent<BrushTransitionView>();
             go.AddComponent<GameOverPopupView>();
             go.AddComponent<PauseMenuView>();
+            var growthController = go.GetComponent<RunGrowthController>() ??
+                                   go.AddComponent<RunGrowthController>();
+            var growthChoiceView = go.GetComponent<GrowthChoiceView>() ??
+                                   go.AddComponent<GrowthChoiceView>();
+            growthChoiceView.SetSprites(
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthVitalityPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthJumpPath));
             go.AddComponent<ScoreManager>();
             for (int i = 0; i < 6; i++)
                 ConfigureAudioSource(go.AddComponent<AudioSource>(), loop: false, priority: 128);
@@ -481,6 +494,16 @@ namespace MukJump.EditorTools
             itemSo.FindProperty("cloneChanceAt30m").floatValue = 0.35f;
             itemSo.FindProperty("cloneChanceAt250m").floatValue = 0.5f;
             itemSo.ApplyModifiedPropertiesWithoutUndo();
+
+            var growthSpawner = go.AddComponent<GrowthScrollSpawner>();
+            var growthSpawnerSo = new SerializedObject(growthSpawner);
+            growthSpawnerSo.FindProperty("growthScrollSprite").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthScrollPath);
+            growthSpawnerSo.FindProperty("firstHeight").floatValue =
+                GrowthScrollSpawner.DefaultFirstHeight;
+            growthSpawnerSo.FindProperty("interval").floatValue =
+                GrowthScrollSpawner.DefaultInterval;
+            growthSpawnerSo.ApplyModifiedPropertiesWithoutUndo();
 
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem),
                 typeof(InputSystemUIInputModule));
@@ -649,14 +672,14 @@ namespace MukJump.EditorTools
             var windIndicator = CreateWindIndicator(topHudRoot, configureUiImporters);
 
             var testControls = CreateUiObject("ItemTestControls", root.transform,
-                new Vector2(0f, 0.5f), new Vector2(410f, 1200f));
+                new Vector2(0f, 0.5f), new Vector2(410f, 1320f));
             testControls.pivot = new Vector2(0f, 0.5f);
             testControls.anchoredPosition = Vector2.zero;
 
             var debugToggleButton = CreateDebugTextButton("DebugToggleButton", testControls,
-                new Vector2(8f, 520f), new Vector2(194f, 64f), "DEBUG");
+                new Vector2(8f, 580f), new Vector2(194f, 64f), "DEBUG");
             var debugPanel = CreateUiObject("DebugPanel", testControls,
-                new Vector2(0f, 0.5f), new Vector2(390f, 980f));
+                new Vector2(0f, 0.5f), new Vector2(390f, 1160f));
             debugPanel.pivot = new Vector2(0f, 0.5f);
             debugPanel.anchoredPosition = new Vector2(8f, -10f);
             var panelBackground = debugPanel.gameObject.AddComponent<Image>();
@@ -683,6 +706,9 @@ namespace MukJump.EditorTools
                 new Color(0.2f, 0.58f, 0.48f), "여유 +35%");
             var haetaeButton = CreateDebugTextButton("HaetaeButton", debugPanel,
                 new Vector2(22f, -438f), new Vector2(145f, 72f), "먹해태");
+            var growthChoiceButton = CreateDebugTextButton(
+                "GrowthChoiceButton", debugPanel,
+                new Vector2(22f, -526f), new Vector2(145f, 72f), "성장 선택");
 
             CreateText("MapDebugTitle", debugPanel, "맵 이동", 30, FontStyle.Bold,
                 new Vector2(0.76f, 0.9f), new Vector2(175f, 55f), InkPalette.Paper);
@@ -731,6 +757,8 @@ namespace MukJump.EditorTools
             so.FindProperty("inkCloneButton").objectReferenceValue = inkCloneButton;
             so.FindProperty("inkReserveButton").objectReferenceValue = inkReserveButton;
             so.FindProperty("haetaeButton").objectReferenceValue = haetaeButton;
+            so.FindProperty("growthChoiceButton").objectReferenceValue =
+                growthChoiceButton;
             so.FindProperty("mapStartButton").objectReferenceValue = mapStartButton;
             so.FindProperty("mapWindButton").objectReferenceValue = mapWindButton;
             so.FindProperty("mapRainButton").objectReferenceValue = mapRainButton;
@@ -1168,6 +1196,9 @@ namespace MukJump.EditorTools
             ConfigureItemSprite(GoldenBrushItemPath, "황금 붓");
             ConfigureItemSprite(InkShieldItemPath, "먹 방어막");
             ConfigureItemSprite(InkCloneItemPath, "먹분신");
+            ConfigureGrowthSprite(GrowthScrollPath, "성장 두루마리");
+            ConfigureGrowthSprite(GrowthVitalityPath, "먹두께 성장");
+            ConfigureGrowthSprite(GrowthJumpPath, "도약 성장");
         }
 
         static void ConfigureInkDropJumpVfxAssets()
@@ -1253,6 +1284,18 @@ namespace MukJump.EditorTools
             }
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.filterMode = FilterMode.Bilinear;
+            importer.SaveAndReimport();
+        }
+
+        /// 선택 카드에서는 172px, 월드에서는 약 0.9유닛으로 보이는 단순 아이콘이라
+        /// 1024가 충분하다. 원본 1254px을 그대로 GPU에 올리는 메모리 낭비를 피한다.
+        static void ConfigureGrowthSprite(string path, string displayName)
+        {
+            ConfigureItemSprite(path, displayName);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) return;
+            importer.maxTextureSize = 1024;
+            importer.textureCompression = TextureImporterCompression.CompressedHQ;
             importer.SaveAndReimport();
         }
 

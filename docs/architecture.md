@@ -68,6 +68,7 @@ asmdef로 강제되지는 않는다. `Core` 안의 UI가 일부 Gameplay 타입�
 | 소유자 | 재사용 객체 | 보존 상한 | 반납 시점 |
 |---|---|---:|---|
 | `ItemSpawner` | `ItemPickup` | 8 | 획득, 화면 아래 이탈, 비플레이 상태 |
+| `GrowthScrollSpawner` | `GrowthScrollPickup` | 1 | 선택판 열림, 화면 아래 이탈, 비플레이 상태 |
 | `ObstacleSpawner` | `Obstacle` | 10 | 화면 아래 이탈, 비플레이 상태 |
 | `ObstacleSpawner` | `HaetaeObstacle` | 2(선행 준비) | 단일 돌진·낙관 소멸 종료, 화면 이탈, 비플레이 상태 |
 | `FallingInkRockSpawner` | `FallingInkRock` | 2 | 충돌, 소멸, 비플레이 상태 |
@@ -246,11 +247,14 @@ kinematic body와 fixed step 이동을 사용한다.
 
 ## 8. 일시정지 경계
 
-일시정지는 `GameState.Paused`로 전환하지 않는다. 아이템·장애물·낙묵석 스포너는
-`Playing`이 아닌 상태를 세션 종료로 해석해 활성 풀을 반납하므로, 상태를 바꾸면
-계속하기 직후 기존 오브젝트와 예약이 사라질 수 있기 때문이다.
+일시정지와 성장 선택은 `GameState.Paused`로 전환하지 않는다. 아이템·장애물·낙묵석
+스포너는 `Playing`이 아닌 상태를 세션 종료로 해석해 활성 풀을 반납하므로, 상태를
+바꾸면 계속하기 직후 기존 오브젝트와 예약이 사라질 수 있기 때문이다.
 
-- `GameManager.IsPaused`와 `PauseChanged`가 일시정지 여부만 별도로 전달한다.
+- `GameManager.PauseReason`은 `None`·`UserMenu`·`GrowthChoice`를 구분하고,
+  `IsPaused`와 `PauseChanged`가 세계 정지 여부를 별도로 전달한다.
+- `PauseMenuView`는 `UserMenu`, `GrowthChoiceView`는 `GrowthChoice`만 표시한다.
+  서로 다른 소유자가 상대 모달을 재개하거나 로비로 보낼 수 없다.
 - 게임 규칙의 매 프레임 경계는 `GameManager.IsGameplayTicking`을 사용한다.
 - `Time.timeScale = 0`으로 물리·발판 수명·날씨·스폰 예약을 그 자리에서 보존한다.
 - 진행 중 스트로크와 히트스톱을 먼저 정리해 정지 중 선이 완성되거나 시간이 다시
@@ -260,6 +264,13 @@ kinematic body와 fixed step 이동을 사용한다.
 - `계속하기`는 이전 `timeScale`·`fixedDeltaTime`을 복원한다.
 - `로비로`는 물리를 멈춘 채 붓 전환을 끝낸 뒤 현재 씬을 다시 불러 런타임 풀과
   분신을 새 세션으로 초기화하고, 저장된 최고 기록은 유지한다.
+
+성장 규칙은 `RunGrowthController`가 세션 단위로 소유한다. `먹두께`는 분신
+컴포넌트에 HP를 복제하지 않고 먹떼 공용 충전을 한 번에 하나만 원자적으로 소비한다.
+따라서 새 분신이 생겨도 충전이 늘지 않으며, 방어막 → 먹두께 → 사망 순서를 지킨다.
+`도약`도 플레이어 직렬화 값을 누적 수정하지 않고 `AutoJump`가 전역 배율을 읽는다.
+월드 두루마리는 일반 아이템과 다른 `GrowthScrollSpawner`의 단일 슬롯 풀을 사용해
+일반 아이템 경제와 선택 UI 수명 주기를 분리한다.
 
 ## 9. 실패·자원 경계
 

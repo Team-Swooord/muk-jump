@@ -14,6 +14,15 @@ namespace MukJump.Core
         GameOver,
     }
 
+    /// Playing 상태를 유지한 채 시간을 멈춘 주체. 서로 다른 일시정지 UI가
+    /// 상대의 닫기 입력으로 게임을 재개하지 않도록 소유권을 명시한다.
+    public enum GameplayPauseReason
+    {
+        None,
+        UserMenu,
+        GrowthChoice,
+    }
+
     /// 게임 상태(로비/플레이/게임오버)와 시작·재도전 흐름을 관리한다.
     public class GameManager : MonoBehaviour
     {
@@ -38,6 +47,8 @@ namespace MukJump.Core
 
         public GameState State { get; private set; } = GameState.Lobby;
         public bool IsPaused { get; private set; }
+        public GameplayPauseReason PauseReason { get; private set; } =
+            GameplayPauseReason.None;
         public bool IsTransitioning =>
             transitionInProgress || (transitionView != null && transitionView.IsPlaying);
         /// 게임 규칙·스폰·물리가 한 틱 진행되어도 되는 공통 계약.
@@ -154,6 +165,10 @@ namespace MukJump.Core
             if (gameOverPopupView == null) gameOverPopupView = gameObject.AddComponent<GameOverPopupView>();
             if (GetComponent<PauseMenuView>() == null)
                 gameObject.AddComponent<PauseMenuView>();
+            if (GetComponent<RunGrowthController>() == null)
+                gameObject.AddComponent<RunGrowthController>();
+            if (GetComponent<GrowthChoiceView>() == null)
+                gameObject.AddComponent<GrowthChoiceView>();
             RefreshPlayerRegistry();
         }
 
@@ -251,24 +266,30 @@ namespace MukJump.Core
         /// 기존 Playing 상태를 바꾸지 않고 물리 시간만 멈춰 활성 풀·분신·날씨를 보존한다.
         public bool PauseGame()
         {
-            if (State != GameState.Playing || IsPaused || IsTransitioning)
-                return false;
-
-            PointerInput.SuppressUntilRelease();
-            FindFirstObjectByType<StrokeCapture>()?.CancelActiveStroke();
-            GameFeedbackController.Instance?.PrepareForPause();
-            timeScaleBeforePause = Mathf.Max(0.01f, Time.timeScale);
-            fixedDeltaBeforePause = Mathf.Max(0.001f, Time.fixedDeltaTime);
-            IsPaused = true;
-            Time.timeScale = 0f;
-            AudioListener.pause = true;
-            PauseChanged?.Invoke(true);
-            return true;
+            return BeginPause(GameplayPauseReason.UserMenu);
         }
 
         public bool ResumeGame()
         {
-            if (!IsPaused || IsTransitioning) return false;
+            if (PauseReason != GameplayPauseReason.UserMenu || IsTransitioning)
+                return false;
+            PointerInput.SuppressUntilRelease();
+            RestorePausedWorld(true);
+            return true;
+        }
+
+        /// 성장 두루마리는 메뉴 일시정지와 같은 시간 정지를 쓰되 별도 소유권을 가진다.
+        /// 선택 UI만 이 계약으로 닫을 수 있어 일시정지판과 겹치거나 교차 해제되지 않는다.
+        public bool BeginGrowthChoicePause()
+        {
+            return BeginPause(GameplayPauseReason.GrowthChoice);
+        }
+
+        public bool EndGrowthChoicePause()
+        {
+            if (PauseReason != GameplayPauseReason.GrowthChoice ||
+                IsTransitioning)
+                return false;
             PointerInput.SuppressUntilRelease();
             RestorePausedWorld(true);
             return true;
@@ -277,7 +298,9 @@ namespace MukJump.Core
         /// 일시정지 화면에서 현재 씬을 다시 불러 로비와 새 세션으로 안전하게 돌아간다.
         public bool ReturnToLobby()
         {
-            if (State != GameState.Playing || !IsPaused || IsTransitioning)
+            if (State != GameState.Playing ||
+                PauseReason != GameplayPauseReason.UserMenu ||
+                IsTransitioning)
                 return false;
 
             transitionInProgress = true;
@@ -578,16 +601,42 @@ namespace MukJump.Core
                 AudioListener.pause = true;
         }
 
+        bool BeginPause(GameplayPauseReason reason)
+        {
+            if (reason == GameplayPauseReason.None ||
+                State != GameState.Playing ||
+                IsPaused ||
+                IsTransitioning)
+                return false;
+
+            PointerInput.SuppressUntilRelease();
+            FindFirstObjectByType<StrokeCapture>()?.CancelActiveStroke();
+            GameFeedbackController.Instance?.PrepareForPause();
+            timeScaleBeforePause = Mathf.Max(0.01f, Time.timeScale);
+            fixedDeltaBeforePause = Mathf.Max(0.001f, Time.fixedDeltaTime);
+            PauseReason = reason;
+            IsPaused = true;
+            Time.timeScale = 0f;
+            AudioListener.pause = true;
+            PauseChanged?.Invoke(true);
+            return true;
+        }
+
         void RestorePausedWorld(bool notify)
         {
             bool wasPaused = IsPaused;
             AudioListener.pause = false;
-            if (!wasPaused) return;
+            if (!wasPaused)
+            {
+                PauseReason = GameplayPauseReason.None;
+                return;
+            }
             if (fixedDeltaBeforePause > 0f &&
                 !Mathf.Approximately(Time.fixedDeltaTime, fixedDeltaBeforePause))
                 Time.fixedDeltaTime = fixedDeltaBeforePause;
             Time.timeScale = Mathf.Max(0.01f, timeScaleBeforePause);
             IsPaused = false;
+            PauseReason = GameplayPauseReason.None;
             timeScaleBeforePause = 1f;
             fixedDeltaBeforePause = 0.02f;
             if (notify && wasPaused)

@@ -314,6 +314,22 @@ public class FallingInkRockTests
         Assert.AreEqual(0.35f, itemSerialized.FindProperty("cloneChanceAt30m").floatValue);
         Assert.AreEqual(0.5f, itemSerialized.FindProperty("cloneChanceAt250m").floatValue);
 
+        var growthController = FindFirstInScene<RunGrowthController>(builderTestScene);
+        var growthChoice = FindFirstInScene<GrowthChoiceView>(builderTestScene);
+        var growthSpawner = FindFirstInScene<GrowthScrollSpawner>(builderTestScene);
+        Assert.IsNotNull(growthController);
+        Assert.IsNotNull(growthChoice);
+        Assert.IsNotNull(growthSpawner);
+        var growthSerialized = new SerializedObject(growthSpawner);
+        Assert.IsNotNull(
+            growthSerialized.FindProperty("growthScrollSprite").objectReferenceValue);
+        Assert.AreEqual(
+            GrowthScrollSpawner.DefaultFirstHeight,
+            growthSerialized.FindProperty("firstHeight").floatValue);
+        Assert.AreEqual(
+            GrowthScrollSpawner.DefaultInterval,
+            growthSerialized.FindProperty("interval").floatValue);
+
         var capture = FindFirstInScene<StrokeCapture>(builderTestScene);
         Assert.IsNotNull(capture);
         var captureSerialized = new SerializedObject(capture);
@@ -432,6 +448,8 @@ public class FallingInkRockTests
             hudSerialized.FindProperty("vfxQualityButton").objectReferenceValue as Button);
         Assert.IsNotNull(
             hudSerialized.FindProperty("vfxStatsText").objectReferenceValue as Text);
+        Assert.IsNotNull(
+            hudSerialized.FindProperty("growthChoiceButton").objectReferenceValue as Button);
         Assert.IsNotNull(windIndicator);
         Assert.IsNotNull(newBestIndicator);
         var windSerialized = new SerializedObject(windIndicator);
