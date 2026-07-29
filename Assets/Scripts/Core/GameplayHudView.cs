@@ -3,6 +3,7 @@ using UnityEngine.Serialization;
 using UnityEngine.UI;
 using MukJump.Items;
 using MukJump.Drawing;
+using MukJump.Obstacles;
 
 namespace MukJump.Core
 {
@@ -38,6 +39,7 @@ namespace MukJump.Core
         [SerializeField] Button updraftButton;
         [SerializeField] Button windDirectionButton;
         [SerializeField] Button windPlatformButton;
+        [SerializeField] Button haetaeButton;
         [SerializeField] Button vfxQualityButton;
         [SerializeField] Text vfxQualityLabel;
         [SerializeField] Text vfxStatsText;
@@ -90,6 +92,7 @@ namespace MukJump.Core
                 updraftButton?.onClick.AddListener(TriggerUpdraft);
                 windDirectionButton?.onClick.AddListener(FlipWindDirection);
                 windPlatformButton?.onClick.AddListener(SpawnWindPlatform);
+                haetaeButton?.onClick.AddListener(SpawnHaetae);
                 vfxQualityButton?.onClick.AddListener(CycleVfxQuality);
             }
         }
@@ -117,6 +120,7 @@ namespace MukJump.Core
             updraftButton?.onClick.RemoveListener(TriggerUpdraft);
             windDirectionButton?.onClick.RemoveListener(FlipWindDirection);
             windPlatformButton?.onClick.RemoveListener(SpawnWindPlatform);
+            haetaeButton?.onClick.RemoveListener(SpawnHaetae);
             vfxQualityButton?.onClick.RemoveListener(CycleVfxQuality);
         }
 
@@ -161,6 +165,12 @@ namespace MukJump.Core
         {
             MarkDebugRun();
             RestPlatformSpawner.Instance?.DebugSpawnWindNearPlayer();
+        }
+
+        void SpawnHaetae()
+        {
+            MarkDebugRun();
+            ObstacleSpawner.Instance?.DebugSpawnHaetae();
         }
 
         void CycleVfxQuality()
@@ -236,6 +246,7 @@ namespace MukJump.Core
             ConfigureDebugButton(updraftButton, "상승기류", 27);
             ConfigureDebugButton(windDirectionButton, "풍향 전환", 27);
             ConfigureDebugButton(windPlatformButton, null, 27);
+            ConfigureDebugButton(haetaeButton, "먹해태", 27);
             ConfigureDebugButton(vfxQualityButton, null, 23);
             ConfigureDebugButton(inkDropButton, null, 26);
             ConfigureDebugButton(goldenBrushButton, null, 26);
@@ -473,6 +484,8 @@ namespace MukJump.Core
         void EnsureVfxDebugControls()
         {
             if (debugPanel == null) return;
+            if (haetaeButton == null)
+                haetaeButton = debugPanel.Find("HaetaeButton")?.GetComponent<Button>();
             if (vfxQualityButton == null)
             {
                 var existing = debugPanel.Find("VfxQualityButton");
@@ -521,6 +534,11 @@ namespace MukJump.Core
                     vfxQualityButton.transform.Find("Label")?.GetComponent<Text>();
             }
 
+            if (haetaeButton == null)
+                haetaeButton = CreateRuntimeDebugButton(
+                    "HaetaeButton", "먹해태", new Vector2(22f, -438f),
+                    new Vector2(145f, 72f));
+
             if (vfxStatsText != null) return;
             var statsObject = new GameObject(
                 "VfxStatsText",
@@ -535,6 +553,43 @@ namespace MukJump.Core
             vfxStatsText.text = "VFX 통계 준비 중";
             vfxStatsText.alignment = TextAnchor.MiddleCenter;
             vfxStatsText.raycastTarget = false;
+        }
+
+        Button CreateRuntimeDebugButton(
+            string objectName, string label, Vector2 position, Vector2 size)
+        {
+            var buttonObject = new GameObject(
+                objectName,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button));
+            var rect = buttonObject.GetComponent<RectTransform>();
+            rect.SetParent(debugPanel, false);
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 0.5f);
+            rect.pivot = new Vector2(0f, 0.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+            var image = buttonObject.GetComponent<Image>();
+            image.color = new Color(0.92f, 0.89f, 0.82f, 0.94f);
+            var button = buttonObject.GetComponent<Button>();
+            button.targetGraphic = image;
+
+            var labelObject = new GameObject(
+                "Label",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Text));
+            var labelRect = labelObject.GetComponent<RectTransform>();
+            labelRect.SetParent(rect, false);
+            labelRect.anchorMin = labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            labelRect.sizeDelta = size - new Vector2(12f, 10f);
+            var labelText = labelObject.GetComponent<Text>();
+            labelText.text = label;
+            labelText.alignment = TextAnchor.MiddleCenter;
+            labelText.raycastTarget = false;
+            ConfigureDebugButton(button, label, 27);
+            return button;
         }
 
         void Update()

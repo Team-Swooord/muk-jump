@@ -241,7 +241,8 @@ namespace MukJump.Core
             switch (Phase)
             {
                 case WindWeatherPhase.Breeze:
-                    if (CurrentHeight >= NextUpdraftHeight)
+                    if (CurrentHeight >= NextUpdraftHeight &&
+                        !HazardConcurrencyGate.HasHaetaeReservation)
                         BeginWarning();
                     break;
                 case WindWeatherPhase.Warning:

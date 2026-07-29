@@ -22,6 +22,10 @@ namespace MukJump.Drawing
         public float Length { get; private set; }
         public LineRenderer Line { get; private set; }
         public bool IsWindCurrentPlatform => windCurrentPlatform;
+        /// 런타임에서 플레이어가 그린 유한 수명 먹선만 해태 돌진을 막을 수 있다.
+        /// 시작 지형과 풍맥처럼 영구 배치된 발판은 수문장을 자동으로 제거하지 않는다.
+        public bool IsTemporaryDrawnPlatform =>
+            lifetime > 0f && !windCurrentPlatform && !removalRequested;
         EdgeCollider2D edge;
         readonly HashSet<int> windUsers = new();
         readonly Gradient fadeGradient = new();

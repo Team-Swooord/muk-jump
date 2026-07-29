@@ -41,6 +41,8 @@ namespace MukJump.EditorTools
             "Assets/Resources/MukJump/Obstacles/child_ink_dragon.png";
         const string DragonObstacleSheetPath =
             "Assets/Resources/MukJump/Obstacles/child_ink_dragon_4frame_v3.png";
+        const string HaetaeObstacleSheetPath =
+            "Assets/Resources/MukJump/Obstacles/child_ink_haetae_4frame_v2.png";
         const string FallingInkRockPath = "Assets/Art/Character/Obstacles/anermy_02.png";
         const string LobbyLogoPath = "Assets/Art/UI/muk_logo.png";
         const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";
@@ -112,6 +114,7 @@ namespace MukJump.EditorTools
             ConfigureDeathSprites();
             ConfigureObstacleSprite();
             ConfigureDragonObstacleSprites();
+            ConfigureHaetaeObstacleSprites();
             ConfigureFallingInkRockSprite();
             ConfigureItemSprites();
             ConfigureInkDropJumpVfxAssets();
@@ -134,6 +137,13 @@ namespace MukJump.EditorTools
         public static void ConfigureDragonObstacleSprites()
         {
             ConfigureDragonObstacleSprite();
+            AssetDatabase.SaveAssets();
+        }
+
+        [MenuItem("MukJump/Configure Haetae Obstacle Sprites")]
+        public static void ConfigureHaetaeObstacleSprites()
+        {
+            ConfigureHaetaeObstacleSheet();
             AssetDatabase.SaveAssets();
         }
 
@@ -384,7 +394,7 @@ namespace MukJump.EditorTools
             go.AddComponent<VfxRuntimeMonitor>();
             go.AddComponent<GameFeedbackController>();
             go.AddComponent<HeightZoneController>();
-            go.AddComponent<WindWeatherController>();
+            var windWeatherController = go.AddComponent<WindWeatherController>();
             go.AddComponent<WindWeatherView>();
             go.AddComponent<RestPlatformSpawner>();
             go.AddComponent<SketchToInkService>();
@@ -415,6 +425,20 @@ namespace MukJump.EditorTools
             for (int i = 0; i < dragonFrames.Length; i++)
                 dragonFrameProperty.GetArrayElementAtIndex(i).objectReferenceValue =
                     dragonFrames[i];
+            var haetaeFrames = LoadHaetaeObstacleFrames();
+            obstacleSo.FindProperty("haetaeSprite").objectReferenceValue =
+                haetaeFrames.Length > 0 ? haetaeFrames[0] : null;
+            var haetaeFrameProperty = obstacleSo.FindProperty("haetaeFrames");
+            haetaeFrameProperty.arraySize = haetaeFrames.Length;
+            for (int i = 0; i < haetaeFrames.Length; i++)
+                haetaeFrameProperty.GetArrayElementAtIndex(i).objectReferenceValue =
+                    haetaeFrames[i];
+            obstacleSo.FindProperty("haetaeUnlockHeight").floatValue = 320f;
+            obstacleSo.FindProperty("haetaeChance").floatValue = 0.12f;
+            obstacleSo.FindProperty("dragonChanceBeforeHaetae").floatValue = 0.28f;
+            obstacleSo.FindProperty("dragonChance").floatValue = 0.18f;
+            obstacleSo.FindProperty("windWeatherController").objectReferenceValue =
+                windWeatherController;
             obstacleSo.FindProperty("firstSpawnHeight").floatValue = 30f;
             obstacleSo.ApplyModifiedPropertiesWithoutUndo();
 
@@ -430,6 +454,11 @@ namespace MukJump.EditorTools
                 LayerMask.GetMask("Default", "Platform", "Player");
             fallingSo.FindProperty("startHeight").floatValue = 30f;
             fallingSo.ApplyModifiedPropertiesWithoutUndo();
+
+            obstacleSo.Update();
+            obstacleSo.FindProperty("fallingInkRockSpawner").objectReferenceValue =
+                fallingSpawner;
+            obstacleSo.ApplyModifiedPropertiesWithoutUndo();
 
             var itemSpawner = go.AddComponent<ItemSpawner>();
             var itemSo = new SerializedObject(itemSpawner);
@@ -649,6 +678,8 @@ namespace MukJump.EditorTools
             var inkReserveButton = CreateItemTestButton("InkReserveButton", debugPanel,
                 placeholderTexture, new Vector2(22f, -320f),
                 new Color(0.2f, 0.58f, 0.48f), "여유 +35%");
+            var haetaeButton = CreateDebugTextButton("HaetaeButton", debugPanel,
+                new Vector2(22f, -438f), new Vector2(145f, 72f), "먹해태");
 
             CreateText("MapDebugTitle", debugPanel, "맵 이동", 30, FontStyle.Bold,
                 new Vector2(0.76f, 0.9f), new Vector2(175f, 55f), InkPalette.Paper);
@@ -696,6 +727,7 @@ namespace MukJump.EditorTools
             so.FindProperty("inkShieldButton").objectReferenceValue = inkShieldButton;
             so.FindProperty("inkCloneButton").objectReferenceValue = inkCloneButton;
             so.FindProperty("inkReserveButton").objectReferenceValue = inkReserveButton;
+            so.FindProperty("haetaeButton").objectReferenceValue = haetaeButton;
             so.FindProperty("mapStartButton").objectReferenceValue = mapStartButton;
             so.FindProperty("mapWindButton").objectReferenceValue = mapWindButton;
             so.FindProperty("mapRainButton").objectReferenceValue = mapRainButton;
@@ -1021,6 +1053,93 @@ namespace MukJump.EditorTools
         {
             var allAssets = AssetDatabase.LoadAllAssetsAtPath(
                 DragonObstacleSheetPath);
+            var frames = new List<Sprite>(4);
+            for (int i = 0; i < allAssets.Length; i++)
+                if (allAssets[i] is Sprite sprite)
+                    frames.Add(sprite);
+            frames.Sort((left, right) =>
+                string.CompareOrdinal(left.name, right.name));
+            return frames.ToArray();
+        }
+
+        static void ConfigureHaetaeObstacleSheet()
+        {
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                HaetaeObstacleSheetPath);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(
+                HaetaeObstacleSheetPath);
+            if (texture == null || importer == null)
+            {
+                Debug.LogWarning(
+                    $"[MukJump] 어린 해태 애니메이션 시트를 찾을 수 없음: {HaetaeObstacleSheetPath}");
+                return;
+            }
+
+            const int columns = 2;
+            const int rows = 2;
+            importer.GetSourceTextureWidthAndHeight(
+                out int sourceWidth, out int sourceHeight);
+            if (sourceWidth != 1254 || sourceHeight != 1254 ||
+                sourceWidth % columns != 0 || sourceHeight % rows != 0)
+            {
+                Debug.LogError(
+                    $"[MukJump] 어린 해태 시트는 1254×1254의 2×2 그리드여야 함: " +
+                    $"{sourceWidth}×{sourceHeight}");
+                return;
+            }
+            int frameWidth = sourceWidth / columns;
+            int frameHeight = sourceHeight / rows;
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Multiple;
+            importer.spritePixelsPerUnit = 700f;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.maxTextureSize = 2048;
+            var importerSettings = new TextureImporterSettings();
+            importer.ReadTextureSettings(importerSettings);
+            importerSettings.spriteMeshType = SpriteMeshType.FullRect;
+            importer.SetTextureSettings(importerSettings);
+
+            // 좌상단부터 서기 → 웅크리기 → 돌진 → 착지 순서로 고정한다.
+            // 프레임마다 투명 여백이 달라 중앙 피벗을 쓰면 몸이 최대 약 0.5월드 단위
+            // 튄다. 각 셀의 불투명 몸체 중심을 같은 원점에 맞춘 피벗을 사용한다.
+            var bodyPivots = new[]
+            {
+                new Vector2(350f / 627f, 287.5f / 627f),
+                new Vector2(293f / 627f, 256.5f / 627f),
+                new Vector2(344.5f / 627f, 399f / 627f),
+                new Vector2(286.5f / 627f, 359.5f / 627f),
+            };
+            var metas = new SpriteMetaData[columns * rows];
+            for (int i = 0; i < metas.Length; i++)
+            {
+                int column = i % columns;
+                int row = i / columns;
+                metas[i] = new SpriteMetaData
+                {
+                    name = $"child_ink_haetae_frame_{i:00}",
+                    rect = new Rect(
+                        column * frameWidth,
+                        (rows - 1 - row) * frameHeight,
+                        frameWidth,
+                        frameHeight),
+                    alignment = (int)SpriteAlignment.Custom,
+                    pivot = bodyPivots[i],
+                };
+            }
+#pragma warning disable CS0618
+            importer.spritesheet = metas;
+#pragma warning restore CS0618
+            importer.SaveAndReimport();
+        }
+
+        static Sprite[] LoadHaetaeObstacleFrames()
+        {
+            var allAssets = AssetDatabase.LoadAllAssetsAtPath(
+                HaetaeObstacleSheetPath);
             var frames = new List<Sprite>(4);
             for (int i = 0; i < allAssets.Length; i++)
                 if (allAssets[i] is Sprite sprite)
