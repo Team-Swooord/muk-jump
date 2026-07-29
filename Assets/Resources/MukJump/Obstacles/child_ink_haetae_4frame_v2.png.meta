@@ -14,6 +14,18 @@ TextureImporter:
   - first:
       213: 3231589980523628683
     second: child_ink_haetae_4frame_v2_3
+  - first:
+      213: -9062727454435489099
+    second: child_ink_haetae_frame_00
+  - first:
+      213: 146047166103644277
+    second: child_ink_haetae_frame_01
+  - first:
+      213: 4841867035346309382
+    second: child_ink_haetae_frame_02
+  - first:
+      213: 3106362587372100372
+    second: child_ink_haetae_frame_03
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -57,10 +69,10 @@ TextureImporter:
   compressionQuality: 50
   spriteMode: 2
   spriteExtrude: 1
-  spriteMeshType: 1
+  spriteMeshType: 0
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 100
+  spritePixelsToUnits: 700
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -122,89 +134,89 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: child_ink_haetae_4frame_v2_0
+      name: child_ink_haetae_frame_00
       rect:
         serializedVersion: 2
-        x: 91
-        y: 700
-        width: 518
-        height: 429
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 0
+        y: 627
+        width: 627
+        height: 627
+      alignment: 9
+      pivot: {x: 0.5582137, y: 0.4585327}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData:
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 0c12533aa3596b710800000000000000
-      internalID: 1708717187712491968
+      spriteID: 5ba41368569ba3280800000000000000
+      internalID: -9062727454435489099
       vertices: []
       indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: child_ink_haetae_4frame_v2_1
+      name: child_ink_haetae_frame_01
       rect:
         serializedVersion: 2
-        x: 644
-        y: 693
-        width: 552
-        height: 381
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 627
+        y: 627
+        width: 627
+        height: 627
+      alignment: 9
+      pivot: {x: 0.46730462, y: 0.4090909}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData:
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 7cd9deafd6c274be0800000000000000
-      internalID: -1493175900577096249
+      spriteID: 5786f00bf1dd60200800000000000000
+      internalID: 146047166103644277
       vertices: []
       indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: child_ink_haetae_4frame_v2_2
+      name: child_ink_haetae_frame_02
       rect:
         serializedVersion: 2
-        x: 91
-        y: 197
-        width: 507
-        height: 404
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 0
+        y: 0
+        width: 627
+        height: 627
+      alignment: 9
+      pivot: {x: 0.5494418, y: 0.6363636}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData:
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 521425992fa882d20800000000000000
-      internalID: 3254003505334206757
+      spriteID: 6019d735a64c13340800000000000000
+      internalID: 4841867035346309382
       vertices: []
       indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: child_ink_haetae_4frame_v2_3
+      name: child_ink_haetae_frame_03
       rect:
         serializedVersion: 2
-        x: 662
-        y: 148
-        width: 503
-        height: 423
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 627
+        y: 0
+        width: 627
+        height: 627
+      alignment: 9
+      pivot: {x: 0.4569378, y: 0.5733652}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData:
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: b8882d037f9e8dc20800000000000000
-      internalID: 3231589980523628683
+      spriteID: 41b90e3a0540c1b20800000000000000
+      internalID: 3106362587372100372
       vertices: []
       indices:
       edges: []
@@ -227,6 +239,10 @@ TextureImporter:
       child_ink_haetae_4frame_v2_1: -1493175900577096249
       child_ink_haetae_4frame_v2_2: 3254003505334206757
       child_ink_haetae_4frame_v2_3: 3231589980523628683
+      child_ink_haetae_frame_00: -9062727454435489099
+      child_ink_haetae_frame_01: 146047166103644277
+      child_ink_haetae_frame_02: 4841867035346309382
+      child_ink_haetae_frame_03: 3106362587372100372
   mipmapLimitGroupName:
   pSDRemoveMatte: 0
   userData:

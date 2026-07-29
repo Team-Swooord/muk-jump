@@ -48,6 +48,15 @@ namespace MukJump.Obstacles
         float spawnTimer;
         bool missingReferenceLogged;
         public float RuntimeIntervalMultiplier { get; set; } = 1f;
+        /// 경고·낙하·용해 중인 낙묵석이 하나라도 있으면 다른 큰 위험 패턴을 미룬다.
+        public bool HasActiveThreat
+        {
+            get
+            {
+                CleanupList();
+                return active.Count > 0;
+            }
+        }
 
         void OnEnable()
         {
@@ -106,10 +115,18 @@ namespace MukJump.Obstacles
             }
 
             spawnTimer -= Time.deltaTime;
-            if (spawnTimer > 0f || active.Count >= maxActiveRocks) return;
+            if (spawnTimer > 0f ||
+                active.Count >= maxActiveRocks ||
+                IsSpawnBlockedByConcurrentHazard())
+                return;
 
             Spawn();
             spawnTimer = NextInterval(height);
+        }
+
+        bool IsSpawnBlockedByConcurrentHazard()
+        {
+            return HazardConcurrencyGate.HasHaetaeReservation;
         }
 
         void Spawn()
