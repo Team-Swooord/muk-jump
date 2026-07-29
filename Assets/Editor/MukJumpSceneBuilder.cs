@@ -217,6 +217,7 @@ namespace MukJump.EditorTools
             var camera = BuildCamera();
             BuildBackground(camera.transform);
             var player = BuildPlayer();
+            BuildStarterPlatform(player);
             BuildSystems(camera, player, configureUiImporters);
             BuildLobbyUi(configureUiImporters);
             BuildGameplayUi(configureUiImporters);
@@ -373,6 +374,32 @@ namespace MukJump.EditorTools
             return go;
         }
 
+        /// 시작 버튼 방식에서도 첫 프레임에 추락하지 않도록 씬에 영구 먹 발판을 둔다.
+        /// 런타임 Spawn 발판과 달리 수명·동시 획 예산을 소모하지 않는 재현 가능한 시작 지형이다.
+        static void BuildStarterPlatform(GameObject player)
+        {
+            var go = new GameObject("StarterInkPlatform")
+            {
+                layer = LayerMask.NameToLayer("Platform"),
+            };
+            go.transform.position = new Vector3(
+                player.transform.position.x,
+                player.transform.position.y - 0.42f,
+                0f);
+
+            var line = go.AddComponent<LineRenderer>();
+            line.useWorldSpace = false;
+            line.sortingOrder = 2;
+            var edge = go.AddComponent<EdgeCollider2D>();
+            edge.points = new[]
+            {
+                new Vector2(-1.65f, 0f),
+                new Vector2(1.65f, 0f),
+            };
+            edge.edgeRadius = 0.06f;
+            go.AddComponent<PlatformCollider>();
+        }
+
         static Dictionary<string, Sprite> LoadCharacterFrames()
         {
             var sheetSprites = AssetDatabase.LoadAllAssetsAtPath(CharSheetPath);
@@ -408,6 +435,7 @@ namespace MukJump.EditorTools
                                    go.AddComponent<RunGrowthController>();
             var growthChoiceView = go.GetComponent<GrowthChoiceView>() ??
                                    go.AddComponent<GrowthChoiceView>();
+            go.AddComponent<LobbyCollectionView>();
             growthChoiceView.SetSprites(
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthVitalityPath),
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthJumpPath),
@@ -599,24 +627,83 @@ namespace MukJump.EditorTools
                 ConfigureUiTexture(StartButtonPath);
             var lobbyBest = CreateLobbyRecordDisplay("BestDisplay", root.transform, "최고 0",
                 LobbyBestAnchor);
-            var brush = CreateUiObject("BrushGuide", root.transform, new Vector2(0.5f, 0.5f),
-                new Vector2(105f, 105f));
-            brush.anchoredPosition = new Vector2(0f, -620f);
-            var brushImage = brush.gameObject.AddComponent<RawImage>();
-            brushImage.texture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/UI/muk_brush_icon.png");
-            brushImage.raycastTarget = false;
-            var brushGroup = brush.gameObject.AddComponent<CanvasGroup>();
-            brushGroup.alpha = 0.5f;
-            brushGroup.interactable = false;
-            brushGroup.blocksRaycasts = false;
+            var buttonTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
+            var startButton = CreateLobbyMenuButton(
+                "StartButton",
+                root.transform,
+                buttonTexture,
+                "시작",
+                new Vector2(0.5f, 0.34f),
+                Vector2.zero,
+                new Vector2(590f, 132f),
+                54);
+            var growthButton = CreateLobbyMenuButton(
+                "GrowthButton",
+                root.transform,
+                buttonTexture,
+                "성장",
+                new Vector2(0.5f, 0.265f),
+                new Vector2(-155f, 0f),
+                new Vector2(280f, 92f),
+                38);
+            var codexButton = CreateLobbyMenuButton(
+                "CodexButton",
+                root.transform,
+                buttonTexture,
+                "도감",
+                new Vector2(0.5f, 0.265f),
+                new Vector2(155f, 0f),
+                new Vector2(280f, 92f),
+                38);
 
             var view = root.GetComponent<LobbyView>();
             var so = new SerializedObject(view);
-            so.FindProperty("brushGuide").objectReferenceValue = brush;
-            so.FindProperty("brushCanvasGroup").objectReferenceValue = brushGroup;
-            so.FindProperty("canvasRect").objectReferenceValue = root.GetComponent<RectTransform>();
             so.FindProperty("bestText").objectReferenceValue = lobbyBest;
+            so.FindProperty("startButton").objectReferenceValue = startButton;
+            so.FindProperty("growthButton").objectReferenceValue = growthButton;
+            so.FindProperty("codexButton").objectReferenceValue = codexButton;
             so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static Button CreateLobbyMenuButton(
+            string name,
+            Transform parent,
+            Texture2D texture,
+            string label,
+            Vector2 anchor,
+            Vector2 position,
+            Vector2 size,
+            int fontSize)
+        {
+            var rect = CreateUiObject(name, parent, anchor, size);
+            rect.anchoredPosition = position;
+            var background = rect.gameObject.AddComponent<RawImage>();
+            background.texture = texture;
+            background.color = Color.white;
+            background.raycastTarget = true;
+
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = background;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            button.transition = Selectable.Transition.ColorTint;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 1f, 1f, 0.9f);
+            colors.pressedColor = new Color(0.8f, 0.77f, 0.68f, 1f);
+            colors.selectedColor = Color.white;
+            colors.disabledColor = new Color(0.3f, 0.3f, 0.3f, 0.45f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+
+            var text = CreateText("Label", rect, label, fontSize, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), size - new Vector2(70f, 18f),
+                InkPalette.TextLight);
+            text.raycastTarget = false;
+            text.resizeTextMinSize = Mathf.Max(26, fontSize - 8);
+            text.resizeTextMaxSize = fontSize;
+            AddReadableTextWeight(text, 0.28f);
+            return button;
         }
 
         static Text CreateLobbyRecordDisplay(

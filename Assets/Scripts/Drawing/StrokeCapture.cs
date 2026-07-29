@@ -161,7 +161,9 @@ namespace MukJump.Drawing
 
             if (GameManager.Instance.State == GameState.Lobby)
             {
-                UpdateLobbyStroke();
+                // 로비는 명시적인 시작·성장·도감 버튼만 입력받는다.
+                // 여기서 획을 받으면 UI 탭과 동시에 발판이 생기는 입력 경합이 발생한다.
+                if (drawing) CancelStroke();
                 return;
             }
 
@@ -202,21 +204,6 @@ namespace MukJump.Drawing
             }
         }
 
-        void UpdateLobbyStroke()
-        {
-            if (PointerInput.TryGetPressed(out var screenPos))
-            {
-                if (drawing)
-                    ContinueStroke(screenPos);
-                else
-                    BeginStroke(screenPos);
-            }
-            else if (drawing)
-            {
-                EndStroke(startGame: true);
-            }
-        }
-
         Vector2 ToWorld(Vector2 screenPos)
         {
             return cam.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, -cam.transform.position.z));
@@ -236,14 +223,12 @@ namespace MukJump.Drawing
 
         void ContinueStroke(Vector2 screenPos)
         {
-            bool lobbyStroke = GameManager.Instance != null &&
-                               GameManager.Instance.State == GameState.Lobby;
             Vector2 world = ToWorld(screenPos);
             float step = Vector2.Distance(points[^1], world);
             if (step < minPointDistance) return;
 
             // 먹이 다 떨어지면 그 지점에서 획이 끝난다 — 회복될 때까지 더 그릴 수 없다
-            if (!lobbyStroke && !HasUnlimitedInk && ink + inkReserve <= 0f)
+            if (!HasUnlimitedInk && ink + inkReserve <= 0f)
             {
                 EndStroke();
                 return;
@@ -254,9 +239,6 @@ namespace MukJump.Drawing
             // 생겨 일직선으로 길게 그은 발판 중간이 붕 뜨는 문제가 있었음)
             if (strokeLength + step > maxContinuousStrokeLength)
             {
-                // 로비의 시작선은 한 획만 인정하므로 최대 길이에 도달하면 손을 뗄 때까지 유지한다.
-                if (lobbyStroke) return;
-
                 Vector2 seam = points[^1];
                 EndStroke();
                 BeginStrokeAtWorld(seam);
@@ -264,7 +246,7 @@ namespace MukJump.Drawing
             }
 
             bool exhaustsInk = false;
-            if (!lobbyStroke && !HasUnlimitedInk)
+            if (!HasUnlimitedInk)
             {
                 float availableInk = Mathf.Max(0f, ink) + Mathf.Max(0f, inkReserve);
                 float affordableStep = LimitStepToAvailableInk(step, ink, inkReserve);
@@ -282,7 +264,7 @@ namespace MukJump.Drawing
             }
 
             strokeLength += step;
-            if (!lobbyStroke && !HasUnlimitedInk)
+            if (!HasUnlimitedInk)
                 ConsumeInk(step);
             points.Add(world);
             GameFeedbackController.Instance?.PlayBrushMovement(step);
@@ -307,7 +289,7 @@ namespace MukJump.Drawing
             ink = Mathf.Max(0f, ink - (amount - reserveUse));
         }
 
-        void EndStroke(bool startGame = false)
+        void EndStroke()
         {
             drawing = false;
             GameFeedbackController.Instance?.StopBrushDrawing();
@@ -329,21 +311,16 @@ namespace MukJump.Drawing
 
             // 캐릭터와 너무 가까운 부분만 잘라내 콜라이더 밀어내기로 캐릭터를
             // 튕겨 올리는 악용은 막되, 나머지 유효한 획은 발판으로 살린다.
-            if (!startGame)
+            smoothed = LongestSafeSegment(smoothed);
+            if (smoothed.Count < 2 ||
+                BezierSmoother.PolylineLength(smoothed) < minStrokeLength)
             {
-                smoothed = LongestSafeSegment(smoothed);
-                if (smoothed.Count < 2 ||
-                    BezierSmoother.PolylineLength(smoothed) < minStrokeLength)
-                {
-                    GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, false);
-                    return;
-                }
+                GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, false);
+                return;
             }
 
             PlatformCollider.Spawn(smoothed);
             GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, true);
-            if (startGame)
-                GameManager.Instance?.StartGameFromStroke();
         }
 
         void CancelStroke()

@@ -113,6 +113,7 @@ namespace MukJump.Core
         readonly List<GrowthUpgradeType> offerCandidates = new(AllUpgrades.Length);
         GameManager manager;
         bool choiceSelected;
+        bool focusOfferConsumed;
 
         void Awake()
         {
@@ -356,6 +357,7 @@ namespace MukJump.Core
             ItemFortuneLevel = 0;
             HasPendingChoice = false;
             choiceSelected = false;
+            focusOfferConsumed = false;
             currentOffers.Clear();
             RunReset?.Invoke();
             Changed?.Invoke();
@@ -372,10 +374,27 @@ namespace MukJump.Core
         {
             currentOffers.Clear();
 
+            GrowthUpgradeType? focusedUpgrade = null;
+            if (!focusOfferConsumed)
+            {
+                focusOfferConsumed = true;
+                if (GrowthFocusProfile.TryGetRuntimeUpgrade(out var preferred) &&
+                    CanSelectUpgrade(preferred))
+                {
+                    currentOffers.Add(preferred);
+                    focusedUpgrade = preferred;
+                }
+            }
+
             // 몸·드로잉에서 하나씩 먼저 보장해 선택지가 한 계통에만 몰리지 않게 한다.
-            TryAddRandomOffer(BodyUpgrades);
-            TryAddRandomOffer(DrawingUpgrades);
-            TryAddRandomOffer(AllUpgrades);
+            if (!focusedUpgrade.HasValue ||
+                !Contains(BodyUpgrades, focusedUpgrade.Value))
+                TryAddRandomOffer(BodyUpgrades);
+            if (!focusedUpgrade.HasValue ||
+                !Contains(DrawingUpgrades, focusedUpgrade.Value))
+                TryAddRandomOffer(DrawingUpgrades);
+            if (currentOffers.Count < 3)
+                TryAddRandomOffer(AllUpgrades);
 
             // 한 계통이 모두 최대라 보장 슬롯이 비었다면 남은 전체 풀에서 채운다.
             while (currentOffers.Count < 3 && TryAddRandomOffer(AllUpgrades))
@@ -406,6 +425,16 @@ namespace MukJump.Core
         {
             for (int i = 0; i < currentOffers.Count; i++)
                 if (currentOffers[i] == upgrade)
+                    return true;
+            return false;
+        }
+
+        static bool Contains(
+            IReadOnlyList<GrowthUpgradeType> source,
+            GrowthUpgradeType upgrade)
+        {
+            for (int i = 0; i < source.Count; i++)
+                if (source[i] == upgrade)
                     return true;
             return false;
         }

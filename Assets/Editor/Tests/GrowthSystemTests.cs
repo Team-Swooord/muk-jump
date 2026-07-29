@@ -152,6 +152,38 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void LobbyTrainingFocusIsGuaranteedInFirstGrowthChoice()
+        {
+            Assert.That(
+                RoguelikeGrowthCatalog.TryGetDefinition(
+                    GrowthUpgradeType.ItemFortune,
+                    out var focusedDefinition),
+                Is.True);
+            Assert.That(
+                GrowthFocusProfile.SetForTests(focusedDefinition.Id),
+                Is.True);
+
+            try
+            {
+                GameplayRandom.ResetSession(20260731);
+                CreatePlayingManager(out var growth);
+
+                Assert.That(growth.RequestChoice(), Is.True);
+                var offers = growth.CurrentOffers.ToArray();
+                CollectionAssert.Contains(offers, GrowthUpgradeType.ItemFortune,
+                    "로비에서 고른 수련 방향은 첫 두루마리 한 칸을 보장해야 합니다.");
+                Assert.That(offers, Has.Length.EqualTo(3));
+                Assert.That(offers.Any(IsBodyUpgrade), Is.True);
+                Assert.That(offers.Any(IsDrawingUpgrade), Is.True);
+                Assert.That(growth.CancelChoice(), Is.True);
+            }
+            finally
+            {
+                GrowthFocusProfile.ResetForTests();
+            }
+        }
+
+        [Test]
         public void GrowthRejectsNonOfferAndExcludesMaxedUpgrades()
         {
             GameplayRandom.ResetSession(20260730);

@@ -3,28 +3,38 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 씬 빌더가 구성한 로비 Canvas의 표시와 붓 안내 연출을 담당한다.
+    /// 씬 빌더가 구성한 로비 Canvas의 표시와 시작·성장·도감 진입을 담당한다.
     [ExecuteAlways]
     public class LobbyView : MonoBehaviour
     {
-        [SerializeField] RectTransform brushGuide;
-        [SerializeField] CanvasGroup brushCanvasGroup;
-        [SerializeField] RectTransform canvasRect;
         [SerializeField] Text bestText;
+        [SerializeField] Button startButton;
+        [SerializeField] Button growthButton;
+        [SerializeField] Button codexButton;
 
-        Transform player;
-        Camera cam;
+        LobbyCollectionView collectionView;
+        bool listenersBound;
+
+        public Button StartButton => startButton;
+        public Button GrowthButton => growthButton;
+        public Button CodexButton => codexButton;
 
         void OnEnable()
         {
             ApplyUiFont();
+            if (Application.isPlaying)
+                BindListeners();
         }
 
         void Start()
         {
-            var controller = FindFirstObjectByType<Player.PlayerController>();
-            if (controller != null) player = controller.transform;
-            cam = Camera.main;
+            BindListeners();
+            RefreshBest();
+        }
+
+        void OnDisable()
+        {
+            UnbindListeners();
         }
 
         void Update()
@@ -38,22 +48,56 @@ namespace MukJump.Core
                 gameObject.SetActive(show);
                 return;
             }
-            if (!show || brushGuide == null || canvasRect == null || player == null || cam == null) return;
+            if (!show) return;
+            RefreshBest();
+        }
 
+        void BindListeners()
+        {
+            if (listenersBound) return;
+            startButton?.onClick.AddListener(HandleStartPressed);
+            growthButton?.onClick.AddListener(HandleGrowthPressed);
+            codexButton?.onClick.AddListener(HandleCodexPressed);
+            listenersBound = true;
+        }
+
+        void UnbindListeners()
+        {
+            if (!listenersBound) return;
+            startButton?.onClick.RemoveListener(HandleStartPressed);
+            growthButton?.onClick.RemoveListener(HandleGrowthPressed);
+            codexButton?.onClick.RemoveListener(HandleCodexPressed);
+            listenersBound = false;
+        }
+
+        void HandleStartPressed()
+        {
+            collectionView?.Close();
+            GameManager.Instance?.StartGameFromMenu();
+        }
+
+        void HandleGrowthPressed()
+        {
+            ResolveCollectionView()?.OpenGrowth();
+        }
+
+        void HandleCodexPressed()
+        {
+            ResolveCollectionView()?.OpenCodex();
+        }
+
+        LobbyCollectionView ResolveCollectionView()
+        {
+            if (collectionView == null)
+                collectionView = FindFirstObjectByType<LobbyCollectionView>();
+            return collectionView;
+        }
+
+        void RefreshBest()
+        {
             int best = ScoreManager.Instance != null ? ScoreManager.Instance.Best : 0;
-            if (bestText != null) bestText.text = $"최고 {best}";
-
-            Vector3 world = player.position + Vector3.down * 0.85f;
-            Vector2 screen = cam.WorldToScreenPoint(world);
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen, null, out var local);
-
-            float travel = canvasRect.rect.width * 0.22f;
-            float offset = Mathf.PingPong(Time.unscaledTime * canvasRect.rect.width * 0.12f,
-                travel * 2f) - travel;
-            brushGuide.anchoredPosition = local + new Vector2(offset, 55f);
-
-            if (brushCanvasGroup != null)
-                brushCanvasGroup.alpha = 0.46f + 0.12f * Mathf.Sin(Time.unscaledTime * 3.2f);
+            if (bestText != null)
+                bestText.text = $"최고 {best}";
         }
 
         void ApplyUiFont()

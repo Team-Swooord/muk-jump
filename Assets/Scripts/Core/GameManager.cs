@@ -169,6 +169,8 @@ namespace MukJump.Core
                 gameObject.AddComponent<RunGrowthController>();
             if (GetComponent<GrowthChoiceView>() == null)
                 gameObject.AddComponent<GrowthChoiceView>();
+            if (GetComponent<LobbyCollectionView>() == null)
+                gameObject.AddComponent<LobbyCollectionView>();
             RefreshPlayerRegistry();
         }
 
@@ -558,13 +560,17 @@ namespace MukJump.Core
                 RegisterPlayer(scenePlayers[i]);
         }
 
-        /// 로비 시작선이 완성되면 캐릭터의 고정을 풀고 현재 위치에서 낙하를 시작한다.
-        public void StartGameFromStroke()
+        /// 로비의 명시적인 시작 버튼에서 호출하는 유일한 새 게임 진입점.
+        /// 씬 빌더가 준비한 영구 시작 발판 위에서 물리를 풀어 첫 자동 점프를 준비한다.
+        public void StartGameFromMenu()
         {
             if (State != GameState.Lobby || transitionInProgress) return;
             PointerInput.SuppressUntilRelease();
             BeginPlayingAfterCover();
         }
+
+        /// 이전 씬·테스트와의 호환을 위한 별칭. 로비 드로잉은 더 이상 이 경로를 호출하지 않는다.
+        public void StartGameFromStroke() => StartGameFromMenu();
 
         void BeginPlayingAfterCover()
         {

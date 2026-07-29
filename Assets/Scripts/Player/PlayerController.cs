@@ -99,8 +99,8 @@ namespace MukJump.Player
             GameManager.Instance?.UnregisterPlayer(this);
         }
 
-        /// 로비에서는 시작선을 그리는 동안 캐릭터가 먼저 추락하지 않도록 그 자리에 고정한다.
-        /// 선이 완성되면 현재 위치에서 물리를 시작하므로 아래에 그린 선만 첫 발판이 된다.
+        /// 로비에서는 메뉴를 고르는 동안 캐릭터가 먼저 추락하지 않도록 고정한다.
+        /// 시작 버튼을 누르면 씬에 준비된 영구 시작 발판 위에서 물리를 시작한다.
         public void BeginFromLobby()
         {
             rb.bodyType = RigidbodyType2D.Dynamic;
