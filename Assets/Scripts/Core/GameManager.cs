@@ -345,6 +345,11 @@ namespace MukJump.Core
             if (!CanCreateInkClone || source == null || source.IsDead)
                 return false;
 
+            // 구형 Main 씬도 재생성 없이 같은 분신 연출 계약을 갖도록 첫 획득 때
+            // 원본에 한 번만 보조 뷰를 추가한다. 이후 분신은 이 고정 렌더러를 복제·재사용한다.
+            if (source.GetComponent<InkCloneArrivalView>() == null)
+                source.gameObject.AddComponent<InkCloneArrivalView>();
+
             var sourceBody = source.GetComponent<Rigidbody2D>();
             int cloneIndex = Mathf.Max(1, LivingPlayerCount);
             Vector3 spawnPosition = FindCloneSpawnPosition(source, cloneIndex);
@@ -389,26 +394,45 @@ namespace MukJump.Core
                                            Vector2.right * (direction * 0.45f);
 
             RegisterPlayer(clone);
+            clone.GetComponent<InkCloneArrivalView>()?.Play();
             GameFeedbackController.Instance?.PlayCloneArrival(clone.transform.position);
             return true;
         }
 
-        /// 분신 수가 많아져도 두 고정 X 좌표에 겹치지 않도록 화면 안 후보 중
-        /// 현재 생존자들과 가장 멀리 떨어진 지점을 고른다.
+        /// 먹은 캐릭터의 반대쪽 화면 절반 안에서만 후보를 만들고, 그 안에서 현재
+        /// 생존자들과 가장 멀리 떨어진 지점을 골라 좌우 규칙과 24마리 분산을 함께 지킨다.
         Vector3 FindCloneSpawnPosition(PlayerController source, int cloneIndex)
         {
             Vector3 sourcePosition = source.transform.position;
             var worldCamera = Camera.main;
             if (worldCamera == null)
             {
-                float fallbackDirection = cloneIndex % 2 == 0 ? -1f : 1f;
-                return sourcePosition + Vector3.right * (fallbackDirection * 0.9f);
+                float fallbackDirection = ResolveOppositeCloneSide(
+                    sourcePosition.x, 0f, cloneIndex);
+                float fallbackX = Mathf.Abs(sourcePosition.x) > 0.2f
+                    ? -sourcePosition.x
+                    : fallbackDirection * 0.9f;
+                return new Vector3(fallbackX, sourcePosition.y, sourcePosition.z);
             }
 
             const int CandidateCount = 13;
             float halfWidth = worldCamera.orthographicSize * worldCamera.aspect;
-            float left = worldCamera.transform.position.x - halfWidth + 0.65f;
-            float right = worldCamera.transform.position.x + halfWidth - 0.65f;
+            float cameraCenterX = worldCamera.transform.position.x;
+            float usableHalfWidth = Mathf.Max(0.1f, halfWidth - 0.65f);
+            float left = cameraCenterX - usableHalfWidth;
+            float right = cameraCenterX + usableHalfWidth;
+            float direction = ResolveOppositeCloneSide(
+                sourcePosition.x, cameraCenterX, cloneIndex);
+            float centerGap = Mathf.Min(0.25f, Mathf.Max(0f, (right - left) * 0.08f));
+            float sideStart = cameraCenterX + direction * centerGap;
+            float sideEnd = direction > 0f ? right : left;
+            if ((direction > 0f && sideEnd <= sideStart) ||
+                (direction < 0f && sideEnd >= sideStart))
+            {
+                sideStart = cameraCenterX;
+                sideEnd = direction > 0f ? right : left;
+            }
+
             Vector3 best = sourcePosition;
             float bestClearance = float.NegativeInfinity;
             CleanupPlayers();
@@ -416,7 +440,8 @@ namespace MukJump.Core
             for (int candidateIndex = 0; candidateIndex < CandidateCount; candidateIndex++)
             {
                 float order = (candidateIndex + cloneIndex * 5) % CandidateCount;
-                float x = Mathf.Lerp(left, right, order / (CandidateCount - 1f));
+                float x = Mathf.Lerp(
+                    sideStart, sideEnd, order / (CandidateCount - 1f));
                 float y = sourcePosition.y + ((candidateIndex + cloneIndex) % 3 - 1) * 0.12f;
                 var candidate = new Vector3(x, y, sourcePosition.z);
                 float nearestSqr = float.PositiveInfinity;
@@ -435,6 +460,18 @@ namespace MukJump.Core
                 best = candidate;
             }
             return best;
+        }
+
+        static float ResolveOppositeCloneSide(
+            float sourceX,
+            float cameraCenterX,
+            int cloneIndex)
+        {
+            const float CenterEpsilon = 0.05f;
+            float offset = sourceX - cameraCenterX;
+            if (offset < -CenterEpsilon) return 1f;
+            if (offset > CenterEpsilon) return -1f;
+            return cloneIndex % 2 == 0 ? -1f : 1f;
         }
 
         /// 디버그 패널에서 고도별 맵과 스폰을 즉시 검증하기 위한 순간이동.

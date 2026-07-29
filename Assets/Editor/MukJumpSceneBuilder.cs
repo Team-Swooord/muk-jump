@@ -316,6 +316,7 @@ namespace MukJump.EditorTools
             itemEffectSo.FindProperty("shieldTailClip").objectReferenceValue =
                 LoadVfxAudio("SFX_InkDropJump_Tail_Stem.wav");
             itemEffectSo.ApplyModifiedPropertiesWithoutUndo();
+            go.AddComponent<InkCloneArrivalView>();
             var inkDropVfx = go.AddComponent<InkDropJumpVfx>();
             var vfxSo = new SerializedObject(inkDropVfx);
             AssignVfxSprite(vfxSo, "inkDrop", "T_VFX_InkDrop_128.png");

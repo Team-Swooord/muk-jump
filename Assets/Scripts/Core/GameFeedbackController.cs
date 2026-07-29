@@ -356,22 +356,18 @@ namespace MukJump.Core
             PlayHaptic(HapticPattern.ShieldBreak, 1f);
         }
 
-        /// 분신이 실제로 생긴 위치에 두 번째 실루엣을 찍어 아이템 결과를 즉시 읽게 한다.
+        /// 분신 본체의 몸통→완성 팝이 핵심 실루엣을 담당한다. 공용 풀에서는 짧은
+        /// 도착 링과 먹방울만 보조해 일반 획득 연출과의 중복·풀 경합을 줄인다.
         public void PlayCloneArrival(Vector3 position)
         {
             EnsureInitialized();
-            StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.14f, 0.92f,
-                0.34f, 0.07f, 0.52f, 1f, VfxImportance.Important));
-            StartCoroutine(AnimateItemSignature(
-                position,
-                ItemType.InkClone,
-                InkPalette.Ink));
+            StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.12f, 0.82f,
+                0.3f, 0.065f, 0.46f, 1f, VfxImportance.Important));
             SpawnDroplets(
                 position,
-                7,
+                3,
                 InkPalette.Ink,
-                VfxImportance.Normal,
-                3);
+                VfxImportance.Decorative);
         }
 
         public void PlayRecordStamp()

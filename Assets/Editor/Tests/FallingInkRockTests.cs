@@ -325,6 +325,8 @@ public class FallingInkRockTests
         var playerSerialized = new SerializedObject(player);
         Assert.AreEqual(1f,
             playerSerialized.FindProperty("cloneSpawnGraceDuration").floatValue);
+        Assert.IsNotNull(player.GetComponent<InkCloneArrivalView>(),
+            "씬 빌더가 먹분신 몸통→완성 팝 연출을 플레이어에 구성해야 합니다.");
 
         var inkDropVfx = FindFirstInScene<InkDropJumpVfx>(builderTestScene);
         Assert.IsNotNull(inkDropVfx);

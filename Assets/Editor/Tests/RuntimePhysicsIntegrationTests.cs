@@ -162,6 +162,69 @@ namespace MukJump.EditorTests
                 "어린 용의 캡슐 판정은 방어막 한 번 뒤 다음 접촉에서 사망시켜야 합니다.");
         }
 
+        [UnityTest]
+        public IEnumerator CloneArrivalShowsBodyThenFullCharacterAndRestoresRenderer()
+        {
+            yield return new EnterPlayMode();
+
+            Time.timeScale = 1f;
+            var cameraObject = new GameObject("CloneArrivalCamera");
+            cameraObject.tag = "MainCamera";
+            cameraObject.AddComponent<Camera>();
+
+            var texture = new Texture2D(8, 8, TextureFormat.RGBA32, false);
+            texture.name = "CloneArrivalTestTexture";
+            var sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, 8f, 8f),
+                new Vector2(0.5f, 0.5f),
+                8f);
+
+            var playerObject = new GameObject("CloneArrivalPlayer");
+            var playerRenderer = playerObject.AddComponent<SpriteRenderer>();
+            playerRenderer.sprite = sprite;
+            playerObject.AddComponent<Rigidbody2D>().gravityScale = 0f;
+            playerObject.AddComponent<CircleCollider2D>();
+            playerObject.AddComponent<PlayerController>();
+            var arrival = playerObject.AddComponent<InkCloneArrivalView>();
+
+            arrival.Play();
+            var arrivalRenderer = playerObject.transform
+                .Find("InkCloneArrivalVisual")
+                ?.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(arrivalRenderer);
+            Assert.IsFalse(playerRenderer.enabled);
+            Assert.IsTrue(arrivalRenderer.enabled);
+            Assert.AreEqual("MukJump_InkBlobMask", arrivalRenderer.sprite.name);
+
+            // 몸통 0.12초와 완성 팝 0.18초의 가운데를 검사해 느린 첫 프레임에도
+            // 단계 경계와 겹치지 않게 한다.
+            float phaseDeadline = Time.time + 0.22f;
+            while (Time.time < phaseDeadline)
+                yield return null;
+            Assert.AreSame(sprite, arrivalRenderer.sprite,
+                "몸통 단계 뒤에는 눈·다리가 포함된 현재 캐릭터 프레임이 뿅 나타나야 합니다.");
+            Assert.IsFalse(playerRenderer.enabled);
+            Assert.IsTrue(arrivalRenderer.enabled);
+
+            phaseDeadline = Time.time + 0.18f;
+            while (Time.time < phaseDeadline)
+                yield return null;
+            Assert.IsTrue(playerRenderer.enabled);
+            Assert.IsFalse(arrivalRenderer.enabled);
+            Assert.AreEqual(Vector3.one, arrivalRenderer.transform.localScale);
+
+            Object.Destroy(playerObject);
+            Object.Destroy(cameraObject);
+            Object.Destroy(sprite);
+            Object.Destroy(texture);
+            yield return null;
+
+            Time.timeScale = 1f;
+            AudioListener.pause = false;
+            yield return new ExitPlayMode();
+        }
+
         static void SetAutoProperty(object target, string propertyName, object value)
         {
             target.GetType().GetField(
