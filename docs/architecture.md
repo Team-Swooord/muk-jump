@@ -69,7 +69,7 @@ asmdef로 강제되지는 않는다. `Core` 안의 UI가 일부 Gameplay 타입�
 |---|---|---:|---|
 | `ItemSpawner` | `ItemPickup` | 8 | 획득, 화면 아래 이탈, 비플레이 상태 |
 | `ObstacleSpawner` | `Obstacle` | 10 | 화면 아래 이탈, 비플레이 상태 |
-| `ObstacleSpawner` | `HaetaeObstacle` | 2(선행 준비) | 단일 돌진·후퇴 종료, 화면 이탈, 비플레이 상태 |
+| `ObstacleSpawner` | `HaetaeObstacle` | 2(선행 준비) | 단일 돌진·낙관 소멸 종료, 화면 이탈, 비플레이 상태 |
 | `FallingInkRockSpawner` | `FallingInkRock` | 2 | 충돌, 소멸, 비플레이 상태 |
 | `GameFeedbackController` | 선·방울 피드백 | 하드 상한 선 8 / 방울 16 | 각 짧은 연출 종료 |
 | `InkDropJumpVfxPool` | 모든 분신의 먹물점프 합성 VFX | 게임 전체 하드 상한 3 | 3.55초 시퀀스 종료 또는 중단 |
@@ -99,8 +99,10 @@ asmdef로 강제되지는 않는다. `Core` 안의 UI가 일부 Gameplay 타입�
    않는다. 한 화면의 용은 최대 한 마리다.
 10. 먹해태도 새 고도 슬롯을 만들지 않고 기존 이동 장애물 슬롯을 대체하지만,
     상태·경고·판정이 다른 `HaetaeObstacle` 전용 풀 2개로 격리한다. 카메라 진입
-    전 `Hidden`, 경로 고정 `Telegraph`, 단발 `Pounce`, `Land`, `Retreat` 상태만
-    가지며 경고선 1개와 발자국 3개는 풀 인스턴스의 자식으로 선행 생성해 재사용한다.
+    전 `Hidden`, 낙관 실체화와 경로 고정을 포함한 `Telegraph`, 단발 `Pounce`,
+    `Land`, 제자리 낙관 소멸 `SealAway` 상태만 가진다. 경고선 1개·발자국 3개·
+    낙관 SpriteRenderer 1개는 풀 인스턴스의 자식으로 선행 생성해 재사용하고,
+    본체는 공용 `ObstaclePaperRed` 재질을 공유해 런타임 Material 인스턴스를 늘리지 않는다.
     어린 용과 해태의 활성 합계는 1이다. 해태 첫 320m 보장은 낙묵석·강풍과 겹치면
     소비하지 않으며, 예약 뒤 새 위험이 시작된 경우에도 `HazardConcurrencyGate`가
     낙묵석과 상승기류의 신규 시작을 미룬다. 해태는 실제 예고 순간
