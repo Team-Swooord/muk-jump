@@ -42,6 +42,7 @@
 | 고도 맵 배경 7종 (`Assets/Art/Background/Maps/`, `Assets/Resources/MukJump/Background/Endless/`) | OpenAI ImageGen + Codex | 프로젝트 전용으로 생성·검수한 자체 수채화 배경이며 외부 에셋이 아님 |
 | `child_ink_dragon.png` 어린 동양 용 장애물 | OpenAI ImageGen + Codex | 프로젝트 전용으로 생성·투명화·크기 최적화한 자체 게임 스프라이트이며 외부 에셋이 아님 |
 | `child_ink_dragon_4frame.png` 어린 동양 용 4프레임 시트 | OpenAI ImageGen + Codex | 기존 자체 용을 캐릭터 기준으로 생성·투명화한 프로젝트 전용 루프 애니메이션 시트 |
+| `child_ink_haetae_4frame_v2.png` 먹해태 수문장 4프레임 시트 | OpenAI ImageGen + Codex | 프로젝트 전용으로 생성하고 사용자가 아트 방향을 검수한 자체 수채화 상태 시트 |
 
 ---
 
@@ -1200,3 +1201,28 @@
   원격에 이미 커밋된 변경만 대상으로 삼았다. 로컬 워킹트리 커밋·강제 푸시·
   Squash/Rebase merge는 자동화에 포함하지 않았다. 저장소·조직의 Actions 권한
   설정은 변경하지 않고, 워크플로 작업에 필요한 `contents: write`만 선언한다.
+
+### 2026-07-29 — 중반 수문장 먹해태 게임 코드 연결
+
+- 사용 도구: OpenAI Codex 멀티 에이전트, OpenAI ImageGen 해태 4프레임 이미지,
+  Unity Test Framework, 프로젝트 `docs/VFX/SKILL.md`
+- 목적: 250~500m의 콘텐츠 공백을 채우면서 기존 이동 장애물 밀도를 늘리지 않는
+  단발성 측면 돌진 장애물 `먹해태 수문장`을 실제 게임 규칙·풀링·씬 빌더·DEBUG
+  검증 경로에 연결한다.
+- 주요 프롬프트/지시: “게임 코드 연결해봐.” 이전 기획에서 확정한 320m 첫 보장,
+  1.2초 경고 뒤 경로 고정 돌진, 한 번의 돌진당 한 캐릭터만 피해, 임시 먹선으로
+  막기, 어린 용·낙묵석·강풍과의 위험 중첩 억제를 모바일 성능 기준으로 구현한다.
+- 결과물: `HaetaeObstacle.cs`, `ObstacleSpawner.cs`, `HazardConcurrencyGate.cs`,
+  `PlatformCollider.cs`, `FallingInkRockSpawner.cs`, `GameplayHudView.cs`,
+  `MukJumpSceneBuilder.cs`, 재생성한 `Main.unity`, 해태 2×2 스프라이트 시트와
+  EditMode 테스트·밸런스 문서.
+- 구현 메모: 반복 경고 연출은 ParticleSystem이나 매번 생성/파괴하는 객체 대신
+  해태 풀 인스턴스가 소유한 얇은 `LineRenderer`와 고정 개수 발자국을 재사용한다.
+  실제 판정은 VFX가 아닌 CapsuleCollider2D 상태 머신으로 분리하고, 외부 패키지나
+  원격 API 의존성은 추가하지 않는다.
+- 사람의 수정/검토 내용: 기존 UI 미커밋 작업을 건드리지 않도록 최신 `main`에서
+  fast-forward한 별도 `feature/game-polish` 워크트리에서만 작업했다. 100,000개
+  세션 seed의 콘텐츠 배치 모델에서 이동 장애물 총 슬롯은 97.51개로 유지되고,
+  어린 용 9.88마리·해태 최대 근사 4.96마리로 나왔다. 해태 수는 시간 기반 위험
+  중첩 회피 전 상한이며 실제 생존율 예측이 아니다. Unity 6000.3.10f1 전체 EditMode
+  테스트 175/175 통과, 해태 전용 15/15 통과, C# 컴파일 오류 0건을 확인했다.
