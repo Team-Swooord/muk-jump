@@ -341,6 +341,8 @@ namespace MukJump.Obstacles
             float spriteWidth = Mathf.Max(0.01f, haetaeFrames[0].bounds.size.x);
             float scale = haetaeWorldWidth / spriteWidth;
             go.transform.localScale = Vector3.one * scale;
+            go.GetComponent<ObstacleVisibilityView>().Configure(
+                preserveInkOutlines: false);
 
             float difficulty = Mathf.InverseLerp(
                 haetaeUnlockHeight, 750f, courseHeight);
@@ -368,7 +370,7 @@ namespace MukJump.Obstacles
             bool fromLeft = GameplayRandom.Value(
                 GameplayRandomStream.Obstacles) < 0.5f;
             float verticalOffset = GameplayRandom.Range(
-                GameplayRandomStream.Obstacles, 0.25f, 0.8f);
+                GameplayRandomStream.Obstacles, -1.2f, -0.78f);
             haetae.Activate(
                 target,
                 WorldYAtGameHeight(courseHeight),
@@ -555,6 +557,7 @@ namespace MukJump.Obstacles
             capsule.isTrigger = true;
             capsule.direction = CapsuleDirection2D.Horizontal;
             capsule.enabled = false;
+            go.AddComponent<ObstacleVisibilityView>();
             return go.AddComponent<HaetaeObstacle>();
         }
 
@@ -656,6 +659,8 @@ namespace MukJump.Obstacles
             float spriteWidth = Mathf.Max(0.01f, haetaeFrames[0].bounds.size.x);
             float scale = haetaeWorldWidth / spriteWidth;
             go.transform.localScale = Vector3.one * scale;
+            go.GetComponent<ObstacleVisibilityView>().Configure(
+                preserveInkOutlines: false);
 
             Vector2 localColliderSize = haetaeColliderWorldSize /
                                         Mathf.Max(0.0001f, scale);
@@ -683,10 +688,10 @@ namespace MukJump.Obstacles
                     worldCamera.transform.position.z - go.transform.position.z);
                 edgeX = worldCamera.ViewportToWorldPoint(
                     new Vector3(fromLeft ? 0f : 1f, 0.5f, cameraDistance)).x +
-                    (fromLeft ? -0.72f : 0.72f);
+                    (fromLeft ? 0.52f : -0.52f);
             }
             Vector2 startPosition = new(
-                edgeX, targetPosition.y + 0.55f);
+                edgeX, targetPosition.y - 1.05f);
             go.transform.position = startPosition;
             haetae.Activate(startPosition, targetPosition, fromLeft);
             activeHaetae.Add(haetae);
