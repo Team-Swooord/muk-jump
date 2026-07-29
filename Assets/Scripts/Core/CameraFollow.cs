@@ -2,19 +2,22 @@ using UnityEngine;
 
 namespace MukJump.Core
 {
-    /// 클라이밍 게임 카메라: 플레이어를 따라 위로만 올라가고, 절대 내려오지 않는다.
+    /// 클라이밍 게임 카메라: 상단 데드존을 넘은 플레이어만 따라 위로 올라간다.
+    [RequireComponent(typeof(Camera))]
     public class CameraFollow : MonoBehaviour
     {
         [SerializeField] Transform target;
-        [Tooltip("플레이어를 화면 중앙보다 얼마나 아래에 둘지 (월드 단위)")]
-        [SerializeField] float lookAhead = 3f;
+        [Tooltip("플레이어가 이 화면 높이를 넘어야 카메라 추적을 시작합니다.")]
+        [SerializeField, Range(0.65f, 0.9f)] float upperFollowViewportY = 0.75f;
         [SerializeField] float smoothSpeed = 4f;
+        [Tooltip("먹물방울처럼 급상승할 때 캐릭터가 화면 밖으로 나가지 않게 하는 상단 한계선")]
+        [SerializeField, Range(0.8f, 0.98f)] float hardCeilingViewportY = 0.9f;
         [Header("강한 점프 카메라 강조")]
         [SerializeField, Range(0f, 0.08f)] float jumpZoomAmount = 0.025f;
         [SerializeField, Range(0f, 0.2f)] float jumpShakeAmount = 0.055f;
         [SerializeField, Min(0.1f)] float jumpImpulseDuration = 0.28f;
 
-        float highestY;
+        float highestFollowTargetY;
         float baseOrthographicSize;
         float impulseRemaining;
         float impulseStrength;
@@ -42,17 +45,27 @@ namespace MukJump.Core
         {
             if (t == null) return;
             target = t;
-            highestY = t.position.y + lookAhead;
+            EnsureCameraMetrics();
             var position = transform.position;
-            position.y = highestY;
+            position.y = t.position.y - ViewportWorldOffset(
+                SafeBaseHalfHeight, SafeUpperFollowViewportY);
             transform.position = position;
+            highestFollowTargetY = position.y;
+        }
+
+        void OnEnable()
+        {
+            // Play 중 재컴파일로 비직렬화 필드가 초기화돼도 현재 카메라보다 낮은
+            // 목표로 되돌아가며 화면이 하강하지 않게 즉시 복구한다.
+            EnsureCameraMetrics();
+            highestFollowTargetY =
+                Mathf.Max(highestFollowTargetY, transform.position.y);
         }
 
         void Start()
         {
-            highestY = transform.position.y;
-            worldCamera = GetComponent<Camera>();
-            if (worldCamera != null) baseOrthographicSize = worldCamera.orthographicSize;
+            highestFollowTargetY = transform.position.y;
+            EnsureCameraMetrics();
         }
 
         void LateUpdate()
@@ -87,13 +100,75 @@ namespace MukJump.Core
 
             if (float.IsNegativeInfinity(followY))
                 followY = target.position.y;
-            float desired = followY + lookAhead;
-            highestY = Mathf.Max(highestY, desired);
 
             var pos = transform.position;
-            pos.y = Mathf.Lerp(pos.y, highestY, smoothSpeed * Time.deltaTime);
+            EnsureCameraMetrics();
+            highestFollowTargetY = Mathf.Max(highestFollowTargetY, pos.y);
+            highestFollowTargetY = ResolveHighestFollowTargetY(
+                highestFollowTargetY,
+                followY,
+                SafeBaseHalfHeight,
+                SafeUpperFollowViewportY);
+            pos.y = Mathf.Lerp(
+                pos.y, highestFollowTargetY, smoothSpeed * Time.deltaTime);
+
+            // 먹물방울 50m 상승처럼 보간보다 빠른 이동만 화면 상단 안전선으로 붙잡는다.
+            // 점프 줌으로 순간 변경되는 orthographicSize가 아닌 기본 반높이를 사용해야
+            // 같은 점프 안에서 추적선이 흔들리며 카메라가 조금씩 올라가는 현상이 없다.
+            pos.y = ResolveHardCeilingCameraY(
+                pos.y,
+                followY,
+                SafeBaseHalfHeight,
+                SafeHardCeilingViewportY);
+            highestFollowTargetY = Mathf.Max(highestFollowTargetY, pos.y);
             transform.position = pos;
             UpdateJumpImpulse();
+        }
+
+        /// 같은 높이의 점프 정점을 반복해도 카메라가 누적 상승하지 않게 이미 확정한
+        /// 최고 추적 목표를 기준으로 상단 데드존을 넘긴 만큼만 반환한다.
+        public static float ResolveHighestFollowTargetY(
+            float highestTargetY,
+            float trackedY,
+            float baseHalfHeight,
+            float followViewportY)
+        {
+            if (float.IsNaN(trackedY) || float.IsInfinity(trackedY) ||
+                baseHalfHeight <= 0f)
+                return highestTargetY;
+            float followOffset = ViewportWorldOffset(
+                baseHalfHeight, followViewportY);
+            return Mathf.Max(highestTargetY, trackedY - followOffset);
+        }
+
+        /// 급상승 중 추적 보간이 늦더라도 캐릭터가 지정한 뷰포트 상단선을 넘지 않게 한다.
+        public static float ResolveHardCeilingCameraY(
+            float currentCameraY,
+            float trackedY,
+            float baseHalfHeight,
+            float ceilingViewportY)
+        {
+            if (float.IsNaN(trackedY) || float.IsInfinity(trackedY) ||
+                baseHalfHeight <= 0f)
+                return currentCameraY;
+
+            float ceilingOffset = ViewportWorldOffset(
+                baseHalfHeight, ceilingViewportY);
+            return Mathf.Max(currentCameraY, trackedY - ceilingOffset);
+        }
+
+        public static float ViewportWorldOffset(
+            float baseHalfHeight,
+            float viewportY)
+        {
+            if (baseHalfHeight <= 0f)
+                return 0f;
+            float safeViewportY = float.IsNaN(viewportY) ||
+                                  float.IsInfinity(viewportY)
+                ? 0.75f
+                : Mathf.Clamp(viewportY, 0.5f, 0.98f);
+            return Mathf.Max(0.01f, baseHalfHeight) *
+                   (safeViewportY * 2f - 1f);
         }
 
         void UpdateJumpImpulse()
@@ -140,5 +215,45 @@ namespace MukJump.Core
             if (worldCamera != null && baseOrthographicSize > 0f)
                 worldCamera.orthographicSize = baseOrthographicSize;
         }
+
+        void OnValidate()
+        {
+            upperFollowViewportY = SafeUpperFollowViewportY;
+            smoothSpeed = Mathf.Max(0f, smoothSpeed);
+            hardCeilingViewportY = SafeHardCeilingViewportY;
+            jumpImpulseDuration = Mathf.Max(0.1f, jumpImpulseDuration);
+        }
+
+        void EnsureCameraMetrics()
+        {
+            if (worldCamera == null)
+                worldCamera = GetComponent<Camera>();
+            if (baseOrthographicSize <= 0f && worldCamera != null)
+                baseOrthographicSize = worldCamera.orthographicSize;
+        }
+
+        float SafeBaseHalfHeight =>
+            baseOrthographicSize > 0f
+                ? baseOrthographicSize
+                : worldCamera != null
+                    ? Mathf.Max(0.01f, worldCamera.orthographicSize)
+                    : 0f;
+
+        float SafeUpperFollowViewportY =>
+            float.IsNaN(upperFollowViewportY) ||
+            float.IsInfinity(upperFollowViewportY) ||
+            upperFollowViewportY < 0.5f
+                ? 0.75f
+                : Mathf.Clamp(upperFollowViewportY, 0.65f, 0.9f);
+
+        float SafeHardCeilingViewportY =>
+            float.IsNaN(hardCeilingViewportY) ||
+            float.IsInfinity(hardCeilingViewportY) ||
+            hardCeilingViewportY < 0.5f
+                ? 0.9f
+                : Mathf.Clamp(
+                    hardCeilingViewportY,
+                    Mathf.Max(0.8f, SafeUpperFollowViewportY),
+                    0.98f);
     }
 }

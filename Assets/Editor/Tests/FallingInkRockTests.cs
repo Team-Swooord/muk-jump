@@ -347,6 +347,17 @@ public class FallingInkRockTests
         Assert.IsNotNull(builtCamera);
         Assert.IsFalse(builtCamera.allowHDR);
         Assert.IsFalse(builtCamera.allowMSAA);
+        var cameraFollow = builtCamera.GetComponent<CameraFollow>();
+        Assert.IsNotNull(cameraFollow);
+        var cameraFollowSerialized = new SerializedObject(cameraFollow);
+        Assert.AreEqual(0.75f,
+            cameraFollowSerialized.FindProperty("upperFollowViewportY").floatValue,
+            0.001f);
+        Assert.AreEqual(0.9f,
+            cameraFollowSerialized.FindProperty("hardCeilingViewportY").floatValue,
+            0.001f);
+        Assert.AreSame(player.transform,
+            cameraFollowSerialized.FindProperty("target").objectReferenceValue);
 
         var lobby = FindFirstInScene<LobbyView>(builderTestScene);
         Assert.IsNotNull(lobby);

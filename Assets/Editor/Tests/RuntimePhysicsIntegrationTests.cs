@@ -14,6 +14,36 @@ namespace MukJump.EditorTests
     public sealed class RuntimePhysicsIntegrationTests
     {
         [UnityTest]
+        public IEnumerator BasicJumpApexBelowGuideKeepsCameraStill()
+        {
+            yield return new EnterPlayMode();
+
+            var cameraObject = new GameObject("CameraFollowIntegration");
+            cameraObject.tag = "MainCamera";
+            cameraObject.transform.position = new Vector3(0f, 0f, -10f);
+            var worldCamera = cameraObject.AddComponent<Camera>();
+            worldCamera.orthographic = true;
+            worldCamera.orthographicSize = 9.6f;
+            var follow = cameraObject.AddComponent<CameraFollow>();
+
+            var targetObject = new GameObject("CameraFollowTarget");
+            targetObject.transform.position = new Vector3(0f, 4.18f, 0f);
+            SetField(follow, "target", targetObject.transform);
+
+            yield return null;
+            yield return null;
+            float cameraY = cameraObject.transform.position.y;
+
+            Object.Destroy(targetObject);
+            Object.Destroy(cameraObject);
+            yield return null;
+            yield return new ExitPlayMode();
+
+            Assert.AreEqual(0f, cameraY, 0.001f,
+                "기본 점프 정점이 화면 75% 아래라면 실제 카메라 Transform도 고정돼야 합니다.");
+        }
+
+        [UnityTest]
         public IEnumerator MovingObstacleFirstContactKillsPlayer()
         {
             yield return new EnterPlayMode();
