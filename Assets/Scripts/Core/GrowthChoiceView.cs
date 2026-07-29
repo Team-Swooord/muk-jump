@@ -13,8 +13,14 @@ namespace MukJump.Core
         const int CanvasSortingOrder = 3000;
         const float RevealDuration = 0.26f;
         const float CloseDuration = 0.16f;
-        const float RollOpenDistance = 590f;
+        const float RollOpenDistance = 690f;
         const float ClosedPaperScale = 0.12f;
+        const float CardHeight = 250f;
+        const float ThreeCardSpacing = 295f;
+        const float TwoCardSpacing = 147.5f;
+        const float VisualFootprintWidth = 920f;
+        const float VisualFootprintHeight = 1500f;
+        const float SafeAreaPadding = 40f;
 
         static readonly string[] IconResourcePaths =
         {
@@ -51,6 +57,8 @@ namespace MukJump.Core
         int lastScreenWidth;
         int lastScreenHeight;
         Rect lastSafeArea;
+        float responsiveScale = 1f;
+        float revealScale = 1f;
 
         sealed class ChoiceCard
         {
@@ -357,9 +365,9 @@ namespace MukJump.Core
             {
                 hintText.text = offerCount switch
                 {
-                    1 => "이어갈 먹결을 고르세요",
-                    2 => "둘 중 하나의 먹결을 고르세요",
-                    _ => "셋 중 하나의 먹결을 고르세요",
+                    1 => "이어갈 먹결을 선택하세요",
+                    2 => "둘 중 하나를 선택하세요",
+                    _ => "셋 중 하나를 선택하세요",
                 };
             }
             bool canInteract = IsOpen && !selectionLocked &&
@@ -390,7 +398,10 @@ namespace MukJump.Core
 
         string GetStatus(GrowthUpgradeType type, int level, int maxLevel)
         {
-            string levelText = $"현재 Lv.{level}/{maxLevel}";
+            int nextLevel = Mathf.Min(level + 1, maxLevel);
+            string levelText = level >= maxLevel
+                ? $"Lv.{level} / {maxLevel}"
+                : $"Lv.{level} → {nextLevel} / {maxLevel}";
             if (level >= maxLevel)
                 return levelText + " · 완성";
 
@@ -459,8 +470,8 @@ namespace MukJump.Core
             return count switch
             {
                 <= 1 => 0f,
-                2 => index == 0 ? 122.5f : -122.5f,
-                _ => 245f - index * 245f,
+                2 => index == 0 ? TwoCardSpacing : -TwoCardSpacing,
+                _ => ThreeCardSpacing - index * ThreeCardSpacing,
             };
         }
 
@@ -491,7 +502,7 @@ namespace MukJump.Core
         {
             if (card == null) return;
             card.SelectedSeal.gameObject.SetActive(selected);
-            card.Root.localScale = selected ? Vector3.one * 1.025f : Vector3.one;
+            card.Root.localScale = selected ? Vector3.one * 1.015f : Vector3.one;
         }
 
         void BuildIfNeeded()
@@ -543,7 +554,7 @@ namespace MukJump.Core
                 "GrowthScrollPopup",
                 safeAreaRoot,
                 Vector2.zero,
-                new Vector2(840f, 1280f));
+                new Vector2(900f, 1480f));
 
             BuildScrollPaper();
             BuildContent();
@@ -601,14 +612,14 @@ namespace MukJump.Core
                 "ScrollBody",
                 panel,
                 Vector2.zero,
-                new Vector2(780f, 1160f));
+                new Vector2(840f, 1390f));
 
             var shadow = CreateImage(
                 "InkBleedShadow",
                 scrollBody,
                 brush,
                 new Vector2(13f, -15f),
-                new Vector2(1200f, 790f),
+                new Vector2(1410f, 848f),
                 new Color(0f, 0f, 0f, 0.16f));
             shadow.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
 
@@ -617,7 +628,7 @@ namespace MukJump.Core
                 scrollBody,
                 brush,
                 Vector2.zero,
-                new Vector2(1182f, 778f),
+                new Vector2(1390f, 834f),
                 InkPalette.Ink);
             outline.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
 
@@ -626,7 +637,7 @@ namespace MukJump.Core
                 scrollBody,
                 brush,
                 Vector2.zero,
-                new Vector2(1158f, 752f),
+                new Vector2(1364f, 808f),
                 InkPalette.Paper);
             paper.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
 
@@ -636,7 +647,7 @@ namespace MukJump.Core
                 scrollBody,
                 null,
                 Vector2.zero,
-                new Vector2(686f, 1090f),
+                new Vector2(760f, 1300f),
                 InkPalette.Paper);
 
             topRoll = CreateScrollRoll(panel, RollOpenDistance, true);
@@ -650,37 +661,38 @@ namespace MukJump.Core
                 "GrowthContent",
                 panel,
                 Vector2.zero,
-                new Vector2(720f, 1120f));
+                new Vector2(780f, 1320f));
             contentGroup = contentRect.gameObject.AddComponent<CanvasGroup>();
 
             var title = CreateText(
                 "Title",
                 contentRect,
-                "성장의 두루마리",
-                52,
-                new Vector2(0f, 495f),
-                new Vector2(620f, 76f),
+                "성장 두루마리",
+                64,
+                new Vector2(0f, 582f),
+                new Vector2(690f, 96f),
                 InkPalette.TextDark,
-                FontStyle.Normal);
-            AddSoftWeight(title, InkPalette.Ink, 0.2f);
+                FontStyle.Bold);
+            AddReadableTextWeight(title, 0.28f);
 
             hintText = CreateText(
                 "Hint",
                 contentRect,
-                "셋 중 하나의 먹결을 고르세요",
-                26,
-                new Vector2(0f, 438f),
-                new Vector2(560f, 44f),
+                "셋 중 하나를 선택하세요",
+                34,
+                new Vector2(0f, 510f),
+                new Vector2(660f, 56f),
                 ReadableMutedColor(),
-                FontStyle.Normal);
+                FontStyle.Bold);
+            AddReadableTextWeight(hintText, 0.16f);
 
             CreateImage(
                 "TitleDivider",
                 contentRect,
                 brush,
-                new Vector2(0f, 397f),
-                new Vector2(340f, 7f),
-                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.16f));
+                new Vector2(0f, 458f),
+                new Vector2(420f, 8f),
+                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.2f));
 
             for (int i = 0; i < choiceCards.Length; i++)
             {
@@ -691,15 +703,16 @@ namespace MukJump.Core
                 choiceCards[i].Root.gameObject.SetActive(false);
             }
 
-            CreateText(
+            var footer = CreateText(
                 "FooterHint",
                 contentRect,
-                "선택한 먹결은 이번 도전에만 이어집니다",
-                22,
-                new Vector2(0f, -495f),
-                new Vector2(620f, 42f),
-                new Color(InkPalette.TextMuted.r, InkPalette.TextMuted.g, InkPalette.TextMuted.b, 0.76f),
-                FontStyle.Normal);
+                "카드를 눌러 선택 · 효과는 이번 도전에만 유지",
+                28,
+                new Vector2(0f, -565f),
+                new Vector2(710f, 54f),
+                ReadableMutedColor(),
+                FontStyle.Bold);
+            AddReadableTextWeight(footer, 0.14f);
         }
 
         static ChoiceCard CreateChoiceCard(
@@ -709,7 +722,11 @@ namespace MukJump.Core
         {
             Sprite brush = InkUiTextureFactory.CreateBrushSprite();
             Sprite blob = InkUiTextureFactory.CreateBlobSprite();
-            var root = CreateRect(objectName, parent, position, new Vector2(680f, 218f));
+            var root = CreateRect(
+                objectName,
+                parent,
+                position,
+                new Vector2(740f, CardHeight));
             var group = root.gameObject.AddComponent<CanvasGroup>();
 
             var shadow = CreateImage(
@@ -717,7 +734,7 @@ namespace MukJump.Core
                 root,
                 brush,
                 new Vector2(7f, -8f),
-                new Vector2(674f, 212f),
+                new Vector2(734f, 244f),
                 new Color(0f, 0f, 0f, 0.15f));
             shadow.raycastTarget = false;
 
@@ -726,19 +743,20 @@ namespace MukJump.Core
                 root,
                 brush,
                 Vector2.zero,
-                new Vector2(674f, 206f),
+                new Vector2(734f, 238f),
                 InkPalette.Ink);
             var paper = CreateImage(
                 "Paper",
                 root,
                 brush,
                 Vector2.zero,
-                new Vector2(654f, 186f),
+                new Vector2(714f, 218f),
                 InkPalette.Paper);
             paper.raycastTarget = true;
 
             var button = root.gameObject.AddComponent<Button>();
             button.targetGraphic = paper;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
             button.transition = Selectable.Transition.ColorTint;
             button.colors = new ColorBlock
             {
@@ -755,61 +773,71 @@ namespace MukJump.Core
                 "Icon",
                 root,
                 null,
-                new Vector2(-230f, 0f),
-                new Vector2(146f, 146f),
+                new Vector2(-255f, 0f),
+                new Vector2(168f, 168f),
                 Color.white);
             iconImage.preserveAspect = true;
+
+            CreateImage(
+                "ContentDivider",
+                root,
+                brush,
+                new Vector2(-145f, 0f),
+                new Vector2(7f, 172f),
+                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.16f));
 
             var nameText = CreateText(
                 "Name",
                 root,
                 string.Empty,
-                38,
-                new Vector2(70f, 49f),
-                new Vector2(380f, 52f),
+                44,
+                new Vector2(65f, 78f),
+                new Vector2(430f, 68f),
                 InkPalette.TextDark,
-                FontStyle.Normal);
+                FontStyle.Bold);
             nameText.alignment = TextAnchor.MiddleLeft;
-            AddSoftWeight(nameText, InkPalette.Ink, 0.18f);
+            AddReadableTextWeight(nameText, 0.24f);
 
             var statusText = CreateText(
                 "Status",
                 root,
-                "현재 Lv.0",
-                22,
-                new Vector2(70f, 7f),
-                new Vector2(380f, 36f),
+                "Lv.0 → 1 / 3",
+                29,
+                new Vector2(65f, 14f),
+                new Vector2(430f, 44f),
                 ReadableMutedColor(),
-                FontStyle.Normal);
+                FontStyle.Bold);
             statusText.alignment = TextAnchor.MiddleLeft;
+            AddReadableTextWeight(statusText, 0.13f);
 
             var effectText = CreateText(
                 "Effect",
                 root,
                 string.Empty,
-                23,
-                new Vector2(70f, -49f),
-                new Vector2(390f, 70f),
+                31,
+                new Vector2(65f, -61f),
+                new Vector2(440f, 90f),
                 InkPalette.TextDark,
-                FontStyle.Normal);
+                FontStyle.Bold);
             effectText.alignment = TextAnchor.MiddleLeft;
+            AddReadableTextWeight(effectText, 0.11f);
 
             var seal = CreateRect(
                 "SelectedSeal",
                 root,
-                new Vector2(290f, 70f),
-                new Vector2(60f, 60f));
+                new Vector2(326f, 0f),
+                new Vector2(68f, 68f));
             seal.localEulerAngles = new Vector3(0f, 0f, -7f);
-            CreateImage("Seal", seal, blob, Vector2.zero, new Vector2(56f, 56f), InkPalette.Red);
+            CreateImage("Seal", seal, blob, Vector2.zero, new Vector2(64f, 64f), InkPalette.Red);
             var sealText = CreateText(
                 "Text",
                 seal,
                 "결",
-                23,
+                28,
                 Vector2.zero,
-                new Vector2(44f, 42f),
+                new Vector2(52f, 50f),
                 InkPalette.Paper,
-                FontStyle.Normal);
+                FontStyle.Bold);
             seal.gameObject.SetActive(false);
 
             return new ChoiceCard
@@ -835,7 +863,8 @@ namespace MukJump.Core
             float content = EaseOutCubic(Mathf.InverseLerp(0.25f, 0.86f, t));
 
             rootGroup.alpha = appear;
-            panel.localScale = Vector3.one * Mathf.Lerp(0.965f, 1f, unroll);
+            revealScale = Mathf.Lerp(0.965f, 1f, unroll);
+            ApplyPanelScale();
             scrollBody.localScale = new Vector3(
                 1f,
                 Mathf.Lerp(ClosedPaperScale, 1f, unroll),
@@ -863,6 +892,33 @@ namespace MukJump.Core
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
             lastSafeArea = safe;
+
+            float referenceScale = 1920f / Screen.height;
+            responsiveScale = CalculateResponsiveScale(
+                new Vector2(
+                    safe.width * referenceScale,
+                    safe.height * referenceScale));
+            ApplyPanelScale();
+        }
+
+        void ApplyPanelScale()
+        {
+            if (panel == null) return;
+            panel.localScale = Vector3.one * (revealScale * responsiveScale);
+        }
+
+        /// CanvasScaler가 높이 기준일 때 계산한 논리 Safe Area에 두루마리 전체를 맞춘다.
+        /// 1080×1920에서는 원본 크기를 유지하고, 폭이 좁은 긴 화면에서만 균등 축소한다.
+        static float CalculateResponsiveScale(Vector2 logicalSafeSize)
+        {
+            if (logicalSafeSize.x <= 0f || logicalSafeSize.y <= 0f)
+                return 1f;
+
+            float usableWidth = Mathf.Max(1f, logicalSafeSize.x - SafeAreaPadding);
+            float usableHeight = Mathf.Max(1f, logicalSafeSize.y - SafeAreaPadding);
+            return Mathf.Clamp01(Mathf.Min(
+                usableWidth / VisualFootprintWidth,
+                usableHeight / VisualFootprintHeight));
         }
 
         static RectTransform CreateScrollRoll(Transform parent, float y, bool top)
@@ -1004,19 +1060,20 @@ namespace MukJump.Core
             return text;
         }
 
-        static void AddSoftWeight(Text text, Color color, float alpha)
+        static void AddReadableTextWeight(Text text, float alpha)
         {
             if (text == null) return;
-            var shadow = text.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(color.r, color.g, color.b, alpha);
-            shadow.effectDistance = new Vector2(1f, -1f);
-            shadow.useGraphicAlpha = true;
+            var outline = text.gameObject.AddComponent<Outline>();
+            Color ink = InkPalette.Ink;
+            outline.effectColor = new Color(ink.r, ink.g, ink.b, alpha);
+            outline.effectDistance = new Vector2(1.35f, -1.35f);
+            outline.useGraphicAlpha = true;
         }
 
         static Color ReadableMutedColor()
         {
             Color color = InkPalette.TextDark;
-            color.a = 0.84f;
+            color.a = 0.92f;
             return color;
         }
 

@@ -620,6 +620,16 @@ namespace MukJump.EditorTests
             Assert.That(panel.Find("ScrollBody/PaperCore"), Is.Not.Null);
             Assert.That(panel.Find("TopRoll"), Is.Not.Null);
             Assert.That(panel.Find("BottomRoll"), Is.Not.Null);
+            Assert.That(panel.sizeDelta, Is.EqualTo(new Vector2(900f, 1480f)));
+
+            var content = panel.Find("GrowthContent");
+            Assert.That(content, Is.Not.Null);
+            AssertReadableGrowthText(
+                content.Find("Title")?.GetComponent<Text>(), 64);
+            AssertReadableGrowthText(
+                content.Find("Hint")?.GetComponent<Text>(), 34);
+            AssertReadableGrowthText(
+                content.Find("FooterHint")?.GetComponent<Text>(), 28);
 
             var reveal = (IEnumerator)Invoke(view, "RevealRoutine");
             Assert.That(reveal.MoveNext(), Is.True);
@@ -633,13 +643,35 @@ namespace MukJump.EditorTests
             SetProperty(view, "IsOpen", true);
             rootGroup.interactable = true;
 
-            var content = panel.Find("GrowthContent");
             var firstCard = content.Find("GrowthChoice1");
             var secondCard = content.Find("GrowthChoice2");
             var thirdCard = content.Find("GrowthChoice3");
-            Assert.That(firstCard.GetComponent<Button>(), Is.Not.Null);
-            Assert.That(secondCard.GetComponent<Button>(), Is.Not.Null);
-            Assert.That(thirdCard.GetComponent<Button>(), Is.Not.Null);
+            var firstButton = firstCard.GetComponent<Button>();
+            var secondButton = secondCard.GetComponent<Button>();
+            var thirdButton = thirdCard.GetComponent<Button>();
+            Assert.That(firstButton, Is.Not.Null);
+            Assert.That(secondButton, Is.Not.Null);
+            Assert.That(thirdButton, Is.Not.Null);
+            Assert.That(firstButton.navigation.mode, Is.EqualTo(Navigation.Mode.None));
+            Assert.That(secondButton.navigation.mode, Is.EqualTo(Navigation.Mode.None));
+            Assert.That(thirdButton.navigation.mode, Is.EqualTo(Navigation.Mode.None));
+            Assert.That(((RectTransform)firstCard).sizeDelta,
+                Is.EqualTo(new Vector2(740f, 250f)));
+
+            AssertReadableGrowthText(
+                firstCard.Find("Name")?.GetComponent<Text>(), 44);
+            AssertReadableGrowthText(
+                firstCard.Find("Status")?.GetComponent<Text>(), 29);
+            AssertReadableGrowthText(
+                firstCard.Find("Effect")?.GetComponent<Text>(), 31);
+            AssertVerticalGapAtLeast(
+                firstCard.Find("Name") as RectTransform,
+                firstCard.Find("Status") as RectTransform,
+                8f);
+            AssertVerticalGapAtLeast(
+                firstCard.Find("Status") as RectTransform,
+                firstCard.Find("Effect") as RectTransform,
+                8f);
 
             ForceCurrentOffers(
                 growth,
@@ -651,6 +683,14 @@ namespace MukJump.EditorTests
             Assert.That(firstCard.gameObject.activeSelf, Is.True);
             Assert.That(secondCard.gameObject.activeSelf, Is.True);
             Assert.That(thirdCard.gameObject.activeSelf, Is.True);
+            AssertVerticalGapAtLeast(
+                firstCard as RectTransform,
+                secondCard as RectTransform,
+                45f);
+            AssertVerticalGapAtLeast(
+                secondCard as RectTransform,
+                thirdCard as RectTransform,
+                45f);
             Assert.That(firstCard.Find("Icon").GetComponent<Image>().sprite,
                 Is.SameAs(vitalitySprite));
             Assert.That(secondCard.Find("Icon").GetComponent<Image>().sprite,
@@ -664,6 +704,17 @@ namespace MukJump.EditorTests
             Assert.That(thirdCard.Find("Name").GetComponent<Text>().text,
                 Is.EqualTo("길운"));
 
+            foreach (GrowthUpgradeType type in Enum.GetValues(
+                         typeof(GrowthUpgradeType)))
+            {
+                ForceCurrentOffers(growth, type);
+                Invoke(view, "RefreshCards");
+                Canvas.ForceUpdateCanvases();
+                AssertTextFitsRect(firstCard.Find("Name")?.GetComponent<Text>());
+                AssertTextFitsRect(firstCard.Find("Status")?.GetComponent<Text>());
+                AssertTextFitsRect(firstCard.Find("Effect")?.GetComponent<Text>());
+            }
+
             ForceCurrentOffers(
                 growth,
                 GrowthUpgradeType.JumpPower,
@@ -676,6 +727,10 @@ namespace MukJump.EditorTests
                 Is.SameAs(jumpSprite));
             Assert.That(secondCard.Find("Icon").GetComponent<Image>().sprite,
                 Is.SameAs(platformSprite));
+            Assert.That(((RectTransform)firstCard).anchoredPosition.y,
+                Is.EqualTo(147.5f).Within(0.0001f));
+            Assert.That(((RectTransform)secondCard).anchoredPosition.y,
+                Is.EqualTo(-147.5f).Within(0.0001f));
 
             ForceCurrentOffers(growth, GrowthUpgradeType.StrokeGuard);
             Invoke(view, "RefreshCards");
@@ -694,6 +749,21 @@ namespace MukJump.EditorTests
                 "첫 카드 버튼은 자기 카드에 표시된 성장 종류를 선택해야 합니다.");
             Assert.That(growth.HasSelectedPendingChoice, Is.True);
             Assert.That(growth.CancelChoice(), Is.True);
+        }
+
+        [Test]
+        public void GrowthScrollResponsiveScaleFitsNarrowSafeAreas()
+        {
+            float standard = InvokeResponsiveScale(new Vector2(1080f, 1920f));
+            Assert.That(standard, Is.EqualTo(1f).Within(0.0001f));
+
+            var narrowSafeArea = new Vector2(823f, 1800f);
+            float narrow = InvokeResponsiveScale(narrowSafeArea);
+            Assert.That(narrow, Is.GreaterThan(0f).And.LessThan(1f));
+            Assert.That(920f * narrow,
+                Is.LessThanOrEqualTo(narrowSafeArea.x - 40f + 0.001f));
+            Assert.That(1500f * narrow,
+                Is.LessThanOrEqualTo(narrowSafeArea.y - 40f + 0.001f));
         }
 
         [Test]
@@ -897,6 +967,54 @@ namespace MukJump.EditorTests
             Assert.That(sprite, Is.Not.Null,
                 $"성장 아이콘 Resources 경로가 올바르지 않습니다: {resourcePath}");
             return sprite;
+        }
+
+        static void AssertReadableGrowthText(Text text, int minimumFontSize)
+        {
+            Assert.That(text, Is.Not.Null);
+            Assert.That(text.font, Is.SameAs(InkPalette.UiFont));
+            Assert.That(text.fontSize, Is.GreaterThanOrEqualTo(minimumFontSize));
+            Assert.That(text.fontStyle, Is.EqualTo(FontStyle.Bold));
+            Assert.That(text.resizeTextForBestFit, Is.False,
+                "성장 선택 핵심 문구는 작은 화면에서 임의로 축소되면 안 됩니다.");
+            Assert.That(text.GetComponent<Outline>(), Is.Not.Null,
+                "인게임 HUD와 같은 얇은 먹 외곽선이 필요합니다.");
+        }
+
+        static void AssertVerticalGapAtLeast(
+            RectTransform upper,
+            RectTransform lower,
+            float expectedGap)
+        {
+            Assert.That(upper, Is.Not.Null);
+            Assert.That(lower, Is.Not.Null);
+            float upperBottom = upper.anchoredPosition.y - upper.sizeDelta.y * 0.5f;
+            float lowerTop = lower.anchoredPosition.y + lower.sizeDelta.y * 0.5f;
+            Assert.That(
+                upperBottom - lowerTop,
+                Is.GreaterThanOrEqualTo(expectedGap - 0.001f));
+        }
+
+        static void AssertTextFitsRect(Text text)
+        {
+            Assert.That(text, Is.Not.Null);
+            RectTransform rect = text.rectTransform;
+            Assert.That(text.preferredWidth,
+                Is.LessThanOrEqualTo(rect.sizeDelta.x + 0.001f),
+                $"{text.name} 문구가 카드 가로 영역을 넘습니다: {text.text}");
+            Assert.That(text.preferredHeight,
+                Is.LessThanOrEqualTo(rect.sizeDelta.y + 0.001f),
+                $"{text.name} 문구가 카드 세로 영역을 넘습니다: {text.text}");
+        }
+
+        static float InvokeResponsiveScale(Vector2 logicalSafeSize)
+        {
+            var method = typeof(GrowthChoiceView).GetMethod(
+                "CalculateResponsiveScale",
+                BindingFlags.Static |
+                BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return (float)method.Invoke(null, new object[] { logicalSafeSize });
         }
 
         void RetagExistingMainCameras()
