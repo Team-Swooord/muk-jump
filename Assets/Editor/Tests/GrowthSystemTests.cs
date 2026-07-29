@@ -4,11 +4,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using MukJump.Core;
+using MukJump.Drawing;
 using MukJump.Items;
 using MukJump.Player;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 namespace MukJump.EditorTests
@@ -23,6 +25,16 @@ namespace MukJump.EditorTests
             "Assets/Resources/MukJump/UI/Growth/growth_vitality.png";
         const string JumpAssetPath =
             "Assets/Resources/MukJump/UI/Growth/growth_jump.png";
+        const string InkCapacityAssetPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_ink_capacity.png";
+        const string InkRecoveryAssetPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_ink_regen.png";
+        const string PlatformAssetPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_platform.png";
+        const string GuardAssetPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_guard.png";
+        const string FortuneAssetPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_fortune.png";
 
         readonly List<UnityEngine.Object> cleanup = new();
         readonly List<Camera> retaggedMainCameras = new();
@@ -36,6 +48,8 @@ namespace MukJump.EditorTests
             originalTimeScale = Time.timeScale;
             originalFixedDeltaTime = Time.fixedDeltaTime;
             originalAudioPause = AudioListener.pause;
+            PlatformCollider.RuntimeLifetimeMultiplier = 1f;
+            ClearActivePlatforms();
         }
 
         [TearDown]
@@ -55,6 +69,8 @@ namespace MukJump.EditorTests
             AudioListener.pause = originalAudioPause;
             Time.timeScale = originalTimeScale;
             Time.fixedDeltaTime = originalFixedDeltaTime;
+            PlatformCollider.RuntimeLifetimeMultiplier = 1f;
+            ClearActivePlatforms();
         }
 
         [Test]
@@ -101,6 +117,7 @@ namespace MukJump.EditorTests
                 Is.EqualTo(GameplayPauseReason.GrowthChoice));
             Assert.That(Time.timeScale, Is.Zero);
 
+            ForceCurrentOffers(growth, GrowthUpgradeType.Vitality);
             Assert.That(growth.TrySelectUpgrade(GrowthUpgradeType.Vitality), Is.True);
             Assert.That(selected, Is.EqualTo(GrowthUpgradeType.Vitality));
             Assert.That(growth.VitalityLevel, Is.EqualTo(1));
@@ -113,6 +130,246 @@ namespace MukJump.EditorTests
             Assert.That(growth.HasPendingChoice, Is.False);
             Assert.That(manager.IsPaused, Is.False);
             Assert.That(manager.IsGameplayTicking, Is.True);
+        }
+
+        [Test]
+        public void GrowthOffersAreThreeUniqueAndGuaranteeBodyAndDrawing()
+        {
+            GameplayRandom.ResetSession(20260729);
+            CreatePlayingManager(out var growth);
+
+            Assert.That(growth.RequestChoice(), Is.True);
+            var offers = growth.CurrentOffers.ToArray();
+
+            Assert.That(offers, Has.Length.EqualTo(3));
+            Assert.That(offers.Distinct().Count(), Is.EqualTo(3),
+                "한 선택판에 같은 성장이 중복되면 안 됩니다.");
+            Assert.That(offers.Any(IsBodyUpgrade), Is.True,
+                "세 선택지 중 몸 성장이 하나는 보장되어야 합니다.");
+            Assert.That(offers.Any(IsDrawingUpgrade), Is.True,
+                "세 선택지 중 드로잉 성장이 하나는 보장되어야 합니다.");
+            Assert.That(growth.CancelChoice(), Is.True);
+        }
+
+        [Test]
+        public void GrowthRejectsNonOfferAndExcludesMaxedUpgrades()
+        {
+            GameplayRandom.ResetSession(20260730);
+            CreatePlayingManager(out var growth);
+            SetProperty(growth, "VitalityLevel",
+                RunGrowthController.MaxVitalityLevel);
+            SetProperty(growth, "InkCapacityLevel",
+                RunGrowthController.MaxInkCapacityLevel);
+            SetProperty(growth, "PlatformSlotsLevel",
+                RunGrowthController.MaxPlatformSlotsLevel);
+
+            Assert.That(growth.RequestChoice(), Is.True);
+            var offers = growth.CurrentOffers.ToArray();
+            CollectionAssert.DoesNotContain(offers, GrowthUpgradeType.Vitality);
+            CollectionAssert.DoesNotContain(offers, GrowthUpgradeType.InkCapacity);
+            CollectionAssert.DoesNotContain(offers, GrowthUpgradeType.PlatformSlots);
+
+            GrowthUpgradeType nonOffer = Enum
+                .GetValues(typeof(GrowthUpgradeType))
+                .Cast<GrowthUpgradeType>()
+                .First(type =>
+                    growth.CanSelectUpgrade(type) &&
+                    !offers.Contains(type));
+            int levelBefore = growth.GetLevel(nonOffer);
+            Assert.That(growth.TrySelectUpgrade(nonOffer), Is.False,
+                "현재 두루마리에 표시되지 않은 성장을 강제로 적용하면 안 됩니다.");
+            Assert.That(growth.GetLevel(nonOffer), Is.EqualTo(levelBefore));
+            Assert.That(growth.HasSelectedPendingChoice, Is.False);
+            Assert.That(growth.CancelChoice(), Is.True);
+        }
+
+        [Test]
+        public void NewGrowthMultipliersReachTheirDocumentedCaps()
+        {
+            CreatePlayingManager(out var growth);
+
+            ApplyRepeatedChoice(
+                growth,
+                GrowthUpgradeType.InkCapacity,
+                RunGrowthController.MaxInkCapacityLevel);
+            ApplyRepeatedChoice(
+                growth,
+                GrowthUpgradeType.InkRecovery,
+                RunGrowthController.MaxInkRecoveryLevel);
+            ApplyRepeatedChoice(
+                growth,
+                GrowthUpgradeType.PlatformLifetime,
+                RunGrowthController.MaxPlatformLifetimeLevel);
+            ApplyRepeatedChoice(
+                growth,
+                GrowthUpgradeType.PlatformSlots,
+                RunGrowthController.MaxPlatformSlotsLevel);
+            ApplyRepeatedChoice(
+                growth,
+                GrowthUpgradeType.StrokeGuard,
+                RunGrowthController.MaxStrokeGuardLevel);
+            ApplyRepeatedChoice(
+                growth,
+                GrowthUpgradeType.ItemFortune,
+                RunGrowthController.MaxItemFortuneLevel);
+
+            Assert.That(growth.InkCapacityMultiplier,
+                Is.EqualTo(1.4f).Within(0.0001f));
+            Assert.That(growth.InkRecoveryMultiplier,
+                Is.EqualTo(1.48f).Within(0.0001f));
+            Assert.That(growth.PlatformLifetimeMultiplier,
+                Is.EqualTo(1.3f).Within(0.0001f));
+            Assert.That(growth.AdditionalPlatformSlots, Is.EqualTo(1));
+            Assert.That(growth.NewPlatformsHaveStrokeGuard, Is.True);
+            Assert.That(growth.ItemSpacingMultiplier,
+                Is.EqualTo(0.79f).Within(0.0001f));
+
+            foreach (GrowthUpgradeType type in new[]
+                     {
+                         GrowthUpgradeType.InkCapacity,
+                         GrowthUpgradeType.InkRecovery,
+                         GrowthUpgradeType.PlatformLifetime,
+                         GrowthUpgradeType.PlatformSlots,
+                         GrowthUpgradeType.StrokeGuard,
+                         GrowthUpgradeType.ItemFortune,
+                     })
+            {
+                Assert.That(growth.CanSelectUpgrade(type), Is.False,
+                    $"{type} 최대 단계가 선택 후보에 다시 들어가면 안 됩니다.");
+            }
+        }
+
+        [Test]
+        public void StrokeCaptureAppliesCapacityDeltaRecoveryAndRunReset()
+        {
+            CreatePlayingManager(out var growth);
+            var host = Track(new GameObject("GrowthStrokeCapture"));
+            var stroke = host.AddComponent<StrokeCapture>();
+            SetField(stroke, "inkCapacity", 12f);
+            SetField(stroke, "inkRegenPerSecond", 3f);
+            SetField(stroke, "appliedInkCapacity", 12f);
+            SetField(stroke, "ink", 5f);
+            Invoke(stroke, "TryBindGrowthController");
+
+            ApplyChoice(growth, GrowthUpgradeType.InkCapacity);
+
+            Assert.That(stroke.EffectiveInkCapacity,
+                Is.EqualTo(13.2f).Within(0.0001f));
+            Assert.That(GetField<float>(stroke, "ink"),
+                Is.EqualTo(6.2f).Within(0.0001f),
+                "용량 성장 시 늘어난 1.2만큼 현재 먹도 즉시 충전되어야 합니다.");
+
+            ApplyChoice(growth, GrowthUpgradeType.InkRecovery);
+            Assert.That(stroke.EffectiveInkRegenPerSecond,
+                Is.EqualTo(3.36f).Within(0.0001f));
+
+            SetField(stroke, "ink", 1f);
+            SetField(stroke, "inkReserve", 4f);
+            SetField(stroke, "unlimitedInkUntil", Time.time + 10f);
+            Invoke(growth, "ResetRun");
+
+            Assert.That(stroke.EffectiveInkCapacity,
+                Is.EqualTo(12f).Within(0.0001f));
+            Assert.That(stroke.EffectiveInkRegenPerSecond,
+                Is.EqualTo(3f).Within(0.0001f));
+            Assert.That(GetField<float>(stroke, "ink"),
+                Is.EqualTo(12f).Within(0.0001f));
+            Assert.That(GetField<float>(stroke, "inkReserve"), Is.Zero);
+            Assert.That(GetField<float>(stroke, "unlimitedInkUntil"), Is.Zero);
+        }
+
+        [Test]
+        public void PlatformGrowthCombinesZoneLifetimeBudgetAndOneHitGuard()
+        {
+            CreatePlayingManager(out var growth);
+            ApplyRepeatedChoice(
+                growth,
+                GrowthUpgradeType.PlatformLifetime,
+                RunGrowthController.MaxPlatformLifetimeLevel);
+            ApplyChoice(growth, GrowthUpgradeType.PlatformSlots);
+            ApplyChoice(growth, GrowthUpgradeType.StrokeGuard);
+            PlatformCollider.RuntimeLifetimeMultiplier = 0.72f;
+
+            var platforms = new List<PlatformCollider>();
+            for (int i = 0; i < 6; i++)
+            {
+                var points = new List<Vector2>
+                {
+                    new(i, 0f),
+                    new(i + 1f, 0f),
+                };
+                var platform = PlatformCollider.Spawn(points);
+                Track(platform.gameObject);
+                platforms.Add(platform);
+            }
+
+            float effectiveLifetime = GetProperty<float>(
+                platforms[^1], "EffectiveLifetime");
+            Assert.That(effectiveLifetime,
+                Is.EqualTo(4.5f * 0.72f * 1.3f).Within(0.0001f),
+                "맵 구간 배율과 성장 배율은 서로 덮지 말고 곱해져야 합니다.");
+
+            Assert.That(platforms[0].GetComponent<EdgeCollider2D>().enabled, Is.False,
+                "기본 4칸+성장 1칸을 넘긴 가장 오래된 발판은 물리 예산에서 빠져야 합니다.");
+            for (int i = 1; i < platforms.Count; i++)
+                Assert.That(platforms[i].GetComponent<EdgeCollider2D>().enabled, Is.True);
+
+            var guarded = platforms[^1];
+            var guardedEdge = guarded.GetComponent<EdgeCollider2D>();
+            Assert.That(guarded.HasStrokeGuard, Is.True);
+            Assert.That(guarded.BreakFromHazard(), Is.True);
+            Assert.That(guarded.HasStrokeGuard, Is.False);
+            Assert.That(guarded.IsTemporaryDrawnPlatform, Is.True);
+            Assert.That(guardedEdge.enabled, Is.True,
+                "첫 낙묵석은 수호만 소모하고 발판을 남겨야 합니다.");
+
+            LogAssert.Expect(
+                LogType.Error,
+                new System.Text.RegularExpressions.Regex(
+                    "Destroy may not be called from edit mode"));
+            Assert.That(guarded.BreakFromHazard(), Is.True);
+            Assert.That(guarded.IsTemporaryDrawnPlatform, Is.False);
+            Assert.That(guardedEdge.enabled, Is.False,
+                "두 번째 낙묵석은 수호가 사라진 발판을 제거해야 합니다.");
+        }
+
+        [Test]
+        public void PlatformLifetimeGrowthPreservesExistingPlatformProgress()
+        {
+            CreatePlayingManager(out var growth);
+            var platform = PlatformCollider.Spawn(new List<Vector2>
+            {
+                Vector2.zero,
+                Vector2.right,
+            });
+            Track(platform.gameObject);
+            SetField(platform, "age", 3.6f);
+            SetField(platform, "lastEffectiveLifetime", 4.5f);
+
+            ApplyChoice(growth, GrowthUpgradeType.PlatformLifetime);
+            float effectiveLifetime = GetProperty<float>(
+                platform, "EffectiveLifetime");
+            Invoke(platform, "SynchronizeLifetimeProgress", effectiveLifetime);
+            float migratedAge = GetField<float>(platform, "age");
+            Assert.That(effectiveLifetime, Is.EqualTo(4.95f).Within(0.0001f));
+            Assert.That(
+                migratedAge / effectiveLifetime,
+                Is.EqualTo(0.8f).Within(0.001f),
+                "이미 존재하는 발판은 수명 성장 뒤에도 마르는 진행률을 유지해야 합니다.");
+        }
+
+        [Test]
+        public void ItemFortuneChangesFixedTenMeterSpacingToNinePointThree()
+        {
+            CreatePlayingManager(out var growth);
+            ApplyChoice(growth, GrowthUpgradeType.ItemFortune);
+            var host = Track(new GameObject("FortuneItemSpawner"));
+            var spawner = host.AddComponent<ItemSpawner>();
+            SetField(spawner, "verticalSpacing", new Vector2(10f, 10f));
+
+            float spacing = (float)Invoke(spawner, "NextSpacing");
+
+            Assert.That(spacing, Is.EqualTo(9.3f).Within(0.0001f));
         }
 
         [Test]
@@ -276,20 +533,40 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ChoiceViewBuildsOneBlockingScrollWithTwoResourceCards()
+        public void ChoiceViewBuildsBlockingScrollWithOneToThreeDynamicCards()
         {
             var vitalitySprite = LoadGrowthSprite(
                 VitalityAssetPath, "MukJump/UI/Growth/growth_vitality");
             var jumpSprite = LoadGrowthSprite(
                 JumpAssetPath, "MukJump/UI/Growth/growth_jump");
-            Assert.That(LoadGrowthSprite(
-                ScrollAssetPath, "MukJump/UI/Growth/growth_scroll"), Is.Not.Null);
+            var capacitySprite = LoadGrowthSprite(
+                InkCapacityAssetPath, "MukJump/UI/Growth/growth_ink_capacity");
+            var recoverySprite = LoadGrowthSprite(
+                InkRecoveryAssetPath, "MukJump/UI/Growth/growth_ink_regen");
+            var platformSprite = LoadGrowthSprite(
+                PlatformAssetPath, "MukJump/UI/Growth/growth_platform");
+            var guardSprite = LoadGrowthSprite(
+                GuardAssetPath, "MukJump/UI/Growth/growth_guard");
+            var fortuneSprite = LoadGrowthSprite(
+                FortuneAssetPath, "MukJump/UI/Growth/growth_fortune");
+            var scrollSprite = LoadGrowthSprite(
+                ScrollAssetPath, "MukJump/UI/Growth/growth_scroll");
+            Assert.That(scrollSprite, Is.Not.Null);
 
             var host = Track(new GameObject("GrowthChoiceViewHost"));
             var view = host.AddComponent<GrowthChoiceView>();
-            view.SetSprites(vitalitySprite, jumpSprite);
+            view.SetSprites(
+                vitalitySprite,
+                jumpSprite,
+                capacitySprite,
+                recoverySprite,
+                platformSprite,
+                platformSprite,
+                guardSprite,
+                fortuneSprite);
             Invoke(view, "BuildIfNeeded");
             Invoke(view, "BuildIfNeeded");
+            Invoke(view, "BindButtons");
 
             Assert.That(CountDirectChildren(
                 host.transform, "GrowthChoiceCanvas"), Is.EqualTo(1));
@@ -312,61 +589,94 @@ namespace MukJump.EditorTests
             Assert.That(panel.Find("TopRoll"), Is.Not.Null);
             Assert.That(panel.Find("BottomRoll"), Is.Not.Null);
 
-            var content = panel.Find("GrowthContent");
-            var vitalityCard = content.Find("VitalityChoice");
-            var jumpCard = content.Find("JumpChoice");
-            Assert.That(vitalityCard.GetComponent<Button>(), Is.Not.Null);
-            Assert.That(jumpCard.GetComponent<Button>(), Is.Not.Null);
-            Assert.That(vitalityCard.Find("Icon").GetComponent<Image>().sprite,
-                Is.SameAs(vitalitySprite));
-            Assert.That(jumpCard.Find("Icon").GetComponent<Image>().sprite,
-                Is.SameAs(jumpSprite));
-
             var reveal = (IEnumerator)Invoke(view, "RevealRoutine");
             Assert.That(reveal.MoveNext(), Is.True);
             var rootGroup = canvasRoot.GetComponent<CanvasGroup>();
             Assert.That(rootGroup.blocksRaycasts, Is.True,
                 "모달이 열리는 첫 프레임부터 뒤 게임 입력을 막아야 합니다.");
 
-            var growthHost = Track(new GameObject("MaxedGrowthState"));
-            var growth = growthHost.AddComponent<RunGrowthController>();
-            Invoke(growth, "OnEnable");
-            SetProperty(growth, "VitalityLevel",
-                RunGrowthController.MaxVitalityLevel);
-            SetProperty(growth, "VitalityCharges",
-                RunGrowthController.MaxVitalityLevel);
-            SetProperty(growth, "JumpLevel",
-                RunGrowthController.MaxJumpLevel);
+            CreatePlayingManager(out var growth);
+            Assert.That(growth.RequestChoice(), Is.True);
             SetField(view, "boundController", growth);
             SetProperty(view, "IsOpen", true);
             rootGroup.interactable = true;
+
+            var content = panel.Find("GrowthContent");
+            var firstCard = content.Find("GrowthChoice1");
+            var secondCard = content.Find("GrowthChoice2");
+            var thirdCard = content.Find("GrowthChoice3");
+            Assert.That(firstCard.GetComponent<Button>(), Is.Not.Null);
+            Assert.That(secondCard.GetComponent<Button>(), Is.Not.Null);
+            Assert.That(thirdCard.GetComponent<Button>(), Is.Not.Null);
+
+            ForceCurrentOffers(
+                growth,
+                GrowthUpgradeType.Vitality,
+                GrowthUpgradeType.InkCapacity,
+                GrowthUpgradeType.ItemFortune);
             Invoke(view, "RefreshCards");
 
-            Assert.That(vitalityCard.GetComponent<Button>().interactable, Is.False);
-            Assert.That(jumpCard.GetComponent<Button>().interactable, Is.False);
-            Assert.That(vitalityCard.GetComponent<CanvasGroup>().alpha,
-                Is.LessThan(0.7f));
-            Assert.That(jumpCard.GetComponent<CanvasGroup>().alpha,
-                Is.LessThan(0.7f));
-            StringAssert.Contains(
-                "완성", vitalityCard.Find("Status").GetComponent<Text>().text);
-            StringAssert.Contains(
-                "완성", jumpCard.Find("Status").GetComponent<Text>().text);
+            Assert.That(firstCard.gameObject.activeSelf, Is.True);
+            Assert.That(secondCard.gameObject.activeSelf, Is.True);
+            Assert.That(thirdCard.gameObject.activeSelf, Is.True);
+            Assert.That(firstCard.Find("Icon").GetComponent<Image>().sprite,
+                Is.SameAs(vitalitySprite));
+            Assert.That(secondCard.Find("Icon").GetComponent<Image>().sprite,
+                Is.SameAs(capacitySprite));
+            Assert.That(thirdCard.Find("Icon").GetComponent<Image>().sprite,
+                Is.SameAs(fortuneSprite));
+            Assert.That(firstCard.Find("Name").GetComponent<Text>().text,
+                Is.EqualTo("먹두께"));
+            Assert.That(secondCard.Find("Name").GetComponent<Text>().text,
+                Is.EqualTo("큰 벼루"));
+            Assert.That(thirdCard.Find("Name").GetComponent<Text>().text,
+                Is.EqualTo("길운"));
+
+            ForceCurrentOffers(
+                growth,
+                GrowthUpgradeType.JumpPower,
+                GrowthUpgradeType.PlatformLifetime);
+            Invoke(view, "RefreshCards");
+            Assert.That(firstCard.gameObject.activeSelf, Is.True);
+            Assert.That(secondCard.gameObject.activeSelf, Is.True);
+            Assert.That(thirdCard.gameObject.activeSelf, Is.False);
+            Assert.That(firstCard.Find("Icon").GetComponent<Image>().sprite,
+                Is.SameAs(jumpSprite));
+            Assert.That(secondCard.Find("Icon").GetComponent<Image>().sprite,
+                Is.SameAs(platformSprite));
+
+            ForceCurrentOffers(growth, GrowthUpgradeType.StrokeGuard);
+            Invoke(view, "RefreshCards");
+            Assert.That(firstCard.gameObject.activeSelf, Is.True);
+            Assert.That(secondCard.gameObject.activeSelf, Is.False);
+            Assert.That(thirdCard.gameObject.activeSelf, Is.False);
+            Assert.That(firstCard.Find("Icon").GetComponent<Image>().sprite,
+                Is.SameAs(guardSprite));
+            Assert.That(((RectTransform)firstCard).anchoredPosition.y,
+                Is.Zero.Within(0.0001f));
+
+            rootGroup.interactable = true;
+            Invoke(view, "RefreshCards");
+            firstCard.GetComponent<Button>().onClick.Invoke();
+            Assert.That(growth.StrokeGuardLevel, Is.EqualTo(1),
+                "첫 카드 버튼은 자기 카드에 표시된 성장 종류를 선택해야 합니다.");
+            Assert.That(growth.HasSelectedPendingChoice, Is.True);
+            Assert.That(growth.CancelChoice(), Is.True);
         }
 
         [Test]
         public void GrowthSpawnerUsesGuaranteedScheduleAndOneReusablePickup()
         {
             Assert.That(GrowthScrollSpawner.DefaultFirstHeight, Is.EqualTo(45f));
-            Assert.That(GrowthScrollSpawner.DefaultInterval, Is.EqualTo(180f));
+            Assert.That(GrowthScrollSpawner.DefaultInterval, Is.EqualTo(120f));
             Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(44f),
                 Is.EqualTo(45f));
             Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(45f),
                 Is.EqualTo(45f));
             Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(46f),
-                Is.EqualTo(225f));
+                Is.EqualTo(165f));
             Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(1000f),
-                Is.EqualTo(1125f));
+                Is.EqualTo(1005f));
 
             RetagExistingMainCameras();
             var cameraObject = Track(new GameObject("GrowthSpawnerCamera"));
@@ -380,30 +690,30 @@ namespace MukJump.EditorTests
             var spawner = host.AddComponent<GrowthScrollSpawner>();
             var scrollSprite = LoadGrowthSprite(
                 ScrollAssetPath, "MukJump/UI/Growth/growth_scroll");
-            spawner.Configure(scrollSprite, 45f, 180f);
+            spawner.Configure(scrollSprite, 45f, 120f);
             SetField(spawner, "worldCamera", worldCamera);
             Invoke(spawner, "EnsurePool");
 
             Assert.That(spawner.FirstHeight, Is.EqualTo(45f));
-            Assert.That(spawner.Interval, Is.EqualTo(180f));
+            Assert.That(spawner.Interval, Is.EqualTo(120f));
             Assert.That(spawner.PoolAvailableCount, Is.EqualTo(1));
             Assert.That((bool)Invoke(spawner, "TrySpawn", 45f), Is.True);
             var first = spawner.ActivePickup;
             Assert.That(first, Is.Not.Null);
             Assert.That(spawner.PoolLeasedCount, Is.EqualTo(1));
-            Assert.That((bool)Invoke(spawner, "TrySpawn", 225f), Is.False,
+            Assert.That((bool)Invoke(spawner, "TrySpawn", 165f), Is.False,
                 "한 화면에 성장 두루마리를 두 개 이상 대여하면 안 됩니다.");
 
             Invoke(spawner, "ReleaseActive");
             Assert.That(spawner.PoolAvailableCount, Is.EqualTo(1));
             Assert.That(spawner.PoolLeasedCount, Is.Zero);
-            Assert.That((bool)Invoke(spawner, "TrySpawn", 225f), Is.True);
+            Assert.That((bool)Invoke(spawner, "TrySpawn", 165f), Is.True);
             Assert.That(spawner.ActivePickup, Is.SameAs(first),
                 "두 번째 일정은 Instantiate 대신 같은 한 슬롯 풀을 재사용해야 합니다.");
 
             Invoke(spawner, "HandleWorldHeightTeleported", 1000);
             Assert.That(spawner.HasActivePickup, Is.False);
-            Assert.That(spawner.NextScheduledHeight, Is.EqualTo(1125f));
+            Assert.That(spawner.NextScheduledHeight, Is.EqualTo(1005f));
             Assert.That(spawner.PoolAvailableCount, Is.EqualTo(1),
                 "순간이동으로 건너뛴 과거 슬롯을 한꺼번에 생성하면 안 됩니다.");
         }
@@ -481,8 +791,50 @@ namespace MukJump.EditorTests
             GrowthUpgradeType upgrade)
         {
             Assert.That(growth.RequestChoice(), Is.True);
+            ForceCurrentOffers(growth, upgrade);
             Assert.That(growth.TrySelectUpgrade(upgrade), Is.True);
             Assert.That(growth.FinishChoice(), Is.True);
+        }
+
+        void ApplyRepeatedChoice(
+            RunGrowthController growth,
+            GrowthUpgradeType upgrade,
+            int count)
+        {
+            for (int i = 0; i < count; i++)
+                ApplyChoice(growth, upgrade);
+        }
+
+        static void ForceCurrentOffers(
+            RunGrowthController growth,
+            params GrowthUpgradeType[] upgrades)
+        {
+            var field = typeof(RunGrowthController).GetField(
+                "currentOffers",
+                BindingFlags.Instance |
+                BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null,
+                "RunGrowthController.currentOffers 필드를 찾을 수 없습니다.");
+            var offers = field.GetValue(growth) as List<GrowthUpgradeType>;
+            Assert.That(offers, Is.Not.Null);
+            offers.Clear();
+            if (upgrades != null)
+                offers.AddRange(upgrades);
+        }
+
+        static bool IsBodyUpgrade(GrowthUpgradeType type)
+        {
+            return type == GrowthUpgradeType.Vitality ||
+                   type == GrowthUpgradeType.JumpPower;
+        }
+
+        static bool IsDrawingUpgrade(GrowthUpgradeType type)
+        {
+            return type == GrowthUpgradeType.InkCapacity ||
+                   type == GrowthUpgradeType.InkRecovery ||
+                   type == GrowthUpgradeType.PlatformLifetime ||
+                   type == GrowthUpgradeType.PlatformSlots ||
+                   type == GrowthUpgradeType.StrokeGuard;
         }
 
         Sprite CreateTestSprite()
@@ -507,8 +859,8 @@ namespace MukJump.EditorTests
             Assert.That(importer.textureType,
                 Is.EqualTo(TextureImporterType.Sprite),
                 $"Resources.Load<Sprite>를 위해 Sprite 임포트가 필요합니다: {assetPath}");
-            Assert.That(importer.maxTextureSize, Is.LessThanOrEqualTo(1024),
-                $"모바일 선택 아이콘은 1024px GPU 예산을 넘기면 안 됩니다: {assetPath}");
+            Assert.That(importer.maxTextureSize, Is.LessThanOrEqualTo(512),
+                $"모바일 선택 아이콘은 512px GPU 예산을 넘기면 안 됩니다: {assetPath}");
             var sprite = Resources.Load<Sprite>(resourcePath);
             Assert.That(sprite, Is.Not.Null,
                 $"성장 아이콘 Resources 경로가 올바르지 않습니다: {resourcePath}");
@@ -584,6 +936,30 @@ namespace MukJump.EditorTests
             field.SetValue(target, value);
         }
 
+        static T GetField<T>(object target, string fieldName)
+        {
+            var field = target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance |
+                BindingFlags.Public |
+                BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null,
+                $"{target.GetType().Name}.{fieldName} 필드를 찾을 수 없습니다.");
+            return (T)field.GetValue(target);
+        }
+
+        static T GetProperty<T>(object target, string propertyName)
+        {
+            var property = target.GetType().GetProperty(
+                propertyName,
+                BindingFlags.Instance |
+                BindingFlags.Public |
+                BindingFlags.NonPublic);
+            Assert.That(property, Is.Not.Null,
+                $"{target.GetType().Name}.{propertyName} 속성을 찾을 수 없습니다.");
+            return (T)property.GetValue(target);
+        }
+
         static void SetProperty(object target, string propertyName, object value)
         {
             var property = target.GetType().GetProperty(
@@ -594,6 +970,19 @@ namespace MukJump.EditorTests
             Assert.That(property, Is.Not.Null,
                 $"{target.GetType().Name}.{propertyName} 속성을 찾을 수 없습니다.");
             property.SetValue(target, value);
+        }
+
+        static void ClearActivePlatforms()
+        {
+            var field = typeof(PlatformCollider).GetField(
+                "active",
+                BindingFlags.Static |
+                BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null,
+                "PlatformCollider.active 필드를 찾을 수 없습니다.");
+            var active = field.GetValue(null) as IList;
+            Assert.That(active, Is.Not.Null);
+            active.Clear();
         }
     }
 }

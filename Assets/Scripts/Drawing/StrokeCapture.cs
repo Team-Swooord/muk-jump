@@ -38,6 +38,8 @@ namespace MukJump.Drawing
         float inkReserve;
         LineRenderer preview;
         float unlimitedInkUntil;
+        RunGrowthController growthController;
+        float appliedInkCapacity;
         readonly List<Player.PlayerController> livingPlayers = new();
         readonly List<Vector2> safeSegment = new();
         readonly List<Vector2> safeSegmentCandidate = new();
@@ -46,11 +48,19 @@ namespace MukJump.Drawing
         public bool HasUnlimitedInk => Time.time < unlimitedInkUntil;
         public float InkRemaining01 => HasUnlimitedInk
             ? 1f
-            : (ink + inkReserve) / Mathf.Max(0.001f, inkCapacity);
+            : (ink + inkReserve) / Mathf.Max(0.001f, EffectiveInkCapacity);
+        public float EffectiveInkCapacity =>
+            inkCapacity * (RunGrowthController.Instance != null
+                ? RunGrowthController.Instance.InkCapacityMultiplier
+                : 1f);
+        public float EffectiveInkRegenPerSecond =>
+            inkRegenPerSecond * (RunGrowthController.Instance != null
+                ? RunGrowthController.Instance.InkRecoveryMultiplier
+                : 1f);
 
         public void AddInkReserve(float capacityRatio)
         {
-            inkReserve += inkCapacity * Mathf.Max(0f, capacityRatio);
+            inkReserve += EffectiveInkCapacity * Mathf.Max(0f, capacityRatio);
         }
 
         public void ActivateUnlimitedInk(float duration)
@@ -58,14 +68,27 @@ namespace MukJump.Drawing
             unlimitedInkUntil = Mathf.Max(unlimitedInkUntil, Time.time + duration);
         }
 
+        void OnEnable()
+        {
+            TryBindGrowthController();
+        }
+
+        void OnDisable()
+        {
+            // 컴포넌트 비활성화가 입력 도중 발생해도 미리보기와 붓 루프음이
+            // 다음 화면에 남지 않도록 드로잉 상태까지 함께 정리한다.
+            CancelActiveStroke();
+            UnbindGrowthController();
+        }
+
         void Start()
         {
             cam = Camera.main;
-            // 구형 Main 씬의 직렬화 값이 남아 있어도 최신 밸런스를 즉시 적용한다.
-            inkRegenPerSecond = 3f;
             if (cam == null)
                 Debug.LogError("[MukJump] MainCamera를 찾을 수 없어 드로잉 좌표를 변환할 수 없습니다.", this);
-            ink = inkCapacity;
+            TryBindGrowthController();
+            appliedInkCapacity = EffectiveInkCapacity;
+            ink = appliedInkCapacity;
             UseLineSpriteFromMainUi();
         }
 
@@ -128,6 +151,7 @@ namespace MukJump.Drawing
         void Update()
         {
             if (cam == null) return;
+            TryBindGrowthController();
 
             if (GameManager.Instance == null)
             {
@@ -154,7 +178,9 @@ namespace MukJump.Drawing
             }
 
             if (!drawing)
-                ink = Mathf.Min(inkCapacity, ink + inkRegenPerSecond * Time.deltaTime);
+                ink = Mathf.Min(
+                    EffectiveInkCapacity,
+                    ink + EffectiveInkRegenPerSecond * Time.deltaTime);
 
             if (PointerInput.TryGetPressed(out var screenPos))
             {
@@ -333,6 +359,50 @@ namespace MukJump.Drawing
                 CancelStroke();
             else
                 GameFeedbackController.Instance?.StopBrushDrawing();
+        }
+
+        void TryBindGrowthController()
+        {
+            var next = RunGrowthController.Instance;
+            if (growthController == next) return;
+
+            UnbindGrowthController();
+            growthController = next;
+            if (growthController == null) return;
+
+            growthController.UpgradeSelected += HandleGrowthUpgradeSelected;
+            growthController.RunReset += HandleGrowthRunReset;
+            if (appliedInkCapacity <= 0f)
+                appliedInkCapacity = EffectiveInkCapacity;
+        }
+
+        void UnbindGrowthController()
+        {
+            if (growthController != null)
+            {
+                growthController.UpgradeSelected -= HandleGrowthUpgradeSelected;
+                growthController.RunReset -= HandleGrowthRunReset;
+            }
+            growthController = null;
+        }
+
+        void HandleGrowthUpgradeSelected(GrowthUpgradeType upgrade)
+        {
+            if (upgrade != GrowthUpgradeType.InkCapacity) return;
+
+            float nextCapacity = EffectiveInkCapacity;
+            float addedCapacity = Mathf.Max(0f, nextCapacity - appliedInkCapacity);
+            ink = Mathf.Min(nextCapacity, ink + addedCapacity);
+            appliedInkCapacity = nextCapacity;
+        }
+
+        void HandleGrowthRunReset()
+        {
+            CancelActiveStroke();
+            inkReserve = 0f;
+            unlimitedInkUntil = 0f;
+            appliedInkCapacity = EffectiveInkCapacity;
+            ink = appliedInkCapacity;
         }
 
         /// 캐릭터와 겹치는 부분만 잘라내고 가장 긴 안전 구간은 살린다.

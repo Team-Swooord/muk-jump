@@ -8,17 +8,29 @@ namespace MukJump.Core
     /// 씬에 UI 계층을 직렬화하지 않고 최초 사용 시 한 번만 생성해 구형 씬도 지원한다.
     public sealed class GrowthChoiceView : MonoBehaviour
     {
-        const string VitalityIconResourcePath = "MukJump/UI/Growth/growth_vitality";
-        const string JumpIconResourcePath = "MukJump/UI/Growth/growth_jump";
+        const int GrowthTypeCount = 8;
+        const int MaxVisibleChoices = 3;
         const int CanvasSortingOrder = 3000;
         const float RevealDuration = 0.26f;
         const float CloseDuration = 0.16f;
-        const float RollOpenDistance = 470f;
+        const float RollOpenDistance = 590f;
         const float ClosedPaperScale = 0.12f;
 
+        static readonly string[] IconResourcePaths =
+        {
+            "MukJump/UI/Growth/growth_vitality",
+            "MukJump/UI/Growth/growth_jump",
+            "MukJump/UI/Growth/growth_ink_capacity",
+            "MukJump/UI/Growth/growth_ink_regen",
+            "MukJump/UI/Growth/growth_platform",
+            "MukJump/UI/Growth/growth_platform",
+            "MukJump/UI/Growth/growth_guard",
+            "MukJump/UI/Growth/growth_fortune",
+        };
+
         [Header("선택 카드 아이콘")]
-        [SerializeField] Sprite vitalityIcon;
-        [SerializeField] Sprite jumpIcon;
+        [Tooltip("GrowthUpgradeType enum 순서와 같은 8칸. 발판 수명·개수는 같은 아이콘을 공유한다.")]
+        [SerializeField] Sprite[] growthIcons = new Sprite[GrowthTypeCount];
 
         public static GrowthChoiceView Instance { get; private set; }
         public bool IsOpen { get; private set; }
@@ -31,8 +43,8 @@ namespace MukJump.Core
         RectTransform bottomRoll;
         RectTransform contentRect;
         CanvasGroup contentGroup;
-        ChoiceCard vitalityCard;
-        ChoiceCard jumpCard;
+        Text hintText;
+        readonly ChoiceCard[] choiceCards = new ChoiceCard[MaxVisibleChoices];
         RunGrowthController boundController;
         Coroutine visibilityRoutine;
         bool selectionLocked;
@@ -46,11 +58,14 @@ namespace MukJump.Core
             public Button Button;
             public Image Paper;
             public Image Icon;
+            public Text Title;
             public Text Status;
             public Text Effect;
             public CanvasGroup Group;
             public RectTransform SelectedSeal;
             public Text SelectedSealText;
+            public GrowthUpgradeType Type;
+            public UnityEngine.Events.UnityAction Pressed;
         }
 
         void Awake()
@@ -113,11 +128,30 @@ namespace MukJump.Core
                 ApplySafeArea();
         }
 
-        /// 씬 빌더가 임포트한 스프라이트를 명시적으로 주입할 때 사용한다.
-        public void SetSprites(Sprite vitality, Sprite jump)
+        /// 씬 빌더가 임포트한 스프라이트를 enum 순서대로 주입할 때 사용한다.
+        /// 발판 공용 아이콘을 한 번만 넘기는 7개 배열과 기존 2개 배열도 함께 지원한다.
+        public void SetSprites(params Sprite[] sprites)
         {
-            vitalityIcon = vitality;
-            jumpIcon = jump;
+            EnsureIconArray();
+            if (sprites != null && sprites.Length == GrowthTypeCount - 1)
+            {
+                SetIcon(GrowthUpgradeType.Vitality, sprites[0]);
+                SetIcon(GrowthUpgradeType.JumpPower, sprites[1]);
+                SetIcon(GrowthUpgradeType.InkCapacity, sprites[2]);
+                SetIcon(GrowthUpgradeType.InkRecovery, sprites[3]);
+                SetIcon(GrowthUpgradeType.PlatformLifetime, sprites[4]);
+                SetIcon(GrowthUpgradeType.PlatformSlots, sprites[4]);
+                SetIcon(GrowthUpgradeType.StrokeGuard, sprites[5]);
+                SetIcon(GrowthUpgradeType.ItemFortune, sprites[6]);
+            }
+            else if (sprites != null)
+            {
+                int count = Mathf.Min(sprites.Length, growthIcons.Length);
+                for (int i = 0; i < count; i++)
+                    if (sprites[i] != null)
+                        growthIcons[i] = sprites[i];
+            }
+
             ResolveSprites();
             ApplyCardSprites();
         }
@@ -179,14 +213,23 @@ namespace MukJump.Core
         void BindButtons()
         {
             UnbindButtons();
-            vitalityCard?.Button.onClick.AddListener(HandleVitalityPressed);
-            jumpCard?.Button.onClick.AddListener(HandleJumpPressed);
+            for (int i = 0; i < choiceCards.Length; i++)
+            {
+                ChoiceCard card = choiceCards[i];
+                if (card?.Button == null) continue;
+                card.Pressed ??= () => HandleCardPressed(card);
+                card.Button.onClick.AddListener(card.Pressed);
+            }
         }
 
         void UnbindButtons()
         {
-            vitalityCard?.Button.onClick.RemoveListener(HandleVitalityPressed);
-            jumpCard?.Button.onClick.RemoveListener(HandleJumpPressed);
+            for (int i = 0; i < choiceCards.Length; i++)
+            {
+                ChoiceCard card = choiceCards[i];
+                if (card?.Button != null && card.Pressed != null)
+                    card.Button.onClick.RemoveListener(card.Pressed);
+            }
         }
 
         void HandleChoiceRequested()
@@ -207,14 +250,10 @@ namespace MukJump.Core
                 RefreshCards();
         }
 
-        void HandleVitalityPressed()
+        void HandleCardPressed(ChoiceCard card)
         {
-            Select(GrowthUpgradeType.Vitality, vitalityCard);
-        }
-
-        void HandleJumpPressed()
-        {
-            Select(GrowthUpgradeType.JumpPower, jumpCard);
+            if (card != null && card.Root.gameObject.activeSelf)
+                Select(card.Type, card);
         }
 
         void Select(GrowthUpgradeType type, ChoiceCard selectedCard)
@@ -307,40 +346,129 @@ namespace MukJump.Core
 
         void RefreshCards()
         {
-            if (boundController == null || vitalityCard == null || jumpCard == null)
+            if (boundController == null || choiceCards[0] == null)
                 return;
 
-            int vitalityLevel = boundController.VitalityLevel;
-            int jumpLevel = boundController.JumpLevel;
-            bool vitalityMax = vitalityLevel >= RunGrowthController.MaxVitalityLevel;
-            bool jumpMax = jumpLevel >= RunGrowthController.MaxJumpLevel;
-
-            vitalityCard.Status.text = vitalityMax
-                ? $"현재 Lv.{vitalityLevel}/{RunGrowthController.MaxVitalityLevel} · 완성"
-                : $"현재 Lv.{vitalityLevel}/{RunGrowthController.MaxVitalityLevel} · 완충 {boundController.VitalityCharges}회";
-            vitalityCard.Effect.text = vitalityMax
-                ? "먹결이 가장 단단해졌습니다"
-                : "먹떼 공용 완충 +1\n낙하는 막지 못합니다";
-
-            int totalJumpPercent = jumpLevel * 4;
-            jumpCard.Status.text = jumpMax
-                ? $"현재 Lv.{jumpLevel}/{RunGrowthController.MaxJumpLevel} · 완성"
-                : $"현재 Lv.{jumpLevel}/{RunGrowthController.MaxJumpLevel} · 총 +{totalJumpPercent}%";
-            jumpCard.Effect.text = jumpMax
-                ? "도약의 기운이 가득 찼습니다"
-                : "자동 점프력 +4%\n더 높은 곳까지 솟습니다";
-
+            var offers = boundController.CurrentOffers;
+            int offerCount = offers == null
+                ? 0
+                : Mathf.Min(MaxVisibleChoices, offers.Count);
+            if (hintText != null)
+            {
+                hintText.text = offerCount switch
+                {
+                    1 => "이어갈 먹결을 고르세요",
+                    2 => "둘 중 하나의 먹결을 고르세요",
+                    _ => "셋 중 하나의 먹결을 고르세요",
+                };
+            }
             bool canInteract = IsOpen && !selectionLocked &&
                                rootGroup != null && rootGroup.interactable;
-            SetCardState(vitalityCard, canInteract && !vitalityMax, vitalityMax);
-            SetCardState(jumpCard, canInteract && !jumpMax, jumpMax);
+
+            for (int i = 0; i < choiceCards.Length; i++)
+            {
+                ChoiceCard card = choiceCards[i];
+                bool visible = i < offerCount;
+                card.Root.gameObject.SetActive(visible);
+                if (!visible) continue;
+
+                GrowthUpgradeType type = offers[i];
+                int level = Mathf.Max(0, boundController.GetLevel(type));
+                int maxLevel = Mathf.Max(1, boundController.GetMaxLevel(type));
+                bool maxed = level >= maxLevel;
+
+                card.Type = type;
+                card.Root.anchoredPosition = new Vector2(
+                    0f, ResolveCardY(i, offerCount));
+                card.Title.text = GetTitle(type);
+                card.Status.text = GetStatus(type, level, maxLevel);
+                card.Effect.text = GetEffect(type);
+                card.Icon.sprite = GetIcon(type);
+                SetCardState(card, canInteract && !maxed, maxed);
+            }
+        }
+
+        string GetStatus(GrowthUpgradeType type, int level, int maxLevel)
+        {
+            string levelText = $"현재 Lv.{level}/{maxLevel}";
+            if (level >= maxLevel)
+                return levelText + " · 완성";
+
+            return type switch
+            {
+                GrowthUpgradeType.Vitality =>
+                    levelText + $" · 완충 {boundController.VitalityCharges}회",
+                GrowthUpgradeType.JumpPower =>
+                    levelText + $" · 총 +{level * 4}%",
+                GrowthUpgradeType.InkCapacity =>
+                    levelText + $" · 총 +{level * 10}%",
+                GrowthUpgradeType.InkRecovery =>
+                    levelText + $" · 총 +{level * 12}%",
+                GrowthUpgradeType.PlatformLifetime =>
+                    levelText + $" · 총 +{level * 10}%",
+                GrowthUpgradeType.PlatformSlots =>
+                    levelText + $" · 발판 +{level}개",
+                GrowthUpgradeType.ItemFortune =>
+                    levelText + $" · 간격 -{level * 7}%",
+                _ => levelText,
+            };
+        }
+
+        static string GetTitle(GrowthUpgradeType type)
+        {
+            return type switch
+            {
+                GrowthUpgradeType.Vitality => "먹두께",
+                GrowthUpgradeType.JumpPower => "도약",
+                GrowthUpgradeType.InkCapacity => "큰 벼루",
+                GrowthUpgradeType.InkRecovery => "먹샘",
+                GrowthUpgradeType.PlatformLifetime => "긴 여운",
+                GrowthUpgradeType.PlatformSlots => "겹친 획",
+                GrowthUpgradeType.StrokeGuard => "굳은 획",
+                GrowthUpgradeType.ItemFortune => "길운",
+                _ => "먹결",
+            };
+        }
+
+        static string GetEffect(GrowthUpgradeType type)
+        {
+            return type switch
+            {
+                GrowthUpgradeType.Vitality =>
+                    "먹떼 공용 완충 +1\n낙하는 막지 못합니다",
+                GrowthUpgradeType.JumpPower =>
+                    "자동 점프력 +4%\n더 높은 곳까지 솟습니다",
+                GrowthUpgradeType.InkCapacity =>
+                    "최대 먹 +10%\n더 긴 획을 이어 그립니다",
+                GrowthUpgradeType.InkRecovery =>
+                    "먹 회복 +12%\n빈 벼루가 더 빨리 찹니다",
+                GrowthUpgradeType.PlatformLifetime =>
+                    "발판 수명 +10%\n그린 획이 더 오래 남습니다",
+                GrowthUpgradeType.PlatformSlots =>
+                    "동시 발판 +1\n남겨 둘 획이 늘어납니다",
+                GrowthUpgradeType.StrokeGuard =>
+                    "새 임시 발판마다\n낙묵석을 1회 막습니다",
+                GrowthUpgradeType.ItemFortune =>
+                    "아이템 간격 -7%\n아이템을 더 자주 만납니다",
+                _ => string.Empty,
+            };
+        }
+
+        static float ResolveCardY(int index, int count)
+        {
+            return count switch
+            {
+                <= 1 => 0f,
+                2 => index == 0 ? 122.5f : -122.5f,
+                _ => 245f - index * 245f,
+            };
         }
 
         static void SetCardState(ChoiceCard card, bool interactable, bool maxed)
         {
             if (card == null) return;
             card.Button.interactable = interactable;
-            card.Group.alpha = maxed ? 0.56f : 1f;
+            card.Group.alpha = maxed ? 0.72f : 1f;
             card.Paper.color = maxed
                 ? new Color(InkPalette.Paper2.r, InkPalette.Paper2.g, InkPalette.Paper2.b, 0.9f)
                 : InkPalette.Paper;
@@ -348,21 +476,22 @@ namespace MukJump.Core
 
         void SetCardsInteractable(bool interactable)
         {
-            if (vitalityCard != null) vitalityCard.Button.interactable = interactable;
-            if (jumpCard != null) jumpCard.Button.interactable = interactable;
+            for (int i = 0; i < choiceCards.Length; i++)
+                if (choiceCards[i] != null && choiceCards[i].Root.gameObject.activeSelf)
+                    choiceCards[i].Button.interactable = interactable;
         }
 
         void SetSelectedCard(ChoiceCard selected)
         {
-            ApplySelectedState(vitalityCard, selected == vitalityCard);
-            ApplySelectedState(jumpCard, selected == jumpCard);
+            for (int i = 0; i < choiceCards.Length; i++)
+                ApplySelectedState(choiceCards[i], selected == choiceCards[i]);
         }
 
         static void ApplySelectedState(ChoiceCard card, bool selected)
         {
             if (card == null) return;
             card.SelectedSeal.gameObject.SetActive(selected);
-            card.Root.localScale = selected ? Vector3.one * 1.015f : Vector3.one;
+            card.Root.localScale = selected ? Vector3.one * 1.025f : Vector3.one;
         }
 
         void BuildIfNeeded()
@@ -414,7 +543,7 @@ namespace MukJump.Core
                 "GrowthScrollPopup",
                 safeAreaRoot,
                 Vector2.zero,
-                new Vector2(840f, 1050f));
+                new Vector2(840f, 1280f));
 
             BuildScrollPaper();
             BuildContent();
@@ -424,18 +553,45 @@ namespace MukJump.Core
 
         void ResolveSprites()
         {
-            if (vitalityIcon == null)
-                vitalityIcon = Resources.Load<Sprite>(VitalityIconResourcePath);
-            if (jumpIcon == null)
-                jumpIcon = Resources.Load<Sprite>(JumpIconResourcePath);
+            EnsureIconArray();
+            for (int i = 0; i < growthIcons.Length; i++)
+                if (growthIcons[i] == null && i < IconResourcePaths.Length)
+                    growthIcons[i] = Resources.Load<Sprite>(IconResourcePaths[i]);
         }
 
         void ApplyCardSprites()
         {
-            if (vitalityCard?.Icon != null)
-                vitalityCard.Icon.sprite = vitalityIcon;
-            if (jumpCard?.Icon != null)
-                jumpCard.Icon.sprite = jumpIcon;
+            for (int i = 0; i < choiceCards.Length; i++)
+                if (choiceCards[i]?.Icon != null)
+                    choiceCards[i].Icon.sprite = GetIcon(choiceCards[i].Type);
+        }
+
+        void EnsureIconArray()
+        {
+            if (growthIcons != null && growthIcons.Length == GrowthTypeCount)
+                return;
+
+            var resized = new Sprite[GrowthTypeCount];
+            if (growthIcons != null)
+                for (int i = 0; i < Mathf.Min(growthIcons.Length, resized.Length); i++)
+                    resized[i] = growthIcons[i];
+            growthIcons = resized;
+        }
+
+        void SetIcon(GrowthUpgradeType type, Sprite icon)
+        {
+            int index = (int)type;
+            if (icon != null && index >= 0 && index < growthIcons.Length)
+                growthIcons[index] = icon;
+        }
+
+        Sprite GetIcon(GrowthUpgradeType type)
+        {
+            EnsureIconArray();
+            int index = (int)type;
+            return index >= 0 && index < growthIcons.Length
+                ? growthIcons[index]
+                : null;
         }
 
         void BuildScrollPaper()
@@ -445,14 +601,14 @@ namespace MukJump.Core
                 "ScrollBody",
                 panel,
                 Vector2.zero,
-                new Vector2(780f, 930f));
+                new Vector2(780f, 1160f));
 
             var shadow = CreateImage(
                 "InkBleedShadow",
                 scrollBody,
                 brush,
                 new Vector2(13f, -15f),
-                new Vector2(970f, 790f),
+                new Vector2(1200f, 790f),
                 new Color(0f, 0f, 0f, 0.16f));
             shadow.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
 
@@ -461,7 +617,7 @@ namespace MukJump.Core
                 scrollBody,
                 brush,
                 Vector2.zero,
-                new Vector2(952f, 778f),
+                new Vector2(1182f, 778f),
                 InkPalette.Ink);
             outline.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
 
@@ -470,7 +626,7 @@ namespace MukJump.Core
                 scrollBody,
                 brush,
                 Vector2.zero,
-                new Vector2(928f, 752f),
+                new Vector2(1158f, 752f),
                 InkPalette.Paper);
             paper.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
 
@@ -480,7 +636,7 @@ namespace MukJump.Core
                 scrollBody,
                 null,
                 Vector2.zero,
-                new Vector2(686f, 886f),
+                new Vector2(686f, 1090f),
                 InkPalette.Paper);
 
             topRoll = CreateScrollRoll(panel, RollOpenDistance, true);
@@ -494,26 +650,26 @@ namespace MukJump.Core
                 "GrowthContent",
                 panel,
                 Vector2.zero,
-                new Vector2(720f, 900f));
+                new Vector2(720f, 1120f));
             contentGroup = contentRect.gameObject.AddComponent<CanvasGroup>();
 
             var title = CreateText(
                 "Title",
                 contentRect,
                 "성장의 두루마리",
-                54,
-                new Vector2(0f, 382f),
+                52,
+                new Vector2(0f, 495f),
                 new Vector2(620f, 76f),
                 InkPalette.TextDark,
                 FontStyle.Normal);
             AddSoftWeight(title, InkPalette.Ink, 0.2f);
 
-            CreateText(
+            hintText = CreateText(
                 "Hint",
                 contentRect,
-                "하나의 먹결을 고르세요",
-                27,
-                new Vector2(0f, 322f),
+                "셋 중 하나의 먹결을 고르세요",
+                26,
+                new Vector2(0f, 438f),
                 new Vector2(560f, 44f),
                 ReadableMutedColor(),
                 FontStyle.Normal);
@@ -522,31 +678,25 @@ namespace MukJump.Core
                 "TitleDivider",
                 contentRect,
                 brush,
-                new Vector2(0f, 282f),
+                new Vector2(0f, 397f),
                 new Vector2(340f, 7f),
                 new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.16f));
 
-            vitalityCard = CreateChoiceCard(
-                "VitalityChoice",
-                contentRect,
-                new Vector2(0f, 113f),
-                "먹두께",
-                "먹떼 공용 완충 +1",
-                vitalityIcon);
-            jumpCard = CreateChoiceCard(
-                "JumpChoice",
-                contentRect,
-                new Vector2(0f, -180f),
-                "도약",
-                "자동 점프력 +4%",
-                jumpIcon);
+            for (int i = 0; i < choiceCards.Length; i++)
+            {
+                choiceCards[i] = CreateChoiceCard(
+                    $"GrowthChoice{i + 1}",
+                    contentRect,
+                    new Vector2(0f, ResolveCardY(i, choiceCards.Length)));
+                choiceCards[i].Root.gameObject.SetActive(false);
+            }
 
             CreateText(
                 "FooterHint",
                 contentRect,
                 "선택한 먹결은 이번 도전에만 이어집니다",
                 22,
-                new Vector2(0f, -352f),
+                new Vector2(0f, -495f),
                 new Vector2(620f, 42f),
                 new Color(InkPalette.TextMuted.r, InkPalette.TextMuted.g, InkPalette.TextMuted.b, 0.76f),
                 FontStyle.Normal);
@@ -555,14 +705,11 @@ namespace MukJump.Core
         static ChoiceCard CreateChoiceCard(
             string objectName,
             Transform parent,
-            Vector2 position,
-            string title,
-            string defaultEffect,
-            Sprite icon)
+            Vector2 position)
         {
             Sprite brush = InkUiTextureFactory.CreateBrushSprite();
             Sprite blob = InkUiTextureFactory.CreateBlobSprite();
-            var root = CreateRect(objectName, parent, position, new Vector2(680f, 250f));
+            var root = CreateRect(objectName, parent, position, new Vector2(680f, 218f));
             var group = root.gameObject.AddComponent<CanvasGroup>();
 
             var shadow = CreateImage(
@@ -570,7 +717,7 @@ namespace MukJump.Core
                 root,
                 brush,
                 new Vector2(7f, -8f),
-                new Vector2(674f, 244f),
+                new Vector2(674f, 212f),
                 new Color(0f, 0f, 0f, 0.15f));
             shadow.raycastTarget = false;
 
@@ -579,14 +726,14 @@ namespace MukJump.Core
                 root,
                 brush,
                 Vector2.zero,
-                new Vector2(674f, 238f),
+                new Vector2(674f, 206f),
                 InkPalette.Ink);
             var paper = CreateImage(
                 "Paper",
                 root,
                 brush,
                 Vector2.zero,
-                new Vector2(654f, 216f),
+                new Vector2(654f, 186f),
                 InkPalette.Paper);
             paper.raycastTarget = true;
 
@@ -607,19 +754,19 @@ namespace MukJump.Core
             var iconImage = CreateImage(
                 "Icon",
                 root,
-                icon,
-                new Vector2(-225f, 0f),
-                new Vector2(172f, 172f),
+                null,
+                new Vector2(-230f, 0f),
+                new Vector2(146f, 146f),
                 Color.white);
             iconImage.preserveAspect = true;
 
             var nameText = CreateText(
                 "Name",
                 root,
-                title,
-                42,
-                new Vector2(72f, 60f),
-                new Vector2(360f, 58f),
+                string.Empty,
+                38,
+                new Vector2(70f, 49f),
+                new Vector2(380f, 52f),
                 InkPalette.TextDark,
                 FontStyle.Normal);
             nameText.alignment = TextAnchor.MiddleLeft;
@@ -629,9 +776,9 @@ namespace MukJump.Core
                 "Status",
                 root,
                 "현재 Lv.0",
-                24,
-                new Vector2(72f, 10f),
-                new Vector2(360f, 42f),
+                22,
+                new Vector2(70f, 7f),
+                new Vector2(380f, 36f),
                 ReadableMutedColor(),
                 FontStyle.Normal);
             statusText.alignment = TextAnchor.MiddleLeft;
@@ -639,10 +786,10 @@ namespace MukJump.Core
             var effectText = CreateText(
                 "Effect",
                 root,
-                defaultEffect,
-                25,
-                new Vector2(72f, -58f),
-                new Vector2(370f, 82f),
+                string.Empty,
+                23,
+                new Vector2(70f, -49f),
+                new Vector2(390f, 70f),
                 InkPalette.TextDark,
                 FontStyle.Normal);
             effectText.alignment = TextAnchor.MiddleLeft;
@@ -650,15 +797,15 @@ namespace MukJump.Core
             var seal = CreateRect(
                 "SelectedSeal",
                 root,
-                new Vector2(288f, 83f),
-                new Vector2(66f, 66f));
+                new Vector2(290f, 70f),
+                new Vector2(60f, 60f));
             seal.localEulerAngles = new Vector3(0f, 0f, -7f);
-            CreateImage("Seal", seal, blob, Vector2.zero, new Vector2(62f, 62f), InkPalette.Red);
+            CreateImage("Seal", seal, blob, Vector2.zero, new Vector2(56f, 56f), InkPalette.Red);
             var sealText = CreateText(
                 "Text",
                 seal,
                 "결",
-                25,
+                23,
                 Vector2.zero,
                 new Vector2(44f, 42f),
                 InkPalette.Paper,
@@ -671,6 +818,7 @@ namespace MukJump.Core
                 Button = button,
                 Paper = paper,
                 Icon = iconImage,
+                Title = nameText,
                 Status = statusText,
                 Effect = effectText,
                 Group = group,

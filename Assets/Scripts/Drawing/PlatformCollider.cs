@@ -26,6 +26,7 @@ namespace MukJump.Drawing
         /// 시작 지형과 풍맥처럼 영구 배치된 발판은 수문장을 자동으로 제거하지 않는다.
         public bool IsTemporaryDrawnPlatform =>
             lifetime > 0f && !windCurrentPlatform && !removalRequested;
+        public bool HasStrokeGuard => hazardGuardAvailable;
         EdgeCollider2D edge;
         readonly HashSet<int> windUsers = new();
         readonly Gradient fadeGradient = new();
@@ -33,7 +34,9 @@ namespace MukJump.Drawing
         readonly GradientAlphaKey[] fadeAlphaKeys = new GradientAlphaKey[4];
         Vector2[] originalPoints;
         float age;
+        float lastEffectiveLifetime;
         bool removalRequested;
+        bool hazardGuardAvailable;
         int lastColliderCutoff = -1;
 
         /// 스무딩 완료된 월드 좌표 점열로 발판을 생성한다 (런타임 드로잉 경로)
@@ -44,10 +47,13 @@ namespace MukJump.Drawing
                 layer = LayerMask.NameToLayer("Platform"),
             };
             var platform = go.AddComponent<PlatformCollider>();
+            platform.hazardGuardAvailable =
+                RunGrowthController.Instance != null &&
+                RunGrowthController.Instance.NewPlatformsHaveStrokeGuard;
             platform.Build(worldPoints);
 
             active.Add(platform);
-            while (active.Count > MaxActivePlatforms)
+            while (active.Count > ActivePlatformBudget)
             {
                 var oldest = active[0];
                 if (oldest == null)
@@ -119,6 +125,7 @@ namespace MukJump.Drawing
             lastColliderCutoff = -1;
 
             ApplyVisual(local);
+            lastEffectiveLifetime = EffectiveLifetime;
         }
 
         /// 풍맥 발판만 아래에서 통과하도록 단방향 Effector를 설정한다.
@@ -195,8 +202,10 @@ namespace MukJump.Drawing
             if (removalRequested) return;
             if (lifetime <= 0f) return; // 영구 발판
 
+            float effectiveLifetime = EffectiveLifetime;
+            SynchronizeLifetimeProgress(effectiveLifetime);
+
             age += Time.deltaTime;
-            float effectiveLifetime = lifetime * Mathf.Clamp(RuntimeLifetimeMultiplier, 0.35f, 1f);
             float remaining = effectiveLifetime - age;
 
             if (remaining <= fadeDuration)
@@ -205,15 +214,43 @@ namespace MukJump.Drawing
                 FadeVisual(t);
                 TrimCollider(t);
             }
+            else if (lastColliderCutoff >= 0)
+            {
+                // 수명 증가로 페이드 구간 밖으로 돌아온 경우 시각과 물리를 함께 복원한다.
+                FadeVisual(0f);
+                lastColliderCutoff = -1;
+                if (originalPoints != null && originalPoints.Length >= 2)
+                    edge.points = originalPoints;
+            }
 
             if (remaining <= 0f)
                 Destroy(gameObject);
+        }
+
+        void SynchronizeLifetimeProgress(float effectiveLifetime)
+        {
+            if (lastEffectiveLifetime > 0f &&
+                !Mathf.Approximately(lastEffectiveLifetime, effectiveLifetime))
+            {
+                // 성장 선택 전후의 수명 진행률을 보존한다. 이미 마르는 중인 발판이
+                // 수명만 늘어난 채 반투명 상태로 오래 남는 현상을 막는다.
+                float normalizedAge = Mathf.Clamp01(age / lastEffectiveLifetime);
+                age = normalizedAge * effectiveLifetime;
+            }
+            lastEffectiveLifetime = effectiveLifetime;
         }
 
         /// 풍맥 발판은 유지하고, 낙하 위험물에 맞은 일반 먹 발판만 등록 해제 후 제거한다.
         public bool BreakFromHazard()
         {
             if (windCurrentPlatform) return false;
+            if (removalRequested) return false;
+            if (hazardGuardAvailable)
+            {
+                // 수호 먹결은 새 임시 발판마다 한 번만 낙묵석을 지우고 선은 보존한다.
+                hazardGuardAvailable = false;
+                return true;
+            }
             if (!TryBeginHazardRemoval()) return false;
             Destroy(gameObject);
             return true;
@@ -271,8 +308,28 @@ namespace MukJump.Drawing
             // 먹이 마르는 모습은 남기되 예산에서 밀린 순간 물리 충돌은 즉시 제거한다.
             if (edge != null) edge.enabled = false;
             if (lifetime <= 0f || removalRequested) return;
-            float effectiveLifetime = lifetime * Mathf.Clamp(RuntimeLifetimeMultiplier, 0.35f, 1f);
+            float effectiveLifetime = EffectiveLifetime;
+            lastEffectiveLifetime = effectiveLifetime;
             age = Mathf.Max(age, effectiveLifetime - fadeDuration);
+        }
+
+        static int ActivePlatformBudget =>
+            MaxActivePlatforms +
+            (RunGrowthController.Instance != null
+                ? RunGrowthController.Instance.AdditionalPlatformSlots
+                : 0);
+
+        float EffectiveLifetime
+        {
+            get
+            {
+                float growthMultiplier = RunGrowthController.Instance != null
+                    ? RunGrowthController.Instance.PlatformLifetimeMultiplier
+                    : 1f;
+                return lifetime *
+                       Mathf.Clamp(RuntimeLifetimeMultiplier, 0.35f, 1f) *
+                       Mathf.Clamp(growthMultiplier, 1f, 1.3f);
+            }
         }
 
         void OnDestroy()

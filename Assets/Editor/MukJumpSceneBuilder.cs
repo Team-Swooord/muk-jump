@@ -59,6 +59,16 @@ namespace MukJump.EditorTools
             "Assets/Resources/MukJump/UI/Growth/growth_vitality.png";
         const string GrowthJumpPath =
             "Assets/Resources/MukJump/UI/Growth/growth_jump.png";
+        const string GrowthInkCapacityPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_ink_capacity.png";
+        const string GrowthInkRegenPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_ink_regen.png";
+        const string GrowthPlatformPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_platform.png";
+        const string GrowthGuardPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_guard.png";
+        const string GrowthFortunePath =
+            "Assets/Resources/MukJump/UI/Growth/growth_fortune.png";
         const string UiFontPath =
             "Assets/Resources/MukJump/Fonts/HealthsetJoritdaeStd.otf";
         const string DeathSplashPath = "Assets/Art/Character/Death/ink_death_splash.png";
@@ -400,7 +410,13 @@ namespace MukJump.EditorTools
                                    go.AddComponent<GrowthChoiceView>();
             growthChoiceView.SetSprites(
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthVitalityPath),
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthJumpPath));
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthJumpPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthInkCapacityPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthInkRegenPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthPlatformPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthPlatformPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthGuardPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthFortunePath));
             go.AddComponent<ScoreManager>();
             for (int i = 0; i < 6; i++)
                 ConfigureAudioSource(go.AddComponent<AudioSource>(), loop: false, priority: 128);
@@ -1199,6 +1215,11 @@ namespace MukJump.EditorTools
             ConfigureGrowthSprite(GrowthScrollPath, "성장 두루마리");
             ConfigureGrowthSprite(GrowthVitalityPath, "먹두께 성장");
             ConfigureGrowthSprite(GrowthJumpPath, "도약 성장");
+            ConfigureGrowthSprite(GrowthInkCapacityPath, "큰 벼루 성장");
+            ConfigureGrowthSprite(GrowthInkRegenPath, "먹샘 성장");
+            ConfigureGrowthSprite(GrowthPlatformPath, "발판 성장");
+            ConfigureGrowthSprite(GrowthGuardPath, "굳은 획 성장");
+            ConfigureGrowthSprite(GrowthFortunePath, "길운 성장");
         }
 
         static void ConfigureInkDropJumpVfxAssets()
@@ -1287,14 +1308,14 @@ namespace MukJump.EditorTools
             importer.SaveAndReimport();
         }
 
-        /// 선택 카드에서는 172px, 월드에서는 약 0.9유닛으로 보이는 단순 아이콘이라
-        /// 1024가 충분하다. 원본 1254px을 그대로 GPU에 올리는 메모리 낭비를 피한다.
+        /// 선택 카드에서는 최대 146px, 월드에서는 약 0.9유닛으로 보이는 단순 아이콘이라
+        /// 512가 충분하다. 재사용 가능한 원본 해상도는 보존하고 런타임 GPU 비용만 줄인다.
         static void ConfigureGrowthSprite(string path, string displayName)
         {
             ConfigureItemSprite(path, displayName);
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
             if (importer == null) return;
-            importer.maxTextureSize = 1024;
+            importer.maxTextureSize = 512;
             importer.textureCompression = TextureImporterCompression.CompressedHQ;
             importer.SaveAndReimport();
         }

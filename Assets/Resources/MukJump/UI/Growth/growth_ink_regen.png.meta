@@ -1,22 +1,10 @@
 fileFormatVersion: 2
-guid: 60b6a903287f7401484cb816453e9eb5
+guid: 2d48c814b1b044d08bf949777c31a879
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 2178328180360706823
-    second: growth_jump_0
-  - first:
-      213: -6604957479217205298
-    second: growth_jump_1
-  - first:
-      213: -2542219205196713422
-    second: growth_jump_2
-  - first:
-      213: -6636120853845735886
-    second: growth_jump_3
-  - first:
-      213: 7409099599315511083
-    second: growth_jump_4
+      213: -4053005304829022860
+    second: growth_ink_regen_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -125,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: growth_jump_0
+      name: growth_ink_regen_0
       rect:
         serializedVersion: 2
-        x: 257
-        y: 127
-        width: 738
-        height: 834
+        x: 69
+        y: 108
+        width: 884
+        height: 823
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -140,96 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 70b7f9250f9fa3e10800000000000000
-      internalID: 2178328180360706823
-      vertices: []
-      indices:
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: growth_jump_1
-      rect:
-        serializedVersion: 2
-        x: 422
-        y: 715
-        width: 379
-        height: 421
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData:
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: ecfe2beca2a7654a0800000000000000
-      internalID: -6604957479217205298
-      vertices: []
-      indices:
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: growth_jump_2
-      rect:
-        serializedVersion: 2
-        x: 837
-        y: 936
-        width: 184
-        height: 84
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData:
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 232f2152a1938bcd0800000000000000
-      internalID: -2542219205196713422
-      vertices: []
-      indices:
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: growth_jump_3
-      rect:
-        serializedVersion: 2
-        x: 991
-        y: 824
-        width: 25
-        height: 24
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData:
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 23686fb3e33c7e3a0800000000000000
-      internalID: -6636120853845735886
-      vertices: []
-      indices:
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: growth_jump_4
-      rect:
-        serializedVersion: 2
-        x: 987
-        y: 743
-        width: 10
-        height: 36
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData:
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: b27a0ba94d862d660800000000000000
-      internalID: 7409099599315511083
+      spriteID: 47d64e42625d0c7c0800000000000000
+      internalID: -4053005304829022860
       vertices: []
       indices:
       edges: []
@@ -248,11 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      growth_jump_0: 2178328180360706823
-      growth_jump_1: -6604957479217205298
-      growth_jump_2: -2542219205196713422
-      growth_jump_3: -6636120853845735886
-      growth_jump_4: 7409099599315511083
+      growth_ink_regen_0: -4053005304829022860
   mipmapLimitGroupName:
   pSDRemoveMatte: 0
   userData:

@@ -320,6 +320,20 @@ public class FallingInkRockTests
         Assert.IsNotNull(growthController);
         Assert.IsNotNull(growthChoice);
         Assert.IsNotNull(growthSpawner);
+        var growthChoiceSerialized = new SerializedObject(growthChoice);
+        var growthIcons = growthChoiceSerialized.FindProperty("growthIcons");
+        Assert.IsNotNull(growthIcons);
+        Assert.AreEqual(8, growthIcons.arraySize);
+        for (int i = 0; i < growthIcons.arraySize; i++)
+        {
+            Assert.IsNotNull(
+                growthIcons.GetArrayElementAtIndex(i).objectReferenceValue,
+                $"성장 선택 아이콘 {i}번 슬롯이 비어 있습니다.");
+        }
+        Assert.AreSame(
+            growthIcons.GetArrayElementAtIndex(4).objectReferenceValue,
+            growthIcons.GetArrayElementAtIndex(5).objectReferenceValue,
+            "긴 여운과 겹친 획은 범용 발판 아이콘을 공유해야 합니다.");
         var growthSerialized = new SerializedObject(growthSpawner);
         Assert.IsNotNull(
             growthSerialized.FindProperty("growthScrollSprite").objectReferenceValue);

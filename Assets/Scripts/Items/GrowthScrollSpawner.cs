@@ -10,7 +10,7 @@ namespace MukJump.Items
     public sealed class GrowthScrollSpawner : MonoBehaviour
     {
         public const float DefaultFirstHeight = 45f;
-        public const float DefaultInterval = 180f;
+        public const float DefaultInterval = 120f;
 
         const float ScrollWorldWidth = 0.9f;
         const float SpawnHorizontalOffset = 0.72f;

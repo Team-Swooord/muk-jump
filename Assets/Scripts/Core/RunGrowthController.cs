@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MukJump.Player;
 using UnityEngine;
 
@@ -9,6 +10,12 @@ namespace MukJump.Core
     {
         Vitality,
         JumpPower,
+        InkCapacity,
+        InkRecovery,
+        PlatformLifetime,
+        PlatformSlots,
+        StrokeGuard,
+        ItemFortune,
     }
 
     /// 성장 두루마리의 세션 진행도를 한 곳에서 소유한다.
@@ -18,28 +25,92 @@ namespace MukJump.Core
     {
         public const int MaxVitalityLevel = 3;
         public const int MaxJumpLevel = 5;
+        public const int MaxInkCapacityLevel = 4;
+        public const int MaxInkRecoveryLevel = 4;
+        public const int MaxPlatformLifetimeLevel = 3;
+        public const int MaxPlatformSlotsLevel = 1;
+        public const int MaxStrokeGuardLevel = 1;
+        public const int MaxItemFortuneLevel = 3;
         public const float JumpPowerPerLevel = 0.04f;
+        public const float InkCapacityPerLevel = 0.10f;
+        public const float InkRecoveryPerLevel = 0.12f;
+        public const float PlatformLifetimePerLevel = 0.10f;
+        public const float ItemSpacingReductionPerLevel = 0.07f;
         public const float VitalityHitGraceSeconds = 0.55f;
+
+        static readonly GrowthUpgradeType[] BodyUpgrades =
+        {
+            GrowthUpgradeType.Vitality,
+            GrowthUpgradeType.JumpPower,
+        };
+
+        static readonly GrowthUpgradeType[] DrawingUpgrades =
+        {
+            GrowthUpgradeType.InkCapacity,
+            GrowthUpgradeType.InkRecovery,
+            GrowthUpgradeType.PlatformLifetime,
+            GrowthUpgradeType.PlatformSlots,
+            GrowthUpgradeType.StrokeGuard,
+        };
+
+        static readonly GrowthUpgradeType[] AllUpgrades =
+        {
+            GrowthUpgradeType.Vitality,
+            GrowthUpgradeType.JumpPower,
+            GrowthUpgradeType.InkCapacity,
+            GrowthUpgradeType.InkRecovery,
+            GrowthUpgradeType.PlatformLifetime,
+            GrowthUpgradeType.PlatformSlots,
+            GrowthUpgradeType.StrokeGuard,
+            GrowthUpgradeType.ItemFortune,
+        };
 
         public static RunGrowthController Instance { get; private set; }
 
         public int VitalityLevel { get; private set; }
         public int VitalityCharges { get; private set; }
         public int JumpLevel { get; private set; }
+        public int InkCapacityLevel { get; private set; }
+        public int InkRecoveryLevel { get; private set; }
+        public int PlatformLifetimeLevel { get; private set; }
+        public int PlatformSlotsLevel { get; private set; }
+        public int StrokeGuardLevel { get; private set; }
+        public int ItemFortuneLevel { get; private set; }
         public float JumpPowerMultiplier =>
             1f + JumpLevel * JumpPowerPerLevel;
+        public float InkCapacityMultiplier =>
+            1f + InkCapacityLevel * InkCapacityPerLevel;
+        public float InkRecoveryMultiplier =>
+            1f + InkRecoveryLevel * InkRecoveryPerLevel;
+        public float PlatformLifetimeMultiplier =>
+            1f + PlatformLifetimeLevel * PlatformLifetimePerLevel;
+        public int AdditionalPlatformSlots => PlatformSlotsLevel;
+        public bool NewPlatformsHaveStrokeGuard => StrokeGuardLevel > 0;
+        public float ItemSpacingMultiplier =>
+            Mathf.Max(0.1f, 1f - ItemFortuneLevel * ItemSpacingReductionPerLevel);
         public bool HasPendingChoice { get; private set; }
         public bool HasSelectedPendingChoice => HasPendingChoice && choiceSelected;
-        public bool IsFullyUpgraded =>
-            VitalityLevel >= MaxVitalityLevel &&
-            JumpLevel >= MaxJumpLevel;
+        public bool IsFullyUpgraded
+        {
+            get
+            {
+                for (int i = 0; i < AllUpgrades.Length; i++)
+                    if (CanSelectUpgrade(AllUpgrades[i]))
+                        return false;
+                return true;
+            }
+        }
+        public IReadOnlyList<GrowthUpgradeType> CurrentOffers => currentOffers;
 
         /// 선택판은 이 이벤트를 받아 런타임 UI를 연다. 이벤트는 시간 정지가 성공한 뒤에만 발생한다.
         public event Action ChoiceRequested;
         public event Action<GrowthUpgradeType> UpgradeSelected;
         public event Action ChoiceCancelled;
+        public event Action RunReset;
         public event Action Changed;
 
+        readonly List<GrowthUpgradeType> currentOffers = new(3);
+        readonly List<GrowthUpgradeType> offerCandidates = new(AllUpgrades.Length);
         GameManager manager;
         bool choiceSelected;
 
@@ -83,6 +154,13 @@ namespace MukJump.Core
             if (!manager.BeginGrowthChoicePause())
                 return false;
 
+            BuildCurrentOffers();
+            if (currentOffers.Count == 0)
+            {
+                manager.EndGrowthChoicePause();
+                return false;
+            }
+
             HasPendingChoice = true;
             choiceSelected = false;
             if (debug && GameManager.DebugToolsAvailable)
@@ -95,6 +173,7 @@ namespace MukJump.Core
         public bool TrySelectUpgrade(GrowthUpgradeType upgrade)
         {
             if (!HasPendingChoice || choiceSelected ||
+                !IsCurrentOffer(upgrade) ||
                 !CanSelectUpgrade(upgrade))
                 return false;
 
@@ -109,6 +188,24 @@ namespace MukJump.Core
                     break;
                 case GrowthUpgradeType.JumpPower:
                     JumpLevel++;
+                    break;
+                case GrowthUpgradeType.InkCapacity:
+                    InkCapacityLevel++;
+                    break;
+                case GrowthUpgradeType.InkRecovery:
+                    InkRecoveryLevel++;
+                    break;
+                case GrowthUpgradeType.PlatformLifetime:
+                    PlatformLifetimeLevel++;
+                    break;
+                case GrowthUpgradeType.PlatformSlots:
+                    PlatformSlotsLevel++;
+                    break;
+                case GrowthUpgradeType.StrokeGuard:
+                    StrokeGuardLevel++;
+                    break;
+                case GrowthUpgradeType.ItemFortune:
+                    ItemFortuneLevel++;
                     break;
                 default:
                     return false;
@@ -128,7 +225,51 @@ namespace MukJump.Core
                     VitalityLevel < MaxVitalityLevel,
                 GrowthUpgradeType.JumpPower =>
                     JumpLevel < MaxJumpLevel,
+                GrowthUpgradeType.InkCapacity =>
+                    InkCapacityLevel < MaxInkCapacityLevel,
+                GrowthUpgradeType.InkRecovery =>
+                    InkRecoveryLevel < MaxInkRecoveryLevel,
+                GrowthUpgradeType.PlatformLifetime =>
+                    PlatformLifetimeLevel < MaxPlatformLifetimeLevel,
+                GrowthUpgradeType.PlatformSlots =>
+                    PlatformSlotsLevel < MaxPlatformSlotsLevel,
+                GrowthUpgradeType.StrokeGuard =>
+                    StrokeGuardLevel < MaxStrokeGuardLevel,
+                GrowthUpgradeType.ItemFortune =>
+                    ItemFortuneLevel < MaxItemFortuneLevel,
                 _ => false,
+            };
+        }
+
+        public int GetLevel(GrowthUpgradeType upgrade)
+        {
+            return upgrade switch
+            {
+                GrowthUpgradeType.Vitality => VitalityLevel,
+                GrowthUpgradeType.JumpPower => JumpLevel,
+                GrowthUpgradeType.InkCapacity => InkCapacityLevel,
+                GrowthUpgradeType.InkRecovery => InkRecoveryLevel,
+                GrowthUpgradeType.PlatformLifetime => PlatformLifetimeLevel,
+                GrowthUpgradeType.PlatformSlots => PlatformSlotsLevel,
+                GrowthUpgradeType.StrokeGuard => StrokeGuardLevel,
+                GrowthUpgradeType.ItemFortune => ItemFortuneLevel,
+                _ => 0,
+            };
+        }
+
+        public int GetMaxLevel(GrowthUpgradeType upgrade)
+        {
+            return upgrade switch
+            {
+                GrowthUpgradeType.Vitality => MaxVitalityLevel,
+                GrowthUpgradeType.JumpPower => MaxJumpLevel,
+                GrowthUpgradeType.InkCapacity => MaxInkCapacityLevel,
+                GrowthUpgradeType.InkRecovery => MaxInkRecoveryLevel,
+                GrowthUpgradeType.PlatformLifetime => MaxPlatformLifetimeLevel,
+                GrowthUpgradeType.PlatformSlots => MaxPlatformSlotsLevel,
+                GrowthUpgradeType.StrokeGuard => MaxStrokeGuardLevel,
+                GrowthUpgradeType.ItemFortune => MaxItemFortuneLevel,
+                _ => 0,
             };
         }
 
@@ -207,8 +348,16 @@ namespace MukJump.Core
             VitalityLevel = 0;
             VitalityCharges = 0;
             JumpLevel = 0;
+            InkCapacityLevel = 0;
+            InkRecoveryLevel = 0;
+            PlatformLifetimeLevel = 0;
+            PlatformSlotsLevel = 0;
+            StrokeGuardLevel = 0;
+            ItemFortuneLevel = 0;
             HasPendingChoice = false;
             choiceSelected = false;
+            currentOffers.Clear();
+            RunReset?.Invoke();
             Changed?.Invoke();
         }
 
@@ -216,6 +365,49 @@ namespace MukJump.Core
         {
             HasPendingChoice = false;
             choiceSelected = false;
+            currentOffers.Clear();
+        }
+
+        void BuildCurrentOffers()
+        {
+            currentOffers.Clear();
+
+            // 몸·드로잉에서 하나씩 먼저 보장해 선택지가 한 계통에만 몰리지 않게 한다.
+            TryAddRandomOffer(BodyUpgrades);
+            TryAddRandomOffer(DrawingUpgrades);
+            TryAddRandomOffer(AllUpgrades);
+
+            // 한 계통이 모두 최대라 보장 슬롯이 비었다면 남은 전체 풀에서 채운다.
+            while (currentOffers.Count < 3 && TryAddRandomOffer(AllUpgrades))
+            {
+            }
+        }
+
+        bool TryAddRandomOffer(IReadOnlyList<GrowthUpgradeType> source)
+        {
+            offerCandidates.Clear();
+            for (int i = 0; i < source.Count; i++)
+            {
+                GrowthUpgradeType candidate = source[i];
+                if (CanSelectUpgrade(candidate) && !IsCurrentOffer(candidate))
+                    offerCandidates.Add(candidate);
+            }
+
+            if (offerCandidates.Count == 0)
+                return false;
+
+            int index = GameplayRandom.Range(
+                GameplayRandomStream.Growth, 0, offerCandidates.Count);
+            currentOffers.Add(offerCandidates[index]);
+            return true;
+        }
+
+        bool IsCurrentOffer(GrowthUpgradeType upgrade)
+        {
+            for (int i = 0; i < currentOffers.Count; i++)
+                if (currentOffers[i] == upgrade)
+                    return true;
+            return false;
         }
     }
 }

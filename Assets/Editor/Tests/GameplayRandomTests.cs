@@ -48,6 +48,23 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void GrowthStream_200회소비해도_Items수열은변하지않는다()
+        {
+            GameplayRandom.ResetSession(TestSeed);
+            var expected = DrawSequence(GameplayRandomStream.Items, 32);
+
+            GameplayRandom.ResetSession(TestSeed);
+            for (int i = 0; i < 200; i++)
+                _ = GameplayRandom.Value(GameplayRandomStream.Growth);
+            var actual = DrawSequence(GameplayRandomStream.Items, 32);
+
+            CollectionAssert.AreEqual(
+                expected,
+                actual,
+                "성장 카드 추첨 횟수가 일반 아이템 배치를 바꾸면 안 됩니다.");
+        }
+
+        [Test]
         public void CosmeticUnityRandom_게임규칙수열을바꾸지않는다()
         {
             Random.State previousState = Random.state;
