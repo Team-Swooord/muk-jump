@@ -238,34 +238,68 @@ function simulateContent(seed, heightLimit = COURSE_HEIGHT) {
   const gameplay = new GameplayRng(seed);
   let movingObstacles = 0;
   let dragons = 0;
+  let haetaes = 0;
   let nextObstacle = 30;
   let firstDragonPending = true;
-  let activeDragonUntil = Number.NEGATIVE_INFINITY;
+  let firstHaetaePending = true;
+  let activeLargeAnimalUntil = Number.NEGATIVE_INFINITY;
 
   // 카메라 상하 despawn 폭을 고도 길이로 환산한 근사치다.
   const dragonActiveHeightSpan = 45.2;
+  // 해태는 카메라 진입 대기 + 1회 경고/돌진 뒤 반납된다. 시간 기반 실제 길이는
+  // 플레이 속도에 따라 달라지므로 이 값은 대형 동물 상호배타를 위한 보수적 근사다.
+  const haetaeActiveHeightSpan = 24;
   while (nextObstacle <= heightLimit) {
     movingObstacles += 1;
-    const hasActiveDragon = nextObstacle < activeDragonUntil;
+    const hasActiveLargeAnimal = nextObstacle < activeLargeAnimalUntil;
     let isDragon = false;
-    if (nextObstacle >= 60 && !hasActiveDragon) {
+    let isHaetae = false;
+
+    if (nextObstacle >= 320 && firstHaetaePending) {
+      if (!hasActiveLargeAnimal) {
+        firstHaetaePending = false;
+        isHaetae = true;
+      }
+    } else if (nextObstacle < 320) {
+      if (nextObstacle >= 60 && !hasActiveLargeAnimal) {
+        if (firstDragonPending) {
+          firstDragonPending = false;
+          isDragon = true;
+        } else {
+          // 먹해태가 해금되기 전에는 기존 어린 용 28% 체감을 유지한다.
+          isDragon = gameplay.value(stream.obstacles) < 0.28;
+        }
+      }
+    } else if (!hasActiveLargeAnimal) {
       if (firstDragonPending) {
         firstDragonPending = false;
         isDragon = true;
       } else {
-        isDragon = gameplay.value(stream.obstacles) < 0.28;
+        const roll = gameplay.value(stream.obstacles);
+        isHaetae = roll < 0.12;
+        isDragon = !isHaetae && roll < 0.30;
       }
     }
+
     if (isDragon) {
       dragons += 1;
-      activeDragonUntil = nextObstacle + dragonActiveHeightSpan;
+      activeLargeAnimalUntil = nextObstacle + dragonActiveHeightSpan;
+    } else if (isHaetae) {
+      haetaes += 1;
+      activeLargeAnimalUntil = nextObstacle + haetaeActiveHeightSpan;
     }
 
-    // Spawn의 amplitude, X, speed, phase 소비를 재현한다.
-    gameplay.value(stream.obstacles);
-    gameplay.value(stream.obstacles);
-    gameplay.value(stream.obstacles);
-    gameplay.value(stream.obstacles);
+    if (isHaetae) {
+      // SpawnHaetae의 진입 방향과 세로 오프셋 소비를 재현한다.
+      gameplay.value(stream.obstacles);
+      gameplay.value(stream.obstacles);
+    } else {
+      // 일반/용 Spawn의 amplitude, X, speed, phase 소비를 재현한다.
+      gameplay.value(stream.obstacles);
+      gameplay.value(stream.obstacles);
+      gameplay.value(stream.obstacles);
+      gameplay.value(stream.obstacles);
+    }
     nextObstacle += gameplay.float(stream.obstacles, 8, 12);
   }
 
@@ -285,7 +319,7 @@ function simulateContent(seed, heightLimit = COURSE_HEIGHT) {
     nextUpdraft += gameplay.int(stream.weather, 220, 341);
   }
 
-  return { movingObstacles, dragons, windPlatforms, updrafts };
+  return { movingObstacles, dragons, haetaes, windPlatforms, updrafts };
 }
 
 function zoneNetPenalty(height) {
@@ -435,6 +469,7 @@ function aggregateContent(count) {
     itemCount: 0,
     movingObstacles: 0,
     dragons: 0,
+    haetaes: 0,
     windPlatforms: 0,
     updrafts: 0,
   };
@@ -463,6 +498,7 @@ function aggregateContent(count) {
     for (const key of [
       "movingObstacles",
       "dragons",
+      "haetaes",
       "windPlatforms",
       "updrafts",
     ]) {
@@ -518,6 +554,7 @@ function printContent(aggregate, count) {
   console.log(`| 아이템 | ${fixed(totals.itemCount / count)} |`);
   console.log(`| 이동 장애물 | ${fixed(totals.movingObstacles / count)} |`);
   console.log(`| 어린 용(활성 폭 근사) | ${fixed(totals.dragons / count)} |`);
+  console.log(`| 먹해태(활성 폭 근사·위험 중첩 제외 전 상한) | ${fixed(totals.haetaes / count)} |`);
   console.log(`| 풍맥 발판 | ${fixed(totals.windPlatforms / count)} |`);
   console.log(
     `| 상승기류(고도 간격만 적용한 이론치) | ` +
