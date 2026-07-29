@@ -285,15 +285,25 @@ kinematic body와 fixed step 이동을 사용한다.
 
 - `LobbyView`는 씬 빌더가 만든 `시작`·`성장`·`도감` 버튼만 연결하고 게임 규칙을
   계산하지 않는다. 로비 드로잉은 비활성이라 UI 입력과 발판 생성이 경합하지 않는다.
-- `GrowthFocusProfile`은 실제 적용 가능한 뿌리 하나의 stable ID만 저장한다.
-  `RunGrowthController`는 첫 선택판을 만들 때만 이를 읽고, 기존 몸·드로잉 보장
-  규칙을 보완한다. 화폐·최고 고도·영구 배율은 소유하지 않는다.
+- `PermanentGrowthCatalog`는 먹그릇·숨고르기·먹결·발놀림의 stable ID, 6단계
+  상한, 비용과 작은 기본 보정을 소유한다. `PermanentGrowthProfile`은 버전이 있는
+  저장 문서, 먹빛, 구매 단계와 마지막 정산 run ID만 소유한다.
+- 정상 게임오버는 `GameManager`가 `ScoreManager.SaveBest()` 전에 이전 최고 고도를
+  잡고 run ID로 한 번만 정산한다. 디버그 판과 중도 로비 복귀는 보상을 주지 않으며,
+  같은 run ID는 도메인 리로드 뒤에도 다시 지급하지 않는다.
+- `PermanentGrowthView`는 로비에서만 열리고 보유 먹빛·현재 단계·다음 효과·비용을
+  표시한다. `RunGrowthController`나 두루마리 카탈로그를 호출하지 않는다.
 - `RoguelikeGrowthCatalog`는 25계보×4노드의 불변 정의, 선행·상충, 구현 상태와
   기존 8종 어댑터를 소유한다. `RuntimeReady`만 추첨할 수 있으며 `Planned`는 도감
   표시 전용이다.
 - `LobbyCollectionView`는 카탈로그를 읽는 표현 계층이다. 전체 100종 수와 무관하게
   여섯 개 행만 만들고 페이지마다 내용을 교체한다. 도감 UI가 노드를 활성화하거나
   `RunGrowthController`의 레벨을 직접 변경할 수 없다.
+
+지속 수치의 합성 순서는 `직렬화 기본값 × 영구 성장 × 한 판 두루마리 × 환경`이다.
+영구 성장은 기본 최대 먹 +9%, 기본 먹 회복 +12%, 기본 발판 수명 +7.5%,
+자동 점프 충전시간 -4.5%를 넘지 않는다. 영구 분신·부활·방패·아이템 빈도·점수
+배율은 코어 플레이와 최고 고도 경쟁을 건너뛰므로 제공하지 않는다.
 
 100종의 역할 슬롯 추첨, 계보 진화, 발견 기록과 향후 효과 레지스트리 경계는
 `docs/design/roguelike-growth-architecture.md`를 기준으로 단계적으로 도입한다.
