@@ -80,16 +80,6 @@ namespace MukJump.EditorTools
         static readonly Vector2 LobbyLogoAnchor = new(0.5f, 0.68f);
         static readonly Vector2 LobbyLogoPosition = new(12f, 79f);
         static readonly Vector2 LobbyLogoSize = new(1281.776f, 854.518f);
-        static readonly Vector2 LobbyBestAnchor = new(0.5f, 0.94f);
-        static readonly Vector2 LobbyBestPosition = new(89f, -12f);
-        static readonly Vector2 LobbyBestSize = new(610.273f, 130.157f);
-        static readonly Vector2 LobbyBestLabelPosition = new(-87f, -5f);
-        static readonly Vector2 LobbyBestLabelSize = new(400f, 80f);
-        const int LobbyBestFontSize = 37;
-        static readonly Vector2 LobbyStartAnchor = new(0.5f, 0.46f);
-        static readonly Vector2 LobbyGrowthAnchor = new(0.5f, 0.385f);
-        static readonly Vector2 LobbyCodexAnchor = new(0.5f, 0.31f);
-        static readonly Vector2 LobbyOptionsAnchor = new(0.5f, 0.235f);
         static readonly string[] DeathFramePaths =
         {
             "Assets/Art/Character/Death/mukbangul_death_01_idle.png",
@@ -643,32 +633,32 @@ namespace MukJump.EditorTools
             if (configureUiImporters)
                 ConfigureUiTexture(StartButtonPath);
             var lobbyBest = CreateLobbyRecordDisplay("BestDisplay", root.transform, "최고 0",
-                LobbyBestAnchor);
+                LobbyMenuLayout.RecordAnchor);
             var buttonTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
             var startButton = CreateLobbyMenuButton(
                 "StartButton",
                 root.transform,
                 buttonTexture,
                 "시작",
-                LobbyStartAnchor);
+                LobbyMenuLayout.StartAnchor);
             var growthButton = CreateLobbyMenuButton(
                 "GrowthButton",
                 root.transform,
                 buttonTexture,
                 "성장",
-                LobbyGrowthAnchor);
+                LobbyMenuLayout.GrowthAnchor);
             var codexButton = CreateLobbyMenuButton(
                 "CodexButton",
                 root.transform,
                 buttonTexture,
                 "도감",
-                LobbyCodexAnchor);
+                LobbyMenuLayout.CodexAnchor);
             var optionsButton = CreateLobbyMenuButton(
                 "OptionsButton",
                 root.transform,
                 buttonTexture,
                 "옵션",
-                LobbyOptionsAnchor);
+                LobbyMenuLayout.OptionsAnchor);
 
             var view = root.GetComponent<LobbyView>();
             var so = new SerializedObject(view);
@@ -693,57 +683,56 @@ namespace MukJump.EditorTools
                 name,
                 parent,
                 anchor,
-                LobbyBestSize);
-            rect.anchoredPosition = new Vector2(
-                LobbyBestPosition.x,
-                0f);
+                LobbyMenuLayout.BackgroundSize);
+            rect.anchoredPosition = LobbyMenuLayout.ButtonPosition;
             var background = rect.gameObject.AddComponent<RawImage>();
             background.texture = texture;
             background.color = Color.white;
 
             var button = rect.gameObject.AddComponent<Button>();
-            InkUiStyle.ConfigureButton(button, background);
 
-            var text = CreateText(
+            CreateText(
                 "Label",
                 rect,
                 label,
-                LobbyBestFontSize,
+                LobbyMenuLayout.FontSize,
                 FontStyle.Bold,
                 new Vector2(0.5f, 0.5f),
-                LobbyBestLabelSize,
+                LobbyMenuLayout.LabelSize,
                 InkPalette.TextLight);
-            text.rectTransform.anchoredPosition = LobbyBestLabelPosition;
-            InkUiStyle.ApplyReadableText(
-                text,
-                LobbyBestFontSize,
-                TextAnchor.MiddleCenter,
-                strong: true);
+            LobbyMenuLayout.ApplyButton(button, label, anchor);
             return button;
         }
 
         static Text CreateLobbyRecordDisplay(
             string name, Transform parent, string value, Vector2 anchor)
         {
-            var display = CreateUiObject(name, parent, anchor, LobbyBestSize);
-            display.anchoredPosition = LobbyBestPosition;
+            var display = CreateUiObject(
+                name,
+                parent,
+                anchor,
+                LobbyMenuLayout.BackgroundSize);
+            display.anchoredPosition = LobbyMenuLayout.RecordPosition;
             var background = display.gameObject.AddComponent<RawImage>();
             background.texture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
             background.raycastTarget = false;
 
-            var label = CreateText("Label", display, value, LobbyBestFontSize, FontStyle.Bold,
-                new Vector2(0.5f, 0.5f), LobbyBestLabelSize, Color.white);
-            label.rectTransform.anchoredPosition = LobbyBestLabelPosition;
-            label.fontSize = LobbyBestFontSize;
+            var label = CreateText(
+                "Label",
+                display,
+                value,
+                LobbyMenuLayout.FontSize,
+                FontStyle.Bold,
+                new Vector2(0.5f, 0.5f),
+                LobbyMenuLayout.LabelSize,
+                Color.white);
+            label.rectTransform.anchoredPosition = LobbyMenuLayout.LabelPosition;
+            label.fontSize = LobbyMenuLayout.FontSize;
             label.fontStyle = FontStyle.Bold;
             label.color = Color.white;
             label.resizeTextForBestFit = false;
             label.alignByGeometry = true;
-            InkUiStyle.ApplyReadableText(
-                label,
-                LobbyBestFontSize,
-                TextAnchor.MiddleCenter,
-                strong: true);
+            LobbyMenuLayout.ApplyRecord(label);
             return label;
         }
 

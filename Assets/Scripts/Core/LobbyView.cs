@@ -34,11 +34,15 @@ namespace MukJump.Core
             canvasGroup = GetComponent<CanvasGroup>();
             ApplyUiFont();
             if (Application.isPlaying)
+            {
+                EnsureMenuLayout();
                 BindListeners();
+            }
         }
 
         void Start()
         {
+            EnsureMenuLayout();
             BindListeners();
             RefreshBest();
         }
@@ -131,6 +135,60 @@ namespace MukJump.Core
                 optionsView = FindFirstObjectByType<LobbyOptionsView>();
             return optionsView;
         }
+
+        /// 실행 중이던 구버전 Main 백업이 복원돼도 네 메뉴가 즉시 같은 규칙을 쓴다.
+        /// 옵션 버튼 자체가 없는 구버전 씬은 도감 버튼의 수묵 그래픽을 한 번 복제한다.
+        void EnsureMenuLayout()
+        {
+            if (optionsButton == null)
+            {
+                optionsButton = transform.Find("OptionsButton")
+                    ?.GetComponent<Button>();
+            }
+            if (optionsButton == null)
+            {
+                Button source = codexButton != null
+                    ? codexButton
+                    : growthButton != null
+                        ? growthButton
+                        : startButton;
+                if (source != null && source.transform.parent != null)
+                {
+                    GameObject clone = Instantiate(
+                        source.gameObject,
+                        source.transform.parent);
+                    clone.name = "OptionsButton";
+                    optionsButton = clone.GetComponent<Button>();
+                    optionsButton?.onClick.RemoveAllListeners();
+                    clone.transform.SetAsLastSibling();
+                }
+            }
+
+            LobbyMenuLayout.ApplyRecord(bestText);
+            LobbyMenuLayout.ApplyButton(
+                startButton,
+                "시작",
+                LobbyMenuLayout.StartAnchor);
+            LobbyMenuLayout.ApplyButton(
+                growthButton,
+                "성장",
+                LobbyMenuLayout.GrowthAnchor);
+            LobbyMenuLayout.ApplyButton(
+                codexButton,
+                "도감",
+                LobbyMenuLayout.CodexAnchor);
+            LobbyMenuLayout.ApplyButton(
+                optionsButton,
+                "옵션",
+                LobbyMenuLayout.OptionsAnchor);
+        }
+
+#if UNITY_EDITOR
+        public void ApplyMenuLayoutForTests()
+        {
+            EnsureMenuLayout();
+        }
+#endif
 
         void RefreshBest()
         {

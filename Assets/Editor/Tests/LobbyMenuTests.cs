@@ -3,6 +3,7 @@ using MukJump.Core;
 using MukJump.Player;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace MukJump.EditorTests
 {
@@ -133,6 +134,50 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void LegacyLobbyBackupReceivesTheSameRecordBasedMenuLayout()
+        {
+            viewHost = new GameObject(
+                "LegacyLobbyCanvas",
+                typeof(RectTransform),
+                typeof(CanvasGroup));
+            var recordRoot = new GameObject(
+                "BestDisplay",
+                typeof(RectTransform),
+                typeof(RawImage));
+            recordRoot.transform.SetParent(viewHost.transform, false);
+            var recordLabelObject = new GameObject(
+                "Label",
+                typeof(RectTransform),
+                typeof(Text));
+            recordLabelObject.transform.SetParent(recordRoot.transform, false);
+            var recordLabel = recordLabelObject.GetComponent<Text>();
+            recordLabel.text = "최고 102";
+
+            Button start = CreateLegacyButton(viewHost.transform, "StartButton", "시작");
+            Button growth = CreateLegacyButton(viewHost.transform, "GrowthButton", "성장");
+            Button codex = CreateLegacyButton(viewHost.transform, "CodexButton", "도감");
+            var view = viewHost.AddComponent<LobbyView>();
+            SetField(view, "bestText", recordLabel);
+            SetField(view, "startButton", start);
+            SetField(view, "growthButton", growth);
+            SetField(view, "codexButton", codex);
+            SetField(view, "optionsButton", null);
+
+            view.ApplyMenuLayoutForTests();
+
+            AssertMenuLayout(view.StartButton, "시작", LobbyMenuLayout.StartAnchor);
+            AssertMenuLayout(view.GrowthButton, "성장", LobbyMenuLayout.GrowthAnchor);
+            AssertMenuLayout(view.CodexButton, "도감", LobbyMenuLayout.CodexAnchor);
+            AssertMenuLayout(view.OptionsButton, "옵션", LobbyMenuLayout.OptionsAnchor);
+            Assert.That(recordRoot.GetComponent<RectTransform>().anchoredPosition,
+                Is.EqualTo(LobbyMenuLayout.RecordPosition));
+            Assert.That(recordLabel.rectTransform.anchoredPosition,
+                Is.EqualTo(LobbyMenuLayout.LabelPosition));
+            Assert.That(recordLabel.fontSize, Is.EqualTo(LobbyMenuLayout.FontSize));
+            Assert.That(recordLabel.fontStyle, Is.EqualTo(FontStyle.Bold));
+        }
+
+        [Test]
         public void ExplicitMenuStartReleasesLobbyPlayerExactlyOnce()
         {
             managerHost = new GameObject("LobbyStartManager");
@@ -184,6 +229,59 @@ namespace MukJump.EditorTests
                     methodName,
                     BindingFlags.Instance | BindingFlags.NonPublic)
                 ?.Invoke(target, null);
+        }
+
+        static Button CreateLegacyButton(
+            Transform parent,
+            string objectName,
+            string value)
+        {
+            var root = new GameObject(
+                objectName,
+                typeof(RectTransform),
+                typeof(RawImage),
+                typeof(Button));
+            root.transform.SetParent(parent, false);
+            var button = root.GetComponent<Button>();
+            button.targetGraphic = root.GetComponent<RawImage>();
+            var label = new GameObject(
+                "Label",
+                typeof(RectTransform),
+                typeof(Text));
+            label.transform.SetParent(root.transform, false);
+            label.GetComponent<Text>().text = value;
+            return button;
+        }
+
+        static void AssertMenuLayout(
+            Button button,
+            string expectedText,
+            Vector2 expectedAnchor)
+        {
+            Assert.IsNotNull(button);
+            var rect = button.GetComponent<RectTransform>();
+            var label = button.transform.Find("Label")?.GetComponent<Text>();
+            Assert.That(rect.anchorMin, Is.EqualTo(expectedAnchor));
+            Assert.That(rect.anchorMax, Is.EqualTo(expectedAnchor));
+            Assert.That(rect.anchoredPosition, Is.EqualTo(LobbyMenuLayout.ButtonPosition));
+            Assert.That(rect.sizeDelta, Is.EqualTo(LobbyMenuLayout.BackgroundSize));
+            Assert.IsNotNull(label);
+            Assert.That(label.text, Is.EqualTo(expectedText));
+            Assert.That(label.rectTransform.anchoredPosition,
+                Is.EqualTo(LobbyMenuLayout.LabelPosition));
+            Assert.That(label.rectTransform.sizeDelta,
+                Is.EqualTo(LobbyMenuLayout.LabelSize));
+            Assert.That(label.fontSize, Is.EqualTo(LobbyMenuLayout.FontSize));
+            Assert.That(label.fontStyle, Is.EqualTo(FontStyle.Bold));
+        }
+
+        static void SetField(object target, string fieldName, object value)
+        {
+            target.GetType()
+                .GetField(
+                    fieldName,
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.SetValue(target, value);
         }
     }
 }
