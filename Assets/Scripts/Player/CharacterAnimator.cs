@@ -70,6 +70,13 @@ namespace MukJump.Player
             }
             deathTime = 0f;
 
+            if (MukJump.Core.GameManager.Instance != null &&
+                MukJump.Core.GameManager.Instance.State == MukJump.Core.GameState.Lobby)
+            {
+                sr.sprite = idle;
+                return;
+            }
+
             if (!player.IsGrounded)
             {
                 wasGrounded = false;

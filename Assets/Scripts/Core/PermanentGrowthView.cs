@@ -15,12 +15,15 @@ namespace MukJump.Core
         {
             public RectTransform Root;
             public Image Paper;
+            public Image Icon;
+            public Image CostBrush;
             public Button Button;
             public Text Name;
             public Text Description;
             public Text Level;
             public Text Effect;
             public Text Cost;
+            public Image[] Pips;
             public PermanentGrowthType Type;
         }
 
@@ -34,6 +37,7 @@ namespace MukJump.Core
         Rect lastSafeArea;
         int lastScreenWidth;
         int lastScreenHeight;
+        float purchaseLockedUntil;
 
         public bool IsOpen =>
             rootGroup != null && rootGroup.blocksRaycasts;
@@ -176,7 +180,7 @@ namespace MukJump.Core
                 "Title",
                 panel,
                 "먹방울 성장",
-                62,
+                InkUiStyle.ScreenTitleSize,
                 new Vector2(0f, 620f),
                 new Vector2(700f, 86f),
                 InkPalette.TextDark,
@@ -187,7 +191,7 @@ namespace MukJump.Core
                 "Subtitle",
                 panel,
                 "모든 도전에 계속 적용되는 힘",
-                31,
+                InkUiStyle.BodySize,
                 new Vector2(0f, 548f),
                 new Vector2(720f, 62f),
                 ReadableMutedColor(),
@@ -205,7 +209,7 @@ namespace MukJump.Core
                 "Balance",
                 balanceBrush.transform,
                 "보유 먹빛 0",
-                35,
+                38,
                 Vector2.zero,
                 new Vector2(430f, 62f),
                 InkPalette.Paper,
@@ -224,9 +228,9 @@ namespace MukJump.Core
                 "PermanentHint",
                 panel,
                 "두루마리 성장과 별개 · 게임을 꺼도 저장됩니다",
-                28,
-                new Vector2(0f, -500f),
-                new Vector2(730f, 70f),
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, -545f),
+                new Vector2(730f, 54f),
                 ReadableMutedColor(),
                 FontStyle.Bold);
             AddReadableWeight(footer, 0.12f);
@@ -235,9 +239,9 @@ namespace MukJump.Core
                 "CloseButton",
                 panel,
                 "닫기",
-                new Vector2(0f, -625f),
-                new Vector2(420f, 90f),
-                36);
+                new Vector2(0f, -650f),
+                new Vector2(420f, 96f),
+                InkUiStyle.CardTitleSize);
             close.onClick.AddListener(Close);
 
             ApplySafeArea();
@@ -285,39 +289,56 @@ namespace MukJump.Core
 
         GrowthRow CreateGrowthRow(Transform parent, int index)
         {
-            float y = 330f - index * 190f;
+            float y = 305f - index * 235f;
             var root = CreateRect(
                 $"PermanentGrowth{index + 1}",
                 parent,
                 new Vector2(0f, y),
-                new Vector2(790f, 166f));
+                new Vector2(790f, 218f));
             var outline = CreateImage(
                 "Outline",
                 root,
                 null,
                 Vector2.zero,
-                new Vector2(790f, 166f),
+                new Vector2(790f, 218f),
                 InkPalette.Ink);
             var paper = CreateImage(
                 "Paper",
                 outline.transform,
                 null,
                 Vector2.zero,
-                new Vector2(778f, 154f),
+                new Vector2(778f, 206f),
                 InkPalette.Paper2);
-            paper.raycastTarget = true;
             var button = outline.gameObject.AddComponent<Button>();
-            button.targetGraphic = paper;
-            button.navigation = new Navigation { mode = Navigation.Mode.None };
-            button.colors = ReadableButtonColors();
+            InkUiStyle.ConfigureButton(button, paper);
+
+            var iconPaper = CreateImage(
+                "IconPaper",
+                paper.transform,
+                InkUiTextureFactory.CreateBlobSprite(),
+                new Vector2(-302f, 0f),
+                new Vector2(154f, 154f),
+                new Color(
+                    InkPalette.Paper.r,
+                    InkPalette.Paper.g,
+                    InkPalette.Paper.b,
+                    0.96f));
+            var icon = CreateImage(
+                "Icon",
+                iconPaper.transform,
+                null,
+                Vector2.zero,
+                new Vector2(132f, 132f),
+                Color.white);
+            icon.preserveAspect = true;
 
             var name = CreateText(
                 "Name",
                 paper.transform,
                 "영구 성장",
-                37,
-                new Vector2(-246f, 45f),
-                new Vector2(280f, 50f),
+                InkUiStyle.CardTitleSize,
+                new Vector2(-20f, 65f),
+                new Vector2(370f, 58f),
                 InkPalette.TextDark,
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft);
@@ -325,9 +346,9 @@ namespace MukJump.Core
                 "Level",
                 paper.transform,
                 "Lv. 0 / 6",
-                26,
-                new Vector2(265f, 47f),
-                new Vector2(180f, 42f),
+                InkUiStyle.CaptionSize,
+                new Vector2(280f, 67f),
+                new Vector2(160f, 48f),
                 ReadableMutedColor(),
                 FontStyle.Bold,
                 TextAnchor.MiddleRight);
@@ -335,50 +356,85 @@ namespace MukJump.Core
                 "Description",
                 paper.transform,
                 "효과 설명",
-                25,
-                new Vector2(-95f, -3f),
-                new Vector2(590f, 42f),
-                InkPalette.TextMuted,
-                FontStyle.Normal,
+                InkUiStyle.CaptionSize,
+                new Vector2(55f, 22f),
+                new Vector2(520f, 48f),
+                InkPalette.TextDark,
+                FontStyle.Bold,
                 TextAnchor.MiddleLeft);
             var effect = CreateText(
                 "Effect",
                 paper.transform,
                 "현재 +0% → 다음 +0%",
-                25,
-                new Vector2(-165f, -50f),
-                new Vector2(450f, 42f),
+                31,
+                new Vector2(-45f, -65f),
+                new Vector2(320f, 48f),
                 InkPalette.TextDark,
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft);
+
+            var pips = new Image[6];
+            for (int pip = 0; pip < pips.Length; pip++)
+            {
+                pips[pip] = CreateImage(
+                    $"LevelPip{pip + 1}",
+                    paper.transform,
+                    InkUiTextureFactory.CreateBlobSprite(),
+                    new Vector2(-170f + pip * 42f, -24f),
+                    new Vector2(25f, 25f),
+                    new Color(
+                        InkPalette.Ink.r,
+                        InkPalette.Ink.g,
+                        InkPalette.Ink.b,
+                        0.16f));
+            }
+
+            var costBrush = CreateImage(
+                "CostBrush",
+                paper.transform,
+                InkUiTextureFactory.CreateBrushSprite(),
+                new Vector2(276f, -64f),
+                new Vector2(190f, 64f),
+                InkPalette.Ink);
             var cost = CreateText(
                 "Cost",
-                paper.transform,
+                costBrush.transform,
                 "먹빛 0",
-                27,
-                new Vector2(255f, -48f),
-                new Vector2(200f, 48f),
-                InkPalette.TextDark,
+                InkUiStyle.CaptionSize,
+                Vector2.zero,
+                new Vector2(165f, 50f),
+                InkPalette.TextLight,
                 FontStyle.Bold,
-                TextAnchor.MiddleRight);
+                TextAnchor.MiddleCenter);
 
             return new GrowthRow
             {
                 Root = root,
                 Paper = paper,
+                Icon = icon,
+                CostBrush = costBrush,
                 Button = button,
                 Name = name,
                 Description = description,
                 Level = level,
                 Effect = effect,
                 Cost = cost,
+                Pips = pips,
             };
         }
 
         void HandlePurchase(int slot)
         {
             if (slot < 0 || slot >= rows.Count) return;
-            PermanentGrowthProfile.TryPurchase(rows[slot].Type);
+            if (Time.unscaledTime < purchaseLockedUntil) return;
+            GrowthRow row = rows[slot];
+            if (!PermanentGrowthProfile.TryPurchase(row.Type)) return;
+
+            purchaseLockedUntil = Time.unscaledTime + 0.55f;
+            Vector2 screenPosition = RectTransformUtility.WorldToScreenPoint(
+                null,
+                row.Icon.rectTransform.position);
+            InkUiFeedbackController.PlayLevelUp(screenPosition);
         }
 
         void Refresh()
@@ -403,6 +459,10 @@ namespace MukJump.Core
                 row.Name.text = definition.Name;
                 row.Description.text = definition.Description;
                 row.Level.text = $"Lv. {level} / {definition.MaxLevel}";
+                row.Icon.sprite = LoadIcon(row.Type);
+                row.Icon.color = row.Icon.sprite != null
+                    ? Color.white
+                    : InkPalette.Ink;
                 row.Effect.text = maxed
                     ? $"{definition.EffectUnit} {sign}{FormatPercent(currentPercent)}% · 완성"
                     : $"현재 {sign}{FormatPercent(currentPercent)}%  →  " +
@@ -410,6 +470,13 @@ namespace MukJump.Core
                 row.Cost.text = maxed ? "완성" : $"먹빛 {cost}";
                 row.Button.interactable = !maxed &&
                                           PermanentGrowthProfile.Currency >= cost;
+                row.CostBrush.color = row.Button.interactable
+                    ? InkPalette.Ink
+                    : new Color(
+                        InkPalette.Ink.r,
+                        InkPalette.Ink.g,
+                        InkPalette.Ink.b,
+                        0.56f);
                 row.Paper.color = maxed
                     ? new Color(
                         InkPalette.Paper.r,
@@ -417,7 +484,36 @@ namespace MukJump.Core
                         InkPalette.Paper.b,
                         1f)
                     : InkPalette.Paper2;
+                for (int pip = 0; pip < row.Pips.Length; pip++)
+                {
+                    row.Pips[pip].color = pip < level
+                        ? InkPalette.Ink
+                        : new Color(
+                            InkPalette.Ink.r,
+                            InkPalette.Ink.g,
+                            InkPalette.Ink.b,
+                            0.16f);
+                }
             }
+        }
+
+        static Sprite LoadIcon(PermanentGrowthType type)
+        {
+            string path = type switch
+            {
+                PermanentGrowthType.InkCapacity =>
+                    "MukJump/UI/Growth/growth_ink_capacity",
+                PermanentGrowthType.InkRecovery =>
+                    "MukJump/UI/Growth/growth_ink_regen",
+                PermanentGrowthType.PlatformLifetime =>
+                    "MukJump/UI/Growth/growth_platform",
+                PermanentGrowthType.JumpCharge =>
+                    "MukJump/UI/Growth/growth_jump",
+                _ => string.Empty,
+            };
+            return string.IsNullOrEmpty(path)
+                ? null
+                : Resources.Load<Sprite>(path);
         }
 
         void SetVisible(bool visible)
@@ -528,14 +624,12 @@ namespace MukJump.Core
             var rect = CreateRect(objectName, parent, position, size);
             var text = rect.gameObject.AddComponent<Text>();
             text.text = value;
-            text.font = InkPalette.UiFont;
-            text.fontSize = fontSize;
-            text.fontStyle = style;
-            text.alignment = alignment;
             text.color = color;
-            text.raycastTarget = false;
-            text.resizeTextForBestFit = false;
-            text.alignByGeometry = true;
+            InkUiStyle.ApplyReadableText(
+                text,
+                fontSize,
+                alignment,
+                strong: true);
             return text;
         }
 
@@ -556,9 +650,7 @@ namespace MukJump.Core
                 InkPalette.Ink);
             brush.raycastTarget = true;
             var button = brush.gameObject.AddComponent<Button>();
-            button.targetGraphic = brush;
-            button.navigation = new Navigation { mode = Navigation.Mode.None };
-            button.colors = ReadableButtonColors();
+            InkUiStyle.ConfigureButton(button, brush);
             CreateText(
                 "Label",
                 brush.transform,
@@ -569,19 +661,6 @@ namespace MukJump.Core
                 InkPalette.TextLight,
                 FontStyle.Bold);
             return button;
-        }
-
-        static ColorBlock ReadableButtonColors()
-        {
-            var colors = ColorBlock.defaultColorBlock;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(0.96f, 0.94f, 0.88f, 1f);
-            colors.pressedColor = new Color(0.76f, 0.72f, 0.64f, 1f);
-            colors.selectedColor = Color.white;
-            colors.disabledColor = new Color(0.52f, 0.5f, 0.46f, 0.55f);
-            colors.colorMultiplier = 1f;
-            colors.fadeDuration = 0.08f;
-            return colors;
         }
 
         static Color ReadableMutedColor()

@@ -174,6 +174,17 @@ namespace MukJump.Core
                 gameObject.AddComponent<LobbyCollectionView>();
             if (GetComponent<PermanentGrowthView>() == null)
                 gameObject.AddComponent<PermanentGrowthView>();
+            if (GetComponent<LobbyOptionsView>() == null)
+                gameObject.AddComponent<LobbyOptionsView>();
+            if (GetComponent<InkUiFeedbackController>() == null)
+                gameObject.AddComponent<InkUiFeedbackController>();
+            var eventSystem =
+                FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
+            if (eventSystem != null &&
+                eventSystem.GetComponent<UiInputDeviceGuard>() == null)
+            {
+                eventSystem.gameObject.AddComponent<UiInputDeviceGuard>();
+            }
             RefreshPlayerRegistry();
         }
 

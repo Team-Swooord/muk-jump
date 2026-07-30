@@ -357,6 +357,13 @@ public class FallingInkRockTests
             playerSerialized.FindProperty("cloneSpawnGraceDuration").floatValue);
         Assert.IsNotNull(player.GetComponent<InkCloneArrivalView>(),
             "씬 빌더가 먹분신 몸통→완성 팝 연출을 플레이어에 구성해야 합니다.");
+        var lobbyWander = player.GetComponent<LobbyCharacterWander>();
+        Assert.IsNotNull(lobbyWander,
+            "로비 먹방울은 화면 너비만큼 늘어난 시작 발판을 자유롭게 돌아다녀야 합니다.");
+        var lobbyWanderSerialized = new SerializedObject(lobbyWander);
+        Assert.That(
+            lobbyWanderSerialized.FindProperty("fallbackHalfWidth").floatValue,
+            Is.EqualTo(5.35f).Within(0.001f));
         PlatformCollider starterPlatform = null;
         var builtPlatforms = FindAllInScene<PlatformCollider>(builderTestScene);
         for (int i = 0; i < builtPlatforms.Length; i++)
@@ -364,7 +371,12 @@ public class FallingInkRockTests
                 starterPlatform = builtPlatforms[i];
         Assert.IsNotNull(starterPlatform,
             "명시적 시작 버튼은 캐릭터가 즉사하지 않을 영구 시작 발판과 함께 생성돼야 합니다.");
-        Assert.AreEqual(2, starterPlatform.GetComponent<EdgeCollider2D>().pointCount);
+        var starterEdge = starterPlatform.GetComponent<EdgeCollider2D>();
+        Assert.AreEqual(2, starterEdge.pointCount);
+        Assert.That(starterEdge.points[0].x, Is.EqualTo(-5.35f).Within(0.001f));
+        Assert.That(starterEdge.points[1].x, Is.EqualTo(5.35f).Within(0.001f));
+        Assert.That(starterEdge.points[0].y, Is.EqualTo(0f).Within(0.001f));
+        Assert.That(starterEdge.points[1].y, Is.EqualTo(0f).Within(0.001f));
         Assert.That(starterPlatform.transform.position.y,
             Is.EqualTo(player.transform.position.y - 0.42f).Within(0.001f));
 
@@ -403,12 +415,13 @@ public class FallingInkRockTests
 
         var lobby = FindFirstInScene<LobbyView>(builderTestScene);
         Assert.IsNotNull(lobby);
+        Assert.IsNotNull(lobby.GetComponent<CanvasGroup>());
         var lobbySerialized = new SerializedObject(lobby);
         var lobbyBest = lobbySerialized.FindProperty("bestText").objectReferenceValue as Text;
         Assert.IsNotNull(lobbyBest);
         Assert.AreEqual(InkPalette.UiFont, lobbyBest.font);
         Assert.AreEqual(37, lobbyBest.fontSize);
-        Assert.AreEqual(FontStyle.Normal, lobbyBest.fontStyle);
+        Assert.AreEqual(FontStyle.Bold, lobbyBest.fontStyle);
         Assert.AreEqual(TextAnchor.MiddleCenter, lobbyBest.alignment);
         Assert.AreEqual(Color.white, lobbyBest.color);
         Assert.IsFalse(lobbyBest.resizeTextForBestFit);
@@ -432,17 +445,42 @@ public class FallingInkRockTests
             lobbySerialized.FindProperty("growthButton").objectReferenceValue as Button;
         var codexButton =
             lobbySerialized.FindProperty("codexButton").objectReferenceValue as Button;
+        var optionsButton =
+            lobbySerialized.FindProperty("optionsButton").objectReferenceValue as Button;
         Assert.IsNotNull(startButton);
         Assert.IsNotNull(growthButton);
         Assert.IsNotNull(codexButton);
-        Assert.AreEqual("시작",
-            startButton.transform.Find("Label")?.GetComponent<Text>()?.text);
-        Assert.AreEqual("성장",
-            growthButton.transform.Find("Label")?.GetComponent<Text>()?.text);
-        Assert.AreEqual("도감",
-            codexButton.transform.Find("Label")?.GetComponent<Text>()?.text);
+        Assert.IsNotNull(optionsButton);
+        AssertLobbyMenuButton(startButton, "시작");
+        AssertLobbyMenuButton(growthButton, "성장");
+        AssertLobbyMenuButton(codexButton, "도감");
+        AssertLobbyMenuButton(optionsButton, "옵션");
+        Assert.That(startButton.GetComponent<RectTransform>().anchorMin.y,
+            Is.EqualTo(0.46f).Within(0.001f));
+        Assert.That(growthButton.GetComponent<RectTransform>().anchorMin.y,
+            Is.EqualTo(0.385f).Within(0.001f));
+        Assert.That(codexButton.GetComponent<RectTransform>().anchorMin.y,
+            Is.EqualTo(0.31f).Within(0.001f));
+        Assert.That(optionsButton.GetComponent<RectTransform>().anchorMin.y,
+            Is.EqualTo(0.235f).Within(0.001f));
+        Assert.Greater(
+            startButton.GetComponent<RectTransform>().anchorMin.y,
+            growthButton.GetComponent<RectTransform>().anchorMin.y);
+        Assert.Greater(
+            growthButton.GetComponent<RectTransform>().anchorMin.y,
+            codexButton.GetComponent<RectTransform>().anchorMin.y);
+        Assert.Greater(
+            codexButton.GetComponent<RectTransform>().anchorMin.y,
+            optionsButton.GetComponent<RectTransform>().anchorMin.y);
         Assert.IsNotNull(FindFirstInScene<LobbyCollectionView>(builderTestScene));
         Assert.IsNotNull(FindFirstInScene<PermanentGrowthView>(builderTestScene));
+        Assert.IsNotNull(FindFirstInScene<LobbyOptionsView>(builderTestScene));
+        Assert.IsNotNull(FindFirstInScene<InkUiFeedbackController>(builderTestScene));
+        var uiInputGuard = FindFirstInScene<UiInputDeviceGuard>(builderTestScene);
+        Assert.IsNotNull(uiInputGuard,
+            "Game View에서 로비 UI 입력 장치가 비활성화되지 않도록 가드가 필요합니다.");
+        Assert.IsNotNull(
+            uiInputGuard.GetComponent<UnityEngine.EventSystems.EventSystem>());
         var bestDisplay = lobby.transform.Find("BestDisplay") as RectTransform;
         Assert.IsNotNull(bestDisplay?.GetComponent<RawImage>());
         Assert.That(bestDisplay.anchoredPosition.x, Is.EqualTo(89f).Within(0.01f));
@@ -613,6 +651,36 @@ public class FallingInkRockTests
             Assert.AreEqual(before[i].path, after[i].path);
             Assert.AreEqual(before[i].enabled, after[i].enabled);
         }
+    }
+
+    static void AssertLobbyMenuButton(Button button, string expectedLabel)
+    {
+        var rect = button.GetComponent<RectTransform>();
+        var background = button.GetComponent<RawImage>();
+        var label = button.transform.Find("Label")?.GetComponent<Text>();
+
+        Assert.IsNotNull(rect);
+        Assert.IsNotNull(background);
+        Assert.IsNotNull(label);
+        Assert.AreSame(background, button.targetGraphic);
+        Assert.That(rect.sizeDelta.x, Is.EqualTo(610.273f).Within(0.01f));
+        Assert.That(rect.sizeDelta.y, Is.EqualTo(130.157f).Within(0.01f));
+        Assert.That(rect.anchoredPosition.x, Is.EqualTo(89f).Within(0.01f));
+        Assert.That(rect.anchoredPosition.y, Is.EqualTo(0f).Within(0.01f));
+        Assert.AreEqual(expectedLabel, label.text);
+        Assert.AreEqual(37, label.fontSize);
+        Assert.AreEqual(FontStyle.Bold, label.fontStyle);
+        Assert.AreEqual(TextAnchor.MiddleCenter, label.alignment);
+        Assert.IsFalse(label.resizeTextForBestFit);
+        Assert.That(label.rectTransform.anchoredPosition.x,
+            Is.EqualTo(-87f).Within(0.01f));
+        Assert.That(label.rectTransform.anchoredPosition.y,
+            Is.EqualTo(-5f).Within(0.01f));
+        Assert.That(label.rectTransform.sizeDelta.x,
+            Is.EqualTo(400f).Within(0.01f));
+        Assert.That(label.rectTransform.sizeDelta.y,
+            Is.EqualTo(80f).Within(0.01f));
+        Assert.IsNotNull(button.GetComponent<InkUiPressFeedback>());
     }
 
     static void SetField(object target, string fieldName, object value)

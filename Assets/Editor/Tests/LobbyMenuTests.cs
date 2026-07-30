@@ -11,12 +11,15 @@ namespace MukJump.EditorTests
         GameObject viewHost;
         GameObject managerHost;
         GameObject playerHost;
+        MemoryLobbySettingsStore lobbySettingsStore;
 
         [SetUp]
         public void SetUp()
         {
             PermanentGrowthProfile.UseStoreForTests(
                 new MemoryPermanentGrowthStore());
+            lobbySettingsStore = new MemoryLobbySettingsStore();
+            LobbySettingsProfile.UseStoreForTests(lobbySettingsStore);
         }
 
         [TearDown]
@@ -29,6 +32,7 @@ namespace MukJump.EditorTests
             if (viewHost != null)
                 Object.DestroyImmediate(viewHost);
             PermanentGrowthProfile.RestoreDefaultStoreForTests();
+            LobbySettingsProfile.RestoreDefaultStoreForTests();
         }
 
         [Test]
@@ -52,11 +56,80 @@ namespace MukJump.EditorTests
             codexView.OpenCodex();
             Assert.That(codexView.CurrentModeName, Is.EqualTo("Codex"));
             Assert.That(codexView.FilteredCount, Is.EqualTo(100));
-            Assert.That(codexView.CreatedRowCount, Is.EqualTo(6),
-                "100개 도감을 열 때도 고정된 행 여섯 개만 재사용해야 합니다.");
+            Assert.That(codexView.CreatedRowCount, Is.EqualTo(4),
+                "100개 도감을 열 때도 고정된 큰 카드 네 개만 재사용해야 합니다.");
+            Assert.That(codexView.IsCardBackVisible(0), Is.False);
+            codexView.FlipCardForTests(0);
+            Assert.That(codexView.IsCardBackVisible(0), Is.True,
+                "도감 카드를 누르면 큰 그림 앞면에서 설명 뒷면으로 전환돼야 합니다.");
+            codexView.FlipCardForTests(0);
+            Assert.That(codexView.IsCardBackVisible(0), Is.False);
 
             codexView.Close();
             Assert.That(codexView.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void OptionsTutorialUsesFourSequentialPagesAndMarksCompletion()
+        {
+            viewHost = new GameObject("LobbyOptionsTestHost");
+            var optionsView = viewHost.AddComponent<LobbyOptionsView>();
+            optionsView.BuildForTests();
+
+            optionsView.OpenTutorialForTests();
+
+            Assert.That(optionsView.IsOpen, Is.True);
+            Assert.That(optionsView.IsTutorialOpen, Is.True);
+            Assert.That(optionsView.TutorialPageCount, Is.EqualTo(4));
+            Assert.That(optionsView.CurrentTutorialPage, Is.EqualTo(0));
+            Assert.That(optionsView.PlayerUidLabel,
+                Does.StartWith("플레이어 UID   MUK-"));
+
+            for (int expectedPage = 1; expectedPage < 4; expectedPage++)
+            {
+                Invoke(optionsView, "NextTutorialPage");
+                Assert.That(optionsView.CurrentTutorialPage,
+                    Is.EqualTo(expectedPage));
+                Assert.That(optionsView.IsTutorialOpen, Is.True);
+            }
+
+            Invoke(optionsView, "NextTutorialPage");
+
+            Assert.That(LobbySettingsProfile.TutorialSeen, Is.True);
+            Assert.That(optionsView.IsTutorialOpen, Is.False,
+                "네 번째 안내의 완료 버튼은 옵션 본문으로 돌아가야 합니다.");
+            Assert.That(optionsView.IsOpen, Is.True);
+        }
+
+        [Test]
+        public void LobbySettingsMemoryStorePersistsAudioTutorialAndUid()
+        {
+            LobbySettingsProfile.SetBgmVolume(0.35f);
+            LobbySettingsProfile.SetSfxVolume(0.6f);
+            LobbySettingsProfile.SetBgmVolume(0f);
+            LobbySettingsProfile.SetSfxVolume(0f);
+            LobbySettingsProfile.MarkTutorialSeen();
+            string firstUid = LobbySettingsProfile.PlayerUid;
+            LobbySettingsProfile.Flush();
+
+            Assert.That(firstUid, Does.Match("^MUK-[0-9A-F]{8}$"));
+            Assert.That(lobbySettingsStore.SaveCount, Is.GreaterThanOrEqualTo(2));
+
+            LobbySettingsProfile.UseStoreForTests(lobbySettingsStore);
+
+            Assert.That(LobbySettingsProfile.BgmVolume, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(LobbySettingsProfile.SfxVolume, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(
+                LobbySettingsProfile.BgmResumeVolume,
+                Is.EqualTo(0.35f).Within(0.001f),
+                "음소거를 껐다 켜면 사용자가 마지막으로 고른 배경음 크기로 돌아가야 합니다.");
+            Assert.That(
+                LobbySettingsProfile.SfxResumeVolume,
+                Is.EqualTo(0.6f).Within(0.001f),
+                "음소거를 껐다 켜면 사용자가 마지막으로 고른 효과음 크기로 돌아가야 합니다.");
+            Assert.That(LobbySettingsProfile.TutorialSeen, Is.True);
+            Assert.That(LobbySettingsProfile.PlayerUid, Is.EqualTo(firstUid),
+                "로컬 UID는 옵션 화면을 다시 열어도 바뀌면 안 됩니다.");
         }
 
         [Test]

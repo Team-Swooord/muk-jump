@@ -86,6 +86,10 @@ namespace MukJump.EditorTools
         static readonly Vector2 LobbyBestLabelPosition = new(-87f, -5f);
         static readonly Vector2 LobbyBestLabelSize = new(400f, 80f);
         const int LobbyBestFontSize = 37;
+        static readonly Vector2 LobbyStartAnchor = new(0.5f, 0.46f);
+        static readonly Vector2 LobbyGrowthAnchor = new(0.5f, 0.385f);
+        static readonly Vector2 LobbyCodexAnchor = new(0.5f, 0.31f);
+        static readonly Vector2 LobbyOptionsAnchor = new(0.5f, 0.235f);
         static readonly string[] DeathFramePaths =
         {
             "Assets/Art/Character/Death/mukbangul_death_01_idle.png",
@@ -298,7 +302,7 @@ namespace MukJump.EditorTools
             {
                 layer = LayerMask.NameToLayer("Player"),
             };
-            go.transform.position = new Vector3(0f, -6f, 0f);
+            go.transform.position = new Vector3(0f, -6.5f, 0f);
 
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = frames["idle"];
@@ -359,6 +363,7 @@ namespace MukJump.EditorTools
             var autoJumpSo = new SerializedObject(autoJump);
             autoJumpSo.FindProperty("jumpIntervalSeconds").floatValue = 1f;
             autoJumpSo.ApplyModifiedPropertiesWithoutUndo();
+            go.AddComponent<LobbyCharacterWander>();
 
             var animator = go.AddComponent<CharacterAnimator>();
             var so = new SerializedObject(animator);
@@ -393,8 +398,8 @@ namespace MukJump.EditorTools
             var edge = go.AddComponent<EdgeCollider2D>();
             edge.points = new[]
             {
-                new Vector2(-1.65f, 0f),
-                new Vector2(1.65f, 0f),
+                new Vector2(-5.35f, 0f),
+                new Vector2(5.35f, 0f),
             };
             edge.edgeRadius = 0.06f;
             go.AddComponent<PlatformCollider>();
@@ -437,6 +442,8 @@ namespace MukJump.EditorTools
                                    go.AddComponent<GrowthChoiceView>();
             go.AddComponent<LobbyCollectionView>();
             go.AddComponent<PermanentGrowthView>();
+            go.AddComponent<LobbyOptionsView>();
+            go.AddComponent<InkUiFeedbackController>();
             growthChoiceView.SetSprites(
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthVitalityPath),
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthJumpPath),
@@ -550,8 +557,11 @@ namespace MukJump.EditorTools
                 GrowthScrollSpawner.DefaultInterval;
             growthSpawnerSo.ApplyModifiedPropertiesWithoutUndo();
 
-            var eventSystem = new GameObject("EventSystem", typeof(EventSystem),
-                typeof(InputSystemUIInputModule));
+            var eventSystem = new GameObject(
+                "EventSystem",
+                typeof(EventSystem),
+                typeof(InputSystemUIInputModule),
+                typeof(UiInputDeviceGuard));
             eventSystem.transform.SetParent(go.transform);
 
             var hud = go.AddComponent<PrototypeHud>();
@@ -588,8 +598,14 @@ namespace MukJump.EditorTools
 
         static void BuildLobbyUi(bool configureUiImporters)
         {
-            var root = new GameObject("LobbyCanvas", typeof(RectTransform), typeof(Canvas),
-                typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(LobbyView));
+            var root = new GameObject(
+                "LobbyCanvas",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster),
+                typeof(CanvasGroup),
+                typeof(LobbyView));
             var canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 100;
@@ -634,28 +650,25 @@ namespace MukJump.EditorTools
                 root.transform,
                 buttonTexture,
                 "시작",
-                new Vector2(0.5f, 0.34f),
-                Vector2.zero,
-                new Vector2(590f, 132f),
-                54);
+                LobbyStartAnchor);
             var growthButton = CreateLobbyMenuButton(
                 "GrowthButton",
                 root.transform,
                 buttonTexture,
                 "성장",
-                new Vector2(0.5f, 0.265f),
-                new Vector2(-155f, 0f),
-                new Vector2(280f, 92f),
-                38);
+                LobbyGrowthAnchor);
             var codexButton = CreateLobbyMenuButton(
                 "CodexButton",
                 root.transform,
                 buttonTexture,
                 "도감",
-                new Vector2(0.5f, 0.265f),
-                new Vector2(155f, 0f),
-                new Vector2(280f, 92f),
-                38);
+                LobbyCodexAnchor);
+            var optionsButton = CreateLobbyMenuButton(
+                "OptionsButton",
+                root.transform,
+                buttonTexture,
+                "옵션",
+                LobbyOptionsAnchor);
 
             var view = root.GetComponent<LobbyView>();
             var so = new SerializedObject(view);
@@ -663,6 +676,7 @@ namespace MukJump.EditorTools
             so.FindProperty("startButton").objectReferenceValue = startButton;
             so.FindProperty("growthButton").objectReferenceValue = growthButton;
             so.FindProperty("codexButton").objectReferenceValue = codexButton;
+            so.FindProperty("optionsButton").objectReferenceValue = optionsButton;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -671,39 +685,40 @@ namespace MukJump.EditorTools
             Transform parent,
             Texture2D texture,
             string label,
-            Vector2 anchor,
-            Vector2 position,
-            Vector2 size,
-            int fontSize)
+            Vector2 anchor)
         {
-            var rect = CreateUiObject(name, parent, anchor, size);
-            rect.anchoredPosition = position;
+            // 비대칭 붓 PNG는 배경을 오른쪽, 글자를 왼쪽으로 같은 양만큼 보정해야
+            // 최고 기록 칸처럼 실제 화면 중앙에 반듯하게 보인다. 모든 로비 메뉴의 기본 규칙.
+            var rect = CreateUiObject(
+                name,
+                parent,
+                anchor,
+                LobbyBestSize);
+            rect.anchoredPosition = new Vector2(
+                LobbyBestPosition.x,
+                0f);
             var background = rect.gameObject.AddComponent<RawImage>();
             background.texture = texture;
             background.color = Color.white;
-            background.raycastTarget = true;
 
             var button = rect.gameObject.AddComponent<Button>();
-            button.targetGraphic = background;
-            button.navigation = new Navigation { mode = Navigation.Mode.None };
-            button.transition = Selectable.Transition.ColorTint;
-            var colors = button.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1f, 1f, 1f, 0.9f);
-            colors.pressedColor = new Color(0.8f, 0.77f, 0.68f, 1f);
-            colors.selectedColor = Color.white;
-            colors.disabledColor = new Color(0.3f, 0.3f, 0.3f, 0.45f);
-            colors.colorMultiplier = 1f;
-            colors.fadeDuration = 0.08f;
-            button.colors = colors;
+            InkUiStyle.ConfigureButton(button, background);
 
-            var text = CreateText("Label", rect, label, fontSize, FontStyle.Bold,
-                new Vector2(0.5f, 0.5f), size - new Vector2(70f, 18f),
+            var text = CreateText(
+                "Label",
+                rect,
+                label,
+                LobbyBestFontSize,
+                FontStyle.Bold,
+                new Vector2(0.5f, 0.5f),
+                LobbyBestLabelSize,
                 InkPalette.TextLight);
-            text.raycastTarget = false;
-            text.resizeTextMinSize = Mathf.Max(26, fontSize - 8);
-            text.resizeTextMaxSize = fontSize;
-            AddReadableTextWeight(text, 0.28f);
+            text.rectTransform.anchoredPosition = LobbyBestLabelPosition;
+            InkUiStyle.ApplyReadableText(
+                text,
+                LobbyBestFontSize,
+                TextAnchor.MiddleCenter,
+                strong: true);
             return button;
         }
 
@@ -716,14 +731,19 @@ namespace MukJump.EditorTools
             background.texture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
             background.raycastTarget = false;
 
-            var label = CreateText("Label", display, value, LobbyBestFontSize, FontStyle.Normal,
+            var label = CreateText("Label", display, value, LobbyBestFontSize, FontStyle.Bold,
                 new Vector2(0.5f, 0.5f), LobbyBestLabelSize, Color.white);
             label.rectTransform.anchoredPosition = LobbyBestLabelPosition;
             label.fontSize = LobbyBestFontSize;
-            label.fontStyle = FontStyle.Normal;
+            label.fontStyle = FontStyle.Bold;
             label.color = Color.white;
             label.resizeTextForBestFit = false;
             label.alignByGeometry = true;
+            InkUiStyle.ApplyReadableText(
+                label,
+                LobbyBestFontSize,
+                TextAnchor.MiddleCenter,
+                strong: true);
             return label;
         }
 
