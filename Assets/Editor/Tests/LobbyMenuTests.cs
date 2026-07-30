@@ -339,6 +339,10 @@ namespace MukJump.EditorTests
             Assert.That(LobbyMenuLayout.RecordAnchor.x,
                 Is.EqualTo(LobbyMenuLayout.RecordRailX));
             Assert.That(
+                LobbyMenuLayout.RecordRailX,
+                Is.EqualTo(LobbyMenuLayout.MenuRailX).Within(0.001f),
+                "최고 기록 칸과 로비 메뉴는 같은 화면 중앙 레일을 사용해야 합니다.");
+            Assert.That(
                 LobbyMenuLayout.MenuRailX,
                 Is.EqualTo(0.5f).Within(0.001f),
                 "로비 메뉴 레일은 화면 중앙을 기준으로 해야 합니다.");
@@ -350,6 +354,14 @@ namespace MukJump.EditorTests
                 labelCenterAt1080,
                 Is.EqualTo(540f).Within(4f),
                 "비대칭 붓 보정 뒤 라벨의 실제 중심은 화면 중앙이어야 합니다.");
+            float recordLabelCenterAt1080 =
+                LobbyMenuLayout.RecordRailX * 1080f +
+                LobbyMenuLayout.RecordPosition.x +
+                LobbyMenuLayout.LabelPosition.x;
+            Assert.That(
+                recordLabelCenterAt1080,
+                Is.EqualTo(540f).Within(4f),
+                "최고 기록 붓획의 라벨도 화면 중앙에 보여야 합니다.");
             Assert.That(
                 LobbyMenuLayout.FontSize,
                 Is.GreaterThanOrEqualTo(44));

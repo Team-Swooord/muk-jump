@@ -494,6 +494,10 @@ public class FallingInkRockTests
             uiInputGuard.GetComponent<UnityEngine.EventSystems.EventSystem>());
         var bestDisplay = lobby.transform.Find("BestDisplay") as RectTransform;
         Assert.IsNotNull(bestDisplay?.GetComponent<RawImage>());
+        Assert.That(bestDisplay.anchorMin.x,
+            Is.EqualTo(LobbyMenuLayout.RecordRailX).Within(0.001f));
+        Assert.That(bestDisplay.anchorMax.x,
+            Is.EqualTo(LobbyMenuLayout.RecordRailX).Within(0.001f));
         Assert.That(bestDisplay.anchoredPosition.x, Is.EqualTo(89f).Within(0.01f));
         Assert.That(bestDisplay.anchoredPosition.y, Is.EqualTo(-12f).Within(0.01f));
         Assert.That(bestDisplay.sizeDelta.x, Is.EqualTo(610.273f).Within(0.01f));

@@ -10,7 +10,7 @@ namespace MukJump.Core
         // 버튼 PNG 안쪽의 비대칭 보정은 유지하되, 메뉴 글자의 최종 시각 중심은
         // 기기 화면 중앙과 일치시킨다.
         public const float MenuRailX = 0.5f;
-        public const float RecordRailX = 0.60f;
+        public const float RecordRailX = MenuRailX;
         public const float PrimaryAlpha = 1f;
         public const float SecondaryAlpha = 0.78f;
 

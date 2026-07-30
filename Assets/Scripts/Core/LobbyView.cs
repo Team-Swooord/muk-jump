@@ -39,9 +39,10 @@ namespace MukJump.Core
         {
             canvasGroup = GetComponent<CanvasGroup>();
             ApplyUiFont();
+            // Play 전 Game View와 런타임 로비가 같은 중앙 정렬을 사용한다.
+            EnsureMenuLayout();
             if (Application.isPlaying)
             {
-                EnsureMenuLayout();
                 BindListeners();
             }
         }
