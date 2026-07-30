@@ -1,13 +1,13 @@
 using System;
 using MukJump.Core;
 using MukJump.Core.Pooling;
-using MukJump.Player;
 using UnityEngine;
 
 namespace MukJump.Items
 {
-    /// 성장 선택 화면을 여는 월드 두루마리.
-    /// 일반 아이템과 수명 주기가 다르므로 전용 스포너의 단일 슬롯 풀만 사용한다.
+    /// 다음 성장 이정표를 미리 보여 주는 월드 두루마리 연출.
+    /// 선택은 GrowthScrollSpawner가 먹떼 진행도를 기준으로 직접 열며,
+    /// 이 오브젝트는 플레이어와 충돌하지 않는 한 슬롯 풀 미리보기다.
     [DisallowMultipleComponent]
     [RequireComponent(typeof(SpriteRenderer), typeof(CircleCollider2D))]
     public sealed class GrowthScrollPickup : MonoBehaviour, IPoolableEntity
@@ -23,7 +23,7 @@ namespace MukJump.Items
         float phase;
         bool collected;
 
-        /// 선택 화면이 실제로 열렸을 때만 소유 스포너에 반납을 요청한다.
+        /// 소유 스포너가 명시적으로 미리보기를 끝낼 때 반납을 요청한다.
         public event Action<GrowthScrollPickup> ReleaseRequested;
 
         public bool IsCollected => collected;
@@ -42,7 +42,7 @@ namespace MukJump.Items
             phase = phaseOffset;
             collected = false;
             spriteRenderer.enabled = spriteRenderer.sprite != null;
-            trigger.enabled = true;
+            trigger.enabled = false;
             transform.rotation = Quaternion.identity;
         }
 
@@ -58,18 +58,11 @@ namespace MukJump.Items
                 0f, 0f, Mathf.Sin(wave * 0.73f) * tiltAngle);
         }
 
-        void OnTriggerEnter2D(Collider2D other)
+        /// 선택이 열린 뒤 미리보기를 즉시 단일 슬롯 풀로 돌려보낸다.
+        public void CompletePreview()
         {
             if (collected) return;
 
-            var player = other.GetComponentInParent<PlayerController>();
-            if (player == null || player.IsDead) return;
-
-            var growth = RunGrowthController.Instance;
-            if (growth == null || !growth.RequestChoice()) return;
-
-            // RequestChoice가 성공한 뒤에만 소비한다. 같은 물리 프레임에 여러 분신이
-            // 닿더라도 콜라이더를 먼저 꺼 선택 패널이 중복으로 열리지 않게 한다.
             collected = true;
             trigger.enabled = false;
             ReleaseRequested?.Invoke(this);
@@ -80,7 +73,7 @@ namespace MukJump.Items
             EnsureComponents();
             collected = false;
             spriteRenderer.enabled = spriteRenderer.sprite != null;
-            trigger.enabled = true;
+            trigger.enabled = false;
             transform.rotation = Quaternion.identity;
         }
 

@@ -800,16 +800,30 @@ namespace MukJump.EditorTests
         [Test]
         public void GrowthSpawnerUsesGuaranteedScheduleAndOneReusablePickup()
         {
-            Assert.That(GrowthScrollSpawner.DefaultFirstHeight, Is.EqualTo(45f));
-            Assert.That(GrowthScrollSpawner.DefaultInterval, Is.EqualTo(120f));
-            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(44f),
-                Is.EqualTo(45f));
-            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(45f),
-                Is.EqualTo(45f));
-            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(46f),
-                Is.EqualTo(165f));
+            Assert.That(GrowthScrollSpawner.DefaultFirstHeight, Is.EqualTo(25f));
+            Assert.That(GrowthScrollSpawner.DefaultInterval, Is.EqualTo(200f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(24f),
+                Is.EqualTo(25f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(25f),
+                Is.EqualTo(25f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(26f),
+                Is.EqualTo(50f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(50f),
+                Is.EqualTo(50f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(51f),
+                Is.EqualTo(100f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(201f),
+                Is.EqualTo(400f));
             Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(1000f),
-                Is.EqualTo(1005f));
+                Is.EqualTo(1000f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAfter(24f),
+                Is.EqualTo(25f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAfter(25f),
+                Is.EqualTo(50f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAfter(400f),
+                Is.EqualTo(600f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAfter(1000f),
+                Is.EqualTo(1200f));
 
             RetagExistingMainCameras();
             var cameraObject = Track(new GameObject("GrowthSpawnerCamera"));
@@ -817,38 +831,56 @@ namespace MukJump.EditorTests
             var worldCamera = cameraObject.AddComponent<Camera>();
             worldCamera.orthographic = true;
             worldCamera.orthographicSize = 9.6f;
+            var manager = CreatePlayingManager(out var growth);
 
             var host = Track(new GameObject("GrowthScrollSpawnerHost"));
             host.SetActive(false);
             var spawner = host.AddComponent<GrowthScrollSpawner>();
             var scrollSprite = LoadGrowthSprite(
                 ScrollAssetPath, "MukJump/UI/Growth/growth_scroll");
-            spawner.Configure(scrollSprite, 45f, 120f);
+            spawner.Configure(scrollSprite, 25f, 200f);
             SetField(spawner, "worldCamera", worldCamera);
             Invoke(spawner, "EnsurePool");
 
-            Assert.That(spawner.FirstHeight, Is.EqualTo(45f));
-            Assert.That(spawner.Interval, Is.EqualTo(120f));
+            Assert.That(spawner.FirstHeight, Is.EqualTo(25f));
+            Assert.That(spawner.Interval, Is.EqualTo(200f));
             Assert.That(spawner.PoolAvailableCount, Is.EqualTo(1));
-            Assert.That((bool)Invoke(spawner, "TrySpawn", 45f), Is.True);
+            Assert.That((bool)Invoke(spawner, "TrySpawn", 25f), Is.True);
             var first = spawner.ActivePickup;
             Assert.That(first, Is.Not.Null);
+            Assert.That(first.GetComponent<CircleCollider2D>().enabled, Is.False,
+                "월드 두루마리는 확정 이정표의 미리보기라 플레이어와 충돌하면 안 됩니다.");
             Assert.That(spawner.PoolLeasedCount, Is.EqualTo(1));
-            Assert.That((bool)Invoke(spawner, "TrySpawn", 165f), Is.False,
+            Assert.That((bool)Invoke(spawner, "TrySpawn", 50f), Is.False,
                 "한 화면에 성장 두루마리를 두 개 이상 대여하면 안 됩니다.");
 
-            Invoke(spawner, "ReleaseActive");
+            Assert.That((bool)Invoke(
+                spawner, "TryOpenScheduledChoice", growth), Is.True);
+            Assert.That(growth.HasPendingChoice, Is.True);
+            Assert.That(spawner.NextScheduledHeight, Is.EqualTo(50f));
+            Assert.That(spawner.HasActivePickup, Is.False);
+            Assert.That((bool)Invoke(
+                spawner, "TryOpenScheduledChoice", growth), Is.False,
+                "선택판을 열지 못한 프레임에는 다음 이정표로 진행하면 안 됩니다.");
+            Assert.That(spawner.NextScheduledHeight, Is.EqualTo(50f));
+            Assert.That(growth.CancelChoice(), Is.True);
+
             Assert.That(spawner.PoolAvailableCount, Is.EqualTo(1));
             Assert.That(spawner.PoolLeasedCount, Is.Zero);
-            Assert.That((bool)Invoke(spawner, "TrySpawn", 165f), Is.True);
+            Assert.That((bool)Invoke(spawner, "TrySpawn", 50f), Is.True);
             Assert.That(spawner.ActivePickup, Is.SameAs(first),
                 "두 번째 일정은 Instantiate 대신 같은 한 슬롯 풀을 재사용해야 합니다.");
 
             Invoke(spawner, "HandleWorldHeightTeleported", 1000);
             Assert.That(spawner.HasActivePickup, Is.False);
-            Assert.That(spawner.NextScheduledHeight, Is.EqualTo(1005f));
+            Assert.That(spawner.NextScheduledHeight, Is.EqualTo(1200f));
             Assert.That(spawner.PoolAvailableCount, Is.EqualTo(1),
                 "순간이동으로 건너뛴 과거 슬롯을 한꺼번에 생성하면 안 됩니다.");
+
+            Invoke(spawner, "BeginSessionSchedule");
+            Assert.That(spawner.NextScheduledHeight, Is.EqualTo(25f),
+                "새 세션은 항상 첫 확정 선택인 25m에서 다시 시작해야 합니다.");
+            Assert.That(manager.SwarmProgressHeight, Is.GreaterThanOrEqualTo(0f));
         }
 
         [Test]
