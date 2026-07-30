@@ -202,10 +202,9 @@ namespace MukJump.Core
             background.sprite = usesImportedSprite
                 ? sprite
                 : InkUiTextureFactory.CreateBrushSprite();
-            background.type = usesImportedSprite &&
-                              HasSpriteBorder(sprite)
-                ? Image.Type.Sliced
-                : Image.Type.Simple;
+            // 공용 붓획은 작은 뒤로/닫기 버튼에서도 전체 모양이 보여야 한다.
+            // 9-slice는 큰 테두리가 서로 맞닿으며 모서리 먹점만 남기므로 사용하지 않는다.
+            background.type = Image.Type.Simple;
             background.preserveAspect = false;
             background.fillCenter = true;
             background.color = InkPalette.Ink;
@@ -254,13 +253,6 @@ namespace MukJump.Core
             return image != null &&
                    ActionButtonSprite != null &&
                    image.sprite == ActionButtonSprite;
-        }
-
-        static bool HasSpriteBorder(Sprite sprite)
-        {
-            if (sprite == null) return false;
-            Vector4 border = sprite.border;
-            return border.x + border.y + border.z + border.w > 0.001f;
         }
 
         public static ColorBlock ReadableButtonColors()

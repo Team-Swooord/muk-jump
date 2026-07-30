@@ -30,11 +30,8 @@ namespace MukJump.EditorTests
                 settings.spriteMeshType,
                 Is.EqualTo(SpriteMeshType.FullRect));
             Assert.That(
-                settings.spriteBorder.x,
-                Is.GreaterThan(0f));
-            Assert.That(
-                settings.spriteBorder.z,
-                Is.GreaterThan(0f));
+                settings.spriteBorder,
+                Is.EqualTo(Vector4.zero));
             Assert.That(
                 importer.spritePixelsPerUnit,
                 Is.EqualTo(100f).Within(0.001f));
@@ -64,7 +61,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ActionButtonUsesSharedSlicedSpriteAndReadableLabel()
+        public void ActionButtonUsesWholeSharedSpriteAndReadableLabel()
         {
             var root = new GameObject(
                 "ActionButton",
@@ -88,7 +85,7 @@ namespace MukJump.EditorTests
                 Assert.That(
                     image.sprite,
                     Is.SameAs(InkUiStyle.ActionButtonSprite));
-                Assert.That(image.type, Is.EqualTo(Image.Type.Sliced));
+                Assert.That(image.type, Is.EqualTo(Image.Type.Simple));
                 Assert.That(button.targetGraphic, Is.SameAs(image));
                 Assert.That(
                     label.color,

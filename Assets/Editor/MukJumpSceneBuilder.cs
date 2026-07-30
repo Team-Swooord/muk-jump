@@ -76,8 +76,9 @@ namespace MukJump.EditorTools
             "Assets/Resources/MukJump/UI/Growth/growth_fortune.png";
         const string ActionButtonPath =
             "Assets/Resources/MukJump/UI/Common/action_button_brush.png";
-        static readonly Vector4 ActionButtonBorder =
-            new(112f, 78f, 112f, 78f);
+        // 유기적인 붓획은 9-slice 시 작은 버튼에서 모서리만 남아 먹 얼룩처럼
+        // 깨진다. 전체 실루엣을 축소·확대하도록 테두리를 사용하지 않는다.
+        static readonly Vector4 ActionButtonBorder = Vector4.zero;
         const string PermanentGrowthUiRoot =
             "Assets/Resources/MukJump/UI/PermanentGrowth/";
         static readonly string[] PermanentGrowthUiPaths =
