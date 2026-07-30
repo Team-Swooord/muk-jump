@@ -155,6 +155,7 @@ namespace MukJump.Core
             optionsView?.Close();
             PointerInput.SuppressUntilRelease();
             ApplySection(CurrentSection, interactive: false);
+            ApplyMenuSelection(destination);
 
             if (!Application.isPlaying)
                 return true;
@@ -247,6 +248,7 @@ namespace MukJump.Core
 
         void ApplySection(LobbySection section, bool interactive)
         {
+            ApplyMenuSelection(section);
             bool showLobby = section == LobbySection.Lobby;
             bool showGrowth = section == LobbySection.PermanentGrowth;
             bool showCodex = section == LobbySection.Codex;
@@ -260,6 +262,17 @@ namespace MukJump.Core
             codexView?.SetNavigationPresentation(
                 showCodex,
                 showCodex && interactive);
+        }
+
+        void ApplyMenuSelection(LobbySection section)
+        {
+            if (lobbyView == null) return;
+            lobbyView.SetActiveMenu(section switch
+            {
+                LobbySection.PermanentGrowth => LobbyMenuSelection.Growth,
+                LobbySection.Codex => LobbyMenuSelection.Codex,
+                _ => LobbyMenuSelection.Start,
+            });
         }
 
 #if UNITY_EDITOR

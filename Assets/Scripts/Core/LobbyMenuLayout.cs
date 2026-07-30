@@ -3,6 +3,14 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
+    public enum LobbyMenuSelection
+    {
+        Start,
+        Growth,
+        Codex,
+        Options,
+    }
+
     /// 사용자가 직접 맞춘 최고 기록 칸을 기준으로 로비 메뉴의 시각 중심을 통일한다.
     /// 씬 빌더와 구버전 씬 런타임 보정이 이 값 하나만 공유해야 한다.
     public static class LobbyMenuLayout
@@ -71,7 +79,7 @@ namespace MukJump.Core
             if (background == null)
                 background = button.GetComponent<Graphic>();
             InkUiStyle.ConfigureButton(button, background);
-            ApplyActionEmphasis(button, primary);
+            ApplySelectionEmphasis(button, primary);
 
             Text text = button.transform.Find("Label")?.GetComponent<Text>();
             if (text == null)
@@ -79,7 +87,9 @@ namespace MukJump.Core
             ApplyLabel(text, label, InkPalette.TextLight);
         }
 
-        static void ApplyActionEmphasis(Button button, bool primary)
+        public static void ApplySelectionEmphasis(
+            Button button,
+            bool selected)
         {
             if (button == null) return;
             var group = button.GetComponent<CanvasGroup>();
@@ -97,7 +107,7 @@ namespace MukJump.Core
                 background = button.GetComponent<Graphic>();
             if (background == null) return;
             Color color = background.color;
-            color.a = primary ? PrimaryAlpha : SecondaryAlpha;
+            color.a = selected ? PrimaryAlpha : SecondaryAlpha;
             background.color = color;
         }
 

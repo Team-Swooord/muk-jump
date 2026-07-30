@@ -389,12 +389,58 @@ namespace MukJump.EditorTests
             Assert.That(
                 view.OptionsButton.targetGraphic.color.a,
                 Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
+
+            AssertSelectedMenu(view, LobbyMenuSelection.Start);
+            view.SetActiveMenu(LobbyMenuSelection.Growth);
+            AssertSelectedMenu(view, LobbyMenuSelection.Growth);
+            view.SetActiveMenu(LobbyMenuSelection.Codex);
+            AssertSelectedMenu(view, LobbyMenuSelection.Codex);
+            view.SetActiveMenu(LobbyMenuSelection.Options);
+            AssertSelectedMenu(view, LobbyMenuSelection.Options);
+
             Assert.That(recordRoot.GetComponent<RectTransform>().anchoredPosition,
                 Is.EqualTo(LobbyMenuLayout.RecordPosition));
             Assert.That(recordLabel.rectTransform.anchoredPosition,
                 Is.EqualTo(LobbyMenuLayout.LabelPosition));
             Assert.That(recordLabel.fontSize, Is.EqualTo(LobbyMenuLayout.FontSize));
             Assert.That(recordLabel.fontStyle, Is.EqualTo(FontStyle.Bold));
+        }
+
+        [Test]
+        public void ClosingOptionsRestoresStartButtonEmphasis()
+        {
+            managerHost = new GameObject("LobbyOptionsSelectionManager");
+            var manager = managerHost.AddComponent<GameManager>();
+            Invoke(manager, "OnEnable");
+            var options = managerHost.AddComponent<LobbyOptionsView>();
+            options.BuildForTests();
+
+            viewHost = new GameObject(
+                "LobbyOptionsSelectionCanvas",
+                typeof(RectTransform),
+                typeof(CanvasGroup));
+            Button start =
+                CreateLegacyButton(viewHost.transform, "StartButton", "시작");
+            Button growth =
+                CreateLegacyButton(viewHost.transform, "GrowthButton", "성장");
+            Button codex =
+                CreateLegacyButton(viewHost.transform, "CodexButton", "도감");
+            Button option =
+                CreateLegacyButton(viewHost.transform, "OptionsButton", "옵션");
+            var view = viewHost.AddComponent<LobbyView>();
+            SetField(view, "startButton", start);
+            SetField(view, "growthButton", growth);
+            SetField(view, "codexButton", codex);
+            SetField(view, "optionsButton", option);
+            view.ApplyMenuLayoutForTests();
+
+            options.Open();
+            Invoke(view, "RefreshMenuSelection");
+            AssertSelectedMenu(view, LobbyMenuSelection.Options);
+
+            options.Close();
+            Invoke(view, "RefreshMenuSelection");
+            AssertSelectedMenu(view, LobbyMenuSelection.Start);
         }
 
         [Test]
@@ -561,6 +607,36 @@ namespace MukJump.EditorTests
                 Is.EqualTo(LobbyMenuLayout.LabelSize));
             Assert.That(label.fontSize, Is.EqualTo(LobbyMenuLayout.FontSize));
             Assert.That(label.fontStyle, Is.EqualTo(FontStyle.Bold));
+        }
+
+        static void AssertSelectedMenu(
+            LobbyView view,
+            LobbyMenuSelection expected)
+        {
+            Assert.That(view.ActiveMenu, Is.EqualTo(expected));
+            AssertMenuAlpha(
+                view.StartButton,
+                expected == LobbyMenuSelection.Start);
+            AssertMenuAlpha(
+                view.GrowthButton,
+                expected == LobbyMenuSelection.Growth);
+            AssertMenuAlpha(
+                view.CodexButton,
+                expected == LobbyMenuSelection.Codex);
+            AssertMenuAlpha(
+                view.OptionsButton,
+                expected == LobbyMenuSelection.Options);
+        }
+
+        static void AssertMenuAlpha(Button button, bool selected)
+        {
+            Assert.That(
+                button.targetGraphic.color.a,
+                Is.EqualTo(
+                    selected
+                        ? LobbyMenuLayout.PrimaryAlpha
+                        : LobbyMenuLayout.SecondaryAlpha)
+                    .Within(0.001f));
         }
 
         static void SetField(object target, string fieldName, object value)

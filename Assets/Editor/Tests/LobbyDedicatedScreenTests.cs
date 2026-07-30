@@ -116,6 +116,13 @@ namespace MukJump.EditorTests
 
             Assert.That(requested, Is.True);
             Assert.That(navigator.IsTransitioning, Is.True);
+            Assert.That(
+                lobby.ActiveMenu,
+                Is.EqualTo(
+                    destination ==
+                    LobbyScreenNavigator.LobbySection.PermanentGrowth
+                        ? LobbyMenuSelection.Growth
+                        : LobbyMenuSelection.Codex));
             Assert.That(navigator.CurrentSection,
                 Is.EqualTo(LobbyScreenNavigator.LobbySection.Lobby));
             Assert.That(lobby.IsVisible, Is.True);
@@ -160,6 +167,8 @@ namespace MukJump.EditorTests
             growth.BackButton.onClick.Invoke();
 
             Assert.That(navigator.IsTransitioning, Is.True);
+            Assert.That(lobby.ActiveMenu,
+                Is.EqualTo(LobbyMenuSelection.Start));
             Assert.That(navigator.PendingSection,
                 Is.EqualTo(LobbyScreenNavigator.LobbySection.Lobby));
             Assert.That(growth.ScreenRoot.anchoredPosition.y,
@@ -169,6 +178,8 @@ namespace MukJump.EditorTests
             navigator.CompleteCoverForTests();
             Assert.That(navigator.CurrentSection,
                 Is.EqualTo(LobbyScreenNavigator.LobbySection.Lobby));
+            Assert.That(lobby.ActiveMenu,
+                Is.EqualTo(LobbyMenuSelection.Start));
             Assert.That(lobby.IsVisible, Is.True);
             Assert.That(lobby.IsInteractive, Is.False);
             Assert.That(growth.ScreenRoot.anchoredPosition.y,

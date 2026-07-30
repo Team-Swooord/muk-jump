@@ -25,6 +25,7 @@ namespace MukJump.Core
         bool navigationVisible = true;
         bool navigationInteractive = true;
         int lastDisplayedBest = int.MinValue;
+        LobbyMenuSelection activeMenu = LobbyMenuSelection.Start;
 
         public Button StartButton => startButton;
         public Button GrowthButton => growthButton;
@@ -34,6 +35,7 @@ namespace MukJump.Core
             canvasGroup != null && canvasGroup.blocksRaycasts;
         public bool IsVisible =>
             canvasGroup != null && canvasGroup.alpha > 0.001f;
+        public LobbyMenuSelection ActiveMenu => activeMenu;
 
         void OnEnable()
         {
@@ -69,6 +71,7 @@ namespace MukJump.Core
             bool lobbyState = GameManager.Instance == null ||
                               GameManager.Instance.State == GameState.Lobby;
             bool show = lobbyState && navigationVisible;
+            RefreshMenuSelection();
             SetVisible(show, show && navigationInteractive);
             if (!show) return;
             RefreshBest();
@@ -115,7 +118,10 @@ namespace MukJump.Core
                 return;
             }
             ResolveCollectionView()?.Close();
-            ResolvePermanentGrowthView()?.Open();
+            PermanentGrowthView growth = ResolvePermanentGrowthView();
+            growth?.Open();
+            if (growth != null && growth.IsOpen)
+                SetActiveMenu(LobbyMenuSelection.Growth);
         }
 
         void HandleCodexPressed()
@@ -128,7 +134,10 @@ namespace MukJump.Core
                 return;
             }
             ResolvePermanentGrowthView()?.Close();
-            ResolveCollectionView()?.OpenCodex();
+            LobbyCollectionView codex = ResolveCollectionView();
+            codex?.OpenCodex();
+            if (codex != null && codex.IsOpen)
+                SetActiveMenu(LobbyMenuSelection.Codex);
         }
 
         void HandleOptionsPressed()
@@ -138,7 +147,10 @@ namespace MukJump.Core
                 return;
             ResolvePermanentGrowthView()?.Close();
             ResolveCollectionView()?.Close();
-            ResolveOptionsView()?.Open();
+            LobbyOptionsView options = ResolveOptionsView();
+            options?.Open();
+            if (options != null && options.IsOpen)
+                SetActiveMenu(LobbyMenuSelection.Options);
         }
 
         LobbyCollectionView ResolveCollectionView()
@@ -216,22 +228,81 @@ namespace MukJump.Core
                 startButton,
                 "시작",
                 LobbyMenuLayout.StartAnchor,
-                primary: true);
+                primary: activeMenu == LobbyMenuSelection.Start);
             LobbyMenuLayout.ApplyButton(
                 growthButton,
                 "성장",
                 LobbyMenuLayout.GrowthAnchor,
-                primary: false);
+                primary: activeMenu == LobbyMenuSelection.Growth);
             LobbyMenuLayout.ApplyButton(
                 codexButton,
                 "도감",
                 LobbyMenuLayout.CodexAnchor,
-                primary: false);
+                primary: activeMenu == LobbyMenuSelection.Codex);
             LobbyMenuLayout.ApplyButton(
                 optionsButton,
                 "옵션",
                 LobbyMenuLayout.OptionsAnchor,
-                primary: false);
+                primary: activeMenu == LobbyMenuSelection.Options);
+        }
+
+        public void SetActiveMenu(LobbyMenuSelection selection)
+        {
+            if (activeMenu == selection) return;
+            activeMenu = selection;
+            LobbyMenuLayout.ApplySelectionEmphasis(
+                startButton,
+                selection == LobbyMenuSelection.Start);
+            LobbyMenuLayout.ApplySelectionEmphasis(
+                growthButton,
+                selection == LobbyMenuSelection.Growth);
+            LobbyMenuLayout.ApplySelectionEmphasis(
+                codexButton,
+                selection == LobbyMenuSelection.Codex);
+            LobbyMenuLayout.ApplySelectionEmphasis(
+                optionsButton,
+                selection == LobbyMenuSelection.Options);
+        }
+
+        void RefreshMenuSelection()
+        {
+            LobbyOptionsView options = ResolveOptionsView();
+            if (options != null && options.IsOpen)
+            {
+                SetActiveMenu(LobbyMenuSelection.Options);
+                return;
+            }
+
+            LobbyScreenNavigator navigator = ResolveScreenNavigator();
+            if (navigator != null)
+            {
+                LobbyScreenNavigator.LobbySection section =
+                    navigator.IsTransitioning
+                        ? navigator.PendingSection
+                        : navigator.CurrentSection;
+                SetActiveMenu(SelectionForSection(section));
+                return;
+            }
+
+            if (ResolvePermanentGrowthView()?.IsOpen == true)
+                SetActiveMenu(LobbyMenuSelection.Growth);
+            else if (ResolveCollectionView()?.IsOpen == true)
+                SetActiveMenu(LobbyMenuSelection.Codex);
+            else
+                SetActiveMenu(LobbyMenuSelection.Start);
+        }
+
+        static LobbyMenuSelection SelectionForSection(
+            LobbyScreenNavigator.LobbySection section)
+        {
+            return section switch
+            {
+                LobbyScreenNavigator.LobbySection.PermanentGrowth =>
+                    LobbyMenuSelection.Growth,
+                LobbyScreenNavigator.LobbySection.Codex =>
+                    LobbyMenuSelection.Codex,
+                _ => LobbyMenuSelection.Start,
+            };
         }
 
 #if UNITY_EDITOR
