@@ -27,7 +27,7 @@ namespace MukJump.Core
                 _ when elementName != null &&
                        elementName.StartsWith(
                            "GrowthNodeLabel",
-                           System.StringComparison.Ordinal) => 28,
+                           System.StringComparison.Ordinal) => 24,
                 _ => requestedSize,
             };
             return System.Math.Max(requestedSize, minimum);
@@ -40,36 +40,45 @@ namespace MukJump.Core
             if (text == null || text.rectTransform == null)
                 return;
 
+            ApplyContainerLayout(text, elementName);
             ApplyVisualWeight(text, elementName);
+            ApplyEnhanceButtonLayout(text, elementName);
 
             UnityEngine.Vector2 minimum = elementName switch
             {
-                "Name" => new UnityEngine.Vector2(190f, 54f),
-                "Level" => new UnityEngine.Vector2(190f, 40f),
-                "Description" => new UnityEngine.Vector2(190f, 44f),
-                "Effect" => new UnityEngine.Vector2(190f, 42f),
-                "Cost" => new UnityEngine.Vector2(96f, 40f),
-                "DetailName" => new UnityEngine.Vector2(210f, 58f),
-                "DetailLevel" => new UnityEngine.Vector2(210f, 38f),
-                "DetailDescription" => new UnityEngine.Vector2(390f, 80f),
-                "CurrentEffect" => new UnityEngine.Vector2(500f, 42f),
-                "NextEffect" => new UnityEngine.Vector2(500f, 42f),
-                "DetailCost" => new UnityEngine.Vector2(270f, 42f),
+                "Name" => new UnityEngine.Vector2(174f, 48f),
+                "Level" => new UnityEngine.Vector2(174f, 34f),
+                "Description" => new UnityEngine.Vector2(174f, 36f),
+                "Effect" => new UnityEngine.Vector2(174f, 34f),
+                "Cost" => new UnityEngine.Vector2(96f, 32f),
+                "DetailName" => new UnityEngine.Vector2(220f, 52f),
+                "DetailLevel" => new UnityEngine.Vector2(220f, 34f),
+                "DetailDescription" => new UnityEngine.Vector2(400f, 72f),
+                "CurrentEffect" => new UnityEngine.Vector2(520f, 36f),
+                "NextEffect" => new UnityEngine.Vector2(520f, 36f),
+                "DetailCost" => new UnityEngine.Vector2(500f, 36f),
                 "Balance" => new UnityEngine.Vector2(360f, 64f),
                 "PermanentHint" => new UnityEngine.Vector2(780f, 60f),
                 _ when elementName != null &&
                        elementName.StartsWith(
                            "GrowthNodeLabel",
                            System.StringComparison.Ordinal) =>
-                    new UnityEngine.Vector2(42f, 38f),
+                    new UnityEngine.Vector2(26f, 28f),
                 _ => UnityEngine.Vector2.zero,
             };
             if (minimum == UnityEngine.Vector2.zero)
                 return;
 
             UnityEngine.Vector2 size = text.rectTransform.sizeDelta;
-            size.x = UnityEngine.Mathf.Max(size.x, minimum.x);
-            size.y = UnityEngine.Mathf.Max(size.y, minimum.y);
+            if (UsesFixedGrid(elementName))
+            {
+                size = minimum;
+            }
+            else
+            {
+                size.x = UnityEngine.Mathf.Max(size.x, minimum.x);
+                size.y = UnityEngine.Mathf.Max(size.y, minimum.y);
+            }
             text.rectTransform.sizeDelta = size;
 
             UnityEngine.Vector2 position =
@@ -77,35 +86,38 @@ namespace MukJump.Core
             switch (elementName)
             {
                 case "Name":
-                    position.x = UnityEngine.Mathf.Sign(position.x) * 125f;
-                    position.y = 82f;
+                    position.x = UnityEngine.Mathf.Sign(position.x) * 132f;
+                    position.y = 84f;
                     break;
                 case "Level":
-                    position.x = UnityEngine.Mathf.Sign(position.x) * 125f;
-                    position.y = 33f;
+                    position.x = UnityEngine.Mathf.Sign(position.x) * 132f;
+                    position.y = 37f;
                     break;
                 case "Description":
-                    position.x = UnityEngine.Mathf.Sign(position.x) * 125f;
-                    position.y = -9f;
+                    position.x = UnityEngine.Mathf.Sign(position.x) * 132f;
+                    position.y = -4f;
                     break;
                 case "Effect":
-                    position.x = UnityEngine.Mathf.Sign(position.x) * 125f;
-                    position.y = -53f;
+                    position.x = UnityEngine.Mathf.Sign(position.x) * 132f;
+                    position.y = -45f;
                     break;
                 case "DetailName":
-                    position = new UnityEngine.Vector2(-215f, 88f);
+                    position = new UnityEngine.Vector2(-215f, 98f);
                     break;
                 case "DetailLevel":
-                    position = new UnityEngine.Vector2(-215f, 40f);
+                    position = new UnityEngine.Vector2(-215f, 52f);
                     break;
                 case "DetailDescription":
-                    position = new UnityEngine.Vector2(120f, 88f);
+                    position = new UnityEngine.Vector2(110f, 92f);
                     break;
                 case "CurrentEffect":
-                    position = new UnityEngine.Vector2(-85f, -3f);
+                    position = new UnityEngine.Vector2(-80f, 12f);
                     break;
                 case "NextEffect":
-                    position = new UnityEngine.Vector2(-85f, -45f);
+                    position = new UnityEngine.Vector2(-80f, -31f);
+                    break;
+                case "DetailCost":
+                    position = new UnityEngine.Vector2(-55f, -88f);
                     break;
             }
             text.rectTransform.anchoredPosition = position;
@@ -113,12 +125,52 @@ namespace MukJump.Core
             if (elementName == "Name" ||
                 elementName == "Level" ||
                 elementName == "Description" ||
-                elementName == "Effect" ||
-                elementName == "Cost")
+                elementName == "Effect")
             {
+                text.alignment = UnityEngine.TextAnchor.MiddleLeft;
                 text.horizontalOverflow =
-                    UnityEngine.HorizontalWrapMode.Overflow;
+                    UnityEngine.HorizontalWrapMode.Wrap;
+                text.verticalOverflow =
+                    UnityEngine.VerticalWrapMode.Truncate;
             }
+            else if (elementName == "DetailName" ||
+                     elementName == "DetailLevel" ||
+                     elementName == "DetailDescription" ||
+                     elementName == "CurrentEffect" ||
+                     elementName == "NextEffect" ||
+                     elementName == "DetailCost")
+            {
+                text.alignment = UnityEngine.TextAnchor.MiddleLeft;
+                text.horizontalOverflow =
+                    UnityEngine.HorizontalWrapMode.Wrap;
+                text.verticalOverflow =
+                    UnityEngine.VerticalWrapMode.Truncate;
+            }
+
+            ApplyCostLayout(text, elementName);
+            ApplyNodeLabelLayout(text, elementName);
+            ApplyDetailDecorationLayout(text, elementName);
+        }
+
+        static bool UsesFixedGrid(string elementName)
+        {
+            if (elementName == "Name" ||
+                elementName == "Level" ||
+                elementName == "Description" ||
+                elementName == "Effect" ||
+                elementName == "Cost" ||
+                elementName == "DetailName" ||
+                elementName == "DetailLevel" ||
+                elementName == "DetailDescription" ||
+                elementName == "CurrentEffect" ||
+                elementName == "NextEffect" ||
+                elementName == "DetailCost")
+                return true;
+
+            return elementName != null &&
+                   elementName.StartsWith(
+                       "GrowthNodeLabel",
+                       System.StringComparison.Ordinal);
         }
 
         /// 단일 Std 굵기 서체의 합성 Bold가 축소된 세로 화면에서 사라지지 않도록
@@ -139,6 +191,10 @@ namespace MukJump.Core
                 "Subtitle" => 2f,
                 "Balance" => 2f,
                 "Name" or "DetailName" => 1.8f,
+                _ when elementName != null &&
+                       elementName.StartsWith(
+                           "GrowthNodeLabel",
+                           System.StringComparison.Ordinal) => 1f,
                 _ => 1.5f,
             };
             float alpha = elementName switch
@@ -157,6 +213,168 @@ namespace MukJump.Core
             outline.effectDistance =
                 new UnityEngine.Vector2(distance, -distance);
             outline.useGraphicAlpha = true;
+        }
+
+        static void ApplyContainerLayout(
+            UnityEngine.UI.Text text,
+            string elementName)
+        {
+            if (elementName == "Name")
+            {
+                var paper = text.rectTransform.parent as
+                    UnityEngine.RectTransform;
+                var outline = paper?.parent as UnityEngine.RectTransform;
+                var card = outline?.parent as UnityEngine.RectTransform;
+                if (paper != null &&
+                    outline != null &&
+                    card != null &&
+                    card.name.StartsWith(
+                        "PermanentGrowth",
+                        System.StringComparison.Ordinal))
+                {
+                    card.sizeDelta = new UnityEngine.Vector2(456f, 248f);
+                    outline.sizeDelta = new UnityEngine.Vector2(456f, 248f);
+                    paper.sizeDelta = new UnityEngine.Vector2(440f, 232f);
+                }
+            }
+            else if (elementName == "DetailName")
+            {
+                var panel = text.rectTransform.parent as
+                    UnityEngine.RectTransform;
+                if (panel != null &&
+                    panel.name == "SelectedGrowthDetail")
+                {
+                    panel.sizeDelta = new UnityEngine.Vector2(920f, 300f);
+                }
+            }
+        }
+
+        static void ApplyCostLayout(
+            UnityEngine.UI.Text text,
+            string elementName)
+        {
+            if (elementName != "Cost") return;
+            var brush = text.rectTransform.parent as
+                UnityEngine.RectTransform;
+            if (brush == null || brush.name != "CostBrush") return;
+
+            float direction =
+                UnityEngine.Mathf.Sign(brush.anchoredPosition.x);
+            if (UnityEngine.Mathf.Approximately(direction, 0f))
+                direction = 1f;
+            brush.anchoredPosition =
+                new UnityEngine.Vector2(direction * 132f, -91f);
+            brush.sizeDelta = new UnityEngine.Vector2(132f, 38f);
+
+            bool hasDrop = brush.Find("CostDrop") != null;
+            text.rectTransform.anchoredPosition =
+                new UnityEngine.Vector2(hasDrop ? 12f : 0f, 0f);
+            text.rectTransform.sizeDelta =
+                new UnityEngine.Vector2(hasDrop ? 96f : 116f, 32f);
+            text.alignment = UnityEngine.TextAnchor.MiddleCenter;
+            text.horizontalOverflow =
+                UnityEngine.HorizontalWrapMode.Wrap;
+            text.verticalOverflow =
+                UnityEngine.VerticalWrapMode.Truncate;
+        }
+
+        static void ApplyNodeLabelLayout(
+            UnityEngine.UI.Text text,
+            string elementName)
+        {
+            const string prefix = "GrowthNodeLabel";
+            if (elementName == null ||
+                !elementName.StartsWith(
+                    prefix,
+                    System.StringComparison.Ordinal))
+                return;
+
+            int separator = elementName.IndexOf(
+                '_',
+                prefix.Length);
+            if (separator < 0) return;
+            if (!int.TryParse(
+                    elementName.Substring(
+                        prefix.Length,
+                        separator - prefix.Length),
+                    out int branch) ||
+                !int.TryParse(
+                    elementName.Substring(separator + 1),
+                    out int node))
+                return;
+
+            float direction =
+                UnityEngine.Mathf.Sign(
+                    text.rectTransform.anchoredPosition.x);
+            if (UnityEngine.Mathf.Approximately(direction, 0f))
+                direction = branch % 2 == 1 ? -1f : 1f;
+            float progress =
+                UnityEngine.Mathf.InverseLerp(1f, 6f, node);
+            float x = direction *
+                      UnityEngine.Mathf.Lerp(52f, 174f, progress);
+
+            UnityEngine.Vector2 labelPosition =
+                text.rectTransform.anchoredPosition;
+            labelPosition.x = x;
+            text.rectTransform.anchoredPosition = labelPosition;
+            text.rectTransform.sizeDelta =
+                new UnityEngine.Vector2(26f, 28f);
+            text.alignment = UnityEngine.TextAnchor.MiddleCenter;
+            text.horizontalOverflow =
+                UnityEngine.HorizontalWrapMode.Wrap;
+            text.verticalOverflow =
+                UnityEngine.VerticalWrapMode.Truncate;
+
+            var nodeRect = text.transform.parent.Find(
+                    $"GrowthNode{branch}_{node}") as
+                UnityEngine.RectTransform;
+            if (nodeRect == null) return;
+            UnityEngine.Vector2 nodePosition = nodeRect.anchoredPosition;
+            nodePosition.x = x;
+            nodeRect.anchoredPosition = nodePosition;
+            nodeRect.sizeDelta = new UnityEngine.Vector2(28f, 28f);
+        }
+
+        static void ApplyDetailDecorationLayout(
+            UnityEngine.UI.Text text,
+            string elementName)
+        {
+            if (elementName != "DetailCost") return;
+            UnityEngine.Transform panel = text.transform.parent;
+            SetRect(panel.Find("HeaderDivider"), 20f, 33f, 760f, 2f);
+            SetRect(panel.Find("EffectDivider"), -80f, -10f, 520f, 2f);
+            SetRect(panel.Find("ButtonDivider"), 205f, -62f, 88f, 3f);
+            SetRect(panel.Find("DetailCostIcon"), -350f, -88f, 30f, 30f);
+        }
+
+        static void ApplyEnhanceButtonLayout(
+            UnityEngine.UI.Text text,
+            string elementName)
+        {
+            if (elementName != "Label" ||
+                text.transform.parent == null ||
+                text.transform.parent.name != "EnhanceButton")
+                return;
+
+            var button = text.transform.parent as UnityEngine.RectTransform;
+            if (button == null) return;
+            button.anchoredPosition = new UnityEngine.Vector2(325f, -62f);
+            button.sizeDelta = new UnityEngine.Vector2(220f, 88f);
+            text.rectTransform.anchoredPosition = UnityEngine.Vector2.zero;
+            text.rectTransform.sizeDelta = new UnityEngine.Vector2(184f, 70f);
+            text.alignment = UnityEngine.TextAnchor.MiddleCenter;
+        }
+
+        static void SetRect(
+            UnityEngine.Transform target,
+            float x,
+            float y,
+            float width,
+            float height)
+        {
+            if (target is not UnityEngine.RectTransform rect) return;
+            rect.anchoredPosition = new UnityEngine.Vector2(x, y);
+            rect.sizeDelta = new UnityEngine.Vector2(width, height);
         }
     }
 }

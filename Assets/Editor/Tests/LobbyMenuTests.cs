@@ -72,6 +72,9 @@ namespace MukJump.EditorTests
                 Assert.That(card.sizeDelta.x, Is.GreaterThanOrEqualTo(384f));
                 Assert.That(card.sizeDelta.y, Is.GreaterThanOrEqualTo(196f),
                     "성장 잎은 모바일에서 충분한 터치 높이를 유지해야 합니다.");
+                Assert.That(
+                    card.sizeDelta,
+                    Is.EqualTo(new Vector2(456f, 248f)));
                 var description = card.Find("Outline/Paper/Description")
                     .GetComponent<Text>();
                 var effect = card.Find("Outline/Paper/Effect")
@@ -85,27 +88,59 @@ namespace MukJump.EditorTests
                     Is.GreaterThanOrEqualTo(44));
                 Assert.That(
                     name.rectTransform.sizeDelta,
-                    Is.EqualTo(new Vector2(190f, 54f)));
+                    Is.EqualTo(new Vector2(174f, 48f)));
                 Assert.That(
                     level.fontSize,
                     Is.GreaterThanOrEqualTo(32));
                 Assert.That(
                     level.rectTransform.sizeDelta,
-                    Is.EqualTo(new Vector2(190f, 40f)));
+                    Is.EqualTo(new Vector2(174f, 34f)));
                 Assert.That(
                     description.fontSize,
                     Is.GreaterThanOrEqualTo(34));
                 Assert.That(
-                    description.rectTransform.sizeDelta.y,
-                    Is.GreaterThanOrEqualTo(44f));
+                    description.rectTransform.sizeDelta,
+                    Is.EqualTo(new Vector2(174f, 36f)));
                 Assert.That(
                     description.horizontalOverflow,
-                    Is.EqualTo(HorizontalWrapMode.Overflow),
-                    "카드 설명은 짧은 한 줄 문구로 유지해야 합니다.");
+                    Is.EqualTo(HorizontalWrapMode.Wrap),
+                    "카드 설명은 카드 밖으로 그려지면 안 됩니다.");
                 Assert.That(effect.fontSize, Is.GreaterThanOrEqualTo(32));
                 Assert.That(
                     effect.rectTransform.sizeDelta,
-                    Is.EqualTo(new Vector2(190f, 42f)));
+                    Is.EqualTo(new Vector2(174f, 34f)));
+                Assert.That(name.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+                Assert.That(level.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+                Assert.That(
+                    description.alignment,
+                    Is.EqualTo(TextAnchor.MiddleLeft));
+                Assert.That(effect.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            }
+            var detailPanel = (RectTransform)growthPanel.Find(
+                "SelectedGrowthDetail");
+            Assert.That(
+                detailPanel.sizeDelta,
+                Is.EqualTo(new Vector2(920f, 300f)));
+            foreach (string elementName in new[]
+                     {
+                         "DetailName",
+                         "DetailLevel",
+                         "DetailDescription",
+                         "CurrentEffect",
+                         "NextEffect",
+                     })
+            {
+                var detailText = detailPanel.Find(elementName)
+                    ?.GetComponent<Text>();
+                Assert.That(detailText, Is.Not.Null, elementName);
+                Assert.That(
+                    detailText.alignment,
+                    Is.EqualTo(TextAnchor.MiddleLeft),
+                    elementName);
+                Assert.That(
+                    detailText.horizontalOverflow,
+                    Is.EqualTo(HorizontalWrapMode.Wrap),
+                    elementName);
             }
             var lowestCard = (RectTransform)growthPanel.Find(
                 "PermanentGrowth4");
