@@ -40,6 +40,8 @@ namespace MukJump.Core
             if (text == null || text.rectTransform == null)
                 return;
 
+            ApplyVisualWeight(text, elementName);
+
             UnityEngine.Vector2 minimum = elementName switch
             {
                 "Name" => new UnityEngine.Vector2(190f, 54f),
@@ -117,6 +119,44 @@ namespace MukJump.Core
                 text.horizontalOverflow =
                     UnityEngine.HorizontalWrapMode.Overflow;
             }
+        }
+
+        /// 단일 Std 굵기 서체의 합성 Bold가 축소된 세로 화면에서 사라지지 않도록
+        /// 글자색과 같은 외곽선을 얇게 겹쳐 실제 획 두께를 보강한다.
+        static void ApplyVisualWeight(
+            UnityEngine.UI.Text text,
+            string elementName)
+        {
+            var outline =
+                text.GetComponent<UnityEngine.UI.Outline>();
+            if (outline == null)
+                outline =
+                    text.gameObject.AddComponent<UnityEngine.UI.Outline>();
+
+            float distance = elementName switch
+            {
+                "Title" => 2.5f,
+                "Subtitle" => 2f,
+                "Balance" => 2f,
+                "Name" or "DetailName" => 1.8f,
+                _ => 1.5f,
+            };
+            float alpha = elementName switch
+            {
+                "Title" => 0.86f,
+                "Subtitle" => 0.8f,
+                "Balance" => 0.84f,
+                _ => 0.72f,
+            };
+            UnityEngine.Color textColor = text.color;
+            outline.effectColor = new UnityEngine.Color(
+                textColor.r,
+                textColor.g,
+                textColor.b,
+                alpha);
+            outline.effectDistance =
+                new UnityEngine.Vector2(distance, -distance);
+            outline.useGraphicAlpha = true;
         }
     }
 }
