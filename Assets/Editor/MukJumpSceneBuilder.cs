@@ -496,6 +496,7 @@ namespace MukJump.EditorTools
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = frames["idle"];
             sr.sortingOrder = 5;
+            sr.enabled = false;
 
             var rb = go.AddComponent<Rigidbody2D>();
             rb.gravityScale = 2.2f;
@@ -586,6 +587,7 @@ namespace MukJump.EditorTools
             var line = go.AddComponent<LineRenderer>();
             line.useWorldSpace = false;
             line.sortingOrder = 2;
+            line.enabled = false;
             var edge = go.AddComponent<EdgeCollider2D>();
             edge.points = new[]
             {
@@ -975,7 +977,9 @@ namespace MukJump.EditorTools
             var canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 90;
-            canvas.enabled = true; // 편집 중에는 표시, 플레이 시 GameplayHudView가 상태에 맞춰 전환
+            // 저장된 Main 씬의 Game View도 런타임 로비와 같은 초기 화면을 보여 준다.
+            // GameplayHudView가 Playing 진입 뒤에만 켠다.
+            canvas.enabled = false;
             canvas.pixelPerfect = true;
 
             var scaler = root.GetComponent<CanvasScaler>();

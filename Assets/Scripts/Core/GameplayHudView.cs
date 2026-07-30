@@ -710,8 +710,9 @@ namespace MukJump.Core
         {
             if (!Application.isPlaying)
             {
-                // 편집 모드에서는 로비 UI와 함께 보이게 하여 하이어라키에서 직접 배치할 수 있게 한다.
-                if (canvas != null) canvas.enabled = true;
+                // Play 전 Game View도 실제 런타임 로비와 똑같이 보여야 한다.
+                // 인게임 HUD·DEBUG는 Playing 상태에서만 표시한다.
+                if (canvas != null) canvas.enabled = false;
                 return;
             }
 

@@ -352,6 +352,8 @@ public class FallingInkRockTests
 
         var player = FindFirstInScene<PlayerController>(builderTestScene);
         Assert.IsNotNull(player);
+        Assert.IsFalse(player.GetComponent<SpriteRenderer>().enabled,
+            "씬 저장 상태에서도 로비 하단 플레이어는 보이지 않아야 합니다.");
         var playerSerialized = new SerializedObject(player);
         Assert.AreEqual(1f,
             playerSerialized.FindProperty("cloneSpawnGraceDuration").floatValue);
@@ -369,6 +371,8 @@ public class FallingInkRockTests
                 starterPlatform = builtPlatforms[i];
         Assert.IsNotNull(starterPlatform,
             "명시적 시작 버튼은 캐릭터가 즉사하지 않을 영구 시작 발판과 함께 생성돼야 합니다.");
+        Assert.IsFalse(starterPlatform.GetComponent<LineRenderer>().enabled,
+            "씬 저장 상태에서도 로비 하단 시작 먹선은 보이지 않아야 합니다.");
         var starterEdge = starterPlatform.GetComponent<EdgeCollider2D>();
         Assert.AreEqual(2, starterEdge.pointCount);
         Assert.That(
@@ -498,6 +502,11 @@ public class FallingInkRockTests
         var gameplayHud = FindFirstInScene<GameplayHudView>(builderTestScene);
         Assert.IsNotNull(gameplayHud);
         var hudSerialized = new SerializedObject(gameplayHud);
+        var gameplayCanvas =
+            hudSerialized.FindProperty("canvas").objectReferenceValue as Canvas;
+        Assert.IsNotNull(gameplayCanvas);
+        Assert.IsFalse(gameplayCanvas.enabled,
+            "Play 전 Main Game View는 런타임 로비처럼 인게임 HUD를 숨겨야 합니다.");
         var topHud = hudSerialized.FindProperty("topHudRoot").objectReferenceValue
             as RectTransform;
         Assert.IsNotNull(topHud);

@@ -6,6 +6,7 @@ namespace MukJump.Core
 {
     /// 저장된 최신 씬과 실행 중 복원된 구버전 씬이 같은 로비 지형을 사용하게 한다.
     /// 시작 물리는 보존하되 로비에서는 플레이어와 먹선을 숨기고 게임 시작 때만 표시한다.
+    [ExecuteAlways]
     [DisallowMultipleComponent]
     public sealed class LobbyWorldSetup : MonoBehaviour
     {
