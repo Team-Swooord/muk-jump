@@ -11,7 +11,6 @@ namespace MukJump.Core
     {
         const int CanvasSortingOrder = 4050;
         const float ReferenceHeight = 1920f;
-        const float PurchaseFlowDuration = 0.55f;
         const string ArtResourceRoot = "MukJump/UI/PermanentGrowth/";
         static readonly Vector2 HiddenScreenPosition =
             new(0f, ReferenceHeight);
@@ -23,7 +22,6 @@ namespace MukJump.Core
             public Image Icon;
             public Image Connector;
             public Image ProgressFlow;
-            public Image RedFlow;
             public Image BranchTip;
             public Image CostBrush;
             public Image SelectedRing;
@@ -35,7 +33,6 @@ namespace MukJump.Core
             public Text Cost;
             public Image[] Pips;
             public PermanentGrowthType Type;
-            public float TrunkFillTarget;
             public bool UsesCardArt;
         }
 
@@ -56,15 +53,12 @@ namespace MukJump.Core
         Text detailNextText;
         Text detailCostText;
         Image detailIcon;
-        Image trunkRedFlow;
         GameManager manager;
         Rect lastSafeArea;
         int lastScreenWidth;
         int lastScreenHeight;
         float purchaseLockedUntil;
         bool purchaseInProgress;
-        float purchaseFlowStartedAt;
-        GrowthRow purchaseFlowRow;
         int selectedSlot;
 
         public bool IsOpen =>
@@ -117,7 +111,6 @@ namespace MukJump.Core
                 BindManager();
             if (manager != null && manager.State != GameState.Lobby && IsOpen)
                 Close();
-            UpdatePurchaseFlow();
             if (Screen.width != lastScreenWidth ||
                 Screen.height != lastScreenHeight ||
                 Screen.safeArea != lastSafeArea)
@@ -395,8 +388,6 @@ namespace MukJump.Core
 
             Sprite trunkSprite =
                 LoadPermanentGrowthSprite("pg_tree_trunk");
-            Sprite trunkMask =
-                LoadPermanentGrowthSprite("pg_tree_trunk_mask");
             var trunk = CreateImage(
                 "InkTreeTrunk",
                 panel,
@@ -416,22 +407,6 @@ namespace MukJump.Core
             if (trunkSprite == null)
                 trunk.rectTransform.localEulerAngles =
                     new Vector3(0f, 0f, 90f);
-
-            if (trunkMask != null)
-            {
-                trunkRedFlow = CreateImage(
-                    "InkTreeRedFlow",
-                    panel,
-                    trunkMask,
-                    new Vector2(0f, 60f),
-                    new Vector2(520f, 980f),
-                    TransparentColor(InkPalette.Red));
-                trunkRedFlow.preserveAspect = true;
-                trunkRedFlow.type = Image.Type.Filled;
-                trunkRedFlow.fillMethod = Image.FillMethod.Vertical;
-                trunkRedFlow.fillOrigin = (int)Image.OriginVertical.Bottom;
-                trunkRedFlow.fillAmount = 0f;
-            }
 
             Sprite rootSprite =
                 LoadPermanentGrowthSprite("pg_root_emblem");
@@ -512,7 +487,6 @@ namespace MukJump.Core
                     new Vector3(0f, 0f, branchAngle);
 
             Image progressFlow = null;
-            Image redFlow = null;
             if (branchMask != null)
             {
                 progressFlow = CreateImage(
@@ -531,20 +505,6 @@ namespace MukJump.Core
                     (int)Image.OriginHorizontal.Left;
                 progressFlow.fillAmount = 0f;
 
-                redFlow = CreateImage(
-                    $"GrowthBranchRedFlow{index + 1}",
-                    parent,
-                    branchMask,
-                    new Vector2(left ? -112f : 112f, y - 7f),
-                    new Vector2(285f, 68f),
-                    TransparentColor(InkPalette.Red));
-                redFlow.preserveAspect = true;
-                redFlow.rectTransform.localScale =
-                    new Vector3(left ? -1f : 1f, 1f, 1f);
-                redFlow.type = Image.Type.Filled;
-                redFlow.fillMethod = Image.FillMethod.Horizontal;
-                redFlow.fillOrigin = (int)Image.OriginHorizontal.Left;
-                redFlow.fillAmount = 0f;
             }
 
             Sprite budSprite =
@@ -607,7 +567,7 @@ namespace MukJump.Core
                 LoadPermanentGrowthSprite("pg_selected_ring"),
                 Vector2.zero,
                 new Vector2(102f, 102f),
-                TransparentColor(InkPalette.Red));
+                TransparentColor(InkPalette.Gold));
             selectedRing.preserveAspect = true;
             var icon = CreateImage(
                 "Icon",
@@ -713,7 +673,6 @@ namespace MukJump.Core
                 TextAnchor.MiddleCenter);
             connector.rectTransform.SetAsLastSibling();
             progressFlow?.rectTransform.SetAsLastSibling();
-            redFlow?.rectTransform.SetAsLastSibling();
             for (int pip = 0; pip < pips.Length; pip++)
                 pips[pip].rectTransform.SetAsLastSibling();
             iconPaper.rectTransform.SetAsLastSibling();
@@ -725,7 +684,6 @@ namespace MukJump.Core
                 Icon = icon,
                 Connector = connector,
                 ProgressFlow = progressFlow,
-                RedFlow = redFlow,
                 BranchTip = branchTip,
                 CostBrush = costBrush,
                 SelectedRing = selectedRing,
@@ -739,7 +697,6 @@ namespace MukJump.Core
                 Type = definition != null
                     ? definition.Type
                     : PermanentGrowthType.InkCapacity,
-                TrunkFillTarget = Mathf.Clamp01(0.94f - index * 0.23f),
                 UsesCardArt = cardSprite != null,
             };
         }
@@ -867,39 +824,24 @@ namespace MukJump.Core
                 Time.unscaledTime +
                 (firstUnlock
                     ? GrowthUnlockPresentation.SequenceDuration
-                    : PurchaseFlowDuration);
-            purchaseFlowStartedAt = Time.unscaledTime;
-            purchaseFlowRow = row;
-            if (trunkRedFlow != null)
-            {
-                trunkRedFlow.fillAmount = 0f;
-                trunkRedFlow.color = InkPalette.Red;
-            }
-            if (row.RedFlow != null)
-            {
-                row.RedFlow.fillAmount = 0f;
-                row.RedFlow.color = InkPalette.Red;
-            }
-            if (row.SelectedRing != null)
-                row.SelectedRing.color = InkPalette.Red;
+                    : GrowthUnlockPresentation.UpgradeSequenceDuration);
             // 프로필 변경 이벤트의 수신 순서와 무관하게 구매 직후 단계·비용·
             // 가지 진행도를 같은 프레임에 확정한다.
             Refresh();
+            PermanentGrowthDefinition definition =
+                PermanentGrowthCatalog.Get(row.Type);
             if (firstUnlock)
             {
-                PermanentGrowthDefinition definition =
-                    PermanentGrowthCatalog.Get(row.Type);
                 InkUiFeedbackController.PlayGrowthUnlock(
                     definition?.Name,
                     row.Icon.sprite);
             }
             else
             {
-                Vector2 screenPosition =
-                    RectTransformUtility.WorldToScreenPoint(
-                        null,
-                        row.Icon.rectTransform.position);
-                InkUiFeedbackController.PlayLevelUp(screenPosition);
+                InkUiFeedbackController.PlayGrowthUpgrade(
+                    definition?.Name,
+                    row.Icon.sprite,
+                    purchasedLevel);
             }
         }
 
@@ -914,65 +856,6 @@ namespace MukJump.Core
             {
                 purchaseInProgress = false;
             }
-        }
-
-        void UpdatePurchaseFlow()
-        {
-            if (purchaseFlowRow == null) return;
-
-            float progress = Mathf.Clamp01(
-                (Time.unscaledTime - purchaseFlowStartedAt) /
-                PurchaseFlowDuration);
-            float rise = Mathf.SmoothStep(
-                0f,
-                1f,
-                Mathf.Clamp01(progress / 0.72f));
-            float fade = 1f - Mathf.SmoothStep(
-                0f,
-                1f,
-                Mathf.InverseLerp(0.72f, 1f, progress));
-
-            if (trunkRedFlow != null)
-            {
-                trunkRedFlow.fillAmount =
-                    purchaseFlowRow.TrunkFillTarget * rise;
-                trunkRedFlow.color =
-                    WithAlpha(InkPalette.Red, fade);
-            }
-            if (purchaseFlowRow.RedFlow != null)
-            {
-                purchaseFlowRow.RedFlow.fillAmount = rise;
-                purchaseFlowRow.RedFlow.color =
-                    WithAlpha(InkPalette.Red, fade);
-            }
-            if (purchaseFlowRow.SelectedRing != null)
-            {
-                purchaseFlowRow.SelectedRing.rectTransform.localScale =
-                    Vector3.one * Mathf.Lerp(0.82f, 1.08f, rise);
-                purchaseFlowRow.SelectedRing.color =
-                    WithAlpha(InkPalette.Red, fade);
-            }
-
-            if (progress < 1f) return;
-            if (trunkRedFlow != null)
-            {
-                trunkRedFlow.fillAmount = 0f;
-                trunkRedFlow.color = TransparentColor(InkPalette.Red);
-            }
-            if (purchaseFlowRow.RedFlow != null)
-            {
-                purchaseFlowRow.RedFlow.fillAmount = 0f;
-                purchaseFlowRow.RedFlow.color =
-                    TransparentColor(InkPalette.Red);
-            }
-            if (purchaseFlowRow.SelectedRing != null)
-            {
-                purchaseFlowRow.SelectedRing.rectTransform.localScale =
-                    Vector3.one;
-                purchaseFlowRow.SelectedRing.color =
-                    SelectionRingColor(purchaseFlowRow);
-            }
-            purchaseFlowRow = null;
         }
 
         void Refresh()
@@ -1090,11 +973,8 @@ namespace MukJump.Core
                         : row.UsesCardArt
                             ? Color.white
                             : InkPalette.Paper2;
-                if (!ReferenceEquals(purchaseFlowRow, row))
-                {
-                    row.SelectedRing.rectTransform.localScale = Vector3.one;
-                    row.SelectedRing.color = SelectionRingColor(row);
-                }
+                row.SelectedRing.rectTransform.localScale = Vector3.one;
+                row.SelectedRing.color = SelectionRingColor(row);
                 for (int pip = 0; pip < row.Pips.Length; pip++)
                 {
                     bool purchased = pip < level;
@@ -1180,8 +1060,8 @@ namespace MukJump.Core
                    selectedSlot >= 0 &&
                    selectedSlot < rows.Count &&
                    ReferenceEquals(rows[selectedSlot], row)
-                ? WithAlpha(InkPalette.Red, 0.82f)
-                : TransparentColor(InkPalette.Red);
+                ? WithAlpha(InkPalette.Gold, 0.9f)
+                : TransparentColor(InkPalette.Gold);
         }
 
         Sprite LoadIcon(PermanentGrowthType type)

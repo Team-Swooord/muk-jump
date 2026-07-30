@@ -172,7 +172,10 @@ namespace MukJump.EditorTests
                 "PermanentGrowthScreen");
             Assert.That(panel, Is.Not.Null);
             AssertSprite(panel.Find("InkTreeTrunk"), "pg_tree_trunk");
-            AssertSprite(panel.Find("InkTreeRedFlow"), "pg_tree_trunk_mask");
+            Assert.That(
+                panel.Find("InkTreeRedFlow"),
+                Is.Null,
+                "강화 성공은 화면 먹획 연출로 표시하며 나무를 붉게 덮지 않습니다.");
 
             for (int branch = 0; branch < 4; branch++)
             {
@@ -182,9 +185,10 @@ namespace MukJump.EditorTests
                 AssertSprite(
                     panel.Find($"GrowthBranchProgress{branch + 1}"),
                     "pg_branch_mask");
-                AssertSprite(
+                Assert.That(
                     panel.Find($"GrowthBranchRedFlow{branch + 1}"),
-                    "pg_branch_mask");
+                    Is.Null,
+                    "가지에는 검은 진행도만 남기고 붉은 채움은 만들지 않습니다.");
                 for (int node = 0; node < 6; node++)
                 {
                     AssertSprite(
@@ -225,15 +229,19 @@ namespace MukJump.EditorTests
             Transform panel = viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
-            var redFlow = panel.Find("GrowthBranchRedFlow2")
-                .GetComponent<Image>();
             var progressFlow = panel.Find("GrowthBranchProgress2")
+                .GetComponent<Image>();
+            var selectedNode = panel.Find("GrowthNode2_1")
                 .GetComponent<Image>();
             Assert.That(progressFlow.fillAmount, Is.EqualTo(1f / 6f)
                 .Within(0.001f));
-            Assert.That(redFlow.color.r, Is.EqualTo(InkPalette.Red.r)
-                .Within(0.001f));
-            Assert.That(redFlow.color.a, Is.GreaterThan(0.9f));
+            Assert.That(
+                selectedNode.color,
+                Is.Not.EqualTo(InkPalette.Red),
+                "구매한 노드도 붉은 칠 대신 먹색/기존 꽃색을 사용해야 합니다.");
+            Assert.That(
+                panel.Find("GrowthBranchRedFlow2"),
+                Is.Null);
         }
 
         static void AssertSprite(Transform transform, string expectedName)

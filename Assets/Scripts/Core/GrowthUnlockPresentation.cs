@@ -3,12 +3,13 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 첫 영구 성장 해금 순간을 대각선 먹획과 중앙 먹번짐으로 보여 주는 고정 UI 연출.
+    /// 영구 성장 성공을 대각선 먹획과 중앙 먹번짐으로 보여 주는 고정 UI 연출.
     /// 런타임 중 오브젝트를 다시 만들지 않고 같은 계층과 절차적 마스크를 재사용한다.
     [DisallowMultipleComponent]
     public sealed class GrowthUnlockPresentation : MonoBehaviour
     {
         public const float SequenceDuration = 1.26f;
+        public const float UpgradeSequenceDuration = 0.86f;
 
         const int MaxDecorativeDrops = 8;
 
@@ -40,6 +41,8 @@ namespace MukJump.Core
         int activeDecorativeDrops;
         int playSerial;
         float elapsed;
+        float activeDuration = SequenceDuration;
+        bool upgradeMode;
         bool playing;
 
         public bool IsPlaying => playing;
@@ -50,6 +53,7 @@ namespace MukJump.Core
         public string Subtitle => subtitleText != null ? subtitleText.text : string.Empty;
         public Sprite UnlockedIcon =>
             unlockedIcon != null ? unlockedIcon.sprite : null;
+        public float ActiveSequenceDuration => activeDuration;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ReleaseRuntimeAssets()
@@ -224,11 +228,40 @@ namespace MukJump.Core
 
         public void Play(string growthName, Sprite growthIcon = null)
         {
+            PlayInternal(
+                growthName,
+                growthIcon,
+                level: 1,
+                isUpgrade: false);
+        }
+
+        public void PlayUpgrade(
+            string growthName,
+            Sprite growthIcon,
+            int level)
+        {
+            PlayInternal(
+                growthName,
+                growthIcon,
+                Mathf.Max(1, level),
+                isUpgrade: true);
+        }
+
+        void PlayInternal(
+            string growthName,
+            Sprite growthIcon,
+            int level,
+            bool isUpgrade)
+        {
             if (presentationRoot == null)
                 return;
 
             playSerial++;
             elapsed = 0f;
+            upgradeMode = isUpgrade;
+            activeDuration = isUpgrade
+                ? UpgradeSequenceDuration
+                : SequenceDuration;
             playing = true;
             activeDecorativeDrops =
                 VfxQualityRuntime.Profile.ScaleDecorativeCount(
@@ -237,9 +270,16 @@ namespace MukJump.Core
             unlockedIcon.sprite = growthIcon;
             unlockedIconPlate.gameObject.SetActive(growthIcon != null);
             unlockedIcon.gameObject.SetActive(growthIcon != null);
-            subtitleText.text = string.IsNullOrWhiteSpace(growthName)
-                ? "새 먹결이 열렸습니다"
-                : $"{growthName} · 새 먹결이 열렸습니다";
+            lockText.text = isUpgrade
+                ? $"Lv. {level}"
+                : "잠금";
+            titleText.text = isUpgrade
+                ? "성장 강화"
+                : "성장 해금";
+            subtitleText.text = BuildSubtitle(
+                growthName,
+                level,
+                isUpgrade);
             PrepareDrops();
             presentationGroup.alpha = 1f;
             ApplyFrame(0f);
@@ -250,6 +290,8 @@ namespace MukJump.Core
             playing = false;
             elapsed = 0f;
             activeDecorativeDrops = 0;
+            upgradeMode = false;
+            activeDuration = SequenceDuration;
             if (presentationGroup != null)
             {
                 presentationGroup.alpha = 0f;
@@ -279,9 +321,9 @@ namespace MukJump.Core
             // 프레임 수가 아니라 실제 비정지 시간을 따라가야 저사양 기기에서
             // 암막 연출이 두 배 이상 길어지지 않는다.
             elapsed = Mathf.Min(
-                SequenceDuration,
+                activeDuration,
                 elapsed + Mathf.Max(0f, Time.unscaledDeltaTime));
-            ApplyFrame(elapsed);
+            ApplyFrame(ToAuthoredTimeline(elapsed));
         }
 
         void PrepareDrops()
@@ -316,7 +358,11 @@ namespace MukJump.Core
             presentationGroup.alpha = 1f;
             presentationGroup.interactable = false;
             presentationGroup.blocksRaycasts = false;
-            SetImageColor(wash, InkPalette.Ink, 0.54f * frameVisibility);
+            float washAlpha = upgradeMode ? 0.44f : 0.54f;
+            SetImageColor(
+                wash,
+                InkPalette.Ink,
+                washAlpha * frameVisibility);
 
             upperBrush.rectTransform.anchoredPosition =
                 Vector2.Lerp(
@@ -506,9 +552,38 @@ namespace MukJump.Core
             if (presentationRoot == null)
                 return;
             playing = true;
-            ApplyFrame(Mathf.Max(0f, seconds));
+            elapsed = Mathf.Clamp(
+                seconds,
+                0f,
+                activeDuration);
+            ApplyFrame(ToAuthoredTimeline(elapsed));
         }
 #endif
+
+        float ToAuthoredTimeline(float actualSeconds)
+        {
+            return Mathf.Clamp01(
+                       actualSeconds /
+                       Mathf.Max(0.01f, activeDuration)) *
+                   SequenceDuration;
+        }
+
+        static string BuildSubtitle(
+            string growthName,
+            int level,
+            bool isUpgrade)
+        {
+            if (isUpgrade)
+            {
+                return string.IsNullOrWhiteSpace(growthName)
+                    ? $"먹결 · Lv. {level} 완성"
+                    : $"{growthName} · Lv. {level} 완성";
+            }
+
+            return string.IsNullOrWhiteSpace(growthName)
+                ? "새 먹결이 열렸습니다"
+                : $"{growthName} · 새 먹결이 열렸습니다";
+        }
 
         static Sprite CreateRingSprite()
         {

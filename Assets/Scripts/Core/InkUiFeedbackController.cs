@@ -30,14 +30,9 @@ namespace MukJump.Core
 
         readonly InkMark[] marks = new InkMark[PoolSize];
         RectTransform canvasRoot;
-        RectTransform sealRect;
-        Text sealText;
-        CanvasGroup sealGroup;
         GrowthUnlockPresentation unlockPresentation;
         int nextMark;
         int emissionSerial;
-        bool sealActive;
-        float sealStartedAt;
 
         public int ActiveMarkCount
         {
@@ -70,9 +65,6 @@ namespace MukJump.Core
                 marks[i].Active = false;
                 marks[i].Rect.gameObject.SetActive(false);
             }
-            sealActive = false;
-            if (sealGroup != null)
-                sealGroup.alpha = 0f;
             unlockPresentation?.ResetPresentation();
         }
 
@@ -97,18 +89,11 @@ namespace MukJump.Core
                 mark.Active = false;
                 mark.Rect.gameObject.SetActive(false);
             }
-
-            UpdateSeal(now);
         }
 
         public static void PlayTap(Vector2 screenPosition)
         {
             Resolve()?.EmitTap(screenPosition);
-        }
-
-        public static void PlayLevelUp(Vector2 screenPosition)
-        {
-            Resolve()?.EmitLevelUp(screenPosition);
         }
 
         public static void PlayGrowthUnlock(
@@ -118,6 +103,17 @@ namespace MukJump.Core
             Resolve()?.EmitGrowthUnlock(
                 growthName,
                 growthIcon);
+        }
+
+        public static void PlayGrowthUpgrade(
+            string growthName,
+            Sprite growthIcon,
+            int level)
+        {
+            Resolve()?.EmitGrowthUpgrade(
+                growthName,
+                growthIcon,
+                level);
         }
 
         static InkUiFeedbackController Resolve()
@@ -184,41 +180,6 @@ namespace MukJump.Core
                 markObject.SetActive(false);
                 marks[i] = new InkMark { Rect = rect, Image = image };
             }
-
-            BuildLevelUpSeal();
-        }
-
-        void BuildLevelUpSeal()
-        {
-            var go = new GameObject(
-                "LevelUpSeal",
-                typeof(RectTransform),
-                typeof(CanvasGroup),
-                typeof(Text),
-                typeof(Outline));
-            sealRect = go.GetComponent<RectTransform>();
-            sealRect.SetParent(canvasRoot, false);
-            sealRect.anchorMin = sealRect.anchorMax = new Vector2(0.5f, 0.5f);
-            sealRect.sizeDelta = new Vector2(180f, 110f);
-            sealText = go.GetComponent<Text>();
-            sealText.text = "성장";
-            sealText.font = InkPalette.UiFont;
-            sealText.fontSize = 44;
-            sealText.fontStyle = FontStyle.Bold;
-            sealText.alignment = TextAnchor.MiddleCenter;
-            sealText.color = InkPalette.Red;
-            sealText.raycastTarget = false;
-            var outline = go.GetComponent<Outline>();
-            outline.effectColor = new Color(
-                InkPalette.Paper.r,
-                InkPalette.Paper.g,
-                InkPalette.Paper.b,
-                0.9f);
-            outline.effectDistance = new Vector2(2f, -2f);
-            sealGroup = go.GetComponent<CanvasGroup>();
-            sealGroup.alpha = 0f;
-            sealGroup.interactable = false;
-            sealGroup.blocksRaycasts = false;
         }
 
         void EmitTap(Vector2 screenPosition)
@@ -241,39 +202,24 @@ namespace MukJump.Core
             }
         }
 
-        void EmitLevelUp(Vector2 screenPosition)
-        {
-            EnsureInitialized();
-            Vector2 local = ScreenToLocal(screenPosition);
-            emissionSerial++;
-            Spawn(local, Vector2.zero, new Vector2(184f, 146f),
-                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.8f),
-                0.56f, 0.82f, 1.18f, emissionSerial * 17f);
-            for (int i = 0; i < 14; i++)
-            {
-                float angle = (i * 137.5f + emissionSerial * 23f) * Mathf.Deg2Rad;
-                float speed = 105f + (i % 4) * 38f;
-                Vector2 velocity = new(Mathf.Cos(angle) * speed,
-                    Mathf.Sin(angle) * speed);
-                float width = 17f + (i % 3) * 8f;
-                Color color = i % 6 == 0 ? InkPalette.Gold : InkPalette.Ink;
-                Spawn(local, velocity, new Vector2(width, width * 0.82f),
-                    color, 0.52f, 0.58f, 1.4f, angle * Mathf.Rad2Deg);
-            }
-
-            sealRect.anchoredPosition = local;
-            sealRect.localScale = Vector3.one * 0.92f;
-            sealGroup.alpha = 1f;
-            sealStartedAt = Time.unscaledTime;
-            sealActive = true;
-        }
-
         void EmitGrowthUnlock(
             string growthName,
             Sprite growthIcon)
         {
             EnsureInitialized();
             unlockPresentation?.Play(growthName, growthIcon);
+        }
+
+        void EmitGrowthUpgrade(
+            string growthName,
+            Sprite growthIcon,
+            int level)
+        {
+            EnsureInitialized();
+            unlockPresentation?.PlayUpgrade(
+                growthName,
+                growthIcon,
+                level);
         }
 
         void Spawn(
@@ -304,7 +250,6 @@ namespace MukJump.Core
             mark.Rect.localEulerAngles = new Vector3(0f, 0f, rotation);
             mark.Image.color = color;
             mark.Rect.SetAsLastSibling();
-            sealRect?.SetAsLastSibling();
         }
 
         Vector2 ScreenToLocal(Vector2 screenPosition)
@@ -315,19 +260,6 @@ namespace MukJump.Core
                 null,
                 out Vector2 local);
             return local;
-        }
-
-        void UpdateSeal(float now)
-        {
-            if (!sealActive || sealGroup == null) return;
-            const float duration = 0.58f;
-            float t = Mathf.Clamp01((now - sealStartedAt) / duration);
-            float eased = 1f - Mathf.Pow(1f - t, 3f);
-            sealRect.localScale = Vector3.one * Mathf.Lerp(0.92f, 1.08f, eased);
-            sealGroup.alpha = 1f - Mathf.SmoothStep(0.55f, 1f, t);
-            if (t < 1f) return;
-            sealActive = false;
-            sealGroup.alpha = 0f;
         }
     }
 }

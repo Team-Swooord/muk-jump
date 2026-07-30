@@ -101,6 +101,42 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void UpgradeOverlay_같은계층을_압축재생하고_강화단계를_표시한다()
+        {
+            GrowthUnlockPresentation view = CreateView();
+            Sprite growthIcon = Resources.Load<Sprite>(
+                "MukJump/UI/PermanentGrowth/pg_icon_capacity");
+            int childCount = view.PresentationRoot.childCount;
+
+            view.PlayUpgrade("먹그릇", growthIcon, 3);
+            view.EvaluateForTests(0.42f);
+
+            Assert.That(view.IsPlaying, Is.True);
+            Assert.That(
+                view.ActiveSequenceDuration,
+                Is.EqualTo(
+                    GrowthUnlockPresentation.UpgradeSequenceDuration)
+                    .Within(0.001f));
+            Assert.That(view.Title, Is.EqualTo("성장 강화"));
+            Assert.That(view.Subtitle, Does.Contain("먹그릇"));
+            Assert.That(view.Subtitle, Does.Contain("Lv. 3"));
+            Assert.That(
+                view.PresentationRoot.Find("LockedInkPlate/LockedLabel")
+                    ?.GetComponent<Text>()
+                    ?.text,
+                Is.EqualTo("Lv. 3"));
+            Assert.That(
+                view.PresentationRoot.childCount,
+                Is.EqualTo(childCount));
+
+            view.EvaluateForTests(
+                GrowthUnlockPresentation.UpgradeSequenceDuration);
+
+            Assert.That(view.IsPlaying, Is.False);
+            Assert.That(view.PresentationGroup.alpha, Is.Zero);
+        }
+
+        [Test]
         public void UnlockOverlay_해금충격뒤_정확히_정리된다()
         {
             GrowthUnlockPresentation view = CreateView();
@@ -157,7 +193,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void PermanentGrowth_첫구매만_전체화면_해금연출을_호출한다()
+        public void PermanentGrowth_성공한_모든강화가_재사용연출을_호출한다()
         {
             var store = new MemoryPermanentGrowthStore
             {
@@ -173,8 +209,7 @@ namespace MukJump.EditorTests
             var managerHost = new GameObject("Manager");
             managerHost.transform.SetParent(root.transform, false);
             managerHost.AddComponent<GameManager>();
-            var feedback =
-                managerHost.AddComponent<InkUiFeedbackController>();
+            managerHost.AddComponent<InkUiFeedbackController>();
             var viewHost = new GameObject("GrowthView");
             viewHost.transform.SetParent(root.transform, false);
             var growthView =
@@ -192,7 +227,10 @@ namespace MukJump.EditorTests
                 managerHost.GetComponent<GrowthUnlockPresentation>();
             Assert.That(presentation, Is.Not.Null);
             Assert.That(presentation.IsPlaying, Is.True);
+            Assert.That(presentation.Title, Is.EqualTo("성장 해금"));
             Assert.That(presentation.Subtitle, Does.Contain("먹그릇"));
+            RectTransform reusedRoot = presentation.PresentationRoot;
+            int reusedChildCount = reusedRoot.childCount;
 
             growthView.PurchaseButton.onClick.Invoke();
             Assert.That(
@@ -224,16 +262,26 @@ namespace MukJump.EditorTests
                 Is.EqualTo(2));
             Assert.That(
                 presentation.IsPlaying,
-                Is.False,
-                "반복 강화는 아이콘 주변의 짧은 레벨업 피드백만 사용해야 합니다.");
-            Assert.That(
-                (bool)typeof(InkUiFeedbackController)
-                    .GetField(
-                        "sealActive",
-                        BindingFlags.Instance | BindingFlags.NonPublic)
-                    .GetValue(feedback),
                 Is.True,
-                "2단계 이후에는 기존 아이콘 레벨업 낙관을 재생해야 합니다.");
+                "2단계 이후에도 같은 먹획 강화 연출을 압축 재생해야 합니다.");
+            Assert.That(presentation.Title, Is.EqualTo("성장 강화"));
+            Assert.That(presentation.Subtitle, Does.Contain("Lv. 2"));
+            Assert.That(
+                presentation.PresentationRoot,
+                Is.SameAs(reusedRoot));
+            Assert.That(
+                presentation.PresentationRoot.childCount,
+                Is.EqualTo(reusedChildCount));
+            lockedUntil = (float)typeof(PermanentGrowthView)
+                .GetField(
+                    "purchaseLockedUntil",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(growthView);
+            Assert.That(
+                lockedUntil - Time.unscaledTime,
+                Is.GreaterThanOrEqualTo(
+                    GrowthUnlockPresentation.UpgradeSequenceDuration -
+                    0.05f));
 
             typeof(PermanentGrowthView)
                 .GetField(
