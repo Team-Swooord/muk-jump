@@ -670,6 +670,13 @@ public class FallingInkRockTests
         Assert.IsNotNull(background);
         Assert.IsNotNull(label);
         Assert.AreSame(background, button.targetGraphic);
+        Assert.AreEqual(
+            "Assets/Art/UI/muk_start_button.png",
+            AssetDatabase.GetAssetPath(background.texture));
+        Assert.AreNotSame(
+            InkUiStyle.ActionButtonSprite?.texture,
+            background.texture,
+            "로비 네 메뉴 버튼은 공용 행동 버튼 붓획으로 교체하면 안 됩니다.");
         Assert.That(rect.sizeDelta.x, Is.EqualTo(610.273f).Within(0.01f));
         Assert.That(rect.sizeDelta.y, Is.EqualTo(130.157f).Within(0.01f));
         Assert.That(rect.anchoredPosition.x, Is.EqualTo(89f).Within(0.01f));

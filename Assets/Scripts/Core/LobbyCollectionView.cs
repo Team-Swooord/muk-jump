@@ -793,11 +793,15 @@ namespace MukJump.Core
                 "Paper", outline.transform, null, Vector2.zero,
                 size - new Vector2(10f, 10f), InkPalette.Paper2);
             var button = outline.gameObject.AddComponent<Button>();
-            InkUiStyle.ConfigureButton(button, paper);
-            CreateReadableText(
+            var labelText = CreateReadableText(
                 "Label", paper.transform, label, fontSize,
                 Vector2.zero, size - new Vector2(28f, 16f),
-                InkPalette.TextDark);
+                InkPalette.TextLight);
+            InkUiStyle.ConfigureActionButton(
+                button,
+                outline,
+                labelText,
+                paper);
             return button;
         }
 

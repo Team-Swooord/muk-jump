@@ -60,6 +60,10 @@ public class PauseMenuViewTests
         Assert.IsNotNull(pauseButton);
         Assert.IsTrue(pauseButton.GetComponent<Graphic>().raycastTarget);
         Assert.IsTrue(pauseButton.targetGraphic.raycastTarget);
+        Assert.IsFalse(
+            InkUiStyle.UsesActionButtonSprite(
+                pauseButton.targetGraphic as Image),
+            "원형 일시정지 아이콘은 텍스트 행동 버튼 스킨 대상이 아닙니다.");
 
         var overlay = canvasRoot.Find("PauseOverlay");
         Assert.IsNotNull(overlay);
@@ -86,6 +90,12 @@ public class PauseMenuViewTests
         Assert.IsTrue(resume.targetGraphic.raycastTarget);
         Assert.IsTrue(lobby.GetComponent<Graphic>().raycastTarget);
         Assert.IsTrue(lobby.targetGraphic.raycastTarget);
+        Assert.IsTrue(
+            InkUiStyle.UsesActionButtonSprite(
+                resume.targetGraphic as Image));
+        Assert.IsTrue(
+            InkUiStyle.UsesActionButtonSprite(
+                lobby.targetGraphic as Image));
         Assert.That(panel.anchoredPosition, Is.EqualTo(Vector2.zero));
         Assert.Greater(title.rectTransform.anchoredPosition.y,
             resumeRect.anchoredPosition.y);
@@ -189,6 +199,9 @@ public class PauseMenuViewTests
             retry.anchoredPosition.y);
         Assert.GreaterOrEqual(retry.sizeDelta.x, 560f);
         Assert.GreaterOrEqual(retry.sizeDelta.y, 96f);
+        Assert.IsTrue(
+            InkUiStyle.UsesActionButtonSprite(
+                retry.GetComponent<Image>()));
         Assert.IsNull(content.Find("CurrentResult")?.GetComponent<Image>());
         Assert.IsNull(content.Find("BestResult")?.GetComponent<Image>());
         Assert.IsNull(content.Find("ResultSeal"));

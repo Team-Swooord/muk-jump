@@ -69,6 +69,10 @@ namespace MukJump.EditorTools
             "Assets/Resources/MukJump/UI/Growth/growth_guard.png";
         const string GrowthFortunePath =
             "Assets/Resources/MukJump/UI/Growth/growth_fortune.png";
+        const string ActionButtonPath =
+            "Assets/Resources/MukJump/UI/Common/action_button_brush.png";
+        static readonly Vector4 ActionButtonBorder =
+            new(112f, 78f, 112f, 78f);
         const string PermanentGrowthUiRoot =
             "Assets/Resources/MukJump/UI/PermanentGrowth/";
         static readonly string[] PermanentGrowthUiPaths =
@@ -83,7 +87,6 @@ namespace MukJump.EditorTools
             PermanentGrowthUiRoot + "pg_node_bloom_mask.png",
             PermanentGrowthUiRoot + "pg_selected_ring.png",
             PermanentGrowthUiRoot + "pg_hanji_card.png",
-            PermanentGrowthUiRoot + "pg_primary_button.png",
             PermanentGrowthUiRoot + "pg_currency_badge.png",
             PermanentGrowthUiRoot + "pg_root_emblem.png",
             PermanentGrowthUiRoot + "pg_icon_capacity.png",
@@ -150,6 +153,7 @@ namespace MukJump.EditorTools
             ConfigureFallingInkRockSprite();
             ConfigureItemSprites();
             ConfigurePermanentGrowthSprites();
+            ConfigureActionButtonSprite();
             ConfigureInkDropJumpVfxAssets();
             if (AssetDatabase.LoadAssetAtPath<Font>(UiFontPath) == null)
                 Debug.LogWarning($"[MukJump] UI 폰트를 찾을 수 없음: {UiFontPath}");
@@ -232,16 +236,53 @@ namespace MukJump.EditorTools
             AssetDatabase.SaveAssets();
         }
 
+        [MenuItem("MukJump/Configure Shared Action Button Sprite")]
+        public static void ConfigureActionButtonSprite()
+        {
+            var importer =
+                AssetImporter.GetAtPath(ActionButtonPath) as TextureImporter;
+            if (importer == null)
+            {
+                Debug.LogWarning(
+                    $"[MukJump] 공용 행동 버튼 스프라이트를 찾을 수 없음: " +
+                    ActionButtonPath);
+                return;
+            }
+
+            var textureSettings = new TextureImporterSettings();
+            importer.ReadTextureSettings(textureSettings);
+            textureSettings.spriteMeshType = SpriteMeshType.FullRect;
+            textureSettings.spriteBorder = ActionButtonBorder;
+            importer.SetTextureSettings(textureSettings);
+
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.spritePixelsPerUnit = 100f;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.maxTextureSize = 1024;
+            importer.textureCompression =
+                TextureImporterCompression.CompressedHQ;
+            importer.compressionQuality = 100;
+            importer.SaveAndReimport();
+            AssetDatabase.SaveAssets();
+        }
+
         [InitializeOnLoadMethod]
         static void SchedulePermanentGrowthSpriteConfiguration()
         {
             EditorApplication.delayCall += () =>
             {
                 if (Application.isPlaying ||
-                    EditorApplication.isPlayingOrWillChangePlaymode ||
-                    !NeedsPermanentGrowthSpriteConfiguration())
+                    EditorApplication.isPlayingOrWillChangePlaymode)
                     return;
-                ConfigurePermanentGrowthSprites();
+                if (NeedsPermanentGrowthSpriteConfiguration())
+                    ConfigurePermanentGrowthSprites();
+                if (NeedsActionButtonSpriteConfiguration())
+                    ConfigureActionButtonSprite();
             };
         }
 
@@ -282,6 +323,29 @@ namespace MukJump.EditorTools
                     return true;
             }
             return false;
+        }
+
+        static bool NeedsActionButtonSpriteConfiguration()
+        {
+            var importer =
+                AssetImporter.GetAtPath(ActionButtonPath) as TextureImporter;
+            if (importer == null) return true;
+            var textureSettings = new TextureImporterSettings();
+            importer.ReadTextureSettings(textureSettings);
+            return importer.textureType != TextureImporterType.Sprite ||
+                   importer.spriteImportMode != SpriteImportMode.Single ||
+                   textureSettings.spriteMeshType != SpriteMeshType.FullRect ||
+                   textureSettings.spriteBorder != ActionButtonBorder ||
+                   !Mathf.Approximately(importer.spritePixelsPerUnit, 100f) ||
+                   !importer.alphaIsTransparency ||
+                   importer.mipmapEnabled ||
+                   importer.npotScale != TextureImporterNPOTScale.None ||
+                   importer.wrapMode != TextureWrapMode.Clamp ||
+                   importer.filterMode != FilterMode.Bilinear ||
+                   importer.maxTextureSize != 1024 ||
+                   importer.textureCompression !=
+                       TextureImporterCompression.CompressedHQ ||
+                   importer.compressionQuality != 100;
         }
 
         /// 테스트가 실제 Main 씬, Build Settings, Player Settings, import 설정을 변경하지 않고

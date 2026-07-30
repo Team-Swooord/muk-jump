@@ -641,6 +641,11 @@ namespace MukJump.EditorTests
             Assert.That(firstButton.targetGraphic,
                 Is.SameAs(firstCard.Find("Paper").GetComponent<Image>()));
             Assert.That(firstButton.targetGraphic.raycastTarget, Is.True);
+            Assert.That(
+                InkUiStyle.UsesActionButtonSprite(
+                    firstButton.targetGraphic as Image),
+                Is.False,
+                "증강 카드 전체 선택 영역은 공용 텍스트 버튼 스킨 대상이 아닙니다.");
             Assert.That(firstCard.GetComponent<InkUiPressFeedback>(), Is.Not.Null);
             Assert.That(firstCard.Find("SceneMoon"), Is.Not.Null);
             Assert.That(firstCard.Find("SceneGround"), Is.Null);

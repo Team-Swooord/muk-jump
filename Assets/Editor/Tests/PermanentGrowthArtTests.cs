@@ -23,7 +23,6 @@ namespace MukJump.EditorTests
             "pg_node_bloom_mask",
             "pg_selected_ring",
             "pg_hanji_card",
-            "pg_primary_button",
             "pg_currency_badge",
             "pg_root_emblem",
             "pg_icon_capacity",
@@ -160,6 +159,13 @@ namespace MukJump.EditorTests
             Assert.That(
                 view.PurchaseButton.GetComponent<RectTransform>().sizeDelta.y,
                 Is.GreaterThanOrEqualTo(100f));
+            Assert.That(
+                view.PurchaseButton.targetGraphic,
+                Is.TypeOf<Image>());
+            Assert.That(
+                InkUiStyle.UsesActionButtonSprite(
+                    view.PurchaseButton.targetGraphic as Image),
+                Is.True);
 
             Transform panel = viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +

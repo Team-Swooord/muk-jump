@@ -738,7 +738,7 @@ namespace MukJump.Core
                 InkUiTextureFactory.CreateBlobSprite(),
                 new Vector2(-125f, 0f),
                 new Vector2(70f, 70f),
-                InkPalette.Ink);
+                InkPalette.Paper2);
             CreateReadableText(
                 "Glyph",
                 icon.transform,
@@ -746,7 +746,7 @@ namespace MukJump.Core
                 InkUiStyle.CaptionSize,
                 Vector2.zero,
                 new Vector2(58f, 58f),
-                InkPalette.TextLight);
+                InkPalette.TextDark);
             return button;
         }
 
@@ -765,11 +765,15 @@ namespace MukJump.Core
                 "Paper", outline.transform, null, Vector2.zero,
                 size - new Vector2(10f, 10f), InkPalette.Paper2);
             var button = outline.gameObject.AddComponent<Button>();
-            InkUiStyle.ConfigureButton(button, paper);
-            CreateReadableText(
+            var labelText = CreateReadableText(
                 "Label", paper.transform, label, fontSize,
                 Vector2.zero, size - new Vector2(28f, 16f),
-                InkPalette.TextDark);
+                InkPalette.TextLight);
+            InkUiStyle.ConfigureActionButton(
+                button,
+                outline,
+                labelText,
+                paper);
             return button;
         }
 
@@ -782,15 +786,17 @@ namespace MukJump.Core
             int fontSize)
         {
             var brush = CreateImage(
-                objectName, parent,
-                InkUiTextureFactory.CreateBrushSprite(),
+                objectName, parent, null,
                 position, size, InkPalette.Ink);
             var button = brush.gameObject.AddComponent<Button>();
-            InkUiStyle.ConfigureButton(button, brush);
-            CreateReadableText(
+            var labelText = CreateReadableText(
                 "Label", brush.transform, label, fontSize,
                 Vector2.zero, size - new Vector2(36f, 14f),
                 InkPalette.TextLight);
+            InkUiStyle.ConfigureActionButton(
+                button,
+                brush,
+                labelText);
             return button;
         }
 

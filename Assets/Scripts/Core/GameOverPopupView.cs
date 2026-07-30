@@ -285,7 +285,7 @@ namespace MukJump.Core
             var retryBrush = CreateImage(
                 "RetryBrush",
                 contentRect,
-                brush,
+                null,
                 new Vector2(0f, -270f),
                 new Vector2(580f, 104f),
                 InkPalette.Ink);
@@ -299,6 +299,7 @@ namespace MukJump.Core
                 InkPalette.Paper,
                 FontStyle.Normal);
             AddSoftWeight(touchHint, Color.black, 0.2f);
+            InkUiStyle.ConfigureActionSurface(retryBrush, touchHint);
         }
 
         void BuildNewBestSeal(Transform parent, Sprite blob)

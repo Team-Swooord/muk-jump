@@ -186,6 +186,13 @@ namespace MukJump.EditorTests
             AssertMajorOptionButton(page, "AccountConnectButton");
             AssertMajorOptionButton(page, "GuideButton");
             AssertMajorOptionButton(page, "CloseButton");
+            AssertMajorOptionButton(page, "UidButton");
+            AssertMajorOptionButton(
+                page.Find("BgmCard/Paper"),
+                "Toggle");
+            AssertMajorOptionButton(
+                page.Find("SfxCard/Paper"),
+                "Toggle");
 
             page.Find("CustomerCenterButton")
                 ?.GetComponent<Button>()
@@ -203,6 +210,10 @@ namespace MukJump.EditorTests
                     ?.GetComponent<CanvasGroup>()
                     ?.blocksRaycasts,
                 Is.True);
+            Transform tutorialPage = page.parent.Find("TutorialPage");
+            AssertMajorOptionButton(tutorialPage, "TutorialClose");
+            AssertMajorOptionButton(tutorialPage, "PreviousButton");
+            AssertMajorOptionButton(tutorialPage, "NextButton");
 
             optionsView.Close();
             CanvasGroup root = viewHost.transform
@@ -382,6 +393,12 @@ namespace MukJump.EditorTests
                 Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight));
             Assert.IsNotNull(button.targetGraphic);
             Assert.That(button.targetGraphic.raycastTarget, Is.True);
+            Assert.That(button.targetGraphic, Is.TypeOf<Image>());
+            Assert.That(
+                InkUiStyle.UsesActionButtonSprite(
+                    button.targetGraphic as Image),
+                Is.True,
+                $"{objectName}은 공용 붓획 버튼을 사용해야 합니다.");
         }
 
         static void AssertMenuLayout(

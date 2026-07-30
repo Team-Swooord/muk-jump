@@ -301,7 +301,7 @@ kinematic body와 fixed step 이동을 사용한다.
   먹뿌리에서 4축×6단계 계보와 보유 먹빛을 표시한다. 가지 선택은 표시 상태만
   바꾸고, 하단 상세판의 강화 버튼이 현재 단계·다음 효과·비용을 확인한 뒤
   `PermanentGrowthProfile` 구매를 호출한다. `RunGrowthController`나 두루마리
-  카탈로그는 호출하지 않는다. 성장 화면의 17개 전용 스프라이트와 UI 트리는
+  카탈로그는 호출하지 않는다. 성장 화면의 16개 전용 스프라이트와 UI 트리는
   로비 시작 때 만들지 않고 붓 전환이 화면을 덮은 최초 진입 시점에 생성하며,
   이후 리소스 조회는 화면 인스턴스 캐시를 재사용한다.
 - `RoguelikeGrowthCatalog`는 25계보×4노드의 불변 정의, 선행·상충, 구현 상태와
@@ -317,6 +317,10 @@ kinematic body와 fixed step 이동을 사용한다.
   `LobbySettingsProfile`은 BGM/SFX 값과 가이드 확인 여부, 로컬 UID만 저장하며
   외부 로그인 토큰이나 자격 증명을 저장하지 않는다. 성장·도감과 달리 옵션만
   로비 위에 머무는 모달이다.
+- `InkUiStyle.ConfigureActionButton()`은 로비 네 메뉴와 의미 선택 카드의
+  그래픽을 건드리지 않고, 화면 흐름을 확정하는 텍스트 버튼에만 공용 9-slice
+  붓획을 적용한다. 원본 알파 마스크는 `Resources`에서 한 번 로드해 재사용하며,
+  없을 때만 기존 절차적 붓 마스크로 폴백한다.
 - `UiInputDeviceGuard`는 에디터 Device Simulator가 비활성화한 포인터 장치를
   `PointerInput`의 공용 복구 경로로 되돌린다. 이 경로는 입력 가능성만 보장하며
   버튼 행동이나 게임 규칙을 직접 실행하지 않는다.

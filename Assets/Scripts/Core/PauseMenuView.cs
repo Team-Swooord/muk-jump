@@ -480,27 +480,16 @@ namespace MukJump.Core
         Button CreateBrushButton(
             string objectName, Transform parent, string label, Vector2 position, bool filled)
         {
-            Sprite brush = InkUiTextureFactory.CreateBrushSprite();
-            var outer = CreateImage(objectName, parent, brush, position,
+            var outer = CreateImage(objectName, parent, null, position,
                 new Vector2(580f, 104f), InkPalette.Ink);
-            Image target = outer;
-            Color textColor = InkPalette.Paper;
-            if (!filled)
-            {
-                target = CreateImage("Paper", outer.transform, brush, Vector2.zero,
-                    new Vector2(560f, 84f), InkPalette.Paper2);
-                textColor = InkPalette.TextDark;
-            }
-
             var button = outer.gameObject.AddComponent<Button>();
-            button.targetGraphic = target;
-            EnableFullButtonRaycast(button);
-            button.colors = ReadableButtonColors();
-            button.navigation = new Navigation { mode = Navigation.Mode.None };
             var text = CreateText(
-                "Label", outer.transform, label, filled ? 40 : 36, Vector2.zero,
-                new Vector2(470f, 76f), textColor, FontStyle.Bold);
+                "Label", outer.transform, label, filled ? 40 : 36,
+                Vector2.zero,
+                new Vector2(470f, 76f), InkPalette.Paper, FontStyle.Bold);
             AddSoftWeight(text, InkPalette.Ink, 0.14f);
+            InkUiStyle.ConfigureActionButton(button, outer, text);
+            EnableFullButtonRaycast(button);
             return button;
         }
 

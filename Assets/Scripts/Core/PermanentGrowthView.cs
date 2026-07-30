@@ -1397,30 +1397,25 @@ namespace MukJump.Core
             Vector2 size,
             int fontSize)
         {
-            Sprite buttonSprite =
-                LoadPermanentGrowthSprite("pg_primary_button");
             var brush = CreateImage(
                 objectName,
                 parent,
-                buttonSprite ??
-                InkUiTextureFactory.CreateBrushSprite(),
+                null,
                 position,
                 size,
-                buttonSprite != null ? Color.white : InkPalette.Ink);
+                InkPalette.Ink);
             brush.raycastTarget = true;
             var button = brush.gameObject.AddComponent<Button>();
-            InkUiStyle.ConfigureButton(button, brush);
-            CreateText(
+            var text = CreateText(
                 "Label",
                 brush.transform,
                 label,
                 fontSize,
                 Vector2.zero,
                 size - new Vector2(36f, 14f),
-                buttonSprite != null
-                    ? InkPalette.TextDark
-                    : InkPalette.TextLight,
+                InkPalette.TextLight,
                 FontStyle.Bold);
+            InkUiStyle.ConfigureActionButton(button, brush, text);
             return button;
         }
 

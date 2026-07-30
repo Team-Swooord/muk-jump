@@ -95,12 +95,28 @@ namespace MukJump.Core
     /// 신규·기존 런타임 UI가 임의의 작은 글씨와 서로 다른 버튼 반응을 만들지 않게 하는 규칙.
     public static class InkUiStyle
     {
+        public const string ActionButtonResourcePath =
+            "MukJump/UI/Common/action_button_brush";
         public const int ScreenTitleSize = 64;
         public const int CardTitleSize = 42;
         public const int BodySize = 34;
         public const int CaptionSize = 30;
         public const int LobbyMenuSize = 37;
         public const float MinimumTapHeight = 120f;
+
+        static Sprite actionButtonSprite;
+
+        /// 로비의 네 메뉴 버튼을 제외한 명시적 행동 버튼이 공유하는 붓획 마스크.
+        public static Sprite ActionButtonSprite
+        {
+            get
+            {
+                if (actionButtonSprite == null)
+                    actionButtonSprite =
+                        Resources.Load<Sprite>(ActionButtonResourcePath);
+                return actionButtonSprite;
+            }
+        }
 
         public static void ApplyReadableText(
             Text text,
@@ -151,6 +167,70 @@ namespace MukJump.Core
             {
                 button.gameObject.AddComponent<InkUiPressFeedback>();
             }
+        }
+
+        /// 다음·이전·확인·닫기처럼 화면의 흐름을 바꾸는 버튼만 공통 붓획으로 통일한다.
+        /// 카드 선택 영역·토글·로비 메뉴에는 호출하지 않는다.
+        public static void ConfigureActionButton(
+            Button button,
+            Image background,
+            Text label,
+            Graphic obsoleteSurface = null)
+        {
+            if (button == null || background == null) return;
+            ConfigureActionSurface(background, label, obsoleteSurface);
+            ConfigureButton(button, background);
+        }
+
+        /// 버튼 컴포넌트 없이 전체 화면 터치로 동작하는 게임오버 CTA도 같은 모양을 쓴다.
+        public static void ConfigureActionSurface(
+            Image background,
+            Text label,
+            Graphic obsoleteSurface = null)
+        {
+            if (background == null) return;
+
+            Sprite sprite = ActionButtonSprite;
+            bool usesImportedSprite = sprite != null;
+            background.sprite = usesImportedSprite
+                ? sprite
+                : InkUiTextureFactory.CreateBrushSprite();
+            background.type = usesImportedSprite &&
+                              HasSpriteBorder(sprite)
+                ? Image.Type.Sliced
+                : Image.Type.Simple;
+            background.preserveAspect = false;
+            background.fillCenter = true;
+            background.color = InkPalette.Ink;
+            background.raycastTarget = true;
+
+            if (obsoleteSurface != null && obsoleteSurface != background)
+            {
+                obsoleteSurface.raycastTarget = false;
+                if (obsoleteSurface is Image image)
+                {
+                    image.sprite = null;
+                    image.color = Color.clear;
+                }
+            }
+
+            if (label == null) return;
+            label.color = InkPalette.TextLight;
+            label.raycastTarget = false;
+        }
+
+        public static bool UsesActionButtonSprite(Image image)
+        {
+            return image != null &&
+                   ActionButtonSprite != null &&
+                   image.sprite == ActionButtonSprite;
+        }
+
+        static bool HasSpriteBorder(Sprite sprite)
+        {
+            if (sprite == null) return false;
+            Vector4 border = sprite.border;
+            return border.x + border.y + border.z + border.w > 0.001f;
         }
 
         public static ColorBlock ReadableButtonColors()

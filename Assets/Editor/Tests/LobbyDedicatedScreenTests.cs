@@ -65,6 +65,22 @@ namespace MukJump.EditorTests
                 codex.ScreenRoot,
                 codex.BackButton,
                 "CodexGallery");
+            Transform codexGallery = codex.ScreenRoot.Find(
+                "SafeAreaRoot/CodexGallery");
+            AssertSharedActionButton(
+                codexGallery?.Find("CategoryButton")?.GetComponent<Button>());
+            AssertSharedActionButton(
+                codexGallery?.Find("PreviousButton")?.GetComponent<Button>());
+            AssertSharedActionButton(
+                codexGallery?.Find("NextButton")?.GetComponent<Button>());
+            AssertSemanticSelectionSurface(
+                growth.ScreenRoot.Find(
+                        "SafeAreaRoot/PermanentGrowthScreen/" +
+                        "PermanentGrowth1/Outline")
+                    ?.GetComponent<Button>());
+            AssertSemanticSelectionSurface(
+                codexGallery?.Find("CodexCard1/HitSurface")
+                    ?.GetComponent<Button>());
 
             Assert.That(
                 systemsHost.transform.Find(
@@ -256,6 +272,7 @@ namespace MukJump.EditorTests
                 Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight));
             Assert.That(backButton.targetGraphic, Is.Not.Null);
             Assert.That(backButton.targetGraphic.raycastTarget, Is.True);
+            AssertSharedActionButton(backButton);
             Assert.That(backButton.navigation.mode,
                 Is.EqualTo(Navigation.Mode.None));
             Text label = backButton.GetComponentInChildren<Text>(true);
@@ -263,6 +280,26 @@ namespace MukJump.EditorTests
             Assert.That(label.text, Is.EqualTo("로비"));
             Assert.That(label.fontSize,
                 Is.GreaterThanOrEqualTo(InkUiStyle.BodySize));
+        }
+
+        static void AssertSharedActionButton(Button button)
+        {
+            Assert.That(button, Is.Not.Null);
+            Assert.That(button.targetGraphic, Is.TypeOf<Image>());
+            Assert.That(
+                InkUiStyle.UsesActionButtonSprite(
+                    button.targetGraphic as Image),
+                Is.True);
+        }
+
+        static void AssertSemanticSelectionSurface(Button button)
+        {
+            Assert.That(button, Is.Not.Null);
+            Assert.That(
+                InkUiStyle.UsesActionButtonSprite(
+                    button.targetGraphic as Image),
+                Is.False,
+                "카드·성장 가지 선택 영역은 텍스트 행동 버튼 스킨 대상이 아닙니다.");
         }
 
         static object Invoke(
