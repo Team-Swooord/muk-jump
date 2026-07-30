@@ -16,6 +16,8 @@ namespace MukJump.Core
             public RectTransform Root;
             public Image Paper;
             public Image Icon;
+            public Image Connector;
+            public Image BranchTip;
             public Image CostBrush;
             public Button Button;
             public Text Name;
@@ -215,6 +217,8 @@ namespace MukJump.Core
                 InkPalette.Paper,
                 FontStyle.Bold);
 
+            BuildInkGrowthTree(panel);
+
             for (int i = 0; i < PermanentGrowthCatalog.All.Count; i++)
             {
                 int slot = i;
@@ -227,7 +231,7 @@ namespace MukJump.Core
             var footer = CreateText(
                 "PermanentHint",
                 panel,
-                "두루마리 성장과 별개 · 게임을 꺼도 저장됩니다",
+                "먹가지를 눌러 개화 · 모든 도전에 영구 적용",
                 InkUiStyle.CaptionSize,
                 new Vector2(0f, -545f),
                 new Vector2(730f, 54f),
@@ -287,27 +291,133 @@ namespace MukJump.Core
                 InkPalette.Paper);
         }
 
+        void BuildInkGrowthTree(Transform panel)
+        {
+            Sprite brush = InkUiTextureFactory.CreateBrushSprite();
+            Color ghostInk = new(
+                InkPalette.Ink.r,
+                InkPalette.Ink.g,
+                InkPalette.Ink.b,
+                0.11f);
+
+            var crownWash = CreateImage(
+                "TreeCrownWash",
+                panel,
+                InkUiTextureFactory.CreateBlobSprite(),
+                new Vector2(0f, -35f),
+                new Vector2(720f, 900f),
+                new Color(
+                    InkPalette.Ink.r,
+                    InkPalette.Ink.g,
+                    InkPalette.Ink.b,
+                    0.035f));
+            crownWash.rectTransform.localEulerAngles =
+                new Vector3(0f, 0f, -7f);
+
+            var trunk = CreateImage(
+                "InkTreeTrunk",
+                panel,
+                brush,
+                new Vector2(0f, -42f),
+                new Vector2(760f, 54f),
+                new Color(
+                    InkPalette.Ink.r,
+                    InkPalette.Ink.g,
+                    InkPalette.Ink.b,
+                    0.78f));
+            trunk.rectTransform.localEulerAngles =
+                new Vector3(0f, 0f, 90f);
+
+            var trunkDryStroke = CreateImage(
+                "InkTreeDryStroke",
+                panel,
+                brush,
+                new Vector2(13f, -28f),
+                new Vector2(735f, 20f),
+                ghostInk);
+            trunkDryStroke.rectTransform.localEulerAngles =
+                new Vector3(0f, 0f, 90f);
+
+            CreateImage(
+                "InkTreeRoot",
+                panel,
+                InkUiTextureFactory.CreateBlobSprite(),
+                new Vector2(0f, -454f),
+                new Vector2(150f, 116f),
+                InkPalette.Ink);
+            CreateText(
+                "InkTreeRootLabel",
+                panel,
+                "먹빛",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, -454f),
+                new Vector2(116f, 52f),
+                InkPalette.Paper,
+                FontStyle.Bold);
+
+            for (int i = 0; i < 5; i++)
+            {
+                CreateImage(
+                    $"TrunkKnot{i + 1}",
+                    panel,
+                    InkUiTextureFactory.CreateBlobSprite(),
+                    new Vector2((i % 2 == 0 ? -1f : 1f) * 7f, 302f - i * 167f),
+                    new Vector2(28f + i % 2 * 5f, 28f + i % 2 * 5f),
+                    InkPalette.Ink);
+            }
+        }
+
         GrowthRow CreateGrowthRow(Transform parent, int index)
         {
-            float y = 305f - index * 235f;
+            bool left = index % 2 == 0;
+            float y = 288f - index * 205f;
+            float x = left ? -214f : 214f;
+            float branchAngle = left ? 7f : -7f;
+
+            var connector = CreateImage(
+                $"GrowthBranch{index + 1}",
+                parent,
+                InkUiTextureFactory.CreateBrushSprite(),
+                new Vector2(left ? -108f : 108f, y - 6f),
+                new Vector2(252f, 34f),
+                new Color(
+                    InkPalette.Ink.r,
+                    InkPalette.Ink.g,
+                    InkPalette.Ink.b,
+                    0.16f));
+            connector.rectTransform.localEulerAngles =
+                new Vector3(0f, 0f, branchAngle);
+
+            var branchTip = CreateImage(
+                $"GrowthBranchTip{index + 1}",
+                parent,
+                InkUiTextureFactory.CreateBlobSprite(),
+                new Vector2(left ? -50f : 50f, y),
+                new Vector2(42f, 42f),
+                new Color(
+                    InkPalette.Ink.r,
+                    InkPalette.Ink.g,
+                    InkPalette.Ink.b,
+                    0.2f));
+
             var root = CreateRect(
                 $"PermanentGrowth{index + 1}",
                 parent,
-                new Vector2(0f, y),
-                new Vector2(790f, 218f));
+                new Vector2(x, y),
+                new Vector2(368f, 184f));
             var outline = CreateImage(
                 "Outline",
                 root,
-                null,
+                InkUiTextureFactory.CreateBlobSprite(),
                 Vector2.zero,
-                new Vector2(790f, 218f),
+                new Vector2(368f, 184f),
                 InkPalette.Ink);
             var paper = CreateImage(
                 "Paper",
                 outline.transform,
-                null,
+                InkUiTextureFactory.CreateBlobSprite(),
                 Vector2.zero,
-                new Vector2(778f, 206f),
+                new Vector2(352f, 168f),
                 InkPalette.Paper2);
             var button = outline.gameObject.AddComponent<Button>();
             InkUiStyle.ConfigureButton(button, paper);
@@ -316,8 +426,8 @@ namespace MukJump.Core
                 "IconPaper",
                 paper.transform,
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(-302f, 0f),
-                new Vector2(154f, 154f),
+                new Vector2(left ? -130f : 130f, 18f),
+                new Vector2(92f, 92f),
                 new Color(
                     InkPalette.Paper.r,
                     InkPalette.Paper.g,
@@ -328,60 +438,66 @@ namespace MukJump.Core
                 iconPaper.transform,
                 null,
                 Vector2.zero,
-                new Vector2(132f, 132f),
+                new Vector2(78f, 78f),
                 Color.white);
             icon.preserveAspect = true;
 
+            float textX = left ? 42f : -42f;
+            TextAnchor textAlignment =
+                left ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
             var name = CreateText(
                 "Name",
                 paper.transform,
                 "영구 성장",
-                InkUiStyle.CardTitleSize,
-                new Vector2(-20f, 65f),
-                new Vector2(370f, 58f),
+                35,
+                new Vector2(textX, 58f),
+                new Vector2(222f, 50f),
                 InkPalette.TextDark,
                 FontStyle.Bold,
-                TextAnchor.MiddleLeft);
+                textAlignment);
             var level = CreateText(
                 "Level",
                 paper.transform,
                 "Lv. 0 / 6",
-                InkUiStyle.CaptionSize,
-                new Vector2(280f, 67f),
-                new Vector2(160f, 48f),
+                24,
+                new Vector2(textX, 21f),
+                new Vector2(222f, 38f),
                 ReadableMutedColor(),
                 FontStyle.Bold,
-                TextAnchor.MiddleRight);
+                textAlignment);
             var description = CreateText(
                 "Description",
                 paper.transform,
                 "효과 설명",
-                InkUiStyle.CaptionSize,
-                new Vector2(55f, 22f),
-                new Vector2(520f, 48f),
+                22,
+                new Vector2(textX, -13f),
+                new Vector2(222f, 42f),
                 InkPalette.TextDark,
                 FontStyle.Bold,
-                TextAnchor.MiddleLeft);
+                textAlignment);
             var effect = CreateText(
                 "Effect",
                 paper.transform,
                 "현재 +0% → 다음 +0%",
-                31,
-                new Vector2(-45f, -65f),
-                new Vector2(320f, 48f),
+                23,
+                new Vector2(textX, -50f),
+                new Vector2(222f, 42f),
                 InkPalette.TextDark,
                 FontStyle.Bold,
-                TextAnchor.MiddleLeft);
+                textAlignment);
 
             var pips = new Image[6];
             for (int pip = 0; pip < pips.Length; pip++)
             {
+                float direction = left ? 1f : -1f;
                 pips[pip] = CreateImage(
                     $"LevelPip{pip + 1}",
                     paper.transform,
                     InkUiTextureFactory.CreateBlobSprite(),
-                    new Vector2(-170f + pip * 42f, -24f),
-                    new Vector2(25f, 25f),
+                    new Vector2(
+                        (left ? -150f : 150f) + direction * pip * 21f,
+                        -70f + Mathf.Sin(pip * 0.72f) * 4f),
+                    new Vector2(16f, 16f),
                     new Color(
                         InkPalette.Ink.r,
                         InkPalette.Ink.g,
@@ -393,16 +509,16 @@ namespace MukJump.Core
                 "CostBrush",
                 paper.transform,
                 InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(276f, -64f),
-                new Vector2(190f, 64f),
+                new Vector2(left ? 113f : -113f, -71f),
+                new Vector2(118f, 42f),
                 InkPalette.Ink);
             var cost = CreateText(
                 "Cost",
                 costBrush.transform,
                 "먹빛 0",
-                InkUiStyle.CaptionSize,
+                21,
                 Vector2.zero,
-                new Vector2(165f, 50f),
+                new Vector2(108f, 36f),
                 InkPalette.TextLight,
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter);
@@ -412,6 +528,8 @@ namespace MukJump.Core
                 Root = root,
                 Paper = paper,
                 Icon = icon,
+                Connector = connector,
+                BranchTip = branchTip,
                 CostBrush = costBrush,
                 Button = button,
                 Name = name,
@@ -477,6 +595,24 @@ namespace MukJump.Core
                         InkPalette.Ink.g,
                         InkPalette.Ink.b,
                         0.56f);
+                float branchAlpha = level > 0
+                    ? Mathf.Lerp(
+                        0.52f,
+                        0.95f,
+                        level / (float)definition.MaxLevel)
+                    : 0.16f;
+                row.Connector.color = new Color(
+                    InkPalette.Ink.r,
+                    InkPalette.Ink.g,
+                    InkPalette.Ink.b,
+                    branchAlpha);
+                row.BranchTip.color = maxed
+                    ? InkPalette.Gold
+                    : new Color(
+                        InkPalette.Ink.r,
+                        InkPalette.Ink.g,
+                        InkPalette.Ink.b,
+                        level > 0 ? 0.88f : 0.2f);
                 row.Paper.color = maxed
                     ? new Color(
                         InkPalette.Paper.r,

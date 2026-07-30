@@ -52,6 +52,18 @@ namespace MukJump.EditorTests
             Assert.That(growthView.IsOpen, Is.True);
             Assert.That(growthView.CreatedRowCount, Is.EqualTo(4));
             Assert.That(growthView.BalanceLabel, Is.EqualTo("보유 먹빛 0"));
+            Transform growthPanel = viewHost.transform.Find(
+                "PermanentGrowthCanvas/SafeAreaRoot/PermanentGrowthScroll");
+            Assert.That(growthPanel, Is.Not.Null);
+            Assert.That(growthPanel.Find("InkTreeTrunk"), Is.Not.Null,
+                "영구 성장 화면은 중앙 먹나무 기둥을 가져야 합니다.");
+            for (int i = 0; i < 4; i++)
+            {
+                Assert.That(
+                    growthPanel.Find($"GrowthBranch{i + 1}"),
+                    Is.Not.Null,
+                    $"영구 성장 {i + 1}의 먹가지 연결선이 필요합니다.");
+            }
 
             growthView.Close();
             codexView.OpenCodex();
