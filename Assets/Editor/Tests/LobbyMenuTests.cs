@@ -57,13 +57,50 @@ namespace MukJump.EditorTests
             Assert.That(growthPanel, Is.Not.Null);
             Assert.That(growthPanel.Find("InkTreeTrunk"), Is.Not.Null,
                 "영구 성장 화면은 중앙 먹나무 기둥을 가져야 합니다.");
+            var inkRoot =
+                (RectTransform)growthPanel.Find("InkTreeRoot");
+            Assert.That(inkRoot, Is.Not.Null);
             for (int i = 0; i < 4; i++)
             {
                 Assert.That(
                     growthPanel.Find($"GrowthBranch{i + 1}"),
                     Is.Not.Null,
                     $"영구 성장 {i + 1}의 먹가지 연결선이 필요합니다.");
+                var card = (RectTransform)growthPanel.Find(
+                    $"PermanentGrowth{i + 1}");
+                Assert.That(card.sizeDelta.x, Is.GreaterThanOrEqualTo(384f));
+                Assert.That(card.sizeDelta.y, Is.GreaterThanOrEqualTo(196f),
+                    "성장 잎은 모바일에서 충분한 터치 높이를 유지해야 합니다.");
+                var description = card.Find("Outline/Paper/Description")
+                    .GetComponent<Text>();
+                var effect = card.Find("Outline/Paper/Effect")
+                    .GetComponent<Text>();
+                Assert.That(description.fontSize, Is.GreaterThanOrEqualTo(26));
+                Assert.That(
+                    description.rectTransform.sizeDelta.y,
+                    Is.GreaterThanOrEqualTo(52f),
+                    "성장 설명은 두 줄을 담을 높이가 필요합니다.");
+                Assert.That(effect.fontSize, Is.GreaterThanOrEqualTo(26));
             }
+            var lowestCard = (RectTransform)growthPanel.Find(
+                "PermanentGrowth4");
+            float lowestCardBottom = lowestCard.anchoredPosition.y -
+                                     lowestCard.sizeDelta.y * 0.5f;
+            float rootTop = inkRoot.anchoredPosition.y +
+                            inkRoot.sizeDelta.y * 0.5f;
+            Assert.That(
+                lowestCardBottom,
+                Is.GreaterThan(rootTop + 4f),
+                "마지막 성장 잎과 먹뿌리가 겹치면 안 됩니다.");
+            var footer = (RectTransform)growthPanel.Find("PermanentHint");
+            float rootBottom = inkRoot.anchoredPosition.y -
+                               inkRoot.sizeDelta.y * 0.5f;
+            float footerTop = footer.anchoredPosition.y +
+                              footer.sizeDelta.y * 0.5f;
+            Assert.That(
+                rootBottom,
+                Is.GreaterThan(footerTop + 4f),
+                "먹뿌리와 하단 안내 문구가 겹치면 안 됩니다.");
 
             growthView.Close();
             codexView.OpenCodex();
