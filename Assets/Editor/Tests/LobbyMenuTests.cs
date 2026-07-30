@@ -53,7 +53,8 @@ namespace MukJump.EditorTests
             Assert.That(growthView.CreatedRowCount, Is.EqualTo(4));
             Assert.That(growthView.BalanceLabel, Is.EqualTo("보유 먹빛 0"));
             Transform growthPanel = viewHost.transform.Find(
-                "PermanentGrowthCanvas/SafeAreaRoot/PermanentGrowthScroll");
+                "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
+                "PermanentGrowthScreen");
             Assert.That(growthPanel, Is.Not.Null);
             Assert.That(growthPanel.Find("InkTreeTrunk"), Is.Not.Null,
                 "영구 성장 화면은 중앙 먹나무 기둥을 가져야 합니다.");

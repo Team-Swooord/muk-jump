@@ -178,6 +178,8 @@ namespace MukJump.Core
                 gameObject.AddComponent<PermanentGrowthView>();
             if (GetComponent<LobbyOptionsView>() == null)
                 gameObject.AddComponent<LobbyOptionsView>();
+            if (GetComponent<LobbyScreenNavigator>() == null)
+                gameObject.AddComponent<LobbyScreenNavigator>();
             if (GetComponent<InkUiFeedbackController>() == null)
                 gameObject.AddComponent<InkUiFeedbackController>();
             var eventSystem =
@@ -612,7 +614,13 @@ namespace MukJump.Core
         /// 씬 빌더가 준비한 영구 시작 발판 위에서 물리를 풀어 첫 자동 점프를 준비한다.
         public void StartGameFromMenu()
         {
-            if (State != GameState.Lobby || transitionInProgress) return;
+            var navigator = LobbyScreenNavigator.Instance;
+            if (navigator == null)
+                navigator = GetComponent<LobbyScreenNavigator>();
+            if (State != GameState.Lobby ||
+                IsTransitioning ||
+                navigator != null && !navigator.CanStartGame)
+                return;
             PointerInput.SuppressUntilRelease();
             BeginPlayingAfterCover();
         }

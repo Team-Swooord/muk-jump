@@ -14,6 +14,8 @@ namespace MukJump.Core
         const int CanvasSortingOrder = 4000;
         const int PageSize = 4;
         const float FlipDuration = 0.22f;
+        const float HiddenScreenOffset = 2100f;
+        static readonly Vector2 CardSize = new(432f, 570f);
 
         enum DisplayMode
         {
@@ -43,10 +45,12 @@ namespace MukJump.Core
         readonly List<CardSlot> cards = new(PageSize);
 
         CanvasGroup rootGroup;
+        RectTransform screenRoot;
         RectTransform safeAreaRoot;
         Text subtitleText;
         Text categoryText;
         Text pageText;
+        Button backButton;
         Button previousButton;
         Button nextButton;
         DisplayMode mode;
@@ -64,6 +68,9 @@ namespace MukJump.Core
         public int CurrentPage => currentPage;
         public int CreatedRowCount => cards.Count;
         public string CurrentModeName => mode.ToString();
+        public Button BackButton => backButton;
+        public RectTransform ScreenRoot => screenRoot;
+        public bool IsDedicatedScreen => screenRoot != null;
 
         void Awake()
         {
@@ -119,6 +126,44 @@ namespace MukJump.Core
             mode = DisplayMode.Closed;
             ResetCardTransforms();
             SetVisible(false);
+        }
+
+        /// 로비 전환기가 화면 이동을 마친 뒤 표시·입력 상태를 한 번에 확정한다.
+        public void SetNavigationPresentation(bool visible, bool interactive)
+        {
+            BuildIfNeeded();
+            if (rootGroup == null || screenRoot == null) return;
+
+            if (visible && mode == DisplayMode.Closed)
+            {
+                BindManager();
+                if (manager == null || manager.State != GameState.Lobby)
+                {
+                    visible = false;
+                    interactive = false;
+                }
+                else
+                {
+                    mode = DisplayMode.Codex;
+                    categoryFilter = null;
+                    currentPage = 0;
+                    RebuildFilter();
+                }
+            }
+            else if (!visible && mode != DisplayMode.Closed)
+            {
+                mode = DisplayMode.Closed;
+                ResetCardTransforms();
+            }
+
+            screenRoot.anchoredPosition = visible
+                ? Vector2.zero
+                : new Vector2(0f, HiddenScreenOffset);
+            rootGroup.alpha = visible ? 1f : 0f;
+            rootGroup.interactable = visible && interactive;
+            rootGroup.blocksRaycasts = visible && interactive;
+            if (visible)
+                ApplySafeArea();
         }
 
         public void BuildForTests()
@@ -194,39 +239,51 @@ namespace MukJump.Core
             scaler.matchWidthOrHeight = 1f;
 
             rootGroup = root.GetComponent<CanvasGroup>();
-            var dim = CreateStretchImage(
-                "InkDim",
-                root.transform,
-                new Color(0.025f, 0.023f, 0.02f, 0.64f));
-            dim.raycastTarget = true;
+            screenRoot = CreateStretchRect("ScreenRoot", root.transform);
+            BuildDedicatedBackground(screenRoot);
+            safeAreaRoot = CreateStretchRect(
+                "SafeAreaRoot",
+                screenRoot);
+            var panel = CreateStretchRect(
+                "CodexGallery",
+                safeAreaRoot);
 
-            safeAreaRoot = CreateStretchRect("SafeAreaRoot", root.transform);
-            var panel = CreateRect(
-                "CodexScroll",
-                safeAreaRoot,
-                Vector2.zero,
-                new Vector2(900f, 1510f));
-            BuildScrollFrame(panel);
+            backButton = CreatePaperButton(
+                "BackButton", panel, "로비",
+                new Vector2(-405f, 775f), new Vector2(190f, 120f),
+                InkUiStyle.BodySize);
+            backButton.onClick.AddListener(HandleBackPressed);
 
             CreateReadableText(
-                "Title", panel, "두루마리 도감",
+                "Title", panel, "먹결 도감",
                 InkUiStyle.ScreenTitleSize,
-                new Vector2(0f, 625f), new Vector2(730f, 84f),
+                new Vector2(0f, 775f), new Vector2(610f, 88f),
                 InkPalette.TextDark);
             subtitleText = CreateReadableText(
                 "Subtitle", panel,
                 "큰 그림을 눌러 먹결의 설명을 확인하세요",
                 InkUiStyle.BodySize,
-                new Vector2(0f, 548f), new Vector2(760f, 62f),
+                new Vector2(0f, 696f), new Vector2(820f, 62f),
                 InkPalette.TextMuted);
 
             var categoryButton = CreatePaperButton(
                 "CategoryButton", panel, "전체 계보",
-                new Vector2(0f, 470f), new Vector2(430f, 78f),
+                new Vector2(0f, 618f), new Vector2(360f, 76f),
                 InkUiStyle.BodySize);
             categoryText = categoryButton.transform
                 .Find("Paper/Label")?.GetComponent<Text>();
             categoryButton.onClick.AddListener(HandleCategoryPressed);
+
+            CreateImage(
+                "HeaderStroke", panel,
+                InkUiTextureFactory.CreateBrushSprite(),
+                new Vector2(0f, 563f),
+                new Vector2(910f, 22f),
+                new Color(
+                    InkPalette.Ink.r,
+                    InkPalette.Ink.g,
+                    InkPalette.Ink.b,
+                    0.52f));
 
             for (int i = 0; i < PageSize; i++)
             {
@@ -238,50 +295,45 @@ namespace MukJump.Core
 
             previousButton = CreatePaperButton(
                 "PreviousButton", panel, "이전",
-                new Vector2(-245f, -590f), new Vector2(210f, 88f),
+                new Vector2(-270f, -760f), new Vector2(220f, 86f),
                 InkUiStyle.BodySize);
             nextButton = CreatePaperButton(
                 "NextButton", panel, "다음",
-                new Vector2(245f, -590f), new Vector2(210f, 88f),
+                new Vector2(270f, -760f), new Vector2(220f, 86f),
                 InkUiStyle.BodySize);
             pageText = CreateReadableText(
                 "Page", panel, "1 / 1", InkUiStyle.BodySize,
-                new Vector2(0f, -590f), new Vector2(230f, 76f),
+                new Vector2(0f, -760f), new Vector2(230f, 76f),
                 InkPalette.TextDark);
-            var closeButton = CreateBrushButton(
-                "CloseButton", panel, "닫기",
-                new Vector2(0f, -690f), new Vector2(420f, 92f),
-                InkUiStyle.CardTitleSize);
             previousButton.onClick.AddListener(PreviousPage);
             nextButton.onClick.AddListener(NextPage);
-            closeButton.onClick.AddListener(Close);
 
             ApplySafeArea();
         }
 
         CardSlot CreateCard(Transform parent, int index)
         {
-            float x = index % 2 == 0 ? -202f : 202f;
-            float y = index < 2 ? 205f : -300f;
+            float x = index % 2 == 0 ? -230f : 230f;
+            float y = index < 2 ? 245f : -345f;
             var root = CreateRect(
                 $"CodexCard{index + 1}",
                 parent,
                 new Vector2(x, y),
-                new Vector2(370f, 470f));
+                CardSize);
             var hit = CreateImage(
                 "HitSurface", root, null, Vector2.zero,
-                new Vector2(370f, 470f), InkPalette.Ink);
+                CardSize, InkPalette.Ink);
             var button = hit.gameObject.AddComponent<Button>();
             InkUiStyle.ConfigureButton(button, hit, addInkFeedback: false);
 
             CanvasGroup front = CreateCardFace("Front", hit.transform);
             var frontPaper = CreateImage(
                 "Paper", front.transform, null, Vector2.zero,
-                new Vector2(356f, 456f), InkPalette.Paper2);
+                CardSize - new Vector2(14f, 14f), InkPalette.Paper2);
             var iconPaper = CreateImage(
                 "IconPaper", frontPaper.transform,
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, 58f), new Vector2(292f, 292f),
+                new Vector2(0f, 55f), new Vector2(360f, 360f),
                 new Color(
                     InkPalette.Paper.r,
                     InkPalette.Paper.g,
@@ -289,48 +341,48 @@ namespace MukJump.Core
                     0.98f));
             var icon = CreateImage(
                 "Icon", iconPaper.transform, null,
-                Vector2.zero, new Vector2(252f, 252f), Color.white);
+                Vector2.zero, new Vector2(316f, 316f), Color.white);
             icon.preserveAspect = true;
             Text number = CreateReadableText(
                 "Index", frontPaper.transform, "001",
                 InkUiStyle.CaptionSize,
-                new Vector2(-128f, 196f), new Vector2(82f, 44f),
+                new Vector2(-155f, 245f), new Vector2(82f, 44f),
                 InkPalette.TextMuted);
             Text state = CreateReadableText(
                 "State", frontPaper.transform, "사용 가능",
                 InkUiStyle.CaptionSize,
-                new Vector2(98f, 196f), new Vector2(160f, 44f),
+                new Vector2(124f, 245f), new Vector2(176f, 44f),
                 InkPalette.TextMuted, TextAnchor.MiddleRight);
             Text name = CreateReadableText(
                 "Name", frontPaper.transform, "먹결 이름",
                 InkUiStyle.CardTitleSize,
-                new Vector2(0f, -178f), new Vector2(320f, 72f),
+                new Vector2(0f, -226f), new Vector2(382f, 76f),
                 InkPalette.TextDark);
 
             CanvasGroup back = CreateCardFace("Back", hit.transform);
             var backPaper = CreateImage(
                 "Paper", back.transform, null, Vector2.zero,
-                new Vector2(356f, 456f), InkPalette.Paper);
+                CardSize - new Vector2(14f, 14f), InkPalette.Paper);
             Text backName = CreateReadableText(
                 "Name", backPaper.transform, "먹결 이름",
                 InkUiStyle.CardTitleSize,
-                new Vector2(0f, 164f), new Vector2(316f, 86f),
+                new Vector2(0f, 214f), new Vector2(380f, 86f),
                 InkPalette.TextDark);
             Text description = CreateReadableText(
                 "Description", backPaper.transform, "설명",
                 32,
-                new Vector2(0f, 12f), new Vector2(312f, 220f),
+                new Vector2(0f, 22f), new Vector2(370f, 286f),
                 InkPalette.TextDark);
             description.lineSpacing = 1.12f;
             Text meta = CreateReadableText(
                 "Meta", backPaper.transform, "분류 · 단계",
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, -151f), new Vector2(312f, 90f),
+                new Vector2(0f, -182f), new Vector2(370f, 90f),
                 InkPalette.TextMuted);
             CreateReadableText(
                 "FlipHint", backPaper.transform, "다시 눌러 그림 보기",
                 26,
-                new Vector2(0f, -207f), new Vector2(300f, 38f),
+                new Vector2(0f, -251f), new Vector2(360f, 40f),
                 InkPalette.TextMuted);
 
             var slot = new CardSlot
@@ -506,6 +558,18 @@ namespace MukJump.Core
             RebuildFilter();
         }
 
+        void HandleBackPressed()
+        {
+            LobbyScreenNavigator navigator =
+                LobbyScreenNavigator.Instance;
+            if (navigator == null)
+                navigator =
+                    FindFirstObjectByType<LobbyScreenNavigator>();
+            if (navigator != null && navigator.ReturnToLobby())
+                return;
+            Close();
+        }
+
         bool CatalogContains(GrowthCatalogCategory category)
         {
             IReadOnlyList<RoguelikeGrowthDefinition> all =
@@ -537,11 +601,7 @@ namespace MukJump.Core
 
         void SetVisible(bool visible)
         {
-            if (rootGroup == null) return;
-            rootGroup.alpha = visible ? 1f : 0f;
-            rootGroup.interactable = visible;
-            rootGroup.blocksRaycasts = visible;
-            ApplySafeArea();
+            SetNavigationPresentation(visible, visible);
         }
 
         void CloseImmediate()
@@ -681,28 +741,42 @@ namespace MukJump.Core
             return rect.gameObject.AddComponent<CanvasGroup>();
         }
 
-        static void BuildScrollFrame(Transform panel)
+        static void BuildDedicatedBackground(Transform parent)
         {
-            Sprite brush = InkUiTextureFactory.CreateBrushSprite();
-            var shadow = CreateImage(
-                "InkShadow", panel, brush, new Vector2(12f, -15f),
-                new Vector2(1510f, 890f),
-                new Color(0f, 0f, 0f, 0.16f));
-            shadow.rectTransform.localEulerAngles =
-                new Vector3(0f, 0f, 90f);
-            var outline = CreateImage(
-                "ScrollOutline", panel, brush, Vector2.zero,
-                new Vector2(1490f, 870f), InkPalette.Ink);
-            outline.rectTransform.localEulerAngles =
-                new Vector3(0f, 0f, 90f);
-            var paper = CreateImage(
-                "HanjiPaper", panel, brush, Vector2.zero,
-                new Vector2(1462f, 842f), InkPalette.Paper);
-            paper.rectTransform.localEulerAngles =
-                new Vector3(0f, 0f, 90f);
-            CreateImage(
-                "PaperCore", panel, null, Vector2.zero,
-                new Vector2(790f, 1390f), InkPalette.Paper);
+            var background = CreateStretchImage(
+                "OpaqueHanjiBackground",
+                parent,
+                InkPalette.Paper);
+            background.raycastTarget = true;
+
+            Sprite wash = InkUiTextureFactory.CreateBlobSprite();
+            var topWash = CreateImage(
+                "TopInkWash",
+                parent,
+                wash,
+                new Vector2(-360f, 790f),
+                new Vector2(1050f, 640f),
+                new Color(
+                    InkPalette.Ink.r,
+                    InkPalette.Ink.g,
+                    InkPalette.Ink.b,
+                    0.055f));
+            topWash.rectTransform.localEulerAngles =
+                new Vector3(0f, 0f, -12f);
+
+            var bottomWash = CreateImage(
+                "BottomInkWash",
+                parent,
+                wash,
+                new Vector2(420f, -820f),
+                new Vector2(1180f, 720f),
+                new Color(
+                    InkPalette.Ink.r,
+                    InkPalette.Ink.g,
+                    InkPalette.Ink.b,
+                    0.045f));
+            bottomWash.rectTransform.localEulerAngles =
+                new Vector3(0f, 0f, 168f);
         }
 
         static Button CreatePaperButton(
@@ -724,27 +798,6 @@ namespace MukJump.Core
                 "Label", paper.transform, label, fontSize,
                 Vector2.zero, size - new Vector2(28f, 16f),
                 InkPalette.TextDark);
-            return button;
-        }
-
-        static Button CreateBrushButton(
-            string objectName,
-            Transform parent,
-            string label,
-            Vector2 position,
-            Vector2 size,
-            int fontSize)
-        {
-            var brush = CreateImage(
-                objectName, parent,
-                InkUiTextureFactory.CreateBrushSprite(),
-                position, size, InkPalette.Ink);
-            var button = brush.gameObject.AddComponent<Button>();
-            InkUiStyle.ConfigureButton(button, brush);
-            CreateReadableText(
-                "Label", brush.transform, label, fontSize,
-                Vector2.zero, size - new Vector2(36f, 14f),
-                InkPalette.TextLight);
             return button;
         }
 

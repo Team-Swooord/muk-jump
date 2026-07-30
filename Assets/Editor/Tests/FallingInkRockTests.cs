@@ -481,6 +481,7 @@ public class FallingInkRockTests
         Assert.IsNotNull(FindFirstInScene<LobbyCollectionView>(builderTestScene));
         Assert.IsNotNull(FindFirstInScene<PermanentGrowthView>(builderTestScene));
         Assert.IsNotNull(FindFirstInScene<LobbyOptionsView>(builderTestScene));
+        Assert.IsNotNull(FindFirstInScene<LobbyScreenNavigator>(builderTestScene));
         Assert.IsNotNull(FindFirstInScene<InkUiFeedbackController>(builderTestScene));
         var uiInputGuard = FindFirstInScene<UiInputDeviceGuard>(builderTestScene);
         Assert.IsNotNull(uiInputGuard,

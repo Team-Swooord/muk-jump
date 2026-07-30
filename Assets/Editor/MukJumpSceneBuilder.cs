@@ -69,6 +69,28 @@ namespace MukJump.EditorTools
             "Assets/Resources/MukJump/UI/Growth/growth_guard.png";
         const string GrowthFortunePath =
             "Assets/Resources/MukJump/UI/Growth/growth_fortune.png";
+        const string PermanentGrowthUiRoot =
+            "Assets/Resources/MukJump/UI/PermanentGrowth/";
+        static readonly string[] PermanentGrowthUiPaths =
+        {
+            PermanentGrowthUiRoot + "pg_hanji_background.png",
+            PermanentGrowthUiRoot + "pg_tree_trunk.png",
+            PermanentGrowthUiRoot + "pg_tree_trunk_mask.png",
+            PermanentGrowthUiRoot + "pg_branch.png",
+            PermanentGrowthUiRoot + "pg_branch_mask.png",
+            PermanentGrowthUiRoot + "pg_node_bud.png",
+            PermanentGrowthUiRoot + "pg_node_bloom.png",
+            PermanentGrowthUiRoot + "pg_node_bloom_mask.png",
+            PermanentGrowthUiRoot + "pg_selected_ring.png",
+            PermanentGrowthUiRoot + "pg_hanji_card.png",
+            PermanentGrowthUiRoot + "pg_primary_button.png",
+            PermanentGrowthUiRoot + "pg_currency_badge.png",
+            PermanentGrowthUiRoot + "pg_root_emblem.png",
+            PermanentGrowthUiRoot + "pg_icon_capacity.png",
+            PermanentGrowthUiRoot + "pg_icon_recovery.png",
+            PermanentGrowthUiRoot + "pg_icon_platform.png",
+            PermanentGrowthUiRoot + "pg_icon_jump.png",
+        };
         const string UiFontPath =
             "Assets/Resources/MukJump/Fonts/HealthsetJoritdaeStd.otf";
         const string DeathSplashPath = "Assets/Art/Character/Death/ink_death_splash.png";
@@ -127,6 +149,7 @@ namespace MukJump.EditorTools
             ConfigureHaetaeObstacleSprites();
             ConfigureFallingInkRockSprite();
             ConfigureItemSprites();
+            ConfigurePermanentGrowthSprites();
             ConfigureInkDropJumpVfxAssets();
             if (AssetDatabase.LoadAssetAtPath<Font>(UiFontPath) == null)
                 Debug.LogWarning($"[MukJump] UI 폰트를 찾을 수 없음: {UiFontPath}");
@@ -155,6 +178,110 @@ namespace MukJump.EditorTools
         {
             ConfigureHaetaeObstacleSheet();
             AssetDatabase.SaveAssets();
+        }
+
+        [MenuItem("MukJump/Configure Permanent Growth Sprites")]
+        public static void ConfigurePermanentGrowthSprites()
+        {
+            for (int i = 0; i < PermanentGrowthUiPaths.Length; i++)
+            {
+                string path = PermanentGrowthUiPaths[i];
+                var importer =
+                    AssetImporter.GetAtPath(path) as TextureImporter;
+                if (importer == null)
+                {
+                    Debug.LogWarning(
+                        $"[MukJump] 영구 성장 UI 스프라이트를 찾을 수 없음: {path}");
+                    continue;
+                }
+
+                var textureSettings = new TextureImporterSettings();
+                importer.ReadTextureSettings(textureSettings);
+                textureSettings.spriteMeshType = SpriteMeshType.FullRect;
+                importer.SetTextureSettings(textureSettings);
+
+                bool large =
+                    path.EndsWith("pg_hanji_background.png") ||
+                    path.EndsWith("pg_tree_trunk.png") ||
+                    path.EndsWith("pg_tree_trunk_mask.png");
+                bool medium =
+                    path.EndsWith("pg_branch.png") ||
+                    path.EndsWith("pg_branch_mask.png") ||
+                    path.EndsWith("pg_hanji_card.png");
+                bool opaque =
+                    path.EndsWith("pg_hanji_background.png");
+
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.spritePixelsPerUnit = 100f;
+                importer.alphaIsTransparency = !opaque;
+                importer.mipmapEnabled = false;
+                importer.npotScale = TextureImporterNPOTScale.None;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.maxTextureSize = large
+                    ? 2048
+                    : medium
+                        ? 1024
+                        : 512;
+                importer.textureCompression =
+                    TextureImporterCompression.CompressedHQ;
+                importer.compressionQuality = 100;
+                importer.SaveAndReimport();
+            }
+            AssetDatabase.SaveAssets();
+        }
+
+        [InitializeOnLoadMethod]
+        static void SchedulePermanentGrowthSpriteConfiguration()
+        {
+            EditorApplication.delayCall += () =>
+            {
+                if (Application.isPlaying ||
+                    EditorApplication.isPlayingOrWillChangePlaymode ||
+                    !NeedsPermanentGrowthSpriteConfiguration())
+                    return;
+                ConfigurePermanentGrowthSprites();
+            };
+        }
+
+        static bool NeedsPermanentGrowthSpriteConfiguration()
+        {
+            for (int i = 0; i < PermanentGrowthUiPaths.Length; i++)
+            {
+                string path = PermanentGrowthUiPaths[i];
+                var importer =
+                    AssetImporter.GetAtPath(path) as TextureImporter;
+                if (importer == null) return true;
+                var textureSettings = new TextureImporterSettings();
+                importer.ReadTextureSettings(textureSettings);
+                bool large =
+                    path.EndsWith("pg_hanji_background.png") ||
+                    path.EndsWith("pg_tree_trunk.png") ||
+                    path.EndsWith("pg_tree_trunk_mask.png");
+                bool medium =
+                    path.EndsWith("pg_branch.png") ||
+                    path.EndsWith("pg_branch_mask.png") ||
+                    path.EndsWith("pg_hanji_card.png");
+                bool opaque =
+                    path.EndsWith("pg_hanji_background.png");
+                int expectedMax = large ? 2048 : medium ? 1024 : 512;
+                if (importer.textureType != TextureImporterType.Sprite ||
+                    importer.spriteImportMode != SpriteImportMode.Single ||
+                    textureSettings.spriteMeshType != SpriteMeshType.FullRect ||
+                    !Mathf.Approximately(importer.spritePixelsPerUnit, 100f) ||
+                    importer.alphaIsTransparency == opaque ||
+                    importer.mipmapEnabled ||
+                    importer.npotScale != TextureImporterNPOTScale.None ||
+                    importer.wrapMode != TextureWrapMode.Clamp ||
+                    importer.filterMode != FilterMode.Bilinear ||
+                    importer.maxTextureSize != expectedMax ||
+                    importer.textureCompression !=
+                        TextureImporterCompression.CompressedHQ ||
+                    importer.compressionQuality != 100)
+                    return true;
+            }
+            return false;
         }
 
         /// 테스트가 실제 Main 씬, Build Settings, Player Settings, import 설정을 변경하지 않고
@@ -435,6 +562,7 @@ namespace MukJump.EditorTools
             go.AddComponent<LobbyCollectionView>();
             go.AddComponent<PermanentGrowthView>();
             go.AddComponent<LobbyOptionsView>();
+            go.AddComponent<LobbyScreenNavigator>();
             go.AddComponent<InkUiFeedbackController>();
             growthChoiceView.SetSprites(
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthVitalityPath),
@@ -823,7 +951,7 @@ namespace MukJump.EditorTools
                 new Vector2(22f, -438f), new Vector2(145f, 72f), "먹해태");
             var growthChoiceButton = CreateDebugTextButton(
                 "GrowthChoiceButton", debugPanel,
-                new Vector2(22f, -526f), new Vector2(145f, 72f), "성장 선택");
+                new Vector2(22f, -526f), new Vector2(145f, 72f), "증강 선택");
 
             CreateText("MapDebugTitle", debugPanel, "맵 이동", 30, FontStyle.Bold,
                 new Vector2(0.76f, 0.9f), new Vector2(175f, 55f), InkPalette.Paper);

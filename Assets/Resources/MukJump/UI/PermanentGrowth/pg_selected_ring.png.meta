@@ -1,0 +1,598 @@
+fileFormatVersion: 2
+guid: ce190f282662344ce993c645d0954063
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -2219194649462967989
+    second: pg_selected_ring_0
+  - first:
+      213: -7388240573170563406
+    second: pg_selected_ring_1
+  - first:
+      213: 8741706772525507928
+    second: pg_selected_ring_2
+  - first:
+      213: -4733170227813760124
+    second: pg_selected_ring_3
+  - first:
+      213: -6636111534711159782
+    second: pg_selected_ring_4
+  - first:
+      213: 4604887645446218174
+    second: pg_selected_ring_5
+  - first:
+      213: -5862254591779612039
+    second: pg_selected_ring_6
+  - first:
+      213: 4671304303087823175
+    second: pg_selected_ring_7
+  - first:
+      213: -6588797806707601070
+    second: pg_selected_ring_8
+  - first:
+      213: 7405524012820435065
+    second: pg_selected_ring_9
+  - first:
+      213: 2661756806063893607
+    second: pg_selected_ring_10
+  - first:
+      213: -1646748166981056702
+    second: pg_selected_ring_11
+  - first:
+      213: -3388760783226043239
+    second: pg_selected_ring_12
+  - first:
+      213: 8245072736326611615
+    second: pg_selected_ring_13
+  - first:
+      213: 6017343252832267532
+    second: pg_selected_ring_14
+  - first:
+      213: 6181673448066066340
+    second: pg_selected_ring_15
+  - first:
+      213: 3977786124301920605
+    second: pg_selected_ring_16
+  - first:
+      213: -5831885324326128758
+    second: pg_selected_ring_17
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 0
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 512
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 2
+    compressionQuality: 100
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: iOS
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: pg_selected_ring_0
+      rect:
+        serializedVersion: 2
+        x: 540
+        y: 757
+        width: 436
+        height: 277
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b41ff4f5936d331e0800000000000000
+      internalID: -2219194649462967989
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_1
+      rect:
+        serializedVersion: 2
+        x: 586
+        y: 1032
+        width: 30
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2b64a01e752b77990800000000000000
+      internalID: -7388240573170563406
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_2
+      rect:
+        serializedVersion: 2
+        x: 615
+        y: 1032
+        width: 49
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 855620b7ef7c05970800000000000000
+      internalID: 8741706772525507928
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_3
+      rect:
+        serializedVersion: 2
+        x: 664
+        y: 1031
+        width: 9
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 483c4b551c6605eb0800000000000000
+      internalID: -4733170227813760124
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_4
+      rect:
+        serializedVersion: 2
+        x: 688
+        y: 1025
+        width: 13
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a144ba308bbc7e3a0800000000000000
+      internalID: -6636111534711159782
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_5
+      rect:
+        serializedVersion: 2
+        x: 532
+        y: 999
+        width: 29
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: eb128617ae8d7ef30800000000000000
+      internalID: 4604887645446218174
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_6
+      rect:
+        serializedVersion: 2
+        x: 249
+        y: 613
+        width: 237
+        height: 373
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 97ad212228615aea0800000000000000
+      internalID: -5862254591779612039
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_7
+      rect:
+        serializedVersion: 2
+        x: 480
+        y: 981
+        width: 20
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 749ad47938ec3d040800000000000000
+      internalID: 4671304303087823175
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_8
+      rect:
+        serializedVersion: 2
+        x: 484
+        y: 959
+        width: 8
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2511252cd43ef84a0800000000000000
+      internalID: -6588797806707601070
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_9
+      rect:
+        serializedVersion: 2
+        x: 335
+        y: 356
+        width: 589
+        height: 596
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 97099cf7ad4b5c660800000000000000
+      internalID: 7405524012820435065
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_10
+      rect:
+        serializedVersion: 2
+        x: 902
+        y: 374
+        width: 118
+        height: 379
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 76caae766b570f420800000000000000
+      internalID: 2661756806063893607
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_11
+      rect:
+        serializedVersion: 2
+        x: 967
+        y: 752
+        width: 8
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 247819854439529e0800000000000000
+      internalID: -1646748166981056702
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_12
+      rect:
+        serializedVersion: 2
+        x: 250
+        y: 585
+        width: 9
+        height: 37
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9948907a504b8f0d0800000000000000
+      internalID: -3388760783226043239
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_13
+      rect:
+        serializedVersion: 2
+        x: 258
+        y: 612
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f92710c28f16c6270800000000000000
+      internalID: 8245072736326611615
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_14
+      rect:
+        serializedVersion: 2
+        x: 259
+        y: 574
+        width: 10
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c0d29a4aec5e18350800000000000000
+      internalID: 6017343252832267532
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_15
+      rect:
+        serializedVersion: 2
+        x: 272
+        y: 589
+        width: 16
+        height: 40
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4a72175cf37b9c550800000000000000
+      internalID: 6181673448066066340
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_16
+      rect:
+        serializedVersion: 2
+        x: 265
+        y: 259
+        width: 643
+        height: 331
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d596e73a76fe33730800000000000000
+      internalID: 3977786124301920605
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pg_selected_ring_17
+      rect:
+        serializedVersion: 2
+        x: 692
+        y: 262
+        width: 22
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a833ab8323bf01fa0800000000000000
+      internalID: -5831885324326128758
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      pg_selected_ring_0: -2219194649462967989
+      pg_selected_ring_1: -7388240573170563406
+      pg_selected_ring_10: 2661756806063893607
+      pg_selected_ring_11: -1646748166981056702
+      pg_selected_ring_12: -3388760783226043239
+      pg_selected_ring_13: 8245072736326611615
+      pg_selected_ring_14: 6017343252832267532
+      pg_selected_ring_15: 6181673448066066340
+      pg_selected_ring_16: 3977786124301920605
+      pg_selected_ring_17: -5831885324326128758
+      pg_selected_ring_2: 8741706772525507928
+      pg_selected_ring_3: -4733170227813760124
+      pg_selected_ring_4: -6636111534711159782
+      pg_selected_ring_5: 4604887645446218174
+      pg_selected_ring_6: -5862254591779612039
+      pg_selected_ring_7: 4671304303087823175
+      pg_selected_ring_8: -6588797806707601070
+      pg_selected_ring_9: 7405524012820435065
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
