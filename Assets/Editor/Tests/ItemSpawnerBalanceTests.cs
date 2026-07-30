@@ -158,6 +158,39 @@ public sealed class ItemSpawnerBalanceTests
     }
 
     [Test]
+    public void InkDropLaunchesEveryLivingCloneTogether()
+    {
+        var manager = Track(new GameObject("InkDropSwarmManager"))
+            .AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+        Invoke(manager, "SetState", GameState.Playing);
+
+        var firstObject = Track(new GameObject("InkDropPlayerA"));
+        var firstBody = firstObject.AddComponent<Rigidbody2D>();
+        firstBody.gravityScale = 1f;
+        firstObject.AddComponent<CircleCollider2D>();
+        var first = firstObject.AddComponent<PlayerController>();
+        manager.RegisterPlayer(first);
+
+        var secondObject = Track(new GameObject("InkDropPlayerB"));
+        secondObject.transform.position = new Vector3(0f, 8f, 0f);
+        var secondBody = secondObject.AddComponent<Rigidbody2D>();
+        secondBody.gravityScale = 1f;
+        secondObject.AddComponent<CircleCollider2D>();
+        var second = secondObject.AddComponent<PlayerController>();
+        manager.RegisterPlayer(second);
+
+        Assert.IsTrue(ItemEffect.Apply(ItemType.InkDrop, second));
+
+        Assert.IsTrue(first.IsInkDropBoosted);
+        Assert.IsTrue(second.IsInkDropBoosted);
+        Assert.That(firstBody.linearVelocity.y, Is.GreaterThan(0f));
+        Assert.That(secondBody.linearVelocity.y,
+            Is.EqualTo(firstBody.linearVelocity.y).Within(0.001f),
+            "먹물방울을 먹은 분신만 카메라 위로 이탈하면 안 됩니다.");
+    }
+
+    [Test]
     public void SwarmProgressHeightUsesGroupAnchorInsteadOfScoreLeader()
     {
         var manager = Track(new GameObject("GameManager")).AddComponent<GameManager>();

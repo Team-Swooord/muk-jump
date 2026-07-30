@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using MukJump.Core;
 using MukJump.Core.Pooling;
@@ -30,11 +31,13 @@ namespace MukJump.Obstacles
         float animationFrameSeconds;
         float animationElapsed;
         int animationFrameIndex;
+        bool consumed;
 
         public ObstacleKind Kind { get; private set; }
         public int AnimationFrameCount =>
             animationFrames != null ? animationFrames.Length : 0;
         public int CurrentAnimationFrameIndex => animationFrameIndex;
+        public event Action<Obstacle> ReleaseRequested;
 
         void Awake()
         {
@@ -51,6 +54,7 @@ namespace MukJump.Obstacles
             speed = newSpeed;
             phase = newPhase;
             Kind = kind;
+            consumed = false;
             body.simulated = true;
             spriteRenderer.enabled = true;
             circleTrigger.enabled = kind == ObstacleKind.Spike;
@@ -113,9 +117,16 @@ namespace MukJump.Obstacles
 
         void OnTriggerEnter2D(Collider2D other)
         {
+            if (consumed) return;
             var player = other.GetComponentInParent<PlayerController>();
-            if (player != null)
-                player.TakeHit();
+            if (player == null || !player.TakeHit()) return;
+
+            // 한 번 유효하게 피격시킨 장애물은 같은 물리 스텝의 다른 콜라이더나
+            // 분신까지 연쇄 타격하지 않도록 즉시 판정을 끄고 풀 반환을 요청한다.
+            consumed = true;
+            circleTrigger.enabled = false;
+            capsuleTrigger.enabled = false;
+            ReleaseRequested?.Invoke(this);
         }
 
         public void OnPoolAcquire()
@@ -126,6 +137,8 @@ namespace MukJump.Obstacles
             amplitude = 0f;
             speed = 0f;
             phase = 0f;
+            consumed = false;
+            ReleaseRequested = null;
             body.linearVelocity = Vector2.zero;
             body.angularVelocity = 0f;
             body.simulated = true;
@@ -145,6 +158,8 @@ namespace MukJump.Obstacles
             amplitude = 0f;
             speed = 0f;
             phase = 0f;
+            consumed = false;
+            ReleaseRequested = null;
             body.linearVelocity = Vector2.zero;
             body.angularVelocity = 0f;
             Kind = ObstacleKind.Spike;

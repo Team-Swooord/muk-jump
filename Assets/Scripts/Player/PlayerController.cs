@@ -23,6 +23,11 @@ namespace MukJump.Player
         [SerializeField, Min(0f)] float shieldHitGraceDuration = 0.35f;
         [Tooltip("새 분신이 장애물 위에 생성되어 즉사하지 않도록 보호하는 시간")]
         [SerializeField, Min(0f)] float cloneSpawnGraceDuration = 1f;
+        [Header("체력")]
+        [Tooltip("장애물 피해를 버틸 수 있는 기본 횟수. 마지막 체력이 소진되면 사망")]
+        [SerializeField, Min(1)] int maxHealth = DefaultMaxHealth;
+        [Tooltip("체력 피해 뒤 겹친 장애물에 연속으로 맞지 않는 시간")]
+        [SerializeField, Min(0f)] float damageHitGraceDuration = 0.55f;
         [Tooltip("접촉 노멀의 y가 이 값 이상이어야 '발판 위'로 인정")]
         [SerializeField] float groundNormalMinY = 0.4f;
         [Tooltip("먹 방어막으로 추락을 막았을 때 다시 튀어 오르는 목표 높이")]
@@ -39,6 +44,8 @@ namespace MukJump.Player
         [Tooltip("발판에서 미끄러지지 않도록 표면 쪽으로 누르는 약한 힘")]
         [SerializeField, Min(0f)] float adhesionSpeed = 0.18f;
 
+        public const int DefaultMaxHealth = 3;
+
         public bool IsGrounded { get; private set; }
         public bool IsDead { get; private set; }
         public Vector2 GroundNormal { get; private set; } = Vector2.up;
@@ -46,6 +53,10 @@ namespace MukJump.Player
         public bool HasShield { get; private set; }
         public bool IsInkDropBoosted { get; private set; }
         public bool IsRuntimeClone => isRuntimeClone;
+        public int MaxHealth => Mathf.Max(1, maxHealth);
+        public int CurrentHealth { get; private set; }
+        /// 피격 횟수에 맞춘 시각 단계. 물리 크기는 바꾸지 않는다.
+        public int DamageStage => Mathf.Clamp(MaxHealth - CurrentHealth, 0, 2);
         public float NormalGravityScale => normalGravityScale;
         public Rigidbody2D Body => rb;
         public Collider2D PrimaryCollider
@@ -58,6 +69,7 @@ namespace MukJump.Player
             }
         }
         public event Action ShieldConsumed;
+        public event Action<int, int> HealthChanged;
 
         Rigidbody2D rb;
         Collider2D primaryCollider;
@@ -103,6 +115,7 @@ namespace MukJump.Player
         /// 시작 버튼을 누르면 씬에 준비된 영구 시작 발판 위에서 물리를 시작한다.
         public void BeginFromLobby()
         {
+            ResetHealth();
             rb.bodyType = RigidbodyType2D.Dynamic;
             rb.linearVelocity = Vector2.zero;
             IsGrounded = false;
@@ -119,6 +132,7 @@ namespace MukJump.Player
             if (rb == null)
                 rb = GetComponent<Rigidbody2D>();
             isRuntimeClone = true;
+            ResetHealth();
             normalGravityScale = Mathf.Max(0.01f, sourceNormalGravityScale);
             rb.gravityScale = normalGravityScale;
             IsGrounded = false;
@@ -145,6 +159,8 @@ namespace MukJump.Player
         {
             rb = GetComponent<Rigidbody2D>();
             primaryCollider = GetComponent<Collider2D>();
+            maxHealth = Mathf.Max(1, maxHealth);
+            CurrentHealth = MaxHealth;
             normalGravityScale = rb.gravityScale;
             rb.freezeRotation = true;
             // 정지 상태에서 Rigidbody가 잠들면 충돌 콜백이 멈춰 접지 판정이 풀린다 → 잠들지 않게 유지
@@ -212,37 +228,48 @@ namespace MukJump.Player
 
         public void GrantShield() => HasShield = true;
 
-        /// 장애물 피해. 방어막이 있으면 1회 소모하고 작은 반동만 준다.
-        public void TakeHit()
+        /// 장애물 피해. 실제로 처리한 접촉이면 true를 반환해 장애물이 스스로 사라지게 한다.
+        public bool TakeHit()
         {
-            if (IsDead) return;
+            if (IsDead) return false;
             // 성장 두루마리는 물리 콜백 안에서 시간을 멈춘다. 같은 Physics2D 스텝에
             // 이미 예약된 다른 충돌이 이어져도 선택판 뒤에서 피해가 적용되지 않게 한다.
             var manager = GameManager.Instance;
-            if (manager != null && !manager.IsGameplayTicking) return;
-            if (IsInkDropBoosted) return;
-            if (Time.time < damageInvulnerableUntil) return;
+            if (manager != null && !manager.IsGameplayTicking) return false;
+            if (IsInkDropBoosted) return false;
+            if (Time.time < damageInvulnerableUntil) return false;
             GameFeedbackController.Instance?.PlayHitStop();
             if (manager != null && manager.DebugInvincible)
             {
-                damageInvulnerableUntil = Time.time + shieldHitGraceDuration;
-                LaunchToHeight(12f);
-                return;
+                ApplyObstacleHitRecovery(shieldHitGraceDuration, false);
+                return true;
             }
             if (ConsumeShield())
             {
-                LaunchToHeight(12f);
-                return;
+                ApplyObstacleHitRecovery(shieldHitGraceDuration, false);
+                return true;
             }
             if (RunGrowthController.Instance != null &&
                 RunGrowthController.Instance.TryAbsorbObstacleHit(this))
-                return;
-            Kill();
+                return true;
+
+            CurrentHealth = Mathf.Max(0, CurrentHealth - 1);
+            HealthChanged?.Invoke(CurrentHealth, MaxHealth);
+            if (CurrentHealth <= 0)
+                Kill();
+            else
+                ApplyObstacleHitRecovery(damageHitGraceDuration, true);
+            return true;
         }
 
         /// 먹두께 완충으로 장애물 피해를 견딘 뒤 겹친 콜라이더에서 빠져나올 최소한의
         /// 속도만 준다. 아이템 점프처럼 높이 튀우지 않아 현재 발판 경로를 보존한다.
         public void ApplyVitalityHitRecovery(float graceSeconds)
+        {
+            ApplyObstacleHitRecovery(graceSeconds, true);
+        }
+
+        void ApplyObstacleHitRecovery(float graceSeconds, bool playInkPuff)
         {
             if (IsDead) return;
             if (rb == null)
@@ -260,12 +287,14 @@ namespace MukJump.Player
             velocity.y = Mathf.Max(velocity.y, 1.6f);
             rb.linearVelocity = velocity;
             rb.WakeUp();
-            GetComponent<ItemEffectView>()?.PlayVitalityHit();
+            if (playInkPuff)
+                GetComponent<ItemEffectView>()?.PlayVitalityHit();
         }
 
         /// 먹물방울: 현재 위치에서 지정 높이까지 오르는 물리 점프 속도를 적용한다.
         public void LaunchToHeight(float height)
         {
+            if (!EnsureBody()) return;
             // 대각선 발판 접착 중에는 gravityScale이 0이므로 먼저 접착을 풀어야
             // 목표 높이에 필요한 점프 속도가 정상적으로 계산된다.
             DetachFromPlatform();
@@ -275,13 +304,22 @@ namespace MukJump.Player
         }
 
         /// 먹물방울 점프는 상승이 끝날 때까지 장애물 피해를 받지 않는다.
-        public void LaunchInkDrop(float height)
+        public void LaunchInkDrop(float height, bool playCameraImpulse = true)
         {
             IsInkDropBoosted = true;
             inkDropHasRisen = false;
             LaunchToHeight(height);
-            Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
-                transform, Mathf.Lerp(1f, 1.5f, Mathf.InverseLerp(25f, 50f, height)));
+            if (playCameraImpulse)
+                Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
+                    transform, Mathf.Lerp(1f, 1.5f,
+                        Mathf.InverseLerp(25f, 50f, height)));
+        }
+
+        void ResetHealth()
+        {
+            maxHealth = Mathf.Max(1, maxHealth);
+            CurrentHealth = MaxHealth;
+            HealthChanged?.Invoke(CurrentHealth, MaxHealth);
         }
 
         bool ConsumeShield()
@@ -307,6 +345,11 @@ namespace MukJump.Player
         {
             if (IsDead) return;
 
+            if (CurrentHealth != 0)
+            {
+                CurrentHealth = 0;
+                HealthChanged?.Invoke(CurrentHealth, MaxHealth);
+            }
             IsDead = true;
             IsInkDropBoosted = false;
             IsGrounded = false;
@@ -425,8 +468,19 @@ namespace MukJump.Player
             IsGrounded = false;
             CurrentPlatform = null;
             GroundNormal = Vector2.up;
+            if (!EnsureBody()) return;
             rb.gravityScale = normalGravityScale;
             rb.WakeUp();
+        }
+
+        bool EnsureBody()
+        {
+            if (rb == null)
+                rb = GetComponent<Rigidbody2D>();
+            if (rb == null) return false;
+            if (normalGravityScale <= 0f)
+                normalGravityScale = Mathf.Max(0.01f, rb.gravityScale);
+            return true;
         }
 
         void OnCollisionEnter2D(Collision2D collision)
@@ -444,7 +498,10 @@ namespace MukJump.Player
 
             if (hasTopContact && platform != null && platform.TryUseWindCurrent(this))
             {
-                LaunchInkDrop(36f);
+                if (GameManager.Instance != null)
+                    GameManager.Instance.LaunchSwarmInkDrop(this, 36f);
+                else
+                    LaunchInkDrop(36f);
                 GetComponent<InkDropJumpVfx>()?.Play();
                 GameFeedbackController.Instance?.ShowZone("풍맥 상승", "바람길이 먹방울을 밀어 올립니다");
                 return;

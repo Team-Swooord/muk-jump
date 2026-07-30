@@ -32,7 +32,8 @@ namespace MukJump.Items
             switch (type)
             {
                 case ItemType.InkDrop:
-                    player.LaunchInkDrop(50f);
+                    if (!manager.LaunchSwarmInkDrop(player, 50f))
+                        return false;
                     player.GetComponent<InkDropJumpVfx>()?.Play();
                     break;
                 case ItemType.GoldenBrush:

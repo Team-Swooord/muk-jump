@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using MukJump.Core;
 using MukJump.Obstacles;
+using MukJump.Player;
 
 public sealed class MovingObstacleTests
 {
@@ -49,6 +51,66 @@ public sealed class MovingObstacleTests
         Assert.IsTrue(circle.enabled);
         Assert.IsFalse(capsule.enabled);
         Assert.AreEqual(ObstacleKind.Spike, obstacle.Kind);
+    }
+
+    [Test]
+    public void ValidPlayerContactConsumesObstacleAndReturnsItToSpawnerPool()
+    {
+        var managerObject = Track(new GameObject("ObstacleHitManager"));
+        var manager = managerObject.AddComponent<GameManager>();
+        SetAutoProperty(manager, "State", GameState.Playing);
+
+        var spawnerObject = Track(new GameObject("ObstacleHitSpawner"));
+        var spawner = spawnerObject.AddComponent<ObstacleSpawner>();
+        SetField(spawner, "obstacleSprite", CreateSprite(100, 100));
+        Invoke(spawner, "Spawn", 30f);
+        var active = (IList)GetField(spawner, "active");
+        Assert.That(active.Count, Is.EqualTo(1));
+        var obstacle = (Obstacle)active[0];
+
+        var playerObject = Track(new GameObject("ObstacleHitPlayer"));
+        playerObject.AddComponent<SpriteRenderer>();
+        playerObject.AddComponent<Rigidbody2D>();
+        var playerCollider = playerObject.AddComponent<CircleCollider2D>();
+        var player = playerObject.AddComponent<PlayerController>();
+        Invoke(player, "Awake");
+        SetField(player, "damageInvulnerableUntil", Time.time - 1f);
+
+        Invoke(obstacle, "OnTriggerEnter2D", playerCollider);
+
+        Assert.That(player.CurrentHealth, Is.EqualTo(2));
+        Assert.That(active.Count, Is.Zero,
+            "유효 피격을 준 먹가시는 활성 목록에서 즉시 빠져야 합니다.");
+        Assert.That(obstacle.gameObject.activeSelf, Is.False,
+            "사라진 장애물은 파괴 대신 풀로 반환되어야 합니다.");
+    }
+
+    [Test]
+    public void IgnoredBoostContactKeepsObstacleTriggerActive()
+    {
+        var managerObject = Track(new GameObject("IgnoredHitManager"));
+        var manager = managerObject.AddComponent<GameManager>();
+        SetAutoProperty(manager, "State", GameState.Playing);
+
+        var obstacleObject = Track(new GameObject("IgnoredHitObstacle"));
+        var obstacle = obstacleObject.AddComponent<Obstacle>();
+        obstacle.Configure(0f, 0f, 0f, ObstacleKind.Spike);
+
+        var playerObject = Track(new GameObject("BoostedPlayer"));
+        playerObject.AddComponent<SpriteRenderer>();
+        playerObject.AddComponent<Rigidbody2D>();
+        var playerCollider = playerObject.AddComponent<CircleCollider2D>();
+        var player = playerObject.AddComponent<PlayerController>();
+        Invoke(player, "Awake");
+        player.LaunchInkDrop(1f, false);
+        bool releaseRequested = false;
+        obstacle.ReleaseRequested += _ => releaseRequested = true;
+
+        Invoke(obstacle, "OnTriggerEnter2D", playerCollider);
+
+        Assert.That(releaseRequested, Is.False);
+        Assert.That(player.CurrentHealth, Is.EqualTo(3));
+        Assert.That(obstacleObject.GetComponent<CircleCollider2D>().enabled, Is.True);
     }
 
     [Test]
@@ -233,29 +295,66 @@ public sealed class MovingObstacleTests
 
             Assert.Greater(visibleCount, 45000,
                 $"용 프레임 {frameIndex}의 보이는 실루엣이 비정상적으로 작습니다.");
-            Assert.That(minX, Is.GreaterThanOrEqualTo(8));
-            Assert.That(minY, Is.GreaterThanOrEqualTo(8));
-            Assert.That(maxX, Is.LessThan(frameWidth - 8));
-            Assert.That(maxY, Is.LessThan(frameHeight - 8));
+            // 굵어진 붓꼬리의 반투명 번짐은 셀 가장자리 6px 전까지만 허용한다.
+            // 실제 경계에는 닿지 않아 이웃 프레임으로 번지지 않는다.
+            const int safeCellMargin = 6;
+            Assert.That(minX, Is.GreaterThanOrEqualTo(safeCellMargin));
+            Assert.That(minY, Is.GreaterThanOrEqualTo(safeCellMargin));
+            Assert.That(maxX, Is.LessThan(frameWidth - safeCellMargin));
+            Assert.That(maxY, Is.LessThan(frameHeight - safeCellMargin));
             centroidX[frameIndex] = sumX / (float)visibleCount;
             centroidY[frameIndex] = sumY / (float)visibleCount;
         }
 
-        Assert.Less(Max(centroidX) - Min(centroidX), 12f,
-            "프레임 중심이 좌우로 튀면 몸 관절보다 전체 이동이 먼저 보입니다.");
-        Assert.Less(Max(centroidY) - Min(centroidY), 8f,
-            "프레임 중심이 위아래로 튀면 몸 관절보다 전체 이동이 먼저 보입니다.");
+        var importedAssets = AssetDatabase.LoadAllAssetsAtPath(assetPath);
+        for (int frameIndex = 0; frameIndex < masks.Length; frameIndex++)
+        {
+            Sprite importedFrame = null;
+            string expectedName =
+                $"child_ink_dragon_frame_{frameIndex:00}";
+            for (int i = 0; i < importedAssets.Length; i++)
+            {
+                if (importedAssets[i] is not Sprite sprite ||
+                    sprite.name != expectedName)
+                    continue;
+                importedFrame = sprite;
+                break;
+            }
+
+            Assert.IsNotNull(importedFrame, expectedName);
+            Assert.That(importedFrame.pivot.x,
+                Is.EqualTo(centroidX[frameIndex] + 0.5f).Within(1f),
+                "몸 굽힘으로 달라진 가로 무게중심은 커스텀 피벗이 보정해야 합니다.");
+            Assert.That(importedFrame.pivot.y,
+                Is.EqualTo(centroidY[frameIndex] + 0.5f).Within(1f),
+                "몸 굽힘으로 달라진 세로 무게중심은 커스텀 피벗이 보정해야 합니다.");
+        }
 
         for (int frameIndex = 0; frameIndex < masks.Length; frameIndex++)
         {
             var current = masks[frameIndex];
-            var next = masks[(frameIndex + 1) % masks.Length];
+            int nextFrameIndex = (frameIndex + 1) % masks.Length;
+            var next = masks[nextFrameIndex];
+            int sampleOffsetX = Mathf.RoundToInt(
+                centroidX[nextFrameIndex] - centroidX[frameIndex]);
+            int sampleOffsetY = Mathf.RoundToInt(
+                centroidY[nextFrameIndex] - centroidY[frameIndex]);
             int union = 0;
             int changed = 0;
-            for (int i = 0; i < current.Length; i++)
+            for (int y = 0; y < frameHeight; y++)
             {
-                if (current[i] || next[i]) union++;
-                if (current[i] != next[i]) changed++;
+                for (int x = 0; x < frameWidth; x++)
+                {
+                    bool currentVisible = current[x + y * frameWidth];
+                    int sampleX = x + sampleOffsetX;
+                    int sampleY = y + sampleOffsetY;
+                    bool nextVisible =
+                        sampleX >= 0 && sampleX < frameWidth &&
+                        sampleY >= 0 && sampleY < frameHeight &&
+                        next[sampleX + sampleY * frameWidth];
+                    if (currentVisible || nextVisible) union++;
+                    if (currentVisible != nextVisible) changed++;
+                }
             }
 
             float changeRatio = changed / (float)union;
@@ -443,6 +542,14 @@ public sealed class MovingObstacleTests
     {
         target.GetType().GetField(fieldName,
             BindingFlags.Instance | BindingFlags.NonPublic)?.SetValue(target, value);
+    }
+
+    static void SetAutoProperty(object target, string propertyName, object value)
+    {
+        target.GetType().GetField(
+                $"<{propertyName}>k__BackingField",
+                BindingFlags.Instance | BindingFlags.NonPublic)
+            ?.SetValue(target, value);
     }
 
     static object GetField(object target, string fieldName)

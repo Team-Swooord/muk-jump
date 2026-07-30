@@ -29,6 +29,11 @@ namespace MukJump.Core
         /// 먹분신은 각각 물리·애니메이션을 가진 실제 목숨이다. 모바일에서 한 판이
         /// 무한히 무거워지지 않으면서도 화면을 먹떼로 채울 수 있는 안전 상한이다.
         public const int MaxLivingPlayers = 24;
+        /// 새 분신의 중심이 화면 벽과 겹치지 않게 남기는 월드 여백.
+        public const float CloneSpawnHorizontalMargin = 1.1f;
+        /// 획득자가 화면 경계에 있어도 새 분신이 즉시 추락하거나 상단에서 잘리지
+        /// 않게 하는 월드 여백.
+        public const float CloneSpawnVerticalMargin = 1.15f;
 
         public static GameManager Instance { get; private set; }
 
@@ -76,6 +81,7 @@ namespace MukJump.Core
         readonly List<PlayerController> players = new();
         readonly List<PlayerController> swarmScratch =
             new(MaxLivingPlayers);
+        int cloneSpawnEnvironmentMask = int.MinValue;
         readonly List<MonoBehaviour> cloneHookBehaviours = new();
         readonly List<IRuntimeCloneLifecycle> cloneHooks = new();
 
@@ -474,8 +480,31 @@ namespace MukJump.Core
             return true;
         }
 
+        /// 먹물방울은 한 마리만 화면 밖으로 이탈하지 않도록 현재 먹떼 전체에 같은
+        /// 상승 속도를 적용한다. 카메라는 기존 하위 중앙값을 유지해 남은 무리를 버리지 않는다.
+        public bool LaunchSwarmInkDrop(PlayerController collector, float height)
+        {
+            if (!IsGameplayTicking || collector == null || collector.IsDead)
+                return false;
+
+            GetLivingPlayersNonAlloc(swarmScratch);
+            if (swarmScratch.Count == 0)
+                return false;
+
+            for (int i = 0; i < swarmScratch.Count; i++)
+                swarmScratch[i].LaunchInkDrop(height, playCameraImpulse: false);
+
+            TryGetSwarmAnchor(out var representative, out _);
+            var impulseSource = representative != null ? representative : collector;
+            Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
+                impulseSource.transform,
+                Mathf.Lerp(1f, 1.5f, Mathf.InverseLerp(25f, 50f, height)));
+            return true;
+        }
+
         /// 먹은 캐릭터의 반대쪽 화면 절반 안에서만 후보를 만들고, 그 안에서 현재
-        /// 생존자들과 가장 멀리 떨어진 지점을 골라 좌우 규칙과 24마리 분산을 함께 지킨다.
+        /// 생존자·발판·장애물과 가장 멀리 떨어진 지점을 골라 좌우 규칙과
+        /// 24마리 분산을 함께 지킨다.
         Vector3 FindCloneSpawnPosition(PlayerController source, int cloneIndex)
         {
             Vector3 sourcePosition = source.transform.position;
@@ -491,11 +520,30 @@ namespace MukJump.Core
             }
 
             const int CandidateCount = 13;
+            const int VerticalCandidateCount = 5;
+            const float SpawnClearanceRadius = 0.52f;
             float halfWidth = worldCamera.orthographicSize * worldCamera.aspect;
             float cameraCenterX = worldCamera.transform.position.x;
-            float usableHalfWidth = Mathf.Max(0.1f, halfWidth - 0.65f);
+            float horizontalMargin = Mathf.Min(
+                CloneSpawnHorizontalMargin,
+                Mathf.Max(0f, halfWidth * 0.45f));
+            float usableHalfWidth = Mathf.Max(
+                0.1f,
+                halfWidth - horizontalMargin);
             float left = cameraCenterX - usableHalfWidth;
             float right = cameraCenterX + usableHalfWidth;
+            float halfHeight = worldCamera.orthographicSize;
+            float verticalMargin = Mathf.Min(
+                CloneSpawnVerticalMargin,
+                Mathf.Max(0f, halfHeight * 0.45f));
+            float safeBottom =
+                worldCamera.transform.position.y - halfHeight + verticalMargin;
+            float safeTop =
+                worldCamera.transform.position.y + halfHeight - verticalMargin;
+            float safeSourceY = Mathf.Clamp(
+                sourcePosition.y,
+                safeBottom,
+                safeTop);
             float direction = ResolveOppositeCloneSide(
                 sourcePosition.x, cameraCenterX, cloneIndex);
             float centerGap = Mathf.Min(0.25f, Mathf.Max(0f, (right - left) * 0.08f));
@@ -511,28 +559,68 @@ namespace MukJump.Core
             Vector3 best = sourcePosition;
             float bestClearance = float.NegativeInfinity;
             CleanupPlayers();
+            if (cloneSpawnEnvironmentMask == int.MinValue)
+                cloneSpawnEnvironmentMask =
+                    LayerMask.GetMask("Platform", "Obstacle");
+            Physics2D.SyncTransforms();
 
             for (int candidateIndex = 0; candidateIndex < CandidateCount; candidateIndex++)
             {
                 float order = (candidateIndex + cloneIndex * 5) % CandidateCount;
                 float x = Mathf.Lerp(
                     sideStart, sideEnd, order / (CandidateCount - 1f));
-                float y = sourcePosition.y + ((candidateIndex + cloneIndex) % 3 - 1) * 0.12f;
-                var candidate = new Vector3(x, y, sourcePosition.z);
-                float nearestSqr = float.PositiveInfinity;
-                for (int i = 0; i < players.Count; i++)
+                for (int verticalIndex = 0;
+                     verticalIndex < VerticalCandidateCount;
+                     verticalIndex++)
                 {
-                    if (players[i] == null || players[i].IsDead) continue;
-                    nearestSqr = Mathf.Min(
-                        nearestSqr,
-                        (players[i].transform.position - candidate).sqrMagnitude);
-                }
+                    int centeredIndex = (verticalIndex + 1) / 2;
+                    float signedOffset = verticalIndex == 0
+                        ? 0f
+                        : centeredIndex * 0.58f *
+                          (verticalIndex % 2 == 1 ? 1f : -1f);
+                    float y = Mathf.Clamp(
+                        safeSourceY + signedOffset,
+                        safeBottom,
+                        safeTop);
+                    var candidate = new Vector3(x, y, sourcePosition.z);
+                    if (cloneSpawnEnvironmentMask != 0 &&
+                        Physics2D.OverlapCircle(
+                            candidate,
+                            SpawnClearanceRadius,
+                            cloneSpawnEnvironmentMask) != null)
+                        continue;
 
-                // 거의 같은 여백이면 원본 가까이에 생겨 획득 연출이 자연스러운 후보를 택한다.
-                float score = nearestSqr - Mathf.Abs(x - sourcePosition.x) * 0.01f;
-                if (score <= bestClearance) continue;
-                bestClearance = score;
-                best = candidate;
+                    float nearestSqr = float.PositiveInfinity;
+                    for (int i = 0; i < players.Count; i++)
+                    {
+                        if (players[i] == null || players[i].IsDead) continue;
+                        nearestSqr = Mathf.Min(
+                            nearestSqr,
+                            (players[i].transform.position - candidate).sqrMagnitude);
+                    }
+
+                    // 거의 같은 여백이면 원본 가까이에 생겨 획득 연출이 자연스러운 후보를 택한다.
+                    float score = nearestSqr -
+                                  Mathf.Abs(x - sourcePosition.x) * 0.01f -
+                                  Mathf.Abs(y - safeSourceY) * 0.004f;
+                    if (score <= bestClearance) continue;
+                    bestClearance = score;
+                    best = candidate;
+                }
+            }
+
+            // 화면 절반이 모두 막힌 극단적인 경우에도 카메라 밖이나 수직 경계에는
+            // 생성하지 않는다. 생성 직후 유예가 겹친 판정을 한 차례 보호한다.
+            if (float.IsNegativeInfinity(bestClearance))
+            {
+                best = new Vector3(
+                    Mathf.Clamp(
+                        cameraCenterX +
+                        direction * Mathf.Min(0.9f, usableHalfWidth),
+                        left,
+                        right),
+                    safeSourceY,
+                    sourcePosition.z);
             }
             return best;
         }

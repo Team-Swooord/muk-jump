@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -36,6 +37,10 @@ namespace MukJump.EditorTools
             "Assets/Resources/MukJump/Background/Endless/map_06_heavenly_ink_river.png",
         };
         const string CharSheetPath = "Assets/Art/Character/Player/muk_spritesheet.png";
+        const string CharHitOneSheetPath =
+            "Assets/Resources/MukJump/Player/muk_spritesheet_hit_01.png";
+        const string CharHitTwoSheetPath =
+            "Assets/Resources/MukJump/Player/muk_spritesheet_hit_02.png";
         const string ObstaclePath = "Assets/Art/Character/Obstacles/anermy_01.png";
         const string DragonObstaclePath =
             "Assets/Resources/MukJump/Obstacles/child_ink_dragon.png";
@@ -145,7 +150,7 @@ namespace MukJump.EditorTools
             EnsureLayer("Item");
             EnsureLayer("Player");
             ConfigureBackground();
-            ConfigureCharacterSheet();
+            ConfigureCharacterSheets();
             ConfigureDeathSprites();
             ConfigureObstacleSprite();
             ConfigureDragonObstacleSprites();
@@ -551,6 +556,10 @@ namespace MukJump.EditorTools
             var so = new SerializedObject(animator);
             foreach (var name in CharFrameNames)
                 so.FindProperty(name).objectReferenceValue = frames[name];
+            AssignCharacterFrameArray(
+                so, "damageStageOneFrames", CharHitOneSheetPath);
+            AssignCharacterFrameArray(
+                so, "damageStageTwoFrames", CharHitTwoSheetPath);
             var deadProp = so.FindProperty("deadFrames");
             deadProp.arraySize = DeathFramePaths.Length;
             for (int i = 0; i < DeathFramePaths.Length; i++)
@@ -603,6 +612,35 @@ namespace MukJump.EditorTools
                     Debug.LogWarning($"[MukJump] 캐릭터 프레임을 찾을 수 없음: {name} ({CharSheetPath})");
             }
             return frames;
+        }
+
+        static void AssignCharacterFrameArray(
+            SerializedObject animator,
+            string propertyName,
+            string sheetPath)
+        {
+            var property = animator.FindProperty(propertyName);
+            if (property == null) return;
+
+            var sprites = AssetDatabase.LoadAllAssetsAtPath(sheetPath);
+            property.arraySize = CharFrameNames.Length;
+            for (int frameIndex = 0;
+                 frameIndex < CharFrameNames.Length;
+                 frameIndex++)
+            {
+                Sprite frame = null;
+                for (int assetIndex = 0; assetIndex < sprites.Length; assetIndex++)
+                {
+                    if (sprites[assetIndex] is Sprite candidate &&
+                        candidate.name == CharFrameNames[frameIndex])
+                    {
+                        frame = candidate;
+                        break;
+                    }
+                }
+                property.GetArrayElementAtIndex(frameIndex).objectReferenceValue =
+                    frame;
+            }
         }
 
         static void BuildSystems(
@@ -1365,6 +1403,12 @@ namespace MukJump.EditorTools
             importer.SetTextureSettings(importerSettings);
 
             var metas = new SpriteMetaData[columns * rows];
+            Vector2[] visualPivots = CalculateOpaqueCentroidPivots(
+                DragonObstacleSheetPath,
+                columns,
+                rows,
+                frameWidth,
+                frameHeight);
             for (int i = 0; i < metas.Length; i++)
             {
                 int column = i % columns;
@@ -1377,14 +1421,78 @@ namespace MukJump.EditorTools
                         (rows - 1 - row) * frameHeight,
                         frameWidth,
                         frameHeight),
-                    alignment = (int)SpriteAlignment.Center,
-                    pivot = new Vector2(0.5f, 0.5f),
+                    // 프레임마다 몸을 굽히면서 원화 중심이 움직여도 실제 먹 실루엣의
+                    // 무게중심은 같은 Transform에 고정해 애니메이션 떨림을 막는다.
+                    alignment = (int)SpriteAlignment.Custom,
+                    pivot = visualPivots != null &&
+                            i < visualPivots.Length
+                        ? visualPivots[i]
+                        : new Vector2(0.5f, 0.5f),
                 };
             }
 #pragma warning disable CS0618
             importer.spritesheet = metas;
 #pragma warning restore CS0618
             importer.SaveAndReimport();
+        }
+
+        static Vector2[] CalculateOpaqueCentroidPivots(
+            string assetPath,
+            int columns,
+            int rows,
+            int frameWidth,
+            int frameHeight)
+        {
+            string projectRoot = Path.GetDirectoryName(Application.dataPath);
+            if (string.IsNullOrEmpty(projectRoot))
+                return null;
+            string fullPath = Path.Combine(projectRoot, assetPath);
+            if (!File.Exists(fullPath))
+                return null;
+
+            var source = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                if (!ImageConversion.LoadImage(
+                        source, File.ReadAllBytes(fullPath), false))
+                    return null;
+
+                Color32[] pixels = source.GetPixels32();
+                var pivots = new Vector2[columns * rows];
+                for (int frame = 0; frame < pivots.Length; frame++)
+                {
+                    int column = frame % columns;
+                    int row = frame / columns;
+                    int originX = column * frameWidth;
+                    int originY = (rows - 1 - row) * frameHeight;
+                    long sumX = 0;
+                    long sumY = 0;
+                    int visibleCount = 0;
+                    for (int y = 0; y < frameHeight; y++)
+                    {
+                        for (int x = 0; x < frameWidth; x++)
+                        {
+                            int sourceIndex =
+                                originX + x + (originY + y) * source.width;
+                            if (pixels[sourceIndex].a < 128) continue;
+                            sumX += x;
+                            sumY += y;
+                            visibleCount++;
+                        }
+                    }
+
+                    pivots[frame] = visibleCount > 0
+                        ? new Vector2(
+                            (sumX / (float)visibleCount + 0.5f) / frameWidth,
+                            (sumY / (float)visibleCount + 0.5f) / frameHeight)
+                        : new Vector2(0.5f, 0.5f);
+                }
+                return pivots;
+            }
+            finally
+            {
+                Object.DestroyImmediate(source);
+            }
         }
 
         static Sprite[] LoadDragonObstacleFrames()
@@ -1656,12 +1764,20 @@ namespace MukJump.EditorTools
         }
 
         /// 4×2 스프라이트시트를 8개의 서브스프라이트로 슬라이스하고 CharFrameNames 순서대로 이름을 붙인다
-        static void ConfigureCharacterSheet()
+        [MenuItem("MukJump/Configure Character Sheets")]
+        public static void ConfigureCharacterSheets()
         {
-            var importer = (TextureImporter)AssetImporter.GetAtPath(CharSheetPath);
+            ConfigureCharacterSheet(CharSheetPath);
+            ConfigureCharacterSheet(CharHitOneSheetPath);
+            ConfigureCharacterSheet(CharHitTwoSheetPath);
+        }
+
+        static void ConfigureCharacterSheet(string sheetPath)
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(sheetPath);
             if (importer == null)
             {
-                Debug.LogWarning($"[MukJump] 텍스처를 찾을 수 없음: {CharSheetPath}");
+                Debug.LogWarning($"[MukJump] 텍스처를 찾을 수 없음: {sheetPath}");
                 return;
             }
 
