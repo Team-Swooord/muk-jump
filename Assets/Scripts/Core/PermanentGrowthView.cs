@@ -62,6 +62,7 @@ namespace MukJump.Core
         int lastScreenWidth;
         int lastScreenHeight;
         float purchaseLockedUntil;
+        bool purchaseInProgress;
         float purchaseFlowStartedAt;
         GrowthRow purchaseFlowRow;
         int selectedSlot;
@@ -178,6 +179,9 @@ namespace MukJump.Core
 
         void HandleBackRequested()
         {
+            if (Time.unscaledTime < purchaseLockedUntil)
+                return;
+
             LobbyScreenNavigator navigator =
                 LobbyScreenNavigator.Instance != null
                     ? LobbyScreenNavigator.Instance
@@ -846,12 +850,24 @@ namespace MukJump.Core
         void HandlePurchase(int slot)
         {
             if (slot < 0 || slot >= rows.Count) return;
-            if (Time.unscaledTime < purchaseLockedUntil) return;
-            GrowthRow row = rows[slot];
-            if (!PermanentGrowthProfile.TryPurchase(row.Type)) return;
+            if (purchaseInProgress ||
+                Time.unscaledTime < purchaseLockedUntil)
+                return;
 
+            GrowthRow row = rows[slot];
+            int previousLevel =
+                PermanentGrowthProfile.GetLevel(row.Type);
+            if (!TryPurchaseWithoutReentry(row.Type)) return;
+
+            int purchasedLevel =
+                PermanentGrowthProfile.GetLevel(row.Type);
+            bool firstUnlock =
+                previousLevel == 0 && purchasedLevel == 1;
             purchaseLockedUntil =
-                Time.unscaledTime + PurchaseFlowDuration;
+                Time.unscaledTime +
+                (firstUnlock
+                    ? GrowthUnlockPresentation.SequenceDuration
+                    : PurchaseFlowDuration);
             purchaseFlowStartedAt = Time.unscaledTime;
             purchaseFlowRow = row;
             if (trunkRedFlow != null)
@@ -869,10 +885,35 @@ namespace MukJump.Core
             // 프로필 변경 이벤트의 수신 순서와 무관하게 구매 직후 단계·비용·
             // 가지 진행도를 같은 프레임에 확정한다.
             Refresh();
-            Vector2 screenPosition = RectTransformUtility.WorldToScreenPoint(
-                null,
-                row.Icon.rectTransform.position);
-            InkUiFeedbackController.PlayLevelUp(screenPosition);
+            if (firstUnlock)
+            {
+                PermanentGrowthDefinition definition =
+                    PermanentGrowthCatalog.Get(row.Type);
+                InkUiFeedbackController.PlayGrowthUnlock(
+                    definition?.Name,
+                    row.Icon.sprite);
+            }
+            else
+            {
+                Vector2 screenPosition =
+                    RectTransformUtility.WorldToScreenPoint(
+                        null,
+                        row.Icon.rectTransform.position);
+                InkUiFeedbackController.PlayLevelUp(screenPosition);
+            }
+        }
+
+        bool TryPurchaseWithoutReentry(PermanentGrowthType type)
+        {
+            purchaseInProgress = true;
+            try
+            {
+                return PermanentGrowthProfile.TryPurchase(type);
+            }
+            finally
+            {
+                purchaseInProgress = false;
+            }
         }
 
         void UpdatePurchaseFlow()

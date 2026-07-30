@@ -33,6 +33,7 @@ namespace MukJump.Core
         RectTransform sealRect;
         Text sealText;
         CanvasGroup sealGroup;
+        GrowthUnlockPresentation unlockPresentation;
         int nextMark;
         int emissionSerial;
         bool sealActive;
@@ -72,6 +73,7 @@ namespace MukJump.Core
             sealActive = false;
             if (sealGroup != null)
                 sealGroup.alpha = 0f;
+            unlockPresentation?.ResetPresentation();
         }
 
         void Update()
@@ -107,6 +109,15 @@ namespace MukJump.Core
         public static void PlayLevelUp(Vector2 screenPosition)
         {
             Resolve()?.EmitLevelUp(screenPosition);
+        }
+
+        public static void PlayGrowthUnlock(
+            string growthName,
+            Sprite growthIcon)
+        {
+            Resolve()?.EmitGrowthUnlock(
+                growthName,
+                growthIcon);
         }
 
         static InkUiFeedbackController Resolve()
@@ -147,6 +158,13 @@ namespace MukJump.Core
             canvasRoot.anchorMax = Vector2.one;
             canvasRoot.offsetMin = Vector2.zero;
             canvasRoot.offsetMax = Vector2.zero;
+
+            unlockPresentation =
+                GetComponent<GrowthUnlockPresentation>();
+            if (unlockPresentation == null)
+                unlockPresentation =
+                    gameObject.AddComponent<GrowthUnlockPresentation>();
+            unlockPresentation.Initialize(canvasRoot);
 
             Sprite blob = InkUiTextureFactory.CreateBlobSprite();
             for (int i = 0; i < marks.Length; i++)
@@ -248,6 +266,14 @@ namespace MukJump.Core
             sealGroup.alpha = 1f;
             sealStartedAt = Time.unscaledTime;
             sealActive = true;
+        }
+
+        void EmitGrowthUnlock(
+            string growthName,
+            Sprite growthIcon)
+        {
+            EnsureInitialized();
+            unlockPresentation?.Play(growthName, growthIcon);
         }
 
         void Spawn(

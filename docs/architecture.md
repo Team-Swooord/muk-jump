@@ -77,6 +77,12 @@ asmdef로 강제되지는 않는다. `Core` 안의 UI가 일부 Gameplay 타입�
 | `GoldenBrushEffectView` | 모든 분신의 황금 붓 표현 | 게임 전체 1묶음(렌더러 24) | 효과 종료 시 숨김 |
 | `DeathInkStainPool` | 죽음 뒤 남는 한지 먹 자국 | 최대 20 | 상한 초과 시 가장 오래된 자국 즉시 재사용 |
 
+`GrowthUnlockPresentation`은 풀 대여 대상이 아니라 `InkUiFeedbackController`가 한 번
+미리 만드는 고정 UI 계층이다. 영구 성장의 첫 0→1단계에서만 같은 대각선 먹획,
+먹물 파열, 먹고리와 방울 슬롯을 초기화해 재생하며 입력 Raycast를 소유하지 않는다.
+Low·Medium·High는 핵심 먹획·해금 아이콘·제목을 유지하고 장식 방울 수만
+4/6/8개로 바꾼다.
+
 풀 규칙은 다음과 같다.
 
 1. 팩토리는 최초 필요 시에만 객체를 만든다.
