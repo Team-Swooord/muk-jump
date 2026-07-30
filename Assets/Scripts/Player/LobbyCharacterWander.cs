@@ -14,7 +14,8 @@ namespace MukJump.Player
         [SerializeField, Min(0f)] float bobHeight = 0.045f;
         [SerializeField, Min(0.1f)] float bobFrequency = 4.2f;
         [SerializeField, Min(0f)] float rollAngle = 1.8f;
-        [SerializeField] float fallbackHalfWidth = 5.35f;
+        [SerializeField] float fallbackHalfWidth =
+            LobbyWorldSetup.StarterPlatformHalfWidth;
 
         Rigidbody2D body;
         SpriteRenderer spriteRenderer;

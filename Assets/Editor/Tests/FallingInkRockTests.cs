@@ -363,7 +363,9 @@ public class FallingInkRockTests
         var lobbyWanderSerialized = new SerializedObject(lobbyWander);
         Assert.That(
             lobbyWanderSerialized.FindProperty("fallbackHalfWidth").floatValue,
-            Is.EqualTo(5.35f).Within(0.001f));
+            Is.EqualTo(LobbyWorldSetup.StarterPlatformHalfWidth).Within(0.001f));
+        Assert.IsNotNull(FindFirstInScene<LobbyWorldSetup>(builderTestScene),
+            "씬 빌더가 구버전 로비 지형도 같은 규칙으로 복구할 런타임 구성을 만들어야 합니다.");
         PlatformCollider starterPlatform = null;
         var builtPlatforms = FindAllInScene<PlatformCollider>(builderTestScene);
         for (int i = 0; i < builtPlatforms.Length; i++)
@@ -373,12 +375,18 @@ public class FallingInkRockTests
             "명시적 시작 버튼은 캐릭터가 즉사하지 않을 영구 시작 발판과 함께 생성돼야 합니다.");
         var starterEdge = starterPlatform.GetComponent<EdgeCollider2D>();
         Assert.AreEqual(2, starterEdge.pointCount);
-        Assert.That(starterEdge.points[0].x, Is.EqualTo(-5.35f).Within(0.001f));
-        Assert.That(starterEdge.points[1].x, Is.EqualTo(5.35f).Within(0.001f));
+        Assert.That(
+            starterEdge.points[0].x,
+            Is.EqualTo(-LobbyWorldSetup.StarterPlatformHalfWidth).Within(0.001f));
+        Assert.That(
+            starterEdge.points[1].x,
+            Is.EqualTo(LobbyWorldSetup.StarterPlatformHalfWidth).Within(0.001f));
         Assert.That(starterEdge.points[0].y, Is.EqualTo(0f).Within(0.001f));
         Assert.That(starterEdge.points[1].y, Is.EqualTo(0f).Within(0.001f));
         Assert.That(starterPlatform.transform.position.y,
-            Is.EqualTo(player.transform.position.y - 0.42f).Within(0.001f));
+            Is.EqualTo(
+                player.transform.position.y -
+                LobbyWorldSetup.StarterPlatformYOffset).Within(0.001f));
 
         var inkDropVfx = FindFirstInScene<InkDropJumpVfx>(builderTestScene);
         Assert.IsNotNull(inkDropVfx);

@@ -388,8 +388,8 @@ namespace MukJump.EditorTools
             var edge = go.AddComponent<EdgeCollider2D>();
             edge.points = new[]
             {
-                new Vector2(-5.35f, 0f),
-                new Vector2(5.35f, 0f),
+                new Vector2(-LobbyWorldSetup.StarterPlatformHalfWidth, 0f),
+                new Vector2(LobbyWorldSetup.StarterPlatformHalfWidth, 0f),
             };
             edge.edgeRadius = 0.06f;
             go.AddComponent<PlatformCollider>();
@@ -423,6 +423,7 @@ namespace MukJump.EditorTools
 
             var go = new GameObject("Systems");
             go.AddComponent<GameManager>();
+            go.AddComponent<LobbyWorldSetup>();
             go.AddComponent<BrushTransitionView>();
             go.AddComponent<GameOverPopupView>();
             go.AddComponent<PauseMenuView>();
