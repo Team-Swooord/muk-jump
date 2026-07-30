@@ -3,13 +3,16 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 로비 옵션, 로컬 소리 설정, 플랫폼 연동 안내와 4장 튜토리얼을 제공한다.
-    /// 실제 Google/Apple 인증은 하지 않으며 버튼의 정보 구조만 제출 버전에 포함한다.
+    /// 로비 옵션, 로컬 소리 설정, 지원 안내와 4장 튜토리얼을 제공한다.
+    /// 실제 고객센터·Google/Apple 연결은 하지 않으며 준비 중 정보만 제공한다.
     [DisallowMultipleComponent]
     public sealed class LobbyOptionsView : MonoBehaviour
     {
         const int CanvasSortingOrder = 4150;
         const int TutorialPageCountValue = 4;
+        const float PanelWidth = 900f;
+        const float PanelHeight = 1510f;
+        const float SafeAreaPadding = 40f;
 
         static readonly string[] TutorialTitles =
         {
@@ -39,6 +42,7 @@ namespace MukJump.Core
         CanvasGroup optionsGroup;
         CanvasGroup tutorialGroup;
         RectTransform safeAreaRoot;
+        RectTransform optionsPanel;
         Slider bgmSlider;
         Slider sfxSlider;
         Text bgmValue;
@@ -212,16 +216,16 @@ namespace MukJump.Core
                 new Color(0.025f, 0.023f, 0.02f, 0.66f));
             dim.raycastTarget = true;
             safeAreaRoot = CreateStretchRect("SafeAreaRoot", root.transform);
-            var panel = CreateRect(
+            optionsPanel = CreateRect(
                 "OptionsScroll",
                 safeAreaRoot,
                 Vector2.zero,
-                new Vector2(900f, 1510f));
-            BuildScrollFrame(panel);
+                new Vector2(PanelWidth, PanelHeight));
+            BuildScrollFrame(optionsPanel);
 
-            optionsGroup = CreatePageGroup("OptionsPage", panel);
+            optionsGroup = CreatePageGroup("OptionsPage", optionsPanel);
             BuildOptionsPage(optionsGroup.transform);
-            tutorialGroup = CreatePageGroup("TutorialPage", panel);
+            tutorialGroup = CreatePageGroup("TutorialPage", optionsPanel);
             BuildTutorialPage(tutorialGroup.transform);
 
             ApplySafeArea();
@@ -231,26 +235,35 @@ namespace MukJump.Core
         void BuildOptionsPage(Transform panel)
         {
             CreateReadableText(
-                "Title", panel, "옵션", InkUiStyle.ScreenTitleSize,
+                "Title", panel, "설정", InkUiStyle.ScreenTitleSize,
                 new Vector2(0f, 620f), new Vector2(700f, 86f),
                 InkPalette.TextDark);
             CreateReadableText(
-                "Subtitle", panel, "게임 설정과 쉬운 4장 가이드",
-                InkUiStyle.BodySize,
-                new Vector2(0f, 545f), new Vector2(730f, 62f),
+                "Version", panel, $"v{Application.version}",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, 550f), new Vector2(360f, 48f),
                 InkPalette.TextMuted);
 
-            var guide = CreatePaperButton(
-                "GuideButton", panel, "게임 방법   ·   4장",
-                new Vector2(0f, 430f), new Vector2(740f, 126f),
-                InkUiStyle.CardTitleSize);
-            guide.onClick.AddListener(() => ShowTutorialPage(0));
+            var uidButton = CreatePaperButton(
+                "UidButton", panel, string.Empty,
+                new Vector2(0f, 455f),
+                new Vector2(740f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.BodySize);
+            uidText = uidButton.transform
+                .Find("Paper/Label")?.GetComponent<Text>();
+            uidButton.onClick.AddListener(CopyUid);
 
-            CreateAudioRow(
+            CreateReadableText(
+                "AudioCaption", panel, "소리",
+                InkUiStyle.CaptionSize,
+                new Vector2(-305f, 370f), new Vector2(130f, 48f),
+                InkPalette.TextDark, TextAnchor.MiddleLeft);
+
+            CreateAudioCard(
                 panel,
-                "BgmRow",
+                "BgmCard",
                 "배경음",
-                new Vector2(0f, 260f),
+                new Vector2(-190f, 215f),
                 out bgmSlider,
                 out bgmValue,
                 out Button bgmToggle,
@@ -258,11 +271,11 @@ namespace MukJump.Core
             bgmSlider.onValueChanged.AddListener(HandleBgmChanged);
             bgmToggle.onClick.AddListener(ToggleBgm);
 
-            CreateAudioRow(
+            CreateAudioCard(
                 panel,
-                "SfxRow",
+                "SfxCard",
                 "효과음",
-                new Vector2(0f, 90f),
+                new Vector2(190f, 215f),
                 out sfxSlider,
                 out sfxValue,
                 out Button sfxToggle,
@@ -271,48 +284,56 @@ namespace MukJump.Core
             sfxToggle.onClick.AddListener(ToggleSfx);
 
             CreateReadableText(
-                "AccountCaption", panel, "계정 연동",
-                InkUiStyle.BodySize,
-                new Vector2(-255f, -42f), new Vector2(250f, 56f),
+                "HelpCaption", panel, "도움과 정보",
+                InkUiStyle.CaptionSize,
+                new Vector2(-275f, 30f), new Vector2(200f, 48f),
                 InkPalette.TextDark, TextAnchor.MiddleLeft);
-            var google = CreatePaperButton(
-                "GoogleConnectButton", panel, "Google Play   준비 중",
-                new Vector2(0f, -130f), new Vector2(740f, 100f),
-                InkUiStyle.BodySize);
-            var apple = CreatePaperButton(
-                "AppleConnectButton", panel, "Apple   준비 중",
-                new Vector2(0f, -245f), new Vector2(740f, 100f),
-                InkUiStyle.BodySize);
-            google.onClick.AddListener(ShowConnectionGuide);
-            apple.onClick.AddListener(ShowConnectionGuide);
+
+            var language = CreateUtilityButton(
+                "LanguageButton", panel, "한", "언어\n한국어 · 고정",
+                new Vector2(-190f, -95f));
+            language.onClick.AddListener(ShowLanguageGuide);
+            var support = CreateUtilityButton(
+                "CustomerCenterButton", panel, "문", "고객센터\n준비 중",
+                new Vector2(190f, -95f));
+            support.onClick.AddListener(ShowCustomerCenterGuide);
+            var account = CreateUtilityButton(
+                "AccountConnectButton", panel, "계",
+                "계정 연동\nGoogle · Apple",
+                new Vector2(-190f, -235f));
+            account.onClick.AddListener(ShowConnectionGuide);
+            var guide = CreateUtilityButton(
+                "GuideButton", panel, "책", "튜토리얼\n4장 다시 보기",
+                new Vector2(190f, -235f));
+            guide.onClick.AddListener(() => ShowTutorialPage(0));
 
             connectionStatus = CreateReadableText(
                 "ConnectionStatus", panel,
-                "제출 버전은 로컬 저장으로 플레이합니다",
+                "설정은 이 기기에 안전하게 저장됩니다",
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, -330f), new Vector2(720f, 52f),
+                new Vector2(0f, -345f), new Vector2(720f, 60f),
                 InkPalette.TextMuted);
-
-            var uidButton = CreatePaperButton(
-                "UidButton", panel, string.Empty,
-                new Vector2(0f, -425f), new Vector2(740f, 104f),
-                InkUiStyle.BodySize);
-            uidText = uidButton.transform
-                .Find("Paper/Label")?.GetComponent<Text>();
-            uidButton.onClick.AddListener(CopyUid);
 
             var close = CreateBrushButton(
                 "CloseButton", panel, "닫기",
-                new Vector2(0f, -610f), new Vector2(420f, 96f),
+                new Vector2(0f, -490f), new Vector2(420f, 120f),
                 InkUiStyle.CardTitleSize);
             close.onClick.AddListener(Close);
+
+            CreateReadableText(
+                "PrivacyCaption", panel,
+                "로컬 저장 · 개인정보 수집 없음",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, -625f), new Vector2(720f, 48f),
+                InkPalette.TextMuted);
         }
 
         void BuildTutorialPage(Transform panel)
         {
             var close = CreatePaperButton(
                 "TutorialClose", panel, "옵션으로",
-                new Vector2(-265f, 625f), new Vector2(210f, 82f),
+                new Vector2(-265f, 625f),
+                new Vector2(210f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.CaptionSize);
             close.onClick.AddListener(ShowOptionsPage);
 
@@ -349,19 +370,21 @@ namespace MukJump.Core
 
             tutorialPreviousButton = CreatePaperButton(
                 "PreviousButton", panel, "이전",
-                new Vector2(-225f, -540f), new Vector2(250f, 100f),
+                new Vector2(-225f, -540f),
+                new Vector2(250f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.BodySize);
             tutorialPreviousButton.onClick.AddListener(PreviousTutorialPage);
             var next = CreateBrushButton(
                 "NextButton", panel, "다음",
-                new Vector2(225f, -540f), new Vector2(350f, 100f),
+                new Vector2(225f, -540f),
+                new Vector2(350f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.BodySize);
             tutorialNextLabel = next.transform
                 .Find("Label")?.GetComponent<Text>();
             next.onClick.AddListener(NextTutorialPage);
         }
 
-        void CreateAudioRow(
+        void CreateAudioCard(
             Transform parent,
             string objectName,
             string label,
@@ -375,27 +398,33 @@ namespace MukJump.Core
                 objectName,
                 parent,
                 position,
-                new Vector2(740f, 140f));
+                new Vector2(350f, 280f));
+            CreateImage(
+                "Outline", root, null, Vector2.zero,
+                new Vector2(350f, 280f), InkPalette.Ink);
+            var paper = CreateImage(
+                "Paper", root, null, Vector2.zero,
+                new Vector2(340f, 270f), InkPalette.Paper2);
             CreateReadableText(
-                "Label", root, label, InkUiStyle.BodySize,
-                new Vector2(-278f, 22f), new Vector2(170f, 54f),
+                "Label", paper.transform, label, InkUiStyle.CardTitleSize,
+                new Vector2(-62f, 78f), new Vector2(185f, 58f),
                 InkPalette.TextDark, TextAnchor.MiddleLeft);
             valueText = CreateReadableText(
-                "Value", root, "100", InkUiStyle.CaptionSize,
-                new Vector2(272f, 22f), new Vector2(120f, 50f),
+                "Value", paper.transform, "100%", InkUiStyle.CaptionSize,
+                new Vector2(104f, 78f), new Vector2(100f, 50f),
                 InkPalette.TextDark, TextAnchor.MiddleRight);
 
             slider = CreateInkSlider(
                 "Slider",
-                root,
-                new Vector2(-35f, -35f),
-                new Vector2(480f, 54f));
+                paper.transform,
+                new Vector2(0f, 15f),
+                new Vector2(280f, 54f));
             toggle = CreatePaperButton(
                 "Toggle",
-                root,
+                paper.transform,
                 "켜짐",
-                new Vector2(300f, -35f),
-                new Vector2(130f, 70f),
+                new Vector2(0f, -70f),
+                new Vector2(280f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.CaptionSize);
             toggleLabel = toggle.transform
                 .Find("Paper/Label")?.GetComponent<Text>();
@@ -440,7 +469,8 @@ namespace MukJump.Core
             bgmSlider.value = LobbySettingsProfile.BgmVolume;
             sfxSlider.value = LobbySettingsProfile.SfxVolume;
             suppressSliderCallbacks = false;
-            uidText.text = $"플레이어 UID   {LobbySettingsProfile.PlayerUid}";
+            uidText.text =
+                $"플레이어 UID   {LobbySettingsProfile.PlayerUid}   복사";
             RefreshAudioLabels();
         }
 
@@ -448,11 +478,9 @@ namespace MukJump.Core
         {
             if (bgmValue == null || sfxValue == null) return;
             bgmValue.text =
-                Mathf.RoundToInt(LobbySettingsProfile.BgmVolume * 100f)
-                    .ToString();
+                $"{Mathf.RoundToInt(LobbySettingsProfile.BgmVolume * 100f)}%";
             sfxValue.text =
-                Mathf.RoundToInt(LobbySettingsProfile.SfxVolume * 100f)
-                    .ToString();
+                $"{Mathf.RoundToInt(LobbySettingsProfile.SfxVolume * 100f)}%";
             bgmToggleLabel.text =
                 LobbySettingsProfile.BgmVolume > 0.01f ? "켜짐" : "꺼짐";
             sfxToggleLabel.text =
@@ -462,7 +490,18 @@ namespace MukJump.Core
         void ShowConnectionGuide()
         {
             connectionStatus.text =
-                "연동 버튼 가이드만 제공하며 실제 로그인은 하지 않습니다";
+                "Google Play · Apple 계정 연동은 준비 중입니다";
+        }
+
+        void ShowLanguageGuide()
+        {
+            connectionStatus.text = "현재 한국어를 지원합니다";
+        }
+
+        void ShowCustomerCenterGuide()
+        {
+            connectionStatus.text =
+                "고객센터는 제출 버전에서 준비 중입니다";
         }
 
         void CopyUid()
@@ -553,6 +592,22 @@ namespace MukJump.Core
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
             lastSafeArea = safe;
+
+            float referenceScale = 1920f / Screen.height;
+            Vector2 logicalSafeSize = new(
+                safe.width * referenceScale,
+                safe.height * referenceScale);
+            float usableWidth = Mathf.Max(
+                1f,
+                logicalSafeSize.x - SafeAreaPadding);
+            float usableHeight = Mathf.Max(
+                1f,
+                logicalSafeSize.y - SafeAreaPadding);
+            float panelScale = Mathf.Clamp01(Mathf.Min(
+                usableWidth / PanelWidth,
+                usableHeight / PanelHeight));
+            if (optionsPanel != null)
+                optionsPanel.localScale = Vector3.one * panelScale;
         }
 
         static CanvasGroup CreatePageGroup(string name, Transform parent)
@@ -600,6 +655,10 @@ namespace MukJump.Core
             Vector2 size)
         {
             var root = CreateRect(objectName, parent, position, size);
+            var hitArea = CreateImage(
+                "HitArea", root, null, Vector2.zero, size,
+                new Color(0f, 0f, 0f, 0.001f));
+            hitArea.raycastTarget = true;
             var track = CreateImage(
                 "Track", root, null, Vector2.zero,
                 new Vector2(size.x, 16f),
@@ -646,6 +705,51 @@ namespace MukJump.Core
             return slider;
         }
 
+        static Button CreateUtilityButton(
+            string objectName,
+            Transform parent,
+            string glyph,
+            string label,
+            Vector2 position)
+        {
+            var button = CreatePaperButton(
+                objectName,
+                parent,
+                label,
+                position,
+                new Vector2(350f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.BodySize);
+            Transform paper = button.transform.Find("Paper");
+            var labelText = paper?.Find("Label")?.GetComponent<Text>();
+            if (labelText != null)
+            {
+                labelText.rectTransform.anchoredPosition =
+                    new Vector2(45f, 0f);
+                labelText.rectTransform.sizeDelta =
+                    new Vector2(230f, 102f);
+                labelText.alignment = TextAnchor.MiddleLeft;
+                labelText.lineSpacing = 0.9f;
+            }
+
+            if (paper == null) return button;
+            var icon = CreateImage(
+                "IconInk",
+                paper,
+                InkUiTextureFactory.CreateBlobSprite(),
+                new Vector2(-125f, 0f),
+                new Vector2(70f, 70f),
+                InkPalette.Ink);
+            CreateReadableText(
+                "Glyph",
+                icon.transform,
+                glyph,
+                InkUiStyle.CaptionSize,
+                Vector2.zero,
+                new Vector2(58f, 58f),
+                InkPalette.TextLight);
+            return button;
+        }
+
         static Button CreatePaperButton(
             string objectName,
             Transform parent,
@@ -656,6 +760,7 @@ namespace MukJump.Core
         {
             var outline = CreateImage(
                 objectName, parent, null, position, size, InkPalette.Ink);
+            outline.raycastTarget = true;
             var paper = CreateImage(
                 "Paper", outline.transform, null, Vector2.zero,
                 size - new Vector2(10f, 10f), InkPalette.Paper2);

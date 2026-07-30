@@ -103,6 +103,66 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void OptionsUsesTwoColumnSupportLayoutWithTutorialBelowCustomerCenter()
+        {
+            managerHost = new GameObject("LobbyOptionsLayoutManager");
+            var manager = managerHost.AddComponent<GameManager>();
+            Invoke(manager, "OnEnable");
+            viewHost = new GameObject("LobbyOptionsLayoutHost");
+            var optionsView = viewHost.AddComponent<LobbyOptionsView>();
+            optionsView.BuildForTests();
+            optionsView.Open();
+
+            Transform page = viewHost.transform.Find(
+                "LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/OptionsPage");
+            Assert.IsNotNull(page);
+            RectTransform uid = RequireRect(page, "UidButton");
+            RectTransform bgm = RequireRect(page, "BgmCard");
+            RectTransform sfx = RequireRect(page, "SfxCard");
+            RectTransform support = RequireRect(page, "CustomerCenterButton");
+            RectTransform tutorial = RequireRect(page, "GuideButton");
+
+            Assert.That(uid.anchoredPosition.y, Is.GreaterThan(bgm.anchoredPosition.y));
+            Assert.That(bgm.anchoredPosition.y, Is.EqualTo(sfx.anchoredPosition.y));
+            Assert.That(bgm.anchoredPosition.x, Is.EqualTo(-sfx.anchoredPosition.x));
+            Assert.That(support.anchoredPosition.x,
+                Is.EqualTo(tutorial.anchoredPosition.x));
+            Assert.That(support.anchoredPosition.y,
+                Is.GreaterThan(tutorial.anchoredPosition.y),
+                "튜토리얼은 고객센터 바로 아래 같은 열에 배치해야 합니다.");
+
+            AssertMajorOptionButton(page, "LanguageButton");
+            AssertMajorOptionButton(page, "CustomerCenterButton");
+            AssertMajorOptionButton(page, "AccountConnectButton");
+            AssertMajorOptionButton(page, "GuideButton");
+            AssertMajorOptionButton(page, "CloseButton");
+
+            page.Find("CustomerCenterButton")
+                ?.GetComponent<Button>()
+                ?.onClick.Invoke();
+            Text status = page.Find("ConnectionStatus")?.GetComponent<Text>();
+            Assert.IsNotNull(status);
+            Assert.That(status.text, Does.Contain("고객센터"));
+            Assert.That(status.text, Does.Contain("준비 중"));
+
+            page.Find("GuideButton")?.GetComponent<Button>()?.onClick.Invoke();
+            Assert.That(optionsView.IsTutorialOpen, Is.True);
+            Assert.That(page.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
+            Assert.That(
+                page.parent.Find("TutorialPage")
+                    ?.GetComponent<CanvasGroup>()
+                    ?.blocksRaycasts,
+                Is.True);
+
+            optionsView.Close();
+            CanvasGroup root = viewHost.transform
+                .Find("LobbyOptionsCanvas")
+                ?.GetComponent<CanvasGroup>();
+            Assert.IsNotNull(root);
+            Assert.That(root.blocksRaycasts, Is.False);
+        }
+
+        [Test]
         public void LobbySettingsMemoryStorePersistsAudioTutorialAndUid()
         {
             LobbySettingsProfile.SetBgmVolume(0.35f);
@@ -251,6 +311,27 @@ namespace MukJump.EditorTests
             label.transform.SetParent(root.transform, false);
             label.GetComponent<Text>().text = value;
             return button;
+        }
+
+        static RectTransform RequireRect(Transform parent, string objectName)
+        {
+            var rect = parent.Find(objectName)?.GetComponent<RectTransform>();
+            Assert.IsNotNull(rect, $"{objectName} RectTransform이 필요합니다.");
+            return rect;
+        }
+
+        static void AssertMajorOptionButton(Transform parent, string objectName)
+        {
+            Transform target = parent.Find(objectName);
+            Assert.IsNotNull(target, $"{objectName} 버튼이 필요합니다.");
+            var rect = target.GetComponent<RectTransform>();
+            var button = target.GetComponent<Button>();
+            Assert.IsNotNull(rect);
+            Assert.IsNotNull(button);
+            Assert.That(rect.sizeDelta.y,
+                Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight));
+            Assert.IsNotNull(button.targetGraphic);
+            Assert.That(button.targetGraphic.raycastTarget, Is.True);
         }
 
         static void AssertMenuLayout(

@@ -300,9 +300,11 @@ kinematic body와 fixed step 이동을 사용한다.
 - `LobbyCollectionView`는 카탈로그를 읽는 표현 계층이다. 전체 100종 수와 무관하게
   2×2 카드 네 개만 만들고 페이지마다 내용을 교체한다. 도감 UI가 노드를 활성화하거나
   `RunGrowthController`의 레벨을 직접 변경할 수 없다.
-- `LobbyOptionsView`는 로비 전용 4장 가이드, 오디오 조절, 로컬 UID와 계정 연동
-  목업만 소유한다. `LobbySettingsProfile`은 BGM/SFX 값과 가이드 확인 여부, 로컬
-  UID만 저장하며 외부 로그인 토큰이나 자격 증명을 저장하지 않는다.
+- `LobbyOptionsView`는 로비 전용 4장 가이드, 2열 오디오 카드, 로컬 UID와
+  언어·고객센터·계정 연동 목업만 소유한다. 고객센터와 튜토리얼은 같은 열에서
+  위아래로 배치하고, 좁은 화면에서는 전체 옵션 두루마리를 균등 축소한다.
+  `LobbySettingsProfile`은 BGM/SFX 값과 가이드 확인 여부, 로컬 UID만 저장하며
+  외부 로그인 토큰이나 자격 증명을 저장하지 않는다.
 - `UiInputDeviceGuard`는 에디터 Device Simulator가 비활성화한 포인터 장치를
   `PointerInput`의 공용 복구 경로로 되돌린다. 이 경로는 입력 가능성만 보장하며
   버튼 행동이나 게임 규칙을 직접 실행하지 않는다.
