@@ -281,9 +281,9 @@ kinematic body와 fixed step 이동을 사용한다.
 예약한 위치를 당기지 않고 다음 간격 계산부터 길운 배율을 적용한다. 새 세션에서는
 레벨·공용 완충·먹 여유·황금 붓 시간이 함께 초기화된다.
 
-로비 성장·도감은 플레이 중 `GrowthChoiceView`와 다른 경계다.
+로비 성장·도감·옵션은 플레이 중 `GrowthChoiceView`와 다른 경계다.
 
-- `LobbyView`는 씬 빌더가 만든 `시작`·`성장`·`도감` 버튼만 연결하고 게임 규칙을
+- `LobbyView`는 씬 빌더가 만든 `시작`·`성장`·`도감`·`옵션` 버튼만 연결하고 게임 규칙을
   계산하지 않는다. 로비 드로잉은 비활성이라 UI 입력과 발판 생성이 경합하지 않는다.
 - `PermanentGrowthCatalog`는 먹그릇·숨고르기·먹결·발놀림의 stable ID, 6단계
   상한, 비용과 작은 기본 보정을 소유한다. `PermanentGrowthProfile`은 버전이 있는
@@ -297,8 +297,16 @@ kinematic body와 fixed step 이동을 사용한다.
   기존 8종 어댑터를 소유한다. `RuntimeReady`만 추첨할 수 있으며 `Planned`는 도감
   표시 전용이다.
 - `LobbyCollectionView`는 카탈로그를 읽는 표현 계층이다. 전체 100종 수와 무관하게
-  여섯 개 행만 만들고 페이지마다 내용을 교체한다. 도감 UI가 노드를 활성화하거나
+  2×2 카드 네 개만 만들고 페이지마다 내용을 교체한다. 도감 UI가 노드를 활성화하거나
   `RunGrowthController`의 레벨을 직접 변경할 수 없다.
+- `LobbyOptionsView`는 로비 전용 4장 가이드, 오디오 조절, 로컬 UID와 계정 연동
+  목업만 소유한다. `LobbySettingsProfile`은 BGM/SFX 값과 가이드 확인 여부, 로컬
+  UID만 저장하며 외부 로그인 토큰이나 자격 증명을 저장하지 않는다.
+- `UiInputDeviceGuard`는 에디터 Device Simulator가 비활성화한 포인터 장치를
+  `PointerInput`의 공용 복구 경로로 되돌린다. 이 경로는 입력 가능성만 보장하며
+  버튼 행동이나 게임 규칙을 직접 실행하지 않는다.
+- `InkUiFeedbackController`는 고정 개수 표현 객체를 재사용한다. 탭·성장 확정
+  먹물은 레이캐스트를 받지 않고, `InkUiPressFeedback`은 비활성 버튼에 연출을 내지 않는다.
 
 지속 수치의 합성 순서는 `직렬화 기본값 × 영구 성장 × 한 판 두루마리 × 환경`이다.
 영구 성장은 기본 최대 먹 +9%, 기본 먹 회복 +12%, 기본 발판 수명 +7.5%,
@@ -336,6 +344,8 @@ kinematic body와 fixed step 이동을 사용한다.
 
 씬 빌더는 기존 Main UI 값을 읽어 보존하지 않는다. 코드의 상수와 연결이 단일 진실
 공급원이다. 따라서 UI를 바꾸려면 Main YAML이나 Inspector가 아니라 빌더를 수정한다.
+로비 버튼은 최고 기록 칸에서 검수한 공통 시각 중심 보정을 사용하며, 세부 값과
+가독성·모달 규칙은 `docs/design/lobby-ui-overhaul-2026-07-30.md`를 따른다.
 
 ## 11. 변경 시 체크리스트
 
