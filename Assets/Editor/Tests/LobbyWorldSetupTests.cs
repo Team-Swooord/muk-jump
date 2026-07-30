@@ -24,14 +24,16 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void LegacyLobbyReceivesFullWidthPlatformAndWanderingPlayer()
+        public void LobbyHidesStarterWorldUntilGameplayBegins()
         {
             playerObject = new GameObject("LegacyLobbyPlayer");
-            playerObject.AddComponent<SpriteRenderer>();
+            var playerRenderer = playerObject.AddComponent<SpriteRenderer>();
             playerObject.AddComponent<Rigidbody2D>();
             playerObject.AddComponent<CircleCollider2D>();
             playerObject.AddComponent<PlayerController>();
-            Assert.IsNull(playerObject.GetComponent<LobbyCharacterWander>());
+            var legacyWander = playerObject.AddComponent<LobbyCharacterWander>();
+            playerObject.transform.position = new Vector3(3.4f, 2f, 0f);
+            Assert.IsTrue(legacyWander.enabled);
 
             platformObject = new GameObject(
                 LobbyWorldSetup.StarterPlatformObjectName);
@@ -50,10 +52,16 @@ namespace MukJump.EditorTests
             setup.ApplyForTests();
             setup.ApplyForTests();
 
+            Assert.IsFalse(legacyWander.enabled,
+                "구버전 씬의 로비 왕복 이동도 다시 활성화되면 안 됩니다.");
+            Assert.IsFalse(playerRenderer.enabled,
+                "로비 하단 먹방울은 시작 전에는 보이지 않아야 합니다.");
+            Assert.IsFalse(line.enabled,
+                "로비 하단 시작 먹선은 시작 전에는 보이지 않아야 합니다.");
             Assert.That(
-                playerObject.GetComponents<LobbyCharacterWander>().Length,
-                Is.EqualTo(1),
-                "구버전 씬을 여러 번 복구해도 로비 이동 컴포넌트는 중복되면 안 됩니다.");
+                playerObject.transform.position.x,
+                Is.EqualTo(platformObject.transform.position.x).Within(0.001f),
+                "구버전 왕복 이동 중 남은 위치는 시작 먹선 중앙으로 복구해야 합니다.");
             Assert.That(edge.pointCount, Is.EqualTo(2));
             Assert.That(
                 edge.points[0].x,
@@ -77,6 +85,13 @@ namespace MukJump.EditorTests
             Assert.That(platform.Length,
                 Is.EqualTo(LobbyWorldSetup.StarterPlatformHalfWidth * 2f)
                     .Within(0.001f));
+
+            setup.ApplyPresentationForTests(GameState.Playing);
+
+            Assert.IsTrue(playerRenderer.enabled,
+                "시작 버튼 뒤에는 실제 플레이어가 보여야 합니다.");
+            Assert.IsTrue(line.enabled,
+                "시작 버튼 뒤에는 첫 점프용 먹선이 보여야 합니다.");
         }
     }
 }

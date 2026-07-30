@@ -358,12 +358,8 @@ public class FallingInkRockTests
         Assert.IsNotNull(player.GetComponent<InkCloneArrivalView>(),
             "씬 빌더가 먹분신 몸통→완성 팝 연출을 플레이어에 구성해야 합니다.");
         var lobbyWander = player.GetComponent<LobbyCharacterWander>();
-        Assert.IsNotNull(lobbyWander,
-            "로비 먹방울은 화면 너비만큼 늘어난 시작 발판을 자유롭게 돌아다녀야 합니다.");
-        var lobbyWanderSerialized = new SerializedObject(lobbyWander);
-        Assert.That(
-            lobbyWanderSerialized.FindProperty("fallbackHalfWidth").floatValue,
-            Is.EqualTo(LobbyWorldSetup.StarterPlatformHalfWidth).Within(0.001f));
+        Assert.IsNull(lobbyWander,
+            "로비 하단 먹방울은 더 이상 왕복 이동 컴포넌트를 가져서는 안 됩니다.");
         Assert.IsNotNull(FindFirstInScene<LobbyWorldSetup>(builderTestScene),
             "씬 빌더가 구버전 로비 지형도 같은 규칙으로 복구할 런타임 구성을 만들어야 합니다.");
         PlatformCollider starterPlatform = null;

@@ -356,8 +356,6 @@ namespace MukJump.EditorTools
             var autoJumpSo = new SerializedObject(autoJump);
             autoJumpSo.FindProperty("jumpIntervalSeconds").floatValue = 1f;
             autoJumpSo.ApplyModifiedPropertiesWithoutUndo();
-            go.AddComponent<LobbyCharacterWander>();
-
             var animator = go.AddComponent<CharacterAnimator>();
             var so = new SerializedObject(animator);
             foreach (var name in CharFrameNames)
