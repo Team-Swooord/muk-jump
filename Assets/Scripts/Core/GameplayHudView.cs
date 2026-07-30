@@ -255,7 +255,7 @@ namespace MukJump.Core
             ConfigureDebugButton(windDirectionButton, "풍향 전환", 27);
             ConfigureDebugButton(windPlatformButton, null, 27);
             ConfigureDebugButton(haetaeButton, "먹해태", 27);
-            ConfigureDebugButton(growthChoiceButton, "성장 선택", 27);
+            ConfigureDebugButton(growthChoiceButton, "증강 선택", 27);
             ConfigureDebugButton(vfxQualityButton, null, 23);
             ConfigureDebugButton(inkDropButton, null, 26);
             ConfigureDebugButton(goldenBrushButton, null, 26);
@@ -552,7 +552,7 @@ namespace MukJump.Core
                     new Vector2(145f, 72f));
             if (growthChoiceButton == null)
                 growthChoiceButton = CreateRuntimeDebugButton(
-                    "GrowthChoiceButton", "성장 선택", new Vector2(22f, -526f),
+                    "GrowthChoiceButton", "증강 선택", new Vector2(22f, -526f),
                     new Vector2(145f, 72f));
 
             if (vfxStatsText != null) return;

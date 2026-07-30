@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 성장 두루마리를 획득했을 때 한 가지 먹결을 고르는 전용 모달.
+    /// 증강 두루마리를 획득했을 때 한 가지 먹결을 고르는 전용 모달.
     /// 씬에 UI 계층을 직렬화하지 않고 최초 사용 시 한 번만 생성해 구형 씬도 지원한다.
     public sealed class GrowthChoiceView : MonoBehaviour
     {
@@ -15,9 +15,11 @@ namespace MukJump.Core
         const float CloseDuration = 0.16f;
         const float RollOpenDistance = 690f;
         const float ClosedPaperScale = 0.12f;
-        const float CardHeight = 250f;
-        const float ThreeCardSpacing = 295f;
-        const float TwoCardSpacing = 147.5f;
+        const float CardWidth = 244f;
+        const float CardHeight = 760f;
+        const float CardVerticalPosition = -70f;
+        const float ThreeCardSpacing = 264f;
+        const float TwoCardSpacing = 130f;
         const float VisualFootprintWidth = 920f;
         const float VisualFootprintHeight = 1500f;
         const float SafeAreaPadding = 40f;
@@ -64,14 +66,13 @@ namespace MukJump.Core
         {
             public RectTransform Root;
             public Button Button;
+            public Image Outline;
             public Image Paper;
             public Image Icon;
             public Text Title;
             public Text Status;
             public Text Effect;
             public CanvasGroup Group;
-            public RectTransform SelectedSeal;
-            public Text SelectedSealText;
             public GrowthUpgradeType Type;
             public UnityEngine.Events.UnityAction Pressed;
         }
@@ -387,42 +388,21 @@ namespace MukJump.Core
 
                 card.Type = type;
                 card.Root.anchoredPosition = new Vector2(
-                    0f, ResolveCardY(i, offerCount));
+                    ResolveCardX(i, offerCount), CardVerticalPosition);
                 card.Title.text = GetTitle(type);
-                card.Status.text = GetStatus(type, level, maxLevel);
+                card.Status.text = GetStatus(level, maxLevel);
                 card.Effect.text = GetEffect(type);
                 card.Icon.sprite = GetIcon(type);
                 SetCardState(card, canInteract && !maxed, maxed);
             }
         }
 
-        string GetStatus(GrowthUpgradeType type, int level, int maxLevel)
+        static string GetStatus(int level, int maxLevel)
         {
             int nextLevel = Mathf.Min(level + 1, maxLevel);
-            string levelText = level >= maxLevel
-                ? $"Lv.{level} / {maxLevel}"
-                : $"Lv.{level} → {nextLevel} / {maxLevel}";
-            if (level >= maxLevel)
-                return levelText + " · 완성";
-
-            return type switch
-            {
-                GrowthUpgradeType.Vitality =>
-                    levelText + $" · 완충 {boundController.VitalityCharges}회",
-                GrowthUpgradeType.JumpPower =>
-                    levelText + $" · 총 +{level * 4}%",
-                GrowthUpgradeType.InkCapacity =>
-                    levelText + $" · 총 +{level * 10}%",
-                GrowthUpgradeType.InkRecovery =>
-                    levelText + $" · 총 +{level * 12}%",
-                GrowthUpgradeType.PlatformLifetime =>
-                    levelText + $" · 총 +{level * 10}%",
-                GrowthUpgradeType.PlatformSlots =>
-                    levelText + $" · 발판 +{level}개",
-                GrowthUpgradeType.ItemFortune =>
-                    levelText + $" · 간격 -{level * 7}%",
-                _ => levelText,
-            };
+            return level >= maxLevel
+                ? $"Lv.{level} · 완성"
+                : $"Lv.{level} → {nextLevel}";
         }
 
         static string GetTitle(GrowthUpgradeType type)
@@ -446,32 +426,32 @@ namespace MukJump.Core
             return type switch
             {
                 GrowthUpgradeType.Vitality =>
-                    "먹떼 공용 완충 +1\n낙하는 막지 못합니다",
+                    "먹떼 완충 +1",
                 GrowthUpgradeType.JumpPower =>
-                    "자동 점프력 +4%\n더 높은 곳까지 솟습니다",
+                    "점프력 +4%",
                 GrowthUpgradeType.InkCapacity =>
-                    "최대 먹 +10%\n더 긴 획을 이어 그립니다",
+                    "최대 먹 +10%",
                 GrowthUpgradeType.InkRecovery =>
-                    "먹 회복 +12%\n빈 벼루가 더 빨리 찹니다",
+                    "먹 회복 +12%",
                 GrowthUpgradeType.PlatformLifetime =>
-                    "발판 수명 +10%\n그린 획이 더 오래 남습니다",
+                    "발판 수명 +10%",
                 GrowthUpgradeType.PlatformSlots =>
-                    "동시 발판 +1\n남겨 둘 획이 늘어납니다",
+                    "동시 발판 +1",
                 GrowthUpgradeType.StrokeGuard =>
-                    "새 임시 발판마다\n낙묵석을 1회 막습니다",
+                    "낙묵석 방어 +1",
                 GrowthUpgradeType.ItemFortune =>
-                    "아이템 간격 -7%\n아이템을 더 자주 만납니다",
+                    "아이템 간격 -7%",
                 _ => string.Empty,
             };
         }
 
-        static float ResolveCardY(int index, int count)
+        static float ResolveCardX(int index, int count)
         {
             return count switch
             {
                 <= 1 => 0f,
-                2 => index == 0 ? TwoCardSpacing : -TwoCardSpacing,
-                _ => ThreeCardSpacing - index * ThreeCardSpacing,
+                2 => index == 0 ? -TwoCardSpacing : TwoCardSpacing,
+                _ => (index - 1) * ThreeCardSpacing,
             };
         }
 
@@ -483,6 +463,7 @@ namespace MukJump.Core
             card.Paper.color = maxed
                 ? new Color(InkPalette.Paper2.r, InkPalette.Paper2.g, InkPalette.Paper2.b, 0.9f)
                 : InkPalette.Paper;
+            card.Outline.color = InkPalette.Ink;
         }
 
         void SetCardsInteractable(bool interactable)
@@ -501,8 +482,9 @@ namespace MukJump.Core
         static void ApplySelectedState(ChoiceCard card, bool selected)
         {
             if (card == null) return;
-            card.SelectedSeal.gameObject.SetActive(selected);
-            card.Root.localScale = selected ? Vector3.one * 1.015f : Vector3.one;
+            card.Outline.color = selected
+                ? InkPalette.Gold
+                : InkPalette.Ink;
         }
 
         void BuildIfNeeded()
@@ -657,6 +639,7 @@ namespace MukJump.Core
         void BuildContent()
         {
             Sprite brush = InkUiTextureFactory.CreateBrushSprite();
+            Sprite blob = InkUiTextureFactory.CreateBlobSprite();
             contentRect = CreateRect(
                 "GrowthContent",
                 panel,
@@ -664,55 +647,77 @@ namespace MukJump.Core
                 new Vector2(780f, 1320f));
             contentGroup = contentRect.gameObject.AddComponent<CanvasGroup>();
 
-            var title = CreateText(
-                "Title",
-                contentRect,
-                "성장 두루마리",
-                64,
-                new Vector2(0f, 582f),
-                new Vector2(690f, 96f),
-                InkPalette.TextDark,
-                FontStyle.Bold);
-            AddReadableTextWeight(title, 0.28f);
+            CreateAugmentEmblem(contentRect, blob);
 
             hintText = CreateText(
                 "Hint",
                 contentRect,
                 "셋 중 하나를 선택하세요",
                 34,
-                new Vector2(0f, 510f),
+                new Vector2(0f, 405f),
                 new Vector2(660f, 56f),
                 ReadableMutedColor(),
                 FontStyle.Bold);
             AddReadableTextWeight(hintText, 0.16f);
-
-            CreateImage(
-                "TitleDivider",
-                contentRect,
-                brush,
-                new Vector2(0f, 458f),
-                new Vector2(420f, 8f),
-                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.2f));
 
             for (int i = 0; i < choiceCards.Length; i++)
             {
                 choiceCards[i] = CreateChoiceCard(
                     $"GrowthChoice{i + 1}",
                     contentRect,
-                    new Vector2(0f, ResolveCardY(i, choiceCards.Length)));
+                    new Vector2(
+                        ResolveCardX(i, choiceCards.Length),
+                        CardVerticalPosition));
                 choiceCards[i].Root.gameObject.SetActive(false);
             }
 
             var footer = CreateText(
                 "FooterHint",
                 contentRect,
-                "카드를 눌러 선택 · 효과는 이번 도전에만 유지",
-                28,
+                "이번 도전에만 유지",
+                24,
                 new Vector2(0f, -565f),
                 new Vector2(710f, 54f),
                 ReadableMutedColor(),
                 FontStyle.Bold);
             AddReadableTextWeight(footer, 0.14f);
+        }
+
+        static void CreateAugmentEmblem(
+            Transform parent,
+            Sprite blob)
+        {
+            var emblem = CreateRect(
+                "AugmentEmblem",
+                parent,
+                new Vector2(0f, 525f),
+                new Vector2(210f, 210f));
+
+            CreateImage(
+                "EmblemInkRing",
+                emblem,
+                blob,
+                Vector2.zero,
+                new Vector2(188f, 188f),
+                InkPalette.Ink);
+            CreateImage(
+                "EmblemPaper",
+                emblem,
+                blob,
+                Vector2.zero,
+                new Vector2(148f, 148f),
+                InkPalette.Paper2);
+
+            var title = CreateText(
+                "Title",
+                emblem,
+                "증강",
+                48,
+                Vector2.zero,
+                new Vector2(132f, 72f),
+                InkPalette.TextDark,
+                FontStyle.Bold);
+            AddReadableTextWeight(title, 0.26f);
         }
 
         static ChoiceCard CreateChoiceCard(
@@ -726,33 +731,35 @@ namespace MukJump.Core
                 objectName,
                 parent,
                 position,
-                new Vector2(740f, CardHeight));
+                new Vector2(CardWidth, CardHeight));
             var group = root.gameObject.AddComponent<CanvasGroup>();
 
-            var shadow = CreateImage(
-                "Shadow",
-                root,
-                brush,
-                new Vector2(7f, -8f),
-                new Vector2(734f, 244f),
-                new Color(0f, 0f, 0f, 0.15f));
-            shadow.raycastTarget = false;
-
-            CreateImage(
+            var outline = CreateImage(
                 "Outline",
                 root,
                 brush,
                 Vector2.zero,
-                new Vector2(734f, 238f),
+                new Vector2(744f, 230f),
                 InkPalette.Ink);
+            outline.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
             var paper = CreateImage(
                 "Paper",
                 root,
                 brush,
                 Vector2.zero,
-                new Vector2(714f, 218f),
+                new Vector2(730f, 216f),
                 InkPalette.Paper);
+            paper.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
             paper.raycastTarget = true;
+
+            // 붓 섬유 틈은 중앙 한지로 채우되 거친 둥근 외곽선은 그대로 남긴다.
+            CreateImage(
+                "PaperCore",
+                root,
+                null,
+                Vector2.zero,
+                new Vector2(188f, 650f),
+                InkPalette.Paper);
 
             var button = root.gameObject.AddComponent<Button>();
             button.targetGraphic = paper;
@@ -761,97 +768,81 @@ namespace MukJump.Core
             button.colors = new ColorBlock
             {
                 normalColor = Color.white,
-                highlightedColor = new Color(0.96f, 0.91f, 0.78f, 1f),
-                pressedColor = new Color(0.88f, 0.8f, 0.64f, 1f),
+                highlightedColor = new Color(0.95f, 0.93f, 0.88f, 1f),
+                pressedColor = new Color(0.86f, 0.84f, 0.79f, 1f),
                 selectedColor = Color.white,
                 disabledColor = new Color(0.76f, 0.74f, 0.7f, 0.7f),
                 colorMultiplier = 1f,
                 fadeDuration = 0.08f,
             };
+            root.gameObject.AddComponent<InkUiPressFeedback>();
 
+            // 참고 판화처럼 장식 문양 대신 큰 담청회색 먹달 하나만 남긴다.
+            // 성장 아이콘 자체가 카드의 한 장면이 되고 나머지는 여백으로 읽힌다.
+            CreateImage(
+                "SceneMoon",
+                root,
+                blob,
+                new Vector2(0f, 118f),
+                new Vector2(204f, 204f),
+                new Color(
+                    InkPalette.WindPlatform.r,
+                    InkPalette.WindPlatform.g,
+                    InkPalette.WindPlatform.b,
+                    0.34f));
             var iconImage = CreateImage(
                 "Icon",
                 root,
                 null,
-                new Vector2(-255f, 0f),
-                new Vector2(168f, 168f),
-                Color.white);
+                new Vector2(0f, 118f),
+                new Vector2(196f, 196f),
+                InkPalette.Ink);
             iconImage.preserveAspect = true;
-
-            CreateImage(
-                "ContentDivider",
-                root,
-                brush,
-                new Vector2(-145f, 0f),
-                new Vector2(7f, 172f),
-                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.16f));
 
             var nameText = CreateText(
                 "Name",
                 root,
                 string.Empty,
-                44,
-                new Vector2(65f, 78f),
-                new Vector2(430f, 68f),
+                40,
+                new Vector2(0f, 312f),
+                new Vector2(212f, 68f),
                 InkPalette.TextDark,
                 FontStyle.Bold);
-            nameText.alignment = TextAnchor.MiddleLeft;
             AddReadableTextWeight(nameText, 0.24f);
 
             var statusText = CreateText(
                 "Status",
                 root,
-                "Lv.0 → 1 / 3",
-                29,
-                new Vector2(65f, 14f),
-                new Vector2(430f, 44f),
+                "Lv.0 → 1",
+                22,
+                new Vector2(0f, -34f),
+                new Vector2(214f, 36f),
                 ReadableMutedColor(),
                 FontStyle.Bold);
-            statusText.alignment = TextAnchor.MiddleLeft;
             AddReadableTextWeight(statusText, 0.13f);
 
             var effectText = CreateText(
                 "Effect",
                 root,
                 string.Empty,
-                31,
-                new Vector2(65f, -61f),
-                new Vector2(440f, 90f),
+                28,
+                new Vector2(0f, -180f),
+                new Vector2(214f, 52f),
                 InkPalette.TextDark,
                 FontStyle.Bold);
-            effectText.alignment = TextAnchor.MiddleLeft;
             AddReadableTextWeight(effectText, 0.11f);
-
-            var seal = CreateRect(
-                "SelectedSeal",
-                root,
-                new Vector2(326f, 0f),
-                new Vector2(68f, 68f));
-            seal.localEulerAngles = new Vector3(0f, 0f, -7f);
-            CreateImage("Seal", seal, blob, Vector2.zero, new Vector2(64f, 64f), InkPalette.Red);
-            var sealText = CreateText(
-                "Text",
-                seal,
-                "결",
-                28,
-                Vector2.zero,
-                new Vector2(52f, 50f),
-                InkPalette.Paper,
-                FontStyle.Bold);
-            seal.gameObject.SetActive(false);
 
             return new ChoiceCard
             {
                 Root = root,
                 Button = button,
+                Outline = outline,
                 Paper = paper,
                 Icon = iconImage,
                 Title = nameText,
                 Status = statusText,
                 Effect = effectText,
                 Group = group,
-                SelectedSeal = seal,
-                SelectedSealText = sealText,
             };
         }
 
