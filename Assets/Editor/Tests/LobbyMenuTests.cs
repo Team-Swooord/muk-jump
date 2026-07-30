@@ -76,12 +76,36 @@ namespace MukJump.EditorTests
                     .GetComponent<Text>();
                 var effect = card.Find("Outline/Paper/Effect")
                     .GetComponent<Text>();
-                Assert.That(description.fontSize, Is.GreaterThanOrEqualTo(26));
+                var name = card.Find("Outline/Paper/Name")
+                    .GetComponent<Text>();
+                var level = card.Find("Outline/Paper/Level")
+                    .GetComponent<Text>();
+                Assert.That(
+                    name.fontSize,
+                    Is.GreaterThanOrEqualTo(44));
+                Assert.That(
+                    name.rectTransform.sizeDelta,
+                    Is.EqualTo(new Vector2(190f, 54f)));
+                Assert.That(
+                    level.fontSize,
+                    Is.GreaterThanOrEqualTo(32));
+                Assert.That(
+                    level.rectTransform.sizeDelta,
+                    Is.EqualTo(new Vector2(190f, 40f)));
+                Assert.That(
+                    description.fontSize,
+                    Is.GreaterThanOrEqualTo(34));
                 Assert.That(
                     description.rectTransform.sizeDelta.y,
-                    Is.GreaterThanOrEqualTo(52f),
-                    "성장 설명은 두 줄을 담을 높이가 필요합니다.");
-                Assert.That(effect.fontSize, Is.GreaterThanOrEqualTo(26));
+                    Is.GreaterThanOrEqualTo(44f));
+                Assert.That(
+                    description.horizontalOverflow,
+                    Is.EqualTo(HorizontalWrapMode.Overflow),
+                    "카드 설명은 짧은 한 줄 문구로 유지해야 합니다.");
+                Assert.That(effect.fontSize, Is.GreaterThanOrEqualTo(32));
+                Assert.That(
+                    effect.rectTransform.sizeDelta,
+                    Is.EqualTo(new Vector2(190f, 42f)));
             }
             var lowestCard = (RectTransform)growthPanel.Find(
                 "PermanentGrowth4");
@@ -315,16 +339,43 @@ namespace MukJump.EditorTests
             Assert.That(LobbyMenuLayout.RecordAnchor.x,
                 Is.EqualTo(LobbyMenuLayout.RecordRailX));
             Assert.That(
+                LobbyMenuLayout.MenuRailX,
+                Is.EqualTo(0.5f).Within(0.001f),
+                "로비 메뉴 레일은 화면 중앙을 기준으로 해야 합니다.");
+            float labelCenterAt1080 =
+                LobbyMenuLayout.MenuRailX * 1080f +
+                LobbyMenuLayout.ButtonPosition.x +
+                LobbyMenuLayout.LabelPosition.x;
+            Assert.That(
+                labelCenterAt1080,
+                Is.EqualTo(540f).Within(4f),
+                "비대칭 붓 보정 뒤 라벨의 실제 중심은 화면 중앙이어야 합니다.");
+            Assert.That(
+                LobbyMenuLayout.FontSize,
+                Is.GreaterThanOrEqualTo(44));
+            Assert.That(
                 view.StartButton.GetComponent<CanvasGroup>().alpha,
-                Is.EqualTo(LobbyMenuLayout.PrimaryAlpha).Within(0.001f));
+                Is.EqualTo(1f).Within(0.001f));
             Assert.That(
                 view.GrowthButton.GetComponent<CanvasGroup>().alpha,
-                Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
+                Is.EqualTo(1f).Within(0.001f));
             Assert.That(
                 view.CodexButton.GetComponent<CanvasGroup>().alpha,
-                Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
+                Is.EqualTo(1f).Within(0.001f));
             Assert.That(
                 view.OptionsButton.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(1f).Within(0.001f));
+            Assert.That(
+                view.StartButton.targetGraphic.color.a,
+                Is.EqualTo(LobbyMenuLayout.PrimaryAlpha).Within(0.001f));
+            Assert.That(
+                view.GrowthButton.targetGraphic.color.a,
+                Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
+            Assert.That(
+                view.CodexButton.targetGraphic.color.a,
+                Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
+            Assert.That(
+                view.OptionsButton.targetGraphic.color.a,
                 Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
             Assert.That(recordRoot.GetComponent<RectTransform>().anchoredPosition,
                 Is.EqualTo(LobbyMenuLayout.RecordPosition));

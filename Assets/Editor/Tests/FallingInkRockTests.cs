@@ -426,7 +426,7 @@ public class FallingInkRockTests
         var lobbyBest = lobbySerialized.FindProperty("bestText").objectReferenceValue as Text;
         Assert.IsNotNull(lobbyBest);
         Assert.AreEqual(InkPalette.UiFont, lobbyBest.font);
-        Assert.AreEqual(37, lobbyBest.fontSize);
+        Assert.AreEqual(LobbyMenuLayout.FontSize, lobbyBest.fontSize);
         Assert.AreEqual(FontStyle.Bold, lobbyBest.fontStyle);
         Assert.AreEqual(TextAnchor.MiddleCenter, lobbyBest.alignment);
         Assert.AreEqual(Color.white, lobbyBest.color);
@@ -679,10 +679,11 @@ public class FallingInkRockTests
             "로비 네 메뉴 버튼은 공용 행동 버튼 붓획으로 교체하면 안 됩니다.");
         Assert.That(rect.sizeDelta.x, Is.EqualTo(610.273f).Within(0.01f));
         Assert.That(rect.sizeDelta.y, Is.EqualTo(130.157f).Within(0.01f));
-        Assert.That(rect.anchoredPosition.x, Is.EqualTo(89f).Within(0.01f));
-        Assert.That(rect.anchoredPosition.y, Is.EqualTo(0f).Within(0.01f));
+        Assert.That(
+            rect.anchoredPosition,
+            Is.EqualTo(LobbyMenuLayout.ButtonPosition));
         Assert.AreEqual(expectedLabel, label.text);
-        Assert.AreEqual(37, label.fontSize);
+        Assert.AreEqual(LobbyMenuLayout.FontSize, label.fontSize);
         Assert.AreEqual(FontStyle.Bold, label.fontStyle);
         Assert.AreEqual(TextAnchor.MiddleCenter, label.alignment);
         Assert.IsFalse(label.resizeTextForBestFit);

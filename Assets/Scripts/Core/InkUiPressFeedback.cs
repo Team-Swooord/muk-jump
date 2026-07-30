@@ -101,7 +101,9 @@ namespace MukJump.Core
         public const int CardTitleSize = 42;
         public const int BodySize = 34;
         public const int CaptionSize = 30;
-        public const int LobbyMenuSize = 37;
+        public const int LobbyMenuSize = 46;
+        public const int StandardButtonLabelSize = 36;
+        public const int ActionButtonLabelSize = 40;
         public const float MinimumTapHeight = 120f;
 
         static Sprite actionButtonSprite;
@@ -167,6 +169,11 @@ namespace MukJump.Core
             {
                 button.gameObject.AddComponent<InkUiPressFeedback>();
             }
+
+            Text directLabel =
+                button.transform.Find("Label")?.GetComponent<Text>();
+            if (directLabel != null)
+                ApplyButtonLabel(directLabel, StandardButtonLabelSize);
         }
 
         /// 다음·이전·확인·닫기처럼 화면의 흐름을 바꾸는 버튼만 공통 붓획으로 통일한다.
@@ -217,6 +224,29 @@ namespace MukJump.Core
             if (label == null) return;
             label.color = InkPalette.TextLight;
             label.raycastTarget = false;
+            ApplyButtonLabel(label, ActionButtonLabelSize);
+        }
+
+        public static void ApplyButtonLabel(Text label, int minimumSize)
+        {
+            if (label == null) return;
+            ApplyReadableText(
+                label,
+                Mathf.Max(label.fontSize, minimumSize),
+                label.alignment,
+                strong: true,
+                wrap: false);
+            label.color = InkPalette.TextLight;
+
+            // 반투명 붓 가장자리 위에서도 흰 획의 외곽이 무너지지 않게 한다.
+            var outline = label.GetComponent<Outline>();
+            if (outline == null)
+                outline = label.gameObject.AddComponent<Outline>();
+            Color ink = InkPalette.Ink;
+            outline.effectColor =
+                new Color(ink.r, ink.g, ink.b, 0.68f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            outline.useGraphicAlpha = true;
         }
 
         public static bool UsesActionButtonSprite(Image image)

@@ -628,9 +628,17 @@ namespace MukJump.Core
             var group = button.GetComponent<CanvasGroup>();
             if (group == null)
                 group = button.gameObject.AddComponent<CanvasGroup>();
-            group.alpha = Mathf.Clamp01(alpha);
+            group.alpha = 1f;
             group.interactable = true;
             group.blocksRaycasts = true;
+
+            Graphic background = button.targetGraphic;
+            if (background == null)
+                background = button.GetComponent<Graphic>();
+            if (background == null) return;
+            Color color = background.color;
+            color.a = Mathf.Clamp01(alpha);
+            background.color = color;
         }
 
         static float EaseOutCubic(float value)

@@ -94,6 +94,16 @@ namespace MukJump.EditorTests
                     label.color,
                     Is.EqualTo(InkPalette.TextLight));
                 Assert.That(
+                    label.fontSize,
+                    Is.GreaterThanOrEqualTo(
+                        InkUiStyle.ActionButtonLabelSize));
+                Assert.That(label.fontStyle, Is.EqualTo(FontStyle.Bold));
+                var outline = label.GetComponent<Outline>();
+                Assert.That(outline, Is.Not.Null);
+                Assert.That(
+                    outline.effectColor.a,
+                    Is.GreaterThanOrEqualTo(0.65f));
+                Assert.That(
                     root.GetComponent<InkUiPressFeedback>(),
                     Is.Not.Null);
             }

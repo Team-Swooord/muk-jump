@@ -107,8 +107,12 @@ public class PauseMenuViewTests
             Is.EqualTo(1f).Within(0.001f));
         Assert.That(
             lobby.GetComponent<CanvasGroup>().alpha,
+            Is.EqualTo(1f).Within(0.001f),
+            "보조 행동도 글자 자체는 선명하게 유지해야 합니다.");
+        Assert.That(
+            lobby.targetGraphic.color.a,
             Is.EqualTo(0.72f).Within(0.001f),
-            "일시정지판은 계속하기를 주 행동으로 선명하게 보여야 합니다.");
+            "일시정지판은 배경 농도만 낮춰 계속하기를 주 행동으로 보여야 합니다.");
         Assert.GreaterOrEqual(resumeRect.sizeDelta.y, 96f);
         Assert.IsNotNull(panel.Find("ScrollBody/HanjiPaper"));
         var pausePaperCore = panel.Find("ScrollBody/PaperCore")

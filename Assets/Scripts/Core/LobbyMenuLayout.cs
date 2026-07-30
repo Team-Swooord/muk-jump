@@ -7,20 +7,22 @@ namespace MukJump.Core
     /// 씬 빌더와 구버전 씬 런타임 보정이 이 값 하나만 공유해야 한다.
     public static class LobbyMenuLayout
     {
-        // 버튼 PNG 안쪽 보정은 유지하고, 그룹 앵커만 좌우로 나눠
-        // 로비에 한쪽 메뉴 레일과 넓은 한지 여백을 만든다.
-        public const float MenuRailX = 0.31f;
+        // 버튼 PNG 안쪽의 비대칭 보정은 유지하되, 메뉴 글자의 최종 시각 중심은
+        // 기기 화면 중앙과 일치시킨다.
+        public const float MenuRailX = 0.5f;
         public const float RecordRailX = 0.60f;
         public const float PrimaryAlpha = 1f;
         public const float SecondaryAlpha = 0.78f;
 
         public static readonly Vector2 RecordAnchor = new(RecordRailX, 0.94f);
         public static readonly Vector2 RecordPosition = new(89f, -12f);
+        // 비대칭 붓 원본은 배경을 오른쪽, 라벨을 왼쪽으로 같은 양만큼 보정한다.
+        // 두 값의 합을 거의 0으로 유지해 실제 라벨 중심은 화면 중앙에 둔다.
         public static readonly Vector2 ButtonPosition = new(89f, 0f);
         public static readonly Vector2 BackgroundSize = new(610.273f, 130.157f);
         public static readonly Vector2 LabelPosition = new(-87f, -5f);
         public static readonly Vector2 LabelSize = new(400f, 80f);
-        public const int FontSize = 37;
+        public const int FontSize = 46;
 
         public static readonly Vector2 StartAnchor = new(MenuRailX, 0.46f);
         public static readonly Vector2 GrowthAnchor = new(MenuRailX, 0.385f);
@@ -83,10 +85,20 @@ namespace MukJump.Core
             var group = button.GetComponent<CanvasGroup>();
             if (group == null)
                 group = button.gameObject.AddComponent<CanvasGroup>();
-            group.alpha = primary ? PrimaryAlpha : SecondaryAlpha;
+            // CanvasGroup으로 흐리면 흰 글자도 함께 한지색에 섞여 읽기 어려워진다.
+            // 글자는 항상 선명하게 두고 붓 배경의 알파만 단계에 따라 낮춘다.
+            group.alpha = 1f;
             group.interactable = true;
             group.blocksRaycasts = true;
             group.ignoreParentGroups = false;
+
+            Graphic background = button.targetGraphic;
+            if (background == null)
+                background = button.GetComponent<Graphic>();
+            if (background == null) return;
+            Color color = background.color;
+            color.a = primary ? PrimaryAlpha : SecondaryAlpha;
+            background.color = color;
         }
 
         static void ApplyLabel(Text text, string value, Color color)
@@ -99,11 +111,9 @@ namespace MukJump.Core
             rect.anchoredPosition = LabelPosition;
             rect.sizeDelta = LabelSize;
             text.color = color;
-            InkUiStyle.ApplyReadableText(
-                text,
-                FontSize,
-                TextAnchor.MiddleCenter,
-                strong: true);
+            text.alignment = TextAnchor.MiddleCenter;
+            InkUiStyle.ApplyButtonLabel(text, FontSize);
+            text.color = color;
         }
     }
 }

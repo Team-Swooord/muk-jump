@@ -1257,14 +1257,14 @@ namespace MukJump.Core
             return type switch
             {
                 PermanentGrowthType.InkCapacity =>
-                    "기본 먹통이 넓어집니다",
+                    "먹통 확장",
                 PermanentGrowthType.InkRecovery =>
-                    "먹 회복이 빨라집니다",
+                    "회복 가속",
                 PermanentGrowthType.PlatformLifetime =>
-                    "발판 여운이 길어집니다",
+                    "발판 지속",
                 PermanentGrowthType.JumpCharge =>
-                    "점프 준비가 빨라집니다",
-                _ => "기본 능력이 자랍니다",
+                    "도약 준비",
+                _ => "기본 성장",
             };
         }
 
@@ -1424,9 +1424,14 @@ namespace MukJump.Core
             text.color = color;
             InkUiStyle.ApplyReadableText(
                 text,
-                fontSize,
+                PermanentGrowthTypography.Resolve(
+                    objectName,
+                    fontSize),
                 alignment,
                 strong: true);
+            PermanentGrowthTypography.ApplyLayout(
+                text,
+                objectName);
             return text;
         }
 
