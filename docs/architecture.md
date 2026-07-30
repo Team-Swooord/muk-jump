@@ -286,25 +286,37 @@ kinematic body와 fixed step 이동을 사용한다.
 
 - `LobbyView`는 씬 빌더가 만든 `시작`·`성장`·`도감`·`옵션` 버튼만 연결하고 게임 규칙을
   계산하지 않는다. 로비 드로잉은 비활성이라 UI 입력과 발판 생성이 경합하지 않는다.
+- `LobbyScreenNavigator`는 `Lobby / PermanentGrowth / Codex` 중 하나만 활성화한다.
+  `BrushTransitionView`가 화면을 완전히 덮기 전에는 기존 화면을 유지하고, 덮임
+  콜백에서 목적 화면을 교체하며, 드러남이 끝난 뒤에만 목적 화면 입력을 활성화한다.
+  전환 중 연속 탭과 게임 시작은 거부하고 `GameState`가 Lobby를 벗어나면 즉시
+  내부 화면 상태를 Lobby로 복구한다.
 - `PermanentGrowthCatalog`는 먹그릇·숨고르기·먹결·발놀림의 stable ID, 6단계
   상한, 비용과 작은 기본 보정을 소유한다. `PermanentGrowthProfile`은 버전이 있는
   저장 문서, 먹빛, 구매 단계와 마지막 정산 run ID만 소유한다.
 - 정상 게임오버는 `GameManager`가 `ScoreManager.SaveBest()` 전에 이전 최고 고도를
   잡고 run ID로 한 번만 정산한다. 디버그 판과 중도 로비 복귀는 보상을 주지 않으며,
   같은 run ID는 도메인 리로드 뒤에도 다시 지급하지 않는다.
-- `PermanentGrowthView`는 로비에서만 열리고 보유 먹빛·현재 단계·다음 효과·비용을
-  표시한다. `RunGrowthController`나 두루마리 카탈로그를 호출하지 않는다.
+- `PermanentGrowthView`는 불투명 한지 배경의 전용 전체 화면으로 열리고 중앙
+  먹뿌리에서 4축×6단계 계보와 보유 먹빛을 표시한다. 가지 선택은 표시 상태만
+  바꾸고, 하단 상세판의 강화 버튼이 현재 단계·다음 효과·비용을 확인한 뒤
+  `PermanentGrowthProfile` 구매를 호출한다. `RunGrowthController`나 두루마리
+  카탈로그는 호출하지 않는다. 성장 화면의 17개 전용 스프라이트와 UI 트리는
+  로비 시작 때 만들지 않고 붓 전환이 화면을 덮은 최초 진입 시점에 생성하며,
+  이후 리소스 조회는 화면 인스턴스 캐시를 재사용한다.
 - `RoguelikeGrowthCatalog`는 25계보×4노드의 불변 정의, 선행·상충, 구현 상태와
   기존 8종 어댑터를 소유한다. `RuntimeReady`만 추첨할 수 있으며 `Planned`는 도감
   표시 전용이다.
-- `LobbyCollectionView`는 카탈로그를 읽는 표현 계층이다. 전체 100종 수와 무관하게
-  2×2 카드 네 개만 만들고 페이지마다 내용을 교체한다. 도감 UI가 노드를 활성화하거나
-  `RunGrowthController`의 레벨을 직접 변경할 수 없다.
+- `LobbyCollectionView`는 불투명 한지 배경의 전용 전체 화면에서 카탈로그를 읽는
+  표현 계층이다. 전체 100종 수와 무관하게 2×2 카드 네 개만 만들고 페이지마다
+  내용을 교체한다. 도감 UI가 노드를 활성화하거나 `RunGrowthController`의 레벨을
+  직접 변경할 수 없다.
 - `LobbyOptionsView`는 로비 전용 4장 가이드, 2열 오디오 카드, 로컬 UID와
   언어·고객센터·계정 연동 목업만 소유한다. 고객센터와 튜토리얼은 같은 열에서
   위아래로 배치하고, 좁은 화면에서는 전체 옵션 두루마리를 균등 축소한다.
   `LobbySettingsProfile`은 BGM/SFX 값과 가이드 확인 여부, 로컬 UID만 저장하며
-  외부 로그인 토큰이나 자격 증명을 저장하지 않는다.
+  외부 로그인 토큰이나 자격 증명을 저장하지 않는다. 성장·도감과 달리 옵션만
+  로비 위에 머무는 모달이다.
 - `UiInputDeviceGuard`는 에디터 Device Simulator가 비활성화한 포인터 장치를
   `PointerInput`의 공용 복구 경로로 되돌린다. 이 경로는 입력 가능성만 보장하며
   버튼 행동이나 게임 규칙을 직접 실행하지 않는다.
@@ -327,6 +339,9 @@ kinematic body와 fixed step 이동을 사용한다.
 ## 9. 실패·자원 경계
 
 - 화면 전환 콜백이 예외를 던져도 전환 overlay와 raycast 차단을 해제한다.
+- 공유 붓 전환이 이미 실행 중이면 새 화면 요청을 시작하지 않는다. 전환 Canvas의
+  투명 전체 화면 blocker 한 장만 레이캐스트를 받아 덮기·드러내기 동안 뒤 UI 탭을
+  차단하며, 장식 붓획은 입력을 받지 않는다.
 - 풀 factory/acquire/release 콜백 실패 시 손상 객체는 재사용하지 않고 폐기한다.
 - `ItemEffect.Apply`는 실제 적용 성공 여부를 반환한다. 사망한 플레이어, 실패한 분신
   생성, 필수 드로잉 시스템 부재처럼 효과가 거부된 경우에만 픽업을 월드에 남기고,
@@ -352,6 +367,9 @@ kinematic body와 fixed step 이동을 사용한다.
 
 씬 빌더는 기존 Main UI 값을 읽어 보존하지 않는다. 코드의 상수와 연결이 단일 진실
 공급원이다. 따라서 UI를 바꾸려면 Main YAML이나 Inspector가 아니라 빌더를 수정한다.
+씬 빌더는 시스템 루트에 `LobbyScreenNavigator`를 정확히 한 개 생성한다.
+`GameManager`가 누락된 Navigator를 런타임에 추가하는 경로는 구버전 씬 호환용
+폴백일 뿐이며, 저장된 `Main.unity`는 항상 최신 빌더 출력과 일치해야 한다.
 로비 버튼은 최고 기록 칸에서 검수한 공통 시각 중심 보정을 사용하며, 세부 값과
 가독성·모달 규칙은 `docs/design/lobby-ui-overhaul-2026-07-30.md`를 따른다.
 구체적인 버튼 수치는 런타임 `LobbyMenuLayout`이 소유하고 씬 빌더도 이를 참조한다.
@@ -374,4 +392,5 @@ kinematic body와 fixed step 이동을 사용한다.
 - Debug 기능을 사용한 기록이 최고 기록으로 저장되지 않는가?
 - 런타임 생성 native 자원의 해제 경로가 있는가?
 - `Assets/Scenes/Main.unity`가 아니라 씬 빌더를 수정했는가?
+- 로비·성장·도감 중 하나만 보이고 붓 전환 중 뒤 UI와 연속 탭이 차단되는가?
 - 런타임·에디터 어셈블리 컴파일과 관련 회귀 테스트를 통과했는가?
