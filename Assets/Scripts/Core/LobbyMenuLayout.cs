@@ -7,7 +7,14 @@ namespace MukJump.Core
     /// 씬 빌더와 구버전 씬 런타임 보정이 이 값 하나만 공유해야 한다.
     public static class LobbyMenuLayout
     {
-        public static readonly Vector2 RecordAnchor = new(0.5f, 0.94f);
+        // 버튼 PNG 안쪽 보정은 유지하고, 그룹 앵커만 좌우로 나눠
+        // 로비에 한쪽 메뉴 레일과 넓은 한지 여백을 만든다.
+        public const float MenuRailX = 0.31f;
+        public const float RecordRailX = 0.60f;
+        public const float PrimaryAlpha = 1f;
+        public const float SecondaryAlpha = 0.78f;
+
+        public static readonly Vector2 RecordAnchor = new(RecordRailX, 0.94f);
         public static readonly Vector2 RecordPosition = new(89f, -12f);
         public static readonly Vector2 ButtonPosition = new(89f, 0f);
         public static readonly Vector2 BackgroundSize = new(610.273f, 130.157f);
@@ -15,10 +22,10 @@ namespace MukJump.Core
         public static readonly Vector2 LabelSize = new(400f, 80f);
         public const int FontSize = 37;
 
-        public static readonly Vector2 StartAnchor = new(0.5f, 0.46f);
-        public static readonly Vector2 GrowthAnchor = new(0.5f, 0.385f);
-        public static readonly Vector2 CodexAnchor = new(0.5f, 0.31f);
-        public static readonly Vector2 OptionsAnchor = new(0.5f, 0.235f);
+        public static readonly Vector2 StartAnchor = new(MenuRailX, 0.46f);
+        public static readonly Vector2 GrowthAnchor = new(MenuRailX, 0.385f);
+        public static readonly Vector2 CodexAnchor = new(MenuRailX, 0.31f);
+        public static readonly Vector2 OptionsAnchor = new(MenuRailX, 0.235f);
 
         public static void ApplyRecord(Text label)
         {
@@ -31,13 +38,22 @@ namespace MukJump.Core
                 background.sizeDelta = BackgroundSize;
             }
 
-            ApplyLabel(label, label.text);
+            ApplyLabel(label, label.text, Color.white);
         }
 
         public static void ApplyButton(
             Button button,
             string label,
             Vector2 anchor)
+        {
+            ApplyButton(button, label, anchor, label == "시작");
+        }
+
+        public static void ApplyButton(
+            Button button,
+            string label,
+            Vector2 anchor,
+            bool primary)
         {
             if (button == null) return;
             var rect = button.GetComponent<RectTransform>();
@@ -53,14 +69,27 @@ namespace MukJump.Core
             if (background == null)
                 background = button.GetComponent<Graphic>();
             InkUiStyle.ConfigureButton(button, background);
+            ApplyActionEmphasis(button, primary);
 
             Text text = button.transform.Find("Label")?.GetComponent<Text>();
             if (text == null)
                 text = button.GetComponentInChildren<Text>(true);
-            ApplyLabel(text, label);
+            ApplyLabel(text, label, InkPalette.TextLight);
         }
 
-        static void ApplyLabel(Text text, string value)
+        static void ApplyActionEmphasis(Button button, bool primary)
+        {
+            if (button == null) return;
+            var group = button.GetComponent<CanvasGroup>();
+            if (group == null)
+                group = button.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = primary ? PrimaryAlpha : SecondaryAlpha;
+            group.interactable = true;
+            group.blocksRaycasts = true;
+            group.ignoreParentGroups = false;
+        }
+
+        static void ApplyLabel(Text text, string value, Color color)
         {
             if (text == null) return;
             text.text = value;
@@ -69,6 +98,7 @@ namespace MukJump.Core
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = LabelPosition;
             rect.sizeDelta = LabelSize;
+            text.color = color;
             InkUiStyle.ApplyReadableText(
                 text,
                 FontSize,

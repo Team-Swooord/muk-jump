@@ -257,18 +257,20 @@ namespace MukJump.Core
             CreateReadableText(
                 "Title", panel, "먹결 도감",
                 InkUiStyle.ScreenTitleSize,
-                new Vector2(0f, 775f), new Vector2(610f, 88f),
-                InkPalette.TextDark);
+                new Vector2(-60f, 775f), new Vector2(500f, 88f),
+                InkPalette.TextDark,
+                TextAnchor.MiddleLeft);
             subtitleText = CreateReadableText(
                 "Subtitle", panel,
                 "큰 그림을 눌러 먹결의 설명을 확인하세요",
                 InkUiStyle.BodySize,
-                new Vector2(0f, 696f), new Vector2(820f, 62f),
-                InkPalette.TextMuted);
+                new Vector2(-140f, 696f), new Vector2(520f, 62f),
+                InkPalette.TextMuted,
+                TextAnchor.MiddleLeft);
 
             var categoryButton = CreatePaperButton(
                 "CategoryButton", panel, "전체 계보",
-                new Vector2(0f, 618f), new Vector2(360f, 76f),
+                new Vector2(295f, 696f), new Vector2(270f, 76f),
                 InkUiStyle.BodySize);
             categoryText = categoryButton.transform
                 .Find("Paper/Label")?.GetComponent<Text>();
@@ -277,7 +279,7 @@ namespace MukJump.Core
             CreateImage(
                 "HeaderStroke", panel,
                 InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0f, 563f),
+                new Vector2(0f, 610f),
                 new Vector2(910f, 22f),
                 new Color(
                     InkPalette.Ink.r,

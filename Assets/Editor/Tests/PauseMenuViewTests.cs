@@ -82,6 +82,7 @@ public class PauseMenuViewTests
         Assert.IsNotNull(resume);
         Assert.IsNotNull(lobby);
         Assert.GreaterOrEqual(title.fontSize, 54);
+        Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
         Assert.GreaterOrEqual(
             resume.transform.Find("Label").GetComponent<Text>().fontSize, 38);
         Assert.GreaterOrEqual(
@@ -101,6 +102,13 @@ public class PauseMenuViewTests
             resumeRect.anchoredPosition.y);
         Assert.Greater(resumeRect.anchoredPosition.y, lobbyRect.anchoredPosition.y);
         Assert.That(resumeRect.sizeDelta, Is.EqualTo(lobbyRect.sizeDelta));
+        Assert.That(
+            resume.GetComponent<CanvasGroup>().alpha,
+            Is.EqualTo(1f).Within(0.001f));
+        Assert.That(
+            lobby.GetComponent<CanvasGroup>().alpha,
+            Is.EqualTo(0.72f).Within(0.001f),
+            "일시정지판은 계속하기를 주 행동으로 선명하게 보여야 합니다.");
         Assert.GreaterOrEqual(resumeRect.sizeDelta.y, 96f);
         Assert.IsNotNull(panel.Find("ScrollBody/HanjiPaper"));
         var pausePaperCore = panel.Find("ScrollBody/PaperCore")
@@ -179,6 +187,13 @@ public class PauseMenuViewTests
         Assert.IsNotNull(currentCaption);
         Assert.IsNotNull(hint);
         Assert.GreaterOrEqual(title.fontSize, 54);
+        Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+        Assert.That(
+            currentCaption.alignment,
+            Is.EqualTo(TextAnchor.MiddleLeft));
+        Assert.That(
+            currentValue.alignment,
+            Is.EqualTo(TextAnchor.MiddleLeft));
         Assert.Greater(currentValue.fontSize, bestValue.fontSize * 2);
         Assert.Greater(bestValue.fontSize, currentCaption.fontSize);
         Assert.GreaterOrEqual(hint.fontSize, 32);

@@ -297,14 +297,17 @@ namespace MukJump.Core
             BuildPauseScrollFrame(panel);
 
             var title = CreateText("Title", panel, "잠시 멈춤", 58,
-                new Vector2(0f, 165f), new Vector2(520f, 78f),
+                new Vector2(-30f, 165f), new Vector2(520f, 78f),
                 InkPalette.TextDark, FontStyle.Normal);
+            title.alignment = TextAnchor.MiddleLeft;
             AddSoftWeight(title, InkPalette.Ink, 0.2f);
 
             resumeButton = CreateBrushButton("ResumeButton", panel, "계속하기",
                 new Vector2(0f, 25f), true);
             lobbyButton = CreateBrushButton("LobbyButton", panel, "로비로",
                 new Vector2(0f, -120f), false);
+            ApplyActionPriority(resumeButton, 1f);
+            ApplyActionPriority(lobbyButton, 0.72f);
 
             ApplySafeArea();
         }
@@ -337,6 +340,8 @@ namespace MukJump.Core
                             safeAreaRoot != null && panel != null &&
                             resumeButton != null && lobbyButton != null;
             if (!complete) return false;
+            ApplyActionPriority(resumeButton, 1f);
+            ApplyActionPriority(lobbyButton, 0.72f);
             EnableFullButtonRaycast(pauseButton);
             EnableFullButtonRaycast(resumeButton);
             EnableFullButtonRaycast(lobbyButton);
@@ -615,6 +620,17 @@ namespace MukJump.Core
             if (outer != null) outer.raycastTarget = true;
             if (button.targetGraphic != null)
                 button.targetGraphic.raycastTarget = true;
+        }
+
+        static void ApplyActionPriority(Button button, float alpha)
+        {
+            if (button == null) return;
+            var group = button.GetComponent<CanvasGroup>();
+            if (group == null)
+                group = button.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = Mathf.Clamp01(alpha);
+            group.interactable = true;
+            group.blocksRaycasts = true;
         }
 
         static float EaseOutCubic(float value)

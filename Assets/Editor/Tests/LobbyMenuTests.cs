@@ -181,6 +181,20 @@ namespace MukJump.EditorTests
                 Is.GreaterThan(tutorial.anchoredPosition.y),
                 "튜토리얼은 고객센터 바로 아래 같은 열에 배치해야 합니다.");
 
+            Text title = page.Find("Title")?.GetComponent<Text>();
+            Text version = page.Find("Version")?.GetComponent<Text>();
+            Assert.IsNotNull(title);
+            Assert.IsNotNull(version);
+            Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(version.alignment, Is.EqualTo(TextAnchor.MiddleRight));
+            Assert.That(
+                title.rectTransform.anchoredPosition.y,
+                Is.EqualTo(version.rectTransform.anchoredPosition.y),
+                "설정 제목과 버전은 하나의 상단 정보 띠로 읽혀야 합니다.");
+            Assert.That(
+                title.rectTransform.anchoredPosition.x,
+                Is.LessThan(version.rectTransform.anchoredPosition.x));
+
             AssertMajorOptionButton(page, "LanguageButton");
             AssertMajorOptionButton(page, "CustomerCenterButton");
             AssertMajorOptionButton(page, "AccountConnectButton");
@@ -290,12 +304,75 @@ namespace MukJump.EditorTests
             AssertMenuLayout(view.GrowthButton, "성장", LobbyMenuLayout.GrowthAnchor);
             AssertMenuLayout(view.CodexButton, "도감", LobbyMenuLayout.CodexAnchor);
             AssertMenuLayout(view.OptionsButton, "옵션", LobbyMenuLayout.OptionsAnchor);
+            Assert.That(LobbyMenuLayout.StartAnchor.x,
+                Is.EqualTo(LobbyMenuLayout.MenuRailX));
+            Assert.That(LobbyMenuLayout.GrowthAnchor.x,
+                Is.EqualTo(LobbyMenuLayout.MenuRailX));
+            Assert.That(LobbyMenuLayout.CodexAnchor.x,
+                Is.EqualTo(LobbyMenuLayout.MenuRailX));
+            Assert.That(LobbyMenuLayout.OptionsAnchor.x,
+                Is.EqualTo(LobbyMenuLayout.MenuRailX));
+            Assert.That(LobbyMenuLayout.RecordAnchor.x,
+                Is.EqualTo(LobbyMenuLayout.RecordRailX));
+            Assert.That(
+                view.StartButton.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(LobbyMenuLayout.PrimaryAlpha).Within(0.001f));
+            Assert.That(
+                view.GrowthButton.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
+            Assert.That(
+                view.CodexButton.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
+            Assert.That(
+                view.OptionsButton.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
             Assert.That(recordRoot.GetComponent<RectTransform>().anchoredPosition,
                 Is.EqualTo(LobbyMenuLayout.RecordPosition));
             Assert.That(recordLabel.rectTransform.anchoredPosition,
                 Is.EqualTo(LobbyMenuLayout.LabelPosition));
             Assert.That(recordLabel.fontSize, Is.EqualTo(LobbyMenuLayout.FontSize));
             Assert.That(recordLabel.fontStyle, Is.EqualTo(FontStyle.Bold));
+        }
+
+        [Test]
+        public void CodexUsesAsymmetricHeaderAboveTheCardGrid()
+        {
+            viewHost = new GameObject("LobbyCodexHierarchyHost");
+            var codexView = viewHost.AddComponent<LobbyCollectionView>();
+            codexView.BuildForTests();
+
+            Transform panel = viewHost.transform.Find(
+                "LobbyCollectionCanvas/ScreenRoot/SafeAreaRoot/CodexGallery");
+            Assert.IsNotNull(panel);
+            Text title = panel.Find("Title")?.GetComponent<Text>();
+            Text subtitle = panel.Find("Subtitle")?.GetComponent<Text>();
+            RectTransform category =
+                panel.Find("CategoryButton") as RectTransform;
+            RectTransform headerRule =
+                panel.Find("HeaderStroke") as RectTransform;
+            RectTransform firstCard =
+                panel.Find("CodexCard1") as RectTransform;
+
+            Assert.IsNotNull(title);
+            Assert.IsNotNull(subtitle);
+            Assert.IsNotNull(category);
+            Assert.IsNotNull(headerRule);
+            Assert.IsNotNull(firstCard);
+            Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(subtitle.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(title.rectTransform.anchoredPosition.x,
+                Is.LessThan(0f));
+            Assert.That(category.anchoredPosition.x, Is.GreaterThan(0f));
+            Assert.That(
+                category.anchoredPosition.y,
+                Is.EqualTo(subtitle.rectTransform.anchoredPosition.y),
+                "도감 설명과 계보 필터는 같은 상단 정보 띠에 있어야 합니다.");
+            Assert.That(headerRule.anchoredPosition.y,
+                Is.LessThan(subtitle.rectTransform.anchoredPosition.y));
+            Assert.That(headerRule.anchoredPosition.y,
+                Is.GreaterThan(
+                    firstCard.anchoredPosition.y +
+                    firstCard.sizeDelta.y * 0.5f));
         }
 
         [Test]

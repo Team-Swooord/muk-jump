@@ -214,19 +214,23 @@ namespace MukJump.Core
             LobbyMenuLayout.ApplyButton(
                 startButton,
                 "시작",
-                LobbyMenuLayout.StartAnchor);
+                LobbyMenuLayout.StartAnchor,
+                primary: true);
             LobbyMenuLayout.ApplyButton(
                 growthButton,
                 "성장",
-                LobbyMenuLayout.GrowthAnchor);
+                LobbyMenuLayout.GrowthAnchor,
+                primary: false);
             LobbyMenuLayout.ApplyButton(
                 codexButton,
                 "도감",
-                LobbyMenuLayout.CodexAnchor);
+                LobbyMenuLayout.CodexAnchor,
+                primary: false);
             LobbyMenuLayout.ApplyButton(
                 optionsButton,
                 "옵션",
-                LobbyMenuLayout.OptionsAnchor);
+                LobbyMenuLayout.OptionsAnchor,
+                primary: false);
         }
 
 #if UNITY_EDITOR
