@@ -54,9 +54,17 @@ namespace MukJump.Core
 
         void OnDisable()
         {
-            if (showRoutine == null) return;
-            StopCoroutine(showRoutine);
-            showRoutine = null;
+            if (showRoutine != null)
+            {
+                StopCoroutine(showRoutine);
+                showRoutine = null;
+            }
+            if (rootGroup != null)
+            {
+                rootGroup.alpha = 0f;
+                rootGroup.interactable = false;
+                rootGroup.blocksRaycasts = false;
+            }
         }
 
         void BuildIfNeeded()
