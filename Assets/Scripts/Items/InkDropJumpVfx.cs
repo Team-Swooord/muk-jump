@@ -71,7 +71,9 @@ namespace MukJump.Items
                 VfxAudioManager.Instance.PlayOneShot(whooshClip, 0.48f);
             }
             else
-                audioSource.PlayOneShot(immediateClip);
+                audioSource.PlayOneShot(
+                    immediateClip,
+                    LobbySettingsProfile.SfxVolume);
         }
 
         void OnDisable()

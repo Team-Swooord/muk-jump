@@ -97,13 +97,38 @@ namespace MukJump.Drawing
         {
             // 씬에 미리 배치된 발판(시작 지형): 에디터에서 넣은 콜라이더 점으로 비주얼만 구성
             if (Length <= 0f && edge.pointCount >= 2)
-            {
-                var pts = new List<Vector2>(edge.points);
-                Length = BezierSmoother.PolylineLength(pts);
-                lifetime = 0f;
-                ApplyVisual(pts);
-                SketchToInkService.Instance?.Stylize(this);
-            }
+                ConfigurePermanentInkLine(edge.points);
+        }
+
+        /// 씬에 영구 배치된 먹선의 물리·길이·붓선을 한 번에 맞춘다.
+        /// 구버전 Play 백업의 짧은 시작 발판을 복구할 때 일부 상태만 남는 것을 막는다.
+        public void ConfigurePermanentInkLine(Vector2[] localPoints)
+        {
+            if (localPoints == null || localPoints.Length < 2)
+                return;
+
+            Line ??= GetComponent<LineRenderer>();
+            edge ??= GetComponent<EdgeCollider2D>();
+            if (Line == null || edge == null)
+                return;
+
+            var points = new List<Vector2>(localPoints);
+            edge.points = points.ToArray();
+            edge.edgeRadius = 0.06f;
+            edge.enabled = true;
+            Line.enabled = true;
+            lifetime = 0f;
+            age = 0f;
+            removalRequested = false;
+            hazardGuardAvailable = false;
+            lastColliderCutoff = -1;
+            Length = BezierSmoother.PolylineLength(points);
+            ApplyVisual(points);
+
+            if (SketchToInkService.Instance != null)
+                SketchToInkService.Instance.Stylize(this);
+            else
+                FallbackInkStyle.Apply(Line, Length);
         }
 
         void Build(List<Vector2> worldPoints)

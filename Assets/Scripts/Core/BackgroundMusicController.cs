@@ -45,7 +45,7 @@ namespace MukJump.Core
             source.spatialBlend = 0f;
             source.ignoreListenerPause = true;
             source.clip = Resources.Load<AudioClip>(MusicResourcePath);
-            source.volume = lobbyVolume;
+            source.volume = lobbyVolume * LobbySettingsProfile.BgmVolume;
 
             if (source.clip == null)
             {
@@ -60,7 +60,7 @@ namespace MukJump.Core
         {
             if (Instance != this || source == null || source.clip == null) return;
 
-            float targetVolume = GameManager.Instance == null
+            float stateVolume = GameManager.Instance == null
                 ? lobbyVolume
                 : GameManager.Instance.IsPaused
                     ? pausedVolume
@@ -70,6 +70,7 @@ namespace MukJump.Core
                     GameState.GameOver => gameOverVolume,
                     _ => lobbyVolume,
                 };
+            float targetVolume = stateVolume * LobbySettingsProfile.BgmVolume;
             source.volume = Mathf.MoveTowards(source.volume, targetVolume,
                 fadeSpeed * Time.unscaledDeltaTime);
 

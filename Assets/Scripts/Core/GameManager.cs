@@ -134,6 +134,7 @@ namespace MukJump.Core
         void OnEnable()
         {
             Instance = this;
+            EnsureLobbyWorldSetup();
             RefreshPlayerRegistry();
         }
 
@@ -142,6 +143,7 @@ namespace MukJump.Core
             Application.targetFrameRate = 60;
             State = GameState.Lobby;
             // 이전 버전의 Main 씬을 열어도 새 피드백·구간 시스템이 즉시 동작한다.
+            EnsureLobbyWorldSetup();
             if (GetComponent<VfxRuntimeMonitor>() == null)
                 gameObject.AddComponent<VfxRuntimeMonitor>();
             if (GetComponent<GameFeedbackController>() == null)
@@ -174,7 +176,24 @@ namespace MukJump.Core
                 gameObject.AddComponent<LobbyCollectionView>();
             if (GetComponent<PermanentGrowthView>() == null)
                 gameObject.AddComponent<PermanentGrowthView>();
+            if (GetComponent<LobbyOptionsView>() == null)
+                gameObject.AddComponent<LobbyOptionsView>();
+            if (GetComponent<InkUiFeedbackController>() == null)
+                gameObject.AddComponent<InkUiFeedbackController>();
+            var eventSystem =
+                FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
+            if (eventSystem != null &&
+                eventSystem.GetComponent<UiInputDeviceGuard>() == null)
+            {
+                eventSystem.gameObject.AddComponent<UiInputDeviceGuard>();
+            }
             RefreshPlayerRegistry();
+        }
+
+        void EnsureLobbyWorldSetup()
+        {
+            if (GetComponent<LobbyWorldSetup>() == null)
+                gameObject.AddComponent<LobbyWorldSetup>();
         }
 
         void OnDisable()

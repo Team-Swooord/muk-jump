@@ -183,7 +183,7 @@ namespace MukJump.Core
         {
             EnsureInitialized();
             if (brushSource == null || brushLoopClip == null || brushSource.isPlaying) return;
-            brushSource.volume = 0.28f;
+            brushSource.volume = 0.28f * LobbySettingsProfile.SfxVolume;
             brushSource.pitch = Random.Range(0.94f, 1.04f);
             if (brushSource.timeSamples > 0)
                 brushSource.UnPause();
@@ -195,7 +195,9 @@ namespace MukJump.Core
         {
             EnsureInitialized();
             if (brushSource == null || brushLoopClip == null) return;
-            brushSource.volume = Mathf.Lerp(0.24f, 0.4f, Mathf.Clamp01(movement / 0.5f));
+            brushSource.volume =
+                Mathf.Lerp(0.24f, 0.4f, Mathf.Clamp01(movement / 0.5f)) *
+                LobbySettingsProfile.SfxVolume;
             brushSource.pitch = Mathf.Lerp(0.9f, 1.12f, Mathf.Clamp01(movement / 0.5f));
         }
 
@@ -1134,7 +1136,9 @@ namespace MukJump.Core
         void PlayAccent(AudioClip clip, float volume)
         {
             if (accentSource == null || clip == null) return;
-            accentSource.PlayOneShot(clip, Mathf.Clamp01(volume));
+            accentSource.PlayOneShot(
+                clip,
+                Mathf.Clamp01(volume) * LobbySettingsProfile.SfxVolume);
         }
 
         IEnumerator PlayGameOverAfterDeath()

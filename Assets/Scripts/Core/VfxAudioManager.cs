@@ -44,7 +44,11 @@ namespace MukJump.Core
             if (source.isPlaying)
                 source.Stop();
             source.clip = null;
-            source.PlayOneShot(clip, Mathf.Clamp01(volume) * masterVolume);
+            source.PlayOneShot(
+                clip,
+                Mathf.Clamp01(volume) *
+                masterVolume *
+                LobbySettingsProfile.SfxVolume);
             lastStartedAt[selected] = Time.unscaledTime;
         }
 
