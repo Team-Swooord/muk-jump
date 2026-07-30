@@ -412,9 +412,11 @@ public class FallingInkRockTests
         var cameraFollow = builtCamera.GetComponent<CameraFollow>();
         Assert.IsNotNull(cameraFollow);
         var cameraFollowSerialized = new SerializedObject(cameraFollow);
-        Assert.AreEqual(0.75f,
+        Assert.AreEqual(CameraFollow.BalancedFollowViewportY,
             cameraFollowSerialized.FindProperty("upperFollowViewportY").floatValue,
             0.001f);
+        Assert.AreEqual(CameraFollow.CurrentFollowTuningVersion,
+            cameraFollowSerialized.FindProperty("followTuningVersion").intValue);
         Assert.AreEqual(0.9f,
             cameraFollowSerialized.FindProperty("hardCeilingViewportY").floatValue,
             0.001f);

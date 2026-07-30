@@ -219,7 +219,10 @@ namespace MukJump.EditorTools
             var follow = camera.GetComponent<CameraFollow>();
             var so = new SerializedObject(follow);
             so.FindProperty("target").objectReferenceValue = player.transform;
-            so.FindProperty("upperFollowViewportY").floatValue = 0.75f;
+            so.FindProperty("upperFollowViewportY").floatValue =
+                CameraFollow.BalancedFollowViewportY;
+            so.FindProperty("followTuningVersion").intValue =
+                CameraFollow.CurrentFollowTuningVersion;
             so.FindProperty("hardCeilingViewportY").floatValue = 0.9f;
             so.ApplyModifiedPropertiesWithoutUndo();
         }

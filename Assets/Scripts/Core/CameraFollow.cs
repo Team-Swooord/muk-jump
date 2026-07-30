@@ -2,13 +2,20 @@ using UnityEngine;
 
 namespace MukJump.Core
 {
-    /// 클라이밍 게임 카메라: 상단 데드존을 넘은 플레이어만 따라 위로 올라간다.
+    /// 클라이밍 게임 카메라: 먹떼 대표를 화면의 균형 추적선에 두고 위로만 올라간다.
     [RequireComponent(typeof(Camera))]
     public class CameraFollow : MonoBehaviour
     {
+        /// 7월 29일 이전 34% 선행 구도와 과보정된 75% 데드존의 중간값.
+        /// 위쪽 진행 공간을 확보하되 같은 높이의 반복 점프는 누적 추적하지 않는다.
+        public const float BalancedFollowViewportY = 0.55f;
+        public const int CurrentFollowTuningVersion = 1;
+
         [SerializeField] Transform target;
-        [Tooltip("플레이어가 이 화면 높이를 넘어야 카메라 추적을 시작합니다.")]
-        [SerializeField, Range(0.65f, 0.9f)] float upperFollowViewportY = 0.75f;
+        [Tooltip("플레이어가 이 화면 높이에 닿으면 카메라가 위로 따라갑니다.")]
+        [SerializeField, Range(0.5f, 0.9f)] float upperFollowViewportY =
+            BalancedFollowViewportY;
+        [SerializeField, HideInInspector] int followTuningVersion;
         [SerializeField] float smoothSpeed = 4f;
         [Tooltip("먹물방울처럼 급상승할 때 캐릭터가 화면 밖으로 나가지 않게 하는 상단 한계선")]
         [SerializeField, Range(0.8f, 0.98f)] float hardCeilingViewportY = 0.9f;
@@ -55,6 +62,7 @@ namespace MukJump.Core
 
         void OnEnable()
         {
+            UpgradeFollowTuning();
             // Play 중 재컴파일로 비직렬화 필드가 초기화돼도 현재 카메라보다 낮은
             // 목표로 되돌아가며 화면이 하강하지 않게 즉시 복구한다.
             EnsureCameraMetrics();
@@ -126,7 +134,7 @@ namespace MukJump.Core
         }
 
         /// 같은 높이의 점프 정점을 반복해도 카메라가 누적 상승하지 않게 이미 확정한
-        /// 최고 추적 목표를 기준으로 상단 데드존을 넘긴 만큼만 반환한다.
+        /// 최고 추적 목표를 기준으로 추적선을 넘긴 만큼만 반환한다.
         public static float ResolveHighestFollowTargetY(
             float highestTargetY,
             float trackedY,
@@ -165,7 +173,7 @@ namespace MukJump.Core
                 return 0f;
             float safeViewportY = float.IsNaN(viewportY) ||
                                   float.IsInfinity(viewportY)
-                ? 0.75f
+                ? BalancedFollowViewportY
                 : Mathf.Clamp(viewportY, 0.5f, 0.98f);
             return Mathf.Max(0.01f, baseHalfHeight) *
                    (safeViewportY * 2f - 1f);
@@ -218,6 +226,7 @@ namespace MukJump.Core
 
         void OnValidate()
         {
+            UpgradeFollowTuning();
             upperFollowViewportY = SafeUpperFollowViewportY;
             smoothSpeed = Mathf.Max(0f, smoothSpeed);
             hardCeilingViewportY = SafeHardCeilingViewportY;
@@ -232,6 +241,16 @@ namespace MukJump.Core
                 baseOrthographicSize = worldCamera.orthographicSize;
         }
 
+        void UpgradeFollowTuning()
+        {
+            if (followTuningVersion >= CurrentFollowTuningVersion)
+                return;
+
+            // 구버전 Main/Play 백업에 직렬화된 75% 과보정 값을 즉시 새 균형값으로 바꾼다.
+            upperFollowViewportY = BalancedFollowViewportY;
+            followTuningVersion = CurrentFollowTuningVersion;
+        }
+
         float SafeBaseHalfHeight =>
             baseOrthographicSize > 0f
                 ? baseOrthographicSize
@@ -243,8 +262,8 @@ namespace MukJump.Core
             float.IsNaN(upperFollowViewportY) ||
             float.IsInfinity(upperFollowViewportY) ||
             upperFollowViewportY < 0.5f
-                ? 0.75f
-                : Mathf.Clamp(upperFollowViewportY, 0.65f, 0.9f);
+                ? BalancedFollowViewportY
+                : Mathf.Clamp(upperFollowViewportY, 0.5f, 0.9f);
 
         float SafeHardCeilingViewportY =>
             float.IsNaN(hardCeilingViewportY) ||

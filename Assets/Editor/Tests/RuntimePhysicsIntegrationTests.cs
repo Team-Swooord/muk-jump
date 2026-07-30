@@ -14,7 +14,7 @@ namespace MukJump.EditorTests
     public sealed class RuntimePhysicsIntegrationTests
     {
         [UnityTest]
-        public IEnumerator BasicJumpApexBelowGuideKeepsCameraStill()
+        public IEnumerator BalancedGuideStartsFollowingBeforeOldUpperBand()
         {
             yield return new EnterPlayMode();
 
@@ -39,8 +39,8 @@ namespace MukJump.EditorTests
             yield return null;
             yield return new ExitPlayMode();
 
-            Assert.AreEqual(0f, cameraY, 0.001f,
-                "기본 점프 정점이 화면 75% 아래라면 실제 카메라 Transform도 고정돼야 합니다.");
+            Assert.Greater(cameraY, 0f,
+                "55% 균형선은 이전 75% 데드존보다 실제 상승을 빠르게 따라가야 합니다.");
         }
 
         [UnityTest]

@@ -1,31 +1,40 @@
+using System.Reflection;
 using MukJump.Core;
 using NUnit.Framework;
+using UnityEngine;
 
 public sealed class CameraFollowTests
 {
     [Test]
-    public void StartingJumpInsideDeadZoneKeepsCameraStill()
+    public void BalancedGuideFollowsBeforeTheOldSeventyFivePercentBand()
     {
         float targetY = CameraFollow.ResolveHighestFollowTargetY(
             highestTargetY: 0f,
             trackedY: 4.18f,
             baseHalfHeight: 9.6f,
-            followViewportY: 0.75f);
+            followViewportY: CameraFollow.BalancedFollowViewportY);
 
-        Assert.AreEqual(0f, targetY, 0.001f,
-            "같은 발판의 기본 점프 정점은 카메라를 올리면 안 됩니다.");
+        Assert.AreEqual(3.22f, targetY, 0.001f,
+            "55% 균형선은 기존 75% 데드존보다 실제 상승을 빠르게 따라가야 합니다.");
     }
 
     [Test]
-    public void CameraMovesOnlyByAmountPastUpperDeadZone()
+    public void BalancedGuideKeepsTrackedPlayerAtFiftyFivePercent()
     {
+        const float trackedY = 10f;
+        const float halfHeight = 9.6f;
         float targetY = CameraFollow.ResolveHighestFollowTargetY(
             highestTargetY: 0f,
-            trackedY: 5.8f,
-            baseHalfHeight: 9.6f,
-            followViewportY: 0.75f);
+            trackedY: trackedY,
+            baseHalfHeight: halfHeight,
+            followViewportY: CameraFollow.BalancedFollowViewportY);
+        float resolvedViewportY =
+            ((trackedY - targetY) / halfHeight + 1f) * 0.5f;
 
-        Assert.AreEqual(1f, targetY, 0.001f);
+        Assert.AreEqual(
+            CameraFollow.BalancedFollowViewportY,
+            resolvedViewportY,
+            0.001f);
     }
 
     [Test]
@@ -38,11 +47,38 @@ public sealed class CameraFollowTests
                 highestTargetY: targetY,
                 trackedY: i % 2 == 0 ? 5.8f : -1f,
                 baseHalfHeight: 9.6f,
-                followViewportY: 0.75f);
+                followViewportY: CameraFollow.BalancedFollowViewportY);
         }
 
-        Assert.AreEqual(1f, targetY, 0.001f,
+        Assert.AreEqual(4.84f, targetY, 0.001f,
             "같은 낮은 점프를 반복해도 카메라 위치가 누적되면 안 됩니다.");
+    }
+
+    [Test]
+    public void LegacySeventyFivePercentSceneMigratesToBalancedGuide()
+    {
+        var cameraObject = new GameObject("LegacyCamera");
+        try
+        {
+            cameraObject.AddComponent<Camera>();
+            var follow = cameraObject.AddComponent<CameraFollow>();
+            SetField(follow, "upperFollowViewportY", 0.75f);
+            SetField(follow, "followTuningVersion", 0);
+
+            Invoke(follow, "OnEnable");
+
+            Assert.AreEqual(
+                CameraFollow.BalancedFollowViewportY,
+                GetField<float>(follow, "upperFollowViewportY"),
+                0.001f);
+            Assert.AreEqual(
+                CameraFollow.CurrentFollowTuningVersion,
+                GetField<int>(follow, "followTuningVersion"));
+        }
+        finally
+        {
+            Object.DestroyImmediate(cameraObject);
+        }
     }
 
     [Test]
@@ -61,5 +97,29 @@ public sealed class CameraFollowTests
             ((trackedY - cameraY) / halfHeight + 1f) * 0.5f;
 
         Assert.AreEqual(ceilingViewportY, resolvedViewportY, 0.001f);
+    }
+
+    static void Invoke(object target, string methodName)
+    {
+        target.GetType().GetMethod(
+                methodName,
+                BindingFlags.Instance | BindingFlags.NonPublic)
+            ?.Invoke(target, null);
+    }
+
+    static void SetField(object target, string fieldName, object value)
+    {
+        target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic)
+            ?.SetValue(target, value);
+    }
+
+    static T GetField<T>(object target, string fieldName)
+    {
+        return (T)target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic)
+            ?.GetValue(target);
     }
 }
