@@ -53,7 +53,8 @@ namespace MukJump.Player
         public bool HasShield { get; private set; }
         public bool IsInkDropBoosted { get; private set; }
         public bool IsRuntimeClone => isRuntimeClone;
-        public int MaxHealth => Mathf.Max(1, maxHealth);
+        public int MaxHealth =>
+            Mathf.Max(1, maxHealth + PermanentGrowthProfile.MaxHealthBonus);
         public int CurrentHealth { get; private set; }
         /// 피격 횟수에 맞춘 시각 단계. 물리 크기는 바꾸지 않는다.
         public int DamageStage => Mathf.Clamp(MaxHealth - CurrentHealth, 0, 2);
@@ -253,12 +254,22 @@ namespace MukJump.Player
                 RunGrowthController.Instance.TryAbsorbObstacleHit(this))
                 return true;
 
+            if (CurrentHealth <= 1 &&
+                RunGrowthController.Instance != null &&
+                RunGrowthController.Instance.TrySurviveLethalObstacleHit(this))
+            {
+                CurrentHealth = 1;
+                HealthChanged?.Invoke(CurrentHealth, MaxHealth);
+                ApplyObstacleHitRecovery(EffectiveDamageHitGraceDuration, true);
+                return true;
+            }
+
             CurrentHealth = Mathf.Max(0, CurrentHealth - 1);
             HealthChanged?.Invoke(CurrentHealth, MaxHealth);
             if (CurrentHealth <= 0)
                 Kill();
             else
-                ApplyObstacleHitRecovery(damageHitGraceDuration, true);
+                ApplyObstacleHitRecovery(EffectiveDamageHitGraceDuration, true);
             return true;
         }
 
@@ -266,8 +277,18 @@ namespace MukJump.Player
         /// 속도만 준다. 아이템 점프처럼 높이 튀우지 않아 현재 발판 경로를 보존한다.
         public void ApplyVitalityHitRecovery(float graceSeconds)
         {
-            ApplyObstacleHitRecovery(graceSeconds, true);
+            ApplyObstacleHitRecovery(
+                Mathf.Max(0f,
+                    graceSeconds +
+                    PermanentGrowthProfile.DamageGraceBonusSeconds),
+                true);
         }
+
+        float EffectiveDamageHitGraceDuration =>
+            Mathf.Max(
+                0f,
+                damageHitGraceDuration +
+                PermanentGrowthProfile.DamageGraceBonusSeconds);
 
         void ApplyObstacleHitRecovery(float graceSeconds, bool playInkPuff)
         {

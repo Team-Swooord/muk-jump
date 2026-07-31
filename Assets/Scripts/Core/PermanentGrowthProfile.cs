@@ -104,6 +104,18 @@ namespace MukJump.Core
             1f + GetEffect(PermanentGrowthType.PlatformLifetime);
         public static float JumpChargeMultiplier =>
             Mathf.Max(0.5f, 1f - GetEffect(PermanentGrowthType.JumpCharge));
+        public static int MaxHealthBonus =>
+            GetLevel(PermanentGrowthType.Vitality);
+        public static float DamageGraceBonusSeconds =>
+            GetEffect(PermanentGrowthType.DamageGrace);
+        public static bool HasLastBreath =>
+            GetLevel(PermanentGrowthType.LastBreath) > 0;
+        public static float JumpPowerMultiplier =>
+            1f + GetEffect(PermanentGrowthType.JumpPower);
+        public static float DrawnPlatformLeapMultiplier =>
+            1f + GetEffect(PermanentGrowthType.DrawnPlatformLeap);
+        public static bool NewPlatformsHaveStrokeGuard =>
+            GetLevel(PermanentGrowthType.StrokeGuard) > 0;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
@@ -137,7 +149,10 @@ namespace MukJump.Core
             if (definition == null) return false;
             int level = GetLevel(type);
             int cost = definition.GetCost(level);
-            return level < definition.MaxLevel && cost > 0 && Currency >= cost;
+            return level < definition.MaxLevel &&
+                   cost > 0 &&
+                   Currency >= cost &&
+                   MeetsRequirements(type);
         }
 
         public static bool TryPurchase(PermanentGrowthType type)
@@ -148,7 +163,10 @@ namespace MukJump.Core
 
             int level = GetLevel(type);
             int cost = definition.GetCost(level);
-            if (level >= definition.MaxLevel || cost <= 0 || data.wallet < cost)
+            if (level >= definition.MaxLevel ||
+                cost <= 0 ||
+                data.wallet < cost ||
+                !MeetsRequirements(type))
                 return false;
 
             RankRecord record = FindRank(definition.Id);
@@ -163,6 +181,58 @@ namespace MukJump.Core
             Save();
             Changed?.Invoke();
             return true;
+        }
+
+        /// 기존 저장에서 이미 한 단계 이상 구매한 노드는 새 계보 선행 조건을
+        /// 소급 적용하지 않는다. 새 0레벨 노드만 현재 선행 단계를 검사한다.
+        public static bool MeetsRequirements(PermanentGrowthType type)
+        {
+            var definition = PermanentGrowthCatalog.Get(type);
+            if (definition == null)
+                return false;
+            if (GetLevel(type) > 0)
+                return true;
+
+            for (int i = 0; i < definition.Requirements.Count; i++)
+            {
+                PermanentGrowthRequirement requirement =
+                    definition.Requirements[i];
+                if (GetLevel(requirement.Type) < requirement.MinimumLevel)
+                    return false;
+            }
+            return true;
+        }
+
+        /// 잠긴 0레벨 노드의 선행 조건을 UI가 별도 규칙 계산 없이 표시한다.
+        /// 구매 가능하거나 기존 저장으로 이미 열린 노드는 빈 문자열을 반환한다.
+        public static string GetLockReason(PermanentGrowthType type)
+        {
+            var definition = PermanentGrowthCatalog.Get(type);
+            if (definition == null)
+                return "알 수 없는 성장";
+            if (GetLevel(type) > 0)
+                return string.Empty;
+
+            var missing = new List<string>();
+            for (int i = 0; i < definition.Requirements.Count; i++)
+            {
+                PermanentGrowthRequirement requirement =
+                    definition.Requirements[i];
+                int level = GetLevel(requirement.Type);
+                if (level >= requirement.MinimumLevel)
+                    continue;
+
+                PermanentGrowthDefinition requiredDefinition =
+                    PermanentGrowthCatalog.Get(requirement.Type);
+                string name = requiredDefinition != null
+                    ? requiredDefinition.Name
+                    : requirement.Type.ToString();
+                missing.Add($"{name} Lv. {requirement.MinimumLevel} 필요");
+            }
+
+            return missing.Count == 0
+                ? string.Empty
+                : string.Join(" · ", missing);
         }
 
         /// 정상 게임오버 한 번을 runId로 멱등 정산한다.

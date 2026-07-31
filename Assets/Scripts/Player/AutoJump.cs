@@ -118,8 +118,17 @@ namespace MukJump.Player
             float growthMultiplier = RunGrowthController.Instance != null
                 ? RunGrowthController.Instance.JumpPowerMultiplier
                 : 1f;
+            float permanentMultiplier =
+                PermanentGrowthProfile.JumpPowerMultiplier;
+            if (player.CurrentPlatform != null &&
+                player.CurrentPlatform.IsTemporaryDrawnPlatform)
+            {
+                permanentMultiplier *=
+                    PermanentGrowthProfile.DrawnPlatformLeapMultiplier;
+            }
             float power = baseJumpSpeed * jumpStrengthMultiplier *
-                          PowerMultiplier() * growthMultiplier;
+                          PowerMultiplier() * growthMultiplier *
+                          permanentMultiplier;
             float horizontal = direction.x * power + rb.linearVelocity.x * horizontalMomentumRetention;
             if (Mathf.Abs(direction.x) < 0.08f)
             {

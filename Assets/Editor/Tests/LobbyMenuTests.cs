@@ -37,7 +37,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void LobbySeparatesFourPermanentGrowthsFromHundredRunCodexEntries()
+        public void LobbySeparatesThreePermanentGrowthBranchesFromRunCodex()
         {
             managerHost = new GameObject("LobbyCollectionTestManager");
             var manager = managerHost.AddComponent<GameManager>();
@@ -50,84 +50,60 @@ namespace MukJump.EditorTests
 
             growthView.Open();
             Assert.That(growthView.IsOpen, Is.True);
-            Assert.That(growthView.CreatedRowCount, Is.EqualTo(4));
+            Assert.That(growthView.CreatedRowCount, Is.EqualTo(3));
+            Assert.That(
+                growthView.CreatedNodeCount,
+                Is.EqualTo(PermanentGrowthCatalog.All.Count));
             Assert.That(growthView.BalanceLabel, Is.EqualTo("보유 먹빛 0"));
             Transform growthPanel = viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
             Assert.That(growthPanel, Is.Not.Null);
-            Assert.That(growthPanel.Find("InkTreeTrunk"), Is.Not.Null,
-                "영구 성장 화면은 중앙 먹나무 기둥을 가져야 합니다.");
             var inkRoot =
                 (RectTransform)growthPanel.Find("InkTreeRoot");
             Assert.That(inkRoot, Is.Not.Null);
-            for (int i = 0; i < 4; i++)
+            foreach (PermanentGrowthBranchMetadata branch
+                     in PermanentGrowthCatalog.Branches)
             {
+                Transform header = growthPanel.Find(
+                    $"GrowthBranchHeader_{branch.Branch}");
                 Assert.That(
-                    growthPanel.Find($"GrowthBranch{i + 1}"),
+                    header,
                     Is.Not.Null,
-                    $"영구 성장 {i + 1}의 먹가지 연결선이 필요합니다.");
-                var card = (RectTransform)growthPanel.Find(
-                    $"PermanentGrowth{i + 1}");
-                Assert.That(card.sizeDelta.x, Is.GreaterThanOrEqualTo(384f));
-                Assert.That(card.sizeDelta.y, Is.GreaterThanOrEqualTo(196f),
-                    "성장 잎은 모바일에서 충분한 터치 높이를 유지해야 합니다.");
+                    branch.DisplayName);
                 Assert.That(
-                    card.sizeDelta,
-                    Is.EqualTo(new Vector2(456f, 248f)));
-                var description = card.Find("Outline/Paper/Description")
-                    .GetComponent<Text>();
-                var effect = card.Find("Outline/Paper/Effect")
-                    .GetComponent<Text>();
-                var name = card.Find("Outline/Paper/Name")
-                    .GetComponent<Text>();
-                var level = card.Find("Outline/Paper/Level")
-                    .GetComponent<Text>();
+                    header.Find("Brush/BranchTitle")
+                        ?.GetComponent<Text>()?.fontSize,
+                    Is.GreaterThanOrEqualTo(36));
+            }
+            foreach (PermanentGrowthDefinition definition
+                     in PermanentGrowthCatalog.All)
+            {
+                Transform node = growthPanel.Find(
+                    $"GrowthNode_{definition.Type}");
+                Assert.That(node, Is.Not.Null, definition.Name);
+                var rect = node.GetComponent<RectTransform>();
+                Assert.That(rect.sizeDelta.x, Is.GreaterThanOrEqualTo(100f));
+                Assert.That(rect.sizeDelta.y, Is.GreaterThanOrEqualTo(100f));
+                Assert.That(node.GetComponent<Button>(), Is.Not.Null);
                 Assert.That(
-                    name.fontSize,
-                    Is.GreaterThanOrEqualTo(44));
-                Assert.That(
-                    name.rectTransform.sizeDelta,
-                    Is.EqualTo(new Vector2(174f, 48f)));
-                Assert.That(
-                    level.fontSize,
-                    Is.GreaterThanOrEqualTo(32));
-                Assert.That(
-                    level.rectTransform.sizeDelta,
-                    Is.EqualTo(new Vector2(174f, 34f)));
-                Assert.That(
-                    description.fontSize,
-                    Is.GreaterThanOrEqualTo(34));
-                Assert.That(
-                    description.rectTransform.sizeDelta,
-                    Is.EqualTo(new Vector2(174f, 36f)));
-                Assert.That(
-                    description.horizontalOverflow,
-                    Is.EqualTo(HorizontalWrapMode.Wrap),
-                    "카드 설명은 카드 밖으로 그려지면 안 됩니다.");
-                Assert.That(effect.fontSize, Is.GreaterThanOrEqualTo(32));
-                Assert.That(
-                    effect.rectTransform.sizeDelta,
-                    Is.EqualTo(new Vector2(174f, 34f)));
-                Assert.That(name.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
-                Assert.That(level.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
-                Assert.That(
-                    description.alignment,
-                    Is.EqualTo(TextAnchor.MiddleLeft));
-                Assert.That(effect.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+                    node.Find("NodeName")?.GetComponent<Text>()?.fontSize,
+                    Is.GreaterThanOrEqualTo(30));
             }
             var detailPanel = (RectTransform)growthPanel.Find(
                 "SelectedGrowthDetail");
             Assert.That(
                 detailPanel.sizeDelta,
-                Is.EqualTo(new Vector2(920f, 300f)));
+                Is.EqualTo(new Vector2(920f, 330f)));
             foreach (string elementName in new[]
                      {
+                         "DetailBranch",
                          "DetailName",
                          "DetailLevel",
                          "DetailDescription",
                          "CurrentEffect",
                          "NextEffect",
+                         "Requirement",
                      })
             {
                 var detailText = detailPanel.Find(elementName)
@@ -142,16 +118,6 @@ namespace MukJump.EditorTests
                     Is.EqualTo(HorizontalWrapMode.Wrap),
                     elementName);
             }
-            var lowestCard = (RectTransform)growthPanel.Find(
-                "PermanentGrowth4");
-            float lowestCardBottom = lowestCard.anchoredPosition.y -
-                                     lowestCard.sizeDelta.y * 0.5f;
-            float rootTop = inkRoot.anchoredPosition.y +
-                            inkRoot.sizeDelta.y * 0.5f;
-            Assert.That(
-                lowestCardBottom,
-                Is.GreaterThan(rootTop + 4f),
-                "마지막 성장 잎과 먹뿌리가 겹치면 안 됩니다.");
             var footer = (RectTransform)growthPanel.Find("PermanentHint");
             float rootBottom = inkRoot.anchoredPosition.y -
                                inkRoot.sizeDelta.y * 0.5f;

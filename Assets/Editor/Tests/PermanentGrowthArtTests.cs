@@ -148,13 +148,15 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ViewBuildsFourBranchesAndAllCatalogNodesFromSprites()
+        public void ViewBuildsThreeReadableBranchesAndEveryCatalogNode()
         {
             var view = viewHost.AddComponent<PermanentGrowthView>();
             view.BuildForTests();
 
-            Assert.That(view.CreatedRowCount, Is.EqualTo(4));
-            Assert.That(view.CreatedNodeCount, Is.EqualTo(24));
+            Assert.That(view.CreatedRowCount, Is.EqualTo(3));
+            Assert.That(
+                view.CreatedNodeCount,
+                Is.EqualTo(PermanentGrowthCatalog.All.Count));
             Assert.That(view.PurchaseButton, Is.Not.Null);
             Assert.That(
                 view.PurchaseButton.GetComponent<RectTransform>().sizeDelta.y,
@@ -171,31 +173,47 @@ namespace MukJump.EditorTests
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
             Assert.That(panel, Is.Not.Null);
-            AssertSprite(panel.Find("InkTreeTrunk"), "pg_tree_trunk");
+            AssertSprite(panel.Find("InkTreeRoot"), "pg_root_emblem");
             Assert.That(
                 panel.Find("InkTreeRedFlow"),
                 Is.Null,
                 "강화 성공은 화면 먹획 연출로 표시하며 나무를 붉게 덮지 않습니다.");
 
-            for (int branch = 0; branch < 4; branch++)
+            foreach (PermanentGrowthBranchMetadata branch
+                     in PermanentGrowthCatalog.Branches)
             {
-                AssertSprite(
-                    panel.Find($"GrowthBranch{branch + 1}"),
-                    "pg_branch");
-                AssertSprite(
-                    panel.Find($"GrowthBranchProgress{branch + 1}"),
-                    "pg_branch_mask");
+                Transform header = panel.Find(
+                    $"GrowthBranchHeader_{branch.Branch}");
                 Assert.That(
-                    panel.Find($"GrowthBranchRedFlow{branch + 1}"),
-                    Is.Null,
-                    "가지에는 검은 진행도만 남기고 붉은 채움은 만들지 않습니다.");
-                for (int node = 0; node < 6; node++)
-                {
-                    AssertSprite(
-                        panel.Find(
-                            $"GrowthNode{branch + 1}_{node + 1}"),
-                        "pg_node_bud");
-                }
+                    header,
+                    Is.Not.Null,
+                    branch.DisplayName);
+                Text title = header.Find("Brush/BranchTitle")
+                    ?.GetComponent<Text>();
+                Assert.That(
+                    title?.fontSize,
+                    Is.GreaterThanOrEqualTo(36));
+            }
+
+            foreach (PermanentGrowthDefinition definition
+                     in PermanentGrowthCatalog.All)
+            {
+                Transform node = panel.Find(
+                    $"GrowthNode_{definition.Type}");
+                Assert.That(
+                    node,
+                    Is.Not.Null,
+                    definition.Name);
+                RectTransform touch = node.GetComponent<RectTransform>();
+                Assert.That(touch.sizeDelta.x, Is.GreaterThanOrEqualTo(100f));
+                Assert.That(touch.sizeDelta.y, Is.GreaterThanOrEqualTo(100f));
+                Assert.That(node.GetComponent<Button>(), Is.Not.Null);
+                Assert.That(node.Find("NodeName")?.GetComponent<Text>()
+                        ?.fontSize,
+                    Is.GreaterThanOrEqualTo(30));
+                Assert.That(
+                    panel.Find($"GrowthPath_{definition.Type}"),
+                    Is.Not.Null);
             }
 
             Assert.That(
@@ -209,14 +227,14 @@ namespace MukJump.EditorTests
             var view = viewHost.AddComponent<PermanentGrowthView>();
             view.BuildForTests();
 
-            view.SelectGrowthForTests(1);
+            view.SelectGrowthForTests(0);
 
             Assert.That(
                 view.SelectedGrowthType,
-                Is.EqualTo(PermanentGrowthType.InkRecovery));
+                Is.EqualTo(PermanentGrowthType.InkCapacity));
             Assert.That(
                 PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkRecovery),
+                    PermanentGrowthType.InkCapacity),
                 Is.Zero);
             Assert.That(view.PurchaseButton.interactable, Is.True);
 
@@ -224,19 +242,18 @@ namespace MukJump.EditorTests
 
             Assert.That(
                 PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkRecovery),
+                    PermanentGrowthType.InkCapacity),
                 Is.EqualTo(1));
             Transform panel = viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
-            var progressFlow = panel.Find("GrowthBranchProgress2")
-                .GetComponent<Image>();
-            var selectedNode = panel.Find("GrowthNode2_1")
-                .GetComponent<Image>();
-            Assert.That(progressFlow.fillAmount, Is.EqualTo(1f / 6f)
-                .Within(0.001f));
+            Transform selectedNode = panel.Find(
+                "GrowthNode_InkCapacity");
             Assert.That(
-                selectedNode.color,
+                selectedNode.Find("NodeLevel").GetComponent<Text>().text,
+                Is.EqualTo("Lv. 1 / 6"));
+            Assert.That(
+                selectedNode.Find("NodeSurface").GetComponent<Image>().color,
                 Is.Not.EqualTo(InkPalette.Red),
                 "구매한 노드도 붉은 칠 대신 먹색/기존 꽃색을 사용해야 합니다.");
             Assert.That(

@@ -86,6 +86,8 @@ namespace MukJump.Core
             1f + PlatformLifetimeLevel * PlatformLifetimePerLevel;
         public int AdditionalPlatformSlots => PlatformSlotsLevel;
         public bool NewPlatformsHaveStrokeGuard => StrokeGuardLevel > 0;
+        /// 영구 생존 계보의 최종 패시브는 먹분신별이 아니라 먹떼 전체가 한 번만 공유한다.
+        public bool LastBreathAvailable { get; private set; }
         public float ItemSpacingMultiplier =>
             Mathf.Max(0.1f, 1f - ItemFortuneLevel * ItemSpacingReductionPerLevel);
         public bool HasPendingChoice { get; private set; }
@@ -310,6 +312,21 @@ namespace MukJump.Core
             return true;
         }
 
+        /// 체력이 소진될 장애물 피해를 한 판에 한 번 1체력으로 버틴다.
+        /// 추락은 PlayerController.Kill 경로에서 직접 처리하므로 이 패시브를 소비하지 않는다.
+        public bool TrySurviveLethalObstacleHit(PlayerController player)
+        {
+            if (player == null || player.IsDead ||
+                !LastBreathAvailable ||
+                manager == null ||
+                manager.State != GameState.Playing)
+                return false;
+
+            LastBreathAvailable = false;
+            Changed?.Invoke();
+            return true;
+        }
+
         void BindManager()
         {
             var nextManager = GetComponent<GameManager>();
@@ -354,6 +371,7 @@ namespace MukJump.Core
             PlatformSlotsLevel = 0;
             StrokeGuardLevel = 0;
             ItemFortuneLevel = 0;
+            LastBreathAvailable = PermanentGrowthProfile.HasLastBreath;
             HasPendingChoice = false;
             choiceSelected = false;
             currentOffers.Clear();
