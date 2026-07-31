@@ -105,6 +105,19 @@ namespace MukJump.Core
                 growthIcon);
         }
 
+        public static void PlayGrowthUnlock(
+            string growthName,
+            Sprite growthIcon,
+            Vector2 screenPosition,
+            Sprite fruitSprite)
+        {
+            Resolve()?.EmitGrowthUnlock(
+                growthName,
+                growthIcon,
+                screenPosition,
+                fruitSprite);
+        }
+
         public static void PlayGrowthUpgrade(
             string growthName,
             Sprite growthIcon,
@@ -116,12 +129,27 @@ namespace MukJump.Core
                 level);
         }
 
+        /// 화면이 사라질 때 새 컨트롤러를 만들지 않고 재생 중인 성장 연출만 정리한다.
+        public static void CancelGrowthPresentation()
+        {
+            InkUiFeedbackController controller =
+                Instance != null
+                    ? Instance
+                    : FindFirstObjectByType<InkUiFeedbackController>();
+            if (controller == null)
+                return;
+            controller.unlockPresentation?.ResetPresentation();
+        }
+
         static InkUiFeedbackController Resolve()
         {
             if (Instance != null) return Instance;
             var found = FindFirstObjectByType<InkUiFeedbackController>();
             if (found != null)
             {
+                // EditMode 테스트·Play 중 재컴파일로 static만 초기화된 경우에도
+                // 이미 활성인 컴포넌트를 다시 싱글톤에 연결한다.
+                Instance = found;
                 found.enabled = true;
                 return found;
             }
@@ -208,6 +236,20 @@ namespace MukJump.Core
         {
             EnsureInitialized();
             unlockPresentation?.Play(growthName, growthIcon);
+        }
+
+        void EmitGrowthUnlock(
+            string growthName,
+            Sprite growthIcon,
+            Vector2 screenPosition,
+            Sprite fruitSprite)
+        {
+            EnsureInitialized();
+            unlockPresentation?.PlayAtNode(
+                growthName,
+                growthIcon,
+                ScreenToLocal(screenPosition),
+                fruitSprite);
         }
 
         void EmitGrowthUpgrade(

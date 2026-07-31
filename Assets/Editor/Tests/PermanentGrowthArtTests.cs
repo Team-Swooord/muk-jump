@@ -174,6 +174,7 @@ namespace MukJump.EditorTests
                 "PermanentGrowthScreen");
             Assert.That(panel, Is.Not.Null);
             AssertSprite(panel.Find("InkTreeRoot"), "pg_root_emblem");
+            AssertSprite(panel.Find("InkTreeTrunk"), "pg_tree_trunk");
             Assert.That(
                 panel.Find("InkTreeRedFlow"),
                 Is.Null,
@@ -214,6 +215,14 @@ namespace MukJump.EditorTests
                 Assert.That(
                     panel.Find($"GrowthPath_{definition.Type}"),
                     Is.Not.Null);
+                Assert.That(node.Find("Fruit"), Is.Not.Null);
+                Assert.That(node.Find("FruitGlow"), Is.Not.Null);
+                Transform branchArt = panel.Find(
+                    $"TreeBranchArt_{definition.Type}");
+                if (definition.Branch == PermanentGrowthBranch.Leap)
+                    Assert.That(branchArt, Is.Null);
+                else
+                    AssertSprite(branchArt, "pg_branch");
             }
 
             Assert.That(
@@ -255,7 +264,23 @@ namespace MukJump.EditorTests
             Assert.That(
                 selectedNode.Find("NodeSurface").GetComponent<Image>().color,
                 Is.Not.EqualTo(InkPalette.Red),
-                "구매한 노드도 붉은 칠 대신 먹색/기존 꽃색을 사용해야 합니다.");
+                "나무 전체가 아니라 별도의 해금 열매만 붉어야 합니다.");
+            Color fruitColor =
+                selectedNode.Find("Fruit").GetComponent<Image>().color;
+            Assert.That(
+                fruitColor.r,
+                Is.EqualTo(InkPalette.Red.r).Within(0.001f));
+            Assert.That(
+                fruitColor.g,
+                Is.EqualTo(InkPalette.Red.g).Within(0.001f));
+            Assert.That(
+                fruitColor.b,
+                Is.EqualTo(InkPalette.Red.b).Within(0.001f));
+            Assert.That(fruitColor.a, Is.GreaterThan(0.9f));
+            Assert.That(
+                selectedNode.Find("FruitGlow")
+                    .GetComponent<Image>().color.a,
+                Is.GreaterThan(0.1f));
             Assert.That(
                 panel.Find("GrowthBranchRedFlow2"),
                 Is.Null);

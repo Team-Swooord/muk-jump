@@ -101,6 +101,70 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void UnlockOverlay_선택노드에서_붉은열매가_피어나고_계층을_재사용한다()
+        {
+            GrowthUnlockPresentation view = CreateView();
+            Sprite growthIcon = Resources.Load<Sprite>(
+                "MukJump/UI/PermanentGrowth/pg_icon_capacity");
+            Sprite fruitSprite = Resources.Load<Sprite>(
+                "MukJump/UI/PermanentGrowth/pg_node_bloom_mask");
+            var firstPosition = new Vector2(-214f, 326f);
+            int childCount = view.PresentationRoot.childCount;
+
+            view.PlayAtNode(
+                "먹그릇",
+                growthIcon,
+                firstPosition,
+                fruitSprite);
+            view.EvaluateForTests(0.5f);
+
+            Assert.That(view.HasNodeFeedback, Is.True);
+            Assert.That(view.NodeFeedbackPosition, Is.EqualTo(firstPosition));
+            Assert.That(view.NodeFruitSprite, Is.SameAs(fruitSprite));
+            Assert.That(
+                view.NodeFruitColor.r,
+                Is.EqualTo(InkPalette.Red.r).Within(0.001f));
+            Assert.That(
+                view.NodeFruitColor.a,
+                Is.GreaterThan(0.8f));
+            Assert.That(
+                view.PresentationRoot.Find(
+                    "NodeFruitFeedback/FruitGlow"),
+                Is.Not.Null);
+            Assert.That(
+                view.ActiveNodeDropCount,
+                Is.LessThanOrEqualTo(4));
+            for (int i = 0; i < view.ActiveNodeDropCount; i++)
+            {
+                Image drop = view.PresentationRoot
+                    .Find($"NodeFruitFeedback/FruitDrop{i + 1:00}")
+                    ?.GetComponent<Image>();
+                Assert.That(drop, Is.Not.Null);
+                Assert.That(
+                    drop.color.r,
+                    Is.EqualTo(InkPalette.Ink.r).Within(0.001f));
+                Assert.That(
+                    drop.color.g,
+                    Is.EqualTo(InkPalette.Ink.g).Within(0.001f));
+                Assert.That(
+                    drop.color.b,
+                    Is.EqualTo(InkPalette.Ink.b).Within(0.001f));
+            }
+
+            var secondPosition = new Vector2(208f, -144f);
+            view.PlayAtNode(
+                "숨고르기",
+                growthIcon,
+                secondPosition,
+                fruitSprite);
+
+            Assert.That(
+                view.PresentationRoot.childCount,
+                Is.EqualTo(childCount));
+            Assert.That(view.NodeFeedbackPosition, Is.EqualTo(secondPosition));
+        }
+
+        [Test]
         public void UpgradeOverlay_같은계층을_압축재생하고_강화단계를_표시한다()
         {
             GrowthUnlockPresentation view = CreateView();
@@ -229,6 +293,12 @@ namespace MukJump.EditorTests
             Assert.That(presentation.IsPlaying, Is.True);
             Assert.That(presentation.Title, Is.EqualTo("성장 해금"));
             Assert.That(presentation.Subtitle, Does.Contain("먹그릇"));
+            Assert.That(presentation.HasNodeFeedback, Is.True);
+            Assert.That(
+                presentation.NodeFruitSprite?.name,
+                Does.StartWith("pg_node_bloom_mask"));
+            Assert.That(growthView.PurchaseButton.interactable, Is.False);
+            Assert.That(growthView.BackButton.interactable, Is.False);
             RectTransform reusedRoot = presentation.PresentationRoot;
             int reusedChildCount = reusedRoot.childCount;
 
@@ -254,6 +324,13 @@ namespace MukJump.EditorTests
                     "purchaseLockedUntil",
                     BindingFlags.Instance | BindingFlags.NonPublic)
                 ?.SetValue(growthView, -1f);
+            typeof(PermanentGrowthView)
+                .GetMethod(
+                    "Update",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.Invoke(growthView, null);
+            Assert.That(growthView.PurchaseButton.interactable, Is.True);
+            Assert.That(growthView.BackButton.interactable, Is.True);
             growthView.PurchaseButton.onClick.Invoke();
 
             Assert.That(
@@ -266,6 +343,10 @@ namespace MukJump.EditorTests
                 "2단계 이후에도 같은 먹획 강화 연출을 압축 재생해야 합니다.");
             Assert.That(presentation.Title, Is.EqualTo("성장 강화"));
             Assert.That(presentation.Subtitle, Does.Contain("Lv. 2"));
+            Assert.That(
+                presentation.HasNodeFeedback,
+                Is.False,
+                "같은 열매의 반복 강화에서는 새 열매 개화가 다시 나오면 안 됩니다.");
             Assert.That(
                 presentation.PresentationRoot,
                 Is.SameAs(reusedRoot));
@@ -288,6 +369,11 @@ namespace MukJump.EditorTests
                     "purchaseLockedUntil",
                     BindingFlags.Instance | BindingFlags.NonPublic)
                 ?.SetValue(growthView, -1f);
+            typeof(PermanentGrowthView)
+                .GetMethod(
+                    "Update",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.Invoke(growthView, null);
             growthView.SelectGrowthForTests(1);
             growthView.PurchaseButton.onClick.Invoke();
 
@@ -299,6 +385,18 @@ namespace MukJump.EditorTests
                 presentation.IsPlaying,
                 Is.True,
                 "다른 계보도 0→1일 때는 각자 전체 화면 해금 연출을 사용해야 합니다.");
+            Assert.That(presentation.HasNodeFeedback, Is.True);
+
+            Assert.That(
+                InkUiFeedbackController.Instance,
+                Is.Not.Null,
+                "성장 화면이 닫힐 때 기존 피드백 컨트롤러를 찾아야 합니다.");
+            Assert.That(
+                managerHost.GetComponent<InkUiFeedbackController>(),
+                Is.SameAs(InkUiFeedbackController.Instance));
+            growthView.Close();
+            Assert.That(presentation.IsPlaying, Is.False);
+            Assert.That(presentation.HasNodeFeedback, Is.False);
         }
 
         GrowthUnlockPresentation CreateView()

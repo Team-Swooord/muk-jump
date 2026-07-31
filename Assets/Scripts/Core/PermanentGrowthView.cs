@@ -23,7 +23,10 @@ namespace MukJump.Core
             public PermanentGrowthDefinition Definition;
             public RectTransform Root;
             public Image IncomingLine;
+            public Image BranchArt;
             public Image Surface;
+            public Image FruitGlow;
+            public Image Fruit;
             public Image Ring;
             public Image Icon;
             public Image CompletionMark;
@@ -59,6 +62,7 @@ namespace MukJump.Core
         int lastScreenHeight;
         float purchaseLockedUntil;
         bool purchaseInProgress;
+        bool purchaseUiLocked;
         int selectedSlot;
 
         public bool IsOpen =>
@@ -87,6 +91,7 @@ namespace MukJump.Core
         {
             PermanentGrowthProfile.Changed -= HandleProfileChanged;
             UnbindManager();
+            InkUiFeedbackController.CancelGrowthPresentation();
             CloseImmediate();
         }
 
@@ -96,6 +101,12 @@ namespace MukJump.Core
                 BindManager();
             if (manager != null && manager.State != GameState.Lobby && IsOpen)
                 Close();
+            if (purchaseUiLocked &&
+                Time.unscaledTime >= purchaseLockedUntil)
+            {
+                purchaseUiLocked = false;
+                Refresh();
+            }
             if (Screen.width != lastScreenWidth ||
                 Screen.height != lastScreenHeight ||
                 Screen.safeArea != lastSafeArea)
@@ -345,6 +356,19 @@ namespace MukJump.Core
             crownWash.rectTransform.localEulerAngles =
                 new Vector3(0f, 0f, -5f);
 
+            Sprite trunkSprite =
+                LoadPermanentGrowthSprite("pg_tree_trunk");
+            Image treeTrunk = CreateImage(
+                "InkTreeTrunk",
+                panel,
+                trunkSprite ?? InkUiTextureFactory.CreateBrushSprite(),
+                new Vector2(0f, -18f),
+                new Vector2(382f, 786f),
+                trunkSprite != null
+                    ? new Color(1f, 1f, 1f, 0.72f)
+                    : WithAlpha(InkPalette.Ink, 0.22f));
+            treeTrunk.preserveAspect = false;
+
             Sprite rootSprite =
                 LoadPermanentGrowthSprite("pg_root_emblem");
             Image treeRoot = CreateImage(
@@ -366,6 +390,8 @@ namespace MukJump.Core
                 FontStyle.Bold);
 
             var connectorByType =
+                new Dictionary<PermanentGrowthType, Image>();
+            var branchArtByType =
                 new Dictionary<PermanentGrowthType, Image>();
             foreach (PermanentGrowthBranchMetadata branch
                      in PermanentGrowthCatalog.Branches
@@ -390,6 +416,11 @@ namespace MukJump.Core
                         previous,
                         position);
                     connectorByType[definition.Type] = line;
+                    branchArtByType[definition.Type] =
+                        CreateTreeBranchArt(
+                            panel,
+                            definition,
+                            position);
                     previous = position;
                 }
             }
@@ -402,7 +433,8 @@ namespace MukJump.Core
                 GrowthNodeView node = CreateGrowthNode(
                     panel,
                     definition,
-                    connectorByType[definition.Type]);
+                    connectorByType[definition.Type],
+                    branchArtByType[definition.Type]);
                 node.Button.onClick.AddListener(() => SelectGrowth(slot));
                 nodes.Add(node);
             }
@@ -449,7 +481,8 @@ namespace MukJump.Core
         GrowthNodeView CreateGrowthNode(
             Transform parent,
             PermanentGrowthDefinition definition,
-            Image incomingLine)
+            Image incomingLine,
+            Image branchArt)
         {
             bool capstone = definition.IsCapstone;
             Vector2 position = NodePosition(definition);
@@ -479,16 +512,38 @@ namespace MukJump.Core
                 TransparentColor(InkPalette.Gold));
             ring.preserveAspect = true;
 
+            Sprite fruitSprite =
+                LoadPermanentGrowthSprite("pg_node_bloom_mask") ??
+                InkUiTextureFactory.CreateBlobSprite();
+            Image fruitGlow = CreateImage(
+                "FruitGlow",
+                root,
+                fruitSprite,
+                new Vector2(0f, 16f),
+                new Vector2(
+                    capstone ? 164f : 126f,
+                    capstone ? 164f : 126f),
+                TransparentColor(InkPalette.Red));
+            fruitGlow.preserveAspect = true;
+
             Image surface = CreateImage(
                 "NodeSurface",
                 root,
-                LoadPermanentGrowthSprite(
-                    capstone ? "pg_node_bloom_mask" : "pg_node_bud") ??
+                LoadPermanentGrowthSprite("pg_node_bud") ??
                 InkUiTextureFactory.CreateBlobSprite(),
                 new Vector2(0f, 16f),
                 new Vector2(surfaceSize, surfaceSize),
                 InkPalette.Paper2);
             surface.preserveAspect = true;
+
+            Image fruit = CreateImage(
+                "Fruit",
+                root,
+                fruitSprite,
+                new Vector2(0f, 16f),
+                new Vector2(surfaceSize, surfaceSize),
+                TransparentColor(InkPalette.Red));
+            fruit.preserveAspect = true;
 
             Image icon = CreateImage(
                 "Icon",
@@ -534,7 +589,10 @@ namespace MukJump.Core
                 Definition = definition,
                 Root = root,
                 IncomingLine = incomingLine,
+                BranchArt = branchArt,
                 Surface = surface,
+                FruitGlow = fruitGlow,
+                Fruit = fruit,
                 Ring = ring,
                 Icon = icon,
                 CompletionMark = completion,
@@ -702,6 +760,7 @@ namespace MukJump.Core
         {
             if (slot < 0 || slot >= nodes.Count ||
                 purchaseInProgress ||
+                purchaseUiLocked ||
                 Time.unscaledTime < purchaseLockedUntil)
                 return;
             selectedSlot = slot;
@@ -724,6 +783,7 @@ namespace MukJump.Core
         {
             if (slot < 0 || slot >= nodes.Count ||
                 purchaseInProgress ||
+                purchaseUiLocked ||
                 Time.unscaledTime < purchaseLockedUntil)
                 return;
 
@@ -740,17 +800,24 @@ namespace MukJump.Core
                 PermanentGrowthProfile.GetLevel(node.Definition.Type);
             bool firstUnlock =
                 previousLevel == 0 && purchasedLevel == 1;
+            Vector2 fruitScreenPosition =
+                RectTransformUtility.WorldToScreenPoint(
+                    null,
+                    node.Fruit.rectTransform.position);
             purchaseLockedUntil =
                 Time.unscaledTime +
                 (firstUnlock
                     ? GrowthUnlockPresentation.SequenceDuration
                     : GrowthUnlockPresentation.UpgradeSequenceDuration);
+            purchaseUiLocked = true;
             Refresh();
             if (firstUnlock)
             {
                 InkUiFeedbackController.PlayGrowthUnlock(
                     node.Definition.Name,
-                    node.Icon.sprite);
+                    node.Icon.sprite,
+                    fruitScreenPosition,
+                    node.Fruit.sprite);
             }
             else
             {
@@ -804,13 +871,19 @@ namespace MukJump.Core
                 node.Level.color = maxed
                     ? InkPalette.Gold
                     : ReadableMutedColor();
-                node.Surface.color = maxed
-                    ? WithAlpha(InkPalette.Gold, 0.92f)
-                    : level > 0
-                        ? WithAlpha(InkPalette.Paper, 1f)
-                        : requirementsMet
-                            ? WithAlpha(InkPalette.Paper2, 1f)
-                            : WithAlpha(InkPalette.Paper2, 0.62f);
+                node.Surface.color = level > 0
+                    ? TransparentColor(InkPalette.Paper2)
+                    : requirementsMet
+                        ? WithAlpha(InkPalette.Paper2, 1f)
+                        : WithAlpha(InkPalette.Paper2, 0.62f);
+                node.Fruit.color = level > 0
+                    ? WithAlpha(InkPalette.Red, maxed ? 1f : 0.92f)
+                    : TransparentColor(InkPalette.Red);
+                node.FruitGlow.color = level > 0
+                    ? WithAlpha(
+                        InkPalette.Red,
+                        selected ? 0.28f : maxed ? 0.22f : 0.16f)
+                    : TransparentColor(InkPalette.Red);
                 node.Ring.color = selected
                     ? WithAlpha(InkPalette.Gold, 0.95f)
                     : maxed
@@ -828,9 +901,19 @@ namespace MukJump.Core
                         : requirementsMet
                             ? WithAlpha(InkPalette.Ink, 0.35f)
                             : WithAlpha(InkPalette.Ink, 0.2f);
-                node.Button.interactable = true;
+                if (node.BranchArt != null)
+                {
+                    node.BranchArt.color = level > 0
+                        ? new Color(1f, 1f, 1f, 0.82f)
+                        : requirementsMet
+                            ? new Color(1f, 1f, 1f, 0.38f)
+                            : new Color(1f, 1f, 1f, 0.18f);
+                }
+                node.Button.interactable = !purchaseUiLocked;
             }
 
+            if (BackButton != null)
+                BackButton.interactable = !purchaseUiLocked;
             RefreshSelectedDetail();
         }
 
@@ -912,7 +995,10 @@ namespace MukJump.Core
                         : "선행 노드 필요";
             }
             PurchaseButton.interactable =
-                !maxed && requirementsMet && hasEnoughCurrency;
+                !purchaseUiLocked &&
+                !maxed &&
+                requirementsMet &&
+                hasEnoughCurrency;
         }
 
         static string FormatEffect(
@@ -969,6 +1055,39 @@ namespace MukJump.Core
                 PermanentGrowthBranch.InkHandling => "먹량 · 회복 · 발판",
                 _ => "영구 성장",
             };
+        }
+
+        Image CreateTreeBranchArt(
+            Transform parent,
+            PermanentGrowthDefinition definition,
+            Vector2 nodePosition)
+        {
+            if (definition.Branch == PermanentGrowthBranch.Leap)
+                return null;
+
+            Sprite branchSprite =
+                LoadPermanentGrowthSprite("pg_branch");
+            if (branchSprite == null)
+                return null;
+
+            float direction = Mathf.Sign(nodePosition.x);
+            float tilt =
+                (definition.BranchOrder % 2 == 0 ? 1f : -1f) *
+                direction *
+                3.5f;
+            Image branch = CreateImage(
+                $"TreeBranchArt_{definition.Type}",
+                parent,
+                branchSprite,
+                new Vector2(nodePosition.x * 0.51f, nodePosition.y + 4f),
+                new Vector2(382f, 86f),
+                new Color(1f, 1f, 1f, 0.18f));
+            branch.preserveAspect = false;
+            branch.rectTransform.localScale =
+                new Vector3(direction < 0f ? -1f : 1f, 1f, 1f);
+            branch.rectTransform.localEulerAngles =
+                new Vector3(0f, 0f, tilt);
+            return branch;
         }
 
         Image CreateInkLine(
@@ -1078,6 +1197,12 @@ namespace MukJump.Core
             if (visible)
                 BuildIfNeeded();
             if (rootGroup == null || ScreenRoot == null) return;
+            if (!visible)
+            {
+                purchaseUiLocked = false;
+                purchaseLockedUntil = 0f;
+                InkUiFeedbackController.CancelGrowthPresentation();
+            }
             if (visible)
             {
                 BindManager();
