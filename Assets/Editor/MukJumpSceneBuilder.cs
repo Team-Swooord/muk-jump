@@ -88,6 +88,12 @@ namespace MukJump.EditorTools
             PermanentGrowthUiRoot + "pg_tree_trunk_mask.png",
             PermanentGrowthUiRoot + "pg_branch.png",
             PermanentGrowthUiRoot + "pg_branch_mask.png",
+            PermanentGrowthUiRoot + "pg_branch_piece_01.png",
+            PermanentGrowthUiRoot + "pg_branch_piece_02.png",
+            PermanentGrowthUiRoot + "pg_branch_piece_03.png",
+            PermanentGrowthUiRoot + "pg_branch_piece_04.png",
+            PermanentGrowthUiRoot + "pg_branch_piece_05.png",
+            PermanentGrowthUiRoot + "pg_branch_piece_06.png",
             PermanentGrowthUiRoot + "pg_node_bud.png",
             PermanentGrowthUiRoot + "pg_node_bloom.png",
             PermanentGrowthUiRoot + "pg_node_bloom_mask.png",
@@ -217,6 +223,7 @@ namespace MukJump.EditorTools
                 bool medium =
                     path.EndsWith("pg_branch.png") ||
                     path.EndsWith("pg_branch_mask.png") ||
+                    path.Contains("pg_branch_piece_") ||
                     path.EndsWith("pg_hanji_card.png");
                 bool opaque =
                     path.EndsWith("pg_hanji_background.png");
@@ -309,6 +316,7 @@ namespace MukJump.EditorTools
                 bool medium =
                     path.EndsWith("pg_branch.png") ||
                     path.EndsWith("pg_branch_mask.png") ||
+                    path.Contains("pg_branch_piece_") ||
                     path.EndsWith("pg_hanji_card.png");
                 bool opaque =
                     path.EndsWith("pg_hanji_background.png");

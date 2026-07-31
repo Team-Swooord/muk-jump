@@ -53,7 +53,7 @@ namespace MukJump.EditorTests
             Assert.That(growthView.CreatedRowCount, Is.EqualTo(3));
             Assert.That(
                 growthView.CreatedNodeCount,
-                Is.EqualTo(PermanentGrowthCatalog.All.Count));
+                Is.EqualTo(PermanentGrowthCatalog.Nodes.Count));
             Assert.That(growthView.BalanceLabel, Is.EqualTo("보유 먹빛 0"));
             Transform growthPanel = viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
@@ -79,15 +79,37 @@ namespace MukJump.EditorTests
             var inkRoot =
                 (RectTransform)treeCanvas.Find("InkTreeRoot");
             Assert.That(inkRoot, Is.Not.Null);
-            AssertFitsInitialViewport(inkRoot, viewport, "먹나무 뿌리");
-            AssertFitsInitialViewport(
-                (RectTransform)treeCanvas.Find("InkTreeTrunk"),
+            Canvas.ForceUpdateCanvases();
+            AssertContainedInViewport(inkRoot, viewport, "먹나무 뿌리");
+            AssertContainedInViewport(
+                FindGrowthNode(
+                    treeCanvas,
+                    PermanentGrowthType.Vitality,
+                    1),
                 viewport,
-                "먹나무 줄기");
-            AssertFitsInitialViewport(
-                (RectTransform)treeCanvas.Find("InkTreeRootLabel"),
+                "생존 첫 열매");
+            AssertContainedInViewport(
+                FindGrowthNode(
+                    treeCanvas,
+                    PermanentGrowthType.InkCapacity,
+                    1),
                 viewport,
-                "먹나무 뿌리 이름");
+                "먹 운용 첫 열매");
+            AssertContainedInViewport(
+                FindGrowthNode(
+                    treeCanvas,
+                    PermanentGrowthType.JumpCharge,
+                    1),
+                viewport,
+                "도약 첫 열매");
+            Assert.That(
+                treeCanvas.Find("InkTreeTrunk"),
+                Is.Not.Null,
+                "큰 먹나무 줄기가 드래그 지도 안에 있어야 합니다.");
+            Assert.That(
+                treeCanvas.Find("InkTreeRootLabel"),
+                Is.Not.Null,
+                "첫 화면의 뿌리 이름이 있어야 합니다.");
             foreach (PermanentGrowthBranchMetadata branch
                      in PermanentGrowthCatalog.Branches)
             {
@@ -102,16 +124,12 @@ namespace MukJump.EditorTests
                     header.Find("Brush/BranchTitle")
                         ?.GetComponent<Text>()?.fontSize,
                     Is.GreaterThanOrEqualTo(36));
-                AssertFitsInitialViewport(
-                    header,
-                    viewport,
-                    branch.DisplayName);
             }
-            foreach (PermanentGrowthDefinition definition
-                     in PermanentGrowthCatalog.All)
+            foreach (PermanentGrowthNodeDefinition definition
+                     in PermanentGrowthCatalog.Nodes)
             {
                 Transform node = treeCanvas.Find(
-                    $"GrowthNode_{definition.Type}");
+                    $"GrowthNode_{SanitizeNodeId(definition.Id)}");
                 Assert.That(node, Is.Not.Null, definition.Name);
                 var rect = node.GetComponent<RectTransform>();
                 Assert.That(rect.sizeDelta.x, Is.GreaterThanOrEqualTo(100f));
@@ -127,7 +145,6 @@ namespace MukJump.EditorTests
                     surface.sizeDelta.x,
                     Is.EqualTo(surface.sizeDelta.y).Within(0.01f),
                     definition.Name);
-                AssertFitsInitialViewport(rect, viewport, definition.Name);
             }
             Assert.That(
                 growthPanel.Find("SelectedGrowthDetail"),
@@ -155,10 +172,6 @@ namespace MukJump.EditorTests
             Assert.That(
                 selectedAction.Find("EnhanceButton")?.GetComponent<Button>(),
                 Is.Not.Null);
-            AssertFitsInitialViewport(
-                selectedAction,
-                viewport,
-                "초기 선택 강화 액션");
 
             growthView.Close();
             codexView.OpenCodex();
@@ -199,7 +212,7 @@ namespace MukJump.EditorTests
                     "SelectedGrowthAction")
                 ?.GetComponent<RectTransform>();
             RectTransform selectedNode = treeCanvas.Find(
-                    "GrowthNode_InkCapacity")
+                    "GrowthNode_permanent_ink_capacity_rank_1")
                 ?.GetComponent<RectTransform>();
             Assert.That(viewport, Is.Not.Null);
             Assert.That(treeCanvas, Is.Not.Null);
@@ -207,11 +220,14 @@ namespace MukJump.EditorTests
             Assert.That(selectedAction, Is.Not.Null);
             Assert.That(selectedNode, Is.Not.Null);
             Assert.That(selectedAction.IsChildOf(treeCanvas), Is.True);
+            AssertContainedInViewport(
+                selectedAction,
+                viewport,
+                "초기 선택 액션");
             Assert.That(
-                Vector2.Distance(
-                    selectedAction.anchoredPosition,
-                    selectedNode.anchoredPosition),
-                Is.GreaterThanOrEqualTo(300f));
+                WorldRect(selectedAction).Overlaps(WorldRect(selectedNode)),
+                Is.False,
+                "선택 액션이 선택한 열매를 덮으면 안 됩니다.");
 
             Vector2 actionPosition = selectedAction.anchoredPosition;
             Vector3 actionWorldPosition = selectedAction.position;
@@ -237,11 +253,11 @@ namespace MukJump.EditorTests
             float maximumX = float.NegativeInfinity;
             float minimumY = float.PositiveInfinity;
             float maximumY = float.NegativeInfinity;
-            foreach (PermanentGrowthDefinition definition
-                     in PermanentGrowthCatalog.All)
+            foreach (PermanentGrowthNodeDefinition definition
+                     in PermanentGrowthCatalog.Nodes)
             {
                 RectTransform node = treeCanvas.Find(
-                        $"GrowthNode_{definition.Type}")
+                        $"GrowthNode_{SanitizeNodeId(definition.Id)}")
                     ?.GetComponent<RectTransform>();
                 Assert.That(node, Is.Not.Null, definition.Name);
                 minimumX = Mathf.Min(minimumX, node.anchoredPosition.x);
@@ -261,32 +277,128 @@ namespace MukJump.EditorTests
                 "열매 해금 연출 중에는 지도 관성·드래그를 잠가야 합니다.");
         }
 
-        static void AssertFitsInitialViewport(
+        [Test]
+        public void SelectedGrowthActionStaysInsideViewportAndAvoidsEveryFruit()
+        {
+            managerHost = new GameObject("GrowthActionPlacementManager");
+            var manager = managerHost.AddComponent<GameManager>();
+            Invoke(manager, "OnEnable");
+            viewHost = new GameObject("GrowthActionPlacementHost");
+            var view = viewHost.AddComponent<PermanentGrowthView>();
+            view.BuildForTests();
+
+            RectTransform viewport = view.TreeViewport;
+            RectTransform treeCanvas = view.TreeCanvas;
+            RectTransform action = treeCanvas.Find("SelectedGrowthAction")
+                ?.GetComponent<RectTransform>();
+            Assert.That(action, Is.Not.Null);
+
+            for (int slot = 0;
+                 slot < PermanentGrowthCatalog.Nodes.Count;
+                 slot++)
+            {
+                PermanentGrowthNodeDefinition definition =
+                    PermanentGrowthCatalog.Nodes[slot];
+                RectTransform selected = FindGrowthNode(
+                    treeCanvas,
+                    definition.Type,
+                    definition.Rank);
+                CenterNodeInViewport(treeCanvas, viewport, selected);
+                Canvas.ForceUpdateCanvases();
+                view.SelectGrowthForTests(slot);
+                Canvas.ForceUpdateCanvases();
+
+                AssertContainedInViewport(
+                    action,
+                    viewport,
+                    $"{definition.Id} 액션");
+                Rect actionRect = WorldRect(action);
+                foreach (PermanentGrowthNodeDefinition otherDefinition
+                         in PermanentGrowthCatalog.Nodes)
+                {
+                    RectTransform other = FindGrowthNode(
+                        treeCanvas,
+                        otherDefinition.Type,
+                        otherDefinition.Rank);
+                    Assert.That(
+                        actionRect.Overlaps(WorldRect(other)),
+                        Is.False,
+                        $"{definition.Id} 액션이 " +
+                        $"{otherDefinition.Id} 열매를 덮으면 안 됩니다.");
+                }
+            }
+        }
+
+        static RectTransform FindGrowthNode(
+            RectTransform treeCanvas,
+            PermanentGrowthType type,
+            int rank)
+        {
+            PermanentGrowthNodeDefinition definition =
+                PermanentGrowthCatalog.GetNode(type, rank);
+            return treeCanvas.Find(
+                    $"GrowthNode_{SanitizeNodeId(definition.Id)}")
+                ?.GetComponent<RectTransform>();
+        }
+
+        static void CenterNodeInViewport(
+            RectTransform treeCanvas,
+            RectTransform viewport,
+            RectTransform node)
+        {
+            Assert.That(node, Is.Not.Null);
+            Vector2 travel =
+                (treeCanvas.sizeDelta - viewport.sizeDelta) * 0.5f;
+            treeCanvas.anchoredPosition = new Vector2(
+                Mathf.Clamp(-node.anchoredPosition.x, -travel.x, travel.x),
+                Mathf.Clamp(-node.anchoredPosition.y, -travel.y, travel.y));
+        }
+
+        static void AssertContainedInViewport(
             RectTransform element,
             RectTransform viewport,
             string label)
         {
             Assert.That(element, Is.Not.Null, label);
-            Vector2 halfViewport = viewport.sizeDelta * 0.5f;
-            Vector2 halfElement = element.sizeDelta * 0.5f;
-            Vector2 minimum = element.anchoredPosition - halfElement;
-            Vector2 maximum = element.anchoredPosition + halfElement;
+            Rect elementRect = WorldRect(element);
+            Rect viewportRect = WorldRect(viewport);
+            const float Tolerance = 1f;
             Assert.That(
-                minimum.x,
-                Is.GreaterThanOrEqualTo(-halfViewport.x + 8f),
-                $"{label} 왼쪽이 잘리면 안 됩니다.");
+                elementRect.xMin,
+                Is.GreaterThanOrEqualTo(viewportRect.xMin - Tolerance),
+                $"{label} 왼쪽");
             Assert.That(
-                maximum.x,
-                Is.LessThanOrEqualTo(halfViewport.x - 8f),
-                $"{label} 오른쪽이 잘리면 안 됩니다.");
+                elementRect.xMax,
+                Is.LessThanOrEqualTo(viewportRect.xMax + Tolerance),
+                $"{label} 오른쪽");
             Assert.That(
-                minimum.y,
-                Is.GreaterThanOrEqualTo(-halfViewport.y + 8f),
-                $"{label} 아래가 잘리면 안 됩니다.");
+                elementRect.yMin,
+                Is.GreaterThanOrEqualTo(viewportRect.yMin - Tolerance),
+                $"{label} 아래");
             Assert.That(
-                maximum.y,
-                Is.LessThanOrEqualTo(halfViewport.y - 8f),
-                $"{label} 위가 잘리면 안 됩니다.");
+                elementRect.yMax,
+                Is.LessThanOrEqualTo(viewportRect.yMax + Tolerance),
+                $"{label} 위");
+        }
+
+        static Rect WorldRect(RectTransform rectTransform)
+        {
+            var corners = new Vector3[4];
+            rectTransform.GetWorldCorners(corners);
+            return Rect.MinMaxRect(
+                corners[0].x,
+                corners[0].y,
+                corners[2].x,
+                corners[2].y);
+        }
+
+        static string SanitizeNodeId(string id)
+        {
+            char[] characters = id.ToCharArray();
+            for (int i = 0; i < characters.Length; i++)
+                if (!char.IsLetterOrDigit(characters[i]))
+                    characters[i] = '_';
+            return new string(characters);
         }
 
         [Test]

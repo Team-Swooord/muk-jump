@@ -156,7 +156,7 @@ namespace MukJump.EditorTests
             Assert.That(view.CreatedRowCount, Is.EqualTo(3));
             Assert.That(
                 view.CreatedNodeCount,
-                Is.EqualTo(PermanentGrowthCatalog.All.Count));
+                Is.EqualTo(PermanentGrowthCatalog.Nodes.Count));
             Assert.That(view.PurchaseButton, Is.Not.Null);
             Assert.That(
                 view.PurchaseButton.GetComponent<RectTransform>().sizeDelta.y,
@@ -198,11 +198,11 @@ namespace MukJump.EditorTests
                     Is.GreaterThanOrEqualTo(36));
             }
 
-            foreach (PermanentGrowthDefinition definition
-                     in PermanentGrowthCatalog.All)
+            foreach (PermanentGrowthNodeDefinition definition
+                     in PermanentGrowthCatalog.Nodes)
             {
                 Transform node = treeCanvas.Find(
-                    $"GrowthNode_{definition.Type}");
+                    $"GrowthNode_{SanitizeNodeId(definition.Id)}");
                 Assert.That(
                     node,
                     Is.Not.Null,
@@ -215,13 +215,20 @@ namespace MukJump.EditorTests
                         ?.fontSize,
                     Is.GreaterThanOrEqualTo(30));
                 Assert.That(
-                    treeCanvas.Find($"GrowthPath_{definition.Type}"),
-                    Is.Not.Null);
+                    HasIncomingPath(treeCanvas, definition),
+                    Is.True,
+                    definition.Id);
                 Assert.That(node.Find("Fruit"), Is.Not.Null);
                 Assert.That(node.Find("FruitGlow"), Is.Not.Null);
-                Transform branchArt = treeCanvas.Find(
-                    $"TreeBranchArt_{definition.Type}");
-                AssertSprite(branchArt, "pg_branch");
+                Transform branchArt =
+                    FindIncomingBranchArt(treeCanvas, definition);
+                Assert.That(branchArt, Is.Not.Null, definition.Id);
+                string spriteName =
+                    branchArt.GetComponent<Image>()?.sprite?.name;
+                Assert.That(
+                    spriteName,
+                    Does.StartWith("pg_branch"),
+                    definition.Id);
             }
 
             Assert.That(
@@ -259,10 +266,11 @@ namespace MukJump.EditorTests
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
             Transform selectedNode = panel.Find(
-                "TreeViewport/TreeCanvas/GrowthNode_InkCapacity");
+                "TreeViewport/TreeCanvas/" +
+                "GrowthNode_permanent_ink_capacity_rank_1");
             Assert.That(
                 selectedNode.Find("NodeLevel").GetComponent<Text>().text,
-                Is.EqualTo("Lv. 1 / 6"));
+                Is.EqualTo("열매 개화"));
             Assert.That(
                 selectedNode.Find("NodeSurface").GetComponent<Image>().color,
                 Is.Not.EqualTo(InkPalette.Red),
@@ -295,6 +303,44 @@ namespace MukJump.EditorTests
             Assert.That(image, Is.Not.Null, expectedName);
             Assert.That(image.sprite, Is.Not.Null, expectedName);
             Assert.That(image.sprite.name, Does.StartWith(expectedName));
+        }
+
+        static bool HasIncomingPath(
+            Transform treeCanvas,
+            PermanentGrowthNodeDefinition definition)
+        {
+            string child = SanitizeNodeId(definition.Id);
+            if (definition.ParentIds.Count == 0)
+                return treeCanvas.Find($"GrowthRootPath_{child}") != null;
+            for (int i = 0; i < definition.ParentIds.Count; i++)
+            {
+                string parent = SanitizeNodeId(definition.ParentIds[i]);
+                if (treeCanvas.Find(
+                        $"GrowthPath_{child}_From_{parent}") != null)
+                    return true;
+            }
+            return false;
+        }
+
+        static Transform FindIncomingBranchArt(
+            Transform treeCanvas,
+            PermanentGrowthNodeDefinition definition)
+        {
+            string child = SanitizeNodeId(definition.Id);
+            if (definition.ParentIds.Count == 0)
+                return treeCanvas.Find($"TreeRootBranchArt_{child}");
+            string parent = SanitizeNodeId(definition.ParentIds[0]);
+            return treeCanvas.Find(
+                $"TreeBranchArt_{child}_From_{parent}");
+        }
+
+        static string SanitizeNodeId(string id)
+        {
+            char[] characters = id.ToCharArray();
+            for (int i = 0; i < characters.Length; i++)
+                if (!char.IsLetterOrDigit(characters[i]))
+                    characters[i] = '_';
+            return new string(characters);
         }
     }
 }

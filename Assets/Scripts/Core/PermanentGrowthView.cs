@@ -17,7 +17,8 @@ namespace MukJump.Core
         const string ArtResourceRoot = "MukJump/UI/PermanentGrowth/";
         static readonly Vector2 TreeViewportPosition = new(0f, -120f);
         static readonly Vector2 TreeViewportSize = new(980f, 1440f);
-        static readonly Vector2 TreeCanvasSize = new(2240f, 2180f);
+        static readonly Vector2 TreeCanvasSize = new(3400f, 3200f);
+        static readonly Vector2 TreeRootPosition = new(0f, -1420f);
         static readonly string[] BranchPieceNames =
         {
             "pg_branch_piece_01",
@@ -32,10 +33,10 @@ namespace MukJump.Core
 
         sealed class GrowthNodeView
         {
-            public PermanentGrowthDefinition Definition;
+            public PermanentGrowthNodeDefinition NodeDefinition;
             public RectTransform Root;
-            public Image IncomingLine;
-            public Image BranchArt;
+            public List<Image> IncomingLines = new();
+            public List<Image> BranchArts = new();
             public Image Surface;
             public Image FruitGlow;
             public Image Fruit;
@@ -86,8 +87,12 @@ namespace MukJump.Core
             : string.Empty;
         public PermanentGrowthType SelectedGrowthType =>
             nodes.Count > 0 && selectedSlot >= 0 && selectedSlot < nodes.Count
-                ? nodes[selectedSlot].Definition.Type
+                ? nodes[selectedSlot].NodeDefinition.Type
                 : PermanentGrowthType.InkCapacity;
+        public string SelectedNodeId =>
+            nodes.Count > 0 && selectedSlot >= 0 && selectedSlot < nodes.Count
+                ? nodes[selectedSlot].NodeDefinition.Id
+                : string.Empty;
 
         void OnEnable()
         {
@@ -294,7 +299,7 @@ namespace MukJump.Core
             if (treeScrollRect == null) return;
             treeScrollRect.StopMovement();
             treeScrollRect.horizontalNormalizedPosition = 0.5f;
-            treeScrollRect.verticalNormalizedPosition = 0.5f;
+            treeScrollRect.verticalNormalizedPosition = 0f;
         }
 
         void BuildHeader(Transform panel)
@@ -390,8 +395,8 @@ namespace MukJump.Core
                 "TreeCrownWash",
                 panel,
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, 0f),
-                new Vector2(1620f, 1540f),
+                new Vector2(0f, -40f),
+                new Vector2(3000f, 2800f),
                 WithAlpha(InkPalette.Ink, 0.022f));
             crownWash.rectTransform.localEulerAngles =
                 new Vector3(0f, 0f, -5f);
@@ -402,8 +407,8 @@ namespace MukJump.Core
                 "InkTreeTrunk",
                 panel,
                 trunkSprite ?? InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0f, -42f),
-                new Vector2(660f, 1280f),
+                new Vector2(0f, -120f),
+                new Vector2(900f, 2600f),
                 trunkSprite != null
                     ? new Color(1f, 1f, 1f, 0.84f)
                     : WithAlpha(InkPalette.Ink, 0.22f));
@@ -412,29 +417,29 @@ namespace MukJump.Core
             CreateDecorativeTreeBranch(
                 panel,
                 "TreeSprigLowerLeft",
-                new Vector2(-48f, -470f),
-                new Vector2(-390f, -540f),
+                new Vector2(-40f, -1160f),
+                new Vector2(-720f, -1260f),
                 0.2f,
                 0);
             CreateDecorativeTreeBranch(
                 panel,
                 "TreeSprigLowerRight",
-                new Vector2(42f, -440f),
-                new Vector2(420f, -520f),
+                new Vector2(40f, -1160f),
+                new Vector2(720f, -1260f),
                 0.18f,
                 1);
             CreateDecorativeTreeBranch(
                 panel,
                 "TreeSprigUpperLeft",
-                new Vector2(-28f, -20f),
-                new Vector2(-360f, 310f),
+                new Vector2(-40f, 280f),
+                new Vector2(-760f, 880f),
                 0.16f,
                 2);
             CreateDecorativeTreeBranch(
                 panel,
                 "TreeSprigUpperRight",
-                new Vector2(24f, 70f),
-                new Vector2(390f, 350f),
+                new Vector2(40f, 320f),
+                new Vector2(760f, 920f),
                 0.14f,
                 3);
 
@@ -444,7 +449,7 @@ namespace MukJump.Core
                 "InkTreeRoot",
                 panel,
                 rootSprite ?? InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, -590f),
+                TreeRootPosition,
                 new Vector2(132f, 132f),
                 rootSprite != null ? Color.white : InkPalette.Ink);
             treeRoot.preserveAspect = rootSprite != null;
@@ -453,15 +458,11 @@ namespace MukJump.Core
                 panel,
                 "먹빛의 뿌리",
                 32,
-                new Vector2(0f, -678f),
+                TreeRootPosition + new Vector2(0f, -88f),
                 new Vector2(260f, 46f),
                 InkPalette.TextDark,
                 FontStyle.Bold);
 
-            var connectorByType =
-                new Dictionary<PermanentGrowthType, Image>();
-            var branchArtByType =
-                new Dictionary<PermanentGrowthType, Image>();
             foreach (PermanentGrowthBranchMetadata branch
                      in PermanentGrowthCatalog.Branches
                          .OrderBy(item => item.DisplayOrder))
@@ -471,43 +472,80 @@ namespace MukJump.Core
                         panel,
                         branch,
                         BranchHeaderPosition(branch.Branch)));
-                List<PermanentGrowthDefinition> definitions =
-                    PermanentGrowthCatalog.All
-                        .Where(item => item.Branch == branch.Branch)
-                        .OrderBy(item => item.BranchOrder)
-                        .ToList();
+            }
 
-                Vector2 previous = new(0f, -590f);
-                for (int i = 0; i < definitions.Count; i++)
+            var incomingLinesById =
+                new Dictionary<string, List<Image>>(StringComparer.Ordinal);
+            var branchArtsById =
+                new Dictionary<string, List<Image>>(StringComparer.Ordinal);
+            for (int i = 0; i < PermanentGrowthCatalog.Nodes.Count; i++)
+            {
+                PermanentGrowthNodeDefinition definition =
+                    PermanentGrowthCatalog.Nodes[i];
+                var incomingLines = new List<Image>();
+                var branchArts = new List<Image>();
+                incomingLinesById[definition.Id] = incomingLines;
+                branchArtsById[definition.Id] = branchArts;
+
+                Vector2 end = NodePosition(definition);
+                string childName = SanitizeNodeId(definition.Id);
+                if (definition.ParentIds.Count == 0)
                 {
-                    PermanentGrowthDefinition definition = definitions[i];
-                    Vector2 position = NodePosition(definition);
-                    branchArtByType[definition.Type] =
-                        CreateTreeBranchArt(
-                            panel,
-                            definition,
-                            previous,
-                            position);
-                    Image line = CreateInkLine(
-                        $"GrowthPath_{definition.Type}",
+                    string rootEdgeId = $"root->{definition.Id}";
+                    branchArts.Add(CreateTreeBranchArt(
                         panel,
-                        previous,
-                        position);
-                    connectorByType[definition.Type] = line;
-                    previous = position;
+                        $"TreeRootBranchArt_{childName}",
+                        definition,
+                        TreeRootPosition,
+                        end,
+                        rootEdgeId));
+                    incomingLines.Add(CreateInkLine(
+                        $"GrowthRootPath_{childName}",
+                        panel,
+                        TreeRootPosition,
+                        end));
+                    continue;
+                }
+
+                for (int parentIndex = 0;
+                     parentIndex < definition.ParentIds.Count;
+                     parentIndex++)
+                {
+                    string parentId = definition.ParentIds[parentIndex];
+                    PermanentGrowthNodeDefinition parentDefinition =
+                        PermanentGrowthCatalog.GetNode(parentId);
+                    if (parentDefinition == null)
+                        continue;
+
+                    string parentName = SanitizeNodeId(parentId);
+                    string edgeId = $"{parentId}->{definition.Id}";
+                    Vector2 start = NodePosition(parentDefinition);
+                    Image branchArt = CreateTreeBranchArt(
+                        panel,
+                        $"TreeBranchArt_{childName}_From_{parentName}",
+                        definition,
+                        start,
+                        end,
+                        edgeId);
+                    branchArts.Add(branchArt);
+                    incomingLines.Add(CreateInkLine(
+                        $"GrowthPath_{childName}_From_{parentName}",
+                        panel,
+                        start,
+                        end));
                 }
             }
 
-            for (int i = 0; i < PermanentGrowthCatalog.All.Count; i++)
+            for (int i = 0; i < PermanentGrowthCatalog.Nodes.Count; i++)
             {
                 int slot = i;
-                PermanentGrowthDefinition definition =
-                    PermanentGrowthCatalog.All[i];
+                PermanentGrowthNodeDefinition definition =
+                    PermanentGrowthCatalog.Nodes[i];
                 GrowthNodeView node = CreateGrowthNode(
                     panel,
                     definition,
-                    connectorByType[definition.Type],
-                    branchArtByType[definition.Type]);
+                    incomingLinesById[definition.Id],
+                    branchArtsById[definition.Id]);
                 node.Button.onClick.AddListener(() => SelectGrowth(slot));
                 nodes.Add(node);
             }
@@ -553,17 +591,17 @@ namespace MukJump.Core
 
         GrowthNodeView CreateGrowthNode(
             Transform parent,
-            PermanentGrowthDefinition definition,
-            Image incomingLine,
-            Image branchArt)
+            PermanentGrowthNodeDefinition definition,
+            List<Image> incomingLines,
+            List<Image> branchArts)
         {
             bool capstone = definition.IsCapstone;
             Vector2 position = NodePosition(definition);
             Vector2 touchSize = capstone
-                ? new Vector2(290f, 280f)
-                : new Vector2(200f, 200f);
+                ? new Vector2(240f, 260f)
+                : new Vector2(188f, 218f);
             RectTransform root = CreateRect(
-                $"GrowthNode_{definition.Type}",
+                $"GrowthNode_{SanitizeNodeId(definition.Id)}",
                 parent,
                 position,
                 touchSize);
@@ -573,8 +611,8 @@ namespace MukJump.Core
             Button button = root.gameObject.AddComponent<Button>();
             InkUiStyle.ConfigureButton(button, hit, addInkFeedback: false);
 
-            float nodeCenterY = 22f;
-            float surfaceSize = capstone ? 176f : 138f;
+            float nodeCenterY = 30f;
+            float surfaceSize = capstone ? 164f : 124f;
             Image ring = CreateImage(
                 "SelectionRing",
                 root,
@@ -648,26 +686,28 @@ namespace MukJump.Core
                 root,
                 definition.Name,
                 capstone ? 36 : 34,
-                new Vector2(0f, capstone ? -92f : -72f),
+                new Vector2(0f, capstone ? -88f : -62f),
                 new Vector2(290f, 46f),
                 InkPalette.TextDark,
                 FontStyle.Bold);
             Text level = CreateText(
                 "NodeLevel",
                 root,
-                capstone ? "최종 패시브" : "Lv. 0",
+                definition.IsCapstone
+                    ? "최종 열매"
+                    : $"{definition.Rank}단계",
                 capstone ? 29 : 28,
-                new Vector2(0f, capstone ? -132f : -110f),
+                new Vector2(0f, capstone ? -128f : -101f),
                 new Vector2(286f, 38f),
                 ReadableMutedColor(),
                 FontStyle.Bold);
 
             return new GrowthNodeView
             {
-                Definition = definition,
+                NodeDefinition = definition,
                 Root = root,
-                IncomingLine = incomingLine,
-                BranchArt = branchArt,
+                IncomingLines = incomingLines,
+                BranchArts = branchArts,
                 Surface = surface,
                 FruitGlow = fruitGlow,
                 Fruit = fruit,
@@ -686,14 +726,14 @@ namespace MukJump.Core
                 "SelectedGrowthAction",
                 parent,
                 Vector2.zero,
-                new Vector2(280f, 154f));
+                new Vector2(310f, 176f));
 
             PurchaseButton = CreateBrushButton(
                 "EnhanceButton",
                 selectedActionRoot,
                 "강화하기",
                 new Vector2(0f, 30f),
-                new Vector2(220f, 92f),
+                new Vector2(230f, 104f),
                 32);
             purchaseButtonText =
                 PurchaseButton.GetComponentInChildren<Text>(true);
@@ -704,8 +744,8 @@ namespace MukJump.Core
                 selectedActionRoot,
                 "먹빛 0",
                 27,
-                new Vector2(0f, -46f),
-                new Vector2(280f, 58f),
+                new Vector2(0f, -54f),
+                new Vector2(306f, 58f),
                 ReadableMutedColor(),
                 FontStyle.Bold);
             AddReadableWeight(selectedActionStatusText, 0.08f);
@@ -717,15 +757,16 @@ namespace MukJump.Core
             int firstAvailable = -1;
             for (int i = 0; i < nodes.Count; i++)
             {
-                if (nodes[i].Definition.Type ==
-                    PermanentGrowthType.InkCapacity)
+                if (nodes[i].NodeDefinition.Type ==
+                        PermanentGrowthType.InkCapacity &&
+                    nodes[i].NodeDefinition.Rank == 1)
                 {
                     selectedSlot = i;
                     return;
                 }
                 if (firstAvailable < 0 &&
-                    PermanentGrowthProfile.MeetsRequirements(
-                        nodes[i].Definition.Type))
+                    PermanentGrowthProfile.MeetsNodeRequirements(
+                        nodes[i].NodeDefinition))
                     firstAvailable = i;
             }
             selectedSlot = Mathf.Max(0, firstAvailable);
@@ -763,52 +804,35 @@ namespace MukJump.Core
                 return;
 
             GrowthNodeView node = nodes[slot];
-            int previousLevel =
-                PermanentGrowthProfile.GetLevel(node.Definition.Type);
-            if (!TryPurchaseWithoutReentry(node.Definition.Type))
+            if (!TryPurchaseWithoutReentry(node.NodeDefinition))
             {
                 Refresh();
                 return;
             }
 
-            int purchasedLevel =
-                PermanentGrowthProfile.GetLevel(node.Definition.Type);
-            bool firstUnlock =
-                previousLevel == 0 && purchasedLevel == 1;
             Vector2 fruitScreenPosition =
                 RectTransformUtility.WorldToScreenPoint(
                     null,
                     node.Fruit.rectTransform.position);
             purchaseLockedUntil =
                 Time.unscaledTime +
-                (firstUnlock
-                    ? GrowthUnlockPresentation.SequenceDuration
-                    : GrowthUnlockPresentation.UpgradeSequenceDuration);
+                GrowthUnlockPresentation.SequenceDuration;
             purchaseUiLocked = true;
             Refresh();
-            if (firstUnlock)
-            {
-                InkUiFeedbackController.PlayGrowthUnlock(
-                    node.Definition.Name,
-                    node.Icon.sprite,
-                    fruitScreenPosition,
-                    node.Fruit.sprite);
-            }
-            else
-            {
-                InkUiFeedbackController.PlayGrowthUpgrade(
-                    node.Definition.Name,
-                    node.Icon.sprite,
-                    purchasedLevel);
-            }
+            InkUiFeedbackController.PlayGrowthUnlock(
+                node.NodeDefinition.Name,
+                node.Icon.sprite,
+                fruitScreenPosition,
+                node.Fruit.sprite);
         }
 
-        bool TryPurchaseWithoutReentry(PermanentGrowthType type)
+        bool TryPurchaseWithoutReentry(
+            PermanentGrowthNodeDefinition definition)
         {
             purchaseInProgress = true;
             try
             {
-                return PermanentGrowthProfile.TryPurchase(type);
+                return PermanentGrowthProfile.TryPurchaseNode(definition);
             }
             finally
             {
@@ -824,65 +848,73 @@ namespace MukJump.Core
             for (int i = 0; i < nodes.Count; i++)
             {
                 GrowthNodeView node = nodes[i];
-                PermanentGrowthDefinition definition = node.Definition;
-                int level =
-                    PermanentGrowthProfile.GetLevel(definition.Type);
-                bool maxed = level >= definition.MaxLevel;
+                PermanentGrowthNodeDefinition definition =
+                    node.NodeDefinition;
+                bool unlocked =
+                    PermanentGrowthProfile.IsNodeUnlocked(definition);
                 bool requirementsMet =
-                    PermanentGrowthProfile.MeetsRequirements(definition.Type);
+                    PermanentGrowthProfile.MeetsNodeRequirements(definition);
                 bool selected = i == selectedSlot;
 
                 node.Name.text = definition.Name;
-                node.Level.text = definition.IsCapstone
-                    ? maxed ? "패시브 장착" : "최종 패시브"
-                    : $"Lv. {level} / {definition.MaxLevel}";
+                node.Level.text = unlocked
+                    ? "열매 개화"
+                    : definition.IsCapstone
+                        ? "최종 열매"
+                        : $"{definition.Rank}단계";
                 node.Icon.sprite = LoadIcon(definition.Type);
                 node.Icon.color = node.Icon.sprite != null
                     ? new Color(1f, 1f, 1f, requirementsMet ? 1f : 0.6f)
                     : WithAlpha(InkPalette.Ink, requirementsMet ? 1f : 0.58f);
-                node.Name.color = requirementsMet || level > 0
+                node.Name.color = requirementsMet || unlocked
                     ? InkPalette.TextDark
                     : WithAlpha(InkPalette.TextMuted, 0.84f);
-                node.Level.color = maxed
+                node.Level.color = unlocked
                     ? InkPalette.Gold
                     : ReadableMutedColor();
-                node.Surface.color = level > 0
+                node.Surface.color = unlocked
                     ? TransparentColor(InkPalette.Paper2)
                     : requirementsMet
                         ? WithAlpha(InkPalette.Paper2, 1f)
                         : WithAlpha(InkPalette.Paper2, 0.62f);
-                node.Fruit.color = level > 0
-                    ? WithAlpha(InkPalette.Red, maxed ? 1f : 0.92f)
+                node.Fruit.color = unlocked
+                    ? WithAlpha(InkPalette.Red, 1f)
                     : TransparentColor(InkPalette.Red);
-                node.FruitGlow.color = level > 0
+                node.FruitGlow.color = unlocked
                     ? WithAlpha(
                         InkPalette.Red,
-                        selected ? 0.28f : maxed ? 0.22f : 0.16f)
+                        selected ? 0.28f : 0.18f)
                     : TransparentColor(InkPalette.Red);
                 node.Ring.color = selected
                     ? WithAlpha(InkPalette.Gold, 0.95f)
-                    : maxed
+                    : unlocked
                         ? WithAlpha(InkPalette.Gold, 0.62f)
-                        : level > 0
-                            ? WithAlpha(InkPalette.Ink, 0.72f)
-                            : TransparentColor(InkPalette.Gold);
-                node.CompletionMark.color = maxed
+                        : TransparentColor(InkPalette.Gold);
+                node.CompletionMark.color = unlocked
                     ? InkPalette.Gold
                     : TransparentColor(InkPalette.Gold);
-                node.IncomingLine.color = maxed
+                Color lineColor = unlocked
                     ? WithAlpha(InkPalette.Gold, 0.82f)
-                    : level > 0
-                        ? WithAlpha(InkPalette.Ink, 0.78f)
-                        : requirementsMet
-                            ? WithAlpha(InkPalette.Ink, 0.35f)
-                            : WithAlpha(InkPalette.Ink, 0.2f);
-                if (node.BranchArt != null)
+                    : requirementsMet
+                        ? WithAlpha(InkPalette.Ink, 0.35f)
+                        : WithAlpha(InkPalette.Ink, 0.2f);
+                for (int lineIndex = 0;
+                     lineIndex < node.IncomingLines.Count;
+                     lineIndex++)
+                    if (node.IncomingLines[lineIndex] != null)
+                        node.IncomingLines[lineIndex].color = lineColor;
+
+                Color branchColor = unlocked
+                    ? new Color(1f, 1f, 1f, 0.88f)
+                    : requirementsMet
+                        ? new Color(1f, 1f, 1f, 0.68f)
+                        : new Color(1f, 1f, 1f, 0.48f);
+                for (int artIndex = 0;
+                     artIndex < node.BranchArts.Count;
+                     artIndex++)
                 {
-                    node.BranchArt.color = level > 0
-                        ? new Color(1f, 1f, 1f, 0.88f)
-                        : requirementsMet
-                            ? new Color(1f, 1f, 1f, 0.68f)
-                            : new Color(1f, 1f, 1f, 0.48f);
+                    if (node.BranchArts[artIndex] != null)
+                        node.BranchArts[artIndex].color = branchColor;
                 }
                 node.Button.interactable = !purchaseUiLocked;
             }
@@ -911,98 +943,216 @@ namespace MukJump.Core
                 return;
 
             GrowthNodeView node = nodes[selectedSlot];
-            PermanentGrowthDefinition definition = node.Definition;
-            int level = PermanentGrowthProfile.GetLevel(definition.Type);
-            bool maxed = level >= definition.MaxLevel;
+            PermanentGrowthNodeDefinition definition =
+                node.NodeDefinition;
+            bool unlocked =
+                PermanentGrowthProfile.IsNodeUnlocked(definition);
             bool requirementsMet =
-                PermanentGrowthProfile.MeetsRequirements(definition.Type);
-            int cost = definition.GetCost(level);
+                PermanentGrowthProfile.MeetsNodeRequirements(definition);
+            int cost = definition.Cost;
             bool hasEnoughCurrency =
                 PermanentGrowthProfile.Currency >= cost;
 
-            selectedActionStatusText.text = maxed
-                ? "최고 단계 완성"
+            selectedActionStatusText.text = unlocked
+                ? "열매 개화 완료"
                 : requirementsMet
                     ? $"먹빛 {cost}" +
                       (hasEnoughCurrency ? string.Empty : " · 부족")
-                    : "선행 노드 필요";
+                    : "선행 열매 필요";
             selectedActionStatusText.color =
-                !maxed && requirementsMet && !hasEnoughCurrency
+                !unlocked && requirementsMet && !hasEnoughCurrency
                     ? InkPalette.Red
-                    : requirementsMet || maxed
+                    : requirementsMet || unlocked
                         ? ReadableMutedColor()
                         : InkPalette.Red;
 
             if (purchaseButtonText != null)
             {
-                purchaseButtonText.text = maxed
-                    ? "완성"
+                purchaseButtonText.text = unlocked
+                    ? "개화 완료"
                     : requirementsMet
                         ? "강화하기"
                         : "잠김";
             }
             PurchaseButton.interactable =
                 !purchaseUiLocked &&
-                !maxed &&
+                !unlocked &&
                 requirementsMet &&
                 hasEnoughCurrency;
-            Vector2 actionOffset;
-            if (definition.Branch == PermanentGrowthBranch.InkHandling &&
-                definition.BranchOrder == 0)
-            {
-                actionOffset = new Vector2(310f, -120f);
-            }
-            else
-            {
-                float horizontalDirection =
-                    node.Root.anchoredPosition.x > 80f
-                        ? -1f
-                        : node.Root.anchoredPosition.x < -80f
-                            ? 1f
-                            : definition.BranchOrder % 2 == 0
-                                ? 1f
-                                : -1f;
-                actionOffset =
-                    new Vector2(horizontalDirection * 285f, 0f);
-            }
             selectedActionRoot.anchoredPosition =
-                node.Root.anchoredPosition + actionOffset;
+                FindSelectedActionPosition(node);
             selectedActionRoot.SetAsLastSibling();
         }
 
-        static Vector2 NodePosition(PermanentGrowthDefinition definition)
+        Vector2 FindSelectedActionPosition(GrowthNodeView selectedNode)
         {
-            int order = Mathf.Max(0, definition.BranchOrder);
-            return definition.Branch switch
+            Vector2 origin = selectedNode.Root.anchoredPosition;
+            float preferredDirection = origin.x < 0f ? 1f : -1f;
+            Vector2[] offsets =
             {
-                PermanentGrowthBranch.InkHandling =>
-                    new Vector2(
-                        order % 2 == 0 ? 18f : -18f,
-                        -430f + order * 285f),
-                PermanentGrowthBranch.Survival =>
-                    new Vector2(
-                        -(225f + order * 52.5f),
-                        -330f + order * 295f),
-                PermanentGrowthBranch.Leap =>
-                    new Vector2(
-                        225f + order * 52.5f,
-                        -330f + order * 295f),
-                _ => Vector2.zero,
+                new(preferredDirection * 310f, 0f),
+                new(-preferredDirection * 310f, 0f),
+                new(0f, 235f),
+                new(0f, -235f),
+                new(preferredDirection * 285f, 185f),
+                new(-preferredDirection * 285f, 185f),
+                new(preferredDirection * 285f, -185f),
+                new(-preferredDirection * 285f, -185f),
+                new(preferredDirection * 410f, 120f),
+                new(-preferredDirection * 410f, 120f),
+                new(preferredDirection * 410f, -120f),
+                new(-preferredDirection * 410f, -120f),
             };
+
+            Vector2 actionSize = selectedActionRoot.sizeDelta;
+            Rect visibleBounds = VisibleTreeCanvasBounds();
+            var candidates = new List<Vector2>(192);
+            for (int i = 0; i < offsets.Length; i++)
+                candidates.Add(
+                    ClampActionCenter(
+                        origin + offsets[i],
+                        actionSize,
+                        visibleBounds));
+
+            Vector2 halfAction = actionSize * 0.5f;
+            float minimumX = visibleBounds.xMin + halfAction.x;
+            float maximumX = visibleBounds.xMax - halfAction.x;
+            float minimumY = visibleBounds.yMin + halfAction.y;
+            float maximumY = visibleBounds.yMax - halfAction.y;
+            const float SearchStep = 88f;
+            for (float y = minimumY; y <= maximumY; y += SearchStep)
+                for (float x = minimumX; x <= maximumX; x += SearchStep)
+                    candidates.Add(new Vector2(x, y));
+            candidates.Add(new Vector2(maximumX, maximumY));
+            candidates.Add(new Vector2(minimumX, maximumY));
+            candidates.Add(new Vector2(maximumX, minimumY));
+            candidates.Add(new Vector2(minimumX, minimumY));
+
+            Vector2 best = candidates[0];
+            float bestScore = float.PositiveInfinity;
+            for (int candidateIndex = 0;
+                 candidateIndex < candidates.Count;
+                 candidateIndex++)
+            {
+                Vector2 candidate = candidates[candidateIndex];
+                Rect actionRect = CenteredRect(candidate, actionSize);
+                float score =
+                    (candidate - origin).sqrMagnitude * 0.002f;
+                score += RectOverflow(actionRect, visibleBounds) * 1000000f;
+
+                for (int nodeIndex = 0; nodeIndex < nodes.Count; nodeIndex++)
+                {
+                    GrowthNodeView other = nodes[nodeIndex];
+                    Rect occupied = CenteredRect(
+                        other.Root.anchoredPosition,
+                        other.Root.sizeDelta + new Vector2(36f, 36f));
+                    score += RectOverlapArea(actionRect, occupied) * 1000f;
+                }
+
+                for (int headerIndex = 0;
+                     headerIndex < branchHeaders.Count;
+                     headerIndex++)
+                {
+                    RectTransform header = branchHeaders[headerIndex];
+                    Rect occupied = CenteredRect(
+                        header.anchoredPosition,
+                        header.sizeDelta + new Vector2(24f, 24f));
+                    score += RectOverlapArea(actionRect, occupied) * 500f;
+                }
+
+                if (score >= bestScore)
+                    continue;
+                bestScore = score;
+                best = candidate;
+            }
+
+            return best;
+        }
+
+        Rect VisibleTreeCanvasBounds()
+        {
+            if (TreeViewport == null || TreeCanvas == null)
+                return new Rect(
+                    -TreeCanvasSize.x * 0.5f,
+                    -TreeCanvasSize.y * 0.5f,
+                    TreeCanvasSize.x,
+                    TreeCanvasSize.y);
+
+            var corners = new Vector3[4];
+            TreeViewport.GetWorldCorners(corners);
+            Vector3 bottomLeft = TreeCanvas.InverseTransformPoint(corners[0]);
+            Vector3 topRight = TreeCanvas.InverseTransformPoint(corners[2]);
+            const float SafeInset = 22f;
+            return Rect.MinMaxRect(
+                bottomLeft.x + SafeInset,
+                bottomLeft.y + SafeInset,
+                topRight.x - SafeInset,
+                topRight.y - SafeInset);
+        }
+
+        static Vector2 ClampActionCenter(
+            Vector2 center,
+            Vector2 size,
+            Rect bounds)
+        {
+            Vector2 half = size * 0.5f;
+            float minimumX = bounds.xMin + half.x;
+            float maximumX = bounds.xMax - half.x;
+            float minimumY = bounds.yMin + half.y;
+            float maximumY = bounds.yMax - half.y;
+            return new Vector2(
+                minimumX <= maximumX
+                    ? Mathf.Clamp(center.x, minimumX, maximumX)
+                    : bounds.center.x,
+                minimumY <= maximumY
+                    ? Mathf.Clamp(center.y, minimumY, maximumY)
+                    : bounds.center.y);
+        }
+
+        static Rect CenteredRect(Vector2 center, Vector2 size)
+        {
+            return new Rect(center - size * 0.5f, size);
+        }
+
+        static float RectOverflow(Rect inner, Rect outer)
+        {
+            return Mathf.Max(0f, outer.xMin - inner.xMin) +
+                   Mathf.Max(0f, inner.xMax - outer.xMax) +
+                   Mathf.Max(0f, outer.yMin - inner.yMin) +
+                   Mathf.Max(0f, inner.yMax - outer.yMax);
+        }
+
+        static float RectOverlapArea(Rect a, Rect b)
+        {
+            float width =
+                Mathf.Max(0f, Mathf.Min(a.xMax, b.xMax) -
+                               Mathf.Max(a.xMin, b.xMin));
+            float height =
+                Mathf.Max(0f, Mathf.Min(a.yMax, b.yMax) -
+                               Mathf.Max(a.yMin, b.yMin));
+            return width * height;
+        }
+
+        static Vector2 NodePosition(
+            PermanentGrowthNodeDefinition definition)
+        {
+            return definition != null
+                ? new Vector2(definition.LayoutX, definition.LayoutY)
+                : Vector2.zero;
         }
 
         static Vector2 BranchHeaderPosition(PermanentGrowthBranch branch)
         {
-            PermanentGrowthDefinition last =
-                PermanentGrowthCatalog.All
+            PermanentGrowthNodeDefinition last =
+                PermanentGrowthCatalog.Nodes
                     .Where(item => item.Branch == branch)
-                    .OrderBy(item => item.BranchOrder)
+                    .OrderBy(item => item.LayoutY)
                     .LastOrDefault();
             if (last == null)
                 return Vector2.zero;
             Vector2 lastPosition = NodePosition(last);
             return new Vector2(
-                Mathf.Clamp(lastPosition.x, -285f, 285f),
+                lastPosition.x,
                 lastPosition.y + 210f);
         }
 
@@ -1010,7 +1160,7 @@ namespace MukJump.Core
         {
             return branch switch
             {
-                PermanentGrowthBranch.Survival => "체력 · 피격 · 부활",
+                PermanentGrowthBranch.Survival => "체력 · 피격 · 분신",
                 PermanentGrowthBranch.Leap => "준비 · 점프 · 도약",
                 PermanentGrowthBranch.InkHandling => "먹량 · 회복 · 발판",
                 _ => "영구 성장",
@@ -1019,26 +1169,21 @@ namespace MukJump.Core
 
         Image CreateTreeBranchArt(
             Transform parent,
-            PermanentGrowthDefinition definition,
+            string objectName,
+            PermanentGrowthNodeDefinition definition,
             Vector2 start,
-            Vector2 end)
+            Vector2 end,
+            string stableEdgeId)
         {
-            int branchOffset = definition.Branch switch
-            {
-                PermanentGrowthBranch.Survival => 0,
-                PermanentGrowthBranch.InkHandling => 2,
-                PermanentGrowthBranch.Leap => 4,
-                _ => 0,
-            };
+            Vector2 delta = end - start;
             Sprite branchSprite = LoadBranchPiece(
-                branchOffset + definition.BranchOrder);
+                BranchPieceVariant(delta, stableEdgeId));
             if (branchSprite == null)
                 return null;
 
-            Vector2 delta = end - start;
-            float thickness = definition.IsCapstone ? 138f : 118f;
+            float thickness = definition.IsCapstone ? 124f : 104f;
             Image branch = CreateImage(
-                $"TreeBranchArt_{definition.Type}",
+                objectName,
                 parent,
                 branchSprite,
                 (start + end) * 0.5f,
@@ -1051,6 +1196,44 @@ namespace MukJump.Core
                     0f,
                     Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
             return branch;
+        }
+
+        static int BranchPieceVariant(Vector2 delta, string stableEdgeId)
+        {
+            float horizontal = Mathf.Abs(delta.x);
+            float vertical = Mathf.Abs(delta.y);
+            int shapeOffset;
+            if (horizontal <= vertical * 0.34f)
+                shapeOffset = 0;
+            else
+                shapeOffset = delta.x < 0f ? 2 : 4;
+            return shapeOffset + (StableHash(stableEdgeId) & 1);
+        }
+
+        static int StableHash(string value)
+        {
+            unchecked
+            {
+                uint hash = 2166136261u;
+                if (value != null)
+                    for (int i = 0; i < value.Length; i++)
+                    {
+                        hash ^= value[i];
+                        hash *= 16777619u;
+                    }
+                return (int)(hash & 0x7fffffffu);
+            }
+        }
+
+        static string SanitizeNodeId(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return "unknown";
+            char[] characters = id.ToCharArray();
+            for (int i = 0; i < characters.Length; i++)
+                if (!char.IsLetterOrDigit(characters[i]))
+                    characters[i] = '_';
+            return new string(characters);
         }
 
         void CreateDecorativeTreeBranch(
@@ -1123,6 +1306,7 @@ namespace MukJump.Core
                 PermanentGrowthType.JumpCharge => "pg_icon_jump",
                 PermanentGrowthType.Vitality => string.Empty,
                 PermanentGrowthType.DamageGrace => string.Empty,
+                PermanentGrowthType.CloneSpawnGrace => string.Empty,
                 PermanentGrowthType.LastBreath => "pg_root_emblem",
                 PermanentGrowthType.JumpPower => "pg_icon_jump",
                 PermanentGrowthType.DrawnPlatformLeap => "pg_icon_platform",
@@ -1149,6 +1333,7 @@ namespace MukJump.Core
                 PermanentGrowthType.LastBreath =>
                     "MukJump/UI/Growth/growth_vitality",
                 PermanentGrowthType.DamageGrace or
+                PermanentGrowthType.CloneSpawnGrace or
                 PermanentGrowthType.StrokeGuard =>
                     "MukJump/UI/Growth/growth_guard",
                 PermanentGrowthType.DrawnPlatformLeap =>

@@ -106,6 +106,13 @@ namespace MukJump.EditorTests
                 PermanentGrowthValueKind.Seconds,
                 false);
             AssertNode(
+                PermanentGrowthType.CloneSpawnGrace,
+                PermanentGrowthBranch.Survival,
+                3,
+                0.15f,
+                PermanentGrowthValueKind.Seconds,
+                false);
+            AssertNode(
                 PermanentGrowthType.LastBreath,
                 PermanentGrowthBranch.Survival,
                 1,
@@ -151,7 +158,15 @@ namespace MukJump.EditorTests
                     1),
                 new PermanentGrowthRequirement(
                     PermanentGrowthType.DamageGrace,
+                    3),
+                new PermanentGrowthRequirement(
+                    PermanentGrowthType.CloneSpawnGrace,
                     3));
+            AssertRequirements(
+                PermanentGrowthType.CloneSpawnGrace,
+                new PermanentGrowthRequirement(
+                    PermanentGrowthType.Vitality,
+                    1));
 
             AssertRequirements(PermanentGrowthType.JumpCharge);
             AssertRequirements(

@@ -140,7 +140,9 @@ namespace MukJump.Player
             CurrentPlatform = null;
             GroundNormal = Vector2.up;
             damageInvulnerableUntil = Time.time +
-                                      Mathf.Max(1f, cloneSpawnGraceDuration);
+                                      Mathf.Max(1f, cloneSpawnGraceDuration) +
+                                      PermanentGrowthProfile
+                                          .CloneSpawnGraceBonusSeconds;
             rb.WakeUp();
         }
 

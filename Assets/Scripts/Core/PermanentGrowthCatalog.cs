@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace MukJump.Core
 {
@@ -17,6 +18,7 @@ namespace MukJump.Core
         JumpPower = 7,
         DrawnPlatformLeap = 8,
         StrokeGuard = 9,
+        CloneSpawnGrace = 10,
     }
 
     /// 영구 성장 화면의 세 가지 큰 계보.
@@ -156,6 +158,48 @@ namespace MukJump.Core
         }
     }
 
+    /// 저장 트랙의 각 rank를 성장 화면에서 한 번씩 구매하는 열매 노드로 펼친 정의.
+    /// 저장은 기존 PermanentGrowthDefinition의 stable ID와 level을 계속 사용한다.
+    public sealed class PermanentGrowthNodeDefinition
+    {
+        readonly string[] parentIds;
+
+        public PermanentGrowthNodeDefinition(
+            string id,
+            PermanentGrowthDefinition trackDefinition,
+            int rank,
+            string[] parentIds,
+            float layoutX,
+            float layoutY)
+        {
+            Id = id;
+            TrackDefinition = trackDefinition;
+            Rank = Math.Max(1, rank);
+            this.parentIds = parentIds ?? Array.Empty<string>();
+            LayoutX = layoutX;
+            LayoutY = layoutY;
+        }
+
+        public string Id { get; }
+        public PermanentGrowthDefinition TrackDefinition { get; }
+        public PermanentGrowthType Type => TrackDefinition.Type;
+        public PermanentGrowthBranch Branch => TrackDefinition.Branch;
+        public PermanentGrowthNodeKind NodeKind => TrackDefinition.NodeKind;
+        public bool IsCapstone => TrackDefinition.IsCapstone;
+        public int Rank { get; }
+        public int TrackMaxLevel => TrackDefinition.MaxLevel;
+        public int Cost => TrackDefinition.GetCost(Rank - 1);
+        public string Name => TrackDefinition.Name;
+        public string Description => TrackDefinition.Description;
+        public string EffectUnit => TrackDefinition.EffectUnit;
+        public float EffectPerRank => TrackDefinition.EffectPerLevel;
+        public PermanentGrowthValueKind ValueKind => TrackDefinition.ValueKind;
+        public bool ReducesValue => TrackDefinition.ReducesValue;
+        public IReadOnlyList<string> ParentIds => parentIds;
+        public float LayoutX { get; }
+        public float LayoutY { get; }
+    }
+
     /// 영구 성장의 이름·상한·비용·효과 수치를 소유하는 단일 진실 원천.
     public static class PermanentGrowthCatalog
     {
@@ -272,6 +316,9 @@ namespace MukJump.Core
                         1),
                     new PermanentGrowthRequirement(
                         PermanentGrowthType.DamageGrace,
+                        3),
+                    new PermanentGrowthRequirement(
+                        PermanentGrowthType.CloneSpawnGrace,
                         3)),
                 56),
             new(
@@ -334,6 +381,23 @@ namespace MukJump.Core
                         PermanentGrowthType.PlatformLifetime,
                         6)),
                 56),
+            new(
+                "permanent.clone_spawn_grace",
+                PermanentGrowthType.CloneSpawnGrace,
+                PermanentGrowthBranch.Survival,
+                PermanentGrowthNodeKind.Stat,
+                3,
+                "분신 숨결",
+                "새 먹분신이 태어난 뒤 장애물을 버티는 시간이 길어집니다",
+                "분신 무적",
+                0.15f,
+                false,
+                PermanentGrowthValueKind.Seconds,
+                Requirements(
+                    new PermanentGrowthRequirement(
+                        PermanentGrowthType.Vitality,
+                        1)),
+                8, 16, 28),
         };
 
         static readonly PermanentGrowthBranchMetadata[] BranchDefinitions =
@@ -355,7 +419,24 @@ namespace MukJump.Core
                 2),
         };
 
+        readonly struct NodePoint
+        {
+            public NodePoint(float x, float y)
+            {
+                X = x;
+                Y = y;
+            }
+
+            public float X { get; }
+            public float Y { get; }
+        }
+
+        static readonly PermanentGrowthNodeDefinition[] NodeDefinitions =
+            BuildNodeDefinitions();
+
         public static IReadOnlyList<PermanentGrowthDefinition> All => Definitions;
+        public static IReadOnlyList<PermanentGrowthNodeDefinition> Nodes =>
+            NodeDefinitions;
         public static IReadOnlyList<PermanentGrowthBranchMetadata> Branches =>
             BranchDefinitions;
 
@@ -399,6 +480,228 @@ namespace MukJump.Core
 
             definition = null;
             return false;
+        }
+
+        public static PermanentGrowthNodeDefinition GetNode(
+            PermanentGrowthType type,
+            int rank)
+        {
+            for (int i = 0; i < NodeDefinitions.Length; i++)
+                if (NodeDefinitions[i].Type == type &&
+                    NodeDefinitions[i].Rank == rank)
+                    return NodeDefinitions[i];
+            return null;
+        }
+
+        public static PermanentGrowthNodeDefinition GetNode(string id)
+        {
+            return TryGetNode(id, out PermanentGrowthNodeDefinition definition)
+                ? definition
+                : null;
+        }
+
+        public static bool TryGetNode(
+            string id,
+            out PermanentGrowthNodeDefinition definition)
+        {
+            for (int i = 0; i < NodeDefinitions.Length; i++)
+            {
+                if (!string.Equals(
+                        NodeDefinitions[i].Id,
+                        id,
+                        StringComparison.Ordinal))
+                    continue;
+                definition = NodeDefinitions[i];
+                return true;
+            }
+
+            definition = null;
+            return false;
+        }
+
+        public static string GetNodeId(
+            PermanentGrowthType type,
+            int rank)
+        {
+            PermanentGrowthDefinition definition = Get(type);
+            return definition != null &&
+                   rank >= 1 &&
+                   rank <= definition.MaxLevel
+                ? BuildNodeId(definition.Id, rank)
+                : string.Empty;
+        }
+
+        static PermanentGrowthNodeDefinition[] BuildNodeDefinitions()
+        {
+            var nodes = new List<PermanentGrowthNodeDefinition>(39);
+
+            AddTrackNodes(
+                nodes,
+                PermanentGrowthType.InkCapacity,
+                new[]
+                {
+                    new NodePoint(-100f, -1160f),
+                    new NodePoint(-120f, -900f),
+                    new NodePoint(-220f, -640f),
+                    new NodePoint(-300f, -380f),
+                    new NodePoint(-360f, -120f),
+                    new NodePoint(-380f, 150f),
+                });
+            AddTrackNodes(
+                nodes,
+                PermanentGrowthType.InkRecovery,
+                new[]
+                {
+                    new NodePoint(120f, -640f),
+                    new NodePoint(180f, -380f),
+                    new NodePoint(240f, -120f),
+                    new NodePoint(280f, 150f),
+                    new NodePoint(300f, 420f),
+                    new NodePoint(260f, 680f),
+                });
+            AddTrackNodes(
+                nodes,
+                PermanentGrowthType.PlatformLifetime,
+                new[]
+                {
+                    new NodePoint(500f, -120f),
+                    new NodePoint(580f, 150f),
+                    new NodePoint(630f, 420f),
+                    new NodePoint(610f, 670f),
+                    new NodePoint(540f, 900f),
+                    new NodePoint(400f, 1100f),
+                });
+            AddTrackNodes(
+                nodes,
+                PermanentGrowthType.JumpCharge,
+                new[]
+                {
+                    new NodePoint(320f, -1160f),
+                    new NodePoint(520f, -880f),
+                    new NodePoint(700f, -600f),
+                    new NodePoint(740f, -320f),
+                    new NodePoint(720f, -40f),
+                    new NodePoint(680f, 240f),
+                });
+            AddTrackNodes(
+                nodes,
+                PermanentGrowthType.Vitality,
+                new[]
+                {
+                    new NodePoint(-360f, -1160f),
+                });
+            AddTrackNodes(
+                nodes,
+                PermanentGrowthType.DamageGrace,
+                new[]
+                {
+                    new NodePoint(-720f, -860f),
+                    new NodePoint(-920f, -550f),
+                    new NodePoint(-1080f, -240f),
+                });
+            AddTrackNodes(
+                nodes,
+                PermanentGrowthType.LastBreath,
+                new[]
+                {
+                    new NodePoint(-900f, 220f),
+                });
+            AddTrackNodes(
+                nodes,
+                PermanentGrowthType.JumpPower,
+                new[]
+                {
+                    new NodePoint(1020f, -320f),
+                    new NodePoint(1180f, -40f),
+                    new NodePoint(1280f, 240f),
+                    new NodePoint(1260f, 520f),
+                    new NodePoint(1140f, 780f),
+                });
+            AddTrackNodes(
+                nodes,
+                PermanentGrowthType.DrawnPlatformLeap,
+                new[]
+                {
+                    new NodePoint(920f, 1080f),
+                });
+            AddTrackNodes(
+                nodes,
+                PermanentGrowthType.StrokeGuard,
+                new[]
+                {
+                    new NodePoint(0f, 1280f),
+                });
+            AddTrackNodes(
+                nodes,
+                PermanentGrowthType.CloneSpawnGrace,
+                new[]
+                {
+                    new NodePoint(-500f, -860f),
+                    new NodePoint(-580f, -550f),
+                    new NodePoint(-720f, -240f),
+                });
+
+            return nodes.ToArray();
+        }
+
+        static void AddTrackNodes(
+            ICollection<PermanentGrowthNodeDefinition> nodes,
+            PermanentGrowthType type,
+            IReadOnlyList<NodePoint> positions)
+        {
+            PermanentGrowthDefinition definition = Get(type);
+            if (definition == null ||
+                positions == null ||
+                positions.Count != definition.MaxLevel)
+                throw new InvalidOperationException(
+                    $"{type} rank 노드 배치가 저장 트랙과 일치하지 않습니다.");
+
+            for (int rank = 1; rank <= definition.MaxLevel; rank++)
+            {
+                string[] parentIds;
+                if (rank > 1)
+                {
+                    parentIds = new[]
+                    {
+                        BuildNodeId(definition.Id, rank - 1),
+                    };
+                }
+                else
+                {
+                    parentIds =
+                        new string[definition.Requirements.Count];
+                    for (int i = 0; i < definition.Requirements.Count; i++)
+                    {
+                        PermanentGrowthRequirement requirement =
+                            definition.Requirements[i];
+                        PermanentGrowthDefinition parent =
+                            Get(requirement.Type);
+                        if (parent == null)
+                            throw new InvalidOperationException(
+                                $"{definition.Id}의 부모 트랙이 없습니다.");
+                        parentIds[i] = BuildNodeId(
+                            parent.Id,
+                            requirement.MinimumLevel);
+                    }
+                }
+
+                NodePoint point = positions[rank - 1];
+                nodes.Add(new PermanentGrowthNodeDefinition(
+                    BuildNodeId(definition.Id, rank),
+                    definition,
+                    rank,
+                    parentIds,
+                    point.X,
+                    point.Y));
+            }
+        }
+
+        static string BuildNodeId(string trackId, int rank)
+        {
+            return string.Concat(
+                trackId,
+                ".rank.",
+                rank.ToString(CultureInfo.InvariantCulture));
         }
 
         static PermanentGrowthRequirement[] Requirements(

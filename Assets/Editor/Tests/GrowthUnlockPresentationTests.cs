@@ -329,6 +329,7 @@ namespace MukJump.EditorTests
                     "Update",
                     BindingFlags.Instance | BindingFlags.NonPublic)
                 ?.Invoke(growthView, null);
+            growthView.SelectGrowthForTests(1);
             Assert.That(growthView.PurchaseButton.interactable, Is.True);
             Assert.That(growthView.BackButton.interactable, Is.True);
             growthView.PurchaseButton.onClick.Invoke();
@@ -340,13 +341,13 @@ namespace MukJump.EditorTests
             Assert.That(
                 presentation.IsPlaying,
                 Is.True,
-                "2단계 이후에도 같은 먹획 강화 연출을 압축 재생해야 합니다.");
-            Assert.That(presentation.Title, Is.EqualTo("성장 강화"));
-            Assert.That(presentation.Subtitle, Does.Contain("Lv. 2"));
+                "2단계도 별도 열매이므로 전체 해금 연출을 재생해야 합니다.");
+            Assert.That(presentation.Title, Is.EqualTo("성장 해금"));
+            Assert.That(presentation.Subtitle, Does.Contain("먹그릇"));
             Assert.That(
                 presentation.HasNodeFeedback,
-                Is.False,
-                "같은 열매의 반복 강화에서는 새 열매 개화가 다시 나오면 안 됩니다.");
+                Is.True,
+                "각 rank는 한 번만 찍는 독립 열매로 개화해야 합니다.");
             Assert.That(
                 presentation.PresentationRoot,
                 Is.SameAs(reusedRoot));
@@ -361,8 +362,7 @@ namespace MukJump.EditorTests
             Assert.That(
                 lockedUntil - Time.unscaledTime,
                 Is.GreaterThanOrEqualTo(
-                    GrowthUnlockPresentation.UpgradeSequenceDuration -
-                    0.05f));
+                    GrowthUnlockPresentation.SequenceDuration - 0.05f));
 
             typeof(PermanentGrowthView)
                 .GetField(
@@ -374,7 +374,7 @@ namespace MukJump.EditorTests
                     "Update",
                     BindingFlags.Instance | BindingFlags.NonPublic)
                 ?.Invoke(growthView, null);
-            growthView.SelectGrowthForTests(1);
+            growthView.SelectGrowthForTests(6);
             growthView.PurchaseButton.onClick.Invoke();
 
             Assert.That(

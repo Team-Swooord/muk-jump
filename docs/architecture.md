@@ -305,11 +305,15 @@ Transform·Collider는 유지한다.
   콜백에서 목적 화면을 교체하며, 드러남이 끝난 뒤에만 목적 화면 입력을 활성화한다.
   전환 중 연속 탭과 게임 시작은 거부하고 `GameState`가 Lobby를 벗어나면 즉시
   내부 화면 상태를 Lobby로 복구한다.
-- `PermanentGrowthCatalog`는 생존·도약·먹 운용 3계보의 10개 stable ID, 계보 순서,
-  선행 조건, 단계 상한, 비용과 효과를 소유한다. 기존 먹그릇·숨고르기·먹결·발놀림의
+- `PermanentGrowthCatalog`는 생존·도약·먹 운용 3계보의 11개 저장 트랙 stable ID,
+  선행 조건, 단계 상한, 비용과 효과를 소유한다. 별도
+  `PermanentGrowthNodeDefinition`은 각 저장 단계와 정확히 대응하는 39개
+  1포인트 UI 노드, 다중 부모 간선과 먹나무 좌표만 소유한다. 기존
+  먹그릇·숨고르기·먹결·발놀림의
   ID와 배열 앞쪽 순서는 저장 호환을 위해 유지한다. `PermanentGrowthProfile`은
   버전이 있는 저장 문서, 먹빛, 구매 단계와 마지막 정산 run ID만 소유하고,
-  구매 가능 여부와 잠금 이유는 카탈로그 선행 조건을 한 경로로 검사한다.
+  구매 가능 여부와 잠금 이유는 같은 `PermanentGrowthNodeDefinition.ParentIds`
+  그래프를 검사한다.
   저장 호환 계약은 다음과 같다. `PermanentGrowthType`의 기존 슬롯은
   `InkCapacity=0`, `InkRecovery=1`, `PlatformLifetime=2`, `JumpCharge=3`으로
   고정한다. stable ID·단계당 효과·비용 배열도 각각
@@ -317,22 +321,25 @@ Transform·Collider는 유지한다.
   `permanent.ink_recovery / +2% / [6,10,16,24,34,46]`,
   `permanent.platform_lifetime / +1.25% / [7,11,17,25,35,47]`,
   `permanent.jump_charge / -0.75% / [7,12,18,26,36,48]`을 유지한다.
+  신규 `permanent.clone_spawn_grace`는 생존의 두 번째 길이며
+  분신 생성 직후 보호를 단계당 `+0.15초`, 비용 `[8,16,28]`로 늘린다.
   저장은 `schemaVersion=1`, `balanceVersion=1`과 stable ID별 level을 계속
   사용하며 이번 계보 확장 때문에 버전을 올리거나 기존 랭크를 초기화하지 않는다.
-  새 선행 조건은 0레벨 노드에만 적용한다. 기존 저장에서 이미 level>0인 노드는
-  grandfather 처리해 새 선행을 충족하지 않아도 다음 단계를 계속 구매할 수 있으며,
-  `CanPurchase`와 `TryPurchase`는 같은 `MeetsRequirements` 판정을 사용하고 UI
-  잠금 사유도 그 결과를 사용한다.
+  새 트랙 선행 조건은 첫 rank 열매에만 적용한다. 기존 저장에서 이미 level>0인
+  트랙은 해당 rank 이하 열매를 열린 상태로 복원하고 다음 rank가 직전 열매만
+  요구하도록 grandfather 처리한다. `CanPurchaseNode`와 `TryPurchaseNode`,
+  UI 잠금 사유는 모두 같은 부모 ID 그래프를 사용한다.
 - 정상 게임오버는 `GameManager`가 `ScoreManager.SaveBest()` 전에 이전 최고 고도를
   잡고 run ID로 한 번만 정산한다. 디버그 판과 중도 로비 복귀는 보상을 주지 않으며,
   같은 run ID는 도메인 리로드 뒤에도 다시 지급하지 않는다.
 - `PermanentGrowthView`는 불투명 한지 배경의 전용 전체 화면으로 열리고
-  생존·도약·먹 운용을 세 개의 세로 계보로 표시한다. 10개 노드는 실제 선행
-  연결선과 잠금·구매 가능·보유·완성 상태를 가진다. 잠긴 노드도 선택할 수 있지만
+  생존·도약·먹 운용을 드래그 가능한 큰 먹나무로 표시한다. 39개 열매 노드는
+  각 저장 rank와 1:1 대응하며 실제 다중 부모 연결선과 잠금·구매 가능·보유·완성
+  상태를 가진다. 잠긴 노드도 선택할 수 있지만
   노드 곁 `SelectedGrowthAction/ActionStatus`에는 짧은 잠금 상태만 표시하고,
   같은 액션의 `EnhanceButton`만 `PermanentGrowthProfile` 구매를 호출한다.
-  나무 연결 아트는 `pg_branch_piece_01..06`을 계보·순서의 결정적 인덱스로
-  선택하며 개별 조각이 없으면 기존 `pg_branch`로 폴백한다.
+  나무 연결 아트는 부모–자식 간선마다 `pg_branch_piece_01..06`을 연결 형태의
+  결정적 인덱스로 선택하며 개별 조각이 없으면 기존 `pg_branch`로 폴백한다.
   `RunGrowthController`나 두루마리 카탈로그는 호출하지 않는다. UI 트리는 로비
   시작 때 만들지 않고 붓 전환이 화면을 덮은 최초 진입 시점에 생성하며, 이후
   리소스 조회는 화면 인스턴스 캐시를 재사용한다.
