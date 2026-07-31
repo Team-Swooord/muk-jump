@@ -18,6 +18,8 @@ namespace MukJump.Core
         static readonly Vector2 TreeViewportPosition = new(0f, -120f);
         static readonly Vector2 TreeViewportSize = new(980f, 1440f);
         static readonly Vector2 TreeCanvasSize = new(3400f, 3200f);
+        static readonly Vector2 TreeBackgroundSize = new(3000f, 3060f);
+        static readonly Vector2 TreeBackgroundPosition = new(0f, -20f);
         static readonly Vector2 TreeRootPosition = new(0f, -1420f);
         static readonly string[] BranchPieceNames =
         {
@@ -401,16 +403,39 @@ namespace MukJump.Core
             crownWash.rectTransform.localEulerAngles =
                 new Vector3(0f, 0f, -5f);
 
+            // 열매 노드는 연결선 위가 아니라 한 그루의 큰 먹나무 위에 맺힌다.
+            // 고정 배경을 가장 먼저 두고, 조각 가지는 이후 확장 경로만 보강한다.
+            Sprite treeBackgroundSprite =
+                LoadPermanentGrowthSprite("pg_tree_background_v2");
+            if (treeBackgroundSprite != null)
+            {
+                Image treeBackground = CreateImage(
+                    "InkTreeBackground",
+                    panel,
+                    treeBackgroundSprite,
+                    TreeBackgroundPosition,
+                    TreeBackgroundSize,
+                    new Color(1f, 1f, 1f, 0.76f));
+                // 세로 원본을 넓은 성장 캔버스에 펼쳐 모든 계보가 가지 위에
+                // 놓이게 한다. 노드가 추가돼도 바깥 가지 조각으로 확장 가능하다.
+                treeBackground.preserveAspect = false;
+                treeBackground.raycastTarget = false;
+            }
+
             Sprite trunkSprite =
                 LoadPermanentGrowthSprite("pg_tree_trunk");
             Image treeTrunk = CreateImage(
                 "InkTreeTrunk",
                 panel,
                 trunkSprite ?? InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0f, -120f),
-                new Vector2(900f, 2600f),
+                new Vector2(0f, -70f),
+                new Vector2(1450f, 2730f),
                 trunkSprite != null
-                    ? new Color(1f, 1f, 1f, 0.84f)
+                    ? new Color(
+                        1f,
+                        1f,
+                        1f,
+                        treeBackgroundSprite != null ? 0.32f : 0.84f)
                     : WithAlpha(InkPalette.Ink, 0.22f));
             treeTrunk.preserveAspect = trunkSprite != null;
 
@@ -894,21 +919,19 @@ namespace MukJump.Core
                     ? InkPalette.Gold
                     : TransparentColor(InkPalette.Gold);
                 Color lineColor = unlocked
-                    ? WithAlpha(InkPalette.Gold, 0.82f)
+                    ? WithAlpha(InkPalette.Gold, 0.38f)
                     : requirementsMet
-                        ? WithAlpha(InkPalette.Ink, 0.35f)
-                        : WithAlpha(InkPalette.Ink, 0.2f);
+                        ? WithAlpha(InkPalette.Ink, 0.11f)
+                        : WithAlpha(InkPalette.Ink, 0.045f);
                 for (int lineIndex = 0;
                      lineIndex < node.IncomingLines.Count;
                      lineIndex++)
                     if (node.IncomingLines[lineIndex] != null)
                         node.IncomingLines[lineIndex].color = lineColor;
 
-                Color branchColor = unlocked
-                    ? new Color(1f, 1f, 1f, 0.88f)
-                    : requirementsMet
-                        ? new Color(1f, 1f, 1f, 0.68f)
-                        : new Color(1f, 1f, 1f, 0.48f);
+                // 가지는 진행 상태가 아니라 나무 자체다. 해금 상태 표현은
+                // 열매와 얇은 상태선에만 맡겨 한 그루의 실루엣을 유지한다.
+                Color branchColor = new(1f, 1f, 1f, 0.72f);
                 for (int artIndex = 0;
                      artIndex < node.BranchArts.Count;
                      artIndex++)
@@ -1181,14 +1204,22 @@ namespace MukJump.Core
             if (branchSprite == null)
                 return null;
 
-            float thickness = definition.IsCapstone ? 124f : 104f;
+            float width = delta.magnitude * 1.12f;
+            float spriteAspect = branchSprite.rect.height > 0f
+                ? branchSprite.rect.width / branchSprite.rect.height
+                : 2f;
+            float naturalHeight = width / Mathf.Max(1f, spriteAspect);
+            float thickness = Mathf.Clamp(
+                naturalHeight,
+                definition.IsCapstone ? 176f : 140f,
+                definition.IsCapstone ? 270f : 230f);
             Image branch = CreateImage(
                 objectName,
                 parent,
                 branchSprite,
                 (start + end) * 0.5f,
-                new Vector2(delta.magnitude * 1.12f, thickness),
-                new Color(1f, 1f, 1f, 0.55f));
+                new Vector2(width, thickness),
+                new Color(1f, 1f, 1f, 0.72f));
             branch.preserveAspect = false;
             branch.rectTransform.localEulerAngles =
                 new Vector3(
@@ -1249,12 +1280,20 @@ namespace MukJump.Core
                 return;
 
             Vector2 delta = end - start;
+            float width = delta.magnitude * 1.08f;
+            float spriteAspect = branchSprite.rect.height > 0f
+                ? branchSprite.rect.width / branchSprite.rect.height
+                : 2f;
+            float thickness = Mathf.Clamp(
+                width / Mathf.Max(1f, spriteAspect),
+                150f,
+                250f);
             Image branch = CreateImage(
                 objectName,
                 parent,
                 branchSprite,
                 (start + end) * 0.5f,
-                new Vector2(delta.magnitude * 1.08f, 92f),
+                new Vector2(width, thickness),
                 new Color(1f, 1f, 1f, Mathf.Clamp01(alpha)));
             branch.preserveAspect = false;
             branch.rectTransform.localEulerAngles =
@@ -1286,8 +1325,8 @@ namespace MukJump.Core
                 parent,
                 InkUiTextureFactory.CreateBrushSprite(),
                 (start + end) * 0.5f,
-                new Vector2(delta.magnitude, 16f),
-                WithAlpha(InkPalette.Ink, 0.16f));
+                new Vector2(delta.magnitude, 7f),
+                WithAlpha(InkPalette.Ink, 0.05f));
             line.rectTransform.localEulerAngles =
                 new Vector3(
                     0f,

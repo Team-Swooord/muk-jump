@@ -86,6 +86,7 @@ namespace MukJump.EditorTools
             PermanentGrowthUiRoot + "pg_hanji_background.png",
             PermanentGrowthUiRoot + "pg_tree_trunk.png",
             PermanentGrowthUiRoot + "pg_tree_trunk_mask.png",
+            PermanentGrowthUiRoot + "pg_tree_background_v2.png",
             PermanentGrowthUiRoot + "pg_branch.png",
             PermanentGrowthUiRoot + "pg_branch_mask.png",
             PermanentGrowthUiRoot + "pg_branch_piece_01.png",
@@ -219,7 +220,8 @@ namespace MukJump.EditorTools
                 bool large =
                     path.EndsWith("pg_hanji_background.png") ||
                     path.EndsWith("pg_tree_trunk.png") ||
-                    path.EndsWith("pg_tree_trunk_mask.png");
+                    path.EndsWith("pg_tree_trunk_mask.png") ||
+                    path.EndsWith("pg_tree_background_v2.png");
                 bool medium =
                     path.EndsWith("pg_branch.png") ||
                     path.EndsWith("pg_branch_mask.png") ||
@@ -312,7 +314,8 @@ namespace MukJump.EditorTools
                 bool large =
                     path.EndsWith("pg_hanji_background.png") ||
                     path.EndsWith("pg_tree_trunk.png") ||
-                    path.EndsWith("pg_tree_trunk_mask.png");
+                    path.EndsWith("pg_tree_trunk_mask.png") ||
+                    path.EndsWith("pg_tree_background_v2.png");
                 bool medium =
                     path.EndsWith("pg_branch.png") ||
                     path.EndsWith("pg_branch_mask.png") ||
