@@ -59,13 +59,28 @@ namespace MukJump.EditorTests
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
             Assert.That(growthPanel, Is.Not.Null);
+            var viewport =
+                (RectTransform)growthPanel.Find("TreeViewport");
+            var treeCanvas =
+                (RectTransform)viewport.Find("TreeCanvas");
+            Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null);
+            ScrollRect scrollRect = viewport.GetComponent<ScrollRect>();
+            Assert.That(scrollRect, Is.Not.Null);
+            Assert.That(scrollRect.content, Is.SameAs(treeCanvas));
+            Assert.That(scrollRect.horizontal, Is.True);
+            Assert.That(scrollRect.vertical, Is.True);
+            Assert.That(
+                scrollRect.movementType,
+                Is.EqualTo(ScrollRect.MovementType.Clamped));
+            Assert.That(treeCanvas.sizeDelta.x, Is.GreaterThan(viewport.sizeDelta.x));
+            Assert.That(treeCanvas.sizeDelta.y, Is.GreaterThan(viewport.sizeDelta.y));
             var inkRoot =
-                (RectTransform)growthPanel.Find("InkTreeRoot");
+                (RectTransform)treeCanvas.Find("InkTreeRoot");
             Assert.That(inkRoot, Is.Not.Null);
             foreach (PermanentGrowthBranchMetadata branch
                      in PermanentGrowthCatalog.Branches)
             {
-                Transform header = growthPanel.Find(
+                Transform header = treeCanvas.Find(
                     $"GrowthBranchHeader_{branch.Branch}");
                 Assert.That(
                     header,
@@ -79,7 +94,7 @@ namespace MukJump.EditorTests
             foreach (PermanentGrowthDefinition definition
                      in PermanentGrowthCatalog.All)
             {
-                Transform node = growthPanel.Find(
+                Transform node = treeCanvas.Find(
                     $"GrowthNode_{definition.Type}");
                 Assert.That(node, Is.Not.Null, definition.Name);
                 var rect = node.GetComponent<RectTransform>();
@@ -89,6 +104,13 @@ namespace MukJump.EditorTests
                 Assert.That(
                     node.Find("NodeName")?.GetComponent<Text>()?.fontSize,
                     Is.GreaterThanOrEqualTo(30));
+                RectTransform surface = node.Find("NodeSurface")
+                    ?.GetComponent<RectTransform>();
+                Assert.That(surface, Is.Not.Null);
+                Assert.That(
+                    surface.sizeDelta.x,
+                    Is.EqualTo(surface.sizeDelta.y).Within(0.01f),
+                    definition.Name);
             }
             var detailPanel = (RectTransform)growthPanel.Find(
                 "SelectedGrowthDetail");
@@ -118,15 +140,13 @@ namespace MukJump.EditorTests
                     Is.EqualTo(HorizontalWrapMode.Wrap),
                     elementName);
             }
-            var footer = (RectTransform)growthPanel.Find("PermanentHint");
-            float rootBottom = inkRoot.anchoredPosition.y -
-                               inkRoot.sizeDelta.y * 0.5f;
-            float footerTop = footer.anchoredPosition.y +
-                              footer.sizeDelta.y * 0.5f;
             Assert.That(
-                rootBottom,
-                Is.GreaterThan(footerTop + 4f),
-                "먹뿌리와 하단 안내 문구가 겹치면 안 됩니다.");
+                detailPanel.IsChildOf(treeCanvas),
+                Is.False,
+                "상세판은 나무를 드래그해도 고정되어야 합니다.");
+            Assert.That(
+                growthPanel.Find("PermanentHint"),
+                Is.Not.Null);
 
             growthView.Close();
             codexView.OpenCodex();
@@ -143,6 +163,75 @@ namespace MukJump.EditorTests
 
             codexView.Close();
             Assert.That(codexView.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void PermanentGrowthTreePansWithoutMovingFixedDetails()
+        {
+            managerHost = new GameObject("GrowthPanTestManager");
+            var manager = managerHost.AddComponent<GameManager>();
+            Invoke(manager, "OnEnable");
+            PermanentGrowthProfile.SettleRun(
+                "growth-pan-lock",
+                100,
+                0,
+                true);
+            viewHost = new GameObject("GrowthPanTestHost");
+            var view = viewHost.AddComponent<PermanentGrowthView>();
+            view.BuildForTests();
+
+            RectTransform viewport = view.TreeViewport;
+            RectTransform treeCanvas = view.TreeCanvas;
+            ScrollRect scrollRect = view.TreeScrollRect;
+            RectTransform detail = view.ScreenRoot.Find(
+                    "SafeAreaRoot/PermanentGrowthScreen/" +
+                    "SelectedGrowthDetail")
+                ?.GetComponent<RectTransform>();
+            Assert.That(viewport, Is.Not.Null);
+            Assert.That(treeCanvas, Is.Not.Null);
+            Assert.That(scrollRect, Is.Not.Null);
+            Assert.That(detail, Is.Not.Null);
+
+            Vector2 detailPosition = detail.anchoredPosition;
+            Vector2 initialTreePosition = treeCanvas.anchoredPosition;
+            scrollRect.horizontalNormalizedPosition = 1f;
+            scrollRect.verticalNormalizedPosition = 1f;
+
+            Assert.That(
+                treeCanvas.anchoredPosition,
+                Is.Not.EqualTo(initialTreePosition),
+                "큰 먹나무 지도만 양축으로 움직여야 합니다.");
+            Assert.That(
+                detail.anchoredPosition,
+                Is.EqualTo(detailPosition),
+                "선택 상세판은 나무 지도와 함께 움직이면 안 됩니다.");
+
+            float minimumX = float.PositiveInfinity;
+            float maximumX = float.NegativeInfinity;
+            float minimumY = float.PositiveInfinity;
+            float maximumY = float.NegativeInfinity;
+            foreach (PermanentGrowthDefinition definition
+                     in PermanentGrowthCatalog.All)
+            {
+                RectTransform node = treeCanvas.Find(
+                        $"GrowthNode_{definition.Type}")
+                    ?.GetComponent<RectTransform>();
+                Assert.That(node, Is.Not.Null, definition.Name);
+                minimumX = Mathf.Min(minimumX, node.anchoredPosition.x);
+                maximumX = Mathf.Max(maximumX, node.anchoredPosition.x);
+                minimumY = Mathf.Min(minimumY, node.anchoredPosition.y);
+                maximumY = Mathf.Max(maximumY, node.anchoredPosition.y);
+            }
+            Assert.That(minimumX, Is.LessThan(-500f));
+            Assert.That(maximumX, Is.GreaterThan(500f));
+            Assert.That(maximumY - minimumY, Is.GreaterThan(900f));
+
+            Assert.That(view.PurchaseButton.interactable, Is.True);
+            view.PurchaseButton.onClick.Invoke();
+            Assert.That(
+                view.TreeScrollRect.enabled,
+                Is.False,
+                "열매 해금 연출 중에는 지도 관성·드래그를 잠가야 합니다.");
         }
 
         [Test]

@@ -15,6 +15,9 @@ namespace MukJump.Core
         const int CanvasSortingOrder = 4050;
         const float ReferenceHeight = 1920f;
         const string ArtResourceRoot = "MukJump/UI/PermanentGrowth/";
+        static readonly Vector2 TreeViewportPosition = new(0f, 55f);
+        static readonly Vector2 TreeViewportSize = new(920f, 1030f);
+        static readonly Vector2 TreeCanvasSize = new(2240f, 2180f);
         static readonly Vector2 HiddenScreenPosition =
             new(0f, ReferenceHeight);
 
@@ -44,6 +47,7 @@ namespace MukJump.Core
         Canvas rootCanvas;
         RectTransform safeAreaRoot;
         RectTransform contentPanel;
+        ScrollRect treeScrollRect;
         Text balanceText;
         Text detailBranchText;
         Text detailNameText;
@@ -70,6 +74,9 @@ namespace MukJump.Core
         public Button BackButton { get; private set; }
         public Button PurchaseButton { get; private set; }
         public RectTransform ScreenRoot { get; private set; }
+        public RectTransform TreeViewport { get; private set; }
+        public RectTransform TreeCanvas { get; private set; }
+        public ScrollRect TreeScrollRect => treeScrollRect;
         public bool IsDedicatedScreen => ScreenRoot != null;
         public int CreatedRowCount => branchHeaders.Count;
         public int CreatedNodeCount => nodes.Count;
@@ -238,13 +245,13 @@ namespace MukJump.Core
                 new Vector2(980f, 1760f));
 
             BuildHeader(contentPanel);
-            BuildThreeBranchTree(contentPanel);
+            BuildTreeViewport(contentPanel);
             BuildSelectedDetailPanel(contentPanel);
 
             Text footer = CreateText(
                 "PermanentHint",
                 contentPanel,
-                "노드를 눌러 효과를 확인하고 · 아래에서 강화",
+                "나무를 끌어 둘러보고 · 열매를 눌러 성장",
                 30,
                 new Vector2(0f, -842f),
                 new Vector2(820f, 54f),
@@ -255,6 +262,64 @@ namespace MukJump.Core
             ApplySafeArea();
             SelectInitialNode();
             Refresh();
+        }
+
+        void BuildTreeViewport(Transform panel)
+        {
+            TreeViewport = CreateRect(
+                "TreeViewport",
+                panel,
+                TreeViewportPosition,
+                TreeViewportSize);
+            Image dragSurface = TreeViewport.gameObject.AddComponent<Image>();
+            dragSurface.color = new Color(1f, 1f, 1f, 0.001f);
+            dragSurface.raycastTarget = true;
+            RectMask2D mask = TreeViewport.gameObject.AddComponent<RectMask2D>();
+            mask.padding = new Vector4(8f, 8f, 8f, 8f);
+
+            treeScrollRect = TreeViewport.gameObject.AddComponent<ScrollRect>();
+            treeScrollRect.viewport = TreeViewport;
+            treeScrollRect.horizontal = true;
+            treeScrollRect.vertical = true;
+            treeScrollRect.movementType = ScrollRect.MovementType.Clamped;
+            treeScrollRect.inertia = true;
+            treeScrollRect.decelerationRate = 0.14f;
+            treeScrollRect.scrollSensitivity = 70f;
+
+            TreeCanvas = CreateRect(
+                "TreeCanvas",
+                TreeViewport,
+                Vector2.zero,
+                TreeCanvasSize);
+            treeScrollRect.content = TreeCanvas;
+            BuildThreeBranchTree(TreeCanvas);
+
+            Text dragHint = CreateText(
+                "TreeDragHint",
+                TreeViewport,
+                "손가락이나 마우스로 먹나무를 끌어보세요",
+                28,
+                new Vector2(0f, -478f),
+                new Vector2(650f, 42f),
+                WithAlpha(InkPalette.TextDark, 0.72f),
+                FontStyle.Bold);
+            dragHint.raycastTarget = false;
+            AddReadableWeight(dragHint, 0.08f);
+            ResetTreeViewportToRoot();
+        }
+
+        void ResetTreeViewportToRoot()
+        {
+            if (TreeCanvas == null) return;
+            float bottomAlignedY = Mathf.Max(
+                0f,
+                (TreeCanvasSize.y - TreeViewportSize.y) * 0.5f);
+            TreeCanvas.anchoredPosition =
+                new Vector2(0f, bottomAlignedY);
+            if (treeScrollRect == null) return;
+            treeScrollRect.StopMovement();
+            treeScrollRect.horizontalNormalizedPosition = 0.5f;
+            treeScrollRect.verticalNormalizedPosition = 0f;
         }
 
         void BuildHeader(Transform panel)
@@ -350,9 +415,9 @@ namespace MukJump.Core
                 "TreeCrownWash",
                 panel,
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, 65f),
-                new Vector2(920f, 980f),
-                WithAlpha(InkPalette.Ink, 0.025f));
+                new Vector2(0f, 0f),
+                new Vector2(2050f, 1940f),
+                WithAlpha(InkPalette.Ink, 0.022f));
             crownWash.rectTransform.localEulerAngles =
                 new Vector3(0f, 0f, -5f);
 
@@ -362,12 +427,37 @@ namespace MukJump.Core
                 "InkTreeTrunk",
                 panel,
                 trunkSprite ?? InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0f, -18f),
-                new Vector2(382f, 786f),
+                new Vector2(0f, -72f),
+                new Vector2(820f, 1740f),
                 trunkSprite != null
-                    ? new Color(1f, 1f, 1f, 0.72f)
+                    ? new Color(1f, 1f, 1f, 0.84f)
                     : WithAlpha(InkPalette.Ink, 0.22f));
-            treeTrunk.preserveAspect = false;
+            treeTrunk.preserveAspect = trunkSprite != null;
+
+            CreateDecorativeTreeBranch(
+                panel,
+                "TreeSprigLowerLeft",
+                new Vector2(-70f, -690f),
+                new Vector2(-540f, -760f),
+                0.2f);
+            CreateDecorativeTreeBranch(
+                panel,
+                "TreeSprigLowerRight",
+                new Vector2(55f, -610f),
+                new Vector2(570f, -680f),
+                0.18f);
+            CreateDecorativeTreeBranch(
+                panel,
+                "TreeSprigUpperLeft",
+                new Vector2(-35f, -40f),
+                new Vector2(-450f, 330f),
+                0.16f);
+            CreateDecorativeTreeBranch(
+                panel,
+                "TreeSprigUpperRight",
+                new Vector2(28f, 85f),
+                new Vector2(480f, 430f),
+                0.14f);
 
             Sprite rootSprite =
                 LoadPermanentGrowthSprite("pg_root_emblem");
@@ -375,17 +465,17 @@ namespace MukJump.Core
                 "InkTreeRoot",
                 panel,
                 rootSprite ?? InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, -350f),
-                new Vector2(104f, 104f),
+                new Vector2(0f, -890f),
+                new Vector2(132f, 132f),
                 rootSprite != null ? Color.white : InkPalette.Ink);
             treeRoot.preserveAspect = rootSprite != null;
             CreateText(
                 "InkTreeRootLabel",
                 panel,
                 "먹빛의 뿌리",
-                28,
-                new Vector2(0f, -418f),
-                new Vector2(220f, 42f),
+                32,
+                new Vector2(0f, -990f),
+                new Vector2(260f, 46f),
                 InkPalette.TextDark,
                 FontStyle.Bold);
 
@@ -397,30 +487,34 @@ namespace MukJump.Core
                      in PermanentGrowthCatalog.Branches
                          .OrderBy(item => item.DisplayOrder))
             {
-                float x = BranchX(branch.Branch);
-                branchHeaders.Add(CreateBranchHeader(panel, branch, x));
+                branchHeaders.Add(
+                    CreateBranchHeader(
+                        panel,
+                        branch,
+                        BranchHeaderPosition(branch.Branch)));
                 List<PermanentGrowthDefinition> definitions =
                     PermanentGrowthCatalog.All
                         .Where(item => item.Branch == branch.Branch)
                         .OrderBy(item => item.BranchOrder)
                         .ToList();
 
-                Vector2 previous = new(0f, -350f);
+                Vector2 previous = new(0f, -890f);
                 for (int i = 0; i < definitions.Count; i++)
                 {
                     PermanentGrowthDefinition definition = definitions[i];
                     Vector2 position = NodePosition(definition);
+                    branchArtByType[definition.Type] =
+                        CreateTreeBranchArt(
+                            panel,
+                            definition,
+                            previous,
+                            position);
                     Image line = CreateInkLine(
                         $"GrowthPath_{definition.Type}",
                         panel,
                         previous,
                         position);
                     connectorByType[definition.Type] = line;
-                    branchArtByType[definition.Type] =
-                        CreateTreeBranchArt(
-                            panel,
-                            definition,
-                            position);
                     previous = position;
                 }
             }
@@ -443,27 +537,27 @@ namespace MukJump.Core
         RectTransform CreateBranchHeader(
             Transform parent,
             PermanentGrowthBranchMetadata branch,
-            float x)
+            Vector2 position)
         {
             RectTransform root = CreateRect(
                 $"GrowthBranchHeader_{branch.Branch}",
                 parent,
-                new Vector2(x, 525f),
-                new Vector2(270f, 108f));
+                position,
+                new Vector2(330f, 118f));
             Image brush = CreateImage(
                 "Brush",
                 root,
                 InkUiTextureFactory.CreateBrushSprite(),
                 new Vector2(0f, 16f),
-                new Vector2(252f, 68f),
+                new Vector2(310f, 74f),
                 WithAlpha(InkPalette.Ink, 0.9f));
             CreateText(
                 "BranchTitle",
                 brush.transform,
                 branch.DisplayName,
-                36,
+                40,
                 Vector2.zero,
-                new Vector2(222f, 54f),
+                new Vector2(280f, 58f),
                 InkPalette.Paper,
                 FontStyle.Bold);
             CreateText(
@@ -471,8 +565,8 @@ namespace MukJump.Core
                 root,
                 CompactBranchSummary(branch.Branch),
                 30,
-                new Vector2(0f, -40f),
-                new Vector2(268f, 42f),
+                new Vector2(0f, -44f),
+                new Vector2(326f, 42f),
                 InkPalette.TextDark,
                 FontStyle.Bold);
             return root;
@@ -487,8 +581,8 @@ namespace MukJump.Core
             bool capstone = definition.IsCapstone;
             Vector2 position = NodePosition(definition);
             Vector2 touchSize = capstone
-                ? new Vector2(260f, 158f)
-                : new Vector2(250f, 140f);
+                ? new Vector2(300f, 244f)
+                : new Vector2(276f, 224f);
             RectTransform root = CreateRect(
                 $"GrowthNode_{definition.Type}",
                 parent,
@@ -500,15 +594,16 @@ namespace MukJump.Core
             Button button = root.gameObject.AddComponent<Button>();
             InkUiStyle.ConfigureButton(button, hit, addInkFeedback: false);
 
-            float surfaceSize = capstone ? 116f : 88f;
+            float nodeCenterY = 22f;
+            float surfaceSize = capstone ? 176f : 138f;
             Image ring = CreateImage(
                 "SelectionRing",
                 root,
                 LoadPermanentGrowthSprite("pg_selected_ring"),
-                new Vector2(0f, 16f),
+                new Vector2(0f, nodeCenterY),
                 new Vector2(
-                    capstone ? 142f : 108f,
-                    capstone ? 142f : 108f),
+                    capstone ? 210f : 166f,
+                    capstone ? 210f : 166f),
                 TransparentColor(InkPalette.Gold));
             ring.preserveAspect = true;
 
@@ -519,10 +614,10 @@ namespace MukJump.Core
                 "FruitGlow",
                 root,
                 fruitSprite,
-                new Vector2(0f, 16f),
+                new Vector2(0f, nodeCenterY),
                 new Vector2(
-                    capstone ? 164f : 126f,
-                    capstone ? 164f : 126f),
+                    capstone ? 232f : 188f,
+                    capstone ? 232f : 188f),
                 TransparentColor(InkPalette.Red));
             fruitGlow.preserveAspect = true;
 
@@ -531,7 +626,7 @@ namespace MukJump.Core
                 root,
                 LoadPermanentGrowthSprite("pg_node_bud") ??
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, 16f),
+                new Vector2(0f, nodeCenterY),
                 new Vector2(surfaceSize, surfaceSize),
                 InkPalette.Paper2);
             surface.preserveAspect = true;
@@ -540,7 +635,7 @@ namespace MukJump.Core
                 "Fruit",
                 root,
                 fruitSprite,
-                new Vector2(0f, 16f),
+                new Vector2(0f, nodeCenterY),
                 new Vector2(surfaceSize, surfaceSize),
                 TransparentColor(InkPalette.Red));
             fruit.preserveAspect = true;
@@ -549,10 +644,10 @@ namespace MukJump.Core
                 "Icon",
                 root,
                 LoadIcon(definition.Type),
-                new Vector2(0f, 16f),
+                new Vector2(0f, nodeCenterY),
                 new Vector2(
-                    capstone ? 72f : 54f,
-                    capstone ? 72f : 54f),
+                    capstone ? 94f : 72f,
+                    capstone ? 94f : 72f),
                 Color.white);
             icon.preserveAspect = true;
 
@@ -560,8 +655,12 @@ namespace MukJump.Core
                 "CompletionMark",
                 root,
                 LoadPermanentGrowthSprite("pg_node_bloom_mask"),
-                new Vector2(38f, 48f),
-                new Vector2(34f, 34f),
+                new Vector2(
+                    capstone ? 72f : 56f,
+                    capstone ? 92f : 78f),
+                new Vector2(
+                    capstone ? 42f : 36f,
+                    capstone ? 42f : 36f),
                 TransparentColor(InkPalette.Gold));
             completion.preserveAspect = true;
 
@@ -570,8 +669,8 @@ namespace MukJump.Core
                 root,
                 definition.Name,
                 capstone ? 36 : 34,
-                new Vector2(0f, capstone ? -64f : -52f),
-                new Vector2(258f, 44f),
+                new Vector2(0f, capstone ? -92f : -72f),
+                new Vector2(290f, 46f),
                 InkPalette.TextDark,
                 FontStyle.Bold);
             Text level = CreateText(
@@ -579,8 +678,8 @@ namespace MukJump.Core
                 root,
                 capstone ? "최종 패시브" : "Lv. 0",
                 capstone ? 29 : 28,
-                new Vector2(0f, capstone ? -96f : -83f),
-                new Vector2(250f, 38f),
+                new Vector2(0f, capstone ? -132f : -110f),
+                new Vector2(286f, 38f),
                 ReadableMutedColor(),
                 FontStyle.Bold);
 
@@ -904,17 +1003,26 @@ namespace MukJump.Core
                 if (node.BranchArt != null)
                 {
                     node.BranchArt.color = level > 0
-                        ? new Color(1f, 1f, 1f, 0.82f)
+                        ? new Color(1f, 1f, 1f, 0.88f)
                         : requirementsMet
-                            ? new Color(1f, 1f, 1f, 0.38f)
-                            : new Color(1f, 1f, 1f, 0.18f);
+                            ? new Color(1f, 1f, 1f, 0.68f)
+                            : new Color(1f, 1f, 1f, 0.48f);
                 }
                 node.Button.interactable = !purchaseUiLocked;
             }
 
             if (BackButton != null)
                 BackButton.interactable = !purchaseUiLocked;
+            UpdateTreeInteraction();
             RefreshSelectedDetail();
+        }
+
+        void UpdateTreeInteraction()
+        {
+            if (treeScrollRect == null) return;
+            treeScrollRect.enabled = !purchaseUiLocked;
+            if (purchaseUiLocked)
+                treeScrollRect.StopMovement();
         }
 
         void RefreshSelectedDetail()
@@ -1025,24 +1133,43 @@ namespace MukJump.Core
 
         static Vector2 NodePosition(PermanentGrowthDefinition definition)
         {
-            float x = BranchX(definition.Branch);
-            if (definition.IsCapstone)
-                return new Vector2(x, 328f);
-
-            float y = definition.Branch == PermanentGrowthBranch.InkHandling
-                ? -190f + definition.BranchOrder * 145f
-                : -170f + definition.BranchOrder * 205f;
-            return new Vector2(x, y);
+            return definition.Type switch
+            {
+                PermanentGrowthType.InkCapacity =>
+                    new Vector2(35f, -640f),
+                PermanentGrowthType.InkRecovery =>
+                    new Vector2(-42f, -270f),
+                PermanentGrowthType.PlatformLifetime =>
+                    new Vector2(42f, 115f),
+                PermanentGrowthType.StrokeGuard =>
+                    new Vector2(-35f, 535f),
+                PermanentGrowthType.Vitality =>
+                    new Vector2(-330f, -470f),
+                PermanentGrowthType.DamageGrace =>
+                    new Vector2(-610f, -105f),
+                PermanentGrowthType.LastBreath =>
+                    new Vector2(-875f, 325f),
+                PermanentGrowthType.JumpCharge =>
+                    new Vector2(330f, -470f),
+                PermanentGrowthType.JumpPower =>
+                    new Vector2(610f, -105f),
+                PermanentGrowthType.DrawnPlatformLeap =>
+                    new Vector2(875f, 325f),
+                _ => Vector2.zero,
+            };
         }
 
-        static float BranchX(PermanentGrowthBranch branch)
+        static Vector2 BranchHeaderPosition(PermanentGrowthBranch branch)
         {
             return branch switch
             {
-                PermanentGrowthBranch.Survival => -305f,
-                PermanentGrowthBranch.Leap => 0f,
-                PermanentGrowthBranch.InkHandling => 305f,
-                _ => 0f,
+                PermanentGrowthBranch.Survival =>
+                    new Vector2(-850f, 660f),
+                PermanentGrowthBranch.Leap =>
+                    new Vector2(850f, 660f),
+                PermanentGrowthBranch.InkHandling =>
+                    new Vector2(0f, 850f),
+                _ => Vector2.zero,
             };
         }
 
@@ -1060,34 +1187,58 @@ namespace MukJump.Core
         Image CreateTreeBranchArt(
             Transform parent,
             PermanentGrowthDefinition definition,
-            Vector2 nodePosition)
+            Vector2 start,
+            Vector2 end)
         {
-            if (definition.Branch == PermanentGrowthBranch.Leap)
-                return null;
-
             Sprite branchSprite =
                 LoadPermanentGrowthSprite("pg_branch");
             if (branchSprite == null)
                 return null;
 
-            float direction = Mathf.Sign(nodePosition.x);
-            float tilt =
-                (definition.BranchOrder % 2 == 0 ? 1f : -1f) *
-                direction *
-                3.5f;
+            Vector2 delta = end - start;
+            float thickness = definition.IsCapstone ? 138f : 118f;
             Image branch = CreateImage(
                 $"TreeBranchArt_{definition.Type}",
                 parent,
                 branchSprite,
-                new Vector2(nodePosition.x * 0.51f, nodePosition.y + 4f),
-                new Vector2(382f, 86f),
-                new Color(1f, 1f, 1f, 0.18f));
+                (start + end) * 0.5f,
+                new Vector2(delta.magnitude * 1.12f, thickness),
+                new Color(1f, 1f, 1f, 0.55f));
             branch.preserveAspect = false;
-            branch.rectTransform.localScale =
-                new Vector3(direction < 0f ? -1f : 1f, 1f, 1f);
             branch.rectTransform.localEulerAngles =
-                new Vector3(0f, 0f, tilt);
+                new Vector3(
+                    0f,
+                    0f,
+                    Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
             return branch;
+        }
+
+        void CreateDecorativeTreeBranch(
+            Transform parent,
+            string objectName,
+            Vector2 start,
+            Vector2 end,
+            float alpha)
+        {
+            Sprite branchSprite =
+                LoadPermanentGrowthSprite("pg_branch");
+            if (branchSprite == null)
+                return;
+
+            Vector2 delta = end - start;
+            Image branch = CreateImage(
+                objectName,
+                parent,
+                branchSprite,
+                (start + end) * 0.5f,
+                new Vector2(delta.magnitude * 1.08f, 92f),
+                new Color(1f, 1f, 1f, Mathf.Clamp01(alpha)));
+            branch.preserveAspect = false;
+            branch.rectTransform.localEulerAngles =
+                new Vector3(
+                    0f,
+                    0f,
+                    Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
         }
 
         Image CreateInkLine(
@@ -1102,8 +1253,8 @@ namespace MukJump.Core
                 parent,
                 InkUiTextureFactory.CreateBrushSprite(),
                 (start + end) * 0.5f,
-                new Vector2(delta.magnitude, 12f),
-                WithAlpha(InkPalette.Ink, 0.12f));
+                new Vector2(delta.magnitude, 16f),
+                WithAlpha(InkPalette.Ink, 0.16f));
             line.rectTransform.localEulerAngles =
                 new Vector3(
                     0f,
@@ -1225,6 +1376,9 @@ namespace MukJump.Core
             rootGroup.blocksRaycasts = visible && interactive;
             if (rootCanvas != null)
                 rootCanvas.enabled = visible;
+            if (!visible || !interactive)
+                treeScrollRect?.StopMovement();
+            UpdateTreeInteraction();
             ApplySafeArea();
         }
 

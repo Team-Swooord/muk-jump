@@ -173,17 +173,19 @@ namespace MukJump.EditorTests
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
             Assert.That(panel, Is.Not.Null);
-            AssertSprite(panel.Find("InkTreeRoot"), "pg_root_emblem");
-            AssertSprite(panel.Find("InkTreeTrunk"), "pg_tree_trunk");
+            Transform treeCanvas = panel.Find("TreeViewport/TreeCanvas");
+            Assert.That(treeCanvas, Is.Not.Null);
+            AssertSprite(treeCanvas.Find("InkTreeRoot"), "pg_root_emblem");
+            AssertSprite(treeCanvas.Find("InkTreeTrunk"), "pg_tree_trunk");
             Assert.That(
-                panel.Find("InkTreeRedFlow"),
+                treeCanvas.Find("InkTreeRedFlow"),
                 Is.Null,
                 "강화 성공은 화면 먹획 연출로 표시하며 나무를 붉게 덮지 않습니다.");
 
             foreach (PermanentGrowthBranchMetadata branch
                      in PermanentGrowthCatalog.Branches)
             {
-                Transform header = panel.Find(
+                Transform header = treeCanvas.Find(
                     $"GrowthBranchHeader_{branch.Branch}");
                 Assert.That(
                     header,
@@ -199,7 +201,7 @@ namespace MukJump.EditorTests
             foreach (PermanentGrowthDefinition definition
                      in PermanentGrowthCatalog.All)
             {
-                Transform node = panel.Find(
+                Transform node = treeCanvas.Find(
                     $"GrowthNode_{definition.Type}");
                 Assert.That(
                     node,
@@ -213,16 +215,13 @@ namespace MukJump.EditorTests
                         ?.fontSize,
                     Is.GreaterThanOrEqualTo(30));
                 Assert.That(
-                    panel.Find($"GrowthPath_{definition.Type}"),
+                    treeCanvas.Find($"GrowthPath_{definition.Type}"),
                     Is.Not.Null);
                 Assert.That(node.Find("Fruit"), Is.Not.Null);
                 Assert.That(node.Find("FruitGlow"), Is.Not.Null);
-                Transform branchArt = panel.Find(
+                Transform branchArt = treeCanvas.Find(
                     $"TreeBranchArt_{definition.Type}");
-                if (definition.Branch == PermanentGrowthBranch.Leap)
-                    Assert.That(branchArt, Is.Null);
-                else
-                    AssertSprite(branchArt, "pg_branch");
+                AssertSprite(branchArt, "pg_branch");
             }
 
             Assert.That(
@@ -257,7 +256,7 @@ namespace MukJump.EditorTests
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
             Transform selectedNode = panel.Find(
-                "GrowthNode_InkCapacity");
+                "TreeViewport/TreeCanvas/GrowthNode_InkCapacity");
             Assert.That(
                 selectedNode.Find("NodeLevel").GetComponent<Text>().text,
                 Is.EqualTo("Lv. 1 / 6"));
