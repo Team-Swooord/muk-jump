@@ -225,7 +225,10 @@ namespace MukJump.EditorTests
             }
 
             Assert.That(
-                panel.Find("SelectedGrowthDetail/EnhanceButton"),
+                treeCanvas.Find("SelectedGrowthAction/EnhanceButton"),
+                Is.Not.Null);
+            Assert.That(
+                treeCanvas.Find("SelectedGrowthAction/ActionStatus"),
                 Is.Not.Null);
         }
 
