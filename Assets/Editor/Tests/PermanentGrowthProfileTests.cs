@@ -34,6 +34,73 @@ namespace MukJump.EditorTests
                     Is.Zero);
         }
 
+        [Test]
+        public void DebugResetClearsGrowthAndStartsSessionWith999Currency()
+        {
+            SeedFullWallet();
+            PermanentGrowthNodeDefinition root =
+                PermanentGrowthCatalog.GetNode(
+                    PermanentGrowthType.InkCapacity,
+                    1);
+            Assert.That(
+                PermanentGrowthProfile.TryPurchaseNode(root),
+                Is.True);
+            int changedCount = 0;
+            PermanentGrowthProfile.Changed += () => changedCount++;
+
+            PermanentGrowthProfile.DebugResetProgress();
+
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(999));
+            Assert.That(PermanentGrowthProfile.SpentCurrency, Is.Zero);
+            Assert.That(PermanentGrowthProfile.IsDebugCurrencyActive, Is.True);
+            foreach (PermanentGrowthDefinition definition
+                     in PermanentGrowthCatalog.All)
+                Assert.That(
+                    PermanentGrowthProfile.GetLevel(definition.Type),
+                    Is.Zero,
+                    definition.Id);
+            Assert.That(store.Json, Does.Contain("\"wallet\":0"));
+            Assert.That(store.Json, Does.Contain("\"ranks\":[]"));
+            Assert.That(changedCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void DebugRefillUsesSessionCurrencyAndPurchaseDeductsFromIt()
+        {
+            PermanentGrowthProfile.DebugRefillCurrency();
+            PermanentGrowthNodeDefinition root =
+                PermanentGrowthCatalog.GetNode(
+                    PermanentGrowthType.InkCapacity,
+                    1);
+
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(999));
+            Assert.That(
+                PermanentGrowthProfile.TryPurchaseNode(root),
+                Is.True);
+            Assert.That(
+                PermanentGrowthProfile.Currency,
+                Is.EqualTo(999 - root.Cost));
+            Assert.That(
+                PermanentGrowthProfile.SpentCurrency,
+                Is.EqualTo(root.Cost));
+
+            PermanentGrowthProfile.DebugRefillCurrency();
+
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(999));
+        }
+
+        [Test]
+        public void ResettingCacheClearsDebugSessionCurrency()
+        {
+            PermanentGrowthProfile.DebugRefillCurrency();
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(999));
+
+            PermanentGrowthProfile.ResetCacheForTests();
+
+            Assert.That(PermanentGrowthProfile.Currency, Is.Zero);
+            Assert.That(PermanentGrowthProfile.IsDebugCurrencyActive, Is.False);
+        }
+
         [TestCase(0, 0)]
         [TestCase(9, 0)]
         [TestCase(10, 4)]

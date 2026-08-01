@@ -238,18 +238,16 @@ namespace MukJump.EditorTests
                     definition.Id);
             }
 
-            Assert.That(
-                treeCanvas.Find("SelectedGrowthAction/ActionName"),
-                Is.Not.Null);
-            Assert.That(
-                treeCanvas.Find("SelectedGrowthAction/ActionCostIcon"),
-                Is.Not.Null);
-            Assert.That(
-                treeCanvas.Find("SelectedGrowthAction/EnhanceButton"),
-                Is.Not.Null);
-            Assert.That(
-                treeCanvas.Find("SelectedGrowthAction/ActionStatus"),
-                Is.Not.Null);
+            Transform popup = panel.Find("SelectedGrowthAction");
+            Assert.That(popup, Is.Not.Null);
+            Assert.That(popup.Find("ActionName"), Is.Not.Null);
+            Assert.That(popup.Find("ActionDescription"), Is.Not.Null);
+            Assert.That(popup.Find("ActionCurrentEffect"), Is.Not.Null);
+            Assert.That(popup.Find("ActionNextEffect"), Is.Not.Null);
+            Assert.That(popup.Find("ActionCostIcon"), Is.Not.Null);
+            Assert.That(popup.Find("EnhanceButton"), Is.Not.Null);
+            Assert.That(popup.Find("ActionStatus"), Is.Not.Null);
+            Assert.That(popup.Find("CloseButton"), Is.Not.Null);
         }
 
         [Test]
@@ -263,6 +261,7 @@ namespace MukJump.EditorTests
             Assert.That(
                 view.SelectedGrowthType,
                 Is.EqualTo(PermanentGrowthType.InkCapacity));
+            Assert.That(view.IsNodePopupOpen, Is.True);
             Assert.That(
                 PermanentGrowthProfile.GetLevel(
                     PermanentGrowthType.InkCapacity),

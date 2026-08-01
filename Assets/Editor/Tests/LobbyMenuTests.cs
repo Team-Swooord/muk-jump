@@ -179,24 +179,38 @@ namespace MukJump.EditorTests
             Assert.That(
                 growthPanel.Find("PermanentHint"),
                 Is.Null);
-            var selectedAction = treeCanvas.Find("SelectedGrowthAction")
+            var selectedAction = growthPanel.Find("SelectedGrowthAction")
                 ?.GetComponent<RectTransform>();
             Assert.That(selectedAction, Is.Not.Null);
-            Assert.That(selectedAction.IsChildOf(treeCanvas), Is.True);
+            Assert.That(selectedAction.IsChildOf(treeCanvas), Is.False,
+                "상세 팝업은 드래그되는 나무가 아니라 고정 화면에 있어야 합니다.");
             Assert.That(
                 selectedAction.GetComponent<Image>(),
-                Is.Null,
-                "노드 액션 뒤에 설명 패널을 다시 만들면 안 됩니다.");
+                Is.Not.Null,
+                "상세 정보는 읽을 수 있는 한지 카드 위에 표시해야 합니다.");
             Assert.That(
                 selectedAction.sizeDelta.x,
-                Is.LessThanOrEqualTo(320f));
+                Is.GreaterThanOrEqualTo(800f));
             Assert.That(
                 selectedAction.sizeDelta.y,
-                Is.LessThanOrEqualTo(190f));
+                Is.GreaterThanOrEqualTo(850f));
+            Assert.That(selectedAction.gameObject.activeSelf, Is.False);
+
+            growthView.SelectGrowthForTests(0);
+
+            Assert.That(growthView.IsNodePopupOpen, Is.True);
+            Assert.That(selectedAction.gameObject.activeSelf, Is.True);
+            Assert.That(
+                growthPanel.Find("GrowthNodePopupDimmer")
+                    ?.gameObject.activeSelf,
+                Is.True);
             Text actionName = selectedAction.Find("ActionName")
                 ?.GetComponent<Text>();
             Assert.That(actionName, Is.Not.Null);
-            Assert.That(actionName.fontStyle, Is.EqualTo(FontStyle.Normal));
+            Assert.That(actionName.fontStyle, Is.EqualTo(FontStyle.Bold));
+            Assert.That(selectedAction.Find("ActionDescription"), Is.Not.Null);
+            Assert.That(selectedAction.Find("ActionCurrentEffect"), Is.Not.Null);
+            Assert.That(selectedAction.Find("ActionNextEffect"), Is.Not.Null);
             Assert.That(
                 selectedAction.Find("ActionCostIcon")?.GetComponent<Image>(),
                 Is.Not.Null);
@@ -207,6 +221,15 @@ namespace MukJump.EditorTests
             Assert.That(
                 selectedAction.Find("EnhanceButton")?.GetComponent<Button>(),
                 Is.Not.Null);
+            Assert.That(
+                selectedAction.Find("CloseButton")?.GetComponent<Button>(),
+                Is.Not.Null);
+            Assert.That(growthView.DebugMenuButton, Is.Not.Null);
+            Assert.That(growthView.DebugResetButton, Is.Not.Null);
+            Assert.That(growthView.DebugCurrencyButton, Is.Not.Null);
+
+            growthView.NodePopupCloseButton.onClick.Invoke();
+            Assert.That(growthView.IsNodePopupOpen, Is.False);
 
             growthView.Close();
             codexView.OpenCodex();
@@ -226,7 +249,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void PermanentGrowthTreePansWithSelectedNodeAction()
+        public void PermanentGrowthTreePansUntilFixedNodePopupOpens()
         {
             managerHost = new GameObject("GrowthPanTestManager");
             var manager = managerHost.AddComponent<GameManager>();
@@ -243,8 +266,8 @@ namespace MukJump.EditorTests
             RectTransform viewport = view.TreeViewport;
             RectTransform treeCanvas = view.TreeCanvas;
             ScrollRect scrollRect = view.TreeScrollRect;
-            RectTransform selectedAction = treeCanvas.Find(
-                    "SelectedGrowthAction")
+            RectTransform selectedAction = view.ScreenRoot.Find(
+                    "SafeAreaRoot/PermanentGrowthScreen/SelectedGrowthAction")
                 ?.GetComponent<RectTransform>();
             RectTransform selectedNode = treeCanvas.Find(
                     "GrowthNode_permanent_ink_capacity_rank_1")
@@ -254,15 +277,8 @@ namespace MukJump.EditorTests
             Assert.That(scrollRect, Is.Not.Null);
             Assert.That(selectedAction, Is.Not.Null);
             Assert.That(selectedNode, Is.Not.Null);
-            Assert.That(selectedAction.IsChildOf(treeCanvas), Is.True);
-            AssertContainedInViewport(
-                selectedAction,
-                viewport,
-                "초기 선택 액션");
-            Assert.That(
-                WorldRect(selectedAction).Overlaps(WorldRect(selectedNode)),
-                Is.False,
-                "선택 액션이 선택한 열매를 덮으면 안 됩니다.");
+            Assert.That(selectedAction.IsChildOf(treeCanvas), Is.False);
+            Assert.That(selectedAction.gameObject.activeSelf, Is.False);
 
             Vector2 actionPosition = selectedAction.anchoredPosition;
             Vector3 actionWorldPosition = selectedAction.position;
@@ -278,11 +294,11 @@ namespace MukJump.EditorTests
             Assert.That(
                 selectedAction.anchoredPosition,
                 Is.EqualTo(actionPosition),
-                "선택 액션의 나무 위 위치는 팬 중 바뀌면 안 됩니다.");
+                "고정 팝업 위치는 지도 팬과 무관해야 합니다.");
             Assert.That(
                 selectedAction.position,
-                Is.Not.EqualTo(actionWorldPosition),
-                "선택 액션은 먹나무와 함께 화면을 이동해야 합니다.");
+                Is.EqualTo(actionWorldPosition),
+                "상세 팝업은 먹나무와 함께 이동하면 안 됩니다.");
 
             float minimumX = float.PositiveInfinity;
             float maximumX = float.NegativeInfinity;
@@ -304,8 +320,14 @@ namespace MukJump.EditorTests
             Assert.That(maximumX, Is.GreaterThan(300f));
             Assert.That(maximumY - minimumY, Is.GreaterThan(800f));
 
+            view.SelectGrowthForTests(0);
+            Assert.That(view.IsNodePopupOpen, Is.True);
+            Assert.That(view.TreeScrollRect.enabled, Is.False,
+                "상세 팝업을 읽는 동안 나무가 뒤에서 움직이면 안 됩니다.");
             Assert.That(view.PurchaseButton.interactable, Is.True);
             view.PurchaseButton.onClick.Invoke();
+            Assert.That(view.IsNodePopupOpen, Is.False,
+                "강화 성공 뒤에는 팝업을 닫고 해금 연출에 집중해야 합니다.");
             Assert.That(
                 view.TreeScrollRect.enabled,
                 Is.False,
@@ -313,7 +335,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void SelectedGrowthActionStaysInsideViewportAndAvoidsEveryFruit()
+        public void EveryGrowthNodeOpensReadableFixedDetailPopup()
         {
             managerHost = new GameObject("GrowthActionPlacementManager");
             var manager = managerHost.AddComponent<GameManager>();
@@ -322,11 +344,22 @@ namespace MukJump.EditorTests
             var view = viewHost.AddComponent<PermanentGrowthView>();
             view.BuildForTests();
 
-            RectTransform viewport = view.TreeViewport;
             RectTransform treeCanvas = view.TreeCanvas;
-            RectTransform action = treeCanvas.Find("SelectedGrowthAction")
+            RectTransform action = view.ScreenRoot.Find(
+                    "SafeAreaRoot/PermanentGrowthScreen/SelectedGrowthAction")
                 ?.GetComponent<RectTransform>();
             Assert.That(action, Is.Not.Null);
+            Text actionName = action.Find("ActionName")?.GetComponent<Text>();
+            Text actionDescription = action.Find("ActionDescription")
+                ?.GetComponent<Text>();
+            Text currentEffect = action.Find("ActionCurrentEffect")
+                ?.GetComponent<Text>();
+            Text nextEffect = action.Find("ActionNextEffect")
+                ?.GetComponent<Text>();
+            Assert.That(actionName, Is.Not.Null);
+            Assert.That(actionDescription, Is.Not.Null);
+            Assert.That(currentEffect, Is.Not.Null);
+            Assert.That(nextEffect, Is.Not.Null);
 
             for (int slot = 0;
                  slot < PermanentGrowthCatalog.Nodes.Count;
@@ -334,34 +367,63 @@ namespace MukJump.EditorTests
             {
                 PermanentGrowthNodeDefinition definition =
                     PermanentGrowthCatalog.Nodes[slot];
-                RectTransform selected = FindGrowthNode(
-                    treeCanvas,
-                    definition.Type,
-                    definition.Rank);
-                CenterNodeInViewport(treeCanvas, viewport, selected);
-                Canvas.ForceUpdateCanvases();
                 view.SelectGrowthForTests(slot);
                 Canvas.ForceUpdateCanvases();
 
-                AssertContainedInViewport(
-                    action,
-                    viewport,
-                    $"{definition.Id} 액션");
-                Rect actionRect = WorldRect(action);
-                foreach (PermanentGrowthNodeDefinition otherDefinition
-                         in PermanentGrowthCatalog.Nodes)
-                {
-                    RectTransform other = FindGrowthNode(
-                        treeCanvas,
-                        otherDefinition.Type,
-                        otherDefinition.Rank);
-                    Assert.That(
-                        actionRect.Overlaps(WorldRect(other)),
-                        Is.False,
-                        $"{definition.Id} 액션이 " +
-                        $"{otherDefinition.Id} 열매를 덮으면 안 됩니다.");
-                }
+                Assert.That(view.IsNodePopupOpen, Is.True, definition.Id);
+                Assert.That(actionName.text, Is.EqualTo(definition.Name));
+                Assert.That(
+                    actionDescription.text,
+                    Is.EqualTo(definition.Description));
+                Assert.That(currentEffect.text, Is.Not.Empty);
+                Assert.That(nextEffect.text, Is.Not.Empty);
+                Assert.That(view.TreeScrollRect.enabled, Is.False);
+                view.NodePopupCloseButton.onClick.Invoke();
+                Assert.That(view.IsNodePopupOpen, Is.False);
+                Assert.That(view.TreeScrollRect.enabled, Is.True);
             }
+        }
+
+        [Test]
+        public void GrowthDebugMenuRefills999AndResetClosesPopup()
+        {
+            managerHost = new GameObject("GrowthDebugMenuManager");
+            var manager = managerHost.AddComponent<GameManager>();
+            Invoke(manager, "OnEnable");
+            viewHost = new GameObject("GrowthDebugMenuHost");
+            var view = viewHost.AddComponent<PermanentGrowthView>();
+            view.BuildForTests();
+
+            RectTransform debugPanel = view.ScreenRoot.Find(
+                    "SafeAreaRoot/PermanentGrowthScreen/GrowthDebugMenu")
+                ?.GetComponent<RectTransform>();
+            Assert.That(debugPanel, Is.Not.Null);
+            Assert.That(debugPanel.gameObject.activeSelf, Is.False);
+
+            view.DebugMenuButton.onClick.Invoke();
+            Assert.That(debugPanel.gameObject.activeSelf, Is.True);
+            view.DebugCurrencyButton.onClick.Invoke();
+            Assert.That(view.BalanceLabel, Is.EqualTo("999"));
+
+            PermanentGrowthNodeDefinition root =
+                PermanentGrowthCatalog.GetNode(
+                    PermanentGrowthType.InkCapacity,
+                    1);
+            Assert.That(
+                PermanentGrowthProfile.TryPurchaseNode(root),
+                Is.True);
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(
+                999 - root.Cost));
+            view.SelectGrowthForTests(0);
+            Assert.That(view.IsNodePopupOpen, Is.True);
+
+            view.DebugResetButton.onClick.Invoke();
+
+            Assert.That(view.IsNodePopupOpen, Is.False);
+            Assert.That(view.BalanceLabel, Is.EqualTo("999"));
+            Assert.That(
+                PermanentGrowthProfile.GetLevel(root.Type),
+                Is.Zero);
         }
 
         static RectTransform FindGrowthNode(
@@ -374,26 +436,6 @@ namespace MukJump.EditorTests
             return treeCanvas.Find(
                     $"GrowthNode_{SanitizeNodeId(definition.Id)}")
                 ?.GetComponent<RectTransform>();
-        }
-
-        static void CenterNodeInViewport(
-            RectTransform treeCanvas,
-            RectTransform viewport,
-            RectTransform node)
-        {
-            Assert.That(node, Is.Not.Null);
-            float scale = treeCanvas.localScale.x;
-            Vector2 travel =
-                (treeCanvas.sizeDelta * scale - viewport.sizeDelta) * 0.5f;
-            treeCanvas.anchoredPosition = new Vector2(
-                Mathf.Clamp(
-                    -node.anchoredPosition.x * scale,
-                    -travel.x,
-                    travel.x),
-                Mathf.Clamp(
-                    -node.anchoredPosition.y * scale,
-                    -travel.y,
-                    travel.y));
         }
 
         static void AssertContainedInViewport(
