@@ -335,6 +335,10 @@ Transform·Collider는 유지한다.
 - `PermanentGrowthView`는 불투명 한지 배경의 전용 전체 화면으로 열리고
   생존·도약·먹 운용을 드래그 가능한 큰 먹나무로 표시한다. 39개 열매 노드는
   각 저장 rank와 1:1 대응하며 한 그루의 고정 `pg_tree_background_v2` 위에 놓인다.
+  `TreeViewport`는 고정 헤더보다 뒤쪽 형제에 두고 상단까지 확장하며,
+  `TreeCanvas`는 0.9 배율로 렌더링해 현재 가지를 더 넓게 조망한다. 각 노드의
+  `NodeContrast`는 입력을 받지 않는 진한 먹 원형 받침이고 실제 상태·버튼 표면인
+  `NodeSurface`보다 먼저 렌더링된다.
   실제 다중 부모 보조선과 잠금·구매 가능·보유·완성
   상태를 가진다. 잠긴 노드도 선택할 수 있지만
   노드 곁 `SelectedGrowthAction/ActionStatus`에는 짧은 잠금 상태만 표시하고,

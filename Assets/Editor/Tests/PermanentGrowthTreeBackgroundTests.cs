@@ -105,6 +105,60 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void View_UsesTopSpaceAndKeepsReadableInkBackingBehindEveryBud()
+        {
+            var view = viewHost.AddComponent<PermanentGrowthView>();
+            view.BuildForTests();
+
+            Assert.That(
+                view.TreeViewport.sizeDelta,
+                Is.EqualTo(new Vector2(980f, 1660f)));
+            Assert.That(
+                view.TreeViewport.anchoredPosition,
+                Is.EqualTo(new Vector2(0f, -30f)));
+            Assert.That(view.TreeViewport.GetSiblingIndex(), Is.Zero);
+            Assert.That(
+                view.TreeCanvas.localScale,
+                Is.EqualTo(Vector3.one * 0.9f));
+
+            foreach (PermanentGrowthNodeDefinition definition
+                     in PermanentGrowthCatalog.Nodes)
+            {
+                Transform node = view.TreeCanvas.Find(
+                    $"GrowthNode_{Sanitize(definition.Id)}");
+                Transform contrast = node?.Find("NodeContrast");
+                Transform ring = node?.Find("SelectionRing");
+                Transform glow = node?.Find("FruitGlow");
+                Transform surface = node?.Find("NodeSurface");
+                Assert.That(contrast, Is.Not.Null, definition.Id);
+                Assert.That(ring, Is.Not.Null, definition.Id);
+                Assert.That(glow, Is.Not.Null, definition.Id);
+                Assert.That(surface, Is.Not.Null, definition.Id);
+                var contrastImage = contrast.GetComponent<Image>();
+                var contrastRect = contrast.GetComponent<RectTransform>();
+                var surfaceRect = surface.GetComponent<RectTransform>();
+                Assert.That(contrastImage.color.a, Is.GreaterThanOrEqualTo(0.84f));
+                Assert.That(contrastImage.raycastTarget, Is.False);
+                Assert.That(
+                    contrastRect.sizeDelta.x,
+                    Is.EqualTo(surfaceRect.sizeDelta.x + 32f),
+                    definition.Id);
+                Assert.That(
+                    contrast.GetSiblingIndex(),
+                    Is.LessThan(ring.GetSiblingIndex()),
+                    definition.Id);
+                Assert.That(
+                    contrast.GetSiblingIndex(),
+                    Is.LessThan(glow.GetSiblingIndex()),
+                    definition.Id);
+                Assert.That(
+                    contrast.GetSiblingIndex(),
+                    Is.LessThan(surface.GetSiblingIndex()),
+                    definition.Id);
+            }
+        }
+
+        [Test]
         public void BranchArtwork_RemainsFixedWhileOnlyFruitShowsUnlockState()
         {
             var view = viewHost.AddComponent<PermanentGrowthView>();

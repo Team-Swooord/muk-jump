@@ -15,8 +15,9 @@ namespace MukJump.Core
         const int CanvasSortingOrder = 4050;
         const float ReferenceHeight = 1920f;
         const string ArtResourceRoot = "MukJump/UI/PermanentGrowth/";
-        static readonly Vector2 TreeViewportPosition = new(0f, -120f);
-        static readonly Vector2 TreeViewportSize = new(980f, 1440f);
+        const float TreeCanvasZoom = 0.9f;
+        static readonly Vector2 TreeViewportPosition = new(0f, -30f);
+        static readonly Vector2 TreeViewportSize = new(980f, 1660f);
         static readonly Vector2 TreeCanvasSize = new(3400f, 3200f);
         static readonly Vector2 TreeBackgroundSize = new(3000f, 3060f);
         static readonly Vector2 TreeBackgroundPosition = new(0f, -20f);
@@ -267,6 +268,9 @@ namespace MukJump.Core
                 panel,
                 TreeViewportPosition,
                 TreeViewportSize);
+            // 성장 지도는 헤더 뒤까지 화면을 사용하되 제목·재화·로비 버튼은
+            // 항상 앞에 남긴다. 위쪽 여백도 탐색 영역으로 활용할 수 있다.
+            TreeViewport.SetAsFirstSibling();
             Image dragSurface = TreeViewport.gameObject.AddComponent<Image>();
             dragSurface.color = new Color(1f, 1f, 1f, 0.001f);
             dragSurface.raycastTarget = true;
@@ -287,6 +291,9 @@ namespace MukJump.Core
                 TreeViewport,
                 Vector2.zero,
                 TreeCanvasSize);
+            // 전체 나무를 한 번에 더 많이 볼 수 있게 살짝 줌아웃한다.
+            // 열매 터치 영역은 축소 후에도 모바일 최소 크기보다 충분히 크다.
+            TreeCanvas.localScale = Vector3.one * TreeCanvasZoom;
             treeScrollRect.content = TreeCanvas;
             BuildThreeBranchTree(TreeCanvas);
             BuildSelectedNodeAction(TreeCanvas);
@@ -638,6 +645,16 @@ namespace MukJump.Core
 
             float nodeCenterY = 30f;
             float surfaceSize = capstone ? 164f : 124f;
+            Image nodeContrast = CreateImage(
+                "NodeContrast",
+                root,
+                InkUiTextureFactory.CreateBlobSprite(),
+                new Vector2(0f, nodeCenterY),
+                new Vector2(surfaceSize + 32f, surfaceSize + 32f),
+                WithAlpha(InkPalette.Ink, capstone ? 0.9f : 0.84f));
+            nodeContrast.preserveAspect = true;
+            nodeContrast.raycastTarget = false;
+
             Image ring = CreateImage(
                 "SelectionRing",
                 root,

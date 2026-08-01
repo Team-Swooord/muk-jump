@@ -75,7 +75,14 @@ namespace MukJump.EditorTests
             Assert.That(treeCanvas.sizeDelta.x, Is.GreaterThan(viewport.sizeDelta.x));
             Assert.That(treeCanvas.sizeDelta.y, Is.GreaterThan(viewport.sizeDelta.y));
             Assert.That(viewport.sizeDelta.x, Is.EqualTo(980f));
-            Assert.That(viewport.sizeDelta.y, Is.GreaterThanOrEqualTo(1400f));
+            Assert.That(viewport.sizeDelta.y, Is.EqualTo(1660f));
+            Assert.That(
+                treeCanvas.localScale.x,
+                Is.EqualTo(0.9f).Within(0.001f));
+            Assert.That(
+                viewport.GetSiblingIndex(),
+                Is.Zero,
+                "성장 지도는 고정 헤더 뒤에서 화면 위쪽까지 사용해야 합니다.");
             var inkRoot =
                 (RectTransform)treeCanvas.Find("InkTreeRoot");
             Assert.That(inkRoot, Is.Not.Null);
@@ -347,11 +354,18 @@ namespace MukJump.EditorTests
             RectTransform node)
         {
             Assert.That(node, Is.Not.Null);
+            float scale = treeCanvas.localScale.x;
             Vector2 travel =
-                (treeCanvas.sizeDelta - viewport.sizeDelta) * 0.5f;
+                (treeCanvas.sizeDelta * scale - viewport.sizeDelta) * 0.5f;
             treeCanvas.anchoredPosition = new Vector2(
-                Mathf.Clamp(-node.anchoredPosition.x, -travel.x, travel.x),
-                Mathf.Clamp(-node.anchoredPosition.y, -travel.y, travel.y));
+                Mathf.Clamp(
+                    -node.anchoredPosition.x * scale,
+                    -travel.x,
+                    travel.x),
+                Mathf.Clamp(
+                    -node.anchoredPosition.y * scale,
+                    -travel.y,
+                    travel.y));
         }
 
         static void AssertContainedInViewport(
