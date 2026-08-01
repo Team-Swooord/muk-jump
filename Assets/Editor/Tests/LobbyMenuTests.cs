@@ -385,7 +385,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void GrowthDebugMenuRefills999AndResetClosesPopup()
+        public void GrowthDebugMenuRefills999AndResetsUnlockedFruit()
         {
             managerHost = new GameObject("GrowthDebugMenuManager");
             var manager = managerHost.AddComponent<GameManager>();
@@ -399,6 +399,9 @@ namespace MukJump.EditorTests
                 ?.GetComponent<RectTransform>();
             Assert.That(debugPanel, Is.Not.Null);
             Assert.That(debugPanel.gameObject.activeSelf, Is.False);
+            Assert.That(
+                view.DebugResetButton.GetComponentInChildren<Text>(true).text,
+                Is.EqualTo("노드 초기화"));
 
             view.DebugMenuButton.onClick.Invoke();
             Assert.That(debugPanel.gameObject.activeSelf, Is.True);
@@ -414,6 +417,12 @@ namespace MukJump.EditorTests
                 Is.True);
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(
                 999 - root.Cost));
+            RectTransform rootNode = FindGrowthNode(
+                view.TreeCanvas,
+                root.Type,
+                root.Rank);
+            Image rootFruit = rootNode.Find("Fruit").GetComponent<Image>();
+            Assert.That(rootFruit.color.a, Is.EqualTo(1f).Within(0.001f));
             view.SelectGrowthForTests(0);
             Assert.That(view.IsNodePopupOpen, Is.True);
 
@@ -424,6 +433,7 @@ namespace MukJump.EditorTests
             Assert.That(
                 PermanentGrowthProfile.GetLevel(root.Type),
                 Is.Zero);
+            Assert.That(rootFruit.color.a, Is.Zero.Within(0.001f));
         }
 
         static RectTransform FindGrowthNode(

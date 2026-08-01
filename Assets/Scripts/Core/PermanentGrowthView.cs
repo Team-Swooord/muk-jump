@@ -944,10 +944,10 @@ namespace MukJump.Core
             DebugResetButton = CreateBrushButton(
                 "DebugResetButton",
                 debugMenuPanel,
-                "초기화",
+                "노드 초기화",
                 new Vector2(-112f, -30f),
                 new Vector2(202f, 92f),
-                28);
+                25);
             DebugCurrencyButton = CreateBrushButton(
                 "DebugCurrencyButton",
                 debugMenuPanel,
