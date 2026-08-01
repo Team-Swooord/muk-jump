@@ -37,7 +37,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void LobbySeparatesFourPermanentGrowthsFromHundredRunCodexEntries()
+        public void LobbySeparatesThreePermanentGrowthBranchesFromRunCodex()
         {
             managerHost = new GameObject("LobbyCollectionTestManager");
             var manager = managerHost.AddComponent<GameManager>();
@@ -50,57 +50,135 @@ namespace MukJump.EditorTests
 
             growthView.Open();
             Assert.That(growthView.IsOpen, Is.True);
-            Assert.That(growthView.CreatedRowCount, Is.EqualTo(4));
+            Assert.That(growthView.CreatedRowCount, Is.EqualTo(3));
+            Assert.That(
+                growthView.CreatedNodeCount,
+                Is.EqualTo(PermanentGrowthCatalog.Nodes.Count));
             Assert.That(growthView.BalanceLabel, Is.EqualTo("보유 먹빛 0"));
             Transform growthPanel = viewHost.transform.Find(
-                "PermanentGrowthCanvas/SafeAreaRoot/PermanentGrowthScroll");
+                "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
+                "PermanentGrowthScreen");
             Assert.That(growthPanel, Is.Not.Null);
-            Assert.That(growthPanel.Find("InkTreeTrunk"), Is.Not.Null,
-                "영구 성장 화면은 중앙 먹나무 기둥을 가져야 합니다.");
+            var viewport =
+                (RectTransform)growthPanel.Find("TreeViewport");
+            var treeCanvas =
+                (RectTransform)viewport.Find("TreeCanvas");
+            Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null);
+            ScrollRect scrollRect = viewport.GetComponent<ScrollRect>();
+            Assert.That(scrollRect, Is.Not.Null);
+            Assert.That(scrollRect.content, Is.SameAs(treeCanvas));
+            Assert.That(scrollRect.horizontal, Is.True);
+            Assert.That(scrollRect.vertical, Is.True);
+            Assert.That(
+                scrollRect.movementType,
+                Is.EqualTo(ScrollRect.MovementType.Clamped));
+            Assert.That(treeCanvas.sizeDelta.x, Is.GreaterThan(viewport.sizeDelta.x));
+            Assert.That(treeCanvas.sizeDelta.y, Is.GreaterThan(viewport.sizeDelta.y));
+            Assert.That(viewport.sizeDelta.x, Is.EqualTo(980f));
+            Assert.That(viewport.sizeDelta.y, Is.EqualTo(1660f));
+            Assert.That(
+                treeCanvas.localScale.x,
+                Is.EqualTo(0.9f).Within(0.001f));
+            Assert.That(
+                viewport.GetSiblingIndex(),
+                Is.Zero,
+                "성장 지도는 고정 헤더 뒤에서 화면 위쪽까지 사용해야 합니다.");
             var inkRoot =
-                (RectTransform)growthPanel.Find("InkTreeRoot");
+                (RectTransform)treeCanvas.Find("InkTreeRoot");
             Assert.That(inkRoot, Is.Not.Null);
-            for (int i = 0; i < 4; i++)
+            Canvas.ForceUpdateCanvases();
+            AssertContainedInViewport(inkRoot, viewport, "먹나무 뿌리");
+            AssertContainedInViewport(
+                FindGrowthNode(
+                    treeCanvas,
+                    PermanentGrowthType.Vitality,
+                    1),
+                viewport,
+                "생존 첫 열매");
+            AssertContainedInViewport(
+                FindGrowthNode(
+                    treeCanvas,
+                    PermanentGrowthType.InkCapacity,
+                    1),
+                viewport,
+                "먹 운용 첫 열매");
+            AssertContainedInViewport(
+                FindGrowthNode(
+                    treeCanvas,
+                    PermanentGrowthType.JumpCharge,
+                    1),
+                viewport,
+                "도약 첫 열매");
+            Assert.That(
+                treeCanvas.Find("InkTreeTrunk"),
+                Is.Not.Null,
+                "큰 먹나무 줄기가 드래그 지도 안에 있어야 합니다.");
+            Assert.That(
+                treeCanvas.Find("InkTreeRootLabel"),
+                Is.Not.Null,
+                "첫 화면의 뿌리 이름이 있어야 합니다.");
+            foreach (PermanentGrowthBranchMetadata branch
+                     in PermanentGrowthCatalog.Branches)
             {
+                RectTransform header = treeCanvas.Find(
+                        $"GrowthBranchHeader_{branch.Branch}")
+                    ?.GetComponent<RectTransform>();
                 Assert.That(
-                    growthPanel.Find($"GrowthBranch{i + 1}"),
+                    header,
                     Is.Not.Null,
-                    $"영구 성장 {i + 1}의 먹가지 연결선이 필요합니다.");
-                var card = (RectTransform)growthPanel.Find(
-                    $"PermanentGrowth{i + 1}");
-                Assert.That(card.sizeDelta.x, Is.GreaterThanOrEqualTo(384f));
-                Assert.That(card.sizeDelta.y, Is.GreaterThanOrEqualTo(196f),
-                    "성장 잎은 모바일에서 충분한 터치 높이를 유지해야 합니다.");
-                var description = card.Find("Outline/Paper/Description")
-                    .GetComponent<Text>();
-                var effect = card.Find("Outline/Paper/Effect")
-                    .GetComponent<Text>();
-                Assert.That(description.fontSize, Is.GreaterThanOrEqualTo(26));
+                    branch.DisplayName);
                 Assert.That(
-                    description.rectTransform.sizeDelta.y,
-                    Is.GreaterThanOrEqualTo(52f),
-                    "성장 설명은 두 줄을 담을 높이가 필요합니다.");
-                Assert.That(effect.fontSize, Is.GreaterThanOrEqualTo(26));
+                    header.Find("Brush/BranchTitle")
+                        ?.GetComponent<Text>()?.fontSize,
+                    Is.GreaterThanOrEqualTo(36));
             }
-            var lowestCard = (RectTransform)growthPanel.Find(
-                "PermanentGrowth4");
-            float lowestCardBottom = lowestCard.anchoredPosition.y -
-                                     lowestCard.sizeDelta.y * 0.5f;
-            float rootTop = inkRoot.anchoredPosition.y +
-                            inkRoot.sizeDelta.y * 0.5f;
+            foreach (PermanentGrowthNodeDefinition definition
+                     in PermanentGrowthCatalog.Nodes)
+            {
+                Transform node = treeCanvas.Find(
+                    $"GrowthNode_{SanitizeNodeId(definition.Id)}");
+                Assert.That(node, Is.Not.Null, definition.Name);
+                var rect = node.GetComponent<RectTransform>();
+                Assert.That(rect.sizeDelta.x, Is.GreaterThanOrEqualTo(100f));
+                Assert.That(rect.sizeDelta.y, Is.GreaterThanOrEqualTo(100f));
+                Assert.That(node.GetComponent<Button>(), Is.Not.Null);
+                Assert.That(
+                    node.Find("NodeName")?.GetComponent<Text>()?.fontSize,
+                    Is.GreaterThanOrEqualTo(30));
+                RectTransform surface = node.Find("NodeSurface")
+                    ?.GetComponent<RectTransform>();
+                Assert.That(surface, Is.Not.Null);
+                Assert.That(
+                    surface.sizeDelta.x,
+                    Is.EqualTo(surface.sizeDelta.y).Within(0.01f),
+                    definition.Name);
+            }
             Assert.That(
-                lowestCardBottom,
-                Is.GreaterThan(rootTop + 4f),
-                "마지막 성장 잎과 먹뿌리가 겹치면 안 됩니다.");
-            var footer = (RectTransform)growthPanel.Find("PermanentHint");
-            float rootBottom = inkRoot.anchoredPosition.y -
-                               inkRoot.sizeDelta.y * 0.5f;
-            float footerTop = footer.anchoredPosition.y +
-                              footer.sizeDelta.y * 0.5f;
+                growthPanel.Find("SelectedGrowthDetail"),
+                Is.Null);
             Assert.That(
-                rootBottom,
-                Is.GreaterThan(footerTop + 4f),
-                "먹뿌리와 하단 안내 문구가 겹치면 안 됩니다.");
+                growthPanel.Find("PermanentHint"),
+                Is.Null);
+            var selectedAction = treeCanvas.Find("SelectedGrowthAction")
+                ?.GetComponent<RectTransform>();
+            Assert.That(selectedAction, Is.Not.Null);
+            Assert.That(selectedAction.IsChildOf(treeCanvas), Is.True);
+            Assert.That(
+                selectedAction.GetComponent<Image>(),
+                Is.Null,
+                "노드 액션 뒤에 설명 패널을 다시 만들면 안 됩니다.");
+            Assert.That(
+                selectedAction.sizeDelta.x,
+                Is.LessThanOrEqualTo(320f));
+            Assert.That(
+                selectedAction.sizeDelta.y,
+                Is.LessThanOrEqualTo(180f));
+            Assert.That(
+                selectedAction.Find("ActionStatus")?.GetComponent<Text>(),
+                Is.Not.Null);
+            Assert.That(
+                selectedAction.Find("EnhanceButton")?.GetComponent<Button>(),
+                Is.Not.Null);
 
             growthView.Close();
             codexView.OpenCodex();
@@ -117,6 +195,224 @@ namespace MukJump.EditorTests
 
             codexView.Close();
             Assert.That(codexView.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void PermanentGrowthTreePansWithSelectedNodeAction()
+        {
+            managerHost = new GameObject("GrowthPanTestManager");
+            var manager = managerHost.AddComponent<GameManager>();
+            Invoke(manager, "OnEnable");
+            PermanentGrowthProfile.SettleRun(
+                "growth-pan-lock",
+                100,
+                0,
+                true);
+            viewHost = new GameObject("GrowthPanTestHost");
+            var view = viewHost.AddComponent<PermanentGrowthView>();
+            view.BuildForTests();
+
+            RectTransform viewport = view.TreeViewport;
+            RectTransform treeCanvas = view.TreeCanvas;
+            ScrollRect scrollRect = view.TreeScrollRect;
+            RectTransform selectedAction = treeCanvas.Find(
+                    "SelectedGrowthAction")
+                ?.GetComponent<RectTransform>();
+            RectTransform selectedNode = treeCanvas.Find(
+                    "GrowthNode_permanent_ink_capacity_rank_1")
+                ?.GetComponent<RectTransform>();
+            Assert.That(viewport, Is.Not.Null);
+            Assert.That(treeCanvas, Is.Not.Null);
+            Assert.That(scrollRect, Is.Not.Null);
+            Assert.That(selectedAction, Is.Not.Null);
+            Assert.That(selectedNode, Is.Not.Null);
+            Assert.That(selectedAction.IsChildOf(treeCanvas), Is.True);
+            AssertContainedInViewport(
+                selectedAction,
+                viewport,
+                "초기 선택 액션");
+            Assert.That(
+                WorldRect(selectedAction).Overlaps(WorldRect(selectedNode)),
+                Is.False,
+                "선택 액션이 선택한 열매를 덮으면 안 됩니다.");
+
+            Vector2 actionPosition = selectedAction.anchoredPosition;
+            Vector3 actionWorldPosition = selectedAction.position;
+            Vector2 initialTreePosition = treeCanvas.anchoredPosition;
+            scrollRect.horizontalNormalizedPosition = 1f;
+            scrollRect.verticalNormalizedPosition = 1f;
+            Canvas.ForceUpdateCanvases();
+
+            Assert.That(
+                treeCanvas.anchoredPosition,
+                Is.Not.EqualTo(initialTreePosition),
+                "큰 먹나무 지도만 양축으로 움직여야 합니다.");
+            Assert.That(
+                selectedAction.anchoredPosition,
+                Is.EqualTo(actionPosition),
+                "선택 액션의 나무 위 위치는 팬 중 바뀌면 안 됩니다.");
+            Assert.That(
+                selectedAction.position,
+                Is.Not.EqualTo(actionWorldPosition),
+                "선택 액션은 먹나무와 함께 화면을 이동해야 합니다.");
+
+            float minimumX = float.PositiveInfinity;
+            float maximumX = float.NegativeInfinity;
+            float minimumY = float.PositiveInfinity;
+            float maximumY = float.NegativeInfinity;
+            foreach (PermanentGrowthNodeDefinition definition
+                     in PermanentGrowthCatalog.Nodes)
+            {
+                RectTransform node = treeCanvas.Find(
+                        $"GrowthNode_{SanitizeNodeId(definition.Id)}")
+                    ?.GetComponent<RectTransform>();
+                Assert.That(node, Is.Not.Null, definition.Name);
+                minimumX = Mathf.Min(minimumX, node.anchoredPosition.x);
+                maximumX = Mathf.Max(maximumX, node.anchoredPosition.x);
+                minimumY = Mathf.Min(minimumY, node.anchoredPosition.y);
+                maximumY = Mathf.Max(maximumY, node.anchoredPosition.y);
+            }
+            Assert.That(minimumX, Is.LessThan(-300f));
+            Assert.That(maximumX, Is.GreaterThan(300f));
+            Assert.That(maximumY - minimumY, Is.GreaterThan(800f));
+
+            Assert.That(view.PurchaseButton.interactable, Is.True);
+            view.PurchaseButton.onClick.Invoke();
+            Assert.That(
+                view.TreeScrollRect.enabled,
+                Is.False,
+                "열매 해금 연출 중에는 지도 관성·드래그를 잠가야 합니다.");
+        }
+
+        [Test]
+        public void SelectedGrowthActionStaysInsideViewportAndAvoidsEveryFruit()
+        {
+            managerHost = new GameObject("GrowthActionPlacementManager");
+            var manager = managerHost.AddComponent<GameManager>();
+            Invoke(manager, "OnEnable");
+            viewHost = new GameObject("GrowthActionPlacementHost");
+            var view = viewHost.AddComponent<PermanentGrowthView>();
+            view.BuildForTests();
+
+            RectTransform viewport = view.TreeViewport;
+            RectTransform treeCanvas = view.TreeCanvas;
+            RectTransform action = treeCanvas.Find("SelectedGrowthAction")
+                ?.GetComponent<RectTransform>();
+            Assert.That(action, Is.Not.Null);
+
+            for (int slot = 0;
+                 slot < PermanentGrowthCatalog.Nodes.Count;
+                 slot++)
+            {
+                PermanentGrowthNodeDefinition definition =
+                    PermanentGrowthCatalog.Nodes[slot];
+                RectTransform selected = FindGrowthNode(
+                    treeCanvas,
+                    definition.Type,
+                    definition.Rank);
+                CenterNodeInViewport(treeCanvas, viewport, selected);
+                Canvas.ForceUpdateCanvases();
+                view.SelectGrowthForTests(slot);
+                Canvas.ForceUpdateCanvases();
+
+                AssertContainedInViewport(
+                    action,
+                    viewport,
+                    $"{definition.Id} 액션");
+                Rect actionRect = WorldRect(action);
+                foreach (PermanentGrowthNodeDefinition otherDefinition
+                         in PermanentGrowthCatalog.Nodes)
+                {
+                    RectTransform other = FindGrowthNode(
+                        treeCanvas,
+                        otherDefinition.Type,
+                        otherDefinition.Rank);
+                    Assert.That(
+                        actionRect.Overlaps(WorldRect(other)),
+                        Is.False,
+                        $"{definition.Id} 액션이 " +
+                        $"{otherDefinition.Id} 열매를 덮으면 안 됩니다.");
+                }
+            }
+        }
+
+        static RectTransform FindGrowthNode(
+            RectTransform treeCanvas,
+            PermanentGrowthType type,
+            int rank)
+        {
+            PermanentGrowthNodeDefinition definition =
+                PermanentGrowthCatalog.GetNode(type, rank);
+            return treeCanvas.Find(
+                    $"GrowthNode_{SanitizeNodeId(definition.Id)}")
+                ?.GetComponent<RectTransform>();
+        }
+
+        static void CenterNodeInViewport(
+            RectTransform treeCanvas,
+            RectTransform viewport,
+            RectTransform node)
+        {
+            Assert.That(node, Is.Not.Null);
+            float scale = treeCanvas.localScale.x;
+            Vector2 travel =
+                (treeCanvas.sizeDelta * scale - viewport.sizeDelta) * 0.5f;
+            treeCanvas.anchoredPosition = new Vector2(
+                Mathf.Clamp(
+                    -node.anchoredPosition.x * scale,
+                    -travel.x,
+                    travel.x),
+                Mathf.Clamp(
+                    -node.anchoredPosition.y * scale,
+                    -travel.y,
+                    travel.y));
+        }
+
+        static void AssertContainedInViewport(
+            RectTransform element,
+            RectTransform viewport,
+            string label)
+        {
+            Assert.That(element, Is.Not.Null, label);
+            Rect elementRect = WorldRect(element);
+            Rect viewportRect = WorldRect(viewport);
+            const float Tolerance = 1f;
+            Assert.That(
+                elementRect.xMin,
+                Is.GreaterThanOrEqualTo(viewportRect.xMin - Tolerance),
+                $"{label} 왼쪽");
+            Assert.That(
+                elementRect.xMax,
+                Is.LessThanOrEqualTo(viewportRect.xMax + Tolerance),
+                $"{label} 오른쪽");
+            Assert.That(
+                elementRect.yMin,
+                Is.GreaterThanOrEqualTo(viewportRect.yMin - Tolerance),
+                $"{label} 아래");
+            Assert.That(
+                elementRect.yMax,
+                Is.LessThanOrEqualTo(viewportRect.yMax + Tolerance),
+                $"{label} 위");
+        }
+
+        static Rect WorldRect(RectTransform rectTransform)
+        {
+            var corners = new Vector3[4];
+            rectTransform.GetWorldCorners(corners);
+            return Rect.MinMaxRect(
+                corners[0].x,
+                corners[0].y,
+                corners[2].x,
+                corners[2].y);
+        }
+
+        static string SanitizeNodeId(string id)
+        {
+            char[] characters = id.ToCharArray();
+            for (int i = 0; i < characters.Length; i++)
+                if (!char.IsLetterOrDigit(characters[i]))
+                    characters[i] = '_';
+            return new string(characters);
         }
 
         [Test]
@@ -180,11 +476,32 @@ namespace MukJump.EditorTests
                 Is.GreaterThan(tutorial.anchoredPosition.y),
                 "튜토리얼은 고객센터 바로 아래 같은 열에 배치해야 합니다.");
 
+            Text title = page.Find("Title")?.GetComponent<Text>();
+            Text version = page.Find("Version")?.GetComponent<Text>();
+            Assert.IsNotNull(title);
+            Assert.IsNotNull(version);
+            Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(version.alignment, Is.EqualTo(TextAnchor.MiddleRight));
+            Assert.That(
+                title.rectTransform.anchoredPosition.y,
+                Is.EqualTo(version.rectTransform.anchoredPosition.y),
+                "설정 제목과 버전은 하나의 상단 정보 띠로 읽혀야 합니다.");
+            Assert.That(
+                title.rectTransform.anchoredPosition.x,
+                Is.LessThan(version.rectTransform.anchoredPosition.x));
+
             AssertMajorOptionButton(page, "LanguageButton");
             AssertMajorOptionButton(page, "CustomerCenterButton");
             AssertMajorOptionButton(page, "AccountConnectButton");
             AssertMajorOptionButton(page, "GuideButton");
             AssertMajorOptionButton(page, "CloseButton");
+            AssertMajorOptionButton(page, "UidButton");
+            AssertMajorOptionButton(
+                page.Find("BgmCard/Paper"),
+                "Toggle");
+            AssertMajorOptionButton(
+                page.Find("SfxCard/Paper"),
+                "Toggle");
 
             page.Find("CustomerCenterButton")
                 ?.GetComponent<Button>()
@@ -202,6 +519,10 @@ namespace MukJump.EditorTests
                     ?.GetComponent<CanvasGroup>()
                     ?.blocksRaycasts,
                 Is.True);
+            Transform tutorialPage = page.parent.Find("TutorialPage");
+            AssertMajorOptionButton(tutorialPage, "TutorialClose");
+            AssertMajorOptionButton(tutorialPage, "PreviousButton");
+            AssertMajorOptionButton(tutorialPage, "NextButton");
 
             optionsView.Close();
             CanvasGroup root = viewHost.transform
@@ -278,12 +599,160 @@ namespace MukJump.EditorTests
             AssertMenuLayout(view.GrowthButton, "성장", LobbyMenuLayout.GrowthAnchor);
             AssertMenuLayout(view.CodexButton, "도감", LobbyMenuLayout.CodexAnchor);
             AssertMenuLayout(view.OptionsButton, "옵션", LobbyMenuLayout.OptionsAnchor);
+            Assert.That(LobbyMenuLayout.StartAnchor.x,
+                Is.EqualTo(LobbyMenuLayout.MenuRailX));
+            Assert.That(LobbyMenuLayout.GrowthAnchor.x,
+                Is.EqualTo(LobbyMenuLayout.MenuRailX));
+            Assert.That(LobbyMenuLayout.CodexAnchor.x,
+                Is.EqualTo(LobbyMenuLayout.MenuRailX));
+            Assert.That(LobbyMenuLayout.OptionsAnchor.x,
+                Is.EqualTo(LobbyMenuLayout.MenuRailX));
+            Assert.That(LobbyMenuLayout.RecordAnchor.x,
+                Is.EqualTo(LobbyMenuLayout.RecordRailX));
+            Assert.That(
+                LobbyMenuLayout.RecordRailX,
+                Is.EqualTo(LobbyMenuLayout.MenuRailX).Within(0.001f),
+                "최고 기록 칸과 로비 메뉴는 같은 화면 중앙 레일을 사용해야 합니다.");
+            Assert.That(
+                LobbyMenuLayout.MenuRailX,
+                Is.EqualTo(0.5f).Within(0.001f),
+                "로비 메뉴 레일은 화면 중앙을 기준으로 해야 합니다.");
+            float labelCenterAt1080 =
+                LobbyMenuLayout.MenuRailX * 1080f +
+                LobbyMenuLayout.ButtonPosition.x +
+                LobbyMenuLayout.LabelPosition.x;
+            Assert.That(
+                labelCenterAt1080,
+                Is.EqualTo(540f).Within(4f),
+                "비대칭 붓 보정 뒤 라벨의 실제 중심은 화면 중앙이어야 합니다.");
+            float recordLabelCenterAt1080 =
+                LobbyMenuLayout.RecordRailX * 1080f +
+                LobbyMenuLayout.RecordPosition.x +
+                LobbyMenuLayout.LabelPosition.x;
+            Assert.That(
+                recordLabelCenterAt1080,
+                Is.EqualTo(540f).Within(4f),
+                "최고 기록 붓획의 라벨도 화면 중앙에 보여야 합니다.");
+            Assert.That(
+                LobbyMenuLayout.FontSize,
+                Is.GreaterThanOrEqualTo(44));
+            Assert.That(
+                view.StartButton.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(1f).Within(0.001f));
+            Assert.That(
+                view.GrowthButton.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(1f).Within(0.001f));
+            Assert.That(
+                view.CodexButton.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(1f).Within(0.001f));
+            Assert.That(
+                view.OptionsButton.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(1f).Within(0.001f));
+            Assert.That(
+                view.StartButton.targetGraphic.color.a,
+                Is.EqualTo(LobbyMenuLayout.PrimaryAlpha).Within(0.001f));
+            Assert.That(
+                view.GrowthButton.targetGraphic.color.a,
+                Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
+            Assert.That(
+                view.CodexButton.targetGraphic.color.a,
+                Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
+            Assert.That(
+                view.OptionsButton.targetGraphic.color.a,
+                Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
+
+            AssertSelectedMenu(view, LobbyMenuSelection.Start);
+            view.SetActiveMenu(LobbyMenuSelection.Growth);
+            AssertSelectedMenu(view, LobbyMenuSelection.Growth);
+            view.SetActiveMenu(LobbyMenuSelection.Codex);
+            AssertSelectedMenu(view, LobbyMenuSelection.Codex);
+            view.SetActiveMenu(LobbyMenuSelection.Options);
+            AssertSelectedMenu(view, LobbyMenuSelection.Options);
+
             Assert.That(recordRoot.GetComponent<RectTransform>().anchoredPosition,
                 Is.EqualTo(LobbyMenuLayout.RecordPosition));
             Assert.That(recordLabel.rectTransform.anchoredPosition,
                 Is.EqualTo(LobbyMenuLayout.LabelPosition));
             Assert.That(recordLabel.fontSize, Is.EqualTo(LobbyMenuLayout.FontSize));
             Assert.That(recordLabel.fontStyle, Is.EqualTo(FontStyle.Bold));
+        }
+
+        [Test]
+        public void ClosingOptionsRestoresStartButtonEmphasis()
+        {
+            managerHost = new GameObject("LobbyOptionsSelectionManager");
+            var manager = managerHost.AddComponent<GameManager>();
+            Invoke(manager, "OnEnable");
+            var options = managerHost.AddComponent<LobbyOptionsView>();
+            options.BuildForTests();
+
+            viewHost = new GameObject(
+                "LobbyOptionsSelectionCanvas",
+                typeof(RectTransform),
+                typeof(CanvasGroup));
+            Button start =
+                CreateLegacyButton(viewHost.transform, "StartButton", "시작");
+            Button growth =
+                CreateLegacyButton(viewHost.transform, "GrowthButton", "성장");
+            Button codex =
+                CreateLegacyButton(viewHost.transform, "CodexButton", "도감");
+            Button option =
+                CreateLegacyButton(viewHost.transform, "OptionsButton", "옵션");
+            var view = viewHost.AddComponent<LobbyView>();
+            SetField(view, "startButton", start);
+            SetField(view, "growthButton", growth);
+            SetField(view, "codexButton", codex);
+            SetField(view, "optionsButton", option);
+            view.ApplyMenuLayoutForTests();
+
+            options.Open();
+            Invoke(view, "RefreshMenuSelection");
+            AssertSelectedMenu(view, LobbyMenuSelection.Options);
+
+            options.Close();
+            Invoke(view, "RefreshMenuSelection");
+            AssertSelectedMenu(view, LobbyMenuSelection.Start);
+        }
+
+        [Test]
+        public void CodexUsesAsymmetricHeaderAboveTheCardGrid()
+        {
+            viewHost = new GameObject("LobbyCodexHierarchyHost");
+            var codexView = viewHost.AddComponent<LobbyCollectionView>();
+            codexView.BuildForTests();
+
+            Transform panel = viewHost.transform.Find(
+                "LobbyCollectionCanvas/ScreenRoot/SafeAreaRoot/CodexGallery");
+            Assert.IsNotNull(panel);
+            Text title = panel.Find("Title")?.GetComponent<Text>();
+            Text subtitle = panel.Find("Subtitle")?.GetComponent<Text>();
+            RectTransform category =
+                panel.Find("CategoryButton") as RectTransform;
+            RectTransform headerRule =
+                panel.Find("HeaderStroke") as RectTransform;
+            RectTransform firstCard =
+                panel.Find("CodexCard1") as RectTransform;
+
+            Assert.IsNotNull(title);
+            Assert.IsNotNull(subtitle);
+            Assert.IsNotNull(category);
+            Assert.IsNotNull(headerRule);
+            Assert.IsNotNull(firstCard);
+            Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(subtitle.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(title.rectTransform.anchoredPosition.x,
+                Is.LessThan(0f));
+            Assert.That(category.anchoredPosition.x, Is.GreaterThan(0f));
+            Assert.That(
+                category.anchoredPosition.y,
+                Is.EqualTo(subtitle.rectTransform.anchoredPosition.y),
+                "도감 설명과 계보 필터는 같은 상단 정보 띠에 있어야 합니다.");
+            Assert.That(headerRule.anchoredPosition.y,
+                Is.LessThan(subtitle.rectTransform.anchoredPosition.y));
+            Assert.That(headerRule.anchoredPosition.y,
+                Is.GreaterThan(
+                    firstCard.anchoredPosition.y +
+                    firstCard.sizeDelta.y * 0.5f));
         }
 
         [Test]
@@ -381,6 +850,12 @@ namespace MukJump.EditorTests
                 Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight));
             Assert.IsNotNull(button.targetGraphic);
             Assert.That(button.targetGraphic.raycastTarget, Is.True);
+            Assert.That(button.targetGraphic, Is.TypeOf<Image>());
+            Assert.That(
+                InkUiStyle.UsesActionButtonSprite(
+                    button.targetGraphic as Image),
+                Is.True,
+                $"{objectName}은 공용 붓획 버튼을 사용해야 합니다.");
         }
 
         static void AssertMenuLayout(
@@ -403,6 +878,36 @@ namespace MukJump.EditorTests
                 Is.EqualTo(LobbyMenuLayout.LabelSize));
             Assert.That(label.fontSize, Is.EqualTo(LobbyMenuLayout.FontSize));
             Assert.That(label.fontStyle, Is.EqualTo(FontStyle.Bold));
+        }
+
+        static void AssertSelectedMenu(
+            LobbyView view,
+            LobbyMenuSelection expected)
+        {
+            Assert.That(view.ActiveMenu, Is.EqualTo(expected));
+            AssertMenuAlpha(
+                view.StartButton,
+                expected == LobbyMenuSelection.Start);
+            AssertMenuAlpha(
+                view.GrowthButton,
+                expected == LobbyMenuSelection.Growth);
+            AssertMenuAlpha(
+                view.CodexButton,
+                expected == LobbyMenuSelection.Codex);
+            AssertMenuAlpha(
+                view.OptionsButton,
+                expected == LobbyMenuSelection.Options);
+        }
+
+        static void AssertMenuAlpha(Button button, bool selected)
+        {
+            Assert.That(
+                button.targetGraphic.color.a,
+                Is.EqualTo(
+                    selected
+                        ? LobbyMenuLayout.PrimaryAlpha
+                        : LobbyMenuLayout.SecondaryAlpha)
+                    .Within(0.001f));
         }
 
         static void SetField(object target, string fieldName, object value)

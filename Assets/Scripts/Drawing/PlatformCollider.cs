@@ -48,8 +48,9 @@ namespace MukJump.Drawing
             };
             var platform = go.AddComponent<PlatformCollider>();
             platform.hazardGuardAvailable =
-                RunGrowthController.Instance != null &&
-                RunGrowthController.Instance.NewPlatformsHaveStrokeGuard;
+                (RunGrowthController.Instance != null &&
+                 RunGrowthController.Instance.NewPlatformsHaveStrokeGuard) ||
+                PermanentGrowthProfile.NewPlatformsHaveStrokeGuard;
             platform.Build(worldPoints);
 
             active.Add(platform);

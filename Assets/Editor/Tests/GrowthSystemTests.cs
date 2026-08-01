@@ -536,7 +536,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ChoiceViewBuildsBlockingScrollWithOneToThreeDynamicCards()
+        public void ChoiceViewBuildsBlockingAugmentTarotWithOneToThreeDynamicCards()
         {
             var vitalitySprite = LoadGrowthSprite(
                 VitalityAssetPath, "MukJump/UI/Growth/growth_vitality");
@@ -595,12 +595,18 @@ namespace MukJump.EditorTests
 
             var content = panel.Find("GrowthContent");
             Assert.That(content, Is.Not.Null);
+            var emblem = content.Find("AugmentEmblem");
+            Assert.That(emblem, Is.Not.Null);
             AssertReadableGrowthText(
-                content.Find("Title")?.GetComponent<Text>(), 64);
+                emblem.Find("Title")?.GetComponent<Text>(), 48);
+            Assert.That(
+                emblem.Find("Title")?.GetComponent<Text>()?.text,
+                Is.EqualTo("증강"));
+            Assert.That(emblem.Find("EmblemInkRing"), Is.Not.Null);
             AssertReadableGrowthText(
                 content.Find("Hint")?.GetComponent<Text>(), 34);
             AssertReadableGrowthText(
-                content.Find("FooterHint")?.GetComponent<Text>(), 28);
+                content.Find("FooterHint")?.GetComponent<Text>(), 24);
 
             var reveal = (IEnumerator)Invoke(view, "RevealRoutine");
             Assert.That(reveal.MoveNext(), Is.True);
@@ -627,14 +633,41 @@ namespace MukJump.EditorTests
             Assert.That(secondButton.navigation.mode, Is.EqualTo(Navigation.Mode.None));
             Assert.That(thirdButton.navigation.mode, Is.EqualTo(Navigation.Mode.None));
             Assert.That(((RectTransform)firstCard).sizeDelta,
-                Is.EqualTo(new Vector2(740f, 250f)));
+                Is.EqualTo(new Vector2(244f, 760f)));
+            Assert.That(
+                ((RectTransform)firstCard).sizeDelta.y,
+                Is.GreaterThan(((RectTransform)firstCard).sizeDelta.x * 3f),
+                "증강 카드는 세로로 긴 수묵 타로 실루엣이어야 합니다.");
+            Assert.That(firstButton.targetGraphic,
+                Is.SameAs(firstCard.Find("Paper").GetComponent<Image>()));
+            Assert.That(firstButton.targetGraphic.raycastTarget, Is.True);
+            Assert.That(
+                InkUiStyle.UsesActionButtonSprite(
+                    firstButton.targetGraphic as Image),
+                Is.False,
+                "증강 카드 전체 선택 영역은 공용 텍스트 버튼 스킨 대상이 아닙니다.");
+            Assert.That(firstCard.GetComponent<InkUiPressFeedback>(), Is.Not.Null);
+            Assert.That(firstCard.Find("SceneMoon"), Is.Not.Null);
+            Assert.That(firstCard.Find("SceneGround"), Is.Null);
+            Assert.That(firstCard.Find("Shadow"), Is.Null);
+            Assert.That(firstCard.Find("SelectedSeal"), Is.Null);
+            Assert.That(firstCard.Find("CloudLine"), Is.Null);
+            Assert.That(firstCard.Find("MountainLeft"), Is.Null);
+            Assert.That(firstCard.Find("Icon").GetComponent<Image>().raycastTarget,
+                Is.False);
+            Assert.That(firstCard.Find("Name").GetComponent<Text>().raycastTarget,
+                Is.False);
+            Assert.That(firstCard.Find("Status").GetComponent<Text>().raycastTarget,
+                Is.False);
+            Assert.That(firstCard.Find("Effect").GetComponent<Text>().raycastTarget,
+                Is.False);
 
             AssertReadableGrowthText(
-                firstCard.Find("Name")?.GetComponent<Text>(), 44);
+                firstCard.Find("Name")?.GetComponent<Text>(), 38);
             AssertReadableGrowthText(
-                firstCard.Find("Status")?.GetComponent<Text>(), 29);
+                firstCard.Find("Status")?.GetComponent<Text>(), 22);
             AssertReadableGrowthText(
-                firstCard.Find("Effect")?.GetComponent<Text>(), 31);
+                firstCard.Find("Effect")?.GetComponent<Text>(), 28);
             AssertVerticalGapAtLeast(
                 firstCard.Find("Name") as RectTransform,
                 firstCard.Find("Status") as RectTransform,
@@ -654,14 +687,26 @@ namespace MukJump.EditorTests
             Assert.That(firstCard.gameObject.activeSelf, Is.True);
             Assert.That(secondCard.gameObject.activeSelf, Is.True);
             Assert.That(thirdCard.gameObject.activeSelf, Is.True);
-            AssertVerticalGapAtLeast(
+            AssertHorizontalGapAtLeast(
                 firstCard as RectTransform,
                 secondCard as RectTransform,
-                45f);
-            AssertVerticalGapAtLeast(
+                19f);
+            AssertHorizontalGapAtLeast(
                 secondCard as RectTransform,
                 thirdCard as RectTransform,
-                45f);
+                19f);
+            Assert.That(((RectTransform)firstCard).anchoredPosition.y,
+                Is.EqualTo(((RectTransform)secondCard).anchoredPosition.y)
+                    .Within(0.0001f));
+            Assert.That(((RectTransform)secondCard).anchoredPosition.y,
+                Is.EqualTo(((RectTransform)thirdCard).anchoredPosition.y)
+                    .Within(0.0001f));
+            Assert.That(((RectTransform)firstCard).anchoredPosition.x,
+                Is.EqualTo(-264f).Within(0.0001f));
+            Assert.That(((RectTransform)secondCard).anchoredPosition.x,
+                Is.Zero.Within(0.0001f));
+            Assert.That(((RectTransform)thirdCard).anchoredPosition.x,
+                Is.EqualTo(264f).Within(0.0001f));
             Assert.That(firstCard.Find("Icon").GetComponent<Image>().sprite,
                 Is.SameAs(vitalitySprite));
             Assert.That(secondCard.Find("Icon").GetComponent<Image>().sprite,
@@ -681,6 +726,12 @@ namespace MukJump.EditorTests
                 ForceCurrentOffers(growth, type);
                 Invoke(view, "RefreshCards");
                 Canvas.ForceUpdateCanvases();
+                Assert.That(
+                    firstCard.Find("Status").GetComponent<Text>().text,
+                    Does.Not.Contain("\n"));
+                Assert.That(
+                    firstCard.Find("Effect").GetComponent<Text>().text,
+                    Does.Not.Contain("\n"));
                 AssertTextFitsRect(firstCard.Find("Name")?.GetComponent<Text>());
                 AssertTextFitsRect(firstCard.Find("Status")?.GetComponent<Text>());
                 AssertTextFitsRect(firstCard.Find("Effect")?.GetComponent<Text>());
@@ -698,10 +749,13 @@ namespace MukJump.EditorTests
                 Is.SameAs(jumpSprite));
             Assert.That(secondCard.Find("Icon").GetComponent<Image>().sprite,
                 Is.SameAs(platformSprite));
+            Assert.That(((RectTransform)firstCard).anchoredPosition.x,
+                Is.EqualTo(-130f).Within(0.0001f));
+            Assert.That(((RectTransform)secondCard).anchoredPosition.x,
+                Is.EqualTo(130f).Within(0.0001f));
             Assert.That(((RectTransform)firstCard).anchoredPosition.y,
-                Is.EqualTo(147.5f).Within(0.0001f));
-            Assert.That(((RectTransform)secondCard).anchoredPosition.y,
-                Is.EqualTo(-147.5f).Within(0.0001f));
+                Is.EqualTo(((RectTransform)secondCard).anchoredPosition.y)
+                    .Within(0.0001f));
 
             ForceCurrentOffers(growth, GrowthUpgradeType.StrokeGuard);
             Invoke(view, "RefreshCards");
@@ -710,7 +764,7 @@ namespace MukJump.EditorTests
             Assert.That(thirdCard.gameObject.activeSelf, Is.False);
             Assert.That(firstCard.Find("Icon").GetComponent<Image>().sprite,
                 Is.SameAs(guardSprite));
-            Assert.That(((RectTransform)firstCard).anchoredPosition.y,
+            Assert.That(((RectTransform)firstCard).anchoredPosition.x,
                 Is.Zero.Within(0.0001f));
 
             rootGroup.interactable = true;
@@ -719,6 +773,12 @@ namespace MukJump.EditorTests
             Assert.That(growth.StrokeGuardLevel, Is.EqualTo(1),
                 "첫 카드 버튼은 자기 카드에 표시된 성장 종류를 선택해야 합니다.");
             Assert.That(growth.HasSelectedPendingChoice, Is.True);
+            Assert.That(
+                firstCard.Find("Outline").GetComponent<Image>().color,
+                Is.EqualTo(InkPalette.Gold),
+                "확정된 카드에는 장식 도장 대신 금빛 외곽선만 남아야 합니다.");
+            Assert.That(firstCard.localScale, Is.EqualTo(Vector3.one),
+                "평면 판화 카드는 선택해도 확대되어 떠 보이면 안 됩니다.");
             Assert.That(growth.CancelChoice(), Is.True);
         }
 
@@ -740,16 +800,30 @@ namespace MukJump.EditorTests
         [Test]
         public void GrowthSpawnerUsesGuaranteedScheduleAndOneReusablePickup()
         {
-            Assert.That(GrowthScrollSpawner.DefaultFirstHeight, Is.EqualTo(45f));
-            Assert.That(GrowthScrollSpawner.DefaultInterval, Is.EqualTo(120f));
-            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(44f),
-                Is.EqualTo(45f));
-            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(45f),
-                Is.EqualTo(45f));
-            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(46f),
-                Is.EqualTo(165f));
+            Assert.That(GrowthScrollSpawner.DefaultFirstHeight, Is.EqualTo(25f));
+            Assert.That(GrowthScrollSpawner.DefaultInterval, Is.EqualTo(200f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(24f),
+                Is.EqualTo(25f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(25f),
+                Is.EqualTo(25f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(26f),
+                Is.EqualTo(50f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(50f),
+                Is.EqualTo(50f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(51f),
+                Is.EqualTo(100f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(201f),
+                Is.EqualTo(400f));
             Assert.That(GrowthScrollSpawner.NextScheduleAtOrAbove(1000f),
-                Is.EqualTo(1005f));
+                Is.EqualTo(1000f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAfter(24f),
+                Is.EqualTo(25f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAfter(25f),
+                Is.EqualTo(50f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAfter(400f),
+                Is.EqualTo(600f));
+            Assert.That(GrowthScrollSpawner.NextScheduleAfter(1000f),
+                Is.EqualTo(1200f));
 
             RetagExistingMainCameras();
             var cameraObject = Track(new GameObject("GrowthSpawnerCamera"));
@@ -757,38 +831,56 @@ namespace MukJump.EditorTests
             var worldCamera = cameraObject.AddComponent<Camera>();
             worldCamera.orthographic = true;
             worldCamera.orthographicSize = 9.6f;
+            var manager = CreatePlayingManager(out var growth);
 
             var host = Track(new GameObject("GrowthScrollSpawnerHost"));
             host.SetActive(false);
             var spawner = host.AddComponent<GrowthScrollSpawner>();
             var scrollSprite = LoadGrowthSprite(
                 ScrollAssetPath, "MukJump/UI/Growth/growth_scroll");
-            spawner.Configure(scrollSprite, 45f, 120f);
+            spawner.Configure(scrollSprite, 25f, 200f);
             SetField(spawner, "worldCamera", worldCamera);
             Invoke(spawner, "EnsurePool");
 
-            Assert.That(spawner.FirstHeight, Is.EqualTo(45f));
-            Assert.That(spawner.Interval, Is.EqualTo(120f));
+            Assert.That(spawner.FirstHeight, Is.EqualTo(25f));
+            Assert.That(spawner.Interval, Is.EqualTo(200f));
             Assert.That(spawner.PoolAvailableCount, Is.EqualTo(1));
-            Assert.That((bool)Invoke(spawner, "TrySpawn", 45f), Is.True);
+            Assert.That((bool)Invoke(spawner, "TrySpawn", 25f), Is.True);
             var first = spawner.ActivePickup;
             Assert.That(first, Is.Not.Null);
+            Assert.That(first.GetComponent<CircleCollider2D>().enabled, Is.False,
+                "월드 두루마리는 확정 이정표의 미리보기라 플레이어와 충돌하면 안 됩니다.");
             Assert.That(spawner.PoolLeasedCount, Is.EqualTo(1));
-            Assert.That((bool)Invoke(spawner, "TrySpawn", 165f), Is.False,
+            Assert.That((bool)Invoke(spawner, "TrySpawn", 50f), Is.False,
                 "한 화면에 성장 두루마리를 두 개 이상 대여하면 안 됩니다.");
 
-            Invoke(spawner, "ReleaseActive");
+            Assert.That((bool)Invoke(
+                spawner, "TryOpenScheduledChoice", growth), Is.True);
+            Assert.That(growth.HasPendingChoice, Is.True);
+            Assert.That(spawner.NextScheduledHeight, Is.EqualTo(50f));
+            Assert.That(spawner.HasActivePickup, Is.False);
+            Assert.That((bool)Invoke(
+                spawner, "TryOpenScheduledChoice", growth), Is.False,
+                "선택판을 열지 못한 프레임에는 다음 이정표로 진행하면 안 됩니다.");
+            Assert.That(spawner.NextScheduledHeight, Is.EqualTo(50f));
+            Assert.That(growth.CancelChoice(), Is.True);
+
             Assert.That(spawner.PoolAvailableCount, Is.EqualTo(1));
             Assert.That(spawner.PoolLeasedCount, Is.Zero);
-            Assert.That((bool)Invoke(spawner, "TrySpawn", 165f), Is.True);
+            Assert.That((bool)Invoke(spawner, "TrySpawn", 50f), Is.True);
             Assert.That(spawner.ActivePickup, Is.SameAs(first),
                 "두 번째 일정은 Instantiate 대신 같은 한 슬롯 풀을 재사용해야 합니다.");
 
             Invoke(spawner, "HandleWorldHeightTeleported", 1000);
             Assert.That(spawner.HasActivePickup, Is.False);
-            Assert.That(spawner.NextScheduledHeight, Is.EqualTo(1005f));
+            Assert.That(spawner.NextScheduledHeight, Is.EqualTo(1200f));
             Assert.That(spawner.PoolAvailableCount, Is.EqualTo(1),
                 "순간이동으로 건너뛴 과거 슬롯을 한꺼번에 생성하면 안 됩니다.");
+
+            Invoke(spawner, "BeginSessionSchedule");
+            Assert.That(spawner.NextScheduledHeight, Is.EqualTo(25f),
+                "새 세션은 항상 첫 확정 선택인 25m에서 다시 시작해야 합니다.");
+            Assert.That(manager.SwarmProgressHeight, Is.GreaterThanOrEqualTo(0f));
         }
 
         [Test]
@@ -963,6 +1055,20 @@ namespace MukJump.EditorTests
             float lowerTop = lower.anchoredPosition.y + lower.sizeDelta.y * 0.5f;
             Assert.That(
                 upperBottom - lowerTop,
+                Is.GreaterThanOrEqualTo(expectedGap - 0.001f));
+        }
+
+        static void AssertHorizontalGapAtLeast(
+            RectTransform left,
+            RectTransform right,
+            float expectedGap)
+        {
+            Assert.That(left, Is.Not.Null);
+            Assert.That(right, Is.Not.Null);
+            float leftEdge = left.anchoredPosition.x + left.sizeDelta.x * 0.5f;
+            float rightEdge = right.anchoredPosition.x - right.sizeDelta.x * 0.5f;
+            Assert.That(
+                rightEdge - leftEdge,
                 Is.GreaterThanOrEqualTo(expectedGap - 0.001f));
         }
 

@@ -44,7 +44,7 @@ namespace MukJump.EditorTests
         }
 
         [UnityTest]
-        public IEnumerator MovingObstacleFirstContactKillsPlayer()
+        public IEnumerator MovingObstacleFirstContactConsumesOneHealthAndItself()
         {
             yield return new EnterPlayMode();
 
@@ -65,8 +65,13 @@ namespace MukJump.EditorTests
             playerObject.transform.position = Vector3.zero;
 
             var obstacleObject = new GameObject("RuntimePhysicsObstacle");
+            obstacleObject.AddComponent<SpriteRenderer>();
+            var obstacleBody = obstacleObject.AddComponent<Rigidbody2D>();
+            obstacleBody.bodyType = RigidbodyType2D.Kinematic;
+            var obstacleTrigger =
+                obstacleObject.AddComponent<CircleCollider2D>();
+            obstacleObject.AddComponent<CapsuleCollider2D>();
             var obstacle = obstacleObject.AddComponent<Obstacle>();
-            var obstacleTrigger = obstacleObject.GetComponent<CircleCollider2D>();
             obstacleTrigger.isTrigger = true;
             obstacleTrigger.radius = 0.45f;
             obstacleObject.transform.position = Vector3.zero;
@@ -76,7 +81,15 @@ namespace MukJump.EditorTests
             yield return new WaitForFixedUpdate();
             yield return null;
 
-            bool diedOnFirstContact = player.IsDead;
+            bool survivedFirstContact = player != null && !player.IsDead;
+            int healthAfterContact = player != null
+                ? player.CurrentHealth
+                : -1;
+            var remainingTrigger = obstacleObject != null
+                ? obstacleObject.GetComponent<CircleCollider2D>()
+                : null;
+            bool triggerDisabled =
+                remainingTrigger == null || !remainingTrigger.enabled;
 
             Object.Destroy(obstacleObject);
             Object.Destroy(playerObject);
@@ -90,12 +103,15 @@ namespace MukJump.EditorTests
             AudioListener.pause = false;
             yield return new ExitPlayMode();
 
-            Assert.That(diedOnFirstContact, Is.True,
-                "이동 장애물의 첫 트리거 접촉은 점프 반동이 아니라 즉시 사망이어야 합니다.");
+            Assert.That(survivedFirstContact, Is.True);
+            Assert.That(healthAfterContact, Is.EqualTo(2),
+                "기본 체력은 첫 장애물 접촉을 한 번 버텨야 합니다.");
+            Assert.That(triggerDisabled, Is.True,
+                "한 번 피해를 준 이동 장애물은 즉시 판정을 꺼야 합니다.");
         }
 
         [UnityTest]
-        public IEnumerator ChildDragonCapsuleConsumesOneShieldThenKills()
+        public IEnumerator ChildDragonCapsuleConsumesShieldThenThreeHealthHits()
         {
             yield return new EnterPlayMode();
 
@@ -128,25 +144,35 @@ namespace MukJump.EditorTests
 
             Assert.IsFalse(player.IsDead);
             Assert.IsFalse(player.HasShield);
-            Assert.IsTrue(capsule.enabled);
+            Assert.AreEqual(3, player.CurrentHealth);
+            Assert.IsFalse(capsule.enabled,
+                "방어막을 소모시킨 용도 한 번 충돌한 뒤 사라져야 합니다.");
             Assert.IsFalse(dragonObject.GetComponent<CircleCollider2D>().enabled);
 
             Object.Destroy(dragonObject);
             yield return null;
-            SetField(player, "damageInvulnerableUntil", Time.time - 1f);
+            bool everyDragonDisabledAfterHit = true;
+            for (int hit = 0; hit < 3; hit++)
+            {
+                SetField(player, "damageInvulnerableUntil", Time.time - 1f);
+                var nextDragonObject = new GameObject(
+                    $"RuntimeChildDragonHealthHit{hit + 1}");
+                var nextDragon = nextDragonObject.AddComponent<Obstacle>();
+                var nextCapsule =
+                    nextDragonObject.GetComponent<CapsuleCollider2D>();
+                nextCapsule.isTrigger = true;
+                nextCapsule.size = new Vector2(2.5f, 0.55f);
+                nextDragon.Configure(
+                    0f, 0f, 0f, ObstacleKind.ChildDragon);
+                Invoke(nextDragon, "OnTriggerEnter2D",
+                    playerObject.GetComponent<CircleCollider2D>());
+                everyDragonDisabledAfterHit &= !nextCapsule.enabled;
+                Object.Destroy(nextDragonObject);
+                yield return null;
+            }
 
-            var secondDragonObject = new GameObject("RuntimeChildDragonSecondHit");
-            var secondDragon = secondDragonObject.AddComponent<Obstacle>();
-            var secondCapsule = secondDragonObject.GetComponent<CapsuleCollider2D>();
-            secondCapsule.isTrigger = true;
-            secondCapsule.size = new Vector2(2.5f, 0.55f);
-            secondDragon.Configure(0f, 0f, 0f, ObstacleKind.ChildDragon);
-            Invoke(secondDragon, "OnTriggerEnter2D",
-                playerObject.GetComponent<CircleCollider2D>());
-            yield return null;
-
-            bool diedAfterShield = player.IsDead;
-            Object.Destroy(secondDragonObject);
+            bool diedAfterThreeHealthHits = player.IsDead;
+            int remainingHealth = player.CurrentHealth;
             Object.Destroy(playerObject);
             Object.Destroy(managerObject);
             Object.Destroy(cameraObject);
@@ -158,8 +184,10 @@ namespace MukJump.EditorTests
             AudioListener.pause = false;
             yield return new ExitPlayMode();
 
-            Assert.IsTrue(diedAfterShield,
-                "어린 용의 캡슐 판정은 방어막 한 번 뒤 다음 접촉에서 사망시켜야 합니다.");
+            Assert.IsTrue(diedAfterThreeHealthHits);
+            Assert.AreEqual(0, remainingHealth);
+            Assert.IsTrue(everyDragonDisabledAfterHit,
+                "각 어린 용은 한 번 피해를 준 직후 판정을 꺼야 합니다.");
         }
 
         [UnityTest]

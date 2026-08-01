@@ -60,6 +60,10 @@ public class PauseMenuViewTests
         Assert.IsNotNull(pauseButton);
         Assert.IsTrue(pauseButton.GetComponent<Graphic>().raycastTarget);
         Assert.IsTrue(pauseButton.targetGraphic.raycastTarget);
+        Assert.IsFalse(
+            InkUiStyle.UsesActionButtonSprite(
+                pauseButton.targetGraphic as Image),
+            "원형 일시정지 아이콘은 텍스트 행동 버튼 스킨 대상이 아닙니다.");
 
         var overlay = canvasRoot.Find("PauseOverlay");
         Assert.IsNotNull(overlay);
@@ -78,6 +82,7 @@ public class PauseMenuViewTests
         Assert.IsNotNull(resume);
         Assert.IsNotNull(lobby);
         Assert.GreaterOrEqual(title.fontSize, 54);
+        Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
         Assert.GreaterOrEqual(
             resume.transform.Find("Label").GetComponent<Text>().fontSize, 38);
         Assert.GreaterOrEqual(
@@ -86,11 +91,28 @@ public class PauseMenuViewTests
         Assert.IsTrue(resume.targetGraphic.raycastTarget);
         Assert.IsTrue(lobby.GetComponent<Graphic>().raycastTarget);
         Assert.IsTrue(lobby.targetGraphic.raycastTarget);
+        Assert.IsTrue(
+            InkUiStyle.UsesActionButtonSprite(
+                resume.targetGraphic as Image));
+        Assert.IsTrue(
+            InkUiStyle.UsesActionButtonSprite(
+                lobby.targetGraphic as Image));
         Assert.That(panel.anchoredPosition, Is.EqualTo(Vector2.zero));
         Assert.Greater(title.rectTransform.anchoredPosition.y,
             resumeRect.anchoredPosition.y);
         Assert.Greater(resumeRect.anchoredPosition.y, lobbyRect.anchoredPosition.y);
         Assert.That(resumeRect.sizeDelta, Is.EqualTo(lobbyRect.sizeDelta));
+        Assert.That(
+            resume.GetComponent<CanvasGroup>().alpha,
+            Is.EqualTo(1f).Within(0.001f));
+        Assert.That(
+            lobby.GetComponent<CanvasGroup>().alpha,
+            Is.EqualTo(1f).Within(0.001f),
+            "보조 행동도 글자 자체는 선명하게 유지해야 합니다.");
+        Assert.That(
+            lobby.targetGraphic.color.a,
+            Is.EqualTo(0.72f).Within(0.001f),
+            "일시정지판은 배경 농도만 낮춰 계속하기를 주 행동으로 보여야 합니다.");
         Assert.GreaterOrEqual(resumeRect.sizeDelta.y, 96f);
         Assert.IsNotNull(panel.Find("ScrollBody/HanjiPaper"));
         var pausePaperCore = panel.Find("ScrollBody/PaperCore")
@@ -169,6 +191,13 @@ public class PauseMenuViewTests
         Assert.IsNotNull(currentCaption);
         Assert.IsNotNull(hint);
         Assert.GreaterOrEqual(title.fontSize, 54);
+        Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+        Assert.That(
+            currentCaption.alignment,
+            Is.EqualTo(TextAnchor.MiddleLeft));
+        Assert.That(
+            currentValue.alignment,
+            Is.EqualTo(TextAnchor.MiddleLeft));
         Assert.Greater(currentValue.fontSize, bestValue.fontSize * 2);
         Assert.Greater(bestValue.fontSize, currentCaption.fontSize);
         Assert.GreaterOrEqual(hint.fontSize, 32);
@@ -189,6 +218,9 @@ public class PauseMenuViewTests
             retry.anchoredPosition.y);
         Assert.GreaterOrEqual(retry.sizeDelta.x, 560f);
         Assert.GreaterOrEqual(retry.sizeDelta.y, 96f);
+        Assert.IsTrue(
+            InkUiStyle.UsesActionButtonSprite(
+                retry.GetComponent<Image>()));
         Assert.IsNull(content.Find("CurrentResult")?.GetComponent<Image>());
         Assert.IsNull(content.Find("BestResult")?.GetComponent<Image>());
         Assert.IsNull(content.Find("ResultSeal"));

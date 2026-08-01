@@ -4,13 +4,14 @@ using UnityEngine;
 
 namespace MukJump.Items
 {
-    /// 정해진 고도마다 성장 두루마리를 하나만 보장 생성한다.
-    /// 일반 아이템 확률과 분리해 성장 선택이 운에 의해 사라지지 않게 한다.
+    /// 정해진 고도마다 성장 선택을 보장한다.
+    /// 월드 두루마리는 다음 이정표를 미리 보여 주는 비충돌 연출이며,
+    /// 실제 선택은 먹떼 진행도가 이정표에 도달한 순간 직접 연다.
     [DisallowMultipleComponent]
     public sealed class GrowthScrollSpawner : MonoBehaviour
     {
-        public const float DefaultFirstHeight = 45f;
-        public const float DefaultInterval = 120f;
+        public const float DefaultFirstHeight = 25f;
+        public const float DefaultInterval = 200f;
 
         const float ScrollWorldWidth = 0.9f;
         const float SpawnHorizontalOffset = 0.72f;
@@ -21,7 +22,6 @@ namespace MukJump.Items
         [SerializeField, Min(0f)] float firstHeight = DefaultFirstHeight;
         [SerializeField, Min(1f)] float interval = DefaultInterval;
         [SerializeField, Min(0f)] float spawnAhead = 10f;
-        [SerializeField, Min(0f)] float despawnBelow = 8f;
 
         ComponentPool<GrowthScrollPickup> pool;
         GrowthScrollPickup activePickup;
@@ -88,6 +88,15 @@ namespace MukJump.Items
 
             if (!scheduleInitialized)
                 BeginSessionSchedule();
+
+            // SwarmProgressHeight는 세션 동안 감소하지 않는 먹떼 진행도다.
+            // 카메라 위치나 단독 분신의 순간 부스트가 아닌 이 값으로 확정 선택을 연다.
+            if (manager.SwarmProgressHeight >= nextScheduledHeight)
+            {
+                TryOpenScheduledChoice(growth);
+                return;
+            }
+
             if (worldCamera == null)
                 worldCamera = Camera.main;
             if (worldCamera == null)
@@ -95,32 +104,12 @@ namespace MukJump.Items
 
             float cameraTop = worldCamera.transform.position.y +
                 worldCamera.orthographicSize;
-            float cameraBottom = worldCamera.transform.position.y -
-                worldCamera.orthographicSize;
-            float cutoffWorldY = cameraBottom - despawnBelow;
-            float cutoffHeight = GameHeightAtWorldY(cutoffWorldY);
-
-            if (activePickup != null &&
-                activePickup.transform.position.y < cutoffWorldY)
-            {
-                ReleaseActive();
-            }
-
-            // 순간이동이나 빠른 카메라 상승으로 이미 화면 아래가 된 예약은 수식으로
-            // 한 번에 건너뛴다. 누락 슬롯마다 생성과 반납을 반복하지 않는다.
-            if (nextScheduledHeight < cutoffHeight)
-            {
-                nextScheduledHeight = NextScheduleAtOrAbove(
-                    cutoffHeight, firstHeight, interval);
-            }
 
             float cameraTopHeight = GameHeightAtWorldY(cameraTop);
             if (activePickup == null &&
                 nextScheduledHeight <= cameraTopHeight + spawnAhead &&
                 TrySpawn(nextScheduledHeight))
-            {
-                nextScheduledHeight += interval;
-            }
+                return;
         }
 
         /// 씬 빌더와 테스트가 정식 스프라이트 및 일정 값을 명시적으로 주입하는 진입점.
@@ -145,18 +134,73 @@ namespace MukJump.Items
         }
 
         /// minimumHeight와 같거나 그 위에 있는 첫 정규 예약 고도를 반환한다.
+        /// 간격은 현재 이정표만큼 증가하다 repeatInterval에서 상한을 갖는다.
+        /// 기본값은 25, 50, 100, 200, 400 이후 200m 간격이다.
         public static float NextScheduleAtOrAbove(
             float minimumHeight,
             float guaranteedFirstHeight = DefaultFirstHeight,
             float repeatInterval = DefaultInterval)
         {
             float first = Mathf.Max(0f, guaranteedFirstHeight);
-            float spacing = Mathf.Max(1f, repeatInterval);
+            float maxSpacing = Mathf.Max(1f, repeatInterval);
             if (minimumHeight <= first)
                 return first;
 
-            float slot = Mathf.Ceil((minimumHeight - first) / spacing);
-            return first + Mathf.Max(0f, slot) * spacing;
+            float scheduled = first;
+            for (int guard = 0; guard < 64 && scheduled < minimumHeight; guard++)
+            {
+                float spacing = ScheduleSpacing(scheduled, maxSpacing);
+                if (spacing >= maxSpacing)
+                    break;
+                scheduled += spacing;
+            }
+
+            if (scheduled >= minimumHeight)
+                return scheduled;
+
+            float remainingSlots = Mathf.Ceil(
+                (minimumHeight - scheduled) / maxSpacing);
+            return scheduled + Mathf.Max(1f, remainingSlots) * maxSpacing;
+        }
+
+        /// height보다 엄격히 높은 첫 정규 예약 고도를 반환한다.
+        /// 디버그 순간이동이 정확히 이정표에 도착해도 지난 선택이 몰아서 열리지 않는다.
+        public static float NextScheduleAfter(
+            float height,
+            float guaranteedFirstHeight = DefaultFirstHeight,
+            float repeatInterval = DefaultInterval)
+        {
+            float maxSpacing = Mathf.Max(1f, repeatInterval);
+            float scheduled = NextScheduleAtOrAbove(
+                height, guaranteedFirstHeight, maxSpacing);
+            return scheduled > height
+                ? scheduled
+                : AdvanceSchedule(scheduled, maxSpacing);
+        }
+
+        static float AdvanceSchedule(float scheduled, float maxSpacing)
+        {
+            return scheduled + ScheduleSpacing(scheduled, maxSpacing);
+        }
+
+        static float ScheduleSpacing(float scheduled, float maxSpacing)
+        {
+            // firstHeight가 0으로 주입된 기존 씬도 0에서 멈추지 않게 최소 1m 전진한다.
+            return Mathf.Min(Mathf.Max(1f, scheduled), maxSpacing);
+        }
+
+        bool TryOpenScheduledChoice(RunGrowthController growth)
+        {
+            if (growth == null || !growth.RequestChoice())
+                return false;
+
+            if (activePickup != null)
+                activePickup.CompletePreview();
+            else
+                ReleaseActive();
+            nextScheduledHeight = NextScheduleAfter(
+                nextScheduledHeight, firstHeight, interval);
+            return true;
         }
 
         bool TrySpawn(float gameHeight)
@@ -185,8 +229,7 @@ namespace MukJump.Items
                 pickupObject.layer = itemLayer;
 
             float worldY = WorldYAtGameHeight(gameHeight);
-            int slotIndex = Mathf.Max(
-                0, Mathf.RoundToInt((gameHeight - firstHeight) / interval));
+            int slotIndex = ScheduleIndex(gameHeight);
             pickupObject.transform.position = new Vector3(
                 ChooseSpawnX(slotIndex), worldY, 0f);
             pickupObject.transform.rotation = Quaternion.identity;
@@ -211,6 +254,19 @@ namespace MukJump.Items
             pickup.Configure(slotIndex * 1.618f);
             activePickup = pickup;
             return true;
+        }
+
+        int ScheduleIndex(float gameHeight)
+        {
+            float scheduled = firstHeight;
+            int index = 0;
+            for (int guard = 0;
+                 guard < 100000 && scheduled < gameHeight;
+                 guard++, index++)
+            {
+                scheduled = AdvanceSchedule(scheduled, interval);
+            }
+            return index;
         }
 
         float ChooseSpawnX(int slotIndex)
@@ -347,7 +403,7 @@ namespace MukJump.Items
                     minimumHeight, GameHeightAtWorldY(visibleBottom));
             }
 
-            nextScheduledHeight = NextScheduleAtOrAbove(
+            nextScheduledHeight = NextScheduleAfter(
                 minimumHeight, firstHeight, interval);
             scheduleInitialized = true;
         }
@@ -382,7 +438,6 @@ namespace MukJump.Items
             firstHeight = Mathf.Max(0f, firstHeight);
             interval = Mathf.Max(1f, interval);
             spawnAhead = Mathf.Max(0f, spawnAhead);
-            despawnBelow = Mathf.Max(0f, despawnBelow);
         }
     }
 }

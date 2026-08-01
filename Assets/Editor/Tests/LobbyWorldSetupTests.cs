@@ -93,5 +93,15 @@ namespace MukJump.EditorTests
             Assert.IsTrue(line.enabled,
                 "시작 버튼 뒤에는 첫 점프용 먹선이 보여야 합니다.");
         }
+
+        [Test]
+        public void LobbyPresentationAlsoRunsBeforeEnteringPlayMode()
+        {
+            Assert.IsTrue(
+                System.Attribute.IsDefined(
+                    typeof(LobbyWorldSetup),
+                    typeof(ExecuteAlways)),
+                "Play 전 Main Game View도 런타임 로비 표시 규칙을 사용해야 합니다.");
+        }
     }
 }

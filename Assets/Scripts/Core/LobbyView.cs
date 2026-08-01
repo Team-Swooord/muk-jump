@@ -17,10 +17,15 @@ namespace MukJump.Core
         LobbyCollectionView collectionView;
         PermanentGrowthView permanentGrowthView;
         LobbyOptionsView optionsView;
+        LobbyScreenNavigator screenNavigator;
         CanvasGroup canvasGroup;
         bool listenersBound;
         bool lastVisible = true;
+        bool lastInteractive = true;
+        bool navigationVisible = true;
+        bool navigationInteractive = true;
         int lastDisplayedBest = int.MinValue;
+        LobbyMenuSelection activeMenu = LobbyMenuSelection.Start;
 
         public Button StartButton => startButton;
         public Button GrowthButton => growthButton;
@@ -28,14 +33,18 @@ namespace MukJump.Core
         public Button OptionsButton => optionsButton;
         public bool IsInteractive =>
             canvasGroup != null && canvasGroup.blocksRaycasts;
+        public bool IsVisible =>
+            canvasGroup != null && canvasGroup.alpha > 0.001f;
+        public LobbyMenuSelection ActiveMenu => activeMenu;
 
         void OnEnable()
         {
             canvasGroup = GetComponent<CanvasGroup>();
             ApplyUiFont();
+            // Play 전 Game View와 런타임 로비가 같은 중앙 정렬을 사용한다.
+            EnsureMenuLayout();
             if (Application.isPlaying)
             {
-                EnsureMenuLayout();
                 BindListeners();
             }
         }
@@ -59,9 +68,11 @@ namespace MukJump.Core
 
             // 자기 GameObject를 비활성화하면 Update가 멈춰 로비로 돌아와도 다시 켤 수 없다.
             // CanvasGroup으로만 숨겨 입력 차단과 재활성화를 같은 활성 객체에서 처리한다.
-            bool show = GameManager.Instance == null ||
-                        GameManager.Instance.State == GameState.Lobby;
-            SetVisible(show);
+            bool lobbyState = GameManager.Instance == null ||
+                              GameManager.Instance.State == GameState.Lobby;
+            bool show = lobbyState && navigationVisible;
+            RefreshMenuSelection();
+            SetVisible(show, show && navigationInteractive);
             if (!show) return;
             RefreshBest();
         }
@@ -88,6 +99,9 @@ namespace MukJump.Core
 
         void HandleStartPressed()
         {
+            LobbyScreenNavigator navigator = ResolveScreenNavigator();
+            if (navigator != null && !navigator.CanStartGame)
+                return;
             collectionView?.Close();
             permanentGrowthView?.Close();
             optionsView?.Close();
@@ -96,23 +110,47 @@ namespace MukJump.Core
 
         void HandleGrowthPressed()
         {
-            ResolveCollectionView()?.Close();
             ResolveOptionsView()?.Close();
-            ResolvePermanentGrowthView()?.Open();
+            LobbyScreenNavigator navigator = ResolveScreenNavigator();
+            if (navigator != null)
+            {
+                navigator.OpenGrowth();
+                return;
+            }
+            ResolveCollectionView()?.Close();
+            PermanentGrowthView growth = ResolvePermanentGrowthView();
+            growth?.Open();
+            if (growth != null && growth.IsOpen)
+                SetActiveMenu(LobbyMenuSelection.Growth);
         }
 
         void HandleCodexPressed()
         {
-            ResolvePermanentGrowthView()?.Close();
             ResolveOptionsView()?.Close();
-            ResolveCollectionView()?.OpenCodex();
+            LobbyScreenNavigator navigator = ResolveScreenNavigator();
+            if (navigator != null)
+            {
+                navigator.OpenCodex();
+                return;
+            }
+            ResolvePermanentGrowthView()?.Close();
+            LobbyCollectionView codex = ResolveCollectionView();
+            codex?.OpenCodex();
+            if (codex != null && codex.IsOpen)
+                SetActiveMenu(LobbyMenuSelection.Codex);
         }
 
         void HandleOptionsPressed()
         {
+            LobbyScreenNavigator navigator = ResolveScreenNavigator();
+            if (navigator != null && !navigator.CanStartGame)
+                return;
             ResolvePermanentGrowthView()?.Close();
             ResolveCollectionView()?.Close();
-            ResolveOptionsView()?.Open();
+            LobbyOptionsView options = ResolveOptionsView();
+            options?.Open();
+            if (options != null && options.IsOpen)
+                SetActiveMenu(LobbyMenuSelection.Options);
         }
 
         LobbyCollectionView ResolveCollectionView()
@@ -134,6 +172,27 @@ namespace MukJump.Core
             if (optionsView == null)
                 optionsView = FindFirstObjectByType<LobbyOptionsView>();
             return optionsView;
+        }
+
+        LobbyScreenNavigator ResolveScreenNavigator()
+        {
+            if (screenNavigator == null)
+            {
+                screenNavigator = LobbyScreenNavigator.Instance != null
+                    ? LobbyScreenNavigator.Instance
+                    : FindFirstObjectByType<LobbyScreenNavigator>();
+            }
+            return screenNavigator;
+        }
+
+        public void SetNavigationPresentation(bool visible, bool interactive)
+        {
+            navigationVisible = visible;
+            navigationInteractive = interactive;
+            bool lobbyState = GameManager.Instance == null ||
+                              GameManager.Instance.State == GameState.Lobby;
+            bool show = lobbyState && navigationVisible;
+            SetVisible(show, show && navigationInteractive);
         }
 
         /// 실행 중이던 구버전 Main 백업이 복원돼도 네 메뉴가 즉시 같은 규칙을 쓴다.
@@ -168,19 +227,82 @@ namespace MukJump.Core
             LobbyMenuLayout.ApplyButton(
                 startButton,
                 "시작",
-                LobbyMenuLayout.StartAnchor);
+                LobbyMenuLayout.StartAnchor,
+                primary: activeMenu == LobbyMenuSelection.Start);
             LobbyMenuLayout.ApplyButton(
                 growthButton,
                 "성장",
-                LobbyMenuLayout.GrowthAnchor);
+                LobbyMenuLayout.GrowthAnchor,
+                primary: activeMenu == LobbyMenuSelection.Growth);
             LobbyMenuLayout.ApplyButton(
                 codexButton,
                 "도감",
-                LobbyMenuLayout.CodexAnchor);
+                LobbyMenuLayout.CodexAnchor,
+                primary: activeMenu == LobbyMenuSelection.Codex);
             LobbyMenuLayout.ApplyButton(
                 optionsButton,
                 "옵션",
-                LobbyMenuLayout.OptionsAnchor);
+                LobbyMenuLayout.OptionsAnchor,
+                primary: activeMenu == LobbyMenuSelection.Options);
+        }
+
+        public void SetActiveMenu(LobbyMenuSelection selection)
+        {
+            if (activeMenu == selection) return;
+            activeMenu = selection;
+            LobbyMenuLayout.ApplySelectionEmphasis(
+                startButton,
+                selection == LobbyMenuSelection.Start);
+            LobbyMenuLayout.ApplySelectionEmphasis(
+                growthButton,
+                selection == LobbyMenuSelection.Growth);
+            LobbyMenuLayout.ApplySelectionEmphasis(
+                codexButton,
+                selection == LobbyMenuSelection.Codex);
+            LobbyMenuLayout.ApplySelectionEmphasis(
+                optionsButton,
+                selection == LobbyMenuSelection.Options);
+        }
+
+        void RefreshMenuSelection()
+        {
+            LobbyOptionsView options = ResolveOptionsView();
+            if (options != null && options.IsOpen)
+            {
+                SetActiveMenu(LobbyMenuSelection.Options);
+                return;
+            }
+
+            LobbyScreenNavigator navigator = ResolveScreenNavigator();
+            if (navigator != null)
+            {
+                LobbyScreenNavigator.LobbySection section =
+                    navigator.IsTransitioning
+                        ? navigator.PendingSection
+                        : navigator.CurrentSection;
+                SetActiveMenu(SelectionForSection(section));
+                return;
+            }
+
+            if (ResolvePermanentGrowthView()?.IsOpen == true)
+                SetActiveMenu(LobbyMenuSelection.Growth);
+            else if (ResolveCollectionView()?.IsOpen == true)
+                SetActiveMenu(LobbyMenuSelection.Codex);
+            else
+                SetActiveMenu(LobbyMenuSelection.Start);
+        }
+
+        static LobbyMenuSelection SelectionForSection(
+            LobbyScreenNavigator.LobbySection section)
+        {
+            return section switch
+            {
+                LobbyScreenNavigator.LobbySection.PermanentGrowth =>
+                    LobbyMenuSelection.Growth,
+                LobbyScreenNavigator.LobbySection.Codex =>
+                    LobbyMenuSelection.Codex,
+                _ => LobbyMenuSelection.Start,
+            };
         }
 
 #if UNITY_EDITOR
@@ -198,16 +320,19 @@ namespace MukJump.Core
             bestText.text = $"최고 {best}";
         }
 
-        void SetVisible(bool visible)
+        void SetVisible(bool visible, bool interactive)
         {
             canvasGroup ??= GetComponent<CanvasGroup>();
-            if (canvasGroup == null || lastVisible == visible &&
-                canvasGroup.blocksRaycasts == visible)
+            if (canvasGroup == null ||
+                lastVisible == visible &&
+                lastInteractive == interactive &&
+                canvasGroup.blocksRaycasts == interactive)
                 return;
             lastVisible = visible;
+            lastInteractive = interactive;
             canvasGroup.alpha = visible ? 1f : 0f;
-            canvasGroup.interactable = visible;
-            canvasGroup.blocksRaycasts = visible;
+            canvasGroup.interactable = interactive;
+            canvasGroup.blocksRaycasts = interactive;
         }
 
         void ApplyUiFont()

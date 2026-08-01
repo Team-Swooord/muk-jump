@@ -66,6 +66,7 @@ namespace MukJump.Obstacles
         readonly List<HaetaeObstacle> activeHaetae = new(1);
         ComponentPool<Obstacle> pool;
         ComponentPool<HaetaeObstacle> haetaePool;
+        Action<Obstacle> obstacleReleaseHandler;
         Action<HaetaeObstacle> haetaeReleaseHandler;
         Func<PlayerController> haetaeTargetResolver;
         Func<bool> haetaeTelegraphGate;
@@ -269,6 +270,9 @@ namespace MukJump.Obstacles
                 GameplayRandom.Range(GameplayRandomStream.Obstacles, minSpeed, maxSpeed),
                 GameplayRandom.Range(GameplayRandomStream.Obstacles, 0f, Mathf.PI * 2f),
                 useDragon ? ObstacleKind.ChildDragon : ObstacleKind.Spike);
+            obstacleReleaseHandler ??= ReleaseObstacle;
+            obstacle.ReleaseRequested -= obstacleReleaseHandler;
+            obstacle.ReleaseRequested += obstacleReleaseHandler;
             active.Add(obstacle);
         }
 
@@ -593,8 +597,18 @@ namespace MukJump.Obstacles
         {
             var obstacle = active[index];
             active.RemoveAt(index);
+            if (obstacle != null && obstacleReleaseHandler != null)
+                obstacle.ReleaseRequested -= obstacleReleaseHandler;
             if (obstacle != null && pool != null)
                 pool.Release(obstacle);
+        }
+
+        void ReleaseObstacle(Obstacle obstacle)
+        {
+            if (obstacle == null) return;
+            int index = active.IndexOf(obstacle);
+            if (index >= 0)
+                ReleaseAt(index);
         }
 
         void ReleaseHaetae(HaetaeObstacle haetae)

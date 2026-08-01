@@ -352,6 +352,8 @@ public class FallingInkRockTests
 
         var player = FindFirstInScene<PlayerController>(builderTestScene);
         Assert.IsNotNull(player);
+        Assert.IsFalse(player.GetComponent<SpriteRenderer>().enabled,
+            "씬 저장 상태에서도 로비 하단 플레이어는 보이지 않아야 합니다.");
         var playerSerialized = new SerializedObject(player);
         Assert.AreEqual(1f,
             playerSerialized.FindProperty("cloneSpawnGraceDuration").floatValue);
@@ -369,6 +371,8 @@ public class FallingInkRockTests
                 starterPlatform = builtPlatforms[i];
         Assert.IsNotNull(starterPlatform,
             "명시적 시작 버튼은 캐릭터가 즉사하지 않을 영구 시작 발판과 함께 생성돼야 합니다.");
+        Assert.IsFalse(starterPlatform.GetComponent<LineRenderer>().enabled,
+            "씬 저장 상태에서도 로비 하단 시작 먹선은 보이지 않아야 합니다.");
         var starterEdge = starterPlatform.GetComponent<EdgeCollider2D>();
         Assert.AreEqual(2, starterEdge.pointCount);
         Assert.That(
@@ -426,7 +430,7 @@ public class FallingInkRockTests
         var lobbyBest = lobbySerialized.FindProperty("bestText").objectReferenceValue as Text;
         Assert.IsNotNull(lobbyBest);
         Assert.AreEqual(InkPalette.UiFont, lobbyBest.font);
-        Assert.AreEqual(37, lobbyBest.fontSize);
+        Assert.AreEqual(LobbyMenuLayout.FontSize, lobbyBest.fontSize);
         Assert.AreEqual(FontStyle.Bold, lobbyBest.fontStyle);
         Assert.AreEqual(TextAnchor.MiddleCenter, lobbyBest.alignment);
         Assert.AreEqual(Color.white, lobbyBest.color);
@@ -481,6 +485,7 @@ public class FallingInkRockTests
         Assert.IsNotNull(FindFirstInScene<LobbyCollectionView>(builderTestScene));
         Assert.IsNotNull(FindFirstInScene<PermanentGrowthView>(builderTestScene));
         Assert.IsNotNull(FindFirstInScene<LobbyOptionsView>(builderTestScene));
+        Assert.IsNotNull(FindFirstInScene<LobbyScreenNavigator>(builderTestScene));
         Assert.IsNotNull(FindFirstInScene<InkUiFeedbackController>(builderTestScene));
         var uiInputGuard = FindFirstInScene<UiInputDeviceGuard>(builderTestScene);
         Assert.IsNotNull(uiInputGuard,
@@ -489,6 +494,10 @@ public class FallingInkRockTests
             uiInputGuard.GetComponent<UnityEngine.EventSystems.EventSystem>());
         var bestDisplay = lobby.transform.Find("BestDisplay") as RectTransform;
         Assert.IsNotNull(bestDisplay?.GetComponent<RawImage>());
+        Assert.That(bestDisplay.anchorMin.x,
+            Is.EqualTo(LobbyMenuLayout.RecordRailX).Within(0.001f));
+        Assert.That(bestDisplay.anchorMax.x,
+            Is.EqualTo(LobbyMenuLayout.RecordRailX).Within(0.001f));
         Assert.That(bestDisplay.anchoredPosition.x, Is.EqualTo(89f).Within(0.01f));
         Assert.That(bestDisplay.anchoredPosition.y, Is.EqualTo(-12f).Within(0.01f));
         Assert.That(bestDisplay.sizeDelta.x, Is.EqualTo(610.273f).Within(0.01f));
@@ -497,6 +506,11 @@ public class FallingInkRockTests
         var gameplayHud = FindFirstInScene<GameplayHudView>(builderTestScene);
         Assert.IsNotNull(gameplayHud);
         var hudSerialized = new SerializedObject(gameplayHud);
+        var gameplayCanvas =
+            hudSerialized.FindProperty("canvas").objectReferenceValue as Canvas;
+        Assert.IsNotNull(gameplayCanvas);
+        Assert.IsFalse(gameplayCanvas.enabled,
+            "Play 전 Main Game View는 런타임 로비처럼 인게임 HUD를 숨겨야 합니다.");
         var topHud = hudSerialized.FindProperty("topHudRoot").objectReferenceValue
             as RectTransform;
         Assert.IsNotNull(topHud);
@@ -669,12 +683,20 @@ public class FallingInkRockTests
         Assert.IsNotNull(background);
         Assert.IsNotNull(label);
         Assert.AreSame(background, button.targetGraphic);
+        Assert.AreEqual(
+            "Assets/Art/UI/muk_start_button.png",
+            AssetDatabase.GetAssetPath(background.texture));
+        Assert.AreNotSame(
+            InkUiStyle.ActionButtonSprite?.texture,
+            background.texture,
+            "로비 네 메뉴 버튼은 공용 행동 버튼 붓획으로 교체하면 안 됩니다.");
         Assert.That(rect.sizeDelta.x, Is.EqualTo(610.273f).Within(0.01f));
         Assert.That(rect.sizeDelta.y, Is.EqualTo(130.157f).Within(0.01f));
-        Assert.That(rect.anchoredPosition.x, Is.EqualTo(89f).Within(0.01f));
-        Assert.That(rect.anchoredPosition.y, Is.EqualTo(0f).Within(0.01f));
+        Assert.That(
+            rect.anchoredPosition,
+            Is.EqualTo(LobbyMenuLayout.ButtonPosition));
         Assert.AreEqual(expectedLabel, label.text);
-        Assert.AreEqual(37, label.fontSize);
+        Assert.AreEqual(LobbyMenuLayout.FontSize, label.fontSize);
         Assert.AreEqual(FontStyle.Bold, label.fontStyle);
         Assert.AreEqual(TextAnchor.MiddleCenter, label.alignment);
         Assert.IsFalse(label.resizeTextForBestFit);

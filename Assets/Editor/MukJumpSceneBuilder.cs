@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -36,6 +37,10 @@ namespace MukJump.EditorTools
             "Assets/Resources/MukJump/Background/Endless/map_06_heavenly_ink_river.png",
         };
         const string CharSheetPath = "Assets/Art/Character/Player/muk_spritesheet.png";
+        const string CharHitOneSheetPath =
+            "Assets/Resources/MukJump/Player/muk_spritesheet_hit_01.png";
+        const string CharHitTwoSheetPath =
+            "Assets/Resources/MukJump/Player/muk_spritesheet_hit_02.png";
         const string ObstaclePath = "Assets/Art/Character/Obstacles/anermy_01.png";
         const string DragonObstaclePath =
             "Assets/Resources/MukJump/Obstacles/child_ink_dragon.png";
@@ -69,6 +74,39 @@ namespace MukJump.EditorTools
             "Assets/Resources/MukJump/UI/Growth/growth_guard.png";
         const string GrowthFortunePath =
             "Assets/Resources/MukJump/UI/Growth/growth_fortune.png";
+        const string ActionButtonPath =
+            "Assets/Resources/MukJump/UI/Common/action_button_brush.png";
+        // 유기적인 붓획은 9-slice 시 작은 버튼에서 모서리만 남아 먹 얼룩처럼
+        // 깨진다. 전체 실루엣을 축소·확대하도록 테두리를 사용하지 않는다.
+        static readonly Vector4 ActionButtonBorder = Vector4.zero;
+        const string PermanentGrowthUiRoot =
+            "Assets/Resources/MukJump/UI/PermanentGrowth/";
+        static readonly string[] PermanentGrowthUiPaths =
+        {
+            PermanentGrowthUiRoot + "pg_hanji_background.png",
+            PermanentGrowthUiRoot + "pg_tree_trunk.png",
+            PermanentGrowthUiRoot + "pg_tree_trunk_mask.png",
+            PermanentGrowthUiRoot + "pg_tree_background_v2.png",
+            PermanentGrowthUiRoot + "pg_branch.png",
+            PermanentGrowthUiRoot + "pg_branch_mask.png",
+            PermanentGrowthUiRoot + "pg_branch_piece_01.png",
+            PermanentGrowthUiRoot + "pg_branch_piece_02.png",
+            PermanentGrowthUiRoot + "pg_branch_piece_03.png",
+            PermanentGrowthUiRoot + "pg_branch_piece_04.png",
+            PermanentGrowthUiRoot + "pg_branch_piece_05.png",
+            PermanentGrowthUiRoot + "pg_branch_piece_06.png",
+            PermanentGrowthUiRoot + "pg_node_bud.png",
+            PermanentGrowthUiRoot + "pg_node_bloom.png",
+            PermanentGrowthUiRoot + "pg_node_bloom_mask.png",
+            PermanentGrowthUiRoot + "pg_selected_ring.png",
+            PermanentGrowthUiRoot + "pg_hanji_card.png",
+            PermanentGrowthUiRoot + "pg_currency_badge.png",
+            PermanentGrowthUiRoot + "pg_root_emblem.png",
+            PermanentGrowthUiRoot + "pg_icon_capacity.png",
+            PermanentGrowthUiRoot + "pg_icon_recovery.png",
+            PermanentGrowthUiRoot + "pg_icon_platform.png",
+            PermanentGrowthUiRoot + "pg_icon_jump.png",
+        };
         const string UiFontPath =
             "Assets/Resources/MukJump/Fonts/HealthsetJoritdaeStd.otf";
         const string DeathSplashPath = "Assets/Art/Character/Death/ink_death_splash.png";
@@ -120,13 +158,15 @@ namespace MukJump.EditorTools
             EnsureLayer("Item");
             EnsureLayer("Player");
             ConfigureBackground();
-            ConfigureCharacterSheet();
+            ConfigureCharacterSheets();
             ConfigureDeathSprites();
             ConfigureObstacleSprite();
             ConfigureDragonObstacleSprites();
             ConfigureHaetaeObstacleSprites();
             ConfigureFallingInkRockSprite();
             ConfigureItemSprites();
+            ConfigurePermanentGrowthSprites();
+            ConfigureActionButtonSprite();
             ConfigureInkDropJumpVfxAssets();
             if (AssetDatabase.LoadAssetAtPath<Font>(UiFontPath) == null)
                 Debug.LogWarning($"[MukJump] UI 폰트를 찾을 수 없음: {UiFontPath}");
@@ -155,6 +195,174 @@ namespace MukJump.EditorTools
         {
             ConfigureHaetaeObstacleSheet();
             AssetDatabase.SaveAssets();
+        }
+
+        [MenuItem("MukJump/Configure Permanent Growth Sprites")]
+        public static void ConfigurePermanentGrowthSprites()
+        {
+            for (int i = 0; i < PermanentGrowthUiPaths.Length; i++)
+            {
+                string path = PermanentGrowthUiPaths[i];
+                var importer =
+                    AssetImporter.GetAtPath(path) as TextureImporter;
+                if (importer == null)
+                {
+                    Debug.LogWarning(
+                        $"[MukJump] 영구 성장 UI 스프라이트를 찾을 수 없음: {path}");
+                    continue;
+                }
+
+                var textureSettings = new TextureImporterSettings();
+                importer.ReadTextureSettings(textureSettings);
+                textureSettings.spriteMeshType = SpriteMeshType.FullRect;
+                importer.SetTextureSettings(textureSettings);
+
+                bool large =
+                    path.EndsWith("pg_hanji_background.png") ||
+                    path.EndsWith("pg_tree_trunk.png") ||
+                    path.EndsWith("pg_tree_trunk_mask.png") ||
+                    path.EndsWith("pg_tree_background_v2.png");
+                bool medium =
+                    path.EndsWith("pg_branch.png") ||
+                    path.EndsWith("pg_branch_mask.png") ||
+                    path.Contains("pg_branch_piece_") ||
+                    path.EndsWith("pg_hanji_card.png");
+                bool opaque =
+                    path.EndsWith("pg_hanji_background.png");
+
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.spritePixelsPerUnit = 100f;
+                importer.alphaIsTransparency = !opaque;
+                importer.mipmapEnabled = false;
+                importer.npotScale = TextureImporterNPOTScale.None;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.maxTextureSize = large
+                    ? 2048
+                    : medium
+                        ? 1024
+                        : 512;
+                importer.textureCompression =
+                    TextureImporterCompression.CompressedHQ;
+                importer.compressionQuality = 100;
+                importer.SaveAndReimport();
+            }
+            AssetDatabase.SaveAssets();
+        }
+
+        [MenuItem("MukJump/Configure Shared Action Button Sprite")]
+        public static void ConfigureActionButtonSprite()
+        {
+            var importer =
+                AssetImporter.GetAtPath(ActionButtonPath) as TextureImporter;
+            if (importer == null)
+            {
+                Debug.LogWarning(
+                    $"[MukJump] 공용 행동 버튼 스프라이트를 찾을 수 없음: " +
+                    ActionButtonPath);
+                return;
+            }
+
+            var textureSettings = new TextureImporterSettings();
+            importer.ReadTextureSettings(textureSettings);
+            textureSettings.spriteMeshType = SpriteMeshType.FullRect;
+            textureSettings.spriteBorder = ActionButtonBorder;
+            importer.SetTextureSettings(textureSettings);
+
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.spritePixelsPerUnit = 100f;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.maxTextureSize = 1024;
+            importer.textureCompression =
+                TextureImporterCompression.CompressedHQ;
+            importer.compressionQuality = 100;
+            importer.SaveAndReimport();
+            AssetDatabase.SaveAssets();
+        }
+
+        [InitializeOnLoadMethod]
+        static void SchedulePermanentGrowthSpriteConfiguration()
+        {
+            EditorApplication.delayCall += () =>
+            {
+                if (Application.isPlaying ||
+                    EditorApplication.isPlayingOrWillChangePlaymode)
+                    return;
+                if (NeedsPermanentGrowthSpriteConfiguration())
+                    ConfigurePermanentGrowthSprites();
+                if (NeedsActionButtonSpriteConfiguration())
+                    ConfigureActionButtonSprite();
+            };
+        }
+
+        static bool NeedsPermanentGrowthSpriteConfiguration()
+        {
+            for (int i = 0; i < PermanentGrowthUiPaths.Length; i++)
+            {
+                string path = PermanentGrowthUiPaths[i];
+                var importer =
+                    AssetImporter.GetAtPath(path) as TextureImporter;
+                if (importer == null) return true;
+                var textureSettings = new TextureImporterSettings();
+                importer.ReadTextureSettings(textureSettings);
+                bool large =
+                    path.EndsWith("pg_hanji_background.png") ||
+                    path.EndsWith("pg_tree_trunk.png") ||
+                    path.EndsWith("pg_tree_trunk_mask.png") ||
+                    path.EndsWith("pg_tree_background_v2.png");
+                bool medium =
+                    path.EndsWith("pg_branch.png") ||
+                    path.EndsWith("pg_branch_mask.png") ||
+                    path.Contains("pg_branch_piece_") ||
+                    path.EndsWith("pg_hanji_card.png");
+                bool opaque =
+                    path.EndsWith("pg_hanji_background.png");
+                int expectedMax = large ? 2048 : medium ? 1024 : 512;
+                if (importer.textureType != TextureImporterType.Sprite ||
+                    importer.spriteImportMode != SpriteImportMode.Single ||
+                    textureSettings.spriteMeshType != SpriteMeshType.FullRect ||
+                    !Mathf.Approximately(importer.spritePixelsPerUnit, 100f) ||
+                    importer.alphaIsTransparency == opaque ||
+                    importer.mipmapEnabled ||
+                    importer.npotScale != TextureImporterNPOTScale.None ||
+                    importer.wrapMode != TextureWrapMode.Clamp ||
+                    importer.filterMode != FilterMode.Bilinear ||
+                    importer.maxTextureSize != expectedMax ||
+                    importer.textureCompression !=
+                        TextureImporterCompression.CompressedHQ ||
+                    importer.compressionQuality != 100)
+                    return true;
+            }
+            return false;
+        }
+
+        static bool NeedsActionButtonSpriteConfiguration()
+        {
+            var importer =
+                AssetImporter.GetAtPath(ActionButtonPath) as TextureImporter;
+            if (importer == null) return true;
+            var textureSettings = new TextureImporterSettings();
+            importer.ReadTextureSettings(textureSettings);
+            return importer.textureType != TextureImporterType.Sprite ||
+                   importer.spriteImportMode != SpriteImportMode.Single ||
+                   textureSettings.spriteMeshType != SpriteMeshType.FullRect ||
+                   textureSettings.spriteBorder != ActionButtonBorder ||
+                   !Mathf.Approximately(importer.spritePixelsPerUnit, 100f) ||
+                   !importer.alphaIsTransparency ||
+                   importer.mipmapEnabled ||
+                   importer.npotScale != TextureImporterNPOTScale.None ||
+                   importer.wrapMode != TextureWrapMode.Clamp ||
+                   importer.filterMode != FilterMode.Bilinear ||
+                   importer.maxTextureSize != 1024 ||
+                   importer.textureCompression !=
+                       TextureImporterCompression.CompressedHQ ||
+                   importer.compressionQuality != 100;
         }
 
         /// 테스트가 실제 Main 씬, Build Settings, Player Settings, import 설정을 변경하지 않고
@@ -300,6 +508,7 @@ namespace MukJump.EditorTools
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = frames["idle"];
             sr.sortingOrder = 5;
+            sr.enabled = false;
 
             var rb = go.AddComponent<Rigidbody2D>();
             rb.gravityScale = 2.2f;
@@ -360,6 +569,10 @@ namespace MukJump.EditorTools
             var so = new SerializedObject(animator);
             foreach (var name in CharFrameNames)
                 so.FindProperty(name).objectReferenceValue = frames[name];
+            AssignCharacterFrameArray(
+                so, "damageStageOneFrames", CharHitOneSheetPath);
+            AssignCharacterFrameArray(
+                so, "damageStageTwoFrames", CharHitTwoSheetPath);
             var deadProp = so.FindProperty("deadFrames");
             deadProp.arraySize = DeathFramePaths.Length;
             for (int i = 0; i < DeathFramePaths.Length; i++)
@@ -386,6 +599,7 @@ namespace MukJump.EditorTools
             var line = go.AddComponent<LineRenderer>();
             line.useWorldSpace = false;
             line.sortingOrder = 2;
+            line.enabled = false;
             var edge = go.AddComponent<EdgeCollider2D>();
             edge.points = new[]
             {
@@ -414,6 +628,35 @@ namespace MukJump.EditorTools
             return frames;
         }
 
+        static void AssignCharacterFrameArray(
+            SerializedObject animator,
+            string propertyName,
+            string sheetPath)
+        {
+            var property = animator.FindProperty(propertyName);
+            if (property == null) return;
+
+            var sprites = AssetDatabase.LoadAllAssetsAtPath(sheetPath);
+            property.arraySize = CharFrameNames.Length;
+            for (int frameIndex = 0;
+                 frameIndex < CharFrameNames.Length;
+                 frameIndex++)
+            {
+                Sprite frame = null;
+                for (int assetIndex = 0; assetIndex < sprites.Length; assetIndex++)
+                {
+                    if (sprites[assetIndex] is Sprite candidate &&
+                        candidate.name == CharFrameNames[frameIndex])
+                    {
+                        frame = candidate;
+                        break;
+                    }
+                }
+                property.GetArrayElementAtIndex(frameIndex).objectReferenceValue =
+                    frame;
+            }
+        }
+
         static void BuildSystems(
             Camera camera,
             GameObject player,
@@ -435,6 +678,7 @@ namespace MukJump.EditorTools
             go.AddComponent<LobbyCollectionView>();
             go.AddComponent<PermanentGrowthView>();
             go.AddComponent<LobbyOptionsView>();
+            go.AddComponent<LobbyScreenNavigator>();
             go.AddComponent<InkUiFeedbackController>();
             growthChoiceView.SetSprites(
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthVitalityPath),
@@ -745,7 +989,9 @@ namespace MukJump.EditorTools
             var canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 90;
-            canvas.enabled = true; // 편집 중에는 표시, 플레이 시 GameplayHudView가 상태에 맞춰 전환
+            // 저장된 Main 씬의 Game View도 런타임 로비와 같은 초기 화면을 보여 준다.
+            // GameplayHudView가 Playing 진입 뒤에만 켠다.
+            canvas.enabled = false;
             canvas.pixelPerfect = true;
 
             var scaler = root.GetComponent<CanvasScaler>();
@@ -823,7 +1069,7 @@ namespace MukJump.EditorTools
                 new Vector2(22f, -438f), new Vector2(145f, 72f), "먹해태");
             var growthChoiceButton = CreateDebugTextButton(
                 "GrowthChoiceButton", debugPanel,
-                new Vector2(22f, -526f), new Vector2(145f, 72f), "성장 선택");
+                new Vector2(22f, -526f), new Vector2(145f, 72f), "증강 선택");
 
             CreateText("MapDebugTitle", debugPanel, "맵 이동", 30, FontStyle.Bold,
                 new Vector2(0.76f, 0.9f), new Vector2(175f, 55f), InkPalette.Paper);
@@ -1173,6 +1419,12 @@ namespace MukJump.EditorTools
             importer.SetTextureSettings(importerSettings);
 
             var metas = new SpriteMetaData[columns * rows];
+            Vector2[] visualPivots = CalculateOpaqueCentroidPivots(
+                DragonObstacleSheetPath,
+                columns,
+                rows,
+                frameWidth,
+                frameHeight);
             for (int i = 0; i < metas.Length; i++)
             {
                 int column = i % columns;
@@ -1185,14 +1437,78 @@ namespace MukJump.EditorTools
                         (rows - 1 - row) * frameHeight,
                         frameWidth,
                         frameHeight),
-                    alignment = (int)SpriteAlignment.Center,
-                    pivot = new Vector2(0.5f, 0.5f),
+                    // 프레임마다 몸을 굽히면서 원화 중심이 움직여도 실제 먹 실루엣의
+                    // 무게중심은 같은 Transform에 고정해 애니메이션 떨림을 막는다.
+                    alignment = (int)SpriteAlignment.Custom,
+                    pivot = visualPivots != null &&
+                            i < visualPivots.Length
+                        ? visualPivots[i]
+                        : new Vector2(0.5f, 0.5f),
                 };
             }
 #pragma warning disable CS0618
             importer.spritesheet = metas;
 #pragma warning restore CS0618
             importer.SaveAndReimport();
+        }
+
+        static Vector2[] CalculateOpaqueCentroidPivots(
+            string assetPath,
+            int columns,
+            int rows,
+            int frameWidth,
+            int frameHeight)
+        {
+            string projectRoot = Path.GetDirectoryName(Application.dataPath);
+            if (string.IsNullOrEmpty(projectRoot))
+                return null;
+            string fullPath = Path.Combine(projectRoot, assetPath);
+            if (!File.Exists(fullPath))
+                return null;
+
+            var source = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                if (!ImageConversion.LoadImage(
+                        source, File.ReadAllBytes(fullPath), false))
+                    return null;
+
+                Color32[] pixels = source.GetPixels32();
+                var pivots = new Vector2[columns * rows];
+                for (int frame = 0; frame < pivots.Length; frame++)
+                {
+                    int column = frame % columns;
+                    int row = frame / columns;
+                    int originX = column * frameWidth;
+                    int originY = (rows - 1 - row) * frameHeight;
+                    long sumX = 0;
+                    long sumY = 0;
+                    int visibleCount = 0;
+                    for (int y = 0; y < frameHeight; y++)
+                    {
+                        for (int x = 0; x < frameWidth; x++)
+                        {
+                            int sourceIndex =
+                                originX + x + (originY + y) * source.width;
+                            if (pixels[sourceIndex].a < 128) continue;
+                            sumX += x;
+                            sumY += y;
+                            visibleCount++;
+                        }
+                    }
+
+                    pivots[frame] = visibleCount > 0
+                        ? new Vector2(
+                            (sumX / (float)visibleCount + 0.5f) / frameWidth,
+                            (sumY / (float)visibleCount + 0.5f) / frameHeight)
+                        : new Vector2(0.5f, 0.5f);
+                }
+                return pivots;
+            }
+            finally
+            {
+                Object.DestroyImmediate(source);
+            }
         }
 
         static Sprite[] LoadDragonObstacleFrames()
@@ -1464,12 +1780,20 @@ namespace MukJump.EditorTools
         }
 
         /// 4×2 스프라이트시트를 8개의 서브스프라이트로 슬라이스하고 CharFrameNames 순서대로 이름을 붙인다
-        static void ConfigureCharacterSheet()
+        [MenuItem("MukJump/Configure Character Sheets")]
+        public static void ConfigureCharacterSheets()
         {
-            var importer = (TextureImporter)AssetImporter.GetAtPath(CharSheetPath);
+            ConfigureCharacterSheet(CharSheetPath);
+            ConfigureCharacterSheet(CharHitOneSheetPath);
+            ConfigureCharacterSheet(CharHitTwoSheetPath);
+        }
+
+        static void ConfigureCharacterSheet(string sheetPath)
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(sheetPath);
             if (importer == null)
             {
-                Debug.LogWarning($"[MukJump] 텍스처를 찾을 수 없음: {CharSheetPath}");
+                Debug.LogWarning($"[MukJump] 텍스처를 찾을 수 없음: {sheetPath}");
                 return;
             }
 

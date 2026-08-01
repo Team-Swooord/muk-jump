@@ -67,6 +67,23 @@ namespace MukJump.EditorTests
             Assert.That(group.blocksRaycasts, Is.False);
         }
 
+        [Test]
+        public void TransitionBuildsFullScreenInputBlockerAndRejectsOverlap()
+        {
+            root = new GameObject("BrushTransitionBlockerTests");
+            var view = root.AddComponent<BrushTransitionView>();
+            Invoke(view, "BuildIfNeeded");
+
+            var blocker = root.transform.Find(
+                "BrushTransitionCanvas/InputBlocker")?.GetComponent<Image>();
+            Assert.That(blocker, Is.Not.Null);
+            Assert.That(blocker.raycastTarget, Is.True);
+            Assert.That(blocker.color.a, Is.Zero);
+
+            SetField(view, "playing", true);
+            Assert.That(view.TryPlay(null), Is.False);
+        }
+
         static object Invoke(object target, string methodName, params object[] arguments)
         {
             return target.GetType().GetMethod(

@@ -77,6 +77,14 @@ asmdef로 강제되지는 않는다. `Core` 안의 UI가 일부 Gameplay 타입�
 | `GoldenBrushEffectView` | 모든 분신의 황금 붓 표현 | 게임 전체 1묶음(렌더러 24) | 효과 종료 시 숨김 |
 | `DeathInkStainPool` | 죽음 뒤 남는 한지 먹 자국 | 최대 20 | 상한 초과 시 가장 오래된 자국 즉시 재사용 |
 
+`GrowthUnlockPresentation`은 풀 대여 대상이 아니라 `InkUiFeedbackController`가 한 번
+미리 만드는 고정 UI 계층이다. 모든 영구 성장 성공 구매가 같은 대각선 먹획,
+먹물 파열, 먹고리와 방울 슬롯을 초기화해 재생하며 입력 Raycast를 소유하지 않는다.
+첫 0→1은 1.26초 해금 모드, 이후 단계는 0.86초 강화 모드로 같은 타임라인을 압축한다.
+구매 노드의 `RectTransform` 참조는 보관하지 않고 구매 시점 화면 좌표만 값으로 복사해
+고정 계층의 열매 연출 위치로 변환한다. Low·Medium·High는 핵심 먹획·아이콘·제목과
+붉은 열매 피어남을 유지하고 장식 방울 수만 줄인다.
+
 풀 규칙은 다음과 같다.
 
 1. 팩토리는 최초 필요 시에만 객체를 만든다.
@@ -268,12 +276,18 @@ kinematic body와 fixed step 이동을 사용한다.
 
 성장 규칙과 현재 3개 제안 목록은 `RunGrowthController`가 세션 단위로 소유한다.
 `GameplayRandomStream.Growth`를 별도 사용해 선택 횟수가 아이템·장애물 배치
-수열을 바꾸지 않는다. `먹두께`는 분신
-컴포넌트에 HP를 복제하지 않고 먹떼 공용 충전을 한 번에 하나만 원자적으로 소비한다.
-따라서 새 분신이 생겨도 충전이 늘지 않으며, 방어막 → 먹두께 → 사망 순서를 지킨다.
+수열을 바꾸지 않는다. 각 `PlayerController`는 기본 내구 3칸을 소유하되,
+`먹두께`는 분신 수와 무관한 먹떼 공용 충전을 한 번에 하나만 원자적으로 소비한다.
+따라서 새 분신은 3/3으로 시작해도 먹두께 충전은 늘지 않으며,
+무적 → 방어막 → 먹두께 → 개별 내구 → 사망 순서를 지킨다. 추락은 내구를
+건너뛰어 즉사한다. 피격 단계는 `CharacterAnimator`의 같은 동작 프레임만 바꾸고
+Transform·Collider는 유지한다.
 `도약`도 플레이어 직렬화 값을 누적 수정하지 않고 `AutoJump`가 전역 배율을 읽는다.
 월드 두루마리는 일반 아이템과 다른 `GrowthScrollSpawner`의 단일 슬롯 풀을 사용해
-일반 아이템 경제와 선택 UI 수명 주기를 분리한다.
+일반 아이템 경제와 선택 UI 수명 주기를 분리한다. 비충돌 예고는
+`25→50→100→200→400`, 이후 `+200m` 예약을 보여 주며,
+`SwarmProgressHeight`가 이정표에 닿아 `RequestChoice`가 성공한 뒤에만 예약을
+전진시켜 선택권을 잃지 않는다.
 
 드로잉 성장도 같은 조회형 배율 계약을 쓴다. `StrokeCapture`는 직렬화된 기본 용량과
 회복값을 바꾸지 않고 용량·회복 배율을 계산하며, 용량이 늘 때 증가분만 현재 먹에
@@ -286,25 +300,73 @@ kinematic body와 fixed step 이동을 사용한다.
 
 - `LobbyView`는 씬 빌더가 만든 `시작`·`성장`·`도감`·`옵션` 버튼만 연결하고 게임 규칙을
   계산하지 않는다. 로비 드로잉은 비활성이라 UI 입력과 발판 생성이 경합하지 않는다.
-- `PermanentGrowthCatalog`는 먹그릇·숨고르기·먹결·발놀림의 stable ID, 6단계
-  상한, 비용과 작은 기본 보정을 소유한다. `PermanentGrowthProfile`은 버전이 있는
-  저장 문서, 먹빛, 구매 단계와 마지막 정산 run ID만 소유한다.
+- `LobbyScreenNavigator`는 `Lobby / PermanentGrowth / Codex` 중 하나만 활성화한다.
+  `BrushTransitionView`가 화면을 완전히 덮기 전에는 기존 화면을 유지하고, 덮임
+  콜백에서 목적 화면을 교체하며, 드러남이 끝난 뒤에만 목적 화면 입력을 활성화한다.
+  전환 중 연속 탭과 게임 시작은 거부하고 `GameState`가 Lobby를 벗어나면 즉시
+  내부 화면 상태를 Lobby로 복구한다.
+- `PermanentGrowthCatalog`는 생존·도약·먹 운용 3계보의 11개 저장 트랙 stable ID,
+  선행 조건, 단계 상한, 비용과 효과를 소유한다. 별도
+  `PermanentGrowthNodeDefinition`은 각 저장 단계와 정확히 대응하는 39개
+  1포인트 UI 노드, 다중 부모 간선과 먹나무 좌표만 소유한다. 기존
+  먹그릇·숨고르기·먹결·발놀림의
+  ID와 배열 앞쪽 순서는 저장 호환을 위해 유지한다. `PermanentGrowthProfile`은
+  버전이 있는 저장 문서, 먹빛, 구매 단계와 마지막 정산 run ID만 소유하고,
+  구매 가능 여부와 잠금 이유는 같은 `PermanentGrowthNodeDefinition.ParentIds`
+  그래프를 검사한다.
+  저장 호환 계약은 다음과 같다. `PermanentGrowthType`의 기존 슬롯은
+  `InkCapacity=0`, `InkRecovery=1`, `PlatformLifetime=2`, `JumpCharge=3`으로
+  고정한다. stable ID·단계당 효과·비용 배열도 각각
+  `permanent.ink_capacity / +1.5% / [6,10,16,24,34,46]`,
+  `permanent.ink_recovery / +2% / [6,10,16,24,34,46]`,
+  `permanent.platform_lifetime / +1.25% / [7,11,17,25,35,47]`,
+  `permanent.jump_charge / -0.75% / [7,12,18,26,36,48]`을 유지한다.
+  신규 `permanent.clone_spawn_grace`는 생존의 두 번째 길이며
+  분신 생성 직후 보호를 단계당 `+0.15초`, 비용 `[8,16,28]`로 늘린다.
+  저장은 `schemaVersion=1`, `balanceVersion=1`과 stable ID별 level을 계속
+  사용하며 이번 계보 확장 때문에 버전을 올리거나 기존 랭크를 초기화하지 않는다.
+  새 트랙 선행 조건은 첫 rank 열매에만 적용한다. 기존 저장에서 이미 level>0인
+  트랙은 해당 rank 이하 열매를 열린 상태로 복원하고 다음 rank가 직전 열매만
+  요구하도록 grandfather 처리한다. `CanPurchaseNode`와 `TryPurchaseNode`,
+  UI 잠금 사유는 모두 같은 부모 ID 그래프를 사용한다.
 - 정상 게임오버는 `GameManager`가 `ScoreManager.SaveBest()` 전에 이전 최고 고도를
   잡고 run ID로 한 번만 정산한다. 디버그 판과 중도 로비 복귀는 보상을 주지 않으며,
   같은 run ID는 도메인 리로드 뒤에도 다시 지급하지 않는다.
-- `PermanentGrowthView`는 로비에서만 열리고 보유 먹빛·현재 단계·다음 효과·비용을
-  표시한다. `RunGrowthController`나 두루마리 카탈로그를 호출하지 않는다.
+- `PermanentGrowthView`는 불투명 한지 배경의 전용 전체 화면으로 열리고
+  생존·도약·먹 운용을 드래그 가능한 큰 먹나무로 표시한다. 39개 열매 노드는
+  각 저장 rank와 1:1 대응하며 한 그루의 고정 `pg_tree_background_v2` 위에 놓인다.
+  `TreeViewport`는 고정 헤더보다 뒤쪽 형제에 두고 상단까지 확장하며,
+  `TreeCanvas`는 0.9 배율로 렌더링해 현재 가지를 더 넓게 조망한다. 각 노드의
+  `NodeContrast`는 입력을 받지 않는 진한 먹 원형 받침이고 실제 상태·버튼 표면인
+  `NodeSurface`보다 먼저 렌더링된다.
+  실제 다중 부모 보조선과 잠금·구매 가능·보유·완성
+  상태를 가진다. 잠긴 노드도 선택할 수 있지만
+  노드 곁 `SelectedGrowthAction/ActionStatus`에는 짧은 잠금 상태만 표시하고,
+  같은 액션의 `EnhanceButton`만 `PermanentGrowthProfile` 구매를 호출한다.
+  고정 배경 밖으로 확장되는 연결 아트는 부모–자식 간선마다
+  `pg_branch_piece_01..06`을 연결 형태의 결정적 인덱스로 선택하며 개별 조각이
+  없으면 기존 `pg_branch`로 폴백한다. 가지 색은 진행 상태와 분리하고, 얇은
+  상태선과 열매만 해금 상태를 표현한다.
+  `RunGrowthController`나 두루마리 카탈로그는 호출하지 않는다. UI 트리는 로비
+  시작 때 만들지 않고 붓 전환이 화면을 덮은 최초 진입 시점에 생성하며, 이후
+  리소스 조회는 화면 인스턴스 캐시를 재사용한다.
 - `RoguelikeGrowthCatalog`는 25계보×4노드의 불변 정의, 선행·상충, 구현 상태와
   기존 8종 어댑터를 소유한다. `RuntimeReady`만 추첨할 수 있으며 `Planned`는 도감
   표시 전용이다.
-- `LobbyCollectionView`는 카탈로그를 읽는 표현 계층이다. 전체 100종 수와 무관하게
-  2×2 카드 네 개만 만들고 페이지마다 내용을 교체한다. 도감 UI가 노드를 활성화하거나
-  `RunGrowthController`의 레벨을 직접 변경할 수 없다.
+- `LobbyCollectionView`는 불투명 한지 배경의 전용 전체 화면에서 카탈로그를 읽는
+  표현 계층이다. 전체 100종 수와 무관하게 2×2 카드 네 개만 만들고 페이지마다
+  내용을 교체한다. 도감 UI가 노드를 활성화하거나 `RunGrowthController`의 레벨을
+  직접 변경할 수 없다.
 - `LobbyOptionsView`는 로비 전용 4장 가이드, 2열 오디오 카드, 로컬 UID와
   언어·고객센터·계정 연동 목업만 소유한다. 고객센터와 튜토리얼은 같은 열에서
   위아래로 배치하고, 좁은 화면에서는 전체 옵션 두루마리를 균등 축소한다.
   `LobbySettingsProfile`은 BGM/SFX 값과 가이드 확인 여부, 로컬 UID만 저장하며
-  외부 로그인 토큰이나 자격 증명을 저장하지 않는다.
+  외부 로그인 토큰이나 자격 증명을 저장하지 않는다. 성장·도감과 달리 옵션만
+  로비 위에 머무는 모달이다.
+- `InkUiStyle.ConfigureActionButton()`은 로비 네 메뉴와 의미 선택 카드의
+  그래픽을 건드리지 않고, 화면 흐름을 확정하는 텍스트 버튼에만 공용 9-slice
+  붓획을 적용한다. 원본 알파 마스크는 `Resources`에서 한 번 로드해 재사용하며,
+  없을 때만 기존 절차적 붓 마스크로 폴백한다.
 - `UiInputDeviceGuard`는 에디터 Device Simulator가 비활성화한 포인터 장치를
   `PointerInput`의 공용 복구 경로로 되돌린다. 이 경로는 입력 가능성만 보장하며
   버튼 행동이나 게임 규칙을 직접 실행하지 않는다.
@@ -317,9 +379,11 @@ kinematic body와 fixed step 이동을 사용한다.
   개입하지 않는다.
 
 지속 수치의 합성 순서는 `직렬화 기본값 × 영구 성장 × 한 판 두루마리 × 환경`이다.
-영구 성장은 기본 최대 먹 +9%, 기본 먹 회복 +12%, 기본 발판 수명 +7.5%,
-자동 점프 충전시간 -4.5%를 넘지 않는다. 영구 분신·부활·방패·아이템 빈도·점수
-배율은 코어 플레이와 최고 고도 경쟁을 건너뛰므로 제공하지 않는다.
+기존 네 수치 상한은 기본 최대 먹 +9%, 기본 먹 회복 +12%, 기본 발판 수명 +7.5%,
+자동 점프 충전시간 -4.5%로 유지하며, 도약 계보의 기본 점프 힘은 최대 +5%다.
+최종 패시브는 분신 공유 한 판 1회 장애물 생존, 직접 그린 발판 도약 +10%,
+새 발판의 낙묵석 1회 방어로 적용 범위를 제한한다. 추락 부활·시작 분신·아이템
+빈도·점수 배율은 제공하지 않는다.
 
 100종의 역할 슬롯 추첨, 계보 진화, 발견 기록과 향후 효과 레지스트리 경계는
 `docs/design/roguelike-growth-architecture.md`를 기준으로 단계적으로 도입한다.
@@ -327,6 +391,9 @@ kinematic body와 fixed step 이동을 사용한다.
 ## 9. 실패·자원 경계
 
 - 화면 전환 콜백이 예외를 던져도 전환 overlay와 raycast 차단을 해제한다.
+- 공유 붓 전환이 이미 실행 중이면 새 화면 요청을 시작하지 않는다. 전환 Canvas의
+  투명 전체 화면 blocker 한 장만 레이캐스트를 받아 덮기·드러내기 동안 뒤 UI 탭을
+  차단하며, 장식 붓획은 입력을 받지 않는다.
 - 풀 factory/acquire/release 콜백 실패 시 손상 객체는 재사용하지 않고 폐기한다.
 - `ItemEffect.Apply`는 실제 적용 성공 여부를 반환한다. 사망한 플레이어, 실패한 분신
   생성, 필수 드로잉 시스템 부재처럼 효과가 거부된 경우에만 픽업을 월드에 남기고,
@@ -352,6 +419,9 @@ kinematic body와 fixed step 이동을 사용한다.
 
 씬 빌더는 기존 Main UI 값을 읽어 보존하지 않는다. 코드의 상수와 연결이 단일 진실
 공급원이다. 따라서 UI를 바꾸려면 Main YAML이나 Inspector가 아니라 빌더를 수정한다.
+씬 빌더는 시스템 루트에 `LobbyScreenNavigator`를 정확히 한 개 생성한다.
+`GameManager`가 누락된 Navigator를 런타임에 추가하는 경로는 구버전 씬 호환용
+폴백일 뿐이며, 저장된 `Main.unity`는 항상 최신 빌더 출력과 일치해야 한다.
 로비 버튼은 최고 기록 칸에서 검수한 공통 시각 중심 보정을 사용하며, 세부 값과
 가독성·모달 규칙은 `docs/design/lobby-ui-overhaul-2026-07-30.md`를 따른다.
 구체적인 버튼 수치는 런타임 `LobbyMenuLayout`이 소유하고 씬 빌더도 이를 참조한다.
@@ -374,4 +444,5 @@ kinematic body와 fixed step 이동을 사용한다.
 - Debug 기능을 사용한 기록이 최고 기록으로 저장되지 않는가?
 - 런타임 생성 native 자원의 해제 경로가 있는가?
 - `Assets/Scenes/Main.unity`가 아니라 씬 빌더를 수정했는가?
+- 로비·성장·도감 중 하나만 보이고 붓 전환 중 뒤 UI와 연속 탭이 차단되는가?
 - 런타임·에디터 어셈블리 컴파일과 관련 회귀 테스트를 통과했는가?

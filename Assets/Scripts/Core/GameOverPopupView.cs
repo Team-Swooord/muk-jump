@@ -189,10 +189,11 @@ namespace MukJump.Core
                 contentRect,
                 "도전 끝",
                 58,
-                new Vector2(0f, 270f),
+                new Vector2(-30f, 270f),
                 new Vector2(520f, 78f),
                 InkPalette.TextDark,
-                FontStyle.Normal);
+                FontStyle.Normal,
+                TextAnchor.MiddleLeft);
             AddSoftWeight(title, InkPalette.Ink, 0.2f);
 
             var currentResult = CreateRect(
@@ -205,19 +206,21 @@ namespace MukJump.Core
                 currentResult,
                 "이번 고도",
                 32,
-                new Vector2(0f, 80f),
+                new Vector2(-95f, 80f),
                 new Vector2(420f, 52f),
                 ReadableMutedColor(),
-                FontStyle.Normal);
+                FontStyle.Normal,
+                TextAnchor.MiddleLeft);
             heightText = CreateText(
                 "Value",
                 currentResult,
                 "0 m",
                 112,
-                new Vector2(0f, -15f),
-                new Vector2(640f, 150f),
+                new Vector2(20f, -15f),
+                new Vector2(600f, 150f),
                 InkPalette.TextDark,
-                FontStyle.Normal);
+                FontStyle.Normal,
+                TextAnchor.MiddleLeft);
             AddSoftWeight(heightText, InkPalette.Ink, 0.22f);
 
             CreateImage(
@@ -285,7 +288,7 @@ namespace MukJump.Core
             var retryBrush = CreateImage(
                 "RetryBrush",
                 contentRect,
-                brush,
+                null,
                 new Vector2(0f, -270f),
                 new Vector2(580f, 104f),
                 InkPalette.Ink);
@@ -299,6 +302,7 @@ namespace MukJump.Core
                 InkPalette.Paper,
                 FontStyle.Normal);
             AddSoftWeight(touchHint, Color.black, 0.2f);
+            InkUiStyle.ConfigureActionSurface(retryBrush, touchHint);
         }
 
         void BuildNewBestSeal(Transform parent, Sprite blob)

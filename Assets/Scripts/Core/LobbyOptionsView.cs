@@ -236,17 +236,19 @@ namespace MukJump.Core
         {
             CreateReadableText(
                 "Title", panel, "설정", InkUiStyle.ScreenTitleSize,
-                new Vector2(0f, 620f), new Vector2(700f, 86f),
-                InkPalette.TextDark);
+                new Vector2(-240f, 620f), new Vector2(360f, 86f),
+                InkPalette.TextDark,
+                TextAnchor.MiddleLeft);
             CreateReadableText(
                 "Version", panel, $"v{Application.version}",
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, 550f), new Vector2(360f, 48f),
-                InkPalette.TextMuted);
+                new Vector2(280f, 620f), new Vector2(260f, 48f),
+                InkPalette.TextMuted,
+                TextAnchor.MiddleRight);
 
             var uidButton = CreatePaperButton(
                 "UidButton", panel, string.Empty,
-                new Vector2(0f, 455f),
+                new Vector2(0f, 500f),
                 new Vector2(740f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.BodySize);
             uidText = uidButton.transform
@@ -256,7 +258,7 @@ namespace MukJump.Core
             CreateReadableText(
                 "AudioCaption", panel, "소리",
                 InkUiStyle.CaptionSize,
-                new Vector2(-305f, 370f), new Vector2(130f, 48f),
+                new Vector2(-305f, 405f), new Vector2(130f, 48f),
                 InkPalette.TextDark, TextAnchor.MiddleLeft);
 
             CreateAudioCard(
@@ -359,13 +361,15 @@ namespace MukJump.Core
             tutorialTitle = CreateReadableText(
                 "TutorialTitle", panel, string.Empty,
                 InkUiStyle.ScreenTitleSize,
-                new Vector2(0f, -100f), new Vector2(760f, 150f),
-                InkPalette.TextDark);
+                new Vector2(-40f, -100f), new Vector2(680f, 150f),
+                InkPalette.TextDark,
+                TextAnchor.MiddleLeft);
             tutorialDescription = CreateReadableText(
                 "TutorialDescription", panel, string.Empty,
                 38,
-                new Vector2(0f, -285f), new Vector2(750f, 190f),
-                InkPalette.TextDark);
+                new Vector2(-40f, -285f), new Vector2(680f, 190f),
+                InkPalette.TextDark,
+                TextAnchor.MiddleLeft);
             tutorialDescription.lineSpacing = 1.15f;
 
             tutorialPreviousButton = CreatePaperButton(
@@ -738,7 +742,7 @@ namespace MukJump.Core
                 InkUiTextureFactory.CreateBlobSprite(),
                 new Vector2(-125f, 0f),
                 new Vector2(70f, 70f),
-                InkPalette.Ink);
+                InkPalette.Paper2);
             CreateReadableText(
                 "Glyph",
                 icon.transform,
@@ -746,7 +750,7 @@ namespace MukJump.Core
                 InkUiStyle.CaptionSize,
                 Vector2.zero,
                 new Vector2(58f, 58f),
-                InkPalette.TextLight);
+                InkPalette.TextDark);
             return button;
         }
 
@@ -765,11 +769,15 @@ namespace MukJump.Core
                 "Paper", outline.transform, null, Vector2.zero,
                 size - new Vector2(10f, 10f), InkPalette.Paper2);
             var button = outline.gameObject.AddComponent<Button>();
-            InkUiStyle.ConfigureButton(button, paper);
-            CreateReadableText(
+            var labelText = CreateReadableText(
                 "Label", paper.transform, label, fontSize,
                 Vector2.zero, size - new Vector2(28f, 16f),
-                InkPalette.TextDark);
+                InkPalette.TextLight);
+            InkUiStyle.ConfigureActionButton(
+                button,
+                outline,
+                labelText,
+                paper);
             return button;
         }
 
@@ -782,15 +790,17 @@ namespace MukJump.Core
             int fontSize)
         {
             var brush = CreateImage(
-                objectName, parent,
-                InkUiTextureFactory.CreateBrushSprite(),
+                objectName, parent, null,
                 position, size, InkPalette.Ink);
             var button = brush.gameObject.AddComponent<Button>();
-            InkUiStyle.ConfigureButton(button, brush);
-            CreateReadableText(
+            var labelText = CreateReadableText(
                 "Label", brush.transform, label, fontSize,
                 Vector2.zero, size - new Vector2(36f, 14f),
                 InkPalette.TextLight);
+            InkUiStyle.ConfigureActionButton(
+                button,
+                brush,
+                labelText);
             return button;
         }
 

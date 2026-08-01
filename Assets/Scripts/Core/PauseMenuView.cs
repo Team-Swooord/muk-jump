@@ -297,14 +297,17 @@ namespace MukJump.Core
             BuildPauseScrollFrame(panel);
 
             var title = CreateText("Title", panel, "잠시 멈춤", 58,
-                new Vector2(0f, 165f), new Vector2(520f, 78f),
+                new Vector2(-30f, 165f), new Vector2(520f, 78f),
                 InkPalette.TextDark, FontStyle.Normal);
+            title.alignment = TextAnchor.MiddleLeft;
             AddSoftWeight(title, InkPalette.Ink, 0.2f);
 
             resumeButton = CreateBrushButton("ResumeButton", panel, "계속하기",
                 new Vector2(0f, 25f), true);
             lobbyButton = CreateBrushButton("LobbyButton", panel, "로비로",
                 new Vector2(0f, -120f), false);
+            ApplyActionPriority(resumeButton, 1f);
+            ApplyActionPriority(lobbyButton, 0.72f);
 
             ApplySafeArea();
         }
@@ -337,6 +340,8 @@ namespace MukJump.Core
                             safeAreaRoot != null && panel != null &&
                             resumeButton != null && lobbyButton != null;
             if (!complete) return false;
+            ApplyActionPriority(resumeButton, 1f);
+            ApplyActionPriority(lobbyButton, 0.72f);
             EnableFullButtonRaycast(pauseButton);
             EnableFullButtonRaycast(resumeButton);
             EnableFullButtonRaycast(lobbyButton);
@@ -480,27 +485,16 @@ namespace MukJump.Core
         Button CreateBrushButton(
             string objectName, Transform parent, string label, Vector2 position, bool filled)
         {
-            Sprite brush = InkUiTextureFactory.CreateBrushSprite();
-            var outer = CreateImage(objectName, parent, brush, position,
+            var outer = CreateImage(objectName, parent, null, position,
                 new Vector2(580f, 104f), InkPalette.Ink);
-            Image target = outer;
-            Color textColor = InkPalette.Paper;
-            if (!filled)
-            {
-                target = CreateImage("Paper", outer.transform, brush, Vector2.zero,
-                    new Vector2(560f, 84f), InkPalette.Paper2);
-                textColor = InkPalette.TextDark;
-            }
-
             var button = outer.gameObject.AddComponent<Button>();
-            button.targetGraphic = target;
-            EnableFullButtonRaycast(button);
-            button.colors = ReadableButtonColors();
-            button.navigation = new Navigation { mode = Navigation.Mode.None };
             var text = CreateText(
-                "Label", outer.transform, label, filled ? 40 : 36, Vector2.zero,
-                new Vector2(470f, 76f), textColor, FontStyle.Bold);
+                "Label", outer.transform, label, filled ? 40 : 36,
+                Vector2.zero,
+                new Vector2(470f, 76f), InkPalette.Paper, FontStyle.Bold);
             AddSoftWeight(text, InkPalette.Ink, 0.14f);
+            InkUiStyle.ConfigureActionButton(button, outer, text);
+            EnableFullButtonRaycast(button);
             return button;
         }
 
@@ -626,6 +620,25 @@ namespace MukJump.Core
             if (outer != null) outer.raycastTarget = true;
             if (button.targetGraphic != null)
                 button.targetGraphic.raycastTarget = true;
+        }
+
+        static void ApplyActionPriority(Button button, float alpha)
+        {
+            if (button == null) return;
+            var group = button.GetComponent<CanvasGroup>();
+            if (group == null)
+                group = button.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = 1f;
+            group.interactable = true;
+            group.blocksRaycasts = true;
+
+            Graphic background = button.targetGraphic;
+            if (background == null)
+                background = button.GetComponent<Graphic>();
+            if (background == null) return;
+            Color color = background.color;
+            color.a = Mathf.Clamp01(alpha);
+            background.color = color;
         }
 
         static float EaseOutCubic(float value)

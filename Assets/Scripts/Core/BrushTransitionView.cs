@@ -37,11 +37,19 @@ namespace MukJump.Core
 
         public void Play(Action onCovered, Action onFailed = null)
         {
-            if (playing) return;
+            TryPlay(onCovered, onFailed);
+        }
+
+        /// 이미 다른 전환이 화면을 소유 중이면 새 코루틴을 시작하지 않는다.
+        /// 호출자는 반환값으로 입력 잠금이나 목적 화면 예약을 되돌릴 수 있다.
+        public bool TryPlay(Action onCovered, Action onFailed = null)
+        {
+            if (playing) return false;
             BuildIfNeeded();
             coveredCallbackStarted = false;
             activeFailureCallback = onFailed;
             StartCoroutine(PlayRoutine(onCovered, onFailed));
+            return true;
         }
 
         void OnDisable()
@@ -72,6 +80,16 @@ namespace MukJump.Core
             group.alpha = 0f;
             group.blocksRaycasts = false;
             group.interactable = false;
+
+            var inputBlocker = CreateImage(
+                "InputBlocker",
+                root.transform,
+                null,
+                Vector2.zero,
+                new Vector2(2000f, 3000f),
+                0f);
+            inputBlocker.color = Color.clear;
+            inputBlocker.raycastTarget = true;
 
             wash = CreateImage("InkWash", root.transform, null, Vector2.zero,
                 new Vector2(1500f, 2400f), 0f);
