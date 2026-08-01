@@ -17,6 +17,7 @@ namespace MukJump.Core
         const float ReferenceHeight = 1920f;
         const string ArtResourceRoot = "MukJump/UI/PermanentGrowth/";
         const float TreeCanvasZoom = 0.84f;
+        const float TreeBackgroundOpacity = 0.42f;
         static readonly Vector2 TreeViewportPosition = Vector2.zero;
         static readonly Vector2 TreeViewportSize =
             new(ReferenceWidth, ReferenceHeight);
@@ -395,7 +396,7 @@ namespace MukJump.Core
                     treeBackgroundSprite,
                     TreeBackgroundPosition,
                     TreeBackgroundSize,
-                    new Color(1f, 1f, 1f, 0.82f));
+                    new Color(1f, 1f, 1f, TreeBackgroundOpacity));
                 treeBackground.preserveAspect = true;
                 treeBackground.raycastTarget = false;
             }

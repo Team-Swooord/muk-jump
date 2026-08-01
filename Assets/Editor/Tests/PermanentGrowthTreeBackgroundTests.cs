@@ -126,6 +126,10 @@ namespace MukJump.EditorTests
                 "pg_tree_background_v3"));
             Assert.That(image.raycastTarget, Is.False);
             Assert.That(image.preserveAspect, Is.True);
+            Assert.That(
+                image.color.a,
+                Is.EqualTo(0.42f).Within(0.001f),
+                "큰 나무는 열매와 연결선보다 옅어야 합니다.");
             Assert.That(rect.sizeDelta, Is.EqualTo(new Vector2(2200f, 3060f)));
             Assert.That(rect.anchoredPosition, Is.EqualTo(Vector2.zero));
             Assert.That(view.TreeCanvas.Find("InkTreeTrunk"), Is.Null);
