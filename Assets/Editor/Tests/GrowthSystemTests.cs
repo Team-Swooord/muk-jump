@@ -21,20 +21,24 @@ namespace MukJump.EditorTests
     {
         const string ScrollAssetPath =
             "Assets/Resources/MukJump/UI/Growth/growth_scroll.png";
+        const string CardFrameAssetPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_card_frame.png";
         const string VitalityAssetPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_vitality.png";
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_vitality.png";
         const string JumpAssetPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_jump.png";
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_jump.png";
         const string InkCapacityAssetPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_ink_capacity.png";
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_ink_capacity.png";
         const string InkRecoveryAssetPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_ink_regen.png";
-        const string PlatformAssetPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_platform.png";
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_ink_recovery.png";
+        const string PlatformLifetimeAssetPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_platform_lifetime.png";
+        const string PlatformSlotsAssetPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_platform_slots.png";
         const string GuardAssetPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_guard.png";
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_stroke_guard.png";
         const string FortuneAssetPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_fortune.png";
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_item_fortune.png";
 
         readonly List<UnityEngine.Object> cleanup = new();
         readonly List<Camera> retaggedMainCameras = new();
@@ -536,35 +540,44 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ChoiceViewBuildsBlockingAugmentTarotWithOneToThreeDynamicCards()
+        public void ChoiceViewBuildsIllustratedAugmentCardsWithOneToThreeDynamicChoices()
         {
+            var cardFrameSprite = LoadGrowthSprite(
+                CardFrameAssetPath,
+                "MukJump/UI/Growth/growth_card_frame",
+                1024);
             var vitalitySprite = LoadGrowthSprite(
-                VitalityAssetPath, "MukJump/UI/Growth/growth_vitality");
+                VitalityAssetPath, "MukJump/UI/Growth/growth_card_icon_vitality");
             var jumpSprite = LoadGrowthSprite(
-                JumpAssetPath, "MukJump/UI/Growth/growth_jump");
+                JumpAssetPath, "MukJump/UI/Growth/growth_card_icon_jump");
             var capacitySprite = LoadGrowthSprite(
-                InkCapacityAssetPath, "MukJump/UI/Growth/growth_ink_capacity");
+                InkCapacityAssetPath, "MukJump/UI/Growth/growth_card_icon_ink_capacity");
             var recoverySprite = LoadGrowthSprite(
-                InkRecoveryAssetPath, "MukJump/UI/Growth/growth_ink_regen");
-            var platformSprite = LoadGrowthSprite(
-                PlatformAssetPath, "MukJump/UI/Growth/growth_platform");
+                InkRecoveryAssetPath, "MukJump/UI/Growth/growth_card_icon_ink_recovery");
+            var platformLifetimeSprite = LoadGrowthSprite(
+                PlatformLifetimeAssetPath,
+                "MukJump/UI/Growth/growth_card_icon_platform_lifetime");
+            var platformSlotsSprite = LoadGrowthSprite(
+                PlatformSlotsAssetPath,
+                "MukJump/UI/Growth/growth_card_icon_platform_slots");
             var guardSprite = LoadGrowthSprite(
-                GuardAssetPath, "MukJump/UI/Growth/growth_guard");
+                GuardAssetPath, "MukJump/UI/Growth/growth_card_icon_stroke_guard");
             var fortuneSprite = LoadGrowthSprite(
-                FortuneAssetPath, "MukJump/UI/Growth/growth_fortune");
+                FortuneAssetPath, "MukJump/UI/Growth/growth_card_icon_item_fortune");
             var scrollSprite = LoadGrowthSprite(
                 ScrollAssetPath, "MukJump/UI/Growth/growth_scroll");
             Assert.That(scrollSprite, Is.Not.Null);
 
             var host = Track(new GameObject("GrowthChoiceViewHost"));
             var view = host.AddComponent<GrowthChoiceView>();
+            view.SetCardFrame(cardFrameSprite);
             view.SetSprites(
                 vitalitySprite,
                 jumpSprite,
                 capacitySprite,
                 recoverySprite,
-                platformSprite,
-                platformSprite,
+                platformLifetimeSprite,
+                platformSlotsSprite,
                 guardSprite,
                 fortuneSprite);
             Invoke(view, "BuildIfNeeded");
@@ -638,16 +651,25 @@ namespace MukJump.EditorTests
                 ((RectTransform)firstCard).sizeDelta.y,
                 Is.GreaterThan(((RectTransform)firstCard).sizeDelta.x * 3f),
                 "증강 카드는 세로로 긴 수묵 타로 실루엣이어야 합니다.");
-            Assert.That(firstButton.targetGraphic,
-                Is.SameAs(firstCard.Find("Paper").GetComponent<Image>()));
+            var cardFrame = firstCard.Find("CardFrame").GetComponent<Image>();
+            var hitSurface = firstCard.Find("HitSurface").GetComponent<Image>();
+            Assert.That(firstButton.targetGraphic, Is.SameAs(hitSurface));
             Assert.That(firstButton.targetGraphic.raycastTarget, Is.True);
+            Assert.That(hitSurface.color.a, Is.LessThan(0.01f));
+            Assert.That(cardFrame.sprite, Is.SameAs(cardFrameSprite));
+            Assert.That(cardFrame.type, Is.EqualTo(Image.Type.Simple));
+            Assert.That(cardFrame.preserveAspect, Is.False);
+            Assert.That(cardFrame.raycastTarget, Is.False);
+            Assert.That(cardFrame.color, Is.EqualTo(Color.white));
             Assert.That(
                 InkUiStyle.UsesActionButtonSprite(
                     firstButton.targetGraphic as Image),
                 Is.False,
                 "증강 카드 전체 선택 영역은 공용 텍스트 버튼 스킨 대상이 아닙니다.");
             Assert.That(firstCard.GetComponent<InkUiPressFeedback>(), Is.Not.Null);
-            Assert.That(firstCard.Find("SceneMoon"), Is.Not.Null);
+            Assert.That(firstCard.Find("SceneMoon"), Is.Null);
+            Assert.That(firstCard.Find("Paper"), Is.Null);
+            Assert.That(firstCard.Find("PaperCore"), Is.Null);
             Assert.That(firstCard.Find("SceneGround"), Is.Null);
             Assert.That(firstCard.Find("Shadow"), Is.Null);
             Assert.That(firstCard.Find("SelectedSeal"), Is.Null);
@@ -661,6 +683,8 @@ namespace MukJump.EditorTests
                 Is.False);
             Assert.That(firstCard.Find("Effect").GetComponent<Text>().raycastTarget,
                 Is.False);
+            Assert.That(firstCard.Find("Description").GetComponent<Text>().raycastTarget,
+                Is.False);
 
             AssertReadableGrowthText(
                 firstCard.Find("Name")?.GetComponent<Text>(), 38);
@@ -668,6 +692,8 @@ namespace MukJump.EditorTests
                 firstCard.Find("Status")?.GetComponent<Text>(), 22);
             AssertReadableGrowthText(
                 firstCard.Find("Effect")?.GetComponent<Text>(), 28);
+            AssertReadableGrowthText(
+                firstCard.Find("Description")?.GetComponent<Text>(), 24);
             AssertVerticalGapAtLeast(
                 firstCard.Find("Name") as RectTransform,
                 firstCard.Find("Status") as RectTransform,
@@ -675,6 +701,10 @@ namespace MukJump.EditorTests
             AssertVerticalGapAtLeast(
                 firstCard.Find("Status") as RectTransform,
                 firstCard.Find("Effect") as RectTransform,
+                8f);
+            AssertVerticalGapAtLeast(
+                firstCard.Find("Effect") as RectTransform,
+                firstCard.Find("Description") as RectTransform,
                 8f);
 
             ForceCurrentOffers(
@@ -720,6 +750,29 @@ namespace MukJump.EditorTests
             Assert.That(thirdCard.Find("Name").GetComponent<Text>().text,
                 Is.EqualTo("길운"));
 
+            var expectedSprites = new[]
+            {
+                vitalitySprite,
+                jumpSprite,
+                capacitySprite,
+                recoverySprite,
+                platformLifetimeSprite,
+                platformSlotsSprite,
+                guardSprite,
+                fortuneSprite,
+            };
+            var expectedDescriptions = new Dictionary<GrowthUpgradeType, string>
+            {
+                [GrowthUpgradeType.Vitality] = "장애물 피해를 한 번 더 견딥니다.",
+                [GrowthUpgradeType.JumpPower] = "자동 점프가 더 높아집니다.",
+                [GrowthUpgradeType.InkCapacity] = "담아둘 수 있는 먹이 늘어납니다.",
+                [GrowthUpgradeType.InkRecovery] = "소모한 먹을 더 빠르게 회복합니다.",
+                [GrowthUpgradeType.PlatformLifetime] = "그린 발판이 더 오래 남습니다.",
+                [GrowthUpgradeType.PlatformSlots] = "발판을 하나 더 유지합니다.",
+                [GrowthUpgradeType.StrokeGuard] = "새 발판이 낙묵석을 한 번 막습니다.",
+                [GrowthUpgradeType.ItemFortune] = "일반 아이템이 더 빨리 나타납니다.",
+            };
+
             foreach (GrowthUpgradeType type in Enum.GetValues(
                          typeof(GrowthUpgradeType)))
             {
@@ -732,9 +785,17 @@ namespace MukJump.EditorTests
                 Assert.That(
                     firstCard.Find("Effect").GetComponent<Text>().text,
                     Does.Not.Contain("\n"));
+                Assert.That(
+                    firstCard.Find("Description").GetComponent<Text>().text,
+                    Is.EqualTo(expectedDescriptions[type]));
+                Assert.That(
+                    firstCard.Find("Icon").GetComponent<Image>().sprite,
+                    Is.SameAs(expectedSprites[(int)type]));
                 AssertTextFitsRect(firstCard.Find("Name")?.GetComponent<Text>());
                 AssertTextFitsRect(firstCard.Find("Status")?.GetComponent<Text>());
                 AssertTextFitsRect(firstCard.Find("Effect")?.GetComponent<Text>());
+                AssertWrappedTextFitsRect(
+                    firstCard.Find("Description")?.GetComponent<Text>());
             }
 
             ForceCurrentOffers(
@@ -748,7 +809,7 @@ namespace MukJump.EditorTests
             Assert.That(firstCard.Find("Icon").GetComponent<Image>().sprite,
                 Is.SameAs(jumpSprite));
             Assert.That(secondCard.Find("Icon").GetComponent<Image>().sprite,
-                Is.SameAs(platformSprite));
+                Is.SameAs(platformLifetimeSprite));
             Assert.That(((RectTransform)firstCard).anchoredPosition.x,
                 Is.EqualTo(-130f).Within(0.0001f));
             Assert.That(((RectTransform)secondCard).anchoredPosition.x,
@@ -777,9 +838,86 @@ namespace MukJump.EditorTests
                 firstCard.Find("Outline").GetComponent<Image>().color,
                 Is.EqualTo(InkPalette.Gold),
                 "확정된 카드에는 장식 도장 대신 금빛 외곽선만 남아야 합니다.");
+            Assert.That(firstCard.Find("CardFrame").GetComponent<Image>().color,
+                Is.EqualTo(Color.white),
+                "선택 강조가 수묵 산수 프레임 원본 색을 바꾸면 안 됩니다.");
             Assert.That(firstCard.localScale, Is.EqualTo(Vector3.one),
                 "평면 판화 카드는 선택해도 확대되어 떠 보이면 안 됩니다.");
             Assert.That(growth.CancelChoice(), Is.True);
+        }
+
+        [Test]
+        public void GrowthCardAssetsUseMobileUiImporterSettings()
+        {
+            var frameImporter = AssetImporter.GetAtPath(CardFrameAssetPath)
+                as TextureImporter;
+            Assert.That(frameImporter, Is.Not.Null);
+            var frameSettings = new TextureImporterSettings();
+            frameImporter.ReadTextureSettings(frameSettings);
+            Assert.That(frameImporter.textureType, Is.EqualTo(TextureImporterType.Sprite));
+            Assert.That(frameImporter.spriteImportMode, Is.EqualTo(SpriteImportMode.Single));
+            Assert.That(frameSettings.spriteMeshType, Is.EqualTo(SpriteMeshType.FullRect));
+            Assert.That(frameImporter.alphaIsTransparency, Is.True);
+            Assert.That(frameImporter.mipmapEnabled, Is.False);
+            Assert.That(frameImporter.npotScale, Is.EqualTo(TextureImporterNPOTScale.None));
+            Assert.That(frameImporter.wrapMode, Is.EqualTo(TextureWrapMode.Clamp));
+            Assert.That(frameImporter.filterMode, Is.EqualTo(FilterMode.Bilinear));
+            Assert.That(frameImporter.maxTextureSize, Is.EqualTo(1024));
+            Assert.That(frameImporter.textureCompression,
+                Is.EqualTo(TextureImporterCompression.CompressedHQ));
+
+            string[] iconPaths =
+            {
+                VitalityAssetPath,
+                JumpAssetPath,
+                InkCapacityAssetPath,
+                InkRecoveryAssetPath,
+                PlatformLifetimeAssetPath,
+                PlatformSlotsAssetPath,
+                GuardAssetPath,
+                FortuneAssetPath,
+            };
+            foreach (string path in iconPaths)
+            {
+                var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+                Assert.That(importer, Is.Not.Null, path);
+                Assert.That(importer.textureType,
+                    Is.EqualTo(TextureImporterType.Sprite), path);
+                Assert.That(importer.spriteImportMode,
+                    Is.EqualTo(SpriteImportMode.Single), path);
+                Assert.That(importer.alphaIsTransparency, Is.True, path);
+                Assert.That(importer.mipmapEnabled, Is.False, path);
+                Assert.That(importer.wrapMode, Is.EqualTo(TextureWrapMode.Clamp), path);
+                Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Bilinear), path);
+                Assert.That(importer.maxTextureSize, Is.EqualTo(512), path);
+                Assert.That(importer.textureCompression,
+                    Is.EqualTo(TextureImporterCompression.CompressedHQ), path);
+            }
+        }
+
+        [Test]
+        public void ChoiceViewReplacesLegacySceneArtWithCanonicalCardResources()
+        {
+            var legacySprite = CreateTestSprite();
+            var host = Track(new GameObject("LegacyGrowthChoiceViewHost"));
+            var view = host.AddComponent<GrowthChoiceView>();
+            SetField(view, "growthCardFrame", legacySprite);
+            SetField(view, "growthIcons",
+                Enumerable.Repeat(legacySprite, 8).ToArray());
+
+            view.SetSprites(Array.Empty<Sprite>());
+
+            Assert.That(GetField<Sprite>(view, "growthCardFrame"),
+                Is.Not.SameAs(legacySprite),
+                "기존 Main 씬을 다시 만들지 않아도 공통 카드 프레임을 교체해야 합니다.");
+            var resolvedIcons = GetField<Sprite[]>(view, "growthIcons");
+            Assert.That(resolvedIcons, Has.Length.EqualTo(8));
+            for (int i = 0; i < resolvedIcons.Length; i++)
+            {
+                Assert.That(resolvedIcons[i], Is.Not.Null);
+                Assert.That(resolvedIcons[i], Is.Not.SameAs(legacySprite),
+                    $"기존 씬의 {i}번 아이콘이 새 런타임 스프라이트로 교체되어야 합니다.");
+            }
         }
 
         [Test]
@@ -1016,7 +1154,8 @@ namespace MukJump.EditorTests
 
         static Sprite LoadGrowthSprite(
             string assetPath,
-            string resourcePath)
+            string resourcePath,
+            int maximumTextureSize = 512)
         {
             var importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
             Assert.That(importer, Is.Not.Null,
@@ -1024,8 +1163,9 @@ namespace MukJump.EditorTests
             Assert.That(importer.textureType,
                 Is.EqualTo(TextureImporterType.Sprite),
                 $"Resources.Load<Sprite>를 위해 Sprite 임포트가 필요합니다: {assetPath}");
-            Assert.That(importer.maxTextureSize, Is.LessThanOrEqualTo(512),
-                $"모바일 선택 아이콘은 512px GPU 예산을 넘기면 안 됩니다: {assetPath}");
+            Assert.That(importer.maxTextureSize,
+                Is.LessThanOrEqualTo(maximumTextureSize),
+                $"모바일 선택 아트가 텍스처 예산을 넘습니다: {assetPath}");
             var sprite = Resources.Load<Sprite>(resourcePath);
             Assert.That(sprite, Is.Not.Null,
                 $"성장 아이콘 Resources 경로가 올바르지 않습니다: {resourcePath}");
@@ -1081,6 +1221,15 @@ namespace MukJump.EditorTests
                 $"{text.name} 문구가 카드 가로 영역을 넘습니다: {text.text}");
             Assert.That(text.preferredHeight,
                 Is.LessThanOrEqualTo(rect.sizeDelta.y + 0.001f),
+                $"{text.name} 문구가 카드 세로 영역을 넘습니다: {text.text}");
+        }
+
+        static void AssertWrappedTextFitsRect(Text text)
+        {
+            Assert.That(text, Is.Not.Null);
+            Assert.That(text.horizontalOverflow, Is.EqualTo(HorizontalWrapMode.Wrap));
+            Assert.That(text.preferredHeight,
+                Is.LessThanOrEqualTo(text.rectTransform.sizeDelta.y + 0.001f),
                 $"{text.name} 문구가 카드 세로 영역을 넘습니다: {text.text}");
         }
 

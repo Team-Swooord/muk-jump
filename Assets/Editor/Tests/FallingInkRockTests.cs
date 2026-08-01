@@ -321,6 +321,10 @@ public class FallingInkRockTests
         Assert.IsNotNull(growthChoice);
         Assert.IsNotNull(growthSpawner);
         var growthChoiceSerialized = new SerializedObject(growthChoice);
+        Assert.IsNotNull(
+            growthChoiceSerialized.FindProperty("growthCardFrame")
+                .objectReferenceValue,
+            "증강 카드 공통 수묵 프레임이 씬 빌더에서 주입되어야 합니다.");
         var growthIcons = growthChoiceSerialized.FindProperty("growthIcons");
         Assert.IsNotNull(growthIcons);
         Assert.AreEqual(8, growthIcons.arraySize);
@@ -330,10 +334,10 @@ public class FallingInkRockTests
                 growthIcons.GetArrayElementAtIndex(i).objectReferenceValue,
                 $"성장 선택 아이콘 {i}번 슬롯이 비어 있습니다.");
         }
-        Assert.AreSame(
+        Assert.AreNotSame(
             growthIcons.GetArrayElementAtIndex(4).objectReferenceValue,
             growthIcons.GetArrayElementAtIndex(5).objectReferenceValue,
-            "긴 여운과 겹친 획은 범용 발판 아이콘을 공유해야 합니다.");
+            "긴 여운과 겹친 획은 서로 다른 실루엣으로 즉시 구분되어야 합니다.");
         var growthSerialized = new SerializedObject(growthSpawner);
         Assert.IsNotNull(
             growthSerialized.FindProperty("growthScrollSprite").objectReferenceValue);
