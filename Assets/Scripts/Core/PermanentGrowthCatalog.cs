@@ -540,105 +540,105 @@ namespace MukJump.Core
                 PermanentGrowthType.InkCapacity,
                 new[]
                 {
-                    new NodePoint(-100f, -1160f),
-                    new NodePoint(-120f, -900f),
-                    new NodePoint(-220f, -640f),
-                    new NodePoint(-300f, -380f),
-                    new NodePoint(-360f, -120f),
-                    new NodePoint(-380f, 150f),
+                    new NodePoint(0f, -1160f),
+                    new NodePoint(-100f, -900f),
+                    new NodePoint(-280f, -620f),
+                    new NodePoint(-200f, -180f),
+                    new NodePoint(-250f, 360f),
+                    new NodePoint(-480f, 940f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.InkRecovery,
                 new[]
                 {
-                    new NodePoint(120f, -640f),
-                    new NodePoint(180f, -380f),
-                    new NodePoint(240f, -120f),
-                    new NodePoint(280f, 150f),
-                    new NodePoint(300f, 420f),
-                    new NodePoint(260f, 680f),
+                    new NodePoint(160f, -620f),
+                    new NodePoint(320f, -380f),
+                    new NodePoint(420f, -40f),
+                    new NodePoint(440f, 300f),
+                    new NodePoint(440f, 620f),
+                    new NodePoint(480f, 940f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.PlatformLifetime,
                 new[]
                 {
-                    new NodePoint(500f, -120f),
-                    new NodePoint(580f, 150f),
-                    new NodePoint(630f, 420f),
-                    new NodePoint(610f, 670f),
-                    new NodePoint(540f, 900f),
-                    new NodePoint(400f, 1100f),
+                    new NodePoint(60f, -100f),
+                    new NodePoint(20f, 160f),
+                    new NodePoint(-40f, 420f),
+                    new NodePoint(-100f, 680f),
+                    new NodePoint(100f, 780f),
+                    new NodePoint(0f, 1000f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.JumpCharge,
                 new[]
                 {
-                    new NodePoint(320f, -1160f),
-                    new NodePoint(520f, -880f),
-                    new NodePoint(700f, -600f),
-                    new NodePoint(740f, -320f),
-                    new NodePoint(720f, -40f),
-                    new NodePoint(680f, 240f),
+                    new NodePoint(500f, -1160f),
+                    new NodePoint(700f, -900f),
+                    new NodePoint(850f, -650f),
+                    new NodePoint(700f, -360f),
+                    new NodePoint(760f, -40f),
+                    new NodePoint(700f, 300f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.Vitality,
                 new[]
                 {
-                    new NodePoint(-360f, -1160f),
+                    new NodePoint(-500f, -1160f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.DamageGrace,
                 new[]
                 {
-                    new NodePoint(-720f, -860f),
-                    new NodePoint(-920f, -550f),
-                    new NodePoint(-1080f, -240f),
+                    new NodePoint(-1400f, -850f),
+                    new NodePoint(-1400f, -500f),
+                    new NodePoint(-1400f, -150f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.LastBreath,
                 new[]
                 {
-                    new NodePoint(-900f, 220f),
+                    new NodePoint(-550f, 180f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.JumpPower,
                 new[]
                 {
-                    new NodePoint(1020f, -320f),
-                    new NodePoint(1180f, -40f),
-                    new NodePoint(1280f, 240f),
-                    new NodePoint(1260f, 520f),
-                    new NodePoint(1140f, 780f),
+                    new NodePoint(1050f, -360f),
+                    new NodePoint(1100f, -40f),
+                    new NodePoint(1050f, 280f),
+                    new NodePoint(1100f, 600f),
+                    new NodePoint(1000f, 900f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.DrawnPlatformLeap,
                 new[]
                 {
-                    new NodePoint(920f, 1080f),
+                    new NodePoint(700f, 1200f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.StrokeGuard,
                 new[]
                 {
-                    new NodePoint(0f, 1280f),
+                    new NodePoint(0f, 1420f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.CloneSpawnGrace,
                 new[]
                 {
-                    new NodePoint(-500f, -860f),
-                    new NodePoint(-580f, -550f),
-                    new NodePoint(-720f, -240f),
+                    new NodePoint(-750f, -850f),
+                    new NodePoint(-750f, -500f),
+                    new NodePoint(-750f, -220f),
                 });
 
             return nodes.ToArray();

@@ -16,6 +16,7 @@ namespace MukJump.EditorTests
             "pg_hanji_background",
             "pg_tree_trunk",
             "pg_tree_trunk_mask",
+            "pg_tree_background_v3",
             "pg_branch",
             "pg_branch_mask",
             "pg_node_bud",
@@ -105,7 +106,8 @@ namespace MukJump.EditorTests
                 bool large =
                     SpriteNames[i] == "pg_hanji_background" ||
                     SpriteNames[i] == "pg_tree_trunk" ||
-                    SpriteNames[i] == "pg_tree_trunk_mask";
+                    SpriteNames[i] == "pg_tree_trunk_mask" ||
+                    SpriteNames[i].StartsWith("pg_tree_background_v");
                 bool medium =
                     SpriteNames[i] == "pg_branch" ||
                     SpriteNames[i] == "pg_branch_mask" ||
@@ -173,10 +175,15 @@ namespace MukJump.EditorTests
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
             Assert.That(panel, Is.Not.Null);
-            Transform treeCanvas = panel.Find("TreeViewport/TreeCanvas");
+            Transform treeCanvas = viewHost.transform.Find(
+                "PermanentGrowthCanvas/ScreenRoot/TreeLayerRoot/" +
+                "TreeViewport/TreeCanvas");
             Assert.That(treeCanvas, Is.Not.Null);
             AssertSprite(treeCanvas.Find("InkTreeRoot"), "pg_root_emblem");
-            AssertSprite(treeCanvas.Find("InkTreeTrunk"), "pg_tree_trunk");
+            AssertSprite(
+                treeCanvas.Find("InkTreeBackground"),
+                "pg_tree_background_v3");
+            Assert.That(treeCanvas.Find("InkTreeTrunk"), Is.Null);
             Assert.That(
                 treeCanvas.Find("InkTreeRedFlow"),
                 Is.Null,
@@ -195,7 +202,8 @@ namespace MukJump.EditorTests
                     ?.GetComponent<Text>();
                 Assert.That(
                     title?.fontSize,
-                    Is.GreaterThanOrEqualTo(36));
+                    Is.GreaterThanOrEqualTo(34));
+                Assert.That(header.Find("BranchSummary"), Is.Null);
             }
 
             foreach (PermanentGrowthNodeDefinition definition
@@ -211,9 +219,8 @@ namespace MukJump.EditorTests
                 Assert.That(touch.sizeDelta.x, Is.GreaterThanOrEqualTo(100f));
                 Assert.That(touch.sizeDelta.y, Is.GreaterThanOrEqualTo(100f));
                 Assert.That(node.GetComponent<Button>(), Is.Not.Null);
-                Assert.That(node.Find("NodeName")?.GetComponent<Text>()
-                        ?.fontSize,
-                    Is.GreaterThanOrEqualTo(30));
+                Assert.That(node.Find("NodeName"), Is.Null);
+                Assert.That(node.Find("NodeLevel"), Is.Null);
                 Assert.That(
                     HasIncomingPath(treeCanvas, definition),
                     Is.True,
@@ -231,6 +238,12 @@ namespace MukJump.EditorTests
                     definition.Id);
             }
 
+            Assert.That(
+                treeCanvas.Find("SelectedGrowthAction/ActionName"),
+                Is.Not.Null);
+            Assert.That(
+                treeCanvas.Find("SelectedGrowthAction/ActionCostIcon"),
+                Is.Not.Null);
             Assert.That(
                 treeCanvas.Find("SelectedGrowthAction/EnhanceButton"),
                 Is.Not.Null);
@@ -265,12 +278,11 @@ namespace MukJump.EditorTests
             Transform panel = viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
-            Transform selectedNode = panel.Find(
+            Transform selectedNode = viewHost.transform.Find(
+                "PermanentGrowthCanvas/ScreenRoot/TreeLayerRoot/" +
                 "TreeViewport/TreeCanvas/" +
                 "GrowthNode_permanent_ink_capacity_rank_1");
-            Assert.That(
-                selectedNode.Find("NodeLevel").GetComponent<Text>().text,
-                Is.EqualTo("열매 개화"));
+            Assert.That(selectedNode.Find("NodeLevel"), Is.Null);
             Assert.That(
                 selectedNode.Find("NodeSurface").GetComponent<Image>().color,
                 Is.Not.EqualTo(InkPalette.Red),

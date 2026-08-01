@@ -54,13 +54,19 @@ namespace MukJump.EditorTests
             Assert.That(
                 growthView.CreatedNodeCount,
                 Is.EqualTo(PermanentGrowthCatalog.Nodes.Count));
-            Assert.That(growthView.BalanceLabel, Is.EqualTo("보유 먹빛 0"));
+            Assert.That(growthView.BalanceLabel, Is.EqualTo("0"));
             Transform growthPanel = viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
             Assert.That(growthPanel, Is.Not.Null);
-            var viewport =
-                (RectTransform)growthPanel.Find("TreeViewport");
+            var viewport = (RectTransform)viewHost.transform.Find(
+                "PermanentGrowthCanvas/ScreenRoot/TreeLayerRoot/" +
+                "TreeViewport");
+            Assert.That(viewport, Is.Not.Null);
+            Assert.That(
+                viewport.parent.name,
+                Is.EqualTo("TreeLayerRoot"),
+                "지도는 Safe Area와 무관하게 실제 화면 네 변까지 사용해야 합니다.");
             var treeCanvas =
                 (RectTransform)viewport.Find("TreeCanvas");
             Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null);
@@ -74,11 +80,15 @@ namespace MukJump.EditorTests
                 Is.EqualTo(ScrollRect.MovementType.Clamped));
             Assert.That(treeCanvas.sizeDelta.x, Is.GreaterThan(viewport.sizeDelta.x));
             Assert.That(treeCanvas.sizeDelta.y, Is.GreaterThan(viewport.sizeDelta.y));
-            Assert.That(viewport.sizeDelta.x, Is.EqualTo(980f));
-            Assert.That(viewport.sizeDelta.y, Is.EqualTo(1660f));
+            Assert.That(viewport.sizeDelta.x, Is.EqualTo(1080f));
+            Assert.That(viewport.sizeDelta.y, Is.EqualTo(1920f));
+            Assert.That(viewport.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(
+                viewport.GetComponent<RectMask2D>().padding,
+                Is.EqualTo(Vector4.zero));
             Assert.That(
                 treeCanvas.localScale.x,
-                Is.EqualTo(0.9f).Within(0.001f));
+                Is.EqualTo(0.84f).Within(0.001f));
             Assert.That(
                 viewport.GetSiblingIndex(),
                 Is.Zero,
@@ -111,12 +121,12 @@ namespace MukJump.EditorTests
                 "도약 첫 열매");
             Assert.That(
                 treeCanvas.Find("InkTreeTrunk"),
-                Is.Not.Null,
-                "큰 먹나무 줄기가 드래그 지도 안에 있어야 합니다.");
+                Is.Null,
+                "완성 나무 위에 별도 줄기를 겹치면 알파 경계가 드러납니다.");
             Assert.That(
                 treeCanvas.Find("InkTreeRootLabel"),
-                Is.Not.Null,
-                "첫 화면의 뿌리 이름이 있어야 합니다.");
+                Is.Null,
+                "지도 안에는 뿌리 설명 글자를 반복하지 않습니다.");
             foreach (PermanentGrowthBranchMetadata branch
                      in PermanentGrowthCatalog.Branches)
             {
@@ -127,10 +137,21 @@ namespace MukJump.EditorTests
                     header,
                     Is.Not.Null,
                     branch.DisplayName);
+                AssertContainedInViewport(
+                    header,
+                    viewport,
+                    $"{branch.DisplayName} 대분류");
+                Image branchBrush = header.Find("Brush")
+                    ?.GetComponent<Image>();
+                Text branchTitle = header.Find("Brush/BranchTitle")
+                    ?.GetComponent<Text>();
+                Assert.That(branchBrush, Is.Not.Null);
                 Assert.That(
-                    header.Find("Brush/BranchTitle")
-                        ?.GetComponent<Text>()?.fontSize,
-                    Is.GreaterThanOrEqualTo(36));
+                    branchBrush.color.a,
+                    Is.EqualTo(1f).Within(0.001f));
+                Assert.That(branchTitle?.fontSize, Is.GreaterThanOrEqualTo(36));
+                Assert.That(branchTitle?.fontStyle, Is.EqualTo(FontStyle.Normal));
+                Assert.That(header.Find("BranchSummary"), Is.Null);
             }
             foreach (PermanentGrowthNodeDefinition definition
                      in PermanentGrowthCatalog.Nodes)
@@ -142,9 +163,8 @@ namespace MukJump.EditorTests
                 Assert.That(rect.sizeDelta.x, Is.GreaterThanOrEqualTo(100f));
                 Assert.That(rect.sizeDelta.y, Is.GreaterThanOrEqualTo(100f));
                 Assert.That(node.GetComponent<Button>(), Is.Not.Null);
-                Assert.That(
-                    node.Find("NodeName")?.GetComponent<Text>()?.fontSize,
-                    Is.GreaterThanOrEqualTo(30));
+                Assert.That(node.Find("NodeName"), Is.Null);
+                Assert.That(node.Find("NodeLevel"), Is.Null);
                 RectTransform surface = node.Find("NodeSurface")
                     ?.GetComponent<RectTransform>();
                 Assert.That(surface, Is.Not.Null);
@@ -172,10 +192,18 @@ namespace MukJump.EditorTests
                 Is.LessThanOrEqualTo(320f));
             Assert.That(
                 selectedAction.sizeDelta.y,
-                Is.LessThanOrEqualTo(180f));
+                Is.LessThanOrEqualTo(190f));
+            Text actionName = selectedAction.Find("ActionName")
+                ?.GetComponent<Text>();
+            Assert.That(actionName, Is.Not.Null);
+            Assert.That(actionName.fontStyle, Is.EqualTo(FontStyle.Normal));
             Assert.That(
-                selectedAction.Find("ActionStatus")?.GetComponent<Text>(),
+                selectedAction.Find("ActionCostIcon")?.GetComponent<Image>(),
                 Is.Not.Null);
+            Text actionStatus = selectedAction.Find("ActionStatus")
+                ?.GetComponent<Text>();
+            Assert.That(actionStatus, Is.Not.Null);
+            Assert.That(actionStatus.fontStyle, Is.EqualTo(FontStyle.Normal));
             Assert.That(
                 selectedAction.Find("EnhanceButton")?.GetComponent<Button>(),
                 Is.Not.Null);
