@@ -597,6 +597,7 @@ namespace MukJump.Core
             List<Image> branchArts)
         {
             bool capstone = definition.IsCapstone;
+            bool commonTrunk = definition.IsCommonTrunk;
             Vector2 position = NodePosition(definition);
             Vector2 touchSize = capstone
                 ? new Vector2(240f, 260f)
@@ -613,7 +614,11 @@ namespace MukJump.Core
             InkUiStyle.ConfigureButton(button, hit, addInkFeedback: false);
 
             float nodeCenterY = 30f;
-            float surfaceSize = capstone ? 164f : 124f;
+            float surfaceSize = capstone
+                ? 164f
+                : commonTrunk
+                    ? 136f
+                    : 124f;
             Image nodeContrast = CreateImage(
                 "NodeContrast",
                 root,
@@ -765,9 +770,7 @@ namespace MukJump.Core
             int firstAvailable = -1;
             for (int i = 0; i < nodes.Count; i++)
             {
-                if (nodes[i].NodeDefinition.Type ==
-                        PermanentGrowthType.InkCapacity &&
-                    nodes[i].NodeDefinition.Rank == 1)
+                if (nodes[i].NodeDefinition.ParentIds.Count == 0)
                 {
                     selectedSlot = i;
                     return;
@@ -1142,16 +1145,16 @@ namespace MukJump.Core
 
         static Vector2 BranchHeaderPosition(PermanentGrowthBranch branch)
         {
-            // 세 대분류는 첫 화면의 뿌리 바로 위에서 먼저 읽힌다. 종착점에
-            // 붙이면 지도에 들어오자마자 어느 가지가 무엇인지 알 수 없다.
+            // 공통 줄기 끝에서 갈라지는 실제 세 입구에 표찰을 붙인다.
+            // 뿌리 옆에 두면 처음부터 세 갈래인 것처럼 오해하기 쉽다.
             return branch switch
             {
                 PermanentGrowthBranch.Survival =>
-                    new Vector2(-500f, -1310f),
+                    new Vector2(-520f, -100f),
                 PermanentGrowthBranch.InkHandling =>
-                    new Vector2(0f, -1310f),
+                    new Vector2(0f, -100f),
                 PermanentGrowthBranch.Leap =>
-                    new Vector2(500f, -1310f),
+                    new Vector2(520f, -100f),
                 _ => Vector2.zero,
             };
         }

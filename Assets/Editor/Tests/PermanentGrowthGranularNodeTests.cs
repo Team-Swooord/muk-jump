@@ -221,6 +221,13 @@ namespace MukJump.EditorTests
                     3);
 
             Assert.That(
+                PermanentGrowthProfile.CanPurchaseNode(vitality),
+                Is.False,
+                "세 계보는 공통 줄기를 모두 연 뒤에만 시작해야 합니다.");
+            Assert.That(
+                PermanentGrowthProfile.GetNodeLockReason(vitality),
+                Does.Contain("먹결"));
+            Assert.That(
                 PermanentGrowthProfile.MeetsNodeRequirements(cloneRank1),
                 Is.False);
             Assert.That(
@@ -232,6 +239,19 @@ namespace MukJump.EditorTests
             Assert.That(
                 PermanentGrowthProfile.GetNodeLockReason(cloneRank1),
                 Does.Contain("먹심"));
+
+            PermanentGrowthNodeDefinition[] commonTrunk =
+                PermanentGrowthCatalog.Nodes
+                    .Where(node => node.IsCommonTrunk)
+                    .OrderBy(node => node.LayoutY)
+                    .ToArray();
+            foreach (PermanentGrowthNodeDefinition commonNode in commonTrunk)
+            {
+                Assert.That(
+                    PermanentGrowthProfile.TryPurchaseNode(commonNode),
+                    Is.True,
+                    commonNode.Id);
+            }
 
             Assert.That(
                 PermanentGrowthProfile.TryPurchaseNode(vitality),

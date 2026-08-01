@@ -208,7 +208,80 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void Catalog_세_계보가_좌중우로_분리되고_각각_시각적으로_갈라진다()
+        public void Catalog_단일뿌리의_공통줄기를_지난뒤_세_계보로_갈라진다()
+        {
+            PermanentGrowthNodeDefinition[] commonTrunk =
+                PermanentGrowthCatalog.Nodes
+                    .Where(node => node.IsCommonTrunk)
+                    .OrderBy(node => node.LayoutY)
+                    .ToArray();
+            PermanentGrowthNodeDefinition[] roots =
+                PermanentGrowthCatalog.Nodes
+                    .Where(node => node.ParentIds.Count == 0)
+                    .ToArray();
+
+            Assert.That(roots, Has.Length.EqualTo(1));
+            Assert.That(commonTrunk, Has.Length.EqualTo(5));
+            Assert.That(roots[0], Is.SameAs(commonTrunk[0]));
+            Assert.That(
+                commonTrunk.Select(node => (node.Type, node.Rank)),
+                Is.EqualTo(new[]
+                {
+                    (PermanentGrowthType.InkCapacity, 1),
+                    (PermanentGrowthType.InkCapacity, 2),
+                    (PermanentGrowthType.InkRecovery, 1),
+                    (PermanentGrowthType.InkRecovery, 2),
+                    (PermanentGrowthType.PlatformLifetime, 1),
+                }));
+
+            for (int index = 1; index < commonTrunk.Length; index++)
+            {
+                Assert.That(
+                    commonTrunk[index].ParentIds,
+                    Is.EqualTo(new[] { commonTrunk[index - 1].Id }),
+                    commonTrunk[index].Id);
+                Assert.That(
+                    commonTrunk[index].LayoutY,
+                    Is.GreaterThan(commonTrunk[index - 1].LayoutY),
+                    commonTrunk[index].Id);
+                Assert.That(
+                    System.Math.Abs(commonTrunk[index].LayoutX),
+                    Is.LessThanOrEqualTo(80f),
+                    commonTrunk[index].Id);
+            }
+
+            PermanentGrowthNodeDefinition fork =
+                commonTrunk[commonTrunk.Length - 1];
+            PermanentGrowthNodeDefinition[] branchEntries =
+                PermanentGrowthCatalog.Nodes
+                    .Where(node => node.ParentIds.Contains(fork.Id))
+                    .ToArray();
+            Assert.That(
+                branchEntries.Select(node => node.Id),
+                Is.EquivalentTo(new[]
+                {
+                    PermanentGrowthCatalog.GetNodeId(
+                        PermanentGrowthType.Vitality,
+                        1),
+                    PermanentGrowthCatalog.GetNodeId(
+                        PermanentGrowthType.PlatformLifetime,
+                        2),
+                    PermanentGrowthCatalog.GetNodeId(
+                        PermanentGrowthType.JumpCharge,
+                        1),
+                }));
+            Assert.That(
+                branchEntries.Select(node => node.Branch).Distinct(),
+                Is.EquivalentTo(new[]
+                {
+                    PermanentGrowthBranch.Survival,
+                    PermanentGrowthBranch.InkHandling,
+                    PermanentGrowthBranch.Leap,
+                }));
+        }
+
+        [Test]
+        public void Catalog_분기이후_세_계보가_좌중우로_분리되고_불규칙하게_갈라진다()
         {
             PermanentGrowthNodeDefinition[] survival =
                 BranchNodes(PermanentGrowthBranch.Survival);
@@ -223,11 +296,11 @@ namespace MukJump.EditorTests
                 "생존 계보는 왼쪽 큰 가지를 사용해야 합니다.");
             Assert.That(
                 ink.Min(node => node.LayoutX),
-                Is.GreaterThanOrEqualTo(-480f),
+                Is.GreaterThanOrEqualTo(-440f),
                 "먹 계보는 가운데 큰 가지를 벗어나면 안 됩니다.");
             Assert.That(
                 ink.Max(node => node.LayoutX),
-                Is.LessThanOrEqualTo(480f),
+                Is.LessThanOrEqualTo(440f),
                 "먹 계보는 가운데 큰 가지를 벗어나면 안 됩니다.");
             Assert.That(
                 leap.Min(node => node.LayoutX),
@@ -309,7 +382,8 @@ namespace MukJump.EditorTests
             PermanentGrowthBranch branch)
         {
             return PermanentGrowthCatalog.Nodes
-                .Where(node => node.Branch == branch)
+                .Where(node =>
+                    node.Branch == branch && !node.IsCommonTrunk)
                 .ToArray();
         }
 

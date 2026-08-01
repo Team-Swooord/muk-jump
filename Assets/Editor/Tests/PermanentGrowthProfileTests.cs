@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Reflection;
 using MukJump.Core;
 using NUnit.Framework;
@@ -140,10 +141,14 @@ namespace MukJump.EditorTests
             SeedFullWallet();
             var definition = PermanentGrowthCatalog.Get(
                 PermanentGrowthType.JumpCharge);
-            for (int i = 0; i < definition.MaxLevel; i++)
+            foreach (PermanentGrowthNodeDefinition node
+                     in PermanentGrowthCatalog.Nodes.OrderBy(node => node.LayoutY))
+            {
                 Assert.That(
-                    PermanentGrowthProfile.TryPurchase(definition.Type),
-                    Is.True);
+                    PermanentGrowthProfile.TryPurchaseNode(node),
+                    Is.True,
+                    node.Id);
+            }
 
             int balance = PermanentGrowthProfile.Currency;
             int spent = PermanentGrowthProfile.SpentCurrency;
