@@ -16,10 +16,14 @@
 
 ## 1. 리포 운영 (커밋 히스토리가 해커톤 심사 대상)
 
-- 브랜치: `main` 직접 커밋 금지. `feature/*` 또는 `fix/*` 브랜치 → PR → 머지.
+- 브랜치는 `main`, `feature/ui`, `feature/game` **총 3개만 유지**한다.
+  `main` 직접 커밋은 금지하며 UI는 `feature/ui`, 플레이·물리·콘텐츠는
+  `feature/game`에서 작업한 뒤 PR로 일반 머지한다. 사용자가 정책 변경을
+  명시하지 않는 한 새 브랜치나 추가 worktree를 만들지 않는다.
 - 커밋: Conventional Commits, 한국어 본문 (`feat(drawing): ...`, `fix(player): ...`).
   기능 단위로 잘게 나눠 커밋.
-- 머지 후 로컬 main 동기화 + 머지된 브랜치 삭제까지가 한 사이클.
+- 머지 후 두 고정 작업 브랜치는 삭제하지 않고, 워킹트리가 깨끗할 때 최신
+  `main`으로 fast-forward한다. 세부 소유권은 `docs/branch-policy.md`를 따른다.
 
 ## 2. Unity 씬은 절대 손으로 편집하지 말 것
 
