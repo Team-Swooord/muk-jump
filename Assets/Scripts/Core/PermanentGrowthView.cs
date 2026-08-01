@@ -15,12 +15,12 @@ namespace MukJump.Core
         const int CanvasSortingOrder = 4050;
         const float ReferenceHeight = 1920f;
         const string ArtResourceRoot = "MukJump/UI/PermanentGrowth/";
-        const float TreeCanvasZoom = 0.9f;
-        static readonly Vector2 TreeViewportPosition = new(0f, -30f);
-        static readonly Vector2 TreeViewportSize = new(980f, 1660f);
+        const float TreeCanvasZoom = 0.84f;
+        static readonly Vector2 TreeViewportPosition = Vector2.zero;
+        static readonly Vector2 TreeViewportSize = new(980f, 1760f);
         static readonly Vector2 TreeCanvasSize = new(3400f, 3200f);
-        static readonly Vector2 TreeBackgroundSize = new(3000f, 3060f);
-        static readonly Vector2 TreeBackgroundPosition = new(0f, -20f);
+        static readonly Vector2 TreeBackgroundSize = new(2200f, 3060f);
+        static readonly Vector2 TreeBackgroundPosition = Vector2.zero;
         static readonly Vector2 TreeRootPosition = new(0f, -1420f);
         static readonly string[] BranchPieceNames =
         {
@@ -47,8 +47,6 @@ namespace MukJump.Core
             public Image Icon;
             public Image CompletionMark;
             public Button Button;
-            public Text Name;
-            public Text Level;
         }
 
         readonly List<GrowthNodeView> nodes = new();
@@ -63,7 +61,9 @@ namespace MukJump.Core
         ScrollRect treeScrollRect;
         RectTransform selectedActionRoot;
         Text balanceText;
+        Text selectedActionNameText;
         Text selectedActionStatusText;
+        Image selectedActionCostIcon;
         Text purchaseButtonText;
         GameManager manager;
         Rect lastSafeArea;
@@ -313,65 +313,38 @@ namespace MukJump.Core
 
         void BuildHeader(Transform panel)
         {
-            Text title = CreateText(
-                "Title",
+            RectTransform balanceHud = CreateRect(
+                "CurrencyHud",
                 panel,
-                "영구 성장",
-                72,
-                new Vector2(0f, 798f),
-                new Vector2(520f, 92f),
-                InkPalette.TextDark,
-                FontStyle.Bold);
-            AddReadableWeight(title, 0.22f);
-
-            Text subtitle = CreateText(
-                "Subtitle",
-                panel,
-                "세 갈래 먹가지를 길러 모든 도전에 힘을 남깁니다",
-                36,
-                new Vector2(0f, 726f),
-                new Vector2(780f, 56f),
-                ReadableMutedColor(),
-                FontStyle.Bold);
-            AddReadableWeight(subtitle, 0.12f);
-
-            Sprite balanceSprite =
-                LoadPermanentGrowthSprite("pg_currency_badge");
-            Image balanceBrush = CreateImage(
-                "CurrencyBrush",
-                panel,
-                balanceSprite ?? InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0f, 650f),
-                new Vector2(470f, 82f),
-                balanceSprite != null ? Color.white : InkPalette.Ink);
-            if (balanceSprite != null)
-                balanceBrush.type = Image.Type.Sliced;
+                new Vector2(370f, 800f),
+                new Vector2(190f, 84f));
             Image balanceDrop = CreateImage(
                 "CurrencyDrop",
-                balanceBrush.transform,
+                balanceHud,
                 LoadPermanentGrowthSprite("pg_ink_drop") ??
                 LoadIcon(PermanentGrowthType.InkCapacity),
-                new Vector2(-172f, 0f),
-                new Vector2(44f, 44f),
-                InkPalette.Paper);
+                new Vector2(-50f, 0f),
+                new Vector2(54f, 54f),
+                Color.white);
             balanceDrop.preserveAspect = true;
             balanceText = CreateText(
                 "Balance",
-                balanceBrush.transform,
-                "보유 먹빛 0",
-                40,
-                new Vector2(22f, 0f),
-                new Vector2(360f, 62f),
-                InkPalette.Paper,
+                balanceHud,
+                "0",
+                44,
+                new Vector2(34f, 0f),
+                new Vector2(112f, 66f),
+                InkPalette.TextDark,
                 FontStyle.Bold);
+            balanceText.alignment = TextAnchor.MiddleLeft;
 
             BackButton = CreateBrushButton(
                 "BackButton",
                 panel,
                 "로비",
-                new Vector2(-389f, 798f),
-                new Vector2(190f, 120f),
-                34);
+                new Vector2(-405f, 800f),
+                new Vector2(150f, 120f),
+                32);
             BackButton.onClick.AddListener(HandleBackRequested);
         }
 
@@ -400,19 +373,11 @@ namespace MukJump.Core
 
         void BuildThreeBranchTree(Transform panel)
         {
-            Image crownWash = CreateImage(
-                "TreeCrownWash",
-                panel,
-                InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, -40f),
-                new Vector2(3000f, 2800f),
-                WithAlpha(InkPalette.Ink, 0.022f));
-            crownWash.rectTransform.localEulerAngles =
-                new Vector3(0f, 0f, -5f);
-
             // 열매 노드는 연결선 위가 아니라 한 그루의 큰 먹나무 위에 맺힌다.
-            // 고정 배경을 가장 먼저 두고, 조각 가지는 이후 확장 경로만 보강한다.
+            // 가장자리까지 투명 여백을 둔 v3를 우선 사용해 흰 사각형이나 잘린
+            // 가지 끝이 보이지 않게 한다. 이전 에셋은 호환 폴백으로만 남긴다.
             Sprite treeBackgroundSprite =
+                LoadPermanentGrowthSprite("pg_tree_background_v3") ??
                 LoadPermanentGrowthSprite("pg_tree_background_v2");
             if (treeBackgroundSprite != null)
             {
@@ -422,58 +387,57 @@ namespace MukJump.Core
                     treeBackgroundSprite,
                     TreeBackgroundPosition,
                     TreeBackgroundSize,
-                    new Color(1f, 1f, 1f, 0.76f));
-                // 세로 원본을 넓은 성장 캔버스에 펼쳐 모든 계보가 가지 위에
-                // 놓이게 한다. 노드가 추가돼도 바깥 가지 조각으로 확장 가능하다.
-                treeBackground.preserveAspect = false;
+                    new Color(1f, 1f, 1f, 0.82f));
+                treeBackground.preserveAspect = true;
                 treeBackground.raycastTarget = false;
             }
 
-            Sprite trunkSprite =
-                LoadPermanentGrowthSprite("pg_tree_trunk");
-            Image treeTrunk = CreateImage(
-                "InkTreeTrunk",
-                panel,
-                trunkSprite ?? InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0f, -70f),
-                new Vector2(1450f, 2730f),
-                trunkSprite != null
-                    ? new Color(
-                        1f,
-                        1f,
-                        1f,
-                        treeBackgroundSprite != null ? 0.32f : 0.84f)
-                    : WithAlpha(InkPalette.Ink, 0.22f));
-            treeTrunk.preserveAspect = trunkSprite != null;
+            // 전체 나무가 없을 때만 기존 조각으로 형태를 복원한다. 완성 배경 위에
+            // 줄기와 장식 가지를 겹치면 서로 다른 알파 경계가 사각형처럼 보인다.
+            if (treeBackgroundSprite == null)
+            {
+                Sprite trunkSprite =
+                    LoadPermanentGrowthSprite("pg_tree_trunk");
+                Image treeTrunk = CreateImage(
+                    "InkTreeTrunk",
+                    panel,
+                    trunkSprite ?? InkUiTextureFactory.CreateBrushSprite(),
+                    new Vector2(0f, -70f),
+                    new Vector2(1450f, 2730f),
+                    trunkSprite != null
+                        ? new Color(1f, 1f, 1f, 0.84f)
+                        : WithAlpha(InkPalette.Ink, 0.22f));
+                treeTrunk.preserveAspect = trunkSprite != null;
 
-            CreateDecorativeTreeBranch(
-                panel,
-                "TreeSprigLowerLeft",
-                new Vector2(-40f, -1160f),
-                new Vector2(-720f, -1260f),
-                0.2f,
-                0);
-            CreateDecorativeTreeBranch(
-                panel,
-                "TreeSprigLowerRight",
-                new Vector2(40f, -1160f),
-                new Vector2(720f, -1260f),
-                0.18f,
-                1);
-            CreateDecorativeTreeBranch(
-                panel,
-                "TreeSprigUpperLeft",
-                new Vector2(-40f, 280f),
-                new Vector2(-760f, 880f),
-                0.16f,
-                2);
-            CreateDecorativeTreeBranch(
-                panel,
-                "TreeSprigUpperRight",
-                new Vector2(40f, 320f),
-                new Vector2(760f, 920f),
-                0.14f,
-                3);
+                CreateDecorativeTreeBranch(
+                    panel,
+                    "TreeSprigLowerLeft",
+                    new Vector2(-40f, -1160f),
+                    new Vector2(-720f, -1260f),
+                    0.2f,
+                    0);
+                CreateDecorativeTreeBranch(
+                    panel,
+                    "TreeSprigLowerRight",
+                    new Vector2(40f, -1160f),
+                    new Vector2(720f, -1260f),
+                    0.18f,
+                    1);
+                CreateDecorativeTreeBranch(
+                    panel,
+                    "TreeSprigUpperLeft",
+                    new Vector2(-40f, 280f),
+                    new Vector2(-760f, 880f),
+                    0.16f,
+                    2);
+                CreateDecorativeTreeBranch(
+                    panel,
+                    "TreeSprigUpperRight",
+                    new Vector2(40f, 320f),
+                    new Vector2(760f, 920f),
+                    0.14f,
+                    3);
+            }
 
             Sprite rootSprite =
                 LoadPermanentGrowthSprite("pg_root_emblem");
@@ -485,15 +449,6 @@ namespace MukJump.Core
                 new Vector2(132f, 132f),
                 rootSprite != null ? Color.white : InkPalette.Ink);
             treeRoot.preserveAspect = rootSprite != null;
-            CreateText(
-                "InkTreeRootLabel",
-                panel,
-                "먹빛의 뿌리",
-                32,
-                TreeRootPosition + new Vector2(0f, -88f),
-                new Vector2(260f, 46f),
-                InkPalette.TextDark,
-                FontStyle.Bold);
 
             foreach (PermanentGrowthBranchMetadata branch
                      in PermanentGrowthCatalog.Branches
@@ -592,31 +547,22 @@ namespace MukJump.Core
                 $"GrowthBranchHeader_{branch.Branch}",
                 parent,
                 position,
-                new Vector2(330f, 118f));
+                new Vector2(230f, 82f));
             Image brush = CreateImage(
                 "Brush",
                 root,
                 InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0f, 16f),
-                new Vector2(310f, 74f),
+                Vector2.zero,
+                new Vector2(210f, 68f),
                 WithAlpha(InkPalette.Ink, 0.9f));
             CreateText(
                 "BranchTitle",
                 brush.transform,
-                branch.DisplayName,
-                40,
+                CompactBranchTitle(branch.Branch),
+                34,
                 Vector2.zero,
-                new Vector2(280f, 58f),
+                new Vector2(184f, 54f),
                 InkPalette.Paper,
-                FontStyle.Bold);
-            CreateText(
-                "BranchSummary",
-                root,
-                CompactBranchSummary(branch.Branch),
-                30,
-                new Vector2(0f, -44f),
-                new Vector2(326f, 42f),
-                InkPalette.TextDark,
                 FontStyle.Bold);
             return root;
         }
@@ -723,27 +669,6 @@ namespace MukJump.Core
                 TransparentColor(InkPalette.Gold));
             completion.preserveAspect = true;
 
-            Text name = CreateText(
-                "NodeName",
-                root,
-                definition.Name,
-                capstone ? 36 : 34,
-                new Vector2(0f, capstone ? -88f : -62f),
-                new Vector2(290f, 46f),
-                InkPalette.TextDark,
-                FontStyle.Bold);
-            Text level = CreateText(
-                "NodeLevel",
-                root,
-                definition.IsCapstone
-                    ? "최종 열매"
-                    : $"{definition.Rank}단계",
-                capstone ? 29 : 28,
-                new Vector2(0f, capstone ? -128f : -101f),
-                new Vector2(286f, 38f),
-                ReadableMutedColor(),
-                FontStyle.Bold);
-
             return new GrowthNodeView
             {
                 NodeDefinition = definition,
@@ -757,8 +682,6 @@ namespace MukJump.Core
                 Icon = icon,
                 CompletionMark = completion,
                 Button = button,
-                Name = name,
-                Level = level,
             };
         }
 
@@ -768,28 +691,49 @@ namespace MukJump.Core
                 "SelectedGrowthAction",
                 parent,
                 Vector2.zero,
-                new Vector2(310f, 176f));
+                new Vector2(320f, 190f));
+
+            selectedActionNameText = CreateText(
+                "ActionName",
+                selectedActionRoot,
+                string.Empty,
+                30,
+                new Vector2(0f, 70f),
+                new Vector2(316f, 48f),
+                InkPalette.TextDark,
+                FontStyle.Bold);
 
             PurchaseButton = CreateBrushButton(
                 "EnhanceButton",
                 selectedActionRoot,
-                "강화하기",
-                new Vector2(0f, 30f),
-                new Vector2(230f, 104f),
+                "강화",
+                new Vector2(0f, 10f),
+                new Vector2(230f, 96f),
                 32);
             purchaseButtonText =
                 PurchaseButton.GetComponentInChildren<Text>(true);
             PurchaseButton.onClick.AddListener(HandleSelectedPurchase);
 
+            selectedActionCostIcon = CreateImage(
+                "ActionCostIcon",
+                selectedActionRoot,
+                LoadPermanentGrowthSprite("pg_ink_drop") ??
+                LoadIcon(PermanentGrowthType.InkCapacity),
+                new Vector2(-42f, -70f),
+                new Vector2(34f, 34f),
+                Color.white);
+            selectedActionCostIcon.preserveAspect = true;
+
             selectedActionStatusText = CreateText(
                 "ActionStatus",
                 selectedActionRoot,
-                "먹빛 0",
-                27,
-                new Vector2(0f, -54f),
-                new Vector2(306f, 58f),
+                "0",
+                28,
+                new Vector2(28f, -70f),
+                new Vector2(120f, 48f),
                 ReadableMutedColor(),
                 FontStyle.Bold);
+            selectedActionStatusText.alignment = TextAnchor.MiddleLeft;
             AddReadableWeight(selectedActionStatusText, 0.08f);
             selectedActionRoot.SetAsLastSibling();
         }
@@ -885,7 +829,7 @@ namespace MukJump.Core
         void Refresh()
         {
             if (balanceText == null) return;
-            balanceText.text = $"보유 먹빛 {PermanentGrowthProfile.Currency}";
+            balanceText.text = PermanentGrowthProfile.Currency.ToString();
 
             for (int i = 0; i < nodes.Count; i++)
             {
@@ -898,22 +842,10 @@ namespace MukJump.Core
                     PermanentGrowthProfile.MeetsNodeRequirements(definition);
                 bool selected = i == selectedSlot;
 
-                node.Name.text = definition.Name;
-                node.Level.text = unlocked
-                    ? "열매 개화"
-                    : definition.IsCapstone
-                        ? "최종 열매"
-                        : $"{definition.Rank}단계";
                 node.Icon.sprite = LoadIcon(definition.Type);
                 node.Icon.color = node.Icon.sprite != null
                     ? new Color(1f, 1f, 1f, requirementsMet ? 1f : 0.6f)
                     : WithAlpha(InkPalette.Ink, requirementsMet ? 1f : 0.58f);
-                node.Name.color = requirementsMet || unlocked
-                    ? InkPalette.TextDark
-                    : WithAlpha(InkPalette.TextMuted, 0.84f);
-                node.Level.color = unlocked
-                    ? InkPalette.Gold
-                    : ReadableMutedColor();
                 node.Surface.color = unlocked
                     ? TransparentColor(InkPalette.Paper2)
                     : requirementsMet
@@ -948,7 +880,7 @@ namespace MukJump.Core
 
                 // 가지는 진행 상태가 아니라 나무 자체다. 해금 상태 표현은
                 // 열매와 얇은 상태선에만 맡겨 한 그루의 실루엣을 유지한다.
-                Color branchColor = new(1f, 1f, 1f, 0.72f);
+                Color branchColor = new(1f, 1f, 1f, 0.52f);
                 for (int artIndex = 0;
                      artIndex < node.BranchArts.Count;
                      artIndex++)
@@ -979,7 +911,9 @@ namespace MukJump.Core
                 selectedSlot < 0 ||
                 selectedSlot >= nodes.Count ||
                 selectedActionRoot == null ||
-                selectedActionStatusText == null)
+                selectedActionNameText == null ||
+                selectedActionStatusText == null ||
+                selectedActionCostIcon == null)
                 return;
 
             GrowthNodeView node = nodes[selectedSlot];
@@ -993,25 +927,28 @@ namespace MukJump.Core
             bool hasEnoughCurrency =
                 PermanentGrowthProfile.Currency >= cost;
 
+            selectedActionNameText.text =
+                FormatSelectedNodeSummary(definition);
             selectedActionStatusText.text = unlocked
-                ? "열매 개화 완료"
+                ? "완료"
                 : requirementsMet
-                    ? $"먹빛 {cost}" +
-                      (hasEnoughCurrency ? string.Empty : " · 부족")
-                    : "선행 열매 필요";
+                    ? cost.ToString()
+                    : "선행 필요";
             selectedActionStatusText.color =
                 !unlocked && requirementsMet && !hasEnoughCurrency
                     ? InkPalette.Red
                     : requirementsMet || unlocked
                         ? ReadableMutedColor()
                         : InkPalette.Red;
+            selectedActionCostIcon.gameObject.SetActive(
+                !unlocked && requirementsMet);
 
             if (purchaseButtonText != null)
             {
                 purchaseButtonText.text = unlocked
-                    ? "개화 완료"
+                    ? "완료"
                     : requirementsMet
-                        ? "강화하기"
+                        ? "강화"
                         : "잠김";
             }
             PurchaseButton.interactable =
@@ -1196,15 +1133,43 @@ namespace MukJump.Core
                 lastPosition.y + 210f);
         }
 
-        static string CompactBranchSummary(PermanentGrowthBranch branch)
+        static string CompactBranchTitle(PermanentGrowthBranch branch)
         {
             return branch switch
             {
-                PermanentGrowthBranch.Survival => "체력 · 피격 · 분신",
-                PermanentGrowthBranch.Leap => "준비 · 점프 · 도약",
-                PermanentGrowthBranch.InkHandling => "먹량 · 회복 · 발판",
-                _ => "영구 성장",
+                PermanentGrowthBranch.Survival => "생존",
+                PermanentGrowthBranch.Leap => "도약",
+                PermanentGrowthBranch.InkHandling => "먹",
+                _ => string.Empty,
             };
+        }
+
+        static string FormatSelectedNodeSummary(
+            PermanentGrowthNodeDefinition definition)
+        {
+            if (definition == null)
+                return string.Empty;
+            if (definition.IsCapstone)
+                return $"{definition.Name} · 패시브";
+
+            float value = definition.ValueKind ==
+                PermanentGrowthValueKind.Percent
+                    ? definition.EffectPerRank * 100f
+                    : definition.EffectPerRank;
+            string formatted = Mathf.Approximately(
+                value,
+                Mathf.Round(value))
+                    ? Mathf.RoundToInt(value).ToString()
+                    : value.ToString("0.##");
+            string sign = definition.ReducesValue ? "-" : "+";
+            string suffix = definition.ValueKind switch
+            {
+                PermanentGrowthValueKind.Percent => "%",
+                PermanentGrowthValueKind.Seconds => "초",
+                _ => string.Empty,
+            };
+            return $"{definition.Name} · {definition.EffectUnit} " +
+                   $"{sign}{formatted}{suffix}";
         }
 
         Image CreateTreeBranchArt(
@@ -1236,7 +1201,7 @@ namespace MukJump.Core
                 branchSprite,
                 (start + end) * 0.5f,
                 new Vector2(width, thickness),
-                new Color(1f, 1f, 1f, 0.72f));
+                new Color(1f, 1f, 1f, 0.52f));
             branch.preserveAspect = false;
             branch.rectTransform.localEulerAngles =
                 new Vector3(

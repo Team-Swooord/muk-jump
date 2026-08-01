@@ -364,9 +364,8 @@ namespace MukJump.EditorTests
                 RectTransform touch = node.GetComponent<RectTransform>();
                 Assert.That(touch.sizeDelta.x, Is.GreaterThanOrEqualTo(156f));
                 Assert.That(touch.sizeDelta.y, Is.GreaterThanOrEqualTo(176f));
-                Assert.That(
-                    node.Find("NodeName")?.GetComponent<Text>()?.fontSize,
-                    Is.GreaterThanOrEqualTo(34));
+                Assert.That(node.Find("NodeName"), Is.Null);
+                Assert.That(node.Find("NodeLevel"), Is.Null);
                 Assert.That(node.Find("Fruit"), Is.Not.Null);
 
                 for (int parentIndex = 0;

@@ -12,14 +12,10 @@ namespace MukJump.Core
         {
             int minimum = elementName switch
             {
-                "Title" => 72,
-                "Subtitle" => 36,
-                "Balance" => 40,
-                "BranchTitle" => 36,
-                "BranchSummary" => 30,
-                "NodeName" => 34,
-                "NodeLevel" => 28,
-                "ActionStatus" => 27,
+                "Balance" => 44,
+                "BranchTitle" => 34,
+                "ActionName" => 32,
+                "ActionStatus" => 28,
                 _ => requestedSize,
             };
             return Math.Max(requestedSize, minimum);
@@ -44,18 +40,16 @@ namespace MukJump.Core
 
             float distance = elementName switch
             {
-                "Title" => 2.5f,
-                "Subtitle" or "Balance" => 2f,
+                "Balance" => 2f,
                 "BranchTitle" => 1.5f,
-                "NodeName" => 1.2f,
-                "BranchSummary" or "NodeLevel" or "ActionStatus" => 0.8f,
+                "ActionName" => 1.2f,
+                "ActionStatus" => 0.8f,
                 _ => 1f,
             };
             float alpha = elementName switch
             {
-                "Title" => 0.86f,
-                "Subtitle" or "Balance" => 0.8f,
-                "BranchSummary" or "NodeLevel" or "ActionStatus" => 0.54f,
+                "Balance" => 0.8f,
+                "ActionStatus" => 0.54f,
                 _ => 0.64f,
             };
             Color color = text.color;

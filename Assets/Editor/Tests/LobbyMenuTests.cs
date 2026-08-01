@@ -54,7 +54,7 @@ namespace MukJump.EditorTests
             Assert.That(
                 growthView.CreatedNodeCount,
                 Is.EqualTo(PermanentGrowthCatalog.Nodes.Count));
-            Assert.That(growthView.BalanceLabel, Is.EqualTo("보유 먹빛 0"));
+            Assert.That(growthView.BalanceLabel, Is.EqualTo("0"));
             Transform growthPanel = viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
@@ -75,10 +75,11 @@ namespace MukJump.EditorTests
             Assert.That(treeCanvas.sizeDelta.x, Is.GreaterThan(viewport.sizeDelta.x));
             Assert.That(treeCanvas.sizeDelta.y, Is.GreaterThan(viewport.sizeDelta.y));
             Assert.That(viewport.sizeDelta.x, Is.EqualTo(980f));
-            Assert.That(viewport.sizeDelta.y, Is.EqualTo(1660f));
+            Assert.That(viewport.sizeDelta.y, Is.EqualTo(1760f));
+            Assert.That(viewport.anchoredPosition, Is.EqualTo(Vector2.zero));
             Assert.That(
                 treeCanvas.localScale.x,
-                Is.EqualTo(0.9f).Within(0.001f));
+                Is.EqualTo(0.84f).Within(0.001f));
             Assert.That(
                 viewport.GetSiblingIndex(),
                 Is.Zero,
@@ -111,12 +112,12 @@ namespace MukJump.EditorTests
                 "도약 첫 열매");
             Assert.That(
                 treeCanvas.Find("InkTreeTrunk"),
-                Is.Not.Null,
-                "큰 먹나무 줄기가 드래그 지도 안에 있어야 합니다.");
+                Is.Null,
+                "완성 나무 위에 별도 줄기를 겹치면 알파 경계가 드러납니다.");
             Assert.That(
                 treeCanvas.Find("InkTreeRootLabel"),
-                Is.Not.Null,
-                "첫 화면의 뿌리 이름이 있어야 합니다.");
+                Is.Null,
+                "지도 안에는 뿌리 설명 글자를 반복하지 않습니다.");
             foreach (PermanentGrowthBranchMetadata branch
                      in PermanentGrowthCatalog.Branches)
             {
@@ -130,7 +131,8 @@ namespace MukJump.EditorTests
                 Assert.That(
                     header.Find("Brush/BranchTitle")
                         ?.GetComponent<Text>()?.fontSize,
-                    Is.GreaterThanOrEqualTo(36));
+                    Is.GreaterThanOrEqualTo(34));
+                Assert.That(header.Find("BranchSummary"), Is.Null);
             }
             foreach (PermanentGrowthNodeDefinition definition
                      in PermanentGrowthCatalog.Nodes)
@@ -142,9 +144,8 @@ namespace MukJump.EditorTests
                 Assert.That(rect.sizeDelta.x, Is.GreaterThanOrEqualTo(100f));
                 Assert.That(rect.sizeDelta.y, Is.GreaterThanOrEqualTo(100f));
                 Assert.That(node.GetComponent<Button>(), Is.Not.Null);
-                Assert.That(
-                    node.Find("NodeName")?.GetComponent<Text>()?.fontSize,
-                    Is.GreaterThanOrEqualTo(30));
+                Assert.That(node.Find("NodeName"), Is.Null);
+                Assert.That(node.Find("NodeLevel"), Is.Null);
                 RectTransform surface = node.Find("NodeSurface")
                     ?.GetComponent<RectTransform>();
                 Assert.That(surface, Is.Not.Null);
@@ -172,7 +173,13 @@ namespace MukJump.EditorTests
                 Is.LessThanOrEqualTo(320f));
             Assert.That(
                 selectedAction.sizeDelta.y,
-                Is.LessThanOrEqualTo(180f));
+                Is.LessThanOrEqualTo(190f));
+            Assert.That(
+                selectedAction.Find("ActionName")?.GetComponent<Text>(),
+                Is.Not.Null);
+            Assert.That(
+                selectedAction.Find("ActionCostIcon")?.GetComponent<Image>(),
+                Is.Not.Null);
             Assert.That(
                 selectedAction.Find("ActionStatus")?.GetComponent<Text>(),
                 Is.Not.Null);

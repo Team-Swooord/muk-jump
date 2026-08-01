@@ -1,3 +1,4 @@
+using System.IO;
 using MukJump.Core;
 using NUnit.Framework;
 using UnityEditor;
@@ -10,7 +11,7 @@ namespace MukJump.EditorTests
     {
         const string BackgroundPath =
             "Assets/Resources/MukJump/UI/PermanentGrowth/" +
-            "pg_tree_background_v2.png";
+            "pg_tree_background_v3.png";
 
         GameObject managerHost;
         GameObject viewHost;
@@ -66,6 +67,51 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void BackgroundSprite_HasTransparentPaddingOnEveryEdge()
+        {
+            byte[] bytes = File.ReadAllBytes(BackgroundPath);
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                Assert.That(texture.LoadImage(bytes), Is.True);
+                Color32[] pixels = texture.GetPixels32();
+                int minimumX = texture.width;
+                int minimumY = texture.height;
+                int maximumX = -1;
+                int maximumY = -1;
+                for (int y = 0; y < texture.height; y++)
+                {
+                    for (int x = 0; x < texture.width; x++)
+                    {
+                        byte alpha = pixels[y * texture.width + x].a;
+                        if (x == 0 || y == 0 ||
+                            x == texture.width - 1 ||
+                            y == texture.height - 1)
+                            Assert.That(alpha, Is.Zero, $"edge ({x}, {y})");
+                        if (alpha == 0) continue;
+                        minimumX = Mathf.Min(minimumX, x);
+                        minimumY = Mathf.Min(minimumY, y);
+                        maximumX = Mathf.Max(maximumX, x);
+                        maximumY = Mathf.Max(maximumY, y);
+                    }
+                }
+
+                Assert.That(minimumX, Is.GreaterThanOrEqualTo(40));
+                Assert.That(minimumY, Is.GreaterThanOrEqualTo(40));
+                Assert.That(
+                    maximumX,
+                    Is.LessThanOrEqualTo(texture.width - 40));
+                Assert.That(
+                    maximumY,
+                    Is.LessThanOrEqualTo(texture.height - 40));
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+            }
+        }
+
+        [Test]
         public void View_PlacesEveryFruitAboveOneGiantTreeBackground()
         {
             var view = viewHost.AddComponent<PermanentGrowthView>();
@@ -77,23 +123,15 @@ namespace MukJump.EditorTests
             var image = background.GetComponent<Image>();
             var rect = background.GetComponent<RectTransform>();
             Assert.That(image.sprite.name, Does.StartWith(
-                "pg_tree_background_v2"));
+                "pg_tree_background_v3"));
             Assert.That(image.raycastTarget, Is.False);
-            Assert.That(image.preserveAspect, Is.False);
-            Assert.That(rect.sizeDelta, Is.EqualTo(new Vector2(3000f, 3060f)));
-            Assert.That(rect.anchoredPosition, Is.EqualTo(new Vector2(0f, -20f)));
-
-            Rect backgroundBounds = new(
-                rect.anchoredPosition - rect.sizeDelta * 0.5f,
-                rect.sizeDelta);
+            Assert.That(image.preserveAspect, Is.True);
+            Assert.That(rect.sizeDelta, Is.EqualTo(new Vector2(2200f, 3060f)));
+            Assert.That(rect.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(view.TreeCanvas.Find("InkTreeTrunk"), Is.Null);
             foreach (PermanentGrowthNodeDefinition node
                      in PermanentGrowthCatalog.Nodes)
             {
-                Assert.That(
-                    backgroundBounds.Contains(
-                        new Vector2(node.LayoutX, node.LayoutY)),
-                    Is.True,
-                    $"{node.Id} 열매가 큰 나무 배경 밖에 있습니다.");
                 Transform nodeTransform = view.TreeCanvas.Find(
                     $"GrowthNode_{Sanitize(node.Id)}");
                 Assert.That(nodeTransform, Is.Not.Null, node.Id);
@@ -112,14 +150,21 @@ namespace MukJump.EditorTests
 
             Assert.That(
                 view.TreeViewport.sizeDelta,
-                Is.EqualTo(new Vector2(980f, 1660f)));
+                Is.EqualTo(new Vector2(980f, 1760f)));
             Assert.That(
                 view.TreeViewport.anchoredPosition,
-                Is.EqualTo(new Vector2(0f, -30f)));
+                Is.EqualTo(Vector2.zero));
             Assert.That(view.TreeViewport.GetSiblingIndex(), Is.Zero);
             Assert.That(
                 view.TreeCanvas.localScale,
-                Is.EqualTo(Vector3.one * 0.9f));
+                Is.EqualTo(Vector3.one * 0.84f));
+
+            Transform panel = view.TreeViewport.parent;
+            Assert.That(panel.Find("Title"), Is.Null);
+            Assert.That(panel.Find("Subtitle"), Is.Null);
+            Assert.That(panel.Find("CurrencyBrush"), Is.Null);
+            Assert.That(panel.Find("CurrencyHud/CurrencyDrop"), Is.Not.Null);
+            Assert.That(panel.Find("CurrencyHud/Balance"), Is.Not.Null);
 
             foreach (PermanentGrowthNodeDefinition definition
                      in PermanentGrowthCatalog.Nodes)
@@ -175,7 +220,7 @@ namespace MukJump.EditorTests
             Image line = view.TreeCanvas
                 .Find($"GrowthRootPath_{child}")
                 .GetComponent<Image>();
-            Assert.That(branch.color.a, Is.EqualTo(0.72f).Within(0.001f));
+            Assert.That(branch.color.a, Is.EqualTo(0.52f).Within(0.001f));
             Assert.That(
                 branch.rectTransform.sizeDelta.y,
                 Is.GreaterThanOrEqualTo(140f));
@@ -184,7 +229,7 @@ namespace MukJump.EditorTests
             view.SelectGrowthForTests(0);
             view.PurchaseButton.onClick.Invoke();
 
-            Assert.That(branch.color.a, Is.EqualTo(0.72f).Within(0.001f));
+            Assert.That(branch.color.a, Is.EqualTo(0.52f).Within(0.001f));
             Assert.That(
                 view.TreeCanvas.Find($"GrowthNode_{child}/Fruit")
                     .GetComponent<Image>().color.a,
