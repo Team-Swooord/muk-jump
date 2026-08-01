@@ -23,21 +23,25 @@ namespace MukJump.Core
         const float VisualFootprintWidth = 920f;
         const float VisualFootprintHeight = 1500f;
         const float SafeAreaPadding = 40f;
+        const string CardFrameResourcePath =
+            "MukJump/UI/Growth/growth_card_frame";
 
         static readonly string[] IconResourcePaths =
         {
-            "MukJump/UI/Growth/growth_vitality",
-            "MukJump/UI/Growth/growth_jump",
-            "MukJump/UI/Growth/growth_ink_capacity",
-            "MukJump/UI/Growth/growth_ink_regen",
-            "MukJump/UI/Growth/growth_platform",
-            "MukJump/UI/Growth/growth_platform",
-            "MukJump/UI/Growth/growth_guard",
-            "MukJump/UI/Growth/growth_fortune",
+            "MukJump/UI/Growth/growth_card_icon_vitality",
+            "MukJump/UI/Growth/growth_card_icon_jump",
+            "MukJump/UI/Growth/growth_card_icon_ink_capacity",
+            "MukJump/UI/Growth/growth_card_icon_ink_recovery",
+            "MukJump/UI/Growth/growth_card_icon_platform_lifetime",
+            "MukJump/UI/Growth/growth_card_icon_platform_slots",
+            "MukJump/UI/Growth/growth_card_icon_stroke_guard",
+            "MukJump/UI/Growth/growth_card_icon_item_fortune",
         };
 
-        [Header("선택 카드 아이콘")]
-        [Tooltip("GrowthUpgradeType enum 순서와 같은 8칸. 발판 수명·개수는 같은 아이콘을 공유한다.")]
+        [Header("선택 카드 아트")]
+        [Tooltip("모든 증강 카드가 공유하는 세로형 수묵 산수 프레임")]
+        [SerializeField] Sprite growthCardFrame;
+        [Tooltip("GrowthUpgradeType enum 순서와 같은 8칸. 각 증강은 서로 다른 상징을 사용한다.")]
         [SerializeField] Sprite[] growthIcons = new Sprite[GrowthTypeCount];
 
         public static GrowthChoiceView Instance { get; private set; }
@@ -56,6 +60,8 @@ namespace MukJump.Core
         RunGrowthController boundController;
         Coroutine visibilityRoutine;
         bool selectionLocked;
+        bool frameExplicitlyAssigned;
+        bool spritesExplicitlyAssigned;
         int lastScreenWidth;
         int lastScreenHeight;
         Rect lastSafeArea;
@@ -67,11 +73,12 @@ namespace MukJump.Core
             public RectTransform Root;
             public Button Button;
             public Image Outline;
-            public Image Paper;
+            public Image Frame;
             public Image Icon;
             public Text Title;
             public Text Status;
             public Text Effect;
+            public Text Description;
             public CanvasGroup Group;
             public GrowthUpgradeType Type;
             public UnityEngine.Events.UnityAction Pressed;
@@ -141,6 +148,13 @@ namespace MukJump.Core
         /// 발판 공용 아이콘을 한 번만 넘기는 7개 배열과 기존 2개 배열도 함께 지원한다.
         public void SetSprites(params Sprite[] sprites)
         {
+            if (sprites != null)
+                for (int i = 0; i < sprites.Length; i++)
+                    if (sprites[i] != null)
+                    {
+                        spritesExplicitlyAssigned = true;
+                        break;
+                    }
             EnsureIconArray();
             if (sprites != null && sprites.Length == GrowthTypeCount - 1)
             {
@@ -161,6 +175,18 @@ namespace MukJump.Core
                         growthIcons[i] = sprites[i];
             }
 
+            ResolveSprites();
+            ApplyCardSprites();
+        }
+
+        /// 씬 빌더와 테스트가 공통 카드 프레임을 명시적으로 주입할 때 사용한다.
+        public void SetCardFrame(Sprite frame)
+        {
+            if (frame != null)
+            {
+                growthCardFrame = frame;
+                frameExplicitlyAssigned = true;
+            }
             ResolveSprites();
             ApplyCardSprites();
         }
@@ -392,6 +418,7 @@ namespace MukJump.Core
                 card.Title.text = GetTitle(type);
                 card.Status.text = GetStatus(level, maxLevel);
                 card.Effect.text = GetEffect(type);
+                card.Description.text = GetDescription(type);
                 card.Icon.sprite = GetIcon(type);
                 SetCardState(card, canInteract && !maxed, maxed);
             }
@@ -445,6 +472,30 @@ namespace MukJump.Core
             };
         }
 
+        static string GetDescription(GrowthUpgradeType type)
+        {
+            return type switch
+            {
+                GrowthUpgradeType.Vitality =>
+                    "장애물 피해를 한 번 더 견딥니다.",
+                GrowthUpgradeType.JumpPower =>
+                    "자동 점프가 더 높아집니다.",
+                GrowthUpgradeType.InkCapacity =>
+                    "담아둘 수 있는 먹이 늘어납니다.",
+                GrowthUpgradeType.InkRecovery =>
+                    "소모한 먹을 더 빠르게 회복합니다.",
+                GrowthUpgradeType.PlatformLifetime =>
+                    "그린 발판이 더 오래 남습니다.",
+                GrowthUpgradeType.PlatformSlots =>
+                    "발판을 하나 더 유지합니다.",
+                GrowthUpgradeType.StrokeGuard =>
+                    "새 발판이 낙묵석을 한 번 막습니다.",
+                GrowthUpgradeType.ItemFortune =>
+                    "일반 아이템이 더 빨리 나타납니다.",
+                _ => string.Empty,
+            };
+        }
+
         static float ResolveCardX(int index, int count)
         {
             return count switch
@@ -460,8 +511,8 @@ namespace MukJump.Core
             if (card == null) return;
             card.Button.interactable = interactable;
             card.Group.alpha = maxed ? 0.72f : 1f;
-            card.Paper.color = maxed
-                ? new Color(InkPalette.Paper2.r, InkPalette.Paper2.g, InkPalette.Paper2.b, 0.9f)
+            card.Frame.color = card.Frame.sprite != null
+                ? Color.white
                 : InkPalette.Paper;
             card.Outline.color = InkPalette.Ink;
         }
@@ -546,17 +597,39 @@ namespace MukJump.Core
 
         void ResolveSprites()
         {
+            if (!frameExplicitlyAssigned || growthCardFrame == null)
+            {
+                Sprite resourceFrame = Resources.Load<Sprite>(CardFrameResourcePath);
+                if (resourceFrame != null)
+                    growthCardFrame = resourceFrame;
+            }
             EnsureIconArray();
             for (int i = 0; i < growthIcons.Length; i++)
-                if (growthIcons[i] == null && i < IconResourcePaths.Length)
-                    growthIcons[i] = Resources.Load<Sprite>(IconResourcePaths[i]);
+            {
+                if (i >= IconResourcePaths.Length ||
+                    (spritesExplicitlyAssigned && growthIcons[i] != null))
+                    continue;
+                Sprite resourceIcon = Resources.Load<Sprite>(IconResourcePaths[i]);
+                if (resourceIcon != null)
+                    growthIcons[i] = resourceIcon;
+            }
         }
 
         void ApplyCardSprites()
         {
             for (int i = 0; i < choiceCards.Length; i++)
-                if (choiceCards[i]?.Icon != null)
-                    choiceCards[i].Icon.sprite = GetIcon(choiceCards[i].Type);
+            {
+                ChoiceCard card = choiceCards[i];
+                if (card?.Frame != null)
+                {
+                    card.Frame.sprite = growthCardFrame;
+                    card.Frame.color = growthCardFrame != null
+                        ? Color.white
+                        : InkPalette.Paper;
+                }
+                if (card?.Icon != null)
+                    card.Icon.sprite = GetIcon(card.Type);
+            }
         }
 
         void EnsureIconArray()
@@ -667,7 +740,8 @@ namespace MukJump.Core
                     contentRect,
                     new Vector2(
                         ResolveCardX(i, choiceCards.Length),
-                        CardVerticalPosition));
+                        CardVerticalPosition),
+                    growthCardFrame);
                 choiceCards[i].Root.gameObject.SetActive(false);
             }
 
@@ -723,10 +797,10 @@ namespace MukJump.Core
         static ChoiceCard CreateChoiceCard(
             string objectName,
             Transform parent,
-            Vector2 position)
+            Vector2 position,
+            Sprite cardFrame)
         {
             Sprite brush = InkUiTextureFactory.CreateBrushSprite();
-            Sprite blob = InkUiTextureFactory.CreateBlobSprite();
             var root = CreateRect(
                 objectName,
                 parent,
@@ -739,30 +813,31 @@ namespace MukJump.Core
                 root,
                 brush,
                 Vector2.zero,
-                new Vector2(744f, 230f),
+                new Vector2(776f, 260f),
                 InkPalette.Ink);
             outline.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
-            var paper = CreateImage(
-                "Paper",
+            var frame = CreateImage(
+                "CardFrame",
                 root,
-                brush,
+                cardFrame,
                 Vector2.zero,
-                new Vector2(730f, 216f),
-                InkPalette.Paper);
-            paper.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
-            paper.raycastTarget = true;
+                new Vector2(CardWidth, CardHeight),
+                cardFrame != null ? Color.white : InkPalette.Paper);
+            frame.type = Image.Type.Simple;
+            frame.preserveAspect = false;
 
-            // 붓 섬유 틈은 중앙 한지로 채우되 거친 둥근 외곽선은 그대로 남긴다.
-            CreateImage(
-                "PaperCore",
+            // 프레임 아트와 선택 입력을 분리해 눌림 색상이 원본 그림을 변색시키지 않게 한다.
+            var hitSurface = CreateImage(
+                "HitSurface",
                 root,
                 null,
                 Vector2.zero,
-                new Vector2(188f, 650f),
-                InkPalette.Paper);
+                new Vector2(CardWidth, CardHeight),
+                new Color(1f, 1f, 1f, 0.001f));
+            hitSurface.raycastTarget = true;
 
             var button = root.gameObject.AddComponent<Button>();
-            button.targetGraphic = paper;
+            button.targetGraphic = hitSurface;
             button.navigation = new Navigation { mode = Navigation.Mode.None };
             button.transition = Selectable.Transition.ColorTint;
             button.colors = new ColorBlock
@@ -777,26 +852,13 @@ namespace MukJump.Core
             };
             root.gameObject.AddComponent<InkUiPressFeedback>();
 
-            // 참고 판화처럼 장식 문양 대신 큰 담청회색 먹달 하나만 남긴다.
-            // 성장 아이콘 자체가 카드의 한 장면이 되고 나머지는 여백으로 읽힌다.
-            CreateImage(
-                "SceneMoon",
-                root,
-                blob,
-                new Vector2(0f, 118f),
-                new Vector2(204f, 204f),
-                new Color(
-                    InkPalette.WindPlatform.r,
-                    InkPalette.WindPlatform.g,
-                    InkPalette.WindPlatform.b,
-                    0.34f));
             var iconImage = CreateImage(
                 "Icon",
                 root,
                 null,
-                new Vector2(0f, 118f),
-                new Vector2(196f, 196f),
-                InkPalette.Ink);
+                new Vector2(0f, 92f),
+                new Vector2(204f, 204f),
+                Color.white);
             iconImage.preserveAspect = true;
 
             var nameText = CreateText(
@@ -804,8 +866,8 @@ namespace MukJump.Core
                 root,
                 string.Empty,
                 40,
-                new Vector2(0f, 312f),
-                new Vector2(212f, 68f),
+                new Vector2(0f, 319f),
+                new Vector2(212f, 58f),
                 InkPalette.TextDark,
                 FontStyle.Bold);
             AddReadableTextWeight(nameText, 0.24f);
@@ -815,8 +877,8 @@ namespace MukJump.Core
                 root,
                 "Lv.0 → 1",
                 22,
-                new Vector2(0f, -34f),
-                new Vector2(214f, 36f),
+                new Vector2(0f, 265f),
+                new Vector2(214f, 34f),
                 ReadableMutedColor(),
                 FontStyle.Bold);
             AddReadableTextWeight(statusText, 0.13f);
@@ -826,22 +888,37 @@ namespace MukJump.Core
                 root,
                 string.Empty,
                 28,
-                new Vector2(0f, -180f),
-                new Vector2(214f, 52f),
+                new Vector2(0f, -214f),
+                new Vector2(214f, 48f),
                 InkPalette.TextDark,
                 FontStyle.Bold);
             AddReadableTextWeight(effectText, 0.11f);
+
+            var descriptionText = CreateText(
+                "Description",
+                root,
+                string.Empty,
+                24,
+                new Vector2(0f, -290f),
+                new Vector2(208f, 80f),
+                ReadableMutedColor(),
+                FontStyle.Bold);
+            descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            descriptionText.verticalOverflow = VerticalWrapMode.Truncate;
+            descriptionText.lineSpacing = 0.94f;
+            AddReadableTextWeight(descriptionText, 0.09f);
 
             return new ChoiceCard
             {
                 Root = root,
                 Button = button,
                 Outline = outline,
-                Paper = paper,
+                Frame = frame,
                 Icon = iconImage,
                 Title = nameText,
                 Status = statusText,
                 Effect = effectText,
+                Description = descriptionText,
                 Group = group,
             };
         }

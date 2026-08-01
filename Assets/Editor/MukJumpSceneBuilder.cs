@@ -60,20 +60,24 @@ namespace MukJump.EditorTools
         const string InkCloneItemPath = "Assets/Art/UI/ink_clone.png";
         const string GrowthScrollPath =
             "Assets/Resources/MukJump/UI/Growth/growth_scroll.png";
+        const string GrowthCardFramePath =
+            "Assets/Resources/MukJump/UI/Growth/growth_card_frame.png";
         const string GrowthVitalityPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_vitality.png";
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_vitality.png";
         const string GrowthJumpPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_jump.png";
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_jump.png";
         const string GrowthInkCapacityPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_ink_capacity.png";
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_ink_capacity.png";
         const string GrowthInkRegenPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_ink_regen.png";
-        const string GrowthPlatformPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_platform.png";
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_ink_recovery.png";
+        const string GrowthPlatformLifetimePath =
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_platform_lifetime.png";
+        const string GrowthPlatformSlotsPath =
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_platform_slots.png";
         const string GrowthGuardPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_guard.png";
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_stroke_guard.png";
         const string GrowthFortunePath =
-            "Assets/Resources/MukJump/UI/Growth/growth_fortune.png";
+            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_item_fortune.png";
         const string ActionButtonPath =
             "Assets/Resources/MukJump/UI/Common/action_button_brush.png";
         // 유기적인 붓획은 9-slice 시 작은 버튼에서 모서리만 남아 먹 얼룩처럼
@@ -681,13 +685,15 @@ namespace MukJump.EditorTools
             go.AddComponent<LobbyOptionsView>();
             go.AddComponent<LobbyScreenNavigator>();
             go.AddComponent<InkUiFeedbackController>();
+            growthChoiceView.SetCardFrame(
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthCardFramePath));
             growthChoiceView.SetSprites(
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthVitalityPath),
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthJumpPath),
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthInkCapacityPath),
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthInkRegenPath),
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthPlatformPath),
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthPlatformPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthPlatformLifetimePath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthPlatformSlotsPath),
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthGuardPath),
                 AssetDatabase.LoadAssetAtPath<Sprite>(GrowthFortunePath));
             go.AddComponent<ScoreManager>();
@@ -1629,13 +1635,22 @@ namespace MukJump.EditorTools
             ConfigureItemSprite(InkShieldItemPath, "먹 방어막");
             ConfigureItemSprite(InkCloneItemPath, "먹분신");
             ConfigureGrowthSprite(GrowthScrollPath, "성장 두루마리");
+            ConfigureGrowthCardSprites();
+        }
+
+        [MenuItem("MukJump/Configure Growth Card Sprites")]
+        public static void ConfigureGrowthCardSprites()
+        {
+            ConfigureGrowthCardFrameSprite();
             ConfigureGrowthSprite(GrowthVitalityPath, "먹두께 성장");
             ConfigureGrowthSprite(GrowthJumpPath, "도약 성장");
             ConfigureGrowthSprite(GrowthInkCapacityPath, "큰 벼루 성장");
             ConfigureGrowthSprite(GrowthInkRegenPath, "먹샘 성장");
-            ConfigureGrowthSprite(GrowthPlatformPath, "발판 성장");
+            ConfigureGrowthSprite(GrowthPlatformLifetimePath, "긴 여운 성장");
+            ConfigureGrowthSprite(GrowthPlatformSlotsPath, "겹친 획 성장");
             ConfigureGrowthSprite(GrowthGuardPath, "굳은 획 성장");
             ConfigureGrowthSprite(GrowthFortunePath, "길운 성장");
+            AssetDatabase.SaveAssets();
         }
 
         static void ConfigureInkDropJumpVfxAssets()
@@ -1733,6 +1748,34 @@ namespace MukJump.EditorTools
             if (importer == null) return;
             importer.maxTextureSize = 512;
             importer.textureCompression = TextureImporterCompression.CompressedHQ;
+            importer.SaveAndReimport();
+        }
+
+        /// 공통 카드 프레임은 1:3 세로 비율과 투명 외곽을 보존하고,
+        /// 모바일에서도 글자 뒤 산수화가 뭉개지지 않도록 한 단계 높은 해상도를 쓴다.
+        static void ConfigureGrowthCardFrameSprite()
+        {
+            ConfigureSprite(GrowthCardFramePath, pixelsPerUnit: 100f);
+            var importer = AssetImporter.GetAtPath(GrowthCardFramePath) as TextureImporter;
+            if (importer == null)
+            {
+                Debug.LogWarning(
+                    $"[MukJump] 증강 카드 프레임을 찾을 수 없음: {GrowthCardFramePath}");
+                return;
+            }
+
+            var textureSettings = new TextureImporterSettings();
+            importer.ReadTextureSettings(textureSettings);
+            textureSettings.spriteMeshType = SpriteMeshType.FullRect;
+            importer.SetTextureSettings(textureSettings);
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.maxTextureSize = 1024;
+            importer.textureCompression = TextureImporterCompression.CompressedHQ;
+            importer.compressionQuality = 100;
             importer.SaveAndReimport();
         }
 

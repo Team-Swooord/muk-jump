@@ -69,25 +69,28 @@
 LineRenderer·Collider 예산을 고려해 한 단계만 허용한다. 길운은 이미 보이는
 아이템을 순간이동시키지 않고 다음 스폰 간격부터 적용한다.
 
-## 범용 아이콘 규칙
+## 증강 카드 스프라이트 규칙
 
-이미지에는 수치, `+`, 레벨, 카드 프레임을 넣지 않는다. 투명 단일 심벌이므로 성장
-카드, 디버그 패널, HUD 요약, 월드 픽업에 같은 파일을 재사용할 수 있다.
-장식용 붉은 점·낙관은 반복 사용하지 않는다. 붉은색은 `굳은 획`의 위험물처럼
-게임 규칙을 구분할 필요가 있을 때만 쓰고, 나머지는 먹색·회색·한지색으로 제한한다.
+공통 산수화 프레임과 중앙 상징은 별도 Sprite로 분리한다. 중앙 상징에는 수치, `+`,
+레벨, 프레임을 넣지 않아 카드 외 HUD 요약에도 재사용할 수 있게 한다. 장식용 붉은 점,
+낙관, 캐릭터, 원형 마법 문양은 쓰지 않고 먹색·탁한 청회색·한지색을 중심으로 한다.
+금빛은 `길운`의 작은 잎과 확정 카드 외곽선에만 제한한다.
 
 | 파일 | 의미 | 재사용 |
 |---|---|---|
-| `growth_vitality.png` | 생존·완충 | 먹두께 |
-| `growth_jump.png` | 상승·이동 | 도약 |
-| `growth_ink_capacity.png` | 자원 그릇·용량 | 큰 벼루 및 향후 자원 상한 |
-| `growth_ink_regen.png` | 회복·재생 | 먹샘 및 향후 회복 효과 |
-| `growth_platform.png` | 여러 획·발판 | 긴 여운, 겹친 획 공용 |
-| `growth_guard.png` | 획이 위험물을 막음 | 굳은 획 및 향후 발판 방어 |
-| `growth_fortune.png` | 발견·행운 | 길운 및 향후 보상 계열 |
+| `growth_card_frame.png` | 한지·산수화 공통 카드 틀 | 모든 증강 카드 |
+| `growth_card_icon_vitality.png` | 먹층 세 겹·완충 | 먹두께 |
+| `growth_card_icon_jump.png` | 위로 치솟는 붓획 | 도약 |
+| `growth_card_icon_ink_capacity.png` | 넓은 벼루·자원 용량 | 큰 벼루 |
+| `growth_card_icon_ink_recovery.png` | 돌 틈의 순환 먹샘 | 먹샘 |
+| `growth_card_icon_platform_lifetime.png` | 한 획과 두 겹 잔상 | 긴 여운 |
+| `growth_card_icon_platform_slots.png` | 높이가 다른 평행 두 획 | 겹친 획 |
+| `growth_card_icon_stroke_guard.png` | 낙묵석을 막는 굳은 획 | 굳은 획 |
+| `growth_card_icon_item_fortune.png` | 먹방울·금빛 잎 복주머니 | 길운 |
 
-원본 PNG는 1024px 이상으로 보관하되 Unity 런타임 임포트는 최대 512px,
-MipMap 비활성, `CompressedHQ`를 사용한다.
+아이콘은 768×768 투명 PNG로 보관하고 Unity 런타임 임포트는 최대 512px로 제한한다.
+프레임은 512×1536 투명 PNG와 FullRect Mesh를 사용하고 최대 1024px로 제한한다.
+모두 MipMap 비활성, Clamp, Bilinear, `CompressedHQ`를 사용한다.
 
 ## 세션 경계
 
