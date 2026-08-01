@@ -150,16 +150,25 @@ namespace MukJump.EditorTests
 
             Assert.That(
                 view.TreeViewport.sizeDelta,
-                Is.EqualTo(new Vector2(980f, 1760f)));
+                Is.EqualTo(new Vector2(1080f, 1920f)));
             Assert.That(
                 view.TreeViewport.anchoredPosition,
                 Is.EqualTo(Vector2.zero));
             Assert.That(view.TreeViewport.GetSiblingIndex(), Is.Zero);
             Assert.That(
+                view.TreeViewport.GetComponent<RectMask2D>().padding,
+                Is.EqualTo(Vector4.zero));
+            Assert.That(
                 view.TreeCanvas.localScale,
                 Is.EqualTo(Vector3.one * 0.84f));
 
-            Transform panel = view.TreeViewport.parent;
+            Assert.That(
+                view.TreeViewport.parent.name,
+                Is.EqualTo("TreeLayerRoot"),
+                "나무 지도는 Safe Area 안에서 다시 축소되면 안 됩니다.");
+            Transform panel = view.ScreenRoot.Find(
+                "SafeAreaRoot/PermanentGrowthScreen");
+            Assert.That(panel, Is.Not.Null);
             Assert.That(panel.Find("Title"), Is.Null);
             Assert.That(panel.Find("Subtitle"), Is.Null);
             Assert.That(panel.Find("CurrencyBrush"), Is.Null);

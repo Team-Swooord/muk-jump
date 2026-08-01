@@ -175,7 +175,9 @@ namespace MukJump.EditorTests
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
             Assert.That(panel, Is.Not.Null);
-            Transform treeCanvas = panel.Find("TreeViewport/TreeCanvas");
+            Transform treeCanvas = viewHost.transform.Find(
+                "PermanentGrowthCanvas/ScreenRoot/TreeLayerRoot/" +
+                "TreeViewport/TreeCanvas");
             Assert.That(treeCanvas, Is.Not.Null);
             AssertSprite(treeCanvas.Find("InkTreeRoot"), "pg_root_emblem");
             AssertSprite(
@@ -276,7 +278,8 @@ namespace MukJump.EditorTests
             Transform panel = viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
-            Transform selectedNode = panel.Find(
+            Transform selectedNode = viewHost.transform.Find(
+                "PermanentGrowthCanvas/ScreenRoot/TreeLayerRoot/" +
                 "TreeViewport/TreeCanvas/" +
                 "GrowthNode_permanent_ink_capacity_rank_1");
             Assert.That(selectedNode.Find("NodeLevel"), Is.Null);

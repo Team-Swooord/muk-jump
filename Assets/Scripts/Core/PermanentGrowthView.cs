@@ -13,11 +13,13 @@ namespace MukJump.Core
     public sealed class PermanentGrowthView : MonoBehaviour
     {
         const int CanvasSortingOrder = 4050;
+        const float ReferenceWidth = 1080f;
         const float ReferenceHeight = 1920f;
         const string ArtResourceRoot = "MukJump/UI/PermanentGrowth/";
         const float TreeCanvasZoom = 0.84f;
         static readonly Vector2 TreeViewportPosition = Vector2.zero;
-        static readonly Vector2 TreeViewportSize = new(980f, 1760f);
+        static readonly Vector2 TreeViewportSize =
+            new(ReferenceWidth, ReferenceHeight);
         static readonly Vector2 TreeCanvasSize = new(3400f, 3200f);
         static readonly Vector2 TreeBackgroundSize = new(2200f, 3060f);
         static readonly Vector2 TreeBackgroundPosition = Vector2.zero;
@@ -246,15 +248,19 @@ namespace MukJump.Core
             background.raycastTarget = true;
             BuildFullScreenInkWash(ScreenRoot);
 
+            // 지도는 노치용 Safe Area에 넣지 않는다. 배경과 함께 실제 화면의
+            // 네 변까지 사용하고, 고정 HUD만 아래 SafeAreaRoot에서 보호한다.
+            RectTransform treeLayerRoot =
+                CreateStretchRect("TreeLayerRoot", ScreenRoot);
             safeAreaRoot = CreateStretchRect("SafeAreaRoot", ScreenRoot);
             contentPanel = CreateRect(
                 "PermanentGrowthScreen",
                 safeAreaRoot,
                 Vector2.zero,
-                new Vector2(980f, 1760f));
+                new Vector2(ReferenceWidth, ReferenceHeight));
 
+            BuildTreeViewport(treeLayerRoot);
             BuildHeader(contentPanel);
-            BuildTreeViewport(contentPanel);
 
             ApplySafeArea();
             SelectInitialNode();
@@ -275,7 +281,9 @@ namespace MukJump.Core
             dragSurface.color = new Color(1f, 1f, 1f, 0.001f);
             dragSurface.raycastTarget = true;
             RectMask2D mask = TreeViewport.gameObject.AddComponent<RectMask2D>();
-            mask.padding = new Vector4(8f, 8f, 8f, 8f);
+            // 한지 화면 가장자리에 별도의 프레임 여백을 만들지 않는다.
+            // 지도는 Safe Area 밖까지 그리고, 고정 HUD만 별도로 보호한다.
+            mask.padding = Vector4.zero;
 
             treeScrollRect = TreeViewport.gameObject.AddComponent<ScrollRect>();
             treeScrollRect.viewport = TreeViewport;
@@ -450,17 +458,6 @@ namespace MukJump.Core
                 rootSprite != null ? Color.white : InkPalette.Ink);
             treeRoot.preserveAspect = rootSprite != null;
 
-            foreach (PermanentGrowthBranchMetadata branch
-                     in PermanentGrowthCatalog.Branches
-                         .OrderBy(item => item.DisplayOrder))
-            {
-                branchHeaders.Add(
-                    CreateBranchHeader(
-                        panel,
-                        branch,
-                        BranchHeaderPosition(branch.Branch)));
-            }
-
             var incomingLinesById =
                 new Dictionary<string, List<Image>>(StringComparer.Ordinal);
             var branchArtsById =
@@ -536,6 +533,19 @@ namespace MukJump.Core
                 node.Button.onClick.AddListener(() => SelectGrowth(slot));
                 nodes.Add(node);
             }
+
+            // 계보 표식은 가지와 열매가 모두 배치된 뒤 올려, 중앙 줄기가
+            // 글자 위를 덮지 않게 한다.
+            foreach (PermanentGrowthBranchMetadata branch
+                     in PermanentGrowthCatalog.Branches
+                         .OrderBy(item => item.DisplayOrder))
+            {
+                branchHeaders.Add(
+                    CreateBranchHeader(
+                        panel,
+                        branch,
+                        BranchHeaderPosition(branch.Branch)));
+            }
         }
 
         RectTransform CreateBranchHeader(
@@ -547,21 +557,21 @@ namespace MukJump.Core
                 $"GrowthBranchHeader_{branch.Branch}",
                 parent,
                 position,
-                new Vector2(230f, 82f));
+                new Vector2(190f, 72f));
             Image brush = CreateImage(
                 "Brush",
                 root,
                 InkUiTextureFactory.CreateBrushSprite(),
                 Vector2.zero,
-                new Vector2(210f, 68f),
+                new Vector2(180f, 64f),
                 WithAlpha(InkPalette.Ink, 0.9f));
             CreateText(
                 "BranchTitle",
                 brush.transform,
                 CompactBranchTitle(branch.Branch),
-                34,
+                36,
                 Vector2.zero,
-                new Vector2(184f, 54f),
+                new Vector2(164f, 56f),
                 InkPalette.Paper,
                 FontStyle.Bold);
             return root;
@@ -1120,17 +1130,18 @@ namespace MukJump.Core
 
         static Vector2 BranchHeaderPosition(PermanentGrowthBranch branch)
         {
-            PermanentGrowthNodeDefinition last =
-                PermanentGrowthCatalog.Nodes
-                    .Where(item => item.Branch == branch)
-                    .OrderBy(item => item.LayoutY)
-                    .LastOrDefault();
-            if (last == null)
-                return Vector2.zero;
-            Vector2 lastPosition = NodePosition(last);
-            return new Vector2(
-                lastPosition.x,
-                lastPosition.y + 210f);
+            // 세 대분류는 첫 화면의 뿌리 바로 위에서 먼저 읽힌다. 종착점에
+            // 붙이면 지도에 들어오자마자 어느 가지가 무엇인지 알 수 없다.
+            return branch switch
+            {
+                PermanentGrowthBranch.Survival =>
+                    new Vector2(-500f, -1310f),
+                PermanentGrowthBranch.InkHandling =>
+                    new Vector2(0f, -1310f),
+                PermanentGrowthBranch.Leap =>
+                    new Vector2(500f, -1310f),
+                _ => Vector2.zero,
+            };
         }
 
         static string CompactBranchTitle(PermanentGrowthBranch branch)
@@ -1139,7 +1150,7 @@ namespace MukJump.Core
             {
                 PermanentGrowthBranch.Survival => "생존",
                 PermanentGrowthBranch.Leap => "도약",
-                PermanentGrowthBranch.InkHandling => "먹",
+                PermanentGrowthBranch.InkHandling => "먹 운용",
                 _ => string.Empty,
             };
         }
@@ -1194,7 +1205,7 @@ namespace MukJump.Core
             float thickness = Mathf.Clamp(
                 naturalHeight,
                 definition.IsCapstone ? 176f : 140f,
-                definition.IsCapstone ? 270f : 230f);
+                definition.IsCapstone ? 220f : 190f);
             Image branch = CreateImage(
                 objectName,
                 parent,
@@ -1472,8 +1483,8 @@ namespace MukJump.Core
                     safe.height * ReferenceHeight / Screen.height;
                 float contentScale = Mathf.Min(
                     1f,
-                    logicalSafeWidth / 980f,
-                    logicalSafeHeight / 1760f);
+                    logicalSafeWidth / ReferenceWidth,
+                    logicalSafeHeight / ReferenceHeight);
                 contentPanel.localScale =
                     Vector3.one * Mathf.Max(0.01f, contentScale);
             }

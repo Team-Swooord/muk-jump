@@ -59,8 +59,14 @@ namespace MukJump.EditorTests
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
             Assert.That(growthPanel, Is.Not.Null);
-            var viewport =
-                (RectTransform)growthPanel.Find("TreeViewport");
+            var viewport = (RectTransform)viewHost.transform.Find(
+                "PermanentGrowthCanvas/ScreenRoot/TreeLayerRoot/" +
+                "TreeViewport");
+            Assert.That(viewport, Is.Not.Null);
+            Assert.That(
+                viewport.parent.name,
+                Is.EqualTo("TreeLayerRoot"),
+                "지도는 Safe Area와 무관하게 실제 화면 네 변까지 사용해야 합니다.");
             var treeCanvas =
                 (RectTransform)viewport.Find("TreeCanvas");
             Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null);
@@ -74,9 +80,12 @@ namespace MukJump.EditorTests
                 Is.EqualTo(ScrollRect.MovementType.Clamped));
             Assert.That(treeCanvas.sizeDelta.x, Is.GreaterThan(viewport.sizeDelta.x));
             Assert.That(treeCanvas.sizeDelta.y, Is.GreaterThan(viewport.sizeDelta.y));
-            Assert.That(viewport.sizeDelta.x, Is.EqualTo(980f));
-            Assert.That(viewport.sizeDelta.y, Is.EqualTo(1760f));
+            Assert.That(viewport.sizeDelta.x, Is.EqualTo(1080f));
+            Assert.That(viewport.sizeDelta.y, Is.EqualTo(1920f));
             Assert.That(viewport.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(
+                viewport.GetComponent<RectMask2D>().padding,
+                Is.EqualTo(Vector4.zero));
             Assert.That(
                 treeCanvas.localScale.x,
                 Is.EqualTo(0.84f).Within(0.001f));
@@ -128,10 +137,14 @@ namespace MukJump.EditorTests
                     header,
                     Is.Not.Null,
                     branch.DisplayName);
+                AssertContainedInViewport(
+                    header,
+                    viewport,
+                    $"{branch.DisplayName} 대분류");
                 Assert.That(
                     header.Find("Brush/BranchTitle")
                         ?.GetComponent<Text>()?.fontSize,
-                    Is.GreaterThanOrEqualTo(34));
+                    Is.GreaterThanOrEqualTo(36));
                 Assert.That(header.Find("BranchSummary"), Is.Null);
             }
             foreach (PermanentGrowthNodeDefinition definition

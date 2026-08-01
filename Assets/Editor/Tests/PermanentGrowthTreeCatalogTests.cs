@@ -208,6 +208,39 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void Catalog_세_계보가_좌중우로_분리되고_각각_시각적으로_갈라진다()
+        {
+            PermanentGrowthNodeDefinition[] survival =
+                BranchNodes(PermanentGrowthBranch.Survival);
+            PermanentGrowthNodeDefinition[] ink =
+                BranchNodes(PermanentGrowthBranch.InkHandling);
+            PermanentGrowthNodeDefinition[] leap =
+                BranchNodes(PermanentGrowthBranch.Leap);
+
+            Assert.That(
+                survival.Max(node => node.LayoutX),
+                Is.LessThanOrEqualTo(-500f),
+                "생존 계보는 왼쪽 큰 가지를 사용해야 합니다.");
+            Assert.That(
+                ink.Min(node => node.LayoutX),
+                Is.GreaterThanOrEqualTo(-480f),
+                "먹 계보는 가운데 큰 가지를 벗어나면 안 됩니다.");
+            Assert.That(
+                ink.Max(node => node.LayoutX),
+                Is.LessThanOrEqualTo(480f),
+                "먹 계보는 가운데 큰 가지를 벗어나면 안 됩니다.");
+            Assert.That(
+                leap.Min(node => node.LayoutX),
+                Is.GreaterThanOrEqualTo(500f),
+                "도약 계보는 오른쪽 큰 가지를 사용해야 합니다.");
+
+            AssertVisibleFork(PermanentGrowthBranch.Survival, 220f);
+            AssertVisibleFork(PermanentGrowthBranch.InkHandling, 220f);
+            AssertVisibleFork(PermanentGrowthBranch.Leap, 220f);
+            AssertTouchAreasDoNotOverlap();
+        }
+
+        [Test]
         public void Catalog_선행조건은_유효하고_순환하지_않는다()
         {
             var states = new Dictionary<PermanentGrowthType, int>();
@@ -270,6 +303,69 @@ namespace MukJump.EditorTests
             }
             states[type] = 2;
             return true;
+        }
+
+        static PermanentGrowthNodeDefinition[] BranchNodes(
+            PermanentGrowthBranch branch)
+        {
+            return PermanentGrowthCatalog.Nodes
+                .Where(node => node.Branch == branch)
+                .ToArray();
+        }
+
+        static void AssertVisibleFork(
+            PermanentGrowthBranch branch,
+            float minimumHorizontalSeparation)
+        {
+            PermanentGrowthNodeDefinition[] branchNodes =
+                BranchNodes(branch);
+            bool hasVisibleFork = branchNodes.Any(parent =>
+            {
+                PermanentGrowthNodeDefinition[] children = branchNodes
+                    .Where(child => child.ParentIds.Contains(parent.Id))
+                    .ToArray();
+                if (children.Length < 2)
+                    return false;
+                float minimumX = children.Min(child => child.LayoutX);
+                float maximumX = children.Max(child => child.LayoutX);
+                return maximumX - minimumX >= minimumHorizontalSeparation;
+            });
+
+            Assert.That(
+                hasVisibleFork,
+                Is.True,
+                $"{branch} 계보의 분기가 일직선처럼 보이면 안 됩니다.");
+        }
+
+        static void AssertTouchAreasDoNotOverlap()
+        {
+            for (int leftIndex = 0;
+                 leftIndex < PermanentGrowthCatalog.Nodes.Count;
+                 leftIndex++)
+            {
+                PermanentGrowthNodeDefinition left =
+                    PermanentGrowthCatalog.Nodes[leftIndex];
+                float leftWidth = left.IsCapstone ? 240f : 188f;
+                float leftHeight = left.IsCapstone ? 260f : 218f;
+                for (int rightIndex = leftIndex + 1;
+                     rightIndex < PermanentGrowthCatalog.Nodes.Count;
+                     rightIndex++)
+                {
+                    PermanentGrowthNodeDefinition right =
+                        PermanentGrowthCatalog.Nodes[rightIndex];
+                    float rightWidth = right.IsCapstone ? 240f : 188f;
+                    float rightHeight = right.IsCapstone ? 260f : 218f;
+                    bool overlaps =
+                        System.Math.Abs(left.LayoutX - right.LayoutX) <
+                            (leftWidth + rightWidth) * 0.5f &&
+                        System.Math.Abs(left.LayoutY - right.LayoutY) <
+                            (leftHeight + rightHeight) * 0.5f;
+                    Assert.That(
+                        overlaps,
+                        Is.False,
+                        $"{left.Id}와 {right.Id}의 터치 영역이 겹칩니다.");
+                }
+            }
         }
 
         static void AssertLegacyDefinition(
