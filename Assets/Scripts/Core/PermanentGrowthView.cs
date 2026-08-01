@@ -18,6 +18,7 @@ namespace MukJump.Core
         const string ArtResourceRoot = "MukJump/UI/PermanentGrowth/";
         const float TreeCanvasZoom = 0.84f;
         const float TreeBackgroundOpacity = 0.42f;
+        const float BranchVisibleEndpointOverlap = 18f;
         static readonly Vector2 TreeViewportPosition = Vector2.zero;
         static readonly Vector2 TreeViewportSize =
             new(ReferenceWidth, ReferenceHeight);
@@ -33,6 +34,17 @@ namespace MukJump.Core
             "pg_branch_piece_04",
             "pg_branch_piece_05",
             "pg_branch_piece_06",
+        };
+        // 각 PNG에서 alpha 16 이상인 실제 먹선의 가로 범위다. 투명 여백이
+        // 조각마다 달라 같은 RectTransform 폭을 쓰면 03·06이 중간에서 끊긴다.
+        static readonly Vector2[] BranchPieceVisibleHorizontalRanges =
+        {
+            new(0.064f, 0.966f),
+            new(0.059f, 0.961f),
+            new(0.135f, 0.865f),
+            new(0.063f, 0.928f),
+            new(0.067f, 0.944f),
+            new(0.134f, 0.874f),
         };
         static readonly Vector2 HiddenScreenPosition =
             new(0f, ReferenceHeight);
@@ -565,7 +577,7 @@ namespace MukJump.Core
                 InkUiTextureFactory.CreateBrushSprite(),
                 Vector2.zero,
                 new Vector2(180f, 64f),
-                WithAlpha(InkPalette.Ink, 0.9f));
+                InkPalette.Ink);
             CreateText(
                 "BranchTitle",
                 brush.transform,
@@ -574,7 +586,7 @@ namespace MukJump.Core
                 Vector2.zero,
                 new Vector2(164f, 56f),
                 InkPalette.Paper,
-                FontStyle.Bold);
+                FontStyle.Normal);
             return root;
         }
 
@@ -608,7 +620,7 @@ namespace MukJump.Core
                 InkUiTextureFactory.CreateBlobSprite(),
                 new Vector2(0f, nodeCenterY),
                 new Vector2(surfaceSize + 32f, surfaceSize + 32f),
-                WithAlpha(InkPalette.Ink, capstone ? 0.9f : 0.84f));
+                InkPalette.Ink);
             nodeContrast.preserveAspect = true;
             nodeContrast.raycastTarget = false;
 
@@ -712,7 +724,7 @@ namespace MukJump.Core
                 new Vector2(0f, 70f),
                 new Vector2(316f, 48f),
                 InkPalette.TextDark,
-                FontStyle.Bold);
+                FontStyle.Normal);
 
             PurchaseButton = CreateBrushButton(
                 "EnhanceButton",
@@ -743,9 +755,8 @@ namespace MukJump.Core
                 new Vector2(28f, -70f),
                 new Vector2(120f, 48f),
                 ReadableMutedColor(),
-                FontStyle.Bold);
+                FontStyle.Normal);
             selectedActionStatusText.alignment = TextAnchor.MiddleLeft;
-            AddReadableWeight(selectedActionStatusText, 0.08f);
             selectedActionRoot.SetAsLastSibling();
         }
 
@@ -1193,12 +1204,20 @@ namespace MukJump.Core
             string stableEdgeId)
         {
             Vector2 delta = end - start;
-            Sprite branchSprite = LoadBranchPiece(
-                BranchPieceVariant(delta, stableEdgeId));
+            int variantIndex = BranchPieceVariant(delta, stableEdgeId);
+            Sprite branchSprite = LoadBranchPiece(variantIndex);
             if (branchSprite == null)
                 return null;
 
-            float width = delta.magnitude * 1.12f;
+            Vector2 visibleRange = BranchPieceVisibleHorizontalRange(
+                variantIndex,
+                branchSprite);
+            float visibleSpan = Mathf.Max(
+                0.1f,
+                visibleRange.y - visibleRange.x);
+            float width =
+                (delta.magnitude + BranchVisibleEndpointOverlap * 2f) /
+                visibleSpan;
             float spriteAspect = branchSprite.rect.height > 0f
                 ? branchSprite.rect.width / branchSprite.rect.height
                 : 2f;
@@ -1207,11 +1226,17 @@ namespace MukJump.Core
                 naturalHeight,
                 definition.IsCapstone ? 176f : 140f,
                 definition.IsCapstone ? 220f : 190f);
+            Vector2 direction = delta.sqrMagnitude > 0.001f
+                ? delta.normalized
+                : Vector2.right;
+            float centerFromStart =
+                width * (0.5f - visibleRange.x) -
+                BranchVisibleEndpointOverlap;
             Image branch = CreateImage(
                 objectName,
                 parent,
                 branchSprite,
-                (start + end) * 0.5f,
+                start + direction * centerFromStart,
                 new Vector2(width, thickness),
                 new Color(1f, 1f, 1f, 0.52f));
             branch.preserveAspect = false;
@@ -1221,6 +1246,18 @@ namespace MukJump.Core
                     0f,
                     Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
             return branch;
+        }
+
+        static Vector2 BranchPieceVisibleHorizontalRange(
+            int variantIndex,
+            Sprite sprite)
+        {
+            int safeIndex =
+                Mathf.Abs(variantIndex) % BranchPieceNames.Length;
+            return sprite != null &&
+                   sprite.name == BranchPieceNames[safeIndex]
+                ? BranchPieceVisibleHorizontalRanges[safeIndex]
+                : new Vector2(0f, 1f);
         }
 
         static int BranchPieceVariant(Vector2 delta, string stableEdgeId)
@@ -1578,7 +1615,7 @@ namespace MukJump.Core
                     objectName,
                     fontSize),
                 alignment,
-                strong: true);
+                strong: style is FontStyle.Bold or FontStyle.BoldAndItalic);
             PermanentGrowthTypography.ApplyLayout(text, objectName);
             return text;
         }
@@ -1631,18 +1668,5 @@ namespace MukJump.Core
             return muted;
         }
 
-        static void AddReadableWeight(Text text, float alpha)
-        {
-            if (text == null) return;
-            Shadow shadow = text.gameObject.AddComponent<Shadow>();
-            Color ink = InkPalette.Ink;
-            shadow.effectColor = new Color(
-                ink.r,
-                ink.g,
-                ink.b,
-                alpha);
-            shadow.effectDistance = new Vector2(1f, -1f);
-            shadow.useGraphicAlpha = true;
-        }
     }
 }

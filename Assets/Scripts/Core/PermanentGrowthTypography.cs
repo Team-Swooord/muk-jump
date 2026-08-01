@@ -41,15 +41,17 @@ namespace MukJump.Core
             float distance = elementName switch
             {
                 "Balance" => 2f,
-                "BranchTitle" => 1.5f,
-                "ActionName" => 1.2f,
-                "ActionStatus" => 0.8f,
+                "BranchTitle" => 0.65f,
+                "ActionName" => 0.55f,
+                "ActionStatus" => 0.4f,
                 _ => 1f,
             };
             float alpha = elementName switch
             {
                 "Balance" => 0.8f,
-                "ActionStatus" => 0.54f,
+                "BranchTitle" => 0.28f,
+                "ActionName" => 0.24f,
+                "ActionStatus" => 0.2f,
                 _ => 0.64f,
             };
             Color color = text.color;

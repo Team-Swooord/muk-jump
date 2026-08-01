@@ -195,7 +195,9 @@ namespace MukJump.EditorTests
                 var contrastImage = contrast.GetComponent<Image>();
                 var contrastRect = contrast.GetComponent<RectTransform>();
                 var surfaceRect = surface.GetComponent<RectTransform>();
-                Assert.That(contrastImage.color.a, Is.GreaterThanOrEqualTo(0.84f));
+                Assert.That(
+                    contrastImage.color.a,
+                    Is.EqualTo(1f).Within(0.001f));
                 Assert.That(contrastImage.raycastTarget, Is.False);
                 Assert.That(
                     contrastRect.sizeDelta.x,
@@ -247,6 +249,91 @@ namespace MukJump.EditorTests
                 view.TreeCanvas.Find($"GrowthNode_{child}/Fruit")
                     .GetComponent<Image>().color.a,
                 Is.GreaterThan(0.9f));
+        }
+
+        [Test]
+        public void BranchArtwork_VisibleInkOverlapsBothConnectionEndpoints()
+        {
+            var view = viewHost.AddComponent<PermanentGrowthView>();
+            view.BuildForTests();
+
+            Image[] images =
+                view.TreeCanvas.GetComponentsInChildren<Image>(true);
+            int checkedBranches = 0;
+            for (int i = 0; i < images.Length; i++)
+            {
+                Image branch = images[i];
+                string branchName = branch.name;
+                bool rootBranch = branchName.StartsWith(
+                    "TreeRootBranchArt_",
+                    System.StringComparison.Ordinal);
+                bool nodeBranch = branchName.StartsWith(
+                    "TreeBranchArt_",
+                    System.StringComparison.Ordinal);
+                if (!rootBranch && !nodeBranch)
+                    continue;
+
+                string lineName = rootBranch
+                    ? branchName.Replace(
+                        "TreeRootBranchArt_",
+                        "GrowthRootPath_")
+                    : branchName.Replace(
+                        "TreeBranchArt_",
+                        "GrowthPath_");
+                RectTransform line = view.TreeCanvas.Find(lineName)
+                    ?.GetComponent<RectTransform>();
+                Assert.That(line, Is.Not.Null, branchName);
+
+                Vector2 visibleRange = VisibleHorizontalRange(
+                    branch.sprite?.name);
+                RectTransform branchRect = branch.rectTransform;
+                float radians =
+                    branchRect.localEulerAngles.z * Mathf.Deg2Rad;
+                Vector2 direction =
+                    new(Mathf.Cos(radians), Mathf.Sin(radians));
+                Vector2 visibleStart =
+                    branchRect.anchoredPosition +
+                    direction *
+                    ((visibleRange.x - 0.5f) *
+                     branchRect.sizeDelta.x);
+                Vector2 visibleEnd =
+                    branchRect.anchoredPosition +
+                    direction *
+                    ((visibleRange.y - 0.5f) *
+                     branchRect.sizeDelta.x);
+                Vector2 logicalStart =
+                    line.anchoredPosition -
+                    direction * (line.sizeDelta.x * 0.5f);
+                Vector2 logicalEnd =
+                    line.anchoredPosition +
+                    direction * (line.sizeDelta.x * 0.5f);
+
+                Assert.That(
+                    Vector2.Dot(logicalStart - visibleStart, direction),
+                    Is.GreaterThanOrEqualTo(17.5f),
+                    $"{branchName} 시작점의 먹가지가 끊겼습니다.");
+                Assert.That(
+                    Vector2.Dot(visibleEnd - logicalEnd, direction),
+                    Is.GreaterThanOrEqualTo(17.5f),
+                    $"{branchName} 끝점의 먹가지가 끊겼습니다.");
+                checkedBranches++;
+            }
+
+            Assert.That(checkedBranches, Is.GreaterThan(0));
+        }
+
+        static Vector2 VisibleHorizontalRange(string spriteName)
+        {
+            return spriteName switch
+            {
+                "pg_branch_piece_01" => new Vector2(0.064f, 0.966f),
+                "pg_branch_piece_02" => new Vector2(0.059f, 0.961f),
+                "pg_branch_piece_03" => new Vector2(0.135f, 0.865f),
+                "pg_branch_piece_04" => new Vector2(0.063f, 0.928f),
+                "pg_branch_piece_05" => new Vector2(0.067f, 0.944f),
+                "pg_branch_piece_06" => new Vector2(0.134f, 0.874f),
+                _ => new Vector2(0f, 1f),
+            };
         }
 
         static string Sanitize(string id)

@@ -141,10 +141,16 @@ namespace MukJump.EditorTests
                     header,
                     viewport,
                     $"{branch.DisplayName} 대분류");
+                Image branchBrush = header.Find("Brush")
+                    ?.GetComponent<Image>();
+                Text branchTitle = header.Find("Brush/BranchTitle")
+                    ?.GetComponent<Text>();
+                Assert.That(branchBrush, Is.Not.Null);
                 Assert.That(
-                    header.Find("Brush/BranchTitle")
-                        ?.GetComponent<Text>()?.fontSize,
-                    Is.GreaterThanOrEqualTo(36));
+                    branchBrush.color.a,
+                    Is.EqualTo(1f).Within(0.001f));
+                Assert.That(branchTitle?.fontSize, Is.GreaterThanOrEqualTo(36));
+                Assert.That(branchTitle?.fontStyle, Is.EqualTo(FontStyle.Normal));
                 Assert.That(header.Find("BranchSummary"), Is.Null);
             }
             foreach (PermanentGrowthNodeDefinition definition
@@ -187,15 +193,17 @@ namespace MukJump.EditorTests
             Assert.That(
                 selectedAction.sizeDelta.y,
                 Is.LessThanOrEqualTo(190f));
-            Assert.That(
-                selectedAction.Find("ActionName")?.GetComponent<Text>(),
-                Is.Not.Null);
+            Text actionName = selectedAction.Find("ActionName")
+                ?.GetComponent<Text>();
+            Assert.That(actionName, Is.Not.Null);
+            Assert.That(actionName.fontStyle, Is.EqualTo(FontStyle.Normal));
             Assert.That(
                 selectedAction.Find("ActionCostIcon")?.GetComponent<Image>(),
                 Is.Not.Null);
-            Assert.That(
-                selectedAction.Find("ActionStatus")?.GetComponent<Text>(),
-                Is.Not.Null);
+            Text actionStatus = selectedAction.Find("ActionStatus")
+                ?.GetComponent<Text>();
+            Assert.That(actionStatus, Is.Not.Null);
+            Assert.That(actionStatus.fontStyle, Is.EqualTo(FontStyle.Normal));
             Assert.That(
                 selectedAction.Find("EnhanceButton")?.GetComponent<Button>(),
                 Is.Not.Null);
