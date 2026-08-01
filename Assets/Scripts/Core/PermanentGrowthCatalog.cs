@@ -169,6 +169,7 @@ namespace MukJump.Core
             PermanentGrowthDefinition trackDefinition,
             int rank,
             string[] parentIds,
+            bool isCommonTrunk,
             float layoutX,
             float layoutY)
         {
@@ -176,6 +177,7 @@ namespace MukJump.Core
             TrackDefinition = trackDefinition;
             Rank = Math.Max(1, rank);
             this.parentIds = parentIds ?? Array.Empty<string>();
+            IsCommonTrunk = isCommonTrunk;
             LayoutX = layoutX;
             LayoutY = layoutY;
         }
@@ -196,6 +198,8 @@ namespace MukJump.Core
         public PermanentGrowthValueKind ValueKind => TrackDefinition.ValueKind;
         public bool ReducesValue => TrackDefinition.ReducesValue;
         public IReadOnlyList<string> ParentIds => parentIds;
+        /// 세 전문 계보로 갈라지기 전에 모두가 순서대로 여는 기초 줄기다.
+        public bool IsCommonTrunk { get; }
         public float LayoutX { get; }
         public float LayoutY { get; }
     }
@@ -540,89 +544,89 @@ namespace MukJump.Core
                 PermanentGrowthType.InkCapacity,
                 new[]
                 {
-                    new NodePoint(0f, -1160f),
-                    new NodePoint(-100f, -900f),
-                    new NodePoint(-280f, -620f),
-                    new NodePoint(-200f, -180f),
-                    new NodePoint(-250f, 360f),
-                    new NodePoint(-480f, 940f),
+                    new NodePoint(0f, -1200f),
+                    new NodePoint(-70f, -960f),
+                    new NodePoint(-300f, 300f),
+                    new NodePoint(-420f, 540f),
+                    new NodePoint(-300f, 780f),
+                    new NodePoint(-440f, 1020f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.InkRecovery,
                 new[]
                 {
-                    new NodePoint(160f, -620f),
-                    new NodePoint(320f, -380f),
-                    new NodePoint(420f, -40f),
-                    new NodePoint(440f, 300f),
-                    new NodePoint(440f, 620f),
-                    new NodePoint(480f, 940f),
+                    new NodePoint(55f, -720f),
+                    new NodePoint(-45f, -480f),
+                    new NodePoint(0f, 350f),
+                    new NodePoint(0f, 590f),
+                    new NodePoint(60f, 830f),
+                    new NodePoint(0f, 1080f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.PlatformLifetime,
                 new[]
                 {
-                    new NodePoint(60f, -100f),
-                    new NodePoint(20f, 160f),
-                    new NodePoint(-40f, 420f),
-                    new NodePoint(-100f, 680f),
-                    new NodePoint(100f, 780f),
-                    new NodePoint(0f, 1000f),
+                    new NodePoint(40f, -240f),
+                    new NodePoint(0f, 60f),
+                    new NodePoint(300f, 300f),
+                    new NodePoint(420f, 540f),
+                    new NodePoint(300f, 780f),
+                    new NodePoint(440f, 1020f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.JumpCharge,
                 new[]
                 {
-                    new NodePoint(500f, -1160f),
-                    new NodePoint(700f, -900f),
-                    new NodePoint(850f, -650f),
-                    new NodePoint(700f, -360f),
-                    new NodePoint(760f, -40f),
-                    new NodePoint(700f, 300f),
+                    new NodePoint(520f, 40f),
+                    new NodePoint(640f, 270f),
+                    new NodePoint(740f, 500f),
+                    new NodePoint(620f, 730f),
+                    new NodePoint(740f, 960f),
+                    new NodePoint(660f, 1190f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.Vitality,
                 new[]
                 {
-                    new NodePoint(-500f, -1160f),
+                    new NodePoint(-520f, 40f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.DamageGrace,
                 new[]
                 {
-                    new NodePoint(-1400f, -850f),
-                    new NodePoint(-1400f, -500f),
-                    new NodePoint(-1400f, -150f),
+                    new NodePoint(-1040f, 300f),
+                    new NodePoint(-1120f, 560f),
+                    new NodePoint(-1000f, 820f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.LastBreath,
                 new[]
                 {
-                    new NodePoint(-550f, 180f),
+                    new NodePoint(-820f, 1200f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.JumpPower,
                 new[]
                 {
-                    new NodePoint(1050f, -360f),
-                    new NodePoint(1100f, -40f),
-                    new NodePoint(1050f, 280f),
-                    new NodePoint(1100f, 600f),
-                    new NodePoint(1000f, 900f),
+                    new NodePoint(930f, 520f),
+                    new NodePoint(1120f, 720f),
+                    new NodePoint(930f, 920f),
+                    new NodePoint(1120f, 1120f),
+                    new NodePoint(930f, 1320f),
                 });
             AddTrackNodes(
                 nodes,
                 PermanentGrowthType.DrawnPlatformLeap,
                 new[]
                 {
-                    new NodePoint(700f, 1200f),
+                    new NodePoint(690f, 1470f),
                 });
             AddTrackNodes(
                 nodes,
@@ -636,9 +640,9 @@ namespace MukJump.Core
                 PermanentGrowthType.CloneSpawnGrace,
                 new[]
                 {
-                    new NodePoint(-750f, -850f),
-                    new NodePoint(-750f, -500f),
-                    new NodePoint(-750f, -220f),
+                    new NodePoint(-660f, 320f),
+                    new NodePoint(-720f, 580f),
+                    new NodePoint(-680f, 840f),
                 });
 
             return nodes.ToArray();
@@ -658,15 +662,15 @@ namespace MukJump.Core
 
             for (int rank = 1; rank <= definition.MaxLevel; rank++)
             {
-                string[] parentIds;
-                if (rank > 1)
+                string[] parentIds = GetParentOverride(type, rank);
+                if (parentIds == null && rank > 1)
                 {
                     parentIds = new[]
                     {
                         BuildNodeId(definition.Id, rank - 1),
                     };
                 }
-                else
+                else if (parentIds == null)
                 {
                     parentIds =
                         new string[definition.Requirements.Count];
@@ -691,9 +695,46 @@ namespace MukJump.Core
                     definition,
                     rank,
                     parentIds,
+                    IsCommonTrunkNode(type, rank),
                     point.X,
                     point.Y));
             }
+        }
+
+        static string[] GetParentOverride(
+            PermanentGrowthType type,
+            int rank)
+        {
+            if (rank == 1 &&
+                (type == PermanentGrowthType.Vitality ||
+                 type == PermanentGrowthType.JumpCharge))
+            {
+                return new[]
+                {
+                    GetNodeId(PermanentGrowthType.PlatformLifetime, 1),
+                };
+            }
+
+            if (rank == 3 &&
+                (type == PermanentGrowthType.InkCapacity ||
+                 type == PermanentGrowthType.InkRecovery))
+            {
+                return new[]
+                {
+                    GetNodeId(PermanentGrowthType.PlatformLifetime, 2),
+                };
+            }
+
+            return null;
+        }
+
+        static bool IsCommonTrunkNode(
+            PermanentGrowthType type,
+            int rank)
+        {
+            return (type == PermanentGrowthType.InkCapacity && rank <= 2) ||
+                   (type == PermanentGrowthType.InkRecovery && rank <= 2) ||
+                   (type == PermanentGrowthType.PlatformLifetime && rank == 1);
         }
 
         static string BuildNodeId(string trackId, int rank)

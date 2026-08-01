@@ -235,7 +235,8 @@ namespace MukJump.EditorTests
             Image line = view.TreeCanvas
                 .Find($"GrowthRootPath_{child}")
                 .GetComponent<Image>();
-            Assert.That(branch.color.a, Is.EqualTo(0.52f).Within(0.001f));
+            Assert.That(branch.color.a, Is.EqualTo(1f).Within(0.001f),
+                "노드 사이 실제 나뭇가지는 진행 상태와 무관하게 완전히 보여야 합니다.");
             Assert.That(
                 branch.rectTransform.sizeDelta.y,
                 Is.GreaterThanOrEqualTo(140f));
@@ -244,7 +245,7 @@ namespace MukJump.EditorTests
             view.SelectGrowthForTests(0);
             view.PurchaseButton.onClick.Invoke();
 
-            Assert.That(branch.color.a, Is.EqualTo(0.52f).Within(0.001f));
+            Assert.That(branch.color.a, Is.EqualTo(1f).Within(0.001f));
             Assert.That(
                 view.TreeCanvas.Find($"GrowthNode_{child}/Fruit")
                     .GetComponent<Image>().color.a,

@@ -75,6 +75,10 @@ namespace MukJump.Core
         static IPermanentGrowthStore store = new PlayerPrefsPermanentGrowthStore();
         static SaveData data;
         static bool loaded;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        const int DebugGrowthCurrency = 999;
+        static int debugCurrencyOverride = -1;
+#endif
 
         public static event Action Changed;
 
@@ -83,6 +87,10 @@ namespace MukJump.Core
             get
             {
                 EnsureLoaded();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                if (debugCurrencyOverride >= 0)
+                    return debugCurrencyOverride;
+#endif
                 return data.wallet;
             }
         }
@@ -126,6 +134,9 @@ namespace MukJump.Core
             data = null;
             loaded = false;
             Changed = null;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            debugCurrencyOverride = -1;
+#endif
         }
 
         public static int GetLevel(PermanentGrowthType type)
@@ -241,7 +252,7 @@ namespace MukJump.Core
             int cost = node.Cost;
             if (node.Rank != level + 1 ||
                 cost <= 0 ||
-                data.wallet < cost ||
+                Currency < cost ||
                 !MeetsNodeRequirements(node))
                 return false;
 
@@ -253,6 +264,11 @@ namespace MukJump.Core
                 data.ranks.Add(record);
             }
             record.level = node.Rank;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (debugCurrencyOverride >= 0)
+                debugCurrencyOverride -= cost;
+            else
+#endif
             data.wallet -= cost;
             data.spent += cost;
             Save();
@@ -503,6 +519,32 @@ namespace MukJump.Core
             store.Save(JsonUtility.ToJson(data));
         }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        /// 성장 화면 QA용으로 해금 상태를 지우고 세션 먹빛을 999로 채운다.
+        /// 첫 보상·마지막 정산 ID는 보존해 디버그 초기화가 보상 중복을 만들지 않는다.
+        public static void DebugResetProgress()
+        {
+            EnsureLoaded();
+            data.ranks.Clear();
+            data.wallet = 0;
+            data.spent = 0;
+            debugCurrencyOverride = DebugGrowthCurrency;
+            Save();
+            Changed?.Invoke();
+        }
+
+        /// 저장 경제의 957 상한을 바꾸지 않고 현재 개발 세션에만 먹빛 999를 제공한다.
+        public static void DebugRefillCurrency()
+        {
+            EnsureLoaded();
+            debugCurrencyOverride = DebugGrowthCurrency;
+            Changed?.Invoke();
+        }
+
+        public static bool IsDebugCurrencyActive =>
+            debugCurrencyOverride >= 0;
+#endif
+
 #if UNITY_EDITOR
         public static void UseStoreForTests(IPermanentGrowthStore testStore)
         {
@@ -510,6 +552,7 @@ namespace MukJump.Core
             data = null;
             loaded = false;
             Changed = null;
+            debugCurrencyOverride = -1;
         }
 
         public static void ResetCacheForTests()
@@ -517,6 +560,7 @@ namespace MukJump.Core
             data = null;
             loaded = false;
             Changed = null;
+            debugCurrencyOverride = -1;
         }
 
         public static void RestoreDefaultStoreForTests()
@@ -525,6 +569,7 @@ namespace MukJump.Core
             data = null;
             loaded = false;
             Changed = null;
+            debugCurrencyOverride = -1;
         }
 #endif
     }

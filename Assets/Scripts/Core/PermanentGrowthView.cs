@@ -8,7 +8,7 @@ namespace MukJump.Core
 {
     /// 로비의 영구 성장 전용 화면.
     /// 생존·도약·먹 운용 세 계보를 하나의 드래그형 먹나무로 표시한다.
-    /// 선택한 노드 곁에는 비용·잠금 상태와 강화 동작만 간결하게 보여준다.
+    /// 노드를 누르면 화면 중앙 상세 팝업에서 효과·조건·비용을 확인하고 강화한다.
     [DisallowMultipleComponent]
     public sealed class PermanentGrowthView : MonoBehaviour
     {
@@ -18,6 +18,7 @@ namespace MukJump.Core
         const string ArtResourceRoot = "MukJump/UI/PermanentGrowth/";
         const float TreeCanvasZoom = 0.84f;
         const float TreeBackgroundOpacity = 0.42f;
+        const float TreeBranchOpacity = 1f;
         const float BranchVisibleEndpointOverlap = 18f;
         static readonly Vector2 TreeViewportPosition = Vector2.zero;
         static readonly Vector2 TreeViewportSize =
@@ -75,10 +76,17 @@ namespace MukJump.Core
         RectTransform contentPanel;
         ScrollRect treeScrollRect;
         RectTransform selectedActionRoot;
+        Image selectedActionDimmer;
         Text balanceText;
+        Text selectedActionBranchText;
         Text selectedActionNameText;
+        Text selectedActionDescriptionText;
+        Text selectedActionCurrentEffectText;
+        Text selectedActionNextEffectText;
         Text selectedActionStatusText;
+        Image selectedActionIcon;
         Image selectedActionCostIcon;
+        Text selectedActionCostText;
         Text purchaseButtonText;
         GameManager manager;
         Rect lastSafeArea;
@@ -87,17 +95,26 @@ namespace MukJump.Core
         float purchaseLockedUntil;
         bool purchaseInProgress;
         bool purchaseUiLocked;
+        bool nodePopupOpen;
         int selectedSlot;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        RectTransform debugMenuPanel;
+#endif
 
         public bool IsOpen =>
             rootGroup != null && rootGroup.blocksRaycasts;
         public Button BackButton { get; private set; }
         public Button PurchaseButton { get; private set; }
+        public Button NodePopupCloseButton { get; private set; }
         public RectTransform ScreenRoot { get; private set; }
         public RectTransform TreeViewport { get; private set; }
         public RectTransform TreeCanvas { get; private set; }
         public ScrollRect TreeScrollRect => treeScrollRect;
         public bool IsDedicatedScreen => ScreenRoot != null;
+        public bool IsNodePopupOpen =>
+            nodePopupOpen && selectedActionRoot != null &&
+            selectedActionRoot.gameObject.activeSelf;
         public int CreatedRowCount => branchHeaders.Count;
         public int CreatedNodeCount => nodes.Count;
         public string BalanceLabel => balanceText != null
@@ -111,6 +128,12 @@ namespace MukJump.Core
             nodes.Count > 0 && selectedSlot >= 0 && selectedSlot < nodes.Count
                 ? nodes[selectedSlot].NodeDefinition.Id
                 : string.Empty;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        public Button DebugMenuButton { get; private set; }
+        public Button DebugResetButton { get; private set; }
+        public Button DebugCurrencyButton { get; private set; }
+#endif
 
         void OnEnable()
         {
@@ -160,6 +183,7 @@ namespace MukJump.Core
 
         public void Close()
         {
+            CloseNodePopup();
             SetVisible(false);
         }
 
@@ -202,6 +226,12 @@ namespace MukJump.Core
         {
             if (Time.unscaledTime < purchaseLockedUntil)
                 return;
+
+            if (IsNodePopupOpen)
+            {
+                CloseNodePopup();
+                return;
+            }
 
             LobbyScreenNavigator navigator =
                 LobbyScreenNavigator.Instance != null
@@ -274,6 +304,7 @@ namespace MukJump.Core
 
             BuildTreeViewport(treeLayerRoot);
             BuildHeader(contentPanel);
+            BuildSelectedNodePopup(contentPanel);
 
             ApplySafeArea();
             SelectInitialNode();
@@ -317,7 +348,6 @@ namespace MukJump.Core
             TreeCanvas.localScale = Vector3.one * TreeCanvasZoom;
             treeScrollRect.content = TreeCanvas;
             BuildThreeBranchTree(TreeCanvas);
-            BuildSelectedNodeAction(TreeCanvas);
 
             ResetTreeViewportToRoot();
         }
@@ -367,6 +397,10 @@ namespace MukJump.Core
                 new Vector2(150f, 120f),
                 32);
             BackButton.onClick.AddListener(HandleBackRequested);
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            BuildDebugMenu(panel);
+#endif
         }
 
         void BuildFullScreenInkWash(Transform parent)
@@ -597,6 +631,7 @@ namespace MukJump.Core
             List<Image> branchArts)
         {
             bool capstone = definition.IsCapstone;
+            bool commonTrunk = definition.IsCommonTrunk;
             Vector2 position = NodePosition(definition);
             Vector2 touchSize = capstone
                 ? new Vector2(240f, 260f)
@@ -613,7 +648,11 @@ namespace MukJump.Core
             InkUiStyle.ConfigureButton(button, hit, addInkFeedback: false);
 
             float nodeCenterY = 30f;
-            float surfaceSize = capstone ? 164f : 124f;
+            float surfaceSize = capstone
+                ? 164f
+                : commonTrunk
+                    ? 136f
+                    : 124f;
             Image nodeContrast = CreateImage(
                 "NodeContrast",
                 root,
@@ -708,66 +747,228 @@ namespace MukJump.Core
             };
         }
 
-        void BuildSelectedNodeAction(Transform parent)
+        void BuildSelectedNodePopup(Transform parent)
         {
+            selectedActionDimmer = CreateStretchImage(
+                "GrowthNodePopupDimmer",
+                parent,
+                WithAlpha(InkPalette.Ink, 0.48f));
+            selectedActionDimmer.raycastTarget = true;
+            Button dimmerButton =
+                selectedActionDimmer.gameObject.AddComponent<Button>();
+            dimmerButton.transition = Selectable.Transition.None;
+            dimmerButton.onClick.AddListener(CloseNodePopup);
+
             selectedActionRoot = CreateRect(
                 "SelectedGrowthAction",
                 parent,
+                new Vector2(0f, -24f),
+                new Vector2(860f, 900f));
+            Image popupPaper =
+                selectedActionRoot.gameObject.AddComponent<Image>();
+            popupPaper.sprite =
+                LoadPermanentGrowthSprite("pg_hanji_card") ??
+                InkUiTextureFactory.CreateBlobSprite();
+            popupPaper.color = popupPaper.sprite != null
+                ? Color.white
+                : InkPalette.Paper2;
+            popupPaper.raycastTarget = true;
+            if (popupPaper.sprite != null &&
+                popupPaper.sprite.border != Vector4.zero)
+                popupPaper.type = Image.Type.Sliced;
+
+            Image branchBrush = CreateImage(
+                "ActionBranchBrush",
+                selectedActionRoot,
+                InkUiTextureFactory.CreateBrushSprite(),
+                new Vector2(0f, 354f),
+                new Vector2(330f, 68f),
+                InkPalette.Ink);
+            selectedActionBranchText = CreateText(
+                "ActionBranch",
+                branchBrush.transform,
+                string.Empty,
+                30,
                 Vector2.zero,
-                new Vector2(320f, 190f));
+                new Vector2(292f, 56f),
+                InkPalette.Paper,
+                FontStyle.Normal);
+
+            selectedActionIcon = CreateImage(
+                "ActionIcon",
+                selectedActionRoot,
+                null,
+                new Vector2(0f, 244f),
+                new Vector2(144f, 144f),
+                Color.white);
+            selectedActionIcon.preserveAspect = true;
 
             selectedActionNameText = CreateText(
                 "ActionName",
                 selectedActionRoot,
                 string.Empty,
-                30,
-                new Vector2(0f, 70f),
-                new Vector2(316f, 48f),
+                52,
+                new Vector2(0f, 130f),
+                new Vector2(700f, 86f),
+                InkPalette.TextDark,
+                FontStyle.Bold);
+
+            selectedActionDescriptionText = CreateText(
+                "ActionDescription",
+                selectedActionRoot,
+                string.Empty,
+                34,
+                new Vector2(0f, 34f),
+                new Vector2(700f, 112f),
                 InkPalette.TextDark,
                 FontStyle.Normal);
+            selectedActionDescriptionText.lineSpacing = 1.08f;
 
-            PurchaseButton = CreateBrushButton(
-                "EnhanceButton",
+            CreateImage(
+                "ActionDivider",
                 selectedActionRoot,
-                "강화",
-                new Vector2(0f, 10f),
-                new Vector2(230f, 96f),
-                32);
-            purchaseButtonText =
-                PurchaseButton.GetComponentInChildren<Text>(true);
-            PurchaseButton.onClick.AddListener(HandleSelectedPurchase);
+                InkUiTextureFactory.CreateBrushSprite(),
+                new Vector2(0f, -52f),
+                new Vector2(650f, 16f),
+                WithAlpha(InkPalette.Ink, 0.32f));
+
+            selectedActionCurrentEffectText = CreateText(
+                "ActionCurrentEffect",
+                selectedActionRoot,
+                string.Empty,
+                32,
+                new Vector2(0f, -122f),
+                new Vector2(660f, 58f),
+                ReadableMutedColor(),
+                FontStyle.Normal,
+                TextAnchor.MiddleLeft);
+            selectedActionNextEffectText = CreateText(
+                "ActionNextEffect",
+                selectedActionRoot,
+                string.Empty,
+                34,
+                new Vector2(0f, -188f),
+                new Vector2(660f, 60f),
+                InkPalette.TextDark,
+                FontStyle.Bold,
+                TextAnchor.MiddleLeft);
+
+            selectedActionStatusText = CreateText(
+                "ActionStatus",
+                selectedActionRoot,
+                string.Empty,
+                30,
+                new Vector2(0f, -264f),
+                new Vector2(700f, 70f),
+                ReadableMutedColor(),
+                FontStyle.Normal);
 
             selectedActionCostIcon = CreateImage(
                 "ActionCostIcon",
                 selectedActionRoot,
                 LoadPermanentGrowthSprite("pg_ink_drop") ??
                 LoadIcon(PermanentGrowthType.InkCapacity),
-                new Vector2(-42f, -70f),
-                new Vector2(34f, 34f),
+                new Vector2(-184f, -354f),
+                new Vector2(52f, 52f),
                 Color.white);
             selectedActionCostIcon.preserveAspect = true;
-
-            selectedActionStatusText = CreateText(
-                "ActionStatus",
+            selectedActionCostText = CreateText(
+                "ActionCost",
                 selectedActionRoot,
                 "0",
-                28,
-                new Vector2(28f, -70f),
-                new Vector2(120f, 48f),
-                ReadableMutedColor(),
-                FontStyle.Normal);
-            selectedActionStatusText.alignment = TextAnchor.MiddleLeft;
-            selectedActionRoot.SetAsLastSibling();
+                38,
+                new Vector2(-118f, -354f),
+                new Vector2(96f, 62f),
+                InkPalette.TextDark,
+                FontStyle.Bold,
+                TextAnchor.MiddleLeft);
+
+            PurchaseButton = CreateBrushButton(
+                "EnhanceButton",
+                selectedActionRoot,
+                "강화하기",
+                new Vector2(176f, -354f),
+                new Vector2(380f, 112f),
+                38);
+            purchaseButtonText =
+                PurchaseButton.GetComponentInChildren<Text>(true);
+            PurchaseButton.onClick.AddListener(HandleSelectedPurchase);
+
+            NodePopupCloseButton = CreateBrushButton(
+                "CloseButton",
+                selectedActionRoot,
+                "닫기",
+                new Vector2(348f, 364f),
+                new Vector2(126f, 78f),
+                28);
+            NodePopupCloseButton.onClick.AddListener(CloseNodePopup);
+
+            selectedActionDimmer.gameObject.SetActive(false);
+            selectedActionRoot.gameObject.SetActive(false);
         }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        void BuildDebugMenu(Transform parent)
+        {
+            DebugMenuButton = CreateBrushButton(
+                "GrowthDebugMenuButton",
+                parent,
+                "DEBUG",
+                new Vector2(-405f, 672f),
+                new Vector2(150f, 82f),
+                25);
+
+            Image panelImage = CreateImage(
+                "GrowthDebugMenu",
+                parent,
+                LoadPermanentGrowthSprite("pg_hanji_card") ??
+                InkUiTextureFactory.CreateBlobSprite(),
+                new Vector2(-245f, 525f),
+                new Vector2(470f, 238f),
+                Color.white);
+            panelImage.raycastTarget = true;
+            if (panelImage.sprite != null &&
+                panelImage.sprite.border != Vector4.zero)
+                panelImage.type = Image.Type.Sliced;
+            debugMenuPanel = panelImage.rectTransform;
+
+            CreateText(
+                "DebugTitle",
+                debugMenuPanel,
+                "성장 DEBUG",
+                28,
+                new Vector2(0f, 66f),
+                new Vector2(360f, 48f),
+                InkPalette.TextDark,
+                FontStyle.Bold);
+            DebugResetButton = CreateBrushButton(
+                "DebugResetButton",
+                debugMenuPanel,
+                "노드 초기화",
+                new Vector2(-112f, -30f),
+                new Vector2(202f, 92f),
+                25);
+            DebugCurrencyButton = CreateBrushButton(
+                "DebugCurrencyButton",
+                debugMenuPanel,
+                "먹빛 999",
+                new Vector2(112f, -30f),
+                new Vector2(202f, 92f),
+                27);
+
+            DebugMenuButton.onClick.AddListener(ToggleDebugMenu);
+            DebugResetButton.onClick.AddListener(HandleDebugReset);
+            DebugCurrencyButton.onClick.AddListener(HandleDebugRefill);
+            debugMenuPanel.gameObject.SetActive(false);
+        }
+#endif
 
         void SelectInitialNode()
         {
             int firstAvailable = -1;
             for (int i = 0; i < nodes.Count; i++)
             {
-                if (nodes[i].NodeDefinition.Type ==
-                        PermanentGrowthType.InkCapacity &&
-                    nodes[i].NodeDefinition.Rank == 1)
+                if (nodes[i].NodeDefinition.ParentIds.Count == 0)
                 {
                     selectedSlot = i;
                     return;
@@ -788,6 +989,7 @@ namespace MukJump.Core
                 Time.unscaledTime < purchaseLockedUntil)
                 return;
             selectedSlot = slot;
+            SetNodePopupVisible(true);
             Refresh();
         }
 
@@ -826,6 +1028,7 @@ namespace MukJump.Core
                 Time.unscaledTime +
                 GrowthUnlockPresentation.SequenceDuration;
             purchaseUiLocked = true;
+            SetNodePopupVisible(false);
             Refresh();
             InkUiFeedbackController.PlayGrowthUnlock(
                 node.NodeDefinition.Name,
@@ -902,7 +1105,8 @@ namespace MukJump.Core
 
                 // 가지는 진행 상태가 아니라 나무 자체다. 해금 상태 표현은
                 // 열매와 얇은 상태선에만 맡겨 한 그루의 실루엣을 유지한다.
-                Color branchColor = new(1f, 1f, 1f, 0.52f);
+                Color branchColor =
+                    new(1f, 1f, 1f, TreeBranchOpacity);
                 for (int artIndex = 0;
                      artIndex < node.BranchArts.Count;
                      artIndex++)
@@ -915,27 +1119,43 @@ namespace MukJump.Core
 
             if (BackButton != null)
                 BackButton.interactable = !purchaseUiLocked;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (DebugMenuButton != null)
+                DebugMenuButton.interactable = !purchaseUiLocked;
+            if (DebugResetButton != null)
+                DebugResetButton.interactable = !purchaseUiLocked;
+            if (DebugCurrencyButton != null)
+                DebugCurrencyButton.interactable = !purchaseUiLocked;
+#endif
             UpdateTreeInteraction();
-            RefreshSelectedAction();
+            RefreshSelectedNodePopup();
         }
 
         void UpdateTreeInteraction()
         {
             if (treeScrollRect == null) return;
-            treeScrollRect.enabled = !purchaseUiLocked;
-            if (purchaseUiLocked)
+            bool blocked = purchaseUiLocked || IsNodePopupOpen;
+            treeScrollRect.enabled = !blocked;
+            if (blocked)
                 treeScrollRect.StopMovement();
         }
 
-        void RefreshSelectedAction()
+        void RefreshSelectedNodePopup()
         {
             if (nodes.Count == 0 ||
                 selectedSlot < 0 ||
                 selectedSlot >= nodes.Count ||
                 selectedActionRoot == null ||
+                selectedActionBranchText == null ||
                 selectedActionNameText == null ||
+                selectedActionDescriptionText == null ||
+                selectedActionCurrentEffectText == null ||
+                selectedActionNextEffectText == null ||
                 selectedActionStatusText == null ||
-                selectedActionCostIcon == null)
+                selectedActionIcon == null ||
+                selectedActionCostIcon == null ||
+                selectedActionCostText == null ||
+                PurchaseButton == null)
                 return;
 
             GrowthNodeView node = nodes[selectedSlot];
@@ -948,189 +1168,118 @@ namespace MukJump.Core
             int cost = definition.Cost;
             bool hasEnoughCurrency =
                 PermanentGrowthProfile.Currency >= cost;
+            int currentLevel =
+                PermanentGrowthProfile.GetLevel(definition.Type);
+            PermanentGrowthBranchMetadata branch =
+                PermanentGrowthCatalog.GetBranch(definition.Branch);
 
-            selectedActionNameText.text =
-                FormatSelectedNodeSummary(definition);
+            selectedActionBranchText.text = definition.IsCommonTrunk
+                ? $"공통 줄기 · {definition.Rank}단계"
+                : $"{branch.DisplayName} · {definition.Rank}단계";
+            selectedActionNameText.text = definition.Name;
+            selectedActionDescriptionText.text = definition.Description;
+            selectedActionIcon.sprite = LoadIcon(definition.Type);
+            selectedActionIcon.color = selectedActionIcon.sprite != null
+                ? Color.white
+                : InkPalette.Ink;
+            selectedActionCurrentEffectText.text = definition.IsCapstone
+                ? unlocked
+                    ? "현재  ·  패시브 활성"
+                    : "현재  ·  패시브 잠김"
+                : $"현재 누적  ·  " +
+                  FormatEffectAtLevel(definition, currentLevel);
+            selectedActionNextEffectText.text = definition.IsCapstone
+                ? $"해금 효과  ·  {definition.Description}"
+                : $"해금 후  ·  " +
+                  FormatEffectAtLevel(definition, definition.Rank);
             selectedActionStatusText.text = unlocked
-                ? "완료"
+                ? "이미 해금된 성장입니다."
                 : requirementsMet
-                    ? cost.ToString()
-                    : "선행 필요";
+                    ? hasEnoughCurrency
+                        ? $"먹빛 {cost}개로 해금할 수 있습니다."
+                        : $"먹빛 {cost - PermanentGrowthProfile.Currency}개가 부족합니다."
+                    : PermanentGrowthProfile.GetNodeLockReason(definition);
             selectedActionStatusText.color =
                 !unlocked && requirementsMet && !hasEnoughCurrency
                     ? InkPalette.Red
                     : requirementsMet || unlocked
                         ? ReadableMutedColor()
                         : InkPalette.Red;
-            selectedActionCostIcon.gameObject.SetActive(
-                !unlocked && requirementsMet);
+            bool showCost = !unlocked;
+            selectedActionCostIcon.gameObject.SetActive(showCost);
+            selectedActionCostText.gameObject.SetActive(showCost);
+            selectedActionCostText.text = cost.ToString();
 
             if (purchaseButtonText != null)
             {
                 purchaseButtonText.text = unlocked
-                    ? "완료"
+                    ? "해금 완료"
                     : requirementsMet
-                        ? "강화"
-                        : "잠김";
+                        ? hasEnoughCurrency
+                            ? "강화하기"
+                            : "먹빛 부족"
+                        : "선행 필요";
             }
             PurchaseButton.interactable =
                 !purchaseUiLocked &&
                 !unlocked &&
                 requirementsMet &&
                 hasEnoughCurrency;
-            selectedActionRoot.anchoredPosition =
-                FindSelectedActionPosition(node);
-            selectedActionRoot.SetAsLastSibling();
+            NodePopupCloseButton.interactable = !purchaseUiLocked;
         }
 
-        Vector2 FindSelectedActionPosition(GrowthNodeView selectedNode)
+        void SetNodePopupVisible(bool visible)
         {
-            Vector2 origin = selectedNode.Root.anchoredPosition;
-            float preferredDirection = origin.x < 0f ? 1f : -1f;
-            Vector2[] offsets =
+            nodePopupOpen = visible && selectedActionRoot != null;
+            if (selectedActionDimmer != null)
             {
-                new(preferredDirection * 310f, 0f),
-                new(-preferredDirection * 310f, 0f),
-                new(0f, 235f),
-                new(0f, -235f),
-                new(preferredDirection * 285f, 185f),
-                new(-preferredDirection * 285f, 185f),
-                new(preferredDirection * 285f, -185f),
-                new(-preferredDirection * 285f, -185f),
-                new(preferredDirection * 410f, 120f),
-                new(-preferredDirection * 410f, 120f),
-                new(preferredDirection * 410f, -120f),
-                new(-preferredDirection * 410f, -120f),
-            };
-
-            Vector2 actionSize = selectedActionRoot.sizeDelta;
-            Rect visibleBounds = VisibleTreeCanvasBounds();
-            var candidates = new List<Vector2>(192);
-            for (int i = 0; i < offsets.Length; i++)
-                candidates.Add(
-                    ClampActionCenter(
-                        origin + offsets[i],
-                        actionSize,
-                        visibleBounds));
-
-            Vector2 halfAction = actionSize * 0.5f;
-            float minimumX = visibleBounds.xMin + halfAction.x;
-            float maximumX = visibleBounds.xMax - halfAction.x;
-            float minimumY = visibleBounds.yMin + halfAction.y;
-            float maximumY = visibleBounds.yMax - halfAction.y;
-            const float SearchStep = 88f;
-            for (float y = minimumY; y <= maximumY; y += SearchStep)
-                for (float x = minimumX; x <= maximumX; x += SearchStep)
-                    candidates.Add(new Vector2(x, y));
-            candidates.Add(new Vector2(maximumX, maximumY));
-            candidates.Add(new Vector2(minimumX, maximumY));
-            candidates.Add(new Vector2(maximumX, minimumY));
-            candidates.Add(new Vector2(minimumX, minimumY));
-
-            Vector2 best = candidates[0];
-            float bestScore = float.PositiveInfinity;
-            for (int candidateIndex = 0;
-                 candidateIndex < candidates.Count;
-                 candidateIndex++)
-            {
-                Vector2 candidate = candidates[candidateIndex];
-                Rect actionRect = CenteredRect(candidate, actionSize);
-                float score =
-                    (candidate - origin).sqrMagnitude * 0.002f;
-                score += RectOverflow(actionRect, visibleBounds) * 1000000f;
-
-                for (int nodeIndex = 0; nodeIndex < nodes.Count; nodeIndex++)
-                {
-                    GrowthNodeView other = nodes[nodeIndex];
-                    Rect occupied = CenteredRect(
-                        other.Root.anchoredPosition,
-                        other.Root.sizeDelta + new Vector2(36f, 36f));
-                    score += RectOverlapArea(actionRect, occupied) * 1000f;
-                }
-
-                for (int headerIndex = 0;
-                     headerIndex < branchHeaders.Count;
-                     headerIndex++)
-                {
-                    RectTransform header = branchHeaders[headerIndex];
-                    Rect occupied = CenteredRect(
-                        header.anchoredPosition,
-                        header.sizeDelta + new Vector2(24f, 24f));
-                    score += RectOverlapArea(actionRect, occupied) * 500f;
-                }
-
-                if (score >= bestScore)
-                    continue;
-                bestScore = score;
-                best = candidate;
+                selectedActionDimmer.gameObject.SetActive(nodePopupOpen);
+                if (nodePopupOpen)
+                    selectedActionDimmer.transform.SetAsLastSibling();
             }
-
-            return best;
+            if (selectedActionRoot != null)
+            {
+                selectedActionRoot.gameObject.SetActive(nodePopupOpen);
+                if (nodePopupOpen)
+                    selectedActionRoot.SetAsLastSibling();
+            }
+            UpdateTreeInteraction();
         }
 
-        Rect VisibleTreeCanvasBounds()
+        void CloseNodePopup()
         {
-            if (TreeViewport == null || TreeCanvas == null)
-                return new Rect(
-                    -TreeCanvasSize.x * 0.5f,
-                    -TreeCanvasSize.y * 0.5f,
-                    TreeCanvasSize.x,
-                    TreeCanvasSize.y);
-
-            var corners = new Vector3[4];
-            TreeViewport.GetWorldCorners(corners);
-            Vector3 bottomLeft = TreeCanvas.InverseTransformPoint(corners[0]);
-            Vector3 topRight = TreeCanvas.InverseTransformPoint(corners[2]);
-            const float SafeInset = 22f;
-            return Rect.MinMaxRect(
-                bottomLeft.x + SafeInset,
-                bottomLeft.y + SafeInset,
-                topRight.x - SafeInset,
-                topRight.y - SafeInset);
+            SetNodePopupVisible(false);
         }
 
-        static Vector2 ClampActionCenter(
-            Vector2 center,
-            Vector2 size,
-            Rect bounds)
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        void ToggleDebugMenu()
         {
-            Vector2 half = size * 0.5f;
-            float minimumX = bounds.xMin + half.x;
-            float maximumX = bounds.xMax - half.x;
-            float minimumY = bounds.yMin + half.y;
-            float maximumY = bounds.yMax - half.y;
-            return new Vector2(
-                minimumX <= maximumX
-                    ? Mathf.Clamp(center.x, minimumX, maximumX)
-                    : bounds.center.x,
-                minimumY <= maximumY
-                    ? Mathf.Clamp(center.y, minimumY, maximumY)
-                    : bounds.center.y);
+            if (debugMenuPanel == null || purchaseUiLocked)
+                return;
+            bool visible = !debugMenuPanel.gameObject.activeSelf;
+            debugMenuPanel.gameObject.SetActive(visible);
+            if (visible)
+                debugMenuPanel.SetAsLastSibling();
         }
 
-        static Rect CenteredRect(Vector2 center, Vector2 size)
+        void HandleDebugReset()
         {
-            return new Rect(center - size * 0.5f, size);
+            if (purchaseUiLocked)
+                return;
+            CloseNodePopup();
+            PermanentGrowthProfile.DebugResetProgress();
+            SelectInitialNode();
+            Refresh();
         }
 
-        static float RectOverflow(Rect inner, Rect outer)
+        void HandleDebugRefill()
         {
-            return Mathf.Max(0f, outer.xMin - inner.xMin) +
-                   Mathf.Max(0f, inner.xMax - outer.xMax) +
-                   Mathf.Max(0f, outer.yMin - inner.yMin) +
-                   Mathf.Max(0f, inner.yMax - outer.yMax);
+            if (purchaseUiLocked)
+                return;
+            PermanentGrowthProfile.DebugRefillCurrency();
+            Refresh();
         }
-
-        static float RectOverlapArea(Rect a, Rect b)
-        {
-            float width =
-                Mathf.Max(0f, Mathf.Min(a.xMax, b.xMax) -
-                               Mathf.Max(a.xMin, b.xMin));
-            float height =
-                Mathf.Max(0f, Mathf.Min(a.yMax, b.yMax) -
-                               Mathf.Max(a.yMin, b.yMin));
-            return width * height;
-        }
+#endif
 
         static Vector2 NodePosition(
             PermanentGrowthNodeDefinition definition)
@@ -1142,16 +1291,16 @@ namespace MukJump.Core
 
         static Vector2 BranchHeaderPosition(PermanentGrowthBranch branch)
         {
-            // 세 대분류는 첫 화면의 뿌리 바로 위에서 먼저 읽힌다. 종착점에
-            // 붙이면 지도에 들어오자마자 어느 가지가 무엇인지 알 수 없다.
+            // 공통 줄기 끝에서 갈라지는 실제 세 입구에 표찰을 붙인다.
+            // 뿌리 옆에 두면 처음부터 세 갈래인 것처럼 오해하기 쉽다.
             return branch switch
             {
                 PermanentGrowthBranch.Survival =>
-                    new Vector2(-500f, -1310f),
+                    new Vector2(-520f, -100f),
                 PermanentGrowthBranch.InkHandling =>
-                    new Vector2(0f, -1310f),
+                    new Vector2(0f, -100f),
                 PermanentGrowthBranch.Leap =>
-                    new Vector2(500f, -1310f),
+                    new Vector2(520f, -100f),
                 _ => Vector2.zero,
             };
         }
@@ -1167,18 +1316,15 @@ namespace MukJump.Core
             };
         }
 
-        static string FormatSelectedNodeSummary(
-            PermanentGrowthNodeDefinition definition)
+        static string FormatEffectAtLevel(
+            PermanentGrowthNodeDefinition definition,
+            int level)
         {
             if (definition == null)
                 return string.Empty;
-            if (definition.IsCapstone)
-                return $"{definition.Name} · 패시브";
 
-            float value = definition.ValueKind ==
-                PermanentGrowthValueKind.Percent
-                    ? definition.EffectPerRank * 100f
-                    : definition.EffectPerRank;
+            float value =
+                definition.TrackDefinition.GetDisplayValueAtLevel(level);
             string formatted = Mathf.Approximately(
                 value,
                 Mathf.Round(value))
@@ -1191,8 +1337,7 @@ namespace MukJump.Core
                 PermanentGrowthValueKind.Seconds => "초",
                 _ => string.Empty,
             };
-            return $"{definition.Name} · {definition.EffectUnit} " +
-                   $"{sign}{formatted}{suffix}";
+            return $"{definition.EffectUnit} {sign}{formatted}{suffix}";
         }
 
         Image CreateTreeBranchArt(
@@ -1238,7 +1383,7 @@ namespace MukJump.Core
                 branchSprite,
                 start + direction * centerFromStart,
                 new Vector2(width, thickness),
-                new Color(1f, 1f, 1f, 0.52f));
+                new Color(1f, 1f, 1f, TreeBranchOpacity));
             branch.preserveAspect = false;
             branch.rectTransform.localEulerAngles =
                 new Vector3(
@@ -1457,6 +1602,11 @@ namespace MukJump.Core
             {
                 purchaseUiLocked = false;
                 purchaseLockedUntil = 0f;
+                CloseNodePopup();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                if (debugMenuPanel != null)
+                    debugMenuPanel.gameObject.SetActive(false);
+#endif
                 InkUiFeedbackController.CancelGrowthPresentation();
             }
             if (visible)
