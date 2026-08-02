@@ -38,6 +38,8 @@ namespace MukJump.Player
         [SerializeField, Range(0f, 8f)] float maxVisualRollAngle = 3f;
         [Tooltip("현재 이동 방향의 기울기로 따라가는 속도")]
         [SerializeField, Min(0f)] float visualRollSpeed = 18f;
+        [Tooltip("자동 점프 비행의 기본 최대 낙하 속도. 영구 성장은 이 값만 비례 조정")]
+        [SerializeField, Min(1f)] float permanentGrowthFallSpeedLimit = 18f;
         [Header("드로잉 발판 접착")]
         [Tooltip("대각선 발판에 붙어 있을 때 접선 방향 속도를 남기는 비율")]
         [SerializeField, Range(0f, 1f)] float platformGrip = 0.42f;
@@ -53,8 +55,9 @@ namespace MukJump.Player
         public bool HasShield { get; private set; }
         public bool IsInkDropBoosted { get; private set; }
         public bool IsRuntimeClone => isRuntimeClone;
+        public bool IsAutomaticJumpInFlight => automaticJumpInFlight;
         public int MaxHealth =>
-            Mathf.Max(1, maxHealth + PermanentGrowthProfile.MaxHealthBonus);
+            Mathf.Max(1, maxHealth + ActivePermanentGrowth.MaxHealthBonus);
         public int CurrentHealth { get; private set; }
         /// 피격 횟수에 맞춘 시각 단계. 물리 크기는 바꾸지 않는다.
         public int DamageStage => Mathf.Clamp(MaxHealth - CurrentHealth, 0, 2);
@@ -79,11 +82,20 @@ namespace MukJump.Player
         bool inkDropHasRisen;
         float normalGravityScale;
         float damageInvulnerableUntil;
+        float apexGravityUntil;
+        float fallBrakeUntil;
+        float fallBrakeVelocityFloor;
+        bool automaticJumpInFlight;
         [SerializeField, HideInInspector] bool isRuntimeClone;
         static DeathInkStainPool deathStainPool;
 
         static DeathInkStainPool DeathStainPool =>
             deathStainPool ??= new DeathInkStainPool(CreateDeathStainObject);
+
+        PermanentGrowthRunSnapshot ActivePermanentGrowth =>
+            RunGrowthController.Instance != null
+                ? RunGrowthController.Instance.PermanentSnapshot
+                : PermanentGrowthProfile.CreateRunSnapshot();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetDeathStainPool()
@@ -141,7 +153,7 @@ namespace MukJump.Player
             GroundNormal = Vector2.up;
             damageInvulnerableUntil = Time.time +
                                       Mathf.Max(1f, cloneSpawnGraceDuration) +
-                                      PermanentGrowthProfile
+                                      ActivePermanentGrowth
                                           .CloneSpawnGraceBonusSeconds;
             rb.WakeUp();
         }
@@ -203,6 +215,8 @@ namespace MukJump.Player
                         -maxVisualRollAngle, maxVisualRollAngle);
                 rb.rotation = Mathf.MoveTowardsAngle(rb.rotation, targetAngle,
                     visualRollSpeed * Time.fixedDeltaTime);
+
+                ApplyPermanentAirControl();
             }
 
             // 접지 플래그는 매 물리 스텝 초기화 → OnCollisionStay2D가 다시 세운다
@@ -262,7 +276,7 @@ namespace MukJump.Player
             {
                 CurrentHealth = 1;
                 HealthChanged?.Invoke(CurrentHealth, MaxHealth);
-                ApplyObstacleHitRecovery(EffectiveDamageHitGraceDuration, true);
+                ApplyObstacleHitRecovery(0.8f, true, false);
                 return true;
             }
 
@@ -271,7 +285,16 @@ namespace MukJump.Player
             if (CurrentHealth <= 0)
                 Kill();
             else
-                ApplyObstacleHitRecovery(EffectiveDamageHitGraceDuration, true);
+            {
+                RunGrowthController growth = RunGrowthController.Instance;
+                bool preserveMotion = growth != null &&
+                                      growth.TryPreserveHitMotion();
+                growth?.NotifyNonLethalObstacleHit();
+                ApplyObstacleHitRecovery(
+                    EffectiveDamageHitGraceDuration,
+                    true,
+                    preserveMotion);
+            }
             return true;
         }
 
@@ -282,7 +305,7 @@ namespace MukJump.Player
             ApplyObstacleHitRecovery(
                 Mathf.Max(0f,
                     graceSeconds +
-                    PermanentGrowthProfile.DamageGraceBonusSeconds),
+                    ActivePermanentGrowth.DamageGraceBonusSeconds),
                 true);
         }
 
@@ -290,9 +313,12 @@ namespace MukJump.Player
             Mathf.Max(
                 0f,
                 damageHitGraceDuration +
-                PermanentGrowthProfile.DamageGraceBonusSeconds);
+                ActivePermanentGrowth.DamageGraceBonusSeconds);
 
-        void ApplyObstacleHitRecovery(float graceSeconds, bool playInkPuff)
+        void ApplyObstacleHitRecovery(
+            float graceSeconds,
+            bool playInkPuff,
+            bool preserveMotion = false)
         {
             if (IsDead) return;
             if (rb == null)
@@ -304,20 +330,100 @@ namespace MukJump.Player
             damageInvulnerableUntil = Mathf.Max(
                 damageInvulnerableUntil,
                 Time.time + Mathf.Max(0f, graceSeconds));
-            DetachFromPlatform();
-            Vector2 velocity = rb.linearVelocity;
-            velocity.x *= 0.82f;
-            velocity.y = Mathf.Max(velocity.y, 1.6f);
-            rb.linearVelocity = velocity;
+            if (!preserveMotion)
+            {
+                DetachFromPlatform();
+                Vector2 velocity = rb.linearVelocity;
+                velocity.x *= ActivePermanentGrowth.HitHorizontalRetention;
+                velocity.y = Mathf.Max(
+                    velocity.y,
+                    ActivePermanentGrowth.MinimumHitRebound);
+                rb.linearVelocity = velocity;
+            }
             rb.WakeUp();
             if (playInkPuff)
                 GetComponent<ItemEffectView>()?.PlayVitalityHit();
+        }
+
+        /// 규칙형 성장·비기가 기존 속도와 발판 상태를 건드리지 않고 보호 시간만 늘린다.
+        public void GrantObstacleProtection(float duration)
+        {
+            if (IsDead)
+                return;
+            damageInvulnerableUntil = Mathf.Max(
+                damageInvulnerableUntil,
+                Time.time + Mathf.Max(0f, duration));
+        }
+
+        public bool RestoreHealth(int amount)
+        {
+            if (IsDead || amount <= 0 || CurrentHealth >= MaxHealth)
+                return false;
+            CurrentHealth = Mathf.Min(MaxHealth, CurrentHealth + amount);
+            HealthChanged?.Invoke(CurrentHealth, MaxHealth);
+            return true;
+        }
+
+        public void ApplyApexGravityWindow(float duration, float gravityMultiplier)
+        {
+            if (IsDead || IsGrounded || CurrentPlatform != null)
+                return;
+            apexGravityUntil = Mathf.Max(
+                apexGravityUntil,
+                Time.time + Mathf.Max(0f, duration));
+            if (EnsureBody())
+                rb.gravityScale = normalGravityScale *
+                                  Mathf.Clamp(gravityMultiplier, 0.1f, 1f);
+        }
+
+        void ApplyPermanentAirControl()
+        {
+            if (rb == null || !rb.simulated || rb.bodyType != RigidbodyType2D.Dynamic)
+                return;
+
+            bool isNaturalAirborne =
+                !IsGrounded && CurrentPlatform == null && !IsInkDropBoosted;
+            if (isNaturalAirborne)
+            {
+                rb.gravityScale = Time.time < apexGravityUntil
+                    ? normalGravityScale * 0.8f
+                    : normalGravityScale;
+            }
+
+            // 접착된 대각선 발판의 하강 접선 속도나 먹물방울 상승을 낙하로
+            // 오인하면 비기가 착지 중 소모된다. 낙하 제어는 자연 공중 상태에만 적용한다.
+            if (!isNaturalAirborne)
+                return;
+
+            Vector2 velocity = rb.linearVelocity;
+            if (automaticJumpInFlight && velocity.y < 0f)
+            {
+                float limit = permanentGrowthFallSpeedLimit *
+                              ActivePermanentGrowth.MaximumFallSpeedMultiplier;
+                velocity.y = Mathf.Max(velocity.y, -limit);
+            }
+
+            RunGrowthController growth = RunGrowthController.Instance;
+            if (velocity.y < 0f && growth != null &&
+                growth.TryUseLastFallBrake(this))
+            {
+                velocity.y *= 0.65f;
+                fallBrakeVelocityFloor = velocity.y;
+                fallBrakeUntil = Time.time + 0.45f;
+            }
+            else if (Time.time < fallBrakeUntil && velocity.y < fallBrakeVelocityFloor)
+            {
+                // 음수 속도를 0 이상으로 만들지 않아 위쪽 힘처럼 보이지 않게 한다.
+                velocity.y = Mathf.Min(-0.01f, fallBrakeVelocityFloor);
+            }
+            rb.linearVelocity = velocity;
         }
 
         /// 먹물방울: 현재 위치에서 지정 높이까지 오르는 물리 점프 속도를 적용한다.
         public void LaunchToHeight(float height)
         {
             if (!EnsureBody()) return;
+            automaticJumpInFlight = false;
             // 대각선 발판 접착 중에는 gravityScale이 0이므로 먼저 접착을 풀어야
             // 목표 높이에 필요한 점프 속도가 정상적으로 계산된다.
             DetachFromPlatform();
@@ -336,6 +442,13 @@ namespace MukJump.Player
                 Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
                     transform, Mathf.Lerp(1f, 1.5f,
                         Mathf.InverseLerp(25f, 50f, height)));
+        }
+
+        /// AutoJump가 만든 상승만 정점·낙하 영구 성장의 대상으로 표시한다.
+        public void BeginAutomaticJumpFlight()
+        {
+            if (!IsDead)
+                automaticJumpInFlight = true;
         }
 
         void ResetHealth()
@@ -381,6 +494,7 @@ namespace MukJump.Player
             foreach (var col in GetComponents<Collider2D>())
                 col.enabled = false;
 
+            RunGrowthController.Instance?.NotifyPlayerDied(this);
             bool isLastPlayer = GameManager.Instance == null ||
                                 GameManager.Instance.NotifyPlayerDied(this);
             GameFeedbackController.Instance?.PlayDeath(
@@ -533,8 +647,19 @@ namespace MukJump.Player
             bool isSpecialPlatform = platform != null && platform.IsWindCurrentPlatform;
             bool landed = hasTopContact || (platform != null && !isSpecialPlatform);
             if (landed)
+            {
+                automaticJumpInFlight = false;
                 GameFeedbackController.Instance?.PlayLanding(transform.position,
                     Mathf.Abs(collision.relativeVelocity.y));
+                bool drawnPlatform = platform != null &&
+                                     platform.IsTemporaryDrawnPlatform;
+                GetComponent<AutoJump>()?.NotifyLanding(drawnPlatform);
+                if (drawnPlatform)
+                {
+                    platform.NotifyFirstLanding();
+                    RunGrowthController.Instance?.NotifyDrawnPlatformLanding();
+                }
+            }
 
             if (collision.collider.GetComponent<ScreenSideWall>() == null) return;
 

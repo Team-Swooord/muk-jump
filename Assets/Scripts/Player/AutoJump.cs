@@ -40,6 +40,9 @@ namespace MukJump.Player
         bool chargeStarted;
         float wanderDirection;
         int randomSessionVersion = -1;
+        float nextDrawnChargeMultiplier = 1f;
+        int consecutiveDrawnLandings;
+        float consecutiveLandingReadyAt;
 
         /// 첫 점프는 접지 중, 이후 점프는 정점부터 다음 점프를 준비한다 (HUD 게이지용).
         public bool IsCharging => player != null && (chargeStarted || (!hasLaunched && player.IsGrounded)) &&
@@ -91,6 +94,9 @@ namespace MukJump.Player
                 wasRising = false;
                 chargeStarted = true;
                 chargeTimer = 0f;
+                if (ActivePermanentGrowth.HasApexHang &&
+                    player.IsAutomaticJumpInFlight)
+                    player.ApplyApexGravityWindow(0.08f, 0.8f);
             }
 
             if (!hasLaunched && player.IsGrounded)
@@ -111,6 +117,7 @@ namespace MukJump.Player
             chargeStarted = false;
             hasLaunched = true;
             wasRising = true;
+            player.BeginAutomaticJumpFlight();
 
             Vector2 direction = Vector3.Slerp(Vector3.up, player.GroundNormal, normalInfluence).normalized;
             // 세션 성장은 자동 점프에만 적용한다. 먹물방울·풍맥처럼 높이를 직접
@@ -119,12 +126,12 @@ namespace MukJump.Player
                 ? RunGrowthController.Instance.JumpPowerMultiplier
                 : 1f;
             float permanentMultiplier =
-                PermanentGrowthProfile.JumpPowerMultiplier;
+                ActivePermanentGrowth.JumpPowerMultiplier;
             if (player.CurrentPlatform != null &&
                 player.CurrentPlatform.IsTemporaryDrawnPlatform)
             {
                 permanentMultiplier *=
-                    PermanentGrowthProfile.DrawnPlatformLeapMultiplier;
+                    ActivePermanentGrowth.DrawnPlatformLeapMultiplier;
             }
             float power = baseJumpSpeed * jumpStrengthMultiplier *
                           PowerMultiplier() * growthMultiplier *
@@ -139,6 +146,7 @@ namespace MukJump.Player
 
             horizontal = Mathf.Clamp(horizontal, -maxHorizontalSpeed, maxHorizontalSpeed);
             rb.linearVelocity = new Vector2(horizontal, direction.y * power);
+            nextDrawnChargeMultiplier = 1f;
             GameFeedbackController.Instance?.PlayJump(transform.position);
             Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
                 transform, Mathf.InverseLerp(10f, 18f, power));
@@ -150,7 +158,40 @@ namespace MukJump.Player
             if (platform == null) return 1f; // 시작 지형 등 기본 발판
 
             float t = Mathf.InverseLerp(platformLengthRange.x, platformLengthRange.y, platform.Length);
-            return Mathf.Lerp(powerMultiplierRange.x, powerMultiplierRange.y, t);
+            float minimum = ActivePermanentGrowth.MinimumPlatformPowerMultiplier;
+            if (platform.IsTemporaryDrawnPlatform &&
+                ActivePermanentGrowth.HasShortPlatformKeystone)
+                minimum = 1f;
+            return Mathf.Lerp(
+                Mathf.Max(powerMultiplierRange.x, minimum),
+                powerMultiplierRange.y,
+                t);
+        }
+
+        /// 착지 콜백은 발판마다 한 번만 들어오며 다음 충전과 연속 착지 비기를 준비한다.
+        public void NotifyLanding(bool isTemporaryDrawnPlatform)
+        {
+            if (!isTemporaryDrawnPlatform)
+            {
+                consecutiveDrawnLandings = 0;
+                return;
+            }
+
+            if (ActivePermanentGrowth.HasDrawnChargeRhythm)
+                nextDrawnChargeMultiplier = 0.96f;
+
+            if (!ActivePermanentGrowth.HasConsecutiveLandingRhythm)
+                return;
+            consecutiveDrawnLandings++;
+            if (consecutiveDrawnLandings < 3 || Time.time < consecutiveLandingReadyAt)
+                return;
+
+            consecutiveDrawnLandings = 0;
+            consecutiveLandingReadyAt = Time.time + 10f;
+            chargeStarted = true;
+            chargeTimer = Mathf.Min(
+                SafeJumpInterval,
+                chargeTimer + SafeJumpInterval * 0.20f);
         }
 
         void EnsureSessionRandomState()
@@ -176,6 +217,12 @@ namespace MukJump.Player
             Mathf.Max(
                 MinJumpInterval,
                 SanitizedJumpInterval *
-                PermanentGrowthProfile.JumpChargeMultiplier);
+                ActivePermanentGrowth.JumpChargeMultiplier *
+                nextDrawnChargeMultiplier);
+
+        PermanentGrowthRunSnapshot ActivePermanentGrowth =>
+            RunGrowthController.Instance != null
+                ? RunGrowthController.Instance.PermanentSnapshot
+                : PermanentGrowthProfile.CreateRunSnapshot();
     }
 }

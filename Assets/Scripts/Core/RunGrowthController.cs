@@ -86,8 +86,10 @@ namespace MukJump.Core
             1f + PlatformLifetimeLevel * PlatformLifetimePerLevel;
         public int AdditionalPlatformSlots => PlatformSlotsLevel;
         public bool NewPlatformsHaveStrokeGuard => StrokeGuardLevel > 0;
-        /// 영구 생존 계보의 최종 패시브는 먹분신별이 아니라 먹떼 전체가 한 번만 공유한다.
+        /// 영구 생존 계보의 장착 비기는 먹분신별이 아니라 먹떼 전체가 한 번만 공유한다.
         public bool LastBreathAvailable { get; private set; }
+        public PermanentGrowthRunSnapshot PermanentSnapshot { get; private set; } =
+            PermanentGrowthRunSnapshot.Empty;
         public float ItemSpacingMultiplier =>
             Mathf.Max(0.1f, 1f - ItemFortuneLevel * ItemSpacingReductionPerLevel);
         public bool HasPendingChoice { get; private set; }
@@ -110,11 +112,21 @@ namespace MukJump.Core
         public event Action ChoiceCancelled;
         public event Action RunReset;
         public event Action Changed;
+        /// 먹 자원은 StrokeCapture 한 곳이 소유하므로 규칙형 성장도 복구 요청만 전달한다.
+        public event Action<float> InkRestoreRequested;
+        public event Action<float> InkRestoreRatioRequested;
 
         readonly List<GrowthUpgradeType> currentOffers = new(3);
         readonly List<GrowthUpgradeType> offerCandidates = new(AllUpgrades.Length);
         GameManager manager;
         bool choiceSelected;
+        readonly List<PlayerController> livingPlayers = new(GameManager.MaxLivingPlayers);
+        float hitInkRecoveryReadyAt;
+        float stableHitReadyAt;
+        float cloneDeathHealReadyAt;
+        float drawnLandingInkReadyAt;
+        float sharedStrokeGuardReadyAt;
+        float lastFallBrakeReadyAt;
 
         void Awake()
         {
@@ -319,12 +331,125 @@ namespace MukJump.Core
             if (player == null || player.IsDead ||
                 !LastBreathAvailable ||
                 manager == null ||
-                manager.State != GameState.Playing)
+                manager.State != GameState.Playing ||
+                manager.LivingPlayerCount != 1)
                 return false;
 
             LastBreathAvailable = false;
             Changed?.Invoke();
             return true;
+        }
+
+        /// 실제 체력만 줄어든 비치명 장애물 피해 뒤 발동하는 먹 회복이다.
+        public void NotifyNonLethalObstacleHit()
+        {
+            if (!PermanentSnapshot.HasHitInkRecovery ||
+                Time.time < hitInkRecoveryReadyAt)
+                return;
+            hitInkRecoveryReadyAt = Time.time + 8f;
+            InkRestoreRatioRequested?.Invoke(0.04f);
+        }
+
+        /// 장착 비기 S-KB의 공용 12초 사용권. true면 피해 뒤 물리를 바꾸지 않는다.
+        public bool TryPreserveHitMotion()
+        {
+            if (!PermanentSnapshot.HasStableHit ||
+                Time.time < stableHitReadyAt)
+                return false;
+            stableHitReadyAt = Time.time + 12f;
+            return true;
+        }
+
+        public void NotifyCloneCreated(
+            PlayerController source,
+            PlayerController clone)
+        {
+            if (source == null || clone == null)
+                return;
+            if (PermanentSnapshot.HasCloneSourceGrace)
+                source.GrantObstacleProtection(0.25f);
+            if (!PermanentSnapshot.HasCloneBond)
+                return;
+
+            RestoreLowestHealth(1);
+            manager?.GetLivingPlayersNonAlloc(livingPlayers);
+            for (int i = 0; i < livingPlayers.Count; i++)
+                livingPlayers[i]?.GrantObstacleProtection(0.35f);
+        }
+
+        public void NotifyPlayerDied(PlayerController player)
+        {
+            if (player == null ||
+                !player.IsRuntimeClone ||
+                !PermanentSnapshot.HasCloneDeathHeal ||
+                Time.time < cloneDeathHealReadyAt)
+                return;
+            if (!RestoreLowestHealth(1))
+                return;
+            cloneDeathHealReadyAt = Time.time + 30f;
+        }
+
+        public void NotifyDrawnPlatformLanding()
+        {
+            if (!PermanentSnapshot.HasDrawnLandingInk ||
+                Time.time < drawnLandingInkReadyAt)
+                return;
+            drawnLandingInkReadyAt = Time.time + 4f;
+            InkRestoreRequested?.Invoke(0.20f);
+        }
+
+        public bool TryRefundExpiredPlatform(float spentInk)
+        {
+            if (!PermanentSnapshot.HasNaturalExpiryRefund || spentInk <= 0f)
+                return false;
+            InkRestoreRequested?.Invoke(Mathf.Min(0.6f, spentInk * 0.10f));
+            return true;
+        }
+
+        /// 한 판 굳은 획이 없는 충돌에서만 검사하는 공용 낙묵석 방어다.
+        public bool TryUsePermanentStrokeGuard()
+        {
+            if (!PermanentSnapshot.HasSharedStrokeGuard ||
+                Time.time < sharedStrokeGuardReadyAt)
+                return false;
+            sharedStrokeGuardReadyAt = Time.time + 18f;
+            return true;
+        }
+
+        /// 마지막 생존자가 하단에 진입했을 때 위로 밀지 않고 낙하만 늦춘다.
+        public bool TryUseLastFallBrake(PlayerController player)
+        {
+            if (player == null ||
+                player.IsDead ||
+                !PermanentSnapshot.HasLastFallBrake ||
+                manager == null ||
+                manager.LivingPlayerCount != 1 ||
+                Time.time < lastFallBrakeReadyAt)
+                return false;
+            Camera worldCamera = Camera.main;
+            if (worldCamera == null ||
+                worldCamera.WorldToViewportPoint(player.transform.position).y > 0.25f)
+                return false;
+
+            lastFallBrakeReadyAt = Time.time + 18f;
+            return true;
+        }
+
+        bool RestoreLowestHealth(int amount)
+        {
+            if (manager == null || amount <= 0)
+                return false;
+            manager.GetLivingPlayersNonAlloc(livingPlayers);
+            PlayerController target = null;
+            for (int i = 0; i < livingPlayers.Count; i++)
+            {
+                PlayerController candidate = livingPlayers[i];
+                if (candidate == null || candidate.CurrentHealth >= candidate.MaxHealth)
+                    continue;
+                if (target == null || candidate.CurrentHealth < target.CurrentHealth)
+                    target = candidate;
+            }
+            return target != null && target.RestoreHealth(amount);
         }
 
         void BindManager()
@@ -362,6 +487,7 @@ namespace MukJump.Core
 
         void ResetRun()
         {
+            PermanentSnapshot = PermanentGrowthProfile.CreateRunSnapshot();
             VitalityLevel = 0;
             VitalityCharges = 0;
             JumpLevel = 0;
@@ -371,7 +497,13 @@ namespace MukJump.Core
             PlatformSlotsLevel = 0;
             StrokeGuardLevel = 0;
             ItemFortuneLevel = 0;
-            LastBreathAvailable = PermanentGrowthProfile.HasLastBreath;
+            LastBreathAvailable = PermanentSnapshot.HasLastBreath;
+            hitInkRecoveryReadyAt = float.NegativeInfinity;
+            stableHitReadyAt = float.NegativeInfinity;
+            cloneDeathHealReadyAt = float.NegativeInfinity;
+            drawnLandingInkReadyAt = float.NegativeInfinity;
+            sharedStrokeGuardReadyAt = float.NegativeInfinity;
+            lastFallBrakeReadyAt = float.NegativeInfinity;
             HasPendingChoice = false;
             choiceSelected = false;
             currentOffers.Clear();

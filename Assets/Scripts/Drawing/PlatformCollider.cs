@@ -10,6 +10,14 @@ namespace MukJump.Drawing
     [RequireComponent(typeof(LineRenderer), typeof(EdgeCollider2D))]
     public class PlatformCollider : MonoBehaviour
     {
+        enum RemovalCause
+        {
+            None,
+            NaturalExpiry,
+            BudgetEviction,
+            Hazard,
+        }
+
         const int MaxActivePlatforms = 4;
         static readonly List<PlatformCollider> active = new();
         public static float RuntimeLifetimeMultiplier { get; set; } = 1f;
@@ -26,7 +34,7 @@ namespace MukJump.Drawing
         /// 시작 지형과 풍맥처럼 영구 배치된 발판은 수문장을 자동으로 제거하지 않는다.
         public bool IsTemporaryDrawnPlatform =>
             lifetime > 0f && !windCurrentPlatform && !removalRequested;
-        public bool HasStrokeGuard => hazardGuardAvailable;
+        public bool HasStrokeGuard => runHazardGuardAvailable;
         EdgeCollider2D edge;
         readonly HashSet<int> windUsers = new();
         readonly Gradient fadeGradient = new();
@@ -36,21 +44,27 @@ namespace MukJump.Drawing
         float age;
         float lastEffectiveLifetime;
         bool removalRequested;
-        bool hazardGuardAvailable;
+        bool runHazardGuardAvailable;
+        bool firstLandingHandled;
+        float lifetimePauseRemaining;
+        float spentInk;
+        RemovalCause removalCause;
         int lastColliderCutoff = -1;
 
         /// 스무딩 완료된 월드 좌표 점열로 발판을 생성한다 (런타임 드로잉 경로)
-        public static PlatformCollider Spawn(List<Vector2> worldPoints)
+        public static PlatformCollider Spawn(
+            List<Vector2> worldPoints,
+            float consumedInk = 0f)
         {
             var go = new GameObject("InkPlatform")
             {
                 layer = LayerMask.NameToLayer("Platform"),
             };
             var platform = go.AddComponent<PlatformCollider>();
-            platform.hazardGuardAvailable =
-                (RunGrowthController.Instance != null &&
-                 RunGrowthController.Instance.NewPlatformsHaveStrokeGuard) ||
-                PermanentGrowthProfile.NewPlatformsHaveStrokeGuard;
+            platform.runHazardGuardAvailable =
+                RunGrowthController.Instance != null &&
+                RunGrowthController.Instance.NewPlatformsHaveStrokeGuard;
+            platform.spentInk = Mathf.Max(0f, consumedInk);
             platform.Build(worldPoints);
 
             active.Add(platform);
@@ -121,7 +135,11 @@ namespace MukJump.Drawing
             lifetime = 0f;
             age = 0f;
             removalRequested = false;
-            hazardGuardAvailable = false;
+            runHazardGuardAvailable = false;
+            firstLandingHandled = false;
+            lifetimePauseRemaining = 0f;
+            spentInk = 0f;
+            removalCause = RemovalCause.None;
             lastColliderCutoff = -1;
             Length = BezierSmoother.PolylineLength(points);
             ApplyVisual(points);
@@ -231,7 +249,14 @@ namespace MukJump.Drawing
             float effectiveLifetime = EffectiveLifetime;
             SynchronizeLifetimeProgress(effectiveLifetime);
 
-            age += Time.deltaTime;
+            float ageDelta = Time.deltaTime;
+            if (lifetimePauseRemaining > 0f)
+            {
+                float paused = Mathf.Min(lifetimePauseRemaining, ageDelta);
+                lifetimePauseRemaining -= paused;
+                ageDelta -= paused;
+            }
+            age += ageDelta;
             float remaining = effectiveLifetime - age;
 
             if (remaining <= fadeDuration)
@@ -250,7 +275,11 @@ namespace MukJump.Drawing
             }
 
             if (remaining <= 0f)
+            {
+                if (removalCause == RemovalCause.None)
+                    removalCause = RemovalCause.NaturalExpiry;
                 Destroy(gameObject);
+            }
         }
 
         void SynchronizeLifetimeProgress(float effectiveLifetime)
@@ -271,10 +300,16 @@ namespace MukJump.Drawing
         {
             if (windCurrentPlatform) return false;
             if (removalRequested) return false;
-            if (hazardGuardAvailable)
+            if (runHazardGuardAvailable)
             {
-                // 수호 먹결은 새 임시 발판마다 한 번만 낙묵석을 지우고 선은 보존한다.
-                hazardGuardAvailable = false;
+                // 한 판 굳은 획은 발판마다 한 번씩 가장 먼저 소비한다.
+                runHazardGuardAvailable = false;
+                return true;
+            }
+            if (RunGrowthController.Instance != null &&
+                RunGrowthController.Instance.TryUsePermanentStrokeGuard())
+            {
+                // 영구 굳은 먹결은 발판별 상태가 아니라 먹떼 공용 18초 사용권이다.
                 return true;
             }
             if (!TryBeginHazardRemoval()) return false;
@@ -286,6 +321,7 @@ namespace MukJump.Drawing
         {
             if (removalRequested) return false;
             removalRequested = true;
+            removalCause = RemovalCause.Hazard;
             if (edge != null) edge.enabled = false;
             active.Remove(this);
             return true;
@@ -334,6 +370,7 @@ namespace MukJump.Drawing
             // 먹이 마르는 모습은 남기되 예산에서 밀린 순간 물리 충돌은 즉시 제거한다.
             if (edge != null) edge.enabled = false;
             if (lifetime <= 0f || removalRequested) return;
+            removalCause = RemovalCause.BudgetEviction;
             float effectiveLifetime = EffectiveLifetime;
             lastEffectiveLifetime = effectiveLifetime;
             age = Mathf.Max(age, effectiveLifetime - fadeDuration);
@@ -352,19 +389,39 @@ namespace MukJump.Drawing
                 float growthMultiplier = RunGrowthController.Instance != null
                     ? RunGrowthController.Instance.PlatformLifetimeMultiplier
                     : 1f;
+                PermanentGrowthRunSnapshot permanent =
+                    RunGrowthController.Instance != null
+                        ? RunGrowthController.Instance.PermanentSnapshot
+                        : PermanentGrowthProfile.CreateRunSnapshot();
                 return lifetime *
                        Mathf.Clamp(RuntimeLifetimeMultiplier, 0.35f, 1f) *
                        Mathf.Clamp(
-                           PermanentGrowthProfile.PlatformLifetimeMultiplier,
+                           permanent.PlatformLifetimeMultiplier,
                            1f,
-                           1.075f) *
+                           1.04f) *
                        Mathf.Clamp(growthMultiplier, 1f, 1.3f);
             }
         }
 
         void OnDestroy()
         {
+            if (removalCause == RemovalCause.NaturalExpiry && spentInk > 0f)
+                RunGrowthController.Instance?.TryRefundExpiredPlatform(spentInk);
             active.Remove(this);
+        }
+
+        /// 각 발판의 첫 착지에서만 영구 먹결의 수명 정지를 적용한다.
+        public void NotifyFirstLanding()
+        {
+            if (firstLandingHandled || !IsTemporaryDrawnPlatform)
+                return;
+            firstLandingHandled = true;
+            PermanentGrowthRunSnapshot permanent =
+                RunGrowthController.Instance != null
+                    ? RunGrowthController.Instance.PermanentSnapshot
+                    : PermanentGrowthProfile.CreateRunSnapshot();
+            if (permanent.HasFirstLandingPause)
+                lifetimePauseRemaining = Mathf.Max(lifetimePauseRemaining, 0.15f);
         }
     }
 }
