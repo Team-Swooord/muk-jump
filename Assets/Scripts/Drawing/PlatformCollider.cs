@@ -26,20 +26,31 @@ namespace MukJump.Drawing
         [SerializeField] float lifetime = 4.5f;
         [SerializeField] float fadeDuration = 0.8f;
         [SerializeField] bool windCurrentPlatform;
+        [SerializeField] bool growthSafetyPlatform;
 
         public float Length { get; private set; }
         public LineRenderer Line { get; private set; }
         public bool IsWindCurrentPlatform => windCurrentPlatform;
+        public bool IsGrowthSafetyPlatform => growthSafetyPlatform;
+        public bool IsOneWayPlatform =>
+            windCurrentPlatform || growthSafetyPlatform;
         /// 런타임에서 플레이어가 그린 유한 수명 먹선만 해태 돌진을 막을 수 있다.
         /// 시작 지형과 풍맥처럼 영구 배치된 발판은 수문장을 자동으로 제거하지 않는다.
         public bool IsTemporaryDrawnPlatform =>
-            lifetime > 0f && !windCurrentPlatform && !removalRequested;
+            lifetime > 0f && !windCurrentPlatform && !growthSafetyPlatform &&
+            !removalRequested;
         public bool HasStrokeGuard => runHazardGuardAvailable;
         EdgeCollider2D edge;
         readonly HashSet<int> windUsers = new();
         readonly Gradient fadeGradient = new();
+        readonly Gradient outlineFadeGradient = new();
         readonly GradientColorKey[] fadeColorKeys = new GradientColorKey[2];
         readonly GradientAlphaKey[] fadeAlphaKeys = new GradientAlphaKey[4];
+        readonly GradientColorKey[] outlineFadeColorKeys =
+            new GradientColorKey[2];
+        readonly GradientAlphaKey[] outlineFadeAlphaKeys =
+            new GradientAlphaKey[4];
+        LineRenderer specialOutline;
         Vector2[] originalPoints;
         float age;
         float lastEffectiveLifetime;
@@ -100,12 +111,38 @@ namespace MukJump.Drawing
             return platform;
         }
 
+        /// 영구 도약 비기가 만드는 단방향 안전 발판. 드로잉 예산과 먹 환급에서 제외하고
+        /// 정확히 6초 뒤 사라져 한 판에 임시 콜라이더가 계속 쌓이지 않게 한다.
+        public static PlatformCollider SpawnGrowthSafetyPlatform(
+            List<Vector2> worldPoints,
+            float lifetimeSeconds = 6f)
+        {
+            if (worldPoints == null || worldPoints.Count < 2)
+                return null;
+
+            var go = new GameObject("GrowthSafetyPlatform")
+            {
+                layer = LayerMask.NameToLayer("Platform"),
+            };
+            var platform = go.AddComponent<PlatformCollider>();
+            platform.lifetime = Mathf.Max(0.5f, lifetimeSeconds);
+            platform.fadeDuration = Mathf.Min(0.8f, platform.lifetime * 0.3f);
+            platform.growthSafetyPlatform = true;
+            platform.Build(worldPoints);
+            platform.ConfigureOneWay();
+            SketchToInkService.Instance?.Stylize(platform);
+            platform.ApplySpecialVisual(InkPalette.Gold, 0.58f, 0.82f);
+            return platform;
+        }
+
         void Awake()
         {
             Line = GetComponent<LineRenderer>();
             edge = GetComponent<EdgeCollider2D>();
             fadeColorKeys[0] = new GradientColorKey(InkPalette.Ink, 0f);
             fadeColorKeys[1] = new GradientColorKey(InkPalette.Ink, 1f);
+            outlineFadeColorKeys[0] = new GradientColorKey(InkPalette.Ink, 0f);
+            outlineFadeColorKeys[1] = new GradientColorKey(InkPalette.Ink, 1f);
         }
 
         void Start()
@@ -136,6 +173,7 @@ namespace MukJump.Drawing
             age = 0f;
             removalRequested = false;
             runHazardGuardAvailable = false;
+            growthSafetyPlatform = false;
             firstLandingHandled = false;
             lifetimePauseRemaining = 0f;
             spentInk = 0f;
@@ -172,7 +210,7 @@ namespace MukJump.Drawing
             lastEffectiveLifetime = EffectiveLifetime;
         }
 
-        /// 풍맥 발판만 아래에서 통과하도록 단방향 Effector를 설정한다.
+        /// 풍맥·성장 안전 발판을 아래에서 통과하도록 단방향 Effector를 설정한다.
         /// 풀에서 다시 활성화해도 Effector가 중복 추가되지 않도록 기존 컴포넌트를 재사용한다.
         void ConfigureOneWay()
         {
@@ -218,10 +256,13 @@ namespace MukJump.Drawing
             innerColor.a = 0.96f;
             Line.startColor = Line.endColor = innerColor;
             Line.widthMultiplier = innerWidth;
+            fadeColorKeys[0] = new GradientColorKey(innerColor, 0f);
+            fadeColorKeys[1] = new GradientColorKey(innerColor, 1f);
 
             var outlineObject = new GameObject("BrushOutline");
             outlineObject.transform.SetParent(transform, false);
             var outline = outlineObject.AddComponent<LineRenderer>();
+            specialOutline = outline;
             outline.useWorldSpace = false;
             outline.loop = Line.loop;
             outline.positionCount = Line.positionCount;
@@ -298,7 +339,7 @@ namespace MukJump.Drawing
         /// 풍맥 발판은 유지하고, 낙하 위험물에 맞은 일반 먹 발판만 등록 해제 후 제거한다.
         public bool BreakFromHazard()
         {
-            if (windCurrentPlatform) return false;
+            if (windCurrentPlatform || growthSafetyPlatform) return false;
             if (removalRequested) return false;
             if (runHazardGuardAvailable)
             {
@@ -342,6 +383,21 @@ namespace MukJump.Drawing
             fadeAlphaKeys[3] = new GradientAlphaKey(0.96f, 1f);
             fadeGradient.SetKeys(fadeColorKeys, fadeAlphaKeys);
             Line.colorGradient = fadeGradient;
+
+            if (specialOutline == null)
+                return;
+            outlineFadeAlphaKeys[0] = new GradientAlphaKey(0f, 0f);
+            outlineFadeAlphaKeys[1] = new GradientAlphaKey(
+                0f,
+                Mathf.Clamp01(front - feather));
+            outlineFadeAlphaKeys[2] = new GradientAlphaKey(
+                0.94f,
+                Mathf.Clamp01(front));
+            outlineFadeAlphaKeys[3] = new GradientAlphaKey(0.94f, 1f);
+            outlineFadeGradient.SetKeys(
+                outlineFadeColorKeys,
+                outlineFadeAlphaKeys);
+            specialOutline.colorGradient = outlineFadeGradient;
         }
 
         /// 투명해진 구간은 밟을 수 없도록 콜라이더도 같은 진행도로 잘라낸다 (비주얼은 그대로)
@@ -393,6 +449,8 @@ namespace MukJump.Drawing
                     RunGrowthController.Instance != null
                         ? RunGrowthController.Instance.PermanentSnapshot
                         : PermanentGrowthProfile.CreateRunSnapshot();
+                if (growthSafetyPlatform)
+                    return lifetime;
                 return lifetime *
                        Mathf.Clamp(RuntimeLifetimeMultiplier, 0.35f, 1f) *
                        Mathf.Clamp(

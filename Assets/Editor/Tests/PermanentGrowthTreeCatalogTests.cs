@@ -17,9 +17,9 @@ namespace MukJump.EditorTests
 
         static readonly string[] LeapIds =
         {
-            "J00", "J-A1", "J-A2", "J-A3", "J-KA",
-            "J-B1", "J-B2", "J-B3", "J-KB",
-            "J-C1", "J-C2", "J-C3", "J-KC",
+            "J00", "J-A1", "J-A2", "J-A3", "J-A4", "J-A5", "J-KA",
+            "J-B1", "J-B2", "J-B3", "J-B4", "J-B5", "J-KB",
+            "J-C1", "J-C2", "J-C3", "J-C4", "J-C5", "J-KC",
         };
 
         static readonly string[] InkIds =
@@ -30,11 +30,11 @@ namespace MukJump.EditorTests
         };
 
         [Test]
-        public void CatalogHasExactlyThirtyNineOneCostNodesSplitThirteenEach()
+        public void CatalogHasFortyFiveOneCostNodesWithExpandedLeapBranch()
         {
             Assert.That(PermanentGrowthCatalog.Branches.Count, Is.EqualTo(3));
-            Assert.That(PermanentGrowthCatalog.Nodes.Count, Is.EqualTo(39));
-            Assert.That(PermanentGrowthCatalog.TotalCost, Is.EqualTo(39));
+            Assert.That(PermanentGrowthCatalog.Nodes.Count, Is.EqualTo(45));
+            Assert.That(PermanentGrowthCatalog.TotalCost, Is.EqualTo(45));
 
             AssertBranch(PermanentGrowthBranch.Survival, SurvivalIds);
             AssertBranch(PermanentGrowthBranch.Leap, LeapIds);
@@ -49,15 +49,15 @@ namespace MukJump.EditorTests
         {
             Assert.That(
                 PermanentGrowthCatalog.Nodes.Select(node => node.Id).Distinct().Count(),
-                Is.EqualTo(39));
+                Is.EqualTo(45));
             Assert.That(
                 PermanentGrowthCatalog.Nodes.Select(node => node.DisplayName).Distinct().Count(),
-                Is.EqualTo(39),
+                Is.EqualTo(45),
                 "각 열매는 선택 팝업에서 구분되는 고유 이름을 가져야 합니다.");
             Assert.That(
                 PermanentGrowthCatalog.Nodes.Select(node => node.IconKey).Distinct().Count(),
-                Is.EqualTo(39),
-                "39개 열매는 같은 트랙 아이콘을 반복하지 않고 stable icon key를 소유해야 합니다.");
+                Is.EqualTo(45),
+                "45개 열매는 같은 트랙 아이콘을 반복하지 않고 stable icon key를 소유해야 합니다.");
 
             foreach (PermanentGrowthNodeDefinition node in PermanentGrowthCatalog.Nodes)
             {
@@ -89,7 +89,11 @@ namespace MukJump.EditorTests
                 Assert.That(root.ParentIds, Is.Empty, branch.ToString());
                 Assert.That(rootChildren, Has.Length.EqualTo(3), branch.ToString());
                 Assert.That(keystones, Has.Length.EqualTo(3), branch.ToString());
-                Assert.That(nodes.Count(node => !node.IsKeystone), Is.EqualTo(10));
+                int expectedGeneral = branch == PermanentGrowthBranch.Leap
+                    ? 16
+                    : 10;
+                Assert.That(nodes.Count(node => !node.IsKeystone),
+                    Is.EqualTo(expectedGeneral));
 
                 foreach (PermanentGrowthNodeDefinition keystone in keystones)
                 {
@@ -130,7 +134,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void CoreBalanceValuesMatchV3Contract()
+        public void CoreBalanceValuesMatchExpandedLeapContract()
         {
             AssertEffect("I00", PermanentGrowthType.InkCapacity, 0.03f);
             AssertEffect("I-A1", PermanentGrowthType.InkCapacity, 0.03f);
@@ -145,16 +149,21 @@ namespace MukJump.EditorTests
             AssertEffect("S-A3", PermanentGrowthType.Vitality, 1f);
             AssertEffect("S-C1", PermanentGrowthType.CloneSpawnGrace, 0.15f);
 
-            AssertEffect("J00", PermanentGrowthType.JumpCharge, 0.02f);
-            AssertEffect("J-A1", PermanentGrowthType.JumpCharge, 0.02f);
-            AssertEffect("J-A2", PermanentGrowthType.JumpCharge, 0.02f);
-            AssertEffect("J-B1", PermanentGrowthType.JumpPower, 0.02f);
-            AssertEffect("J-B3", PermanentGrowthType.DrawnPlatformLeap, 0.03f);
+            AssertEffect("J00", PermanentGrowthType.JumpCharge, 0.01f);
+            for (int rank = 1; rank <= 5; rank++)
+            {
+                AssertEffect($"J-A{rank}", PermanentGrowthType.JumpCharge, 0.01f);
+                AssertEffect($"J-B{rank}", PermanentGrowthType.JumpPower, 0.01f);
+                AssertEffect($"J-C{rank}", PermanentGrowthType.JumpHeight, 0.0125f);
+            }
+            AssertEffect("J-KA", PermanentGrowthType.WallCling, 1.2f);
+            AssertEffect("J-KB", PermanentGrowthType.SafetyPlatform, 5f);
+            AssertEffect("J-KC", PermanentGrowthType.DoubleJump, 0.40f);
 
             Assert.That(PermanentGrowthCatalog.GetNode("S-KA").EffectSummary,
                 Does.Contain("0.8초"));
-            Assert.That(PermanentGrowthCatalog.GetNode("J-KC").Description,
-                Does.Contain("낙하만"));
+            Assert.That(PermanentGrowthCatalog.GetNode("J-KC").EffectSummary,
+                Does.Contain("12초"));
             Assert.That(PermanentGrowthCatalog.GetNode("I-KC").EffectSummary,
                 Does.Contain("18초"));
         }
@@ -180,7 +189,7 @@ namespace MukJump.EditorTests
             IReadOnlyCollection<string> expectedIds)
         {
             PermanentGrowthNodeDefinition[] nodes = BranchNodes(branch);
-            Assert.That(nodes, Has.Length.EqualTo(13), branch.ToString());
+            Assert.That(nodes, Has.Length.EqualTo(expectedIds.Count), branch.ToString());
             Assert.That(nodes.Select(node => node.Id),
                 Is.EquivalentTo(expectedIds), branch.ToString());
         }

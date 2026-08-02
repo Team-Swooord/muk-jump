@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MukJump.Drawing;
 using MukJump.Player;
 using UnityEngine;
 
@@ -88,6 +89,7 @@ namespace MukJump.Core
         public bool NewPlatformsHaveStrokeGuard => StrokeGuardLevel > 0;
         /// 영구 생존 계보의 장착 비기는 먹분신별이 아니라 먹떼 전체가 한 번만 공유한다.
         public bool LastBreathAvailable { get; private set; }
+        public int SafetyJumpProgress { get; private set; }
         public PermanentGrowthRunSnapshot PermanentSnapshot { get; private set; } =
             PermanentGrowthRunSnapshot.Empty;
         public float ItemSpacingMultiplier =>
@@ -127,6 +129,8 @@ namespace MukJump.Core
         float drawnLandingInkReadyAt;
         float sharedStrokeGuardReadyAt;
         float lastFallBrakeReadyAt;
+        float doubleJumpReadyAt;
+        PlatformCollider activeSafetyPlatform;
 
         void Awake()
         {
@@ -416,6 +420,101 @@ namespace MukJump.Core
             return true;
         }
 
+        /// 먹떼 대표의 일반 1차 자동점프만 센다. 분신마다 세면 한 프레임에 최대
+        /// 24개 발판이 생길 수 있으므로 런 전체가 하나의 5회 카운터를 공유한다.
+        public bool NotifyPrimaryAutomaticJump(
+            PlayerController player,
+            Vector2 launchVelocity)
+        {
+            if (player == null || player.IsDead ||
+                !PermanentSnapshot.HasSafetyPlatform ||
+                manager == null || manager.State != GameState.Playing ||
+                !IsSwarmRepresentative(player))
+                return false;
+
+            SafetyJumpProgress = Mathf.Min(5, SafetyJumpProgress + 1);
+            if (SafetyJumpProgress < 5)
+                return false;
+
+            // 이전 발판은 약속한 6초를 온전히 유지한다. 그동안 완성된 다음 5회는
+            // 진행도 5에 대기시키고, 기존 발판이 사라진 뒤 첫 대표 점프에서 생성한다.
+            if (activeSafetyPlatform != null)
+                return false;
+
+            SafetyJumpProgress = 0;
+            activeSafetyPlatform = SpawnSafetyPlatform(player, launchVelocity);
+            if (activeSafetyPlatform == null)
+                SafetyJumpProgress = 5;
+            return activeSafetyPlatform != null;
+        }
+
+        /// 자동 2단점프는 대표 한 체만, 먹떼 공용 12초마다 한 번 허용한다.
+        /// 먹물방울·풍맥은 AutoJump에서 이 경로를 호출하지 않는다.
+        public bool TryUseDoubleJump(PlayerController player)
+        {
+            if (player == null || player.IsDead ||
+                !PermanentSnapshot.HasDoubleJump ||
+                manager == null || manager.State != GameState.Playing ||
+                !IsSwarmRepresentative(player) ||
+                Time.time < doubleJumpReadyAt)
+                return false;
+
+            doubleJumpReadyAt = Time.time + 12f;
+            return true;
+        }
+
+        /// 카메라·난이도와 같은 하위 중앙 먹떼 대표를 사용한다. 선두만 구조 비기를
+        /// 독점해 화면 밖으로 더 멀어지거나 안전 발판이 카메라 밖에 생기는 일을 막는다.
+        bool IsSwarmRepresentative(PlayerController player)
+        {
+            return manager != null && player != null &&
+                   manager.TryGetSwarmAnchor(
+                       out PlayerController representative,
+                       out _) &&
+                   representative == player;
+        }
+
+        static PlatformCollider SpawnSafetyPlatform(
+            PlayerController player,
+            Vector2 launchVelocity)
+        {
+            float gravity = Mathf.Abs(
+                Physics2D.gravity.y * Mathf.Max(0.01f, player.NormalGravityScale));
+            float verticalSpeed = Mathf.Max(0f, launchVelocity.y);
+            float timeToApex = verticalSpeed / Mathf.Max(0.01f, gravity);
+            float rise = verticalSpeed * verticalSpeed /
+                         (2f * Mathf.Max(0.01f, gravity));
+
+            float centerX = player.transform.position.x +
+                            launchVelocity.x * timeToApex * 0.65f;
+            Camera worldCamera = Camera.main;
+            if (worldCamera != null)
+            {
+                float left = worldCamera.ViewportToWorldPoint(
+                    new Vector3(0.12f, 0.5f, 0f)).x;
+                float right = worldCamera.ViewportToWorldPoint(
+                    new Vector3(0.88f, 0.5f, 0f)).x;
+                centerX = Mathf.Clamp(centerX, left, right);
+            }
+
+            // 낮고 비스듬한 점프에서도 발판을 실제 정점 위에 놓지 않는다.
+            float catchRise = Mathf.Min(
+                Mathf.Clamp(rise * 0.68f, 0.25f, 7.2f),
+                rise * 0.82f);
+            float centerY = player.transform.position.y + catchRise;
+            const float width = 3.4f;
+            var points = new List<Vector2>(7);
+            for (int i = 0; i < 7; i++)
+            {
+                float t = i / 6f;
+                float x = Mathf.Lerp(centerX - width * 0.5f,
+                    centerX + width * 0.5f, t);
+                float curve = -0.08f * Mathf.Pow(t * 2f - 1f, 2f);
+                points.Add(new Vector2(x, centerY + curve));
+            }
+            return PlatformCollider.SpawnGrowthSafetyPlatform(points, 6f);
+        }
+
         /// 마지막 생존자가 하단에 진입했을 때 위로 밀지 않고 낙하만 늦춘다.
         public bool TryUseLastFallBrake(PlayerController player)
         {
@@ -504,6 +603,11 @@ namespace MukJump.Core
             drawnLandingInkReadyAt = float.NegativeInfinity;
             sharedStrokeGuardReadyAt = float.NegativeInfinity;
             lastFallBrakeReadyAt = float.NegativeInfinity;
+            doubleJumpReadyAt = float.NegativeInfinity;
+            SafetyJumpProgress = 0;
+            if (activeSafetyPlatform != null)
+                Destroy(activeSafetyPlatform.gameObject);
+            activeSafetyPlatform = null;
             HasPendingChoice = false;
             choiceSelected = false;
             currentOffers.Clear();

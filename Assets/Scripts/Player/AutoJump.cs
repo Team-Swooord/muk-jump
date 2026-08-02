@@ -40,9 +40,9 @@ namespace MukJump.Player
         bool chargeStarted;
         float wanderDirection;
         int randomSessionVersion = -1;
-        float nextDrawnChargeMultiplier = 1f;
-        int consecutiveDrawnLandings;
-        float consecutiveLandingReadyAt;
+        float primaryJumpVerticalSpeed;
+        bool doubleJumpArmed;
+        bool doubleJumpUsed;
 
         /// 첫 점프는 접지 중, 이후 점프는 정점부터 다음 점프를 준비한다 (HUD 게이지용).
         public bool IsCharging => player != null && (chargeStarted || (!hasLaunched && player.IsGrounded)) &&
@@ -69,6 +69,9 @@ namespace MukJump.Player
                 chargeStarted = false;
                 hasLaunched = false;
                 wasRising = false;
+                primaryJumpVerticalSpeed = 0f;
+                doubleJumpArmed = false;
+                doubleJumpUsed = false;
                 return;
             }
             // 일시정지는 현재 충전·상승 상태를 보존한 채 시간만 멈춘다.
@@ -90,13 +93,15 @@ namespace MukJump.Player
             }
             else if (wasRising)
             {
-                // 상승에서 하강으로 바뀌는 정점부터 다음 점프 충전을 시작한다.
+                // 일반 자동점프의 첫 정점에서는 장착 비기가 있으면 한 번 더 솟는다.
+                // 먹물방울·풍맥은 automaticJumpInFlight가 아니므로 이 경로에 들어오지 않는다.
                 wasRising = false;
+                if (TryPerformDoubleJump())
+                    return;
+
+                doubleJumpArmed = false;
                 chargeStarted = true;
                 chargeTimer = 0f;
-                if (ActivePermanentGrowth.HasApexHang &&
-                    player.IsAutomaticJumpInFlight)
-                    player.ApplyApexGravityWindow(0.08f, 0.8f);
             }
 
             if (!hasLaunched && player.IsGrounded)
@@ -107,7 +112,8 @@ namespace MukJump.Player
                 chargeTimer = Mathf.Min(chargeDuration, chargeTimer + Time.deltaTime);
 
             // 공중에서는 충전만 유지하고, 착지한 순간 가득 찼다면 바로 점프한다.
-            if (chargeStarted && player.IsGrounded && chargeTimer >= chargeDuration)
+            if (chargeStarted && player.IsGrounded && chargeTimer >= chargeDuration &&
+                player.CanAutomaticJumpFromCurrentSurface)
                 Jump();
         }
 
@@ -117,9 +123,17 @@ namespace MukJump.Player
             chargeStarted = false;
             hasLaunched = true;
             wasRising = true;
+            doubleJumpUsed = false;
+            doubleJumpArmed = ActivePermanentGrowth.HasDoubleJump;
+
+            Vector2 surfaceNormal = player.GroundNormal;
+            player.ReleaseWallClingForAutomaticJump();
             player.BeginAutomaticJumpFlight();
 
-            Vector2 direction = Vector3.Slerp(Vector3.up, player.GroundNormal, normalInfluence).normalized;
+            Vector2 direction = Vector3.Slerp(
+                Vector3.up,
+                surfaceNormal,
+                normalInfluence).normalized;
             // 세션 성장은 자동 점프에만 적용한다. 먹물방울·풍맥처럼 높이를 직접
             // 지정하는 특수 상승은 PlayerController 경로라 기존 밸런스를 유지한다.
             float growthMultiplier = RunGrowthController.Instance != null
@@ -127,12 +141,6 @@ namespace MukJump.Player
                 : 1f;
             float permanentMultiplier =
                 ActivePermanentGrowth.JumpPowerMultiplier;
-            if (player.CurrentPlatform != null &&
-                player.CurrentPlatform.IsTemporaryDrawnPlatform)
-            {
-                permanentMultiplier *=
-                    ActivePermanentGrowth.DrawnPlatformLeapMultiplier;
-            }
             float power = baseJumpSpeed * jumpStrengthMultiplier *
                           PowerMultiplier() * growthMultiplier *
                           permanentMultiplier;
@@ -145,8 +153,13 @@ namespace MukJump.Player
             }
 
             horizontal = Mathf.Clamp(horizontal, -maxHorizontalSpeed, maxHorizontalSpeed);
-            rb.linearVelocity = new Vector2(horizontal, direction.y * power);
-            nextDrawnChargeMultiplier = 1f;
+            primaryJumpVerticalSpeed = direction.y * power *
+                                       ActivePermanentGrowth
+                                           .JumpVerticalSpeedMultiplier;
+            rb.linearVelocity = new Vector2(horizontal, primaryJumpVerticalSpeed);
+            RunGrowthController.Instance?.NotifyPrimaryAutomaticJump(
+                player,
+                rb.linearVelocity);
             GameFeedbackController.Instance?.PlayJump(transform.position);
             Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
                 transform, Mathf.InverseLerp(10f, 18f, power));
@@ -156,42 +169,51 @@ namespace MukJump.Player
         {
             var platform = player.CurrentPlatform;
             if (platform == null) return 1f; // 시작 지형 등 기본 발판
+            if (platform.IsGrowthSafetyPlatform) return 1f;
 
             float t = Mathf.InverseLerp(platformLengthRange.x, platformLengthRange.y, platform.Length);
             float minimum = ActivePermanentGrowth.MinimumPlatformPowerMultiplier;
-            if (platform.IsTemporaryDrawnPlatform &&
-                ActivePermanentGrowth.HasShortPlatformKeystone)
-                minimum = 1f;
             return Mathf.Lerp(
                 Mathf.Max(powerMultiplierRange.x, minimum),
                 powerMultiplierRange.y,
                 t);
         }
 
-        /// 착지 콜백은 발판마다 한 번만 들어오며 다음 충전과 연속 착지 비기를 준비한다.
+        /// 실제 착지는 다음 공중 사이클의 2단점프 소모 상태를 정리한다.
         public void NotifyLanding(bool isTemporaryDrawnPlatform)
         {
-            if (!isTemporaryDrawnPlatform)
-            {
-                consecutiveDrawnLandings = 0;
-                return;
-            }
+            doubleJumpArmed = false;
+            doubleJumpUsed = false;
+            primaryJumpVerticalSpeed = 0f;
+        }
 
-            if (ActivePermanentGrowth.HasDrawnChargeRhythm)
-                nextDrawnChargeMultiplier = 0.96f;
+        bool TryPerformDoubleJump()
+        {
+            if (!doubleJumpArmed || doubleJumpUsed ||
+                !player.IsAutomaticJumpInFlight ||
+                primaryJumpVerticalSpeed <= 0f ||
+                RunGrowthController.Instance == null ||
+                !RunGrowthController.Instance.TryUseDoubleJump(player))
+                return false;
 
-            if (!ActivePermanentGrowth.HasConsecutiveLandingRhythm)
-                return;
-            consecutiveDrawnLandings++;
-            if (consecutiveDrawnLandings < 3 || Time.time < consecutiveLandingReadyAt)
-                return;
-
-            consecutiveDrawnLandings = 0;
-            consecutiveLandingReadyAt = Time.time + 10f;
-            chargeStarted = true;
-            chargeTimer = Mathf.Min(
-                SafeJumpInterval,
-                chargeTimer + SafeJumpInterval * 0.20f);
+            doubleJumpArmed = false;
+            doubleJumpUsed = true;
+            chargeStarted = false;
+            chargeTimer = 0f;
+            hasLaunched = true;
+            wasRising = true;
+            float ratio = Mathf.Clamp(
+                ActivePermanentGrowth.DoubleJumpVerticalSpeedRatio,
+                0.1f,
+                0.6f);
+            rb.linearVelocity = new Vector2(
+                rb.linearVelocity.x,
+                primaryJumpVerticalSpeed * ratio);
+            GameFeedbackController.Instance?.PlayJump(transform.position);
+            Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
+                transform,
+                0.35f);
+            return true;
         }
 
         void EnsureSessionRandomState()
@@ -217,8 +239,7 @@ namespace MukJump.Player
             Mathf.Max(
                 MinJumpInterval,
                 SanitizedJumpInterval *
-                ActivePermanentGrowth.JumpChargeMultiplier *
-                nextDrawnChargeMultiplier);
+                ActivePermanentGrowth.JumpChargeMultiplier);
 
         PermanentGrowthRunSnapshot ActivePermanentGrowth =>
             RunGrowthController.Instance != null

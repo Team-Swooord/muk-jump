@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace MukJump.EditorTests
 {
-    /// v3 영구 성장 스냅샷이 실제 피해·자동 점프·발판 방어 규칙까지 이어지는지 검증한다.
+    /// 영구 성장 스냅샷이 실제 피해·자동 점프·발판 방어 규칙까지 이어지는지 검증한다.
     public sealed class PermanentGrowthGameplayTests
     {
         readonly List<Object> cleanup = new();
@@ -100,13 +100,16 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void AutoJumpMultipliesRunAndPermanentPowerWithinV3Cap()
+        public void AutoJumpComposesPowerAndSqrtHeightWithinBalanceCap()
         {
             SeedGrowth(
-                new[] { "J-B1", "J-B2", "J-B3", "J-KB" },
-                leapKeystone: "J-KB");
+                new[]
+                {
+                    "J-B1", "J-B2", "J-B3", "J-B4", "J-B5",
+                    "J-C1", "J-C2", "J-C3", "J-C4", "J-C5",
+                });
             CreatePlayingManager(out var growth);
-            SetProperty(growth, "JumpLevel", 1);
+            SetProperty(growth, "JumpLevel", 5);
 
             var player = CreatePlayer("PermanentJumpPlayer");
             var autoJump = player.gameObject.AddComponent<AutoJump>();
@@ -122,19 +125,19 @@ namespace MukJump.EditorTests
 
             SetProperty(player, "CurrentPlatform", null);
             Invoke(autoJump, "Jump");
+            float expected = 10f * 1.20f * 1.05f * Mathf.Sqrt(1.0625f);
             Assert.That(player.Body.linearVelocity.y,
-                Is.EqualTo(10f * 1.04f * 1.02f).Within(0.001f));
+                Is.EqualTo(expected).Within(0.001f));
+            Assert.That(expected / 10f, Is.LessThan(1.30f));
 
             PlatformCollider platform = SpawnPlatform("PermanentShortPlatform");
             SetProperty(player, "CurrentPlatform", platform);
             player.Body.linearVelocity = Vector2.zero;
             Invoke(autoJump, "Jump");
 
-            float expected = 10f * 1.04f * 1.02f * 1.03f;
             Assert.That(player.Body.linearVelocity.y,
-                Is.EqualTo(expected).Within(0.001f),
-                "장착 J-KB는 짧은 그린 발판 하한만 1.0으로 만들고 J-B3 3%를 곱해야 합니다.");
-            Assert.That(expected / 10f, Is.LessThan(1.30f));
+                Is.EqualTo(expected * 0.85f).Within(0.001f),
+                "도약 v4는 그린 발판에 별도 힘을 중복하지 않습니다.");
         }
 
         [Test]
@@ -174,48 +177,115 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ConsecutiveLandingKeystoneAddsTwentyPercentToExistingCharge()
+        public void FifthRepresentativeJumpCreatesOneWaySafetyPlatform()
         {
-            SeedGrowth(new[] { "J-KA" }, leapKeystone: "J-KA");
-            CreatePlayingManager(out _);
-            var player = CreatePlayer("PermanentLandingRhythm");
-            var autoJump = player.gameObject.AddComponent<AutoJump>();
-            Invoke(autoJump, "Awake");
-            SetField(autoJump, "chargeTimer", 0.4f);
-            SetField(autoJump, "consecutiveDrawnLandings", 2);
-            SetField(autoJump, "consecutiveLandingReadyAt", Time.time - 1f);
-
-            autoJump.NotifyLanding(true);
+            SeedGrowth(new[] { "J-KB" }, leapKeystone: "J-KB");
+            var manager = CreatePlayingManager(out var growth);
+            var player = CreatePlayer("PermanentSafetyJump");
+            player.transform.position = Vector3.zero;
+            manager.RegisterPlayer(player);
+            var leadingPlayer = CreatePlayer("PermanentSafetyJumpLeader");
+            leadingPlayer.transform.position = Vector3.up * 5f;
+            manager.RegisterPlayer(leadingPlayer);
 
             Assert.That(
-                GetField<float>(autoJump, "chargeTimer"),
-                Is.EqualTo(0.6f).Within(0.001f),
-                "이미 20% 넘게 충전됐어도 세 번째 착지는 진행도를 20%p 더해야 합니다.");
+                growth.NotifyPrimaryAutomaticJump(
+                    leadingPlayer,
+                    new Vector2(1f, 10f)),
+                Is.False,
+                "카메라보다 앞선 한 마리가 먹떼 공용 카운터를 독점하면 안 됩니다.");
+
+            for (int i = 0; i < 4; i++)
+                Assert.That(
+                    growth.NotifyPrimaryAutomaticJump(player, new Vector2(1f, 10f)),
+                    Is.False);
+            Assert.That(growth.SafetyJumpProgress, Is.EqualTo(4));
+            Assert.That(
+                growth.NotifyPrimaryAutomaticJump(player, new Vector2(1f, 10f)),
+                Is.True);
+            Assert.That(growth.SafetyJumpProgress, Is.Zero);
+
+            PlatformCollider safety =
+                GetField<PlatformCollider>(growth, "activeSafetyPlatform");
+            Assert.That(safety, Is.Not.Null);
+            Track(safety.gameObject);
+            Assert.That(safety.IsGrowthSafetyPlatform, Is.True);
+            Assert.That(safety.IsOneWayPlatform, Is.True);
+            Assert.That(safety.IsTemporaryDrawnPlatform, Is.False);
+            Assert.That(safety.GetComponent<EdgeCollider2D>().usedByEffector, Is.True);
+            Assert.That(safety.GetComponent<PlatformEffector2D>().useOneWay, Is.True);
+            Assert.That(safety.BreakFromHazard(), Is.False);
+
+            Invoke(safety, "FadeVisual", 1f);
+            LineRenderer outline = safety.transform
+                .Find("BrushOutline")
+                .GetComponent<LineRenderer>();
+            Assert.That(outline.colorGradient.Evaluate(0.5f).a,
+                Is.LessThan(0.01f),
+                "안전 발판의 안쪽 획과 외곽선은 같은 진행도로 사라져야 합니다.");
+
+            for (int i = 0; i < 5; i++)
+                Assert.That(
+                    growth.NotifyPrimaryAutomaticJump(
+                        player,
+                        new Vector2(1f, 10f)),
+                    Is.False);
+            Assert.That(
+                GetField<PlatformCollider>(growth, "activeSafetyPlatform"),
+                Is.SameAs(safety),
+                "다음 5회를 채워도 기존 안전 발판의 6초 수명을 끊으면 안 됩니다.");
+            Assert.That(growth.SafetyJumpProgress, Is.EqualTo(5));
         }
 
         [Test]
-        public void FallControlOnlyCapsAutomaticJumpFlight()
+        public void DoubleJumpUsesFortyPercentOnceAndSharedCooldownBlocksRepeat()
         {
-            SeedGrowth(new[] { "J-C2" });
-            CreatePlayingManager(out _);
-            var player = CreatePlayer("PermanentAutomaticFallControl");
-
-            player.Body.linearVelocity = new Vector2(0f, -30f);
-            Invoke(player, "ApplyPermanentAirControl");
-            Assert.That(player.Body.linearVelocity.y,
-                Is.EqualTo(-30f).Within(0.001f),
-                "특수 상승과 일반 추락에는 자동 점프 전용 낙하 제어를 적용하면 안 됩니다.");
-
+            SeedGrowth(new[] { "J-KC" }, leapKeystone: "J-KC");
+            var manager = CreatePlayingManager(out _);
+            var player = CreatePlayer("PermanentDoubleJump");
+            manager.RegisterPlayer(player);
+            var autoJump = player.gameObject.AddComponent<AutoJump>();
+            Invoke(autoJump, "Awake");
             player.BeginAutomaticJumpFlight();
-            player.Body.linearVelocity = new Vector2(0f, -30f);
-            Invoke(player, "ApplyPermanentAirControl");
-            Assert.That(player.Body.linearVelocity.y,
-                Is.EqualTo(-17.28f).Within(0.001f),
-                "기본 자동 점프 낙하 상한 18에서 정확히 4%만 줄어야 합니다.");
+            SetField(autoJump, "primaryJumpVerticalSpeed", 10f);
+            SetField(autoJump, "doubleJumpArmed", true);
+            SetField(autoJump, "doubleJumpUsed", false);
 
-            player.LaunchInkDrop(10f, false);
-            Assert.That(player.IsAutomaticJumpInFlight, Is.False,
-                "먹물방울·풍맥 상승은 자동 점프 특성 출처를 즉시 해제해야 합니다.");
+            Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(true));
+            Assert.That(player.Body.linearVelocity.y,
+                Is.EqualTo(4f).Within(0.001f));
+            Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(false));
+
+            SetField(autoJump, "doubleJumpArmed", true);
+            SetField(autoJump, "doubleJumpUsed", false);
+            Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(false),
+                "같은 먹떼는 12초 공용 재사용 시간을 공유해야 합니다.");
+        }
+
+        [Test]
+        public void WallKeystoneClingsOnDescendingAutomaticFlightThenReleasesForJump()
+        {
+            SeedGrowth(new[] { "J-KA" }, leapKeystone: "J-KA");
+            var manager = CreatePlayingManager(out _);
+            var player = CreatePlayer("PermanentWallCling");
+            manager.RegisterPlayer(player);
+            SetField(player, "wallClingMinimumDuration", 0f);
+            player.BeginAutomaticJumpFlight();
+            player.Body.linearVelocity = new Vector2(-2f, -2f);
+
+            var wallObject = Track(new GameObject("TestLeftWall"));
+            var wall = wallObject.AddComponent<ScreenSideWall>();
+            wall.Initialize(null, true);
+            Assert.That(
+                Invoke(player, "TryBeginWallCling", wall, 1f),
+                Is.EqualTo(true));
+            Assert.That(player.IsWallClinging, Is.True);
+            Assert.That(player.IsGrounded, Is.True);
+            Assert.That(player.Body.gravityScale, Is.Zero);
+
+            player.ReleaseWallClingForAutomaticJump();
+            Assert.That(player.IsWallClinging, Is.False);
+            Assert.That(player.Body.gravityScale, Is.EqualTo(1f));
         }
 
         [Test]

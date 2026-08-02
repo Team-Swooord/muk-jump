@@ -140,7 +140,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void FullV1SaveMapsThirtyThreeNodesAndRefundsSixOverflowPoints()
+        public void FullV1SaveKeepsV2EconomyThenCompletesOwnedLeapKeystonePaths()
         {
             store.Json =
                 "{\"schemaVersion\":1,\"balanceVersion\":1," +
@@ -160,8 +160,8 @@ namespace MukJump.EditorTests
                 "{\"id\":\"permanent.clone_spawn_grace\",\"level\":3}]}";
             PermanentGrowthProfile.ResetCacheForTests();
 
-            Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.EqualTo(33));
-            Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(33));
+            Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.EqualTo(37));
+            Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(37));
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(6));
             Assert.That(
                 PermanentGrowthCatalog.Nodes.Count(node =>
@@ -172,7 +172,7 @@ namespace MukJump.EditorTests
                 PermanentGrowthCatalog.Nodes.Count(node =>
                     PermanentGrowthProfile.IsNodeUnlocked(node.Id) &&
                     node.Branch == PermanentGrowthBranch.Leap),
-                Is.EqualTo(12));
+                Is.EqualTo(16));
             Assert.That(
                 PermanentGrowthCatalog.Nodes.Count(node =>
                     PermanentGrowthProfile.IsNodeUnlocked(node.Id) &&
@@ -186,8 +186,33 @@ namespace MukJump.EditorTests
                 PermanentGrowthProfile.GetActiveKeystoneId(
                     PermanentGrowthBranch.InkHandling),
                 Is.EqualTo("I-KA"));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":2"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":3"));
             Assert.That(store.Json, Does.Contain("\"ranks\":[]"));
+        }
+
+        [Test]
+        public void V2LeapKeystoneSavePreservesLoadoutAndBackfillsNewPathNodes()
+        {
+            store.Json =
+                "{\"schemaVersion\":1,\"balanceVersion\":2," +
+                "\"wallet\":4,\"spent\":5," +
+                "\"tutorialRewardClaimed\":true," +
+                "\"lastSettledRunId\":\"kept-run\",\"ranks\":[]," +
+                "\"ownedNodeIds\":[\"J00\",\"J-B1\",\"J-B2\",\"J-B3\",\"J-KB\"]," +
+                "\"survivalKeystoneId\":\"\"," +
+                "\"leapKeystoneId\":\"J-KB\"," +
+                "\"inkHandlingKeystoneId\":\"\"}";
+            PermanentGrowthProfile.ResetCacheForTests();
+
+            Assert.That(PermanentGrowthProfile.IsNodeUnlocked("J-B4"), Is.True);
+            Assert.That(PermanentGrowthProfile.IsNodeUnlocked("J-B5"), Is.True);
+            Assert.That(
+                PermanentGrowthProfile.GetActiveKeystoneId(
+                    PermanentGrowthBranch.Leap),
+                Is.EqualTo("J-KB"));
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(4));
+            Assert.That(store.Json, Does.Contain("\"lastSettledRunId\":\"kept-run\""));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":3"));
         }
 
         [Test]
@@ -197,7 +222,7 @@ namespace MukJump.EditorTests
 
             Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.EqualTo(2));
             Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(2));
-            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(37));
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(43));
             Assert.That(PermanentGrowthProfile.IsNodeUnlocked("unknown"), Is.False);
         }
 

@@ -45,17 +45,29 @@ namespace MukJump.Core
             EffectTotal(PermanentGrowthType.DamageGrace);
         public float CloneSpawnGraceBonusSeconds =>
             HasNode("S-C1") ? 0.15f : 0f;
-        public float JumpPowerMultiplier => HasNode("J-B1") ? 1.02f : 1f;
-        public float DrawnPlatformLeapMultiplier => HasNode("J-B3") ? 1.03f : 1f;
+        public float JumpPowerMultiplier =>
+            1f + EffectTotal(PermanentGrowthType.JumpPower);
+        /// 노드 수치는 정점 높이 기준이므로 실제 이륙 속도에는 제곱근으로 적용한다.
+        public float JumpHeightMultiplier =>
+            1f + EffectTotal(PermanentGrowthType.JumpHeight);
+        public float JumpVerticalSpeedMultiplier =>
+            Mathf.Sqrt(Mathf.Max(1f, JumpHeightMultiplier));
+        public float DrawnPlatformLeapMultiplier => 1f;
         public float HitHorizontalRetention => HasNode("S-B1") ? 0.90f : 0.82f;
         public float MinimumHitRebound => HasNode("S-B2") ? 1.3f : 1.6f;
-        public float MinimumPlatformPowerMultiplier => HasNode("J-B2") ? 0.90f : 0.85f;
-        public float WindInfluenceMultiplier => HasNode("J-C3") ? 0.90f : 1f;
-        public float MaximumFallSpeedMultiplier => HasNode("J-C2") ? 0.96f : 1f;
+        public float MinimumPlatformPowerMultiplier => 0.85f;
+        public float WindInfluenceMultiplier => 1f;
+        public float MaximumFallSpeedMultiplier => 1f;
+        public float WallClingDuration => HasWallCling
+            ? EffectTotal(PermanentGrowthType.WallCling)
+            : 0f;
+        public float DoubleJumpVerticalSpeedRatio => HasDoubleJump
+            ? EffectTotal(PermanentGrowthType.DoubleJump)
+            : 0f;
         public bool HasShortStrokeDiscount => HasNode("I-A2");
         public bool HasIdleStrokeDiscount => HasNode("I-A3");
-        public bool HasDrawnChargeRhythm => HasNode("J-A3");
-        public bool HasApexHang => HasNode("J-C1");
+        public bool HasDrawnChargeRhythm => false;
+        public bool HasApexHang => false;
         public bool HasFirstLandingPause => HasNode("I-C3");
         public bool HasCloneSourceGrace => HasNode("S-C2");
         public bool HasCloneDeathHeal => HasNode("S-C3");
@@ -64,9 +76,13 @@ namespace MukJump.Core
         public bool HasLastBreath => IsKeystoneActive("S-KA");
         public bool HasStableHit => IsKeystoneActive("S-KB");
         public bool HasCloneBond => IsKeystoneActive("S-KC");
-        public bool HasConsecutiveLandingRhythm => IsKeystoneActive("J-KA");
-        public bool HasShortPlatformKeystone => IsKeystoneActive("J-KB");
-        public bool HasLastFallBrake => IsKeystoneActive("J-KC");
+        public bool HasWallCling => IsKeystoneActive("J-KA");
+        public bool HasSafetyPlatform => IsKeystoneActive("J-KB");
+        public bool HasDoubleJump => IsKeystoneActive("J-KC");
+        // v3 코드 호환용. 도약 v4에서는 세 효과를 새 구조 패시브로 교체했다.
+        public bool HasConsecutiveLandingRhythm => false;
+        public bool HasShortPlatformKeystone => false;
+        public bool HasLastFallBrake => false;
         public bool HasNaturalExpiryRefund => IsKeystoneActive("I-KA");
         public bool HasLowInkRecovery => IsKeystoneActive("I-KB");
         public bool HasSharedStrokeGuard => IsKeystoneActive("I-KC");

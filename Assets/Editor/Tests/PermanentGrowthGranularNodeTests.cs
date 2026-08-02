@@ -40,18 +40,22 @@ namespace MukJump.EditorTests
             Assert.That((int)PermanentGrowthType.PlatformLifetime, Is.EqualTo(2));
             Assert.That((int)PermanentGrowthType.JumpCharge, Is.EqualTo(3));
             Assert.That((int)PermanentGrowthType.CloneSpawnGrace, Is.EqualTo(10));
+            Assert.That((int)PermanentGrowthType.FirstLandingPause, Is.EqualTo(30));
+            Assert.That((int)PermanentGrowthType.JumpHeight, Is.EqualTo(31));
+            Assert.That((int)PermanentGrowthType.WallCling, Is.EqualTo(34));
         }
 
         [Test]
-        public void SnapshotComposesAllAlwaysOnV3Stats()
+        public void SnapshotComposesExpandedLeapStatsWithoutLegacyBonuses()
         {
             var snapshot = new PermanentGrowthRunSnapshot(
                 new[]
                 {
                     "I00", "I-A1", "I-B1", "I-B2", "I-C1", "I-C2",
                     "S00", "S-A1", "S-A2", "S-A3", "S-C1",
-                    "J00", "J-A1", "J-A2", "J-B1", "J-B2", "J-B3",
-                    "J-C2", "J-C3",
+                    "J00", "J-A1", "J-A2", "J-A3", "J-A4", "J-A5",
+                    "J-B1", "J-B2", "J-B3", "J-B4", "J-B5",
+                    "J-C1", "J-C2", "J-C3", "J-C4", "J-C5",
                 },
                 null);
 
@@ -69,15 +73,19 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.JumpChargeMultiplier,
                 Is.EqualTo(0.94f).Within(0.0001f));
             Assert.That(snapshot.JumpPowerMultiplier,
-                Is.EqualTo(1.02f).Within(0.0001f));
+                Is.EqualTo(1.05f).Within(0.0001f));
+            Assert.That(snapshot.JumpHeightMultiplier,
+                Is.EqualTo(1.0625f).Within(0.0001f));
+            Assert.That(snapshot.JumpVerticalSpeedMultiplier,
+                Is.EqualTo(Mathf.Sqrt(1.0625f)).Within(0.0001f));
             Assert.That(snapshot.DrawnPlatformLeapMultiplier,
-                Is.EqualTo(1.03f).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.MinimumPlatformPowerMultiplier,
-                Is.EqualTo(0.90f).Within(0.0001f));
+                Is.EqualTo(0.85f).Within(0.0001f));
             Assert.That(snapshot.MaximumFallSpeedMultiplier,
-                Is.EqualTo(0.96f).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.WindInfluenceMultiplier,
-                Is.EqualTo(0.90f).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
         }
 
         [Test]
@@ -94,7 +102,8 @@ namespace MukJump.EditorTests
 
             Assert.That(snapshot.HasLastBreath, Is.False);
             Assert.That(snapshot.HasStableHit, Is.True);
-            Assert.That(snapshot.HasShortPlatformKeystone, Is.True);
+            Assert.That(snapshot.HasSafetyPlatform, Is.True);
+            Assert.That(snapshot.HasShortPlatformKeystone, Is.False);
             Assert.That(snapshot.HasSharedStrokeGuard, Is.True);
             Assert.That(snapshot.GetActiveKeystoneId(PermanentGrowthBranch.Survival),
                 Is.EqualTo("S-KB"));
@@ -125,7 +134,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ViewBuildsEveryV3FruitAndEveryDeclaredParentEdge()
+        public void ViewBuildsEveryFruitAndColorsTheThreeLeapPathsDifferently()
         {
             SeedV2();
             var managerHost = Track(new GameObject("PermanentV3ViewManager"));
@@ -137,7 +146,7 @@ namespace MukJump.EditorTests
             Assert.That(view.TreeCanvas, Is.Not.Null);
             Assert.That(view.TreeCanvas.sizeDelta.x, Is.GreaterThan(1080f));
             Assert.That(view.TreeCanvas.sizeDelta.y, Is.GreaterThan(1920f));
-            Assert.That(view.CreatedNodeCount, Is.EqualTo(39));
+            Assert.That(view.CreatedNodeCount, Is.EqualTo(45));
 
             foreach (PermanentGrowthNodeDefinition definition
                      in PermanentGrowthCatalog.Nodes)
@@ -185,7 +194,25 @@ namespace MukJump.EditorTests
                         $"{definition.Id} branch sprite");
                 }
             }
+
+            Color rhythm = view.TreeCanvas
+                .Find("GrowthPath_J_A1_From_J00")
+                .GetComponent<Image>().color;
+            Color power = view.TreeCanvas
+                .Find("GrowthPath_J_B1_From_J00")
+                .GetComponent<Image>().color;
+            Color height = view.TreeCanvas
+                .Find("GrowthPath_J_C1_From_J00")
+                .GetComponent<Image>().color;
+            Assert.That(Vector3.Distance(ToRgb(rhythm), ToRgb(power)),
+                Is.GreaterThan(0.08f));
+            Assert.That(Vector3.Distance(ToRgb(power), ToRgb(height)),
+                Is.GreaterThan(0.08f));
+            Assert.That(rhythm.a, Is.GreaterThanOrEqualTo(0.1f));
         }
+
+        static Vector3 ToRgb(Color color) =>
+            new(color.r, color.g, color.b);
 
         void SeedV2(params string[] ownedNodeIds)
         {

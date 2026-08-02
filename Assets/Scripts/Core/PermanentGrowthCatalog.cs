@@ -38,6 +38,11 @@ namespace MukJump.Core
         DrawnLandingInk = 28,
         LowInkRecovery = 29,
         FirstLandingPause = 30,
+        // 기존 0~30 값은 저장 호환을 위해 그대로 두고 도약 v4 효과만 뒤에 붙인다.
+        JumpHeight = 31,
+        SafetyPlatform = 32,
+        DoubleJump = 33,
+        WallCling = 34,
     }
 
     public enum PermanentGrowthBranch
@@ -231,7 +236,7 @@ namespace MukJump.Core
         public int Rank { get; }
     }
 
-    /// 영구 성장 v3의 39개 stable node ID와 해금 그래프를 소유한다.
+    /// 영구 성장 v4의 45개 stable node ID와 해금 그래프를 소유한다.
     public static class PermanentGrowthCatalog
     {
         static readonly PermanentGrowthBranchMetadata[] BranchDefinitions =
@@ -249,7 +254,7 @@ namespace MukJump.Core
             new(
                 PermanentGrowthBranch.Leap,
                 "도약",
-                "자동 점프 박자·짧은 발판·낙하 대응",
+                "준비시간·점프 힘·점프 높이와 세 구조 비기",
                 2),
         };
 
@@ -360,6 +365,7 @@ namespace MukJump.Core
         {
             "J00", "J-A1", "J-B1", "J-C1", "J-A2", "J-B2", "J-C2",
             "J-A3", "J-B3", "J-C3", "J-KA", "J-KB", "J-KC",
+            "J-A4", "J-A5", "J-B4", "J-B5", "J-C4", "J-C5",
         };
 
         static readonly string[] InkMigrationOrder =
@@ -370,7 +376,7 @@ namespace MukJump.Core
 
         static PermanentGrowthNodeDefinition[] BuildNodeDefinitions()
         {
-            var nodes = new List<PermanentGrowthNodeDefinition>(39);
+            var nodes = new List<PermanentGrowthNodeDefinition>(45);
 
             // 먹 운용 — 중앙 주가지
             Add(nodes, "I00", "작은 벼루", "먹을 담는 기본 그릇을 넓힙니다.",
@@ -531,83 +537,108 @@ namespace MukJump.Core
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,
                 P("S-C3"), 6, "survival", -520f, 290f);
 
-            // 도약 — 오른쪽 주가지
-            Add(nodes, "J00", "첫 박자", "자동 점프의 기본 준비 박자를 줄입니다.",
-                "점프 준비시간 -2%", "leap.rhythm.seed", PermanentGrowthType.JumpCharge,
-                0.02f, "충전 시간", PermanentGrowthValueKind.Percent, true,
+            // 도약 — 공용 뿌리 뒤에 준비·힘·높이 세 갈래가 각각 5칸과 비기로 이어진다.
+            Add(nodes, "J00", "도약의 씨", "세 갈래 도약 성장을 여는 첫 박자를 익힙니다.",
+                "점프 준비시간 -1%", "leap.rhythm.seed", PermanentGrowthType.JumpCharge,
+                0.01f, "준비시간", PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Root,
-                null, 0, "", 700f, -980f, 1);
-            Add(nodes, "J-A1", "고른 박자", "자동 점프의 준비 박자를 한 번 더 고릅니다.",
-                "점프 준비시간 -2%", "leap.rhythm.even", PermanentGrowthType.JumpCharge,
-                0.02f, "충전 시간", PermanentGrowthValueKind.Percent, true,
-                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
-                P("J00"), 0, "", 650f, -720f, 2);
-            Add(nodes, "J-A2", "잰 박자", "자동 점프의 준비를 더 빠르게 잇습니다.",
-                "점프 준비시간 -2%", "leap.rhythm.fast", PermanentGrowthType.JumpCharge,
-                0.02f, "충전 시간", PermanentGrowthValueKind.Percent, true,
-                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
-                P("J-A1"), 0, "", 560f, -390f, 3);
-            Add(nodes, "J-A3", "이어진 박자", "그린 발판 착지 뒤 다음 충전만 더 빨라집니다.",
-                "다음 점프 준비시간 추가 -4%", "leap.rhythm.drawn",
-                PermanentGrowthType.DrawnChargeRhythm, 0.04f, "다음 충전",
-                PermanentGrowthValueKind.Percent, true,
-                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Mechanic,
-                P("J-A2"), 0, "", 650f, -60f);
-            Add(nodes, "J-KA", "무심의 박자", "그린 발판 세 번을 연속 밟으면 다음 충전을 앞당깁니다.",
-                "3연속 착지 시 충전 +20%p · 10초", "leap.keystone.rhythm",
-                PermanentGrowthType.ConsecutiveLandingRhythm, 0.20f, "충전 진행도",
-                PermanentGrowthValueKind.Percent, false,
-                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Keystone,
-                P("J-A3"), 6, "leap", 520f, 300f);
+                null, 0, "", 700f, -1080f, 1);
 
-            Add(nodes, "J-B1", "돋는 먹발", "기본 자동 점프 힘을 조금 높입니다.",
-                "기본 자동 점프 힘 +2%", "leap.power.base", PermanentGrowthType.JumpPower,
-                0.02f, "점프 힘", PermanentGrowthValueKind.Percent, false,
+            Add(nodes, "J-A1", "고른 박자 I", "자동 점프의 준비 박자를 짧게 다듬습니다.",
+                "점프 준비시간 -1%", "leap.rhythm.01", PermanentGrowthType.JumpCharge,
+                0.01f, "준비시간", PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
-                P("J00"), 0, "", 980f, -660f);
-            Add(nodes, "J-B2", "짧은 먹발", "짧은 발판도 지나치게 약한 점프가 되지 않게 합니다.",
-                "짧은 발판 배율 하한 0.85 → 0.90", "leap.power.short",
-                PermanentGrowthType.ShortPlatformControl, 0.90f, "배율 하한",
-                PermanentGrowthValueKind.Flat, false,
-                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Mechanic,
-                P("J-B1"), 0, "", 1040f, -330f);
-            Add(nodes, "J-B3", "먹결 탄성", "직접 그린 발판의 반동을 더 살립니다.",
-                "그린 발판 점프 힘 +3%", "leap.power.drawn",
-                PermanentGrowthType.DrawnPlatformLeap, 0.03f, "먹발판 도약",
-                PermanentGrowthValueKind.Percent, false,
+                P("J00"), 0, "", 560f, -820f, 2);
+            Add(nodes, "J-A2", "고른 박자 II", "자동 점프의 준비 박자를 짧게 다듬습니다.",
+                "점프 준비시간 -1%", "leap.rhythm.02", PermanentGrowthType.JumpCharge,
+                0.01f, "준비시간", PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
-                P("J-B2"), 0, "", 950f, 0f);
-            Add(nodes, "J-KB", "먹결 도약", "직접 그린 짧은 발판도 온전한 점프를 냅니다.",
-                "그린 짧은 발판 배율 하한 1.00", "leap.keystone.platform",
-                PermanentGrowthType.DrawnPlatformLeap, 1f, "배율 하한",
-                PermanentGrowthValueKind.Flat, false,
-                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Keystone,
-                P("J-B3"), 6, "leap", 1000f, 360f, 2);
-
-            Add(nodes, "J-C1", "긴 정점", "점프 정점 직후 잠깐 가벼워져 발판을 볼 시간을 줍니다.",
-                "정점 0.08초 동안 중력 -20%", "leap.fall.apex",
-                PermanentGrowthType.ApexHang, 0.08f, "정점 유지",
+                P("J-A1"), 0, "", 520f, -510f, 3);
+            Add(nodes, "J-A3", "고른 박자 III", "자동 점프의 준비 박자를 짧게 다듬습니다.",
+                "점프 준비시간 -1%", "leap.rhythm.03", PermanentGrowthType.JumpCharge,
+                0.01f, "준비시간", PermanentGrowthValueKind.Percent, true,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-A2"), 0, "", 600f, -200f, 4);
+            Add(nodes, "J-A4", "고른 박자 IV", "자동 점프의 준비 박자를 짧게 다듬습니다.",
+                "점프 준비시간 -1%", "leap.rhythm.04", PermanentGrowthType.JumpCharge,
+                0.01f, "준비시간", PermanentGrowthValueKind.Percent, true,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-A3"), 0, "", 520f, 110f, 5);
+            Add(nodes, "J-A5", "고른 박자 V", "자동 점프의 준비 박자를 완성합니다.",
+                "점프 준비시간 -1%", "leap.rhythm.05", PermanentGrowthType.JumpCharge,
+                0.01f, "준비시간", PermanentGrowthValueKind.Percent, true,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-A4"), 0, "", 600f, 420f, 6);
+            Add(nodes, "J-KA", "벽의 먹발", "측면 벽에 닿으면 잠시 매달려 박자를 채운 뒤 안쪽으로 점프합니다.",
+                "벽 매달림 · 최대 1.2초", "leap.keystone.wall",
+                PermanentGrowthType.WallCling, 1.2f, "매달림",
                 PermanentGrowthValueKind.Seconds, false,
-                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Mechanic,
-                P("J00"), 0, "", 1320f, -720f);
-            Add(nodes, "J-C2", "늦은 낙하", "자동 점프 뒤 최대 낙하 속도를 낮춥니다.",
-                "최대 낙하 속도 -4%", "leap.fall.slow",
-                PermanentGrowthType.FallControl, 0.04f, "낙하 속도",
-                PermanentGrowthValueKind.Percent, true,
-                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
-                P("J-C1"), 0, "", 1420f, -390f);
-            Add(nodes, "J-C3", "바람 읽기", "일반 바람과 강풍의 수평 영향을 덜 받습니다.",
-                "바람 수평 영향 -10%", "leap.fall.wind",
-                PermanentGrowthType.WindControl, 0.10f, "바람 영향",
-                PermanentGrowthValueKind.Percent, true,
-                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
-                P("J-C2"), 0, "", 1320f, -60f);
-            Add(nodes, "J-KC", "한 획의 틈", "마지막 생존자가 화면 아래로 떨어질 때 낙하만 잠깐 늦춥니다.",
-                "하단 25% 낙하 -35% · 0.45초 · 18초", "leap.keystone.fall",
-                PermanentGrowthType.LastFallBrake, 0.35f, "낙하 감속",
-                PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Keystone,
-                P("J-C3"), 6, "leap", 1480f, 300f);
+                P("J-A5"), 6, "leap", 540f, 780f);
+
+            Add(nodes, "J-B1", "돋는 먹발 I", "기본 자동 점프 힘을 고르게 키웁니다.",
+                "기본 점프 힘 +1%", "leap.power.01", PermanentGrowthType.JumpPower,
+                0.01f, "점프 힘", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J00"), 0, "", 760f, -800f, 1);
+            Add(nodes, "J-B2", "돋는 먹발 II", "기본 자동 점프 힘을 고르게 키웁니다.",
+                "기본 점프 힘 +1%", "leap.power.02", PermanentGrowthType.JumpPower,
+                0.01f, "점프 힘", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-B1"), 0, "", 830f, -490f, 2);
+            Add(nodes, "J-B3", "돋는 먹발 III", "기본 자동 점프 힘을 고르게 키웁니다.",
+                "기본 점프 힘 +1%", "leap.power.03", PermanentGrowthType.JumpPower,
+                0.01f, "점프 힘", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-B2"), 0, "", 770f, -180f, 3);
+            Add(nodes, "J-B4", "돋는 먹발 IV", "기본 자동 점프 힘을 고르게 키웁니다.",
+                "기본 점프 힘 +1%", "leap.power.04", PermanentGrowthType.JumpPower,
+                0.01f, "점프 힘", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-B3"), 0, "", 850f, 130f, 4);
+            Add(nodes, "J-B5", "돋는 먹발 V", "기본 자동 점프 힘을 완성합니다.",
+                "기본 점프 힘 +1%", "leap.power.05", PermanentGrowthType.JumpPower,
+                0.01f, "점프 힘", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-B4"), 0, "", 780f, 440f, 5);
+            Add(nodes, "J-KB", "다섯 번째 먹자리", "먹떼의 일반 자동 점프 다섯 번마다 잠시 머물 안전 발판을 만듭니다.",
+                "5회마다 단방향 발판 · 6초", "leap.keystone.safety",
+                PermanentGrowthType.SafetyPlatform, 5f, "점프 횟수",
+                PermanentGrowthValueKind.Flat, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Keystone,
+                P("J-B5"), 6, "leap", 820f, 810f);
+
+            Add(nodes, "J-C1", "높은 먹발 I", "자동 점프가 닿는 정점 높이를 늘립니다.",
+                "점프 높이 +1.25%", "leap.height.01", PermanentGrowthType.JumpHeight,
+                0.0125f, "점프 높이", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J00"), 0, "", 1020f, -820f, 1);
+            Add(nodes, "J-C2", "높은 먹발 II", "자동 점프가 닿는 정점 높이를 늘립니다.",
+                "점프 높이 +1.25%", "leap.height.02", PermanentGrowthType.JumpHeight,
+                0.0125f, "점프 높이", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-C1"), 0, "", 1110f, -510f, 2);
+            Add(nodes, "J-C3", "높은 먹발 III", "자동 점프가 닿는 정점 높이를 늘립니다.",
+                "점프 높이 +1.25%", "leap.height.03", PermanentGrowthType.JumpHeight,
+                0.0125f, "점프 높이", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-C2"), 0, "", 1040f, -200f, 3);
+            Add(nodes, "J-C4", "높은 먹발 IV", "자동 점프가 닿는 정점 높이를 늘립니다.",
+                "점프 높이 +1.25%", "leap.height.04", PermanentGrowthType.JumpHeight,
+                0.0125f, "점프 높이", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-C3"), 0, "", 1140f, 110f, 4);
+            Add(nodes, "J-C5", "높은 먹발 V", "자동 점프가 닿는 정점 높이를 완성합니다.",
+                "점프 높이 +1.25%", "leap.height.05", PermanentGrowthType.JumpHeight,
+                0.0125f, "점프 높이", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-C4"), 0, "", 1060f, 420f, 5);
+            Add(nodes, "J-KC", "겹친 먹발", "일반 자동 점프의 첫 정점에서 한 번 더 뛰어오릅니다.",
+                "2단 점프 · 힘 40% · 공용 12초", "leap.keystone.double",
+                PermanentGrowthType.DoubleJump, 0.40f, "추가 점프 힘",
+                PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Keystone,
+                P("J-C5"), 6, "leap", 1120f, 780f);
 
             return nodes.ToArray();
         }

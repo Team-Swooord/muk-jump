@@ -53,6 +53,7 @@ namespace MukJump.Core
             public RectTransform Root;
             public List<Image> IncomingLines = new();
             public List<Image> BranchArts = new();
+            public Image Contrast;
             public Image Surface;
             public Image FruitGlow;
             public Image Fruit;
@@ -749,6 +750,7 @@ namespace MukJump.Core
                 Root = root,
                 IncomingLines = incomingLines,
                 BranchArts = branchArts,
+                Contrast = nodeContrast,
                 Surface = surface,
                 FruitGlow = fruitGlow,
                 Fruit = fruit,
@@ -1140,12 +1142,22 @@ namespace MukJump.Core
                 bool selected = i == selectedSlot;
                 bool activeKeystone = definition.IsKeystone &&
                     PermanentGrowthProfile.IsKeystoneActive(definition.Id);
+                Color pathColor = ResolveGrowthPathColor(definition);
 
                 node.Icon.sprite = LoadIcon(definition);
                 ApplyIconVariation(node.Icon, definition);
                 node.Icon.color = node.Icon.sprite != null
                     ? new Color(1f, 1f, 1f, requirementsMet ? 1f : 0.6f)
                     : WithAlpha(InkPalette.Ink, requirementsMet ? 1f : 0.58f);
+                if (node.Contrast != null)
+                {
+                    Color contrastColor = definition.Branch ==
+                                          PermanentGrowthBranch.Leap &&
+                                          definition.Id != "J00"
+                        ? Color.Lerp(InkPalette.Ink, pathColor, 0.48f)
+                        : InkPalette.Ink;
+                    node.Contrast.color = WithAlpha(contrastColor, 0.98f);
+                }
                 node.Surface.color = unlocked
                     ? TransparentColor(InkPalette.Paper2)
                     : requirementsMet
@@ -1168,11 +1180,19 @@ namespace MukJump.Core
                 node.CompletionMark.color = activeKeystone
                     ? InkPalette.Gold
                     : TransparentColor(InkPalette.Gold);
-                Color lineColor = unlocked
-                    ? WithAlpha(InkPalette.Gold, 0.38f)
-                    : requirementsMet
-                        ? WithAlpha(InkPalette.Ink, 0.11f)
-                        : WithAlpha(InkPalette.Ink, 0.045f);
+                bool isColoredLeapPath = definition.Branch ==
+                                         PermanentGrowthBranch.Leap &&
+                                         definition.Id != "J00";
+                Color lineBase = isColoredLeapPath
+                    ? pathColor
+                    : unlocked ? InkPalette.Gold : InkPalette.Ink;
+                Color lineColor = WithAlpha(
+                    lineBase,
+                    unlocked
+                        ? isColoredLeapPath ? 0.72f : 0.38f
+                        : requirementsMet
+                            ? isColoredLeapPath ? 0.34f : 0.11f
+                            : isColoredLeapPath ? 0.13f : 0.045f);
                 for (int lineIndex = 0;
                      lineIndex < node.IncomingLines.Count;
                      lineIndex++)
@@ -1205,6 +1225,23 @@ namespace MukJump.Core
 #endif
             UpdateTreeInteraction();
             RefreshSelectedNodePopup();
+        }
+
+        static Color ResolveGrowthPathColor(
+            PermanentGrowthNodeDefinition definition)
+        {
+            if (definition == null ||
+                definition.Branch != PermanentGrowthBranch.Leap)
+                return InkPalette.Ink;
+
+            string id = definition.Id ?? string.Empty;
+            if (id.StartsWith("J-A", StringComparison.Ordinal) || id == "J-KA")
+                return new Color(0.34f, 0.46f, 0.36f, 1f); // 먹청록: 준비시간
+            if (id.StartsWith("J-B", StringComparison.Ordinal) || id == "J-KB")
+                return new Color(0.30f, 0.43f, 0.60f, 1f); // 쪽빛: 점프력 주줄기
+            if (id.StartsWith("J-C", StringComparison.Ordinal) || id == "J-KC")
+                return new Color(0.48f, 0.36f, 0.52f, 1f); // 옅은 자주먹: 높이
+            return InkPalette.Ink;
         }
 
         void UpdateTreeInteraction()
@@ -1665,6 +1702,10 @@ namespace MukJump.Core
                 PermanentGrowthType.StrokeGuard => "pg_icon_platform",
                 PermanentGrowthType.JumpCharge or
                 PermanentGrowthType.JumpPower or
+                PermanentGrowthType.JumpHeight or
+                PermanentGrowthType.SafetyPlatform or
+                PermanentGrowthType.DoubleJump or
+                PermanentGrowthType.WallCling or
                 PermanentGrowthType.DrawnChargeRhythm or
                 PermanentGrowthType.ConsecutiveLandingRhythm or
                 PermanentGrowthType.ShortPlatformControl or
@@ -1699,6 +1740,10 @@ namespace MukJump.Core
                     "MukJump/UI/Growth/growth_platform",
                 PermanentGrowthType.JumpCharge or
                 PermanentGrowthType.JumpPower or
+                PermanentGrowthType.JumpHeight or
+                PermanentGrowthType.SafetyPlatform or
+                PermanentGrowthType.DoubleJump or
+                PermanentGrowthType.WallCling or
                 PermanentGrowthType.DrawnChargeRhythm or
                 PermanentGrowthType.ConsecutiveLandingRhythm or
                 PermanentGrowthType.ShortPlatformControl or

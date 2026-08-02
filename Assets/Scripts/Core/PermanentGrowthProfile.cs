@@ -50,7 +50,8 @@ namespace MukJump.Core
     public static class PermanentGrowthProfile
     {
         const int SchemaVersion = 1;
-        const int BalanceVersion = 2;
+        const int BalanceVersion = 3;
+        const int V2TotalCost = 39;
         const int LegacyTotalCost = 957;
         const int SettledRunHistoryLimit = 64;
 
@@ -549,8 +550,11 @@ namespace MukJump.Core
 
             data.ranks ??= new List<RankRecord>();
             data.ownedNodeIds ??= new List<string>();
-            if (data.balanceVersion < BalanceVersion)
+            // 단계별로 올려야 v2의 ownedNodeIds를 구 ranks로 오인해 지우지 않는다.
+            if (data.balanceVersion < 2)
                 MigrateLegacyBalance();
+            if (data.balanceVersion < 3)
+                MigrateLeapTreeToV3();
             NormalizeLoadedData();
         }
 
@@ -602,7 +606,7 @@ namespace MukJump.Core
             int oldRemainingCost = Mathf.Max(1, LegacyTotalCost - oldSpent);
             int newRemainingNodes = Mathf.Max(
                 0,
-                PermanentGrowthCatalog.TotalCost - data.ownedNodeIds.Count);
+                V2TotalCost - data.ownedNodeIds.Count);
             float walletProgress = Mathf.Clamp01(
                 Mathf.Max(0, data.wallet) / (float)oldRemainingCost);
             int convertedWallet = Mathf.RoundToInt(
@@ -613,11 +617,53 @@ namespace MukJump.Core
                 newRemainingNodes);
             data.spent = data.ownedNodeIds.Count;
             data.ranks.Clear();
-            data.balanceVersion = BalanceVersion;
+            data.balanceVersion = 2;
 
             AutoEquipFirstOwnedKeystone(PermanentGrowthBranch.Survival);
             AutoEquipFirstOwnedKeystone(PermanentGrowthBranch.Leap);
             AutoEquipFirstOwnedKeystone(PermanentGrowthBranch.InkHandling);
+        }
+
+        /// 도약 계보가 5단계씩으로 늘어난 v3 규칙 마이그레이션.
+        /// 기존 비기를 보유한 저장은 해당 길을 이미 완주한 것으로 보고 새 중간 노드를
+        /// 채워, 해금된 비기가 끊긴 가지 끝에 떠 보이지 않게 한다.
+        static void MigrateLeapTreeToV3()
+        {
+            data.ownedNodeIds ??= new List<string>();
+            var owned = new HashSet<string>(
+                data.ownedNodeIds,
+                StringComparer.Ordinal);
+
+            CompleteGrandfatheredPath(owned, "J-KA", "J00",
+                "J-A1", "J-A2", "J-A3", "J-A4", "J-A5");
+            CompleteGrandfatheredPath(owned, "J-KB", "J00",
+                "J-B1", "J-B2", "J-B3", "J-B4", "J-B5");
+            CompleteGrandfatheredPath(owned, "J-KC", "J00",
+                "J-C1", "J-C2", "J-C3", "J-C4", "J-C5");
+
+            var migrated = new List<string>(PermanentGrowthCatalog.TotalCost);
+            for (int i = 0; i < PermanentGrowthCatalog.Nodes.Count; i++)
+            {
+                string nodeId = PermanentGrowthCatalog.Nodes[i].Id;
+                if (owned.Contains(nodeId))
+                    migrated.Add(nodeId);
+            }
+            data.ownedNodeIds = migrated;
+            data.spent = data.ownedNodeIds.Count;
+            // 지갑 상한은 바로 뒤 NormalizeLoadedData에서 유효 ID 수를 확정한 뒤
+            // 한 번만 계산한다. 먼저 줄이면 구 저장의 먹빛을 잃을 수 있다.
+            data.balanceVersion = 3;
+        }
+
+        static void CompleteGrandfatheredPath(
+            HashSet<string> owned,
+            string keystoneId,
+            params string[] pathIds)
+        {
+            if (owned == null || !owned.Contains(keystoneId) || pathIds == null)
+                return;
+            for (int i = 0; i < pathIds.Length; i++)
+                owned.Add(pathIds[i]);
         }
 
         static void NormalizeLoadedData()

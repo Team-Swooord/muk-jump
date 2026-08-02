@@ -34,6 +34,11 @@ namespace MukJump.Player
         [SerializeField] float shieldRecoveryHeight = 35f;
         [Tooltip("화면 좌우 벽에 닿았을 때 안쪽으로 되튀는 최소 수평 속도")]
         [SerializeField, Min(0f)] float sideWallBounceSpeed = 2.4f;
+        [Header("벽의 먹발")]
+        [Tooltip("벽 비기가 붙은 직후 너무 빨리 떨어지지 않게 보장하는 최소 체류 시간")]
+        [SerializeField, Min(0f)] float wallClingMinimumDuration = 0.22f;
+        [Tooltip("벽점프 직후 같은 벽에 즉시 다시 붙지 않는 시간")]
+        [SerializeField, Min(0f)] float wallRelatchDelay = 0.35f;
         [Tooltip("수평 이동 중 캐릭터가 시각적으로 기울어지는 최대 각도")]
         [SerializeField, Range(0f, 8f)] float maxVisualRollAngle = 3f;
         [Tooltip("현재 이동 방향의 기울기로 따라가는 속도")]
@@ -56,6 +61,9 @@ namespace MukJump.Player
         public bool IsInkDropBoosted { get; private set; }
         public bool IsRuntimeClone => isRuntimeClone;
         public bool IsAutomaticJumpInFlight => automaticJumpInFlight;
+        public bool IsWallClinging { get; private set; }
+        public bool CanAutomaticJumpFromCurrentSurface =>
+            !IsWallClinging || Time.time >= wallClingReleaseAllowedAt;
         public int MaxHealth =>
             Mathf.Max(1, maxHealth + ActivePermanentGrowth.MaxHealthBonus);
         public int CurrentHealth { get; private set; }
@@ -86,6 +94,11 @@ namespace MukJump.Player
         float fallBrakeUntil;
         float fallBrakeVelocityFloor;
         bool automaticJumpInFlight;
+        ScreenSideWall clingingWall;
+        float wallClingReleaseAllowedAt;
+        float wallClingExpiresAt;
+        float wallRelatchAllowedAt;
+        bool wallClingConsumedThisFlight;
         [SerializeField, HideInInspector] bool isRuntimeClone;
         static DeathInkStainPool deathStainPool;
 
@@ -129,6 +142,7 @@ namespace MukJump.Player
         public void BeginFromLobby()
         {
             ResetHealth();
+            ResetWallTraversalState(true);
             rb.bodyType = RigidbodyType2D.Dynamic;
             rb.linearVelocity = Vector2.zero;
             IsGrounded = false;
@@ -148,6 +162,7 @@ namespace MukJump.Player
             ResetHealth();
             normalGravityScale = Mathf.Max(0.01f, sourceNormalGravityScale);
             rb.gravityScale = normalGravityScale;
+            ResetWallTraversalState(false);
             IsGrounded = false;
             CurrentPlatform = null;
             GroundNormal = Vector2.up;
@@ -162,6 +177,7 @@ namespace MukJump.Player
         public void DebugTeleportBy(Vector2 offset)
         {
             if (IsDead) return;
+            ResetWallTraversalState(true);
             DetachFromPlatform();
             rb.position += offset;
             rb.linearVelocity = Vector2.zero;
@@ -205,11 +221,13 @@ namespace MukJump.Player
         {
             if (IsDead) return;
 
+            MaintainWallCling();
+
             if (GameManager.Instance != null && GameManager.Instance.State == GameState.Playing)
             {
                 // 드로잉 발판에 붙어 있을 때는 캐릭터의 머리가 표면 바깥쪽을 향하도록
                 // 발판 노멀에 맞춘다. 공중에서는 기존처럼 이동 방향만 살짝 따라간다.
-                float targetAngle = CurrentPlatform != null
+                float targetAngle = CurrentPlatform != null || IsWallClinging
                     ? Mathf.Atan2(GroundNormal.y, GroundNormal.x) * Mathf.Rad2Deg - 90f
                     : Mathf.Clamp(-rb.linearVelocity.x * 0.45f,
                         -maxVisualRollAngle, maxVisualRollAngle);
@@ -220,7 +238,7 @@ namespace MukJump.Player
             }
 
             // 접지 플래그는 매 물리 스텝 초기화 → OnCollisionStay2D가 다시 세운다
-            IsGrounded = false;
+            IsGrounded = IsWallClinging;
 
             if (IsInkDropBoosted)
             {
@@ -487,6 +505,7 @@ namespace MukJump.Player
                 HealthChanged?.Invoke(CurrentHealth, MaxHealth);
             }
             IsDead = true;
+            ClearWallCling(false);
             IsInkDropBoosted = false;
             IsGrounded = false;
             CurrentPlatform = null;
@@ -558,6 +577,13 @@ namespace MukJump.Player
 
         void OnCollisionStay2D(Collision2D collision)
         {
+            var sideWall = collision.collider.GetComponent<ScreenSideWall>();
+            if (IsWallClinging && sideWall != null && sideWall == clingingWall)
+            {
+                MaintainWallCling();
+                return;
+            }
+
             var platform = collision.collider.GetComponentInParent<PlatformCollider>();
             for (int i = 0; i < collision.contactCount; i++)
             {
@@ -566,7 +592,8 @@ namespace MukJump.Player
                 {
                     // 풍맥 발판은 아래에서 통과한다. Effector 경계에서 발생할 수 있는
                     // 아래·옆면 접촉도 착지나 풍맥 효과로 처리하지 않는다.
-                    if (platform.IsWindCurrentPlatform && contact.normal.y < groundNormalMinY)
+                    if (platform.IsOneWayPlatform &&
+                        contact.normal.y < groundNormalMinY)
                         continue;
                     // 먹물방울 상승 중에는 방금 떨어져 나온 대각선 발판이 같은 물리
                     // 스텝에서 다시 캐릭터를 붙잡아 점프 속도를 덮지 못하게 한다.
@@ -602,6 +629,7 @@ namespace MukJump.Player
 
         void DetachFromPlatform()
         {
+            ClearWallCling(false);
             IsGrounded = false;
             CurrentPlatform = null;
             GroundNormal = Vector2.up;
@@ -644,11 +672,15 @@ namespace MukJump.Player
                 return;
             }
 
-            bool isSpecialPlatform = platform != null && platform.IsWindCurrentPlatform;
+            bool isSpecialPlatform = platform != null &&
+                                     platform.IsOneWayPlatform;
             bool landed = hasTopContact || (platform != null && !isSpecialPlatform);
             if (landed)
             {
+                if (IsWallClinging)
+                    ClearWallCling(true);
                 automaticJumpInFlight = false;
+                wallClingConsumedThisFlight = false;
                 GameFeedbackController.Instance?.PlayLanding(transform.position,
                     Mathf.Abs(collision.relativeVelocity.y));
                 bool drawnPlatform = platform != null &&
@@ -661,21 +693,125 @@ namespace MukJump.Player
                 }
             }
 
-            if (collision.collider.GetComponent<ScreenSideWall>() == null) return;
+            var sideWall = collision.collider.GetComponent<ScreenSideWall>();
+            if (sideWall == null) return;
 
-            float inwardDirection = transform.position.x >= collision.transform.position.x ? 1f : -1f;
+            float inwardDirection = sideWall.IsLeft ? 1f : -1f;
             GameFeedbackController.Instance?.PlayWallHit(transform.position, inwardDirection);
+            if (TryBeginWallCling(sideWall, inwardDirection))
+                return;
             float bounceSpeed = Mathf.Max(sideWallBounceSpeed, Mathf.Abs(rb.linearVelocity.x) * 0.55f);
             rb.linearVelocity = new Vector2(inwardDirection * bounceSpeed, rb.linearVelocity.y);
         }
 
         void OnCollisionExit2D(Collision2D collision)
         {
+            if (IsWallClinging &&
+                collision.collider.GetComponent<ScreenSideWall>() == clingingWall)
+                ClearWallCling(true);
             if (CurrentPlatform != null &&
                 collision.collider.GetComponentInParent<PlatformCollider>() == CurrentPlatform)
             {
                 DetachFromPlatform();
             }
+        }
+
+        bool TryBeginWallCling(ScreenSideWall wall, float inwardDirection)
+        {
+            GameManager game = GameManager.Instance;
+            if (wall == null || IsDead || IsWallClinging ||
+                !ActivePermanentGrowth.HasWallCling ||
+                IsInkDropBoosted || !automaticJumpInFlight ||
+                rb.linearVelocity.y > -0.1f ||
+                Time.time < wallRelatchAllowedAt ||
+                wallClingConsumedThisFlight ||
+                game == null || game.State != GameState.Playing ||
+                !game.TryGetSwarmAnchor(
+                    out PlayerController representative,
+                    out _) ||
+                representative != this)
+                return false;
+
+            IsWallClinging = true;
+            clingingWall = wall;
+            wallClingConsumedThisFlight = true;
+            wallClingReleaseAllowedAt = Time.time + wallClingMinimumDuration;
+            wallClingExpiresAt = Time.time + Mathf.Max(
+                wallClingMinimumDuration,
+                ActivePermanentGrowth.WallClingDuration);
+            GroundNormal = new Vector2(inwardDirection, 0f);
+            CurrentPlatform = null;
+            IsGrounded = true;
+            rb.linearVelocity = Vector2.zero;
+            rb.gravityScale = 0f;
+            rb.WakeUp();
+            return true;
+        }
+
+        void MaintainWallCling()
+        {
+            if (!IsWallClinging || rb == null)
+                return;
+            if (IsDead || !ActivePermanentGrowth.HasWallCling ||
+                Time.time >= wallClingExpiresAt)
+            {
+                float inward = GroundNormal.x >= 0f ? 1f : -1f;
+                ClearWallCling(true);
+                if (!IsDead)
+                    rb.linearVelocity = new Vector2(
+                        inward * sideWallBounceSpeed,
+                        rb.linearVelocity.y);
+                return;
+            }
+
+            IsGrounded = true;
+            CurrentPlatform = null;
+            rb.linearVelocity = Vector2.zero;
+            rb.gravityScale = 0f;
+        }
+
+        /// AutoJump는 벽 노멀을 먼저 복사한 뒤 이 메서드로 접착을 풀고 안쪽으로 뛴다.
+        public void ReleaseWallClingForAutomaticJump()
+        {
+            if (!IsWallClinging)
+                return;
+            wallRelatchAllowedAt = Time.time + wallRelatchDelay;
+            IsWallClinging = false;
+            clingingWall = null;
+            IsGrounded = false;
+            CurrentPlatform = null;
+            if (EnsureBody())
+            {
+                rb.gravityScale = normalGravityScale;
+                rb.WakeUp();
+            }
+        }
+
+        void ClearWallCling(bool restoreGravity)
+        {
+            bool wasClinging = IsWallClinging;
+            IsWallClinging = false;
+            clingingWall = null;
+            wallClingReleaseAllowedAt = 0f;
+            wallClingExpiresAt = 0f;
+            if (wasClinging)
+            {
+                IsGrounded = false;
+                CurrentPlatform = null;
+                GroundNormal = Vector2.up;
+                wallRelatchAllowedAt = Mathf.Max(
+                    wallRelatchAllowedAt,
+                    Time.time + wallRelatchDelay);
+            }
+            if (restoreGravity && EnsureBody())
+                rb.gravityScale = normalGravityScale;
+        }
+
+        void ResetWallTraversalState(bool restoreGravity)
+        {
+            ClearWallCling(restoreGravity);
+            wallClingConsumedThisFlight = false;
+            wallRelatchAllowedAt = 0f;
         }
     }
 }
