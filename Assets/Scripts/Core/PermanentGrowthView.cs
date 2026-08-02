@@ -16,13 +16,10 @@ namespace MukJump.Core
         const float ReferenceWidth = 1080f;
         const float ReferenceHeight = 1920f;
         const string ArtResourceRoot = "MukJump/UI/PermanentGrowth/";
-        const float TreeCanvasZoom = 0.84f;
+        const float TreeCanvasZoom = 0.66f;
         const float TreeBackgroundOpacity = 0.42f;
         const float TreeBranchOpacity = 1f;
         const float BranchVisibleEndpointOverlap = 18f;
-        static readonly Vector2 TreeViewportPosition = Vector2.zero;
-        static readonly Vector2 TreeViewportSize =
-            new(ReferenceWidth, ReferenceHeight);
         static readonly Vector2 TreeCanvasSize = new(3400f, 3200f);
         static readonly Vector2 TreeBackgroundSize = new(2200f, 3060f);
         static readonly Vector2 TreeBackgroundPosition = Vector2.zero;
@@ -60,6 +57,7 @@ namespace MukJump.Core
             public Image FruitGlow;
             public Image Fruit;
             public Image Ring;
+            public Image EquippedRing;
             public Image Icon;
             public Image CompletionMark;
             public Button Button;
@@ -96,6 +94,7 @@ namespace MukJump.Core
         bool purchaseInProgress;
         bool purchaseUiLocked;
         bool nodePopupOpen;
+        string pendingKeystoneId = string.Empty;
         int selectedSlot;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -170,6 +169,7 @@ namespace MukJump.Core
         public void Open()
         {
             BuildIfNeeded();
+            pendingKeystoneId = string.Empty;
             BindManager();
             if (manager == null || manager.State != GameState.Lobby)
             {
@@ -219,6 +219,7 @@ namespace MukJump.Core
 
         void HandleProfileChanged()
         {
+            pendingKeystoneId = string.Empty;
             Refresh();
         }
 
@@ -273,11 +274,10 @@ namespace MukJump.Core
             scaler.matchWidthOrHeight = 1f;
 
             rootGroup = root.GetComponent<CanvasGroup>();
-            ScreenRoot = CreateRect(
-                "ScreenRoot",
-                root.transform,
-                HiddenScreenPosition,
-                new Vector2(1080f, ReferenceHeight));
+            // 높이를 기준으로 스케일하는 세로 UI에서도 19.5:9·20:9의 실제 논리 폭을
+            // 그대로 사용한다. 고정 1080 폭이면 좌우 HUD와 계보 뿌리가 화면 밖으로 잘린다.
+            ScreenRoot = CreateStretchRect("ScreenRoot", root.transform);
+            ScreenRoot.anchoredPosition = HiddenScreenPosition;
 
             Image background = CreateStretchImage(
                 "OpaqueHanjiBackground",
@@ -313,11 +313,7 @@ namespace MukJump.Core
 
         void BuildTreeViewport(Transform panel)
         {
-            TreeViewport = CreateRect(
-                "TreeViewport",
-                panel,
-                TreeViewportPosition,
-                TreeViewportSize);
+            TreeViewport = CreateStretchRect("TreeViewport", panel);
             // 성장 지도는 헤더 뒤까지 화면을 사용하되 제목·재화·로비 버튼은
             // 항상 앞에 남긴다. 위쪽 여백도 탐색 영역으로 활용할 수 있다.
             TreeViewport.SetAsFirstSibling();
@@ -345,7 +341,9 @@ namespace MukJump.Core
                 TreeCanvasSize);
             // 전체 나무를 한 번에 더 많이 볼 수 있게 살짝 줌아웃한다.
             // 열매 터치 영역은 축소 후에도 모바일 최소 크기보다 충분히 크다.
-            TreeCanvas.localScale = Vector3.one * TreeCanvasZoom;
+            TreeCanvas.localScale = Vector3.one * CalculateTreeZoom(
+                Screen.width,
+                Screen.height);
             treeScrollRect.content = TreeCanvas;
             BuildThreeBranchTree(TreeCanvas);
 
@@ -630,12 +628,14 @@ namespace MukJump.Core
             List<Image> incomingLines,
             List<Image> branchArts)
         {
-            bool capstone = definition.IsCapstone;
-            bool commonTrunk = definition.IsCommonTrunk;
+            bool capstone = definition.IsKeystone;
+            bool rootNode = definition.NodeKind == PermanentGrowthNodeKind.Root;
             Vector2 position = NodePosition(definition);
             Vector2 touchSize = capstone
-                ? new Vector2(240f, 260f)
-                : new Vector2(188f, 218f);
+                ? new Vector2(252f, 276f)
+                : rootNode
+                    ? new Vector2(216f, 240f)
+                    : new Vector2(196f, 224f);
             RectTransform root = CreateRect(
                 $"GrowthNode_{SanitizeNodeId(definition.Id)}",
                 parent,
@@ -650,8 +650,8 @@ namespace MukJump.Core
             float nodeCenterY = 30f;
             float surfaceSize = capstone
                 ? 164f
-                : commonTrunk
-                    ? 136f
+                : rootNode
+                    ? 144f
                     : 124f;
             Image nodeContrast = CreateImage(
                 "NodeContrast",
@@ -673,6 +673,17 @@ namespace MukJump.Core
                     capstone ? 210f : 166f),
                 TransparentColor(InkPalette.Gold));
             ring.preserveAspect = true;
+
+            Image equippedRing = CreateImage(
+                "EquippedRing",
+                root,
+                LoadPermanentGrowthSprite("pg_selected_ring"),
+                new Vector2(0f, nodeCenterY),
+                new Vector2(
+                    capstone ? 232f : 184f,
+                    capstone ? 232f : 184f),
+                TransparentColor(InkPalette.Gold));
+            equippedRing.preserveAspect = true;
 
             Sprite fruitSprite =
                 LoadPermanentGrowthSprite("pg_node_bloom_mask") ??
@@ -710,13 +721,14 @@ namespace MukJump.Core
             Image icon = CreateImage(
                 "Icon",
                 root,
-                LoadIcon(definition.Type),
+                LoadIcon(definition),
                 new Vector2(0f, nodeCenterY),
                 new Vector2(
                     capstone ? 94f : 72f,
                     capstone ? 94f : 72f),
                 Color.white);
             icon.preserveAspect = true;
+            ApplyIconVariation(icon, definition);
 
             Image completion = CreateImage(
                 "CompletionMark",
@@ -741,6 +753,7 @@ namespace MukJump.Core
                 FruitGlow = fruitGlow,
                 Fruit = fruit,
                 Ring = ring,
+                EquippedRing = equippedRing,
                 Icon = icon,
                 CompletionMark = completion,
                 Button = button,
@@ -762,8 +775,8 @@ namespace MukJump.Core
             selectedActionRoot = CreateRect(
                 "SelectedGrowthAction",
                 parent,
-                new Vector2(0f, -24f),
-                new Vector2(860f, 900f));
+                new Vector2(0f, -18f),
+                new Vector2(860f, 1040f));
             Image popupPaper =
                 selectedActionRoot.gameObject.AddComponent<Image>();
             popupPaper.sprite =
@@ -781,7 +794,7 @@ namespace MukJump.Core
                 "ActionBranchBrush",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0f, 354f),
+                new Vector2(0f, 424f),
                 new Vector2(330f, 68f),
                 InkPalette.Ink);
             selectedActionBranchText = CreateText(
@@ -798,7 +811,7 @@ namespace MukJump.Core
                 "ActionIcon",
                 selectedActionRoot,
                 null,
-                new Vector2(0f, 244f),
+                new Vector2(0f, 310f),
                 new Vector2(144f, 144f),
                 Color.white);
             selectedActionIcon.preserveAspect = true;
@@ -808,7 +821,7 @@ namespace MukJump.Core
                 selectedActionRoot,
                 string.Empty,
                 52,
-                new Vector2(0f, 130f),
+                new Vector2(0f, 194f),
                 new Vector2(700f, 86f),
                 InkPalette.TextDark,
                 FontStyle.Bold);
@@ -818,17 +831,21 @@ namespace MukJump.Core
                 selectedActionRoot,
                 string.Empty,
                 34,
-                new Vector2(0f, 34f),
-                new Vector2(700f, 112f),
+                new Vector2(0f, 76f),
+                new Vector2(700f, 154f),
                 InkPalette.TextDark,
-                FontStyle.Normal);
+                FontStyle.Normal,
+                TextAnchor.MiddleLeft);
             selectedActionDescriptionText.lineSpacing = 1.08f;
+            selectedActionDescriptionText.verticalOverflow =
+                VerticalWrapMode.Truncate;
+            EnableBestFit(selectedActionDescriptionText, 28);
 
             CreateImage(
                 "ActionDivider",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0f, -52f),
+                new Vector2(0f, -34f),
                 new Vector2(650f, 16f),
                 WithAlpha(InkPalette.Ink, 0.32f));
 
@@ -837,7 +854,7 @@ namespace MukJump.Core
                 selectedActionRoot,
                 string.Empty,
                 32,
-                new Vector2(0f, -122f),
+                new Vector2(0f, -108f),
                 new Vector2(660f, 58f),
                 ReadableMutedColor(),
                 FontStyle.Normal,
@@ -847,8 +864,8 @@ namespace MukJump.Core
                 selectedActionRoot,
                 string.Empty,
                 34,
-                new Vector2(0f, -188f),
-                new Vector2(660f, 60f),
+                new Vector2(0f, -184f),
+                new Vector2(660f, 76f),
                 InkPalette.TextDark,
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft);
@@ -858,17 +875,21 @@ namespace MukJump.Core
                 selectedActionRoot,
                 string.Empty,
                 30,
-                new Vector2(0f, -264f),
-                new Vector2(700f, 70f),
+                new Vector2(0f, -280f),
+                new Vector2(700f, 104f),
                 ReadableMutedColor(),
-                FontStyle.Normal);
+                FontStyle.Normal,
+                TextAnchor.MiddleLeft);
+            selectedActionStatusText.verticalOverflow =
+                VerticalWrapMode.Truncate;
+            EnableBestFit(selectedActionStatusText, 25);
 
             selectedActionCostIcon = CreateImage(
                 "ActionCostIcon",
                 selectedActionRoot,
                 LoadPermanentGrowthSprite("pg_ink_drop") ??
                 LoadIcon(PermanentGrowthType.InkCapacity),
-                new Vector2(-184f, -354f),
+                new Vector2(-184f, -414f),
                 new Vector2(52f, 52f),
                 Color.white);
             selectedActionCostIcon.preserveAspect = true;
@@ -877,7 +898,7 @@ namespace MukJump.Core
                 selectedActionRoot,
                 "0",
                 38,
-                new Vector2(-118f, -354f),
+                new Vector2(-118f, -414f),
                 new Vector2(96f, 62f),
                 InkPalette.TextDark,
                 FontStyle.Bold,
@@ -887,8 +908,8 @@ namespace MukJump.Core
                 "EnhanceButton",
                 selectedActionRoot,
                 "강화하기",
-                new Vector2(176f, -354f),
-                new Vector2(380f, 112f),
+                new Vector2(176f, -414f),
+                new Vector2(380f, 128f),
                 38);
             purchaseButtonText =
                 PurchaseButton.GetComponentInChildren<Text>(true);
@@ -898,9 +919,9 @@ namespace MukJump.Core
                 "CloseButton",
                 selectedActionRoot,
                 "닫기",
-                new Vector2(348f, 364f),
-                new Vector2(126f, 78f),
-                28);
+                new Vector2(340f, 438f),
+                new Vector2(156f, 112f),
+                30);
             NodePopupCloseButton.onClick.AddListener(CloseNodePopup);
 
             selectedActionDimmer.gameObject.SetActive(false);
@@ -988,6 +1009,8 @@ namespace MukJump.Core
                 purchaseUiLocked ||
                 Time.unscaledTime < purchaseLockedUntil)
                 return;
+            if (selectedSlot != slot)
+                pendingKeystoneId = string.Empty;
             selectedSlot = slot;
             SetNodePopupVisible(true);
             Refresh();
@@ -995,6 +1018,41 @@ namespace MukJump.Core
 
         void HandleSelectedPurchase()
         {
+            if (selectedSlot < 0 || selectedSlot >= nodes.Count)
+                return;
+
+            PermanentGrowthNodeDefinition definition =
+                nodes[selectedSlot].NodeDefinition;
+            if (definition.IsKeystone &&
+                PermanentGrowthProfile.IsNodeUnlocked(definition))
+            {
+                if (PermanentGrowthProfile.IsKeystoneActive(definition.Id))
+                {
+                    pendingKeystoneId = string.Empty;
+                    PermanentGrowthProfile.ClearActiveKeystone(definition.Branch);
+                }
+                else
+                {
+                    string activeId = PermanentGrowthProfile.GetActiveKeystoneId(
+                        definition.Branch);
+                    if (!string.IsNullOrEmpty(activeId) &&
+                        !string.Equals(
+                            pendingKeystoneId,
+                            definition.Id,
+                            StringComparison.Ordinal))
+                    {
+                        pendingKeystoneId = definition.Id;
+                        Refresh();
+                        return;
+                    }
+
+                    pendingKeystoneId = string.Empty;
+                    PermanentGrowthProfile.TryEquipKeystone(definition.Id);
+                }
+                Refresh();
+                return;
+            }
+
             HandlePurchase(selectedSlot);
         }
 
@@ -1002,6 +1060,20 @@ namespace MukJump.Core
         public void SelectGrowthForTests(int slot)
         {
             SelectGrowth(slot);
+        }
+
+        public void SelectGrowthForTests(string nodeId)
+        {
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                if (!string.Equals(
+                        nodes[i].NodeDefinition.Id,
+                        nodeId,
+                        StringComparison.Ordinal))
+                    continue;
+                SelectGrowth(i);
+                return;
+            }
         }
 #endif
 
@@ -1066,8 +1138,11 @@ namespace MukJump.Core
                 bool requirementsMet =
                     PermanentGrowthProfile.MeetsNodeRequirements(definition);
                 bool selected = i == selectedSlot;
+                bool activeKeystone = definition.IsKeystone &&
+                    PermanentGrowthProfile.IsKeystoneActive(definition.Id);
 
-                node.Icon.sprite = LoadIcon(definition.Type);
+                node.Icon.sprite = LoadIcon(definition);
+                ApplyIconVariation(node.Icon, definition);
                 node.Icon.color = node.Icon.sprite != null
                     ? new Color(1f, 1f, 1f, requirementsMet ? 1f : 0.6f)
                     : WithAlpha(InkPalette.Ink, requirementsMet ? 1f : 0.58f);
@@ -1084,12 +1159,13 @@ namespace MukJump.Core
                         InkPalette.Red,
                         selected ? 0.28f : 0.18f)
                     : TransparentColor(InkPalette.Red);
-                node.Ring.color = selected
-                    ? WithAlpha(InkPalette.Gold, 0.95f)
-                    : unlocked
-                        ? WithAlpha(InkPalette.Gold, 0.62f)
-                        : TransparentColor(InkPalette.Gold);
-                node.CompletionMark.color = unlocked
+                node.Ring.color = selected && IsNodePopupOpen
+                    ? WithAlpha(InkPalette.Ink, 0.76f)
+                    : TransparentColor(InkPalette.Ink);
+                node.EquippedRing.color = activeKeystone
+                    ? WithAlpha(InkPalette.Gold, 0.98f)
+                    : TransparentColor(InkPalette.Gold);
+                node.CompletionMark.color = activeKeystone
                     ? InkPalette.Gold
                     : TransparentColor(InkPalette.Gold);
                 Color lineColor = unlocked
@@ -1163,37 +1239,55 @@ namespace MukJump.Core
                 node.NodeDefinition;
             bool unlocked =
                 PermanentGrowthProfile.IsNodeUnlocked(definition);
+            bool activeKeystone = definition.IsKeystone &&
+                PermanentGrowthProfile.IsKeystoneActive(definition.Id);
+            string activeKeystoneId = definition.IsKeystone
+                ? PermanentGrowthProfile.GetActiveKeystoneId(definition.Branch)
+                : string.Empty;
+            bool replacingKeystone = definition.IsKeystone &&
+                unlocked &&
+                !activeKeystone &&
+                !string.IsNullOrEmpty(activeKeystoneId);
+            bool replacementPending = replacingKeystone &&
+                string.Equals(
+                    pendingKeystoneId,
+                    definition.Id,
+                    StringComparison.Ordinal);
             bool requirementsMet =
                 PermanentGrowthProfile.MeetsNodeRequirements(definition);
             int cost = definition.Cost;
             bool hasEnoughCurrency =
                 PermanentGrowthProfile.Currency >= cost;
-            int currentLevel =
-                PermanentGrowthProfile.GetLevel(definition.Type);
             PermanentGrowthBranchMetadata branch =
                 PermanentGrowthCatalog.GetBranch(definition.Branch);
 
-            selectedActionBranchText.text = definition.IsCommonTrunk
-                ? $"공통 줄기 · {definition.Rank}단계"
-                : $"{branch.DisplayName} · {definition.Rank}단계";
-            selectedActionNameText.text = definition.Name;
+            selectedActionBranchText.text =
+                $"{branch.DisplayName} · {NodeKindLabel(definition.NodeKind)}";
+            selectedActionNameText.text = definition.DisplayName;
             selectedActionDescriptionText.text = definition.Description;
-            selectedActionIcon.sprite = LoadIcon(definition.Type);
+            selectedActionIcon.sprite = LoadIcon(definition);
+            ApplyIconVariation(selectedActionIcon, definition);
             selectedActionIcon.color = selectedActionIcon.sprite != null
                 ? Color.white
                 : InkPalette.Ink;
-            selectedActionCurrentEffectText.text = definition.IsCapstone
-                ? unlocked
-                    ? "현재  ·  패시브 활성"
-                    : "현재  ·  패시브 잠김"
-                : $"현재 누적  ·  " +
-                  FormatEffectAtLevel(definition, currentLevel);
-            selectedActionNextEffectText.text = definition.IsCapstone
-                ? $"해금 효과  ·  {definition.Description}"
-                : $"해금 후  ·  " +
-                  FormatEffectAtLevel(definition, definition.Rank);
+            selectedActionCurrentEffectText.text = unlocked
+                ? definition.IsKeystone
+                    ? activeKeystone
+                        ? "현재  ·  장착 중"
+                        : "현재  ·  해금됨"
+                    : "현재  ·  항상 적용 중"
+                : "현재  ·  잠김";
+            selectedActionNextEffectText.text =
+                $"효과  ·  {definition.EffectSummary}";
             selectedActionStatusText.text = unlocked
-                ? "이미 해금된 성장입니다."
+                ? definition.IsKeystone
+                    ? activeKeystone
+                        ? "이 비기가 현재 판에 적용되도록 장착되어 있습니다."
+                        : replacementPending
+                            ? $"{PermanentGrowthCatalog.GetNode(activeKeystoneId)?.DisplayName}에서 " +
+                              $"{definition.DisplayName}(으)로 교체할까요?"
+                            : "해금된 비기입니다. 같은 계보에서 하나만 장착할 수 있습니다."
+                    : "해금된 열매의 효과는 모든 판에 항상 적용됩니다."
                 : requirementsMet
                     ? hasEnoughCurrency
                         ? $"먹빛 {cost}개로 해금할 수 있습니다."
@@ -1209,11 +1303,21 @@ namespace MukJump.Core
             selectedActionCostIcon.gameObject.SetActive(showCost);
             selectedActionCostText.gameObject.SetActive(showCost);
             selectedActionCostText.text = cost.ToString();
+            PurchaseButton.GetComponent<RectTransform>().anchoredPosition =
+                new Vector2(showCost ? 176f : 0f, -414f);
 
             if (purchaseButtonText != null)
             {
                 purchaseButtonText.text = unlocked
-                    ? "해금 완료"
+                    ? definition.IsKeystone
+                        ? activeKeystone
+                            ? "장착 해제"
+                            : replacementPending
+                                ? "교체 확인"
+                                : replacingKeystone
+                                    ? "교체하기"
+                                    : "장착하기"
+                        : "적용 중"
                     : requirementsMet
                         ? hasEnoughCurrency
                             ? "강화하기"
@@ -1222,15 +1326,17 @@ namespace MukJump.Core
             }
             PurchaseButton.interactable =
                 !purchaseUiLocked &&
-                !unlocked &&
-                requirementsMet &&
-                hasEnoughCurrency;
+                (unlocked
+                    ? definition.IsKeystone
+                    : requirementsMet && hasEnoughCurrency);
             NodePopupCloseButton.interactable = !purchaseUiLocked;
         }
 
         void SetNodePopupVisible(bool visible)
         {
             nodePopupOpen = visible && selectedActionRoot != null;
+            if (!nodePopupOpen)
+                pendingKeystoneId = string.Empty;
             if (selectedActionDimmer != null)
             {
                 selectedActionDimmer.gameObject.SetActive(nodePopupOpen);
@@ -1249,6 +1355,7 @@ namespace MukJump.Core
         void CloseNodePopup()
         {
             SetNodePopupVisible(false);
+            Refresh();
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -1289,19 +1396,47 @@ namespace MukJump.Core
                 : Vector2.zero;
         }
 
+        static float CalculateTreeZoom(float screenWidth, float screenHeight)
+        {
+            if (screenWidth <= 0f || screenHeight <= 0f)
+                return TreeCanvasZoom;
+            float logicalWidth = screenWidth * ReferenceHeight / screenHeight;
+            float narrowScreenFit = Mathf.Clamp01(logicalWidth / ReferenceWidth);
+            return TreeCanvasZoom * narrowScreenFit;
+        }
+
+#if UNITY_EDITOR
+        public static float CalculateTreeZoomForTests(
+            float screenWidth,
+            float screenHeight) =>
+            CalculateTreeZoom(screenWidth, screenHeight);
+#endif
+
         static Vector2 BranchHeaderPosition(PermanentGrowthBranch branch)
         {
-            // 공통 줄기 끝에서 갈라지는 실제 세 입구에 표찰을 붙인다.
-            // 뿌리 옆에 두면 처음부터 세 갈래인 것처럼 오해하기 쉽다.
+            // 세 계보는 각각 독립된 뿌리에서 시작한다. 표찰을 실제 입구 가까이에
+            // 두어 드래그 중에도 현재 보고 있는 계보를 바로 알 수 있게 한다.
             return branch switch
             {
                 PermanentGrowthBranch.Survival =>
-                    new Vector2(-520f, -100f),
+                    new Vector2(-700f, -1210f),
                 PermanentGrowthBranch.InkHandling =>
-                    new Vector2(0f, -100f),
+                    new Vector2(0f, -1270f),
                 PermanentGrowthBranch.Leap =>
-                    new Vector2(520f, -100f),
+                    new Vector2(700f, -1210f),
                 _ => Vector2.zero,
+            };
+        }
+
+        static string NodeKindLabel(PermanentGrowthNodeKind kind)
+        {
+            return kind switch
+            {
+                PermanentGrowthNodeKind.Root => "뿌리",
+                PermanentGrowthNodeKind.Stat => "성장",
+                PermanentGrowthNodeKind.Mechanic => "특성",
+                PermanentGrowthNodeKind.Keystone => "비기",
+                _ => "열매",
             };
         }
 
@@ -1314,30 +1449,6 @@ namespace MukJump.Core
                 PermanentGrowthBranch.InkHandling => "먹 운용",
                 _ => string.Empty,
             };
-        }
-
-        static string FormatEffectAtLevel(
-            PermanentGrowthNodeDefinition definition,
-            int level)
-        {
-            if (definition == null)
-                return string.Empty;
-
-            float value =
-                definition.TrackDefinition.GetDisplayValueAtLevel(level);
-            string formatted = Mathf.Approximately(
-                value,
-                Mathf.Round(value))
-                    ? Mathf.RoundToInt(value).ToString()
-                    : value.ToString("0.##");
-            string sign = definition.ReducesValue ? "-" : "+";
-            string suffix = definition.ValueKind switch
-            {
-                PermanentGrowthValueKind.Percent => "%",
-                PermanentGrowthValueKind.Seconds => "초",
-                _ => string.Empty,
-            };
-            return $"{definition.EffectUnit} {sign}{formatted}{suffix}";
         }
 
         Image CreateTreeBranchArt(
@@ -1369,8 +1480,8 @@ namespace MukJump.Core
             float naturalHeight = width / Mathf.Max(1f, spriteAspect);
             float thickness = Mathf.Clamp(
                 naturalHeight,
-                definition.IsCapstone ? 176f : 140f,
-                definition.IsCapstone ? 220f : 190f);
+                definition.IsKeystone ? 176f : 140f,
+                definition.IsKeystone ? 220f : 190f);
             Vector2 direction = delta.sqrMagnitude > 0.001f
                 ? delta.normalized
                 : Vector2.right;
@@ -1511,21 +1622,66 @@ namespace MukJump.Core
             return line;
         }
 
+        Sprite LoadIcon(PermanentGrowthNodeDefinition definition)
+        {
+            if (definition == null)
+                return null;
+
+            // 추후 같은 IconKey 이름의 전용 그림을 Resources에 넣으면 코드 변경 없이
+            // 즉시 사용한다. 아직 전용 그림이 없는 노드는 계보별 수묵 아이콘으로 폴백한다.
+            string iconKey = definition.IconKey ?? string.Empty;
+            string keyedPath = string.IsNullOrEmpty(iconKey)
+                ? string.Empty
+                : "pg_icon_" + iconKey.Replace('.', '_');
+            return LoadPermanentGrowthSprite(keyedPath) ??
+                   LoadIcon(definition.EffectId);
+        }
+
+        void ApplyIconVariation(
+            Image icon,
+            PermanentGrowthNodeDefinition definition)
+        {
+            if (icon == null || definition == null)
+                return;
+
+            int hash = StableHash(definition.IconKey);
+            float rotation = ((hash % 5) - 2) * 3.5f;
+            float scale = 0.92f + ((hash / 5) % 4) * 0.025f;
+            icon.rectTransform.localEulerAngles =
+                new Vector3(0f, 0f, rotation);
+            icon.rectTransform.localScale =
+                new Vector3(scale, scale, 1f);
+        }
+
         Sprite LoadIcon(PermanentGrowthType type)
         {
             string permanentPath = type switch
             {
                 PermanentGrowthType.InkCapacity => "pg_icon_capacity",
                 PermanentGrowthType.InkRecovery => "pg_icon_recovery",
-                PermanentGrowthType.PlatformLifetime => "pg_icon_platform",
-                PermanentGrowthType.JumpCharge => "pg_icon_jump",
-                PermanentGrowthType.Vitality => string.Empty,
-                PermanentGrowthType.DamageGrace => string.Empty,
-                PermanentGrowthType.CloneSpawnGrace => string.Empty,
-                PermanentGrowthType.LastBreath => "pg_root_emblem",
-                PermanentGrowthType.JumpPower => "pg_icon_jump",
-                PermanentGrowthType.DrawnPlatformLeap => "pg_icon_platform",
+                PermanentGrowthType.PlatformLifetime or
+                PermanentGrowthType.FirstLandingPause or
+                PermanentGrowthType.NaturalExpiryRefund or
                 PermanentGrowthType.StrokeGuard => "pg_icon_platform",
+                PermanentGrowthType.JumpCharge or
+                PermanentGrowthType.JumpPower or
+                PermanentGrowthType.DrawnChargeRhythm or
+                PermanentGrowthType.ConsecutiveLandingRhythm or
+                PermanentGrowthType.ShortPlatformControl or
+                PermanentGrowthType.ApexHang or
+                PermanentGrowthType.FallControl or
+                PermanentGrowthType.LastFallBrake => "pg_icon_jump",
+                PermanentGrowthType.Vitality => string.Empty,
+                PermanentGrowthType.DamageGrace or
+                PermanentGrowthType.HitHorizontalStability or
+                PermanentGrowthType.HitReboundControl or
+                PermanentGrowthType.StableHit or
+                PermanentGrowthType.CloneSpawnGrace or
+                PermanentGrowthType.CloneSourceGrace or
+                PermanentGrowthType.CloneDeathHeal or
+                PermanentGrowthType.CloneBond => string.Empty,
+                PermanentGrowthType.LastBreath => "pg_root_emblem",
+                PermanentGrowthType.DrawnPlatformLeap => "pg_icon_platform",
                 _ => string.Empty,
             };
             Sprite permanentSprite =
@@ -1542,17 +1698,40 @@ namespace MukJump.Core
                 PermanentGrowthType.PlatformLifetime =>
                     "MukJump/UI/Growth/growth_platform",
                 PermanentGrowthType.JumpCharge or
-                PermanentGrowthType.JumpPower =>
+                PermanentGrowthType.JumpPower or
+                PermanentGrowthType.DrawnChargeRhythm or
+                PermanentGrowthType.ConsecutiveLandingRhythm or
+                PermanentGrowthType.ShortPlatformControl or
+                PermanentGrowthType.ApexHang or
+                PermanentGrowthType.FallControl or
+                PermanentGrowthType.LastFallBrake =>
                     "MukJump/UI/Growth/growth_jump",
                 PermanentGrowthType.Vitality or
                 PermanentGrowthType.LastBreath =>
                     "MukJump/UI/Growth/growth_vitality",
                 PermanentGrowthType.DamageGrace or
+                PermanentGrowthType.HitHorizontalStability or
+                PermanentGrowthType.HitReboundControl or
+                PermanentGrowthType.StableHit or
                 PermanentGrowthType.CloneSpawnGrace or
+                PermanentGrowthType.CloneSourceGrace or
+                PermanentGrowthType.CloneDeathHeal or
+                PermanentGrowthType.CloneBond or
                 PermanentGrowthType.StrokeGuard =>
                     "MukJump/UI/Growth/growth_guard",
-                PermanentGrowthType.DrawnPlatformLeap =>
+                PermanentGrowthType.DrawnPlatformLeap or
+                PermanentGrowthType.FirstLandingPause or
+                PermanentGrowthType.NaturalExpiryRefund =>
                     "MukJump/UI/Growth/growth_platform",
+                PermanentGrowthType.HitInkRecovery or
+                PermanentGrowthType.DrawnLandingInk or
+                PermanentGrowthType.LowInkRecovery =>
+                    "MukJump/UI/Growth/growth_ink_regen",
+                PermanentGrowthType.ShortStrokeEfficiency or
+                PermanentGrowthType.IdleStrokeEfficiency =>
+                    "MukJump/UI/Growth/growth_scroll",
+                PermanentGrowthType.WindControl =>
+                    "MukJump/UI/Growth/growth_fortune",
                 _ => string.Empty,
             };
             return string.IsNullOrEmpty(fallbackPath)
@@ -1676,6 +1855,12 @@ namespace MukJump.Core
                 contentPanel.localScale =
                     Vector3.one * Mathf.Max(0.01f, contentScale);
             }
+            if (TreeCanvas != null)
+            {
+                TreeCanvas.localScale = Vector3.one * CalculateTreeZoom(
+                    Screen.width,
+                    Screen.height);
+            }
 
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
@@ -1768,6 +1953,15 @@ namespace MukJump.Core
                 strong: style is FontStyle.Bold or FontStyle.BoldAndItalic);
             PermanentGrowthTypography.ApplyLayout(text, objectName);
             return text;
+        }
+
+        static void EnableBestFit(Text text, int minimumSize)
+        {
+            if (text == null)
+                return;
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = Mathf.Clamp(minimumSize, 10, text.fontSize);
+            text.resizeTextMaxSize = text.fontSize;
         }
 
         Button CreateBrushButton(

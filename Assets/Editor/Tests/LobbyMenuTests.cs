@@ -80,15 +80,21 @@ namespace MukJump.EditorTests
                 Is.EqualTo(ScrollRect.MovementType.Clamped));
             Assert.That(treeCanvas.sizeDelta.x, Is.GreaterThan(viewport.sizeDelta.x));
             Assert.That(treeCanvas.sizeDelta.y, Is.GreaterThan(viewport.sizeDelta.y));
-            Assert.That(viewport.sizeDelta.x, Is.EqualTo(1080f));
-            Assert.That(viewport.sizeDelta.y, Is.EqualTo(1920f));
+            Assert.That(viewport.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(viewport.anchorMax, Is.EqualTo(Vector2.one));
+            Assert.That(viewport.offsetMin, Is.EqualTo(Vector2.zero));
+            Assert.That(viewport.offsetMax, Is.EqualTo(Vector2.zero));
             Assert.That(viewport.anchoredPosition, Is.EqualTo(Vector2.zero));
             Assert.That(
                 viewport.GetComponent<RectMask2D>().padding,
                 Is.EqualTo(Vector4.zero));
             Assert.That(
                 treeCanvas.localScale.x,
-                Is.EqualTo(0.84f).Within(0.001f));
+                Is.EqualTo(
+                    PermanentGrowthView.CalculateTreeZoomForTests(
+                        Screen.width,
+                        Screen.height))
+                    .Within(0.001f));
             Assert.That(
                 viewport.GetSiblingIndex(),
                 Is.Zero,
@@ -99,24 +105,15 @@ namespace MukJump.EditorTests
             Canvas.ForceUpdateCanvases();
             AssertContainedInViewport(inkRoot, viewport, "먹나무 뿌리");
             AssertContainedInViewport(
-                FindGrowthNode(
-                    treeCanvas,
-                    PermanentGrowthType.Vitality,
-                    1),
+                FindGrowthNode(treeCanvas, "S00"),
                 viewport,
                 "생존 첫 열매");
             AssertContainedInViewport(
-                FindGrowthNode(
-                    treeCanvas,
-                    PermanentGrowthType.InkCapacity,
-                    1),
+                FindGrowthNode(treeCanvas, "I00"),
                 viewport,
                 "먹 운용 첫 열매");
             AssertContainedInViewport(
-                FindGrowthNode(
-                    treeCanvas,
-                    PermanentGrowthType.JumpCharge,
-                    1),
+                FindGrowthNode(treeCanvas, "J00"),
                 viewport,
                 "도약 첫 열매");
             Assert.That(
@@ -270,7 +267,7 @@ namespace MukJump.EditorTests
                     "SafeAreaRoot/PermanentGrowthScreen/SelectedGrowthAction")
                 ?.GetComponent<RectTransform>();
             RectTransform selectedNode = treeCanvas.Find(
-                    "GrowthNode_permanent_ink_capacity_rank_1")
+                    "GrowthNode_I00")
                 ?.GetComponent<RectTransform>();
             Assert.That(viewport, Is.Not.Null);
             Assert.That(treeCanvas, Is.Not.Null);
@@ -445,6 +442,15 @@ namespace MukJump.EditorTests
                 PermanentGrowthCatalog.GetNode(type, rank);
             return treeCanvas.Find(
                     $"GrowthNode_{SanitizeNodeId(definition.Id)}")
+                ?.GetComponent<RectTransform>();
+        }
+
+        static RectTransform FindGrowthNode(
+            RectTransform treeCanvas,
+            string nodeId)
+        {
+            return treeCanvas.Find(
+                    $"GrowthNode_{SanitizeNodeId(nodeId)}")
                 ?.GetComponent<RectTransform>();
         }
 

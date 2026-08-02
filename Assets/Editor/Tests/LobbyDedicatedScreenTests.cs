@@ -76,7 +76,7 @@ namespace MukJump.EditorTests
             AssertSemanticSelectionSurface(
                 growth.ScreenRoot.Find(
                         "TreeLayerRoot/TreeViewport/TreeCanvas/" +
-                        "GrowthNode_permanent_ink_capacity_rank_1")
+                        "GrowthNode_I00")
                     ?.GetComponent<Button>());
             AssertSemanticSelectionSurface(
                 codexGallery?.Find("CodexCard1/HitSurface")
