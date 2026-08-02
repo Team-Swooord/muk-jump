@@ -46,12 +46,13 @@ namespace MukJump.Core
         public bool Accepted { get; }
     }
 
-    /// 게임 종료 뒤에도 유지되는 먹방울이의 재화·단계를 소유한다.
-    /// RunGrowthController의 한 판 단계와 저장·enum·이벤트를 공유하지 않는다.
+    /// 게임 종료 뒤에도 유지되는 먹빛·열매 소유·비기 장착 상태를 소유한다.
     public static class PermanentGrowthProfile
     {
         const int SchemaVersion = 1;
-        const int BalanceVersion = 1;
+        const int BalanceVersion = 2;
+        const int LegacyTotalCost = 957;
+        const int SettledRunHistoryLimit = 64;
 
         [Serializable]
         sealed class RankRecord
@@ -69,8 +70,53 @@ namespace MukJump.Core
             public int spent;
             public bool tutorialRewardClaimed;
             public string lastSettledRunId = string.Empty;
+            public List<string> settledRunIds = new();
+            // balanceVersion 1 역직렬화·마이그레이션 전용.
             public List<RankRecord> ranks = new();
+            public List<string> ownedNodeIds = new();
+            public string survivalKeystoneId = string.Empty;
+            public string leapKeystoneId = string.Empty;
+            public string inkHandlingKeystoneId = string.Empty;
         }
+
+        readonly struct LegacyTrack
+        {
+            public LegacyTrack(
+                string id,
+                PermanentGrowthBranch branch,
+                params int[] costs)
+            {
+                Id = id;
+                Branch = branch;
+                Costs = costs ?? Array.Empty<int>();
+            }
+
+            public string Id { get; }
+            public PermanentGrowthBranch Branch { get; }
+            public int[] Costs { get; }
+        }
+
+        static readonly LegacyTrack[] LegacyTracks =
+        {
+            new("permanent.ink_capacity", PermanentGrowthBranch.InkHandling,
+                6, 10, 16, 24, 34, 46),
+            new("permanent.ink_recovery", PermanentGrowthBranch.InkHandling,
+                6, 10, 16, 24, 34, 46),
+            new("permanent.platform_lifetime", PermanentGrowthBranch.InkHandling,
+                7, 11, 17, 25, 35, 47),
+            new("permanent.jump_charge", PermanentGrowthBranch.Leap,
+                7, 12, 18, 26, 36, 48),
+            new("permanent.vitality", PermanentGrowthBranch.Survival, 24),
+            new("permanent.damage_grace", PermanentGrowthBranch.Survival,
+                8, 16, 28),
+            new("permanent.last_breath", PermanentGrowthBranch.Survival, 56),
+            new("permanent.jump_power", PermanentGrowthBranch.Leap,
+                8, 13, 19, 27, 37),
+            new("permanent.drawn_platform_leap", PermanentGrowthBranch.Leap, 52),
+            new("permanent.stroke_guard", PermanentGrowthBranch.InkHandling, 56),
+            new("permanent.clone_spawn_grace", PermanentGrowthBranch.Survival,
+                8, 16, 28),
+        };
 
         static IPermanentGrowthStore store = new PlayerPrefsPermanentGrowthStore();
         static SaveData data;
@@ -104,28 +150,36 @@ namespace MukJump.Core
             }
         }
 
+        public static int OwnedNodeCount
+        {
+            get
+            {
+                EnsureLoaded();
+                return data.ownedNodeIds.Count;
+            }
+        }
+
+        // 로비·구 코드 호환용 조회. 실제 판에서는 RunGrowthController의 스냅샷을 쓴다.
         public static float InkCapacityMultiplier =>
-            1f + GetEffect(PermanentGrowthType.InkCapacity);
+            CreateRunSnapshot().InkCapacityMultiplier;
         public static float InkRecoveryMultiplier =>
-            1f + GetEffect(PermanentGrowthType.InkRecovery);
+            CreateRunSnapshot().InkRecoveryMultiplier;
         public static float PlatformLifetimeMultiplier =>
-            1f + GetEffect(PermanentGrowthType.PlatformLifetime);
+            CreateRunSnapshot().PlatformLifetimeMultiplier;
         public static float JumpChargeMultiplier =>
-            Mathf.Max(0.5f, 1f - GetEffect(PermanentGrowthType.JumpCharge));
-        public static int MaxHealthBonus =>
-            GetLevel(PermanentGrowthType.Vitality);
+            CreateRunSnapshot().JumpChargeMultiplier;
+        public static int MaxHealthBonus => CreateRunSnapshot().MaxHealthBonus;
         public static float DamageGraceBonusSeconds =>
-            GetEffect(PermanentGrowthType.DamageGrace);
+            CreateRunSnapshot().DamageGraceBonusSeconds;
         public static float CloneSpawnGraceBonusSeconds =>
-            GetEffect(PermanentGrowthType.CloneSpawnGrace);
-        public static bool HasLastBreath =>
-            GetLevel(PermanentGrowthType.LastBreath) > 0;
+            CreateRunSnapshot().CloneSpawnGraceBonusSeconds;
+        public static bool HasLastBreath => CreateRunSnapshot().HasLastBreath;
         public static float JumpPowerMultiplier =>
-            1f + GetEffect(PermanentGrowthType.JumpPower);
+            CreateRunSnapshot().JumpPowerMultiplier;
         public static float DrawnPlatformLeapMultiplier =>
-            1f + GetEffect(PermanentGrowthType.DrawnPlatformLeap);
+            CreateRunSnapshot().DrawnPlatformLeapMultiplier;
         public static bool NewPlatformsHaveStrokeGuard =>
-            GetLevel(PermanentGrowthType.StrokeGuard) > 0;
+            CreateRunSnapshot().HasSharedStrokeGuard;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
@@ -139,55 +193,59 @@ namespace MukJump.Core
 #endif
         }
 
+        public static PermanentGrowthRunSnapshot CreateRunSnapshot()
+        {
+            EnsureLoaded();
+            var equipped = new Dictionary<PermanentGrowthBranch, string>(3)
+            {
+                [PermanentGrowthBranch.Survival] = data.survivalKeystoneId,
+                [PermanentGrowthBranch.Leap] = data.leapKeystoneId,
+                [PermanentGrowthBranch.InkHandling] = data.inkHandlingKeystoneId,
+            };
+            return new PermanentGrowthRunSnapshot(data.ownedNodeIds, equipped);
+        }
+
         public static int GetLevel(PermanentGrowthType type)
         {
             EnsureLoaded();
-            var definition = PermanentGrowthCatalog.Get(type);
-            if (definition == null) return 0;
-            RankRecord record = FindRank(definition.Id);
-            return record != null
-                ? Mathf.Clamp(record.level, 0, definition.MaxLevel)
-                : 0;
+            int level = 0;
+            for (int i = 0; i < data.ownedNodeIds.Count; i++)
+            {
+                PermanentGrowthNodeDefinition node =
+                    PermanentGrowthCatalog.GetNode(data.ownedNodeIds[i]);
+                if (node != null && node.EffectId == type)
+                    level++;
+            }
+            return level;
         }
 
-        public static int GetNextCost(PermanentGrowthType type)
-        {
-            var definition = PermanentGrowthCatalog.Get(type);
-            return definition?.GetCost(GetLevel(type)) ?? 0;
-        }
+        public static int GetNextCost(PermanentGrowthType type) =>
+            FindNextNode(type) != null ? 1 : 0;
 
-        public static bool CanPurchase(PermanentGrowthType type)
-        {
-            return CanPurchaseNode(
-                PermanentGrowthCatalog.GetNode(type, GetLevel(type) + 1));
-        }
+        public static bool CanPurchase(PermanentGrowthType type) =>
+            CanPurchaseNode(FindNextNode(type));
 
-        public static bool TryPurchase(PermanentGrowthType type)
-        {
-            return TryPurchaseNode(
-                PermanentGrowthCatalog.GetNode(type, GetLevel(type) + 1));
-        }
+        public static bool TryPurchase(PermanentGrowthType type) =>
+            TryPurchaseNode(FindNextNode(type));
 
-        public static bool IsNodeUnlocked(
-            PermanentGrowthNodeDefinition node)
-        {
-            return node != null && GetLevel(node.Type) >= node.Rank;
-        }
+        public static bool IsNodeUnlocked(PermanentGrowthNodeDefinition node) =>
+            node != null && IsNodeUnlocked(node.Id);
 
         public static bool IsNodeUnlocked(string nodeId)
         {
-            return IsNodeUnlocked(PermanentGrowthCatalog.GetNode(nodeId));
+            EnsureLoaded();
+            if (string.IsNullOrEmpty(nodeId))
+                return false;
+            for (int i = 0; i < data.ownedNodeIds.Count; i++)
+                if (string.Equals(data.ownedNodeIds[i], nodeId, StringComparison.Ordinal))
+                    return true;
+            return false;
         }
 
-        public static bool IsNodeUnlocked(
-            PermanentGrowthType type,
-            int rank)
-        {
-            return IsNodeUnlocked(PermanentGrowthCatalog.GetNode(type, rank));
-        }
+        public static bool IsNodeUnlocked(PermanentGrowthType type, int rank) =>
+            IsNodeUnlocked(PermanentGrowthCatalog.GetNode(type, rank));
 
-        public static bool MeetsNodeRequirements(
-            PermanentGrowthNodeDefinition node)
+        public static bool MeetsNodeRequirements(PermanentGrowthNodeDefinition node)
         {
             if (node == null)
                 return false;
@@ -197,99 +255,116 @@ namespace MukJump.Core
             for (int i = 0; i < node.ParentIds.Count; i++)
                 if (!IsNodeUnlocked(node.ParentIds[i]))
                     return false;
-            return true;
+
+            return CountOwnedGeneralNodes(node.Branch) >=
+                   node.RequiredOwnedCountInBranch;
         }
 
-        public static bool MeetsNodeRequirements(string nodeId)
-        {
-            return MeetsNodeRequirements(PermanentGrowthCatalog.GetNode(nodeId));
-        }
+        public static bool MeetsNodeRequirements(string nodeId) =>
+            MeetsNodeRequirements(PermanentGrowthCatalog.GetNode(nodeId));
 
-        public static bool MeetsNodeRequirements(
-            PermanentGrowthType type,
-            int rank)
-        {
-            return MeetsNodeRequirements(
-                PermanentGrowthCatalog.GetNode(type, rank));
-        }
+        public static bool MeetsNodeRequirements(PermanentGrowthType type, int rank) =>
+            MeetsNodeRequirements(PermanentGrowthCatalog.GetNode(type, rank));
 
-        public static bool CanPurchaseNode(
-            PermanentGrowthNodeDefinition node)
+        public static bool CanPurchaseNode(PermanentGrowthNodeDefinition node)
         {
-            if (node == null)
-                return false;
-            int level = GetLevel(node.Type);
-            return node.Rank == level + 1 &&
+            return node != null &&
+                   !IsNodeUnlocked(node) &&
                    node.Cost > 0 &&
                    Currency >= node.Cost &&
                    MeetsNodeRequirements(node);
         }
 
-        public static bool CanPurchaseNode(string nodeId)
-        {
-            return CanPurchaseNode(PermanentGrowthCatalog.GetNode(nodeId));
-        }
+        public static bool CanPurchaseNode(string nodeId) =>
+            CanPurchaseNode(PermanentGrowthCatalog.GetNode(nodeId));
 
-        public static bool CanPurchaseNode(
-            PermanentGrowthType type,
-            int rank)
-        {
-            return CanPurchaseNode(PermanentGrowthCatalog.GetNode(type, rank));
-        }
+        public static bool CanPurchaseNode(PermanentGrowthType type, int rank) =>
+            CanPurchaseNode(PermanentGrowthCatalog.GetNode(type, rank));
 
-        public static bool TryPurchaseNode(
-            PermanentGrowthNodeDefinition node)
+        public static bool TryPurchaseNode(PermanentGrowthNodeDefinition node)
         {
             EnsureLoaded();
             if (node == null ||
-                !PermanentGrowthCatalog.TryGetNode(
-                    node.Id,
-                    out PermanentGrowthNodeDefinition catalogNode))
+                !PermanentGrowthCatalog.TryGetNode(node.Id, out var catalogNode) ||
+                !CanPurchaseNode(catalogNode))
                 return false;
 
-            node = catalogNode;
-            int level = GetLevel(node.Type);
-            int cost = node.Cost;
-            if (node.Rank != level + 1 ||
-                cost <= 0 ||
-                Currency < cost ||
-                !MeetsNodeRequirements(node))
-                return false;
-
-            PermanentGrowthDefinition definition = node.TrackDefinition;
-            RankRecord record = FindRank(definition.Id);
-            if (record == null)
-            {
-                record = new RankRecord { id = definition.Id };
-                data.ranks.Add(record);
-            }
-            record.level = node.Rank;
+            data.ownedNodeIds.Add(catalogNode.Id);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (debugCurrencyOverride >= 0)
-                debugCurrencyOverride -= cost;
+                debugCurrencyOverride -= catalogNode.Cost;
             else
 #endif
-            data.wallet -= cost;
-            data.spent += cost;
+            data.wallet -= catalogNode.Cost;
+            data.spent = data.ownedNodeIds.Count;
+
+            if (catalogNode.IsKeystone &&
+                string.IsNullOrEmpty(GetActiveKeystoneId(catalogNode.Branch)))
+                SetActiveKeystoneId(catalogNode.Branch, catalogNode.Id);
+
             Save();
             Changed?.Invoke();
             return true;
         }
 
-        public static bool TryPurchaseNode(string nodeId)
+        public static bool TryPurchaseNode(string nodeId) =>
+            TryPurchaseNode(PermanentGrowthCatalog.GetNode(nodeId));
+
+        public static bool TryPurchaseNode(PermanentGrowthType type, int rank) =>
+            TryPurchaseNode(PermanentGrowthCatalog.GetNode(type, rank));
+
+        public static bool IsKeystoneActive(string nodeId)
         {
-            return TryPurchaseNode(PermanentGrowthCatalog.GetNode(nodeId));
+            PermanentGrowthNodeDefinition node =
+                PermanentGrowthCatalog.GetNode(nodeId);
+            return node != null &&
+                   node.IsKeystone &&
+                   string.Equals(
+                       GetActiveKeystoneId(node.Branch),
+                       node.Id,
+                       StringComparison.Ordinal);
         }
 
-        public static bool TryPurchaseNode(
-            PermanentGrowthType type,
-            int rank)
+        public static string GetActiveKeystoneId(PermanentGrowthBranch branch)
         {
-            return TryPurchaseNode(PermanentGrowthCatalog.GetNode(type, rank));
+            EnsureLoaded();
+            return branch switch
+            {
+                PermanentGrowthBranch.Survival => data.survivalKeystoneId,
+                PermanentGrowthBranch.Leap => data.leapKeystoneId,
+                _ => data.inkHandlingKeystoneId,
+            } ?? string.Empty;
         }
 
-        public static string GetNodeLockReason(
-            PermanentGrowthNodeDefinition node)
+        /// 로비에서만 쓰는 무료 비기 장착. 한 계보에는 최대 하나만 저장한다.
+        public static bool TryEquipKeystone(string nodeId)
+        {
+            EnsureLoaded();
+            PermanentGrowthNodeDefinition node =
+                PermanentGrowthCatalog.GetNode(nodeId);
+            if (node == null || !node.IsKeystone || !IsNodeUnlocked(node))
+                return false;
+            if (IsKeystoneActive(node.Id))
+                return true;
+
+            SetActiveKeystoneId(node.Branch, node.Id);
+            Save();
+            Changed?.Invoke();
+            return true;
+        }
+
+        public static bool ClearActiveKeystone(PermanentGrowthBranch branch)
+        {
+            EnsureLoaded();
+            if (string.IsNullOrEmpty(GetActiveKeystoneId(branch)))
+                return false;
+            SetActiveKeystoneId(branch, string.Empty);
+            Save();
+            Changed?.Invoke();
+            return true;
+        }
+
+        public static string GetNodeLockReason(PermanentGrowthNodeDefinition node)
         {
             if (node == null)
                 return "알 수 없는 성장";
@@ -299,116 +374,75 @@ namespace MukJump.Core
             var missing = new List<string>();
             for (int i = 0; i < node.ParentIds.Count; i++)
             {
-                string parentId = node.ParentIds[i];
-                if (IsNodeUnlocked(parentId))
+                if (IsNodeUnlocked(node.ParentIds[i]))
                     continue;
-
                 PermanentGrowthNodeDefinition parent =
-                    PermanentGrowthCatalog.GetNode(parentId);
-                string name = parent != null
-                    ? parent.TrackMaxLevel > 1
-                        ? $"{parent.Name} {parent.Rank}단계 필요"
-                        : $"{parent.Name} 필요"
-                    : $"{parentId} 필요";
-                missing.Add(name);
+                    PermanentGrowthCatalog.GetNode(node.ParentIds[i]);
+                missing.Add(parent != null
+                    ? $"{parent.DisplayName} 필요"
+                    : $"{node.ParentIds[i]} 필요");
             }
+
+            int ownedGeneral = CountOwnedGeneralNodes(node.Branch);
+            if (ownedGeneral < node.RequiredOwnedCountInBranch)
+                missing.Add(
+                    $"{PermanentGrowthCatalog.GetBranch(node.Branch).DisplayName} 일반 열매 " +
+                    $"{node.RequiredOwnedCountInBranch}개 필요 ({ownedGeneral}개 보유)");
 
             return missing.Count == 0
                 ? string.Empty
                 : string.Join(" · ", missing);
         }
 
-        public static string GetNodeLockReason(string nodeId)
-        {
-            return GetNodeLockReason(PermanentGrowthCatalog.GetNode(nodeId));
-        }
+        public static string GetNodeLockReason(string nodeId) =>
+            GetNodeLockReason(PermanentGrowthCatalog.GetNode(nodeId));
 
-        public static string GetNodeLockReason(
-            PermanentGrowthType type,
-            int rank)
-        {
-            return GetNodeLockReason(
-                PermanentGrowthCatalog.GetNode(type, rank));
-        }
+        public static string GetNodeLockReason(PermanentGrowthType type, int rank) =>
+            GetNodeLockReason(PermanentGrowthCatalog.GetNode(type, rank));
 
-        /// 기존 저장에서 이미 한 단계 이상 구매한 노드는 새 계보 선행 조건을
-        /// 소급 적용하지 않는다. 새 0레벨 노드만 현재 선행 단계를 검사한다.
         public static bool MeetsRequirements(PermanentGrowthType type)
         {
-            var definition = PermanentGrowthCatalog.Get(type);
-            if (definition == null)
-                return false;
-            if (GetLevel(type) > 0)
-                return true;
-
-            for (int i = 0; i < definition.Requirements.Count; i++)
-            {
-                PermanentGrowthRequirement requirement =
-                    definition.Requirements[i];
-                if (GetLevel(requirement.Type) < requirement.MinimumLevel)
-                    return false;
-            }
-            return true;
+            PermanentGrowthNodeDefinition node = FindNextNode(type);
+            return node == null || MeetsNodeRequirements(node);
         }
 
-        /// 잠긴 0레벨 노드의 선행 조건을 UI가 별도 규칙 계산 없이 표시한다.
-        /// 구매 가능하거나 기존 저장으로 이미 열린 노드는 빈 문자열을 반환한다.
-        public static string GetLockReason(PermanentGrowthType type)
-        {
-            var definition = PermanentGrowthCatalog.Get(type);
-            if (definition == null)
-                return "알 수 없는 성장";
-            if (GetLevel(type) > 0)
-                return string.Empty;
+        public static string GetLockReason(PermanentGrowthType type) =>
+            GetNodeLockReason(FindNextNode(type));
 
-            var missing = new List<string>();
-            for (int i = 0; i < definition.Requirements.Count; i++)
-            {
-                PermanentGrowthRequirement requirement =
-                    definition.Requirements[i];
-                int level = GetLevel(requirement.Type);
-                if (level >= requirement.MinimumLevel)
-                    continue;
-
-                PermanentGrowthDefinition requiredDefinition =
-                    PermanentGrowthCatalog.Get(requirement.Type);
-                string name = requiredDefinition != null
-                    ? requiredDefinition.Name
-                    : requirement.Type.ToString();
-                missing.Add($"{name} Lv. {requirement.MinimumLevel} 필요");
-            }
-
-            return missing.Count == 0
-                ? string.Empty
-                : string.Join(" · ", missing);
-        }
-
-        /// 정상 게임오버 한 번을 runId로 멱등 정산한다.
-        /// 디버그·중도 포기 판은 보상을 주지 않으며 첫 무료 보상도 소비하지 않는다.
+        /// 정상 게임오버를 runId로 멱등 정산한다. 기본 보상은 먹떼 진행 고도와
+        /// 실제 플레이 시간, 이정표는 최고 점수 고도를 서로 분리해 계산한다.
         public static PermanentGrowthSettlement SettleRun(
             string runId,
-            int height,
+            int swarmProgressHeight,
+            int scoreHeight,
             int previousBest,
+            float activeGameplaySeconds,
             bool eligible)
         {
             EnsureLoaded();
             if (string.IsNullOrEmpty(runId))
                 return new PermanentGrowthSettlement(0, data.wallet, false);
-            if (string.Equals(data.lastSettledRunId, runId, StringComparison.Ordinal))
+            if (HasSettledRunId(runId))
                 return new PermanentGrowthSettlement(0, data.wallet, false);
 
             data.lastSettledRunId = runId;
+            data.settledRunIds.Add(runId);
+            TrimSettledRunHistory();
             int earned = 0;
             if (eligible)
             {
                 earned = RunRewardCalculator.Calculate(
-                    height,
+                    swarmProgressHeight,
+                    scoreHeight,
                     previousBest,
+                    activeGameplaySeconds,
                     !data.tutorialRewardClaimed);
                 data.tutorialRewardClaimed = true;
                 int remainingBudget = Mathf.Max(
                     0,
-                    PermanentGrowthCatalog.TotalCost - data.wallet - data.spent);
+                    PermanentGrowthCatalog.TotalCost -
+                    data.ownedNodeIds.Count -
+                    data.wallet);
                 earned = Mathf.Min(earned, remainingBudget);
                 data.wallet += earned;
             }
@@ -419,17 +453,76 @@ namespace MukJump.Core
             return new PermanentGrowthSettlement(earned, data.wallet, true);
         }
 
-        static float GetEffect(PermanentGrowthType type)
+        /// 구 호출부 호환. 새 게임 코드는 진행 고도·실제 시간을 명시하는 오버로드를 쓴다.
+        public static PermanentGrowthSettlement SettleRun(
+            string runId,
+            int height,
+            int previousBest,
+            bool eligible)
         {
-            var definition = PermanentGrowthCatalog.Get(type);
-            return definition != null
-                ? definition.EffectPerLevel * GetLevel(type)
-                : 0f;
+            return SettleRun(
+                runId,
+                height,
+                height,
+                previousBest,
+                float.PositiveInfinity,
+                eligible);
+        }
+
+        static PermanentGrowthNodeDefinition FindNextNode(PermanentGrowthType type)
+        {
+            IReadOnlyList<PermanentGrowthNodeDefinition> nodes =
+                PermanentGrowthCatalog.Nodes;
+            PermanentGrowthNodeDefinition fallback = null;
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                PermanentGrowthNodeDefinition node = nodes[i];
+                if (node.EffectId != type || IsNodeUnlocked(node))
+                    continue;
+                fallback ??= node;
+                if (MeetsNodeRequirements(node))
+                    return node;
+            }
+            return fallback;
+        }
+
+        static int CountOwnedGeneralNodes(PermanentGrowthBranch branch)
+        {
+            EnsureLoaded();
+            int count = 0;
+            for (int i = 0; i < data.ownedNodeIds.Count; i++)
+            {
+                PermanentGrowthNodeDefinition node =
+                    PermanentGrowthCatalog.GetNode(data.ownedNodeIds[i]);
+                if (node != null && node.Branch == branch && !node.IsKeystone)
+                    count++;
+            }
+            return count;
+        }
+
+        static void SetActiveKeystoneId(
+            PermanentGrowthBranch branch,
+            string nodeId)
+        {
+            nodeId ??= string.Empty;
+            switch (branch)
+            {
+                case PermanentGrowthBranch.Survival:
+                    data.survivalKeystoneId = nodeId;
+                    break;
+                case PermanentGrowthBranch.Leap:
+                    data.leapKeystoneId = nodeId;
+                    break;
+                default:
+                    data.inkHandlingKeystoneId = nodeId;
+                    break;
+            }
         }
 
         static void EnsureLoaded()
         {
-            if (loaded) return;
+            if (loaded)
+                return;
             loaded = true;
             string json = store.Load();
             if (string.IsNullOrEmpty(json))
@@ -454,86 +547,207 @@ namespace MukJump.Core
                 return;
             }
 
-            if (data.ranks == null)
-                data.ranks = new List<RankRecord>();
-            if (data.balanceVersion != BalanceVersion)
+            data.ranks ??= new List<RankRecord>();
+            data.ownedNodeIds ??= new List<string>();
+            if (data.balanceVersion < BalanceVersion)
+                MigrateLegacyBalance();
+            NormalizeLoadedData();
+        }
+
+        static void MigrateLegacyBalance()
+        {
+            var branchLevels = new Dictionary<PermanentGrowthBranch, int>
             {
-                data.wallet = Mathf.Clamp(
-                    data.wallet + Mathf.Max(0, data.spent),
-                    0,
-                    PermanentGrowthCatalog.TotalCost);
-                data.spent = 0;
-                data.ranks.Clear();
-                data.balanceVersion = BalanceVersion;
+                [PermanentGrowthBranch.Survival] = 0,
+                [PermanentGrowthBranch.Leap] = 0,
+                [PermanentGrowthBranch.InkHandling] = 0,
+            };
+            int legacyCalculatedSpent = 0;
+
+            for (int recordIndex = 0; recordIndex < data.ranks.Count; recordIndex++)
+            {
+                RankRecord record = data.ranks[recordIndex];
+                if (record == null || string.IsNullOrEmpty(record.id))
+                    continue;
+                for (int trackIndex = 0; trackIndex < LegacyTracks.Length; trackIndex++)
+                {
+                    LegacyTrack track = LegacyTracks[trackIndex];
+                    if (!string.Equals(track.Id, record.id, StringComparison.Ordinal))
+                        continue;
+                    int level = Mathf.Clamp(record.level, 0, track.Costs.Length);
+                    branchLevels[track.Branch] += level;
+                    for (int costIndex = 0; costIndex < level; costIndex++)
+                        legacyCalculatedSpent += Mathf.Max(0, track.Costs[costIndex]);
+                    break;
+                }
             }
 
-            NormalizeLoadedData();
+            data.ownedNodeIds.Clear();
+            int overflowRefund = 0;
+            foreach (PermanentGrowthBranch branch
+                     in Enum.GetValues(typeof(PermanentGrowthBranch)))
+            {
+                IReadOnlyList<string> order = PermanentGrowthCatalog.MigrationOrder(branch);
+                int legacyCount = Mathf.Max(0, branchLevels[branch]);
+                int mappedCount = Mathf.Min(order.Count, legacyCount);
+                for (int i = 0; i < mappedCount; i++)
+                    data.ownedNodeIds.Add(order[i]);
+                overflowRefund += Mathf.Max(0, legacyCount - mappedCount);
+            }
+
+            int oldSpent = Mathf.Clamp(
+                Mathf.Max(legacyCalculatedSpent, data.spent),
+                0,
+                LegacyTotalCost);
+            int oldRemainingCost = Mathf.Max(1, LegacyTotalCost - oldSpent);
+            int newRemainingNodes = Mathf.Max(
+                0,
+                PermanentGrowthCatalog.TotalCost - data.ownedNodeIds.Count);
+            float walletProgress = Mathf.Clamp01(
+                Mathf.Max(0, data.wallet) / (float)oldRemainingCost);
+            int convertedWallet = Mathf.RoundToInt(
+                walletProgress * newRemainingNodes);
+            data.wallet = Mathf.Clamp(
+                convertedWallet + overflowRefund,
+                0,
+                newRemainingNodes);
+            data.spent = data.ownedNodeIds.Count;
+            data.ranks.Clear();
+            data.balanceVersion = BalanceVersion;
+
+            AutoEquipFirstOwnedKeystone(PermanentGrowthBranch.Survival);
+            AutoEquipFirstOwnedKeystone(PermanentGrowthBranch.Leap);
+            AutoEquipFirstOwnedKeystone(PermanentGrowthBranch.InkHandling);
         }
 
         static void NormalizeLoadedData()
         {
-            int calculatedSpent = 0;
+            var normalized = new List<string>(PermanentGrowthCatalog.TotalCost);
             var seen = new HashSet<string>(StringComparer.Ordinal);
-            for (int i = data.ranks.Count - 1; i >= 0; i--)
+            for (int i = 0; i < data.ownedNodeIds.Count; i++)
             {
-                RankRecord record = data.ranks[i];
-                if (record == null ||
-                    !PermanentGrowthCatalog.TryGet(record.id, out var definition) ||
-                    !seen.Add(record.id))
-                {
-                    data.ranks.RemoveAt(i);
+                string nodeId = data.ownedNodeIds[i];
+                if (!PermanentGrowthCatalog.TryGetNode(nodeId, out _) ||
+                    !seen.Add(nodeId))
                     continue;
-                }
-
-                record.level = Mathf.Clamp(record.level, 0, definition.MaxLevel);
-                calculatedSpent += definition.CostThroughLevel(record.level);
+                normalized.Add(nodeId);
             }
-
-            int refund = Mathf.Max(0, data.spent - calculatedSpent);
-            data.spent = Mathf.Clamp(
-                calculatedSpent,
-                0,
-                PermanentGrowthCatalog.TotalCost);
+            data.ownedNodeIds = normalized;
+            data.spent = data.ownedNodeIds.Count;
             data.wallet = Mathf.Clamp(
-                Mathf.Max(0, data.wallet) + refund,
+                data.wallet,
                 0,
                 PermanentGrowthCatalog.TotalCost - data.spent);
-            if (data.lastSettledRunId == null)
-                data.lastSettledRunId = string.Empty;
+            data.lastSettledRunId ??= string.Empty;
+            NormalizeSettledRunHistory();
+            data.survivalKeystoneId = NormalizeEquipped(
+                PermanentGrowthBranch.Survival,
+                data.survivalKeystoneId);
+            data.leapKeystoneId = NormalizeEquipped(
+                PermanentGrowthBranch.Leap,
+                data.leapKeystoneId);
+            data.inkHandlingKeystoneId = NormalizeEquipped(
+                PermanentGrowthBranch.InkHandling,
+                data.inkHandlingKeystoneId);
+            data.balanceVersion = BalanceVersion;
             Save();
         }
 
-        static RankRecord FindRank(string id)
+        static bool HasSettledRunId(string runId)
         {
-            if (data?.ranks == null) return null;
-            for (int i = 0; i < data.ranks.Count; i++)
-                if (data.ranks[i] != null &&
-                    string.Equals(data.ranks[i].id, id, StringComparison.Ordinal))
-                    return data.ranks[i];
-            return null;
+            if (string.Equals(data.lastSettledRunId, runId, StringComparison.Ordinal))
+                return true;
+            if (data.settledRunIds == null)
+                return false;
+            for (int i = 0; i < data.settledRunIds.Count; i++)
+                if (string.Equals(data.settledRunIds[i], runId, StringComparison.Ordinal))
+                    return true;
+            return false;
+        }
+
+        static void NormalizeSettledRunHistory()
+        {
+            data.settledRunIds ??= new List<string>();
+            var normalized = new List<string>(SettledRunHistoryLimit);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            int first = Mathf.Max(
+                0,
+                data.settledRunIds.Count - SettledRunHistoryLimit);
+            for (int i = first; i < data.settledRunIds.Count; i++)
+            {
+                string runId = data.settledRunIds[i];
+                if (!string.IsNullOrEmpty(runId) && seen.Add(runId))
+                    normalized.Add(runId);
+            }
+            if (!string.IsNullOrEmpty(data.lastSettledRunId) &&
+                seen.Add(data.lastSettledRunId))
+                normalized.Add(data.lastSettledRunId);
+            data.settledRunIds = normalized;
+            TrimSettledRunHistory();
+        }
+
+        static void TrimSettledRunHistory()
+        {
+            data.settledRunIds ??= new List<string>();
+            int overflow = data.settledRunIds.Count - SettledRunHistoryLimit;
+            if (overflow > 0)
+                data.settledRunIds.RemoveRange(0, overflow);
+        }
+
+        static string NormalizeEquipped(
+            PermanentGrowthBranch branch,
+            string nodeId)
+        {
+            PermanentGrowthNodeDefinition node =
+                PermanentGrowthCatalog.GetNode(nodeId);
+            return node != null &&
+                   node.IsKeystone &&
+                   node.Branch == branch &&
+                   IsNodeUnlocked(node)
+                ? node.Id
+                : string.Empty;
+        }
+
+        static void AutoEquipFirstOwnedKeystone(PermanentGrowthBranch branch)
+        {
+            if (!string.IsNullOrEmpty(GetActiveKeystoneId(branch)))
+                return;
+            IReadOnlyList<PermanentGrowthNodeDefinition> nodes =
+                PermanentGrowthCatalog.Nodes;
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                PermanentGrowthNodeDefinition node = nodes[i];
+                if (node.Branch != branch || !node.IsKeystone || !IsNodeUnlocked(node))
+                    continue;
+                SetActiveKeystoneId(branch, node.Id);
+                return;
+            }
         }
 
         static void Save()
         {
-            if (data == null) return;
-            store.Save(JsonUtility.ToJson(data));
+            if (data != null)
+                store.Save(JsonUtility.ToJson(data));
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        /// 성장 화면 QA용으로 해금 상태를 지우고 세션 먹빛을 999로 채운다.
-        /// 첫 보상·마지막 정산 ID는 보존해 디버그 초기화가 보상 중복을 만들지 않는다.
+        /// 성장 화면 QA용. 보상 중복 방지 값은 보존하고 열매만 초기화한다.
         public static void DebugResetProgress()
         {
             EnsureLoaded();
             data.ranks.Clear();
+            data.ownedNodeIds.Clear();
             data.wallet = 0;
             data.spent = 0;
+            data.survivalKeystoneId = string.Empty;
+            data.leapKeystoneId = string.Empty;
+            data.inkHandlingKeystoneId = string.Empty;
             debugCurrencyOverride = DebugGrowthCurrency;
             Save();
             Changed?.Invoke();
         }
 
-        /// 저장 경제의 957 상한을 바꾸지 않고 현재 개발 세션에만 먹빛 999를 제공한다.
+        /// 저장 경제 상한은 건드리지 않고 현재 개발 세션에만 먹빛 999를 제공한다.
         public static void DebugRefillCurrency()
         {
             EnsureLoaded();
@@ -541,8 +755,7 @@ namespace MukJump.Core
             Changed?.Invoke();
         }
 
-        public static bool IsDebugCurrencyActive =>
-            debugCurrencyOverride >= 0;
+        public static bool IsDebugCurrencyActive => debugCurrencyOverride >= 0;
 #endif
 
 #if UNITY_EDITOR
@@ -575,7 +788,6 @@ namespace MukJump.Core
     }
 
 #if UNITY_EDITOR
-    /// 로컬 PlayerPrefs와 최고 기록을 건드리지 않는 EditMode 테스트 저장소.
     public sealed class MemoryPermanentGrowthStore : IPermanentGrowthStore
     {
         public string Json { get; set; } = string.Empty;

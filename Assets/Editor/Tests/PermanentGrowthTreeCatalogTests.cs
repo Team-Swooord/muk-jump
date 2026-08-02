@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using MukJump.Core;
@@ -7,281 +8,159 @@ namespace MukJump.EditorTests
 {
     public sealed class PermanentGrowthTreeCatalogTests
     {
+        static readonly string[] SurvivalIds =
+        {
+            "S00", "S-A1", "S-A2", "S-A3", "S-KA",
+            "S-B1", "S-B2", "S-B3", "S-KB",
+            "S-C1", "S-C2", "S-C3", "S-KC",
+        };
+
+        static readonly string[] LeapIds =
+        {
+            "J00", "J-A1", "J-A2", "J-A3", "J-KA",
+            "J-B1", "J-B2", "J-B3", "J-KB",
+            "J-C1", "J-C2", "J-C3", "J-KC",
+        };
+
+        static readonly string[] InkIds =
+        {
+            "I00", "I-A1", "I-A2", "I-A3", "I-KA",
+            "I-B1", "I-B2", "I-B3", "I-KB",
+            "I-C1", "I-C2", "I-C3", "I-KC",
+        };
+
         [Test]
-        public void Catalog_정확히_세_계보와_계보별_최종패시브_하나를_가진다()
+        public void CatalogHasExactlyThirtyNineOneCostNodesSplitThirteenEach()
         {
             Assert.That(PermanentGrowthCatalog.Branches.Count, Is.EqualTo(3));
-            Assert.That(
-                PermanentGrowthCatalog.Branches
-                    .Select(metadata => metadata.Branch)
-                    .Distinct()
-                    .Count(),
-                Is.EqualTo(3));
-            Assert.That(
-                PermanentGrowthCatalog.Branches
-                    .Select(metadata => metadata.DisplayOrder)
-                    .Distinct()
-                    .Count(),
-                Is.EqualTo(3));
+            Assert.That(PermanentGrowthCatalog.Nodes.Count, Is.EqualTo(39));
+            Assert.That(PermanentGrowthCatalog.TotalCost, Is.EqualTo(39));
 
-            foreach (PermanentGrowthBranchMetadata branch
-                     in PermanentGrowthCatalog.Branches)
+            AssertBranch(PermanentGrowthBranch.Survival, SurvivalIds);
+            AssertBranch(PermanentGrowthBranch.Leap, LeapIds);
+            AssertBranch(PermanentGrowthBranch.InkHandling, InkIds);
+            Assert.That(
+                PermanentGrowthCatalog.Nodes.All(node => node.Cost == 1),
+                Is.True);
+        }
+
+        [Test]
+        public void EveryNodeOwnsStableReadableAndUniquePresentationData()
+        {
+            Assert.That(
+                PermanentGrowthCatalog.Nodes.Select(node => node.Id).Distinct().Count(),
+                Is.EqualTo(39));
+            Assert.That(
+                PermanentGrowthCatalog.Nodes.Select(node => node.DisplayName).Distinct().Count(),
+                Is.EqualTo(39),
+                "각 열매는 선택 팝업에서 구분되는 고유 이름을 가져야 합니다.");
+            Assert.That(
+                PermanentGrowthCatalog.Nodes.Select(node => node.IconKey).Distinct().Count(),
+                Is.EqualTo(39),
+                "39개 열매는 같은 트랙 아이콘을 반복하지 않고 stable icon key를 소유해야 합니다.");
+
+            foreach (PermanentGrowthNodeDefinition node in PermanentGrowthCatalog.Nodes)
             {
-                PermanentGrowthDefinition[] definitions =
-                    PermanentGrowthCatalog.All
-                        .Where(definition =>
-                            definition.Branch == branch.Branch)
-                        .ToArray();
-                Assert.That(definitions, Is.Not.Empty, branch.DisplayName);
-                Assert.That(
-                    definitions.Count(definition => definition.IsCapstone),
-                    Is.EqualTo(1),
-                    branch.DisplayName);
-                Assert.That(
-                    definitions
-                        .Select(definition => definition.BranchOrder)
-                        .Distinct()
-                        .Count(),
-                    Is.EqualTo(definitions.Length),
-                    branch.DisplayName);
+                Assert.That(node.Id, Is.Not.Empty);
+                Assert.That(node.DisplayName, Is.Not.Empty, node.Id);
+                Assert.That(node.Description, Is.Not.Empty, node.Id);
+                Assert.That(node.EffectSummary, Is.Not.Empty, node.Id);
+                Assert.That(node.IconKey, Is.Not.Empty, node.Id);
+                Assert.That(PermanentGrowthCatalog.GetNode(node.Id), Is.SameAs(node));
             }
         }
 
         [Test]
-        public void Catalog_기존_네_ID와_효과_비용을_보존한다()
+        public void EachBranchHasIndependentRootThreeChainsAndThreeKeystones()
         {
-            Assert.That(
-                PermanentGrowthCatalog.All
-                    .Take(4)
-                    .Select(definition => definition.Type),
-                Is.EqualTo(new[]
-                {
-                    PermanentGrowthType.InkCapacity,
-                    PermanentGrowthType.InkRecovery,
-                    PermanentGrowthType.PlatformLifetime,
-                    PermanentGrowthType.JumpCharge,
-                }));
-
-            AssertLegacyDefinition(
-                PermanentGrowthType.InkCapacity,
-                "permanent.ink_capacity",
-                0.015f,
-                false,
-                6, 10, 16, 24, 34, 46);
-            AssertLegacyDefinition(
-                PermanentGrowthType.InkRecovery,
-                "permanent.ink_recovery",
-                0.02f,
-                false,
-                6, 10, 16, 24, 34, 46);
-            AssertLegacyDefinition(
-                PermanentGrowthType.PlatformLifetime,
-                "permanent.platform_lifetime",
-                0.0125f,
-                false,
-                7, 11, 17, 25, 35, 47);
-            AssertLegacyDefinition(
-                PermanentGrowthType.JumpCharge,
-                "permanent.jump_charge",
-                0.0075f,
-                true,
-                7, 12, 18, 26, 36, 48);
-        }
-
-        [Test]
-        public void Catalog_신규_랭크와_효과가_설계값과_일치한다()
-        {
-            AssertNode(
-                PermanentGrowthType.Vitality,
-                PermanentGrowthBranch.Survival,
-                1,
-                1f,
-                PermanentGrowthValueKind.Flat,
-                false);
-            AssertNode(
-                PermanentGrowthType.DamageGrace,
-                PermanentGrowthBranch.Survival,
-                3,
-                0.08f,
-                PermanentGrowthValueKind.Seconds,
-                false);
-            AssertNode(
-                PermanentGrowthType.CloneSpawnGrace,
-                PermanentGrowthBranch.Survival,
-                3,
-                0.15f,
-                PermanentGrowthValueKind.Seconds,
-                false);
-            AssertNode(
-                PermanentGrowthType.LastBreath,
-                PermanentGrowthBranch.Survival,
-                1,
-                1f,
-                PermanentGrowthValueKind.Flat,
-                true);
-            AssertNode(
-                PermanentGrowthType.JumpPower,
-                PermanentGrowthBranch.Leap,
-                5,
-                0.01f,
-                PermanentGrowthValueKind.Percent,
-                false);
-            AssertNode(
-                PermanentGrowthType.DrawnPlatformLeap,
-                PermanentGrowthBranch.Leap,
-                1,
-                0.10f,
-                PermanentGrowthValueKind.Percent,
-                true);
-            AssertNode(
-                PermanentGrowthType.StrokeGuard,
-                PermanentGrowthBranch.InkHandling,
-                1,
-                1f,
-                PermanentGrowthValueKind.Flat,
-                true);
-        }
-
-        [Test]
-        public void Catalog_세_계보의_선행조건과_최종패시브_조건이_설계값과_일치한다()
-        {
-            AssertRequirements(PermanentGrowthType.Vitality);
-            AssertRequirements(
-                PermanentGrowthType.DamageGrace,
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.Vitality,
-                    1));
-            AssertRequirements(
-                PermanentGrowthType.LastBreath,
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.Vitality,
-                    1),
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.DamageGrace,
-                    3),
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.CloneSpawnGrace,
-                    3));
-            AssertRequirements(
-                PermanentGrowthType.CloneSpawnGrace,
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.Vitality,
-                    1));
-
-            AssertRequirements(PermanentGrowthType.JumpCharge);
-            AssertRequirements(
-                PermanentGrowthType.JumpPower,
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.JumpCharge,
-                    3));
-            AssertRequirements(
-                PermanentGrowthType.DrawnPlatformLeap,
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.JumpCharge,
-                    6),
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.JumpPower,
-                    5));
-
-            AssertRequirements(PermanentGrowthType.InkCapacity);
-            AssertRequirements(
-                PermanentGrowthType.InkRecovery,
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.InkCapacity,
-                    2));
-            AssertRequirements(
-                PermanentGrowthType.PlatformLifetime,
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.InkRecovery,
-                    2));
-            AssertRequirements(
-                PermanentGrowthType.StrokeGuard,
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.InkCapacity,
-                    6),
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.InkRecovery,
-                    6),
-                new PermanentGrowthRequirement(
-                    PermanentGrowthType.PlatformLifetime,
-                    6));
-        }
-
-        [Test]
-        public void Catalog_단일뿌리의_공통줄기를_지난뒤_세_계보로_갈라진다()
-        {
-            PermanentGrowthNodeDefinition[] commonTrunk =
-                PermanentGrowthCatalog.Nodes
-                    .Where(node => node.IsCommonTrunk)
-                    .OrderBy(node => node.LayoutY)
-                    .ToArray();
-            PermanentGrowthNodeDefinition[] roots =
-                PermanentGrowthCatalog.Nodes
-                    .Where(node => node.ParentIds.Count == 0)
-                    .ToArray();
-
-            Assert.That(roots, Has.Length.EqualTo(1));
-            Assert.That(commonTrunk, Has.Length.EqualTo(5));
-            Assert.That(roots[0], Is.SameAs(commonTrunk[0]));
-            Assert.That(
-                commonTrunk.Select(node => (node.Type, node.Rank)),
-                Is.EqualTo(new[]
-                {
-                    (PermanentGrowthType.InkCapacity, 1),
-                    (PermanentGrowthType.InkCapacity, 2),
-                    (PermanentGrowthType.InkRecovery, 1),
-                    (PermanentGrowthType.InkRecovery, 2),
-                    (PermanentGrowthType.PlatformLifetime, 1),
-                }));
-
-            for (int index = 1; index < commonTrunk.Length; index++)
+            foreach (PermanentGrowthBranch branch
+                     in Enum.GetValues(typeof(PermanentGrowthBranch)))
             {
-                Assert.That(
-                    commonTrunk[index].ParentIds,
-                    Is.EqualTo(new[] { commonTrunk[index - 1].Id }),
-                    commonTrunk[index].Id);
-                Assert.That(
-                    commonTrunk[index].LayoutY,
-                    Is.GreaterThan(commonTrunk[index - 1].LayoutY),
-                    commonTrunk[index].Id);
-                Assert.That(
-                    System.Math.Abs(commonTrunk[index].LayoutX),
-                    Is.LessThanOrEqualTo(80f),
-                    commonTrunk[index].Id);
+                PermanentGrowthNodeDefinition[] nodes = BranchNodes(branch);
+                PermanentGrowthNodeDefinition root = nodes.Single(node =>
+                    node.NodeKind == PermanentGrowthNodeKind.Root);
+                PermanentGrowthNodeDefinition[] keystones = nodes
+                    .Where(node => node.IsKeystone)
+                    .ToArray();
+                PermanentGrowthNodeDefinition[] rootChildren = nodes
+                    .Where(node => node.ParentIds.Contains(root.Id))
+                    .ToArray();
+
+                Assert.That(root.ParentIds, Is.Empty, branch.ToString());
+                Assert.That(rootChildren, Has.Length.EqualTo(3), branch.ToString());
+                Assert.That(keystones, Has.Length.EqualTo(3), branch.ToString());
+                Assert.That(nodes.Count(node => !node.IsKeystone), Is.EqualTo(10));
+
+                foreach (PermanentGrowthNodeDefinition keystone in keystones)
+                {
+                    Assert.That(keystone.ParentIds, Has.Count.EqualTo(1), keystone.Id);
+                    Assert.That(keystone.RequiredOwnedCountInBranch,
+                        Is.EqualTo(6), keystone.Id);
+                    Assert.That(keystone.KeystoneGroup, Is.Not.Empty, keystone.Id);
+                    Assert.That(
+                        PermanentGrowthCatalog.GetNode(keystone.ParentIds[0]).Branch,
+                        Is.EqualTo(branch),
+                        keystone.Id);
+                }
             }
 
-            PermanentGrowthNodeDefinition fork =
-                commonTrunk[commonTrunk.Length - 1];
-            PermanentGrowthNodeDefinition[] branchEntries =
-                PermanentGrowthCatalog.Nodes
-                    .Where(node => node.ParentIds.Contains(fork.Id))
-                    .ToArray();
             Assert.That(
-                branchEntries.Select(node => node.Id),
-                Is.EquivalentTo(new[]
-                {
-                    PermanentGrowthCatalog.GetNodeId(
-                        PermanentGrowthType.Vitality,
-                        1),
-                    PermanentGrowthCatalog.GetNodeId(
-                        PermanentGrowthType.PlatformLifetime,
-                        2),
-                    PermanentGrowthCatalog.GetNodeId(
-                        PermanentGrowthType.JumpCharge,
-                        1),
-                }));
-            Assert.That(
-                branchEntries.Select(node => node.Branch).Distinct(),
-                Is.EquivalentTo(new[]
-                {
-                    PermanentGrowthBranch.Survival,
-                    PermanentGrowthBranch.InkHandling,
-                    PermanentGrowthBranch.Leap,
-                }));
+                PermanentGrowthCatalog.Nodes.Count(node => node.ParentIds.Count == 0),
+                Is.EqualTo(3),
+                "v3는 공통 구매 줄기 없이 세 계보 뿌리를 독립적으로 시작합니다.");
         }
 
         [Test]
-        public void Catalog_분기이후_세_계보가_좌중우로_분리되고_불규칙하게_갈라진다()
+        public void GraphParentsExistStayInsideBranchAndContainNoCycle()
+        {
+            var states = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (PermanentGrowthNodeDefinition node in PermanentGrowthCatalog.Nodes)
+            {
+                foreach (string parentId in node.ParentIds)
+                {
+                    PermanentGrowthNodeDefinition parent =
+                        PermanentGrowthCatalog.GetNode(parentId);
+                    Assert.That(parent, Is.Not.Null, $"{node.Id} <- {parentId}");
+                    Assert.That(parent.Branch, Is.EqualTo(node.Branch), node.Id);
+                }
+            }
+
+            foreach (PermanentGrowthNodeDefinition node in PermanentGrowthCatalog.Nodes)
+                Assert.That(VisitWithoutCycle(node.Id, states), Is.True, node.Id);
+        }
+
+        [Test]
+        public void CoreBalanceValuesMatchV3Contract()
+        {
+            AssertEffect("I00", PermanentGrowthType.InkCapacity, 0.03f);
+            AssertEffect("I-A1", PermanentGrowthType.InkCapacity, 0.03f);
+            AssertEffect("I-B1", PermanentGrowthType.InkRecovery, 0.04f);
+            AssertEffect("I-B2", PermanentGrowthType.InkRecovery, 0.04f);
+            AssertEffect("I-C1", PermanentGrowthType.PlatformLifetime, 0.02f);
+            AssertEffect("I-C2", PermanentGrowthType.PlatformLifetime, 0.02f);
+
+            AssertEffect("S00", PermanentGrowthType.DamageGrace, 0.05f);
+            AssertEffect("S-A1", PermanentGrowthType.DamageGrace, 0.05f);
+            AssertEffect("S-A2", PermanentGrowthType.DamageGrace, 0.05f);
+            AssertEffect("S-A3", PermanentGrowthType.Vitality, 1f);
+            AssertEffect("S-C1", PermanentGrowthType.CloneSpawnGrace, 0.15f);
+
+            AssertEffect("J00", PermanentGrowthType.JumpCharge, 0.02f);
+            AssertEffect("J-A1", PermanentGrowthType.JumpCharge, 0.02f);
+            AssertEffect("J-A2", PermanentGrowthType.JumpCharge, 0.02f);
+            AssertEffect("J-B1", PermanentGrowthType.JumpPower, 0.02f);
+            AssertEffect("J-B3", PermanentGrowthType.DrawnPlatformLeap, 0.03f);
+
+            Assert.That(PermanentGrowthCatalog.GetNode("S-KA").EffectSummary,
+                Does.Contain("0.8초"));
+            Assert.That(PermanentGrowthCatalog.GetNode("J-KC").Description,
+                Does.Contain("낙하만"));
+            Assert.That(PermanentGrowthCatalog.GetNode("I-KC").EffectSummary,
+                Does.Contain("18초"));
+        }
+
+        [Test]
+        public void BranchesOccupyDistinctLeftCenterAndRightTreeRegions()
         {
             PermanentGrowthNodeDefinition[] survival =
                 BranchNodes(PermanentGrowthBranch.Survival);
@@ -290,221 +169,60 @@ namespace MukJump.EditorTests
             PermanentGrowthNodeDefinition[] leap =
                 BranchNodes(PermanentGrowthBranch.Leap);
 
-            Assert.That(
-                survival.Max(node => node.LayoutX),
-                Is.LessThanOrEqualTo(-500f),
-                "생존 계보는 왼쪽 큰 가지를 사용해야 합니다.");
-            Assert.That(
-                ink.Min(node => node.LayoutX),
-                Is.GreaterThanOrEqualTo(-440f),
-                "먹 계보는 가운데 큰 가지를 벗어나면 안 됩니다.");
-            Assert.That(
-                ink.Max(node => node.LayoutX),
-                Is.LessThanOrEqualTo(440f),
-                "먹 계보는 가운데 큰 가지를 벗어나면 안 됩니다.");
-            Assert.That(
-                leap.Min(node => node.LayoutX),
-                Is.GreaterThanOrEqualTo(500f),
-                "도약 계보는 오른쪽 큰 가지를 사용해야 합니다.");
-
-            AssertVisibleFork(PermanentGrowthBranch.Survival, 220f);
-            AssertVisibleFork(PermanentGrowthBranch.InkHandling, 220f);
-            AssertVisibleFork(PermanentGrowthBranch.Leap, 220f);
-            AssertTouchAreasDoNotOverlap();
+            Assert.That(survival.Max(node => node.LayoutX), Is.LessThanOrEqualTo(-500f));
+            Assert.That(ink.Min(node => node.LayoutX), Is.GreaterThanOrEqualTo(-500f));
+            Assert.That(ink.Max(node => node.LayoutX), Is.LessThanOrEqualTo(500f));
+            Assert.That(leap.Min(node => node.LayoutX), Is.GreaterThanOrEqualTo(500f));
         }
 
-        [Test]
-        public void Catalog_선행조건은_유효하고_순환하지_않는다()
+        static void AssertBranch(
+            PermanentGrowthBranch branch,
+            IReadOnlyCollection<string> expectedIds)
         {
-            var states = new Dictionary<PermanentGrowthType, int>();
-            foreach (PermanentGrowthDefinition definition
-                     in PermanentGrowthCatalog.All)
-            {
-                Assert.That(
-                    PermanentGrowthCatalog.TryGet(
-                        definition.Id,
-                        out PermanentGrowthDefinition byId),
-                    Is.True,
-                    definition.Id);
-                Assert.That(byId, Is.SameAs(definition));
-
-                for (int i = 0; i < definition.Requirements.Count; i++)
-                {
-                    PermanentGrowthRequirement requirement =
-                        definition.Requirements[i];
-                    PermanentGrowthDefinition required =
-                        PermanentGrowthCatalog.Get(requirement.Type);
-                    Assert.That(required, Is.Not.Null, definition.Id);
-                    Assert.That(
-                        requirement.Type,
-                        Is.Not.EqualTo(definition.Type),
-                        definition.Id);
-                    Assert.That(
-                        requirement.MinimumLevel,
-                        Is.InRange(1, required.MaxLevel),
-                        definition.Id);
-                }
-            }
-
-            foreach (PermanentGrowthDefinition definition
-                     in PermanentGrowthCatalog.All)
-                Assert.That(
-                    VisitWithoutCycle(definition.Type, states),
-                    Is.True,
-                    definition.Id);
-        }
-
-        static bool VisitWithoutCycle(
-            PermanentGrowthType type,
-            IDictionary<PermanentGrowthType, int> states)
-        {
-            if (states.TryGetValue(type, out int state))
-                return state == 2;
-
-            states[type] = 1;
-            PermanentGrowthDefinition definition =
-                PermanentGrowthCatalog.Get(type);
-            for (int i = 0; i < definition.Requirements.Count; i++)
-            {
-                PermanentGrowthType required =
-                    definition.Requirements[i].Type;
-                if (states.TryGetValue(required, out int requiredState) &&
-                    requiredState == 1)
-                    return false;
-                if (!VisitWithoutCycle(required, states))
-                    return false;
-            }
-            states[type] = 2;
-            return true;
+            PermanentGrowthNodeDefinition[] nodes = BranchNodes(branch);
+            Assert.That(nodes, Has.Length.EqualTo(13), branch.ToString());
+            Assert.That(nodes.Select(node => node.Id),
+                Is.EquivalentTo(expectedIds), branch.ToString());
         }
 
         static PermanentGrowthNodeDefinition[] BranchNodes(
-            PermanentGrowthBranch branch)
-        {
-            return PermanentGrowthCatalog.Nodes
-                .Where(node =>
-                    node.Branch == branch && !node.IsCommonTrunk)
+            PermanentGrowthBranch branch) =>
+            PermanentGrowthCatalog.Nodes
+                .Where(node => node.Branch == branch)
                 .ToArray();
-        }
 
-        static void AssertVisibleFork(
-            PermanentGrowthBranch branch,
-            float minimumHorizontalSeparation)
-        {
-            PermanentGrowthNodeDefinition[] branchNodes =
-                BranchNodes(branch);
-            bool hasVisibleFork = branchNodes.Any(parent =>
-            {
-                PermanentGrowthNodeDefinition[] children = branchNodes
-                    .Where(child => child.ParentIds.Contains(parent.Id))
-                    .ToArray();
-                if (children.Length < 2)
-                    return false;
-                float minimumX = children.Min(child => child.LayoutX);
-                float maximumX = children.Max(child => child.LayoutX);
-                return maximumX - minimumX >= minimumHorizontalSeparation;
-            });
-
-            Assert.That(
-                hasVisibleFork,
-                Is.True,
-                $"{branch} 계보의 분기가 일직선처럼 보이면 안 됩니다.");
-        }
-
-        static void AssertTouchAreasDoNotOverlap()
-        {
-            for (int leftIndex = 0;
-                 leftIndex < PermanentGrowthCatalog.Nodes.Count;
-                 leftIndex++)
-            {
-                PermanentGrowthNodeDefinition left =
-                    PermanentGrowthCatalog.Nodes[leftIndex];
-                float leftWidth = left.IsCapstone ? 240f : 188f;
-                float leftHeight = left.IsCapstone ? 260f : 218f;
-                for (int rightIndex = leftIndex + 1;
-                     rightIndex < PermanentGrowthCatalog.Nodes.Count;
-                     rightIndex++)
-                {
-                    PermanentGrowthNodeDefinition right =
-                        PermanentGrowthCatalog.Nodes[rightIndex];
-                    float rightWidth = right.IsCapstone ? 240f : 188f;
-                    float rightHeight = right.IsCapstone ? 260f : 218f;
-                    bool overlaps =
-                        System.Math.Abs(left.LayoutX - right.LayoutX) <
-                            (leftWidth + rightWidth) * 0.5f &&
-                        System.Math.Abs(left.LayoutY - right.LayoutY) <
-                            (leftHeight + rightHeight) * 0.5f;
-                    Assert.That(
-                        overlaps,
-                        Is.False,
-                        $"{left.Id}와 {right.Id}의 터치 영역이 겹칩니다.");
-                }
-            }
-        }
-
-        static void AssertLegacyDefinition(
-            PermanentGrowthType type,
+        static void AssertEffect(
             string id,
-            float effectPerLevel,
-            bool reducesValue,
-            params int[] costs)
+            PermanentGrowthType effectId,
+            float effectValue)
         {
-            PermanentGrowthDefinition definition =
-                PermanentGrowthCatalog.Get(type);
-            Assert.That(definition, Is.Not.Null);
-            Assert.That(definition.Id, Is.EqualTo(id));
-            Assert.That(
-                definition.EffectPerLevel,
-                Is.EqualTo(effectPerLevel).Within(0.000001f));
-            Assert.That(definition.ReducesValue, Is.EqualTo(reducesValue));
-            Assert.That(definition.MaxLevel, Is.EqualTo(costs.Length));
-            for (int i = 0; i < costs.Length; i++)
-                Assert.That(definition.GetCost(i), Is.EqualTo(costs[i]));
+            PermanentGrowthNodeDefinition node = PermanentGrowthCatalog.GetNode(id);
+            Assert.That(node, Is.Not.Null, id);
+            Assert.That(node.EffectId, Is.EqualTo(effectId), id);
+            Assert.That(node.EffectValue,
+                Is.EqualTo(effectValue).Within(0.000001f), id);
         }
 
-        static void AssertNode(
-            PermanentGrowthType type,
-            PermanentGrowthBranch branch,
-            int maxLevel,
-            float effectPerLevel,
-            PermanentGrowthValueKind valueKind,
-            bool capstone)
+        static bool VisitWithoutCycle(
+            string nodeId,
+            IDictionary<string, int> states)
         {
-            PermanentGrowthDefinition definition =
-                PermanentGrowthCatalog.Get(type);
-            Assert.That(definition, Is.Not.Null);
-            Assert.That(definition.Branch, Is.EqualTo(branch));
-            Assert.That(definition.MaxLevel, Is.EqualTo(maxLevel));
-            Assert.That(
-                definition.EffectPerLevel,
-                Is.EqualTo(effectPerLevel).Within(0.000001f));
-            Assert.That(definition.ValueKind, Is.EqualTo(valueKind));
-            Assert.That(definition.IsCapstone, Is.EqualTo(capstone));
-        }
+            if (states.TryGetValue(nodeId, out int state))
+                return state == 2;
 
-        static void AssertRequirements(
-            PermanentGrowthType type,
-            params PermanentGrowthRequirement[] requirements)
-        {
-            PermanentGrowthDefinition definition =
-                PermanentGrowthCatalog.Get(type);
-            Assert.That(definition, Is.Not.Null);
-            Assert.That(
-                definition.Requirements.Count,
-                Is.EqualTo(requirements.Length),
-                definition.Id);
-
-            for (int i = 0; i < requirements.Length; i++)
+            states[nodeId] = 1;
+            PermanentGrowthNodeDefinition node =
+                PermanentGrowthCatalog.GetNode(nodeId);
+            foreach (string parentId in node.ParentIds)
             {
-                Assert.That(
-                    definition.Requirements[i].Type,
-                    Is.EqualTo(requirements[i].Type),
-                    $"{definition.Id} requirement {i}");
-                Assert.That(
-                    definition.Requirements[i].MinimumLevel,
-                    Is.EqualTo(requirements[i].MinimumLevel),
-                    $"{definition.Id} requirement {i}");
+                if (states.TryGetValue(parentId, out int parentState) &&
+                    parentState == 1)
+                    return false;
+                if (!VisitWithoutCycle(parentId, states))
+                    return false;
             }
+            states[nodeId] = 2;
+            return true;
         }
     }
 }

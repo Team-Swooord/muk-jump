@@ -1,3 +1,4 @@
+using System.Linq;
 using MukJump.Core;
 using NUnit.Framework;
 
@@ -21,167 +22,206 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void Profile_CanPurchase와_TryPurchase가_같은_선행조건을_사용한다()
+        public void ThreeRootsCanBePurchasedIndependently()
         {
-            Seed(
-                PermanentGrowthCatalog.TotalCost,
-                0,
-                string.Empty);
+            SeedV2(3);
 
-            Assert.That(
-                PermanentGrowthProfile.MeetsRequirements(
-                    PermanentGrowthType.InkRecovery),
-                Is.False);
-            Assert.That(
-                PermanentGrowthProfile.CanPurchase(
-                    PermanentGrowthType.InkRecovery),
-                Is.False);
-            Assert.That(
-                PermanentGrowthProfile.TryPurchase(
-                    PermanentGrowthType.InkRecovery),
-                Is.False);
-            Assert.That(
-                PermanentGrowthProfile.GetLockReason(
-                    PermanentGrowthType.InkRecovery),
-                Does.Contain("먹그릇"));
-
-            Assert.That(
-                PermanentGrowthProfile.TryPurchase(
-                    PermanentGrowthType.InkCapacity),
-                Is.True);
-            Assert.That(
-                PermanentGrowthProfile.TryPurchase(
-                    PermanentGrowthType.InkCapacity),
-                Is.True);
-            Assert.That(
-                PermanentGrowthProfile.MeetsRequirements(
-                    PermanentGrowthType.InkRecovery),
-                Is.True);
-            Assert.That(
-                PermanentGrowthProfile.CanPurchase(
-                    PermanentGrowthType.InkRecovery),
-                Is.True);
-            Assert.That(
-                PermanentGrowthProfile.TryPurchase(
-                    PermanentGrowthType.InkRecovery),
-                Is.True);
+            Assert.That(PermanentGrowthProfile.CanPurchaseNode("S00"), Is.True);
+            Assert.That(PermanentGrowthProfile.CanPurchaseNode("J00"), Is.True);
+            Assert.That(PermanentGrowthProfile.CanPurchaseNode("I00"), Is.True);
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("S00"), Is.True);
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("J00"), Is.True);
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("I00"), Is.True);
+            Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.EqualTo(3));
+            Assert.That(PermanentGrowthProfile.Currency, Is.Zero);
         }
 
         [Test]
-        public void Profile_기존에_구매한_노드는_새_선행조건을_소급하지_않는다()
+        public void NormalNodeRequiresItsOwnPreviousFruitAndCannotBeBoughtTwice()
         {
-            Seed(
-                PermanentGrowthCatalog.TotalCost,
-                6,
-                "{\"id\":\"permanent.ink_recovery\",\"level\":1}");
+            SeedV2(5);
+
+            Assert.That(PermanentGrowthProfile.MeetsNodeRequirements("I-A2"), Is.False);
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("I-A2"), Is.False);
+            Assert.That(PermanentGrowthProfile.GetNodeLockReason("I-A2"),
+                Does.Contain("깊은 벼루"));
+
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("I00"), Is.True);
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("I-A1"), Is.True);
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("I-A2"), Is.True);
+            int balance = PermanentGrowthProfile.Currency;
+            int saves = store.SaveCount;
+
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("I-A2"), Is.False);
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(balance));
+            Assert.That(store.SaveCount, Is.EqualTo(saves));
+        }
+
+        [Test]
+        public void KeystoneRequiresOwnChainAndSixGeneralFruitsInSameBranch()
+        {
+            SeedV2(13);
+            Buy("S00", "S-A1", "S-A2", "S-A3", "S-B1");
+
+            Assert.That(PermanentGrowthProfile.MeetsNodeRequirements("S-KA"), Is.False);
+            Assert.That(PermanentGrowthProfile.GetNodeLockReason("S-KA"),
+                Does.Contain("일반 열매 6개 필요"));
+
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("S-B2"), Is.True);
+            Assert.That(PermanentGrowthProfile.MeetsNodeRequirements("S-KA"), Is.True);
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("S-KA"), Is.True);
+            Assert.That(PermanentGrowthProfile.IsNodeUnlocked("S-KA"), Is.True);
+        }
+
+        [Test]
+        public void FirstKeystoneAutoEquipsButLaterPurchaseDoesNotReplaceIt()
+        {
+            SeedV2(13);
+            Buy("S00", "S-A1", "S-A2", "S-A3", "S-B1", "S-B2", "S-KA");
 
             Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkCapacity),
-                Is.Zero);
+                PermanentGrowthProfile.GetActiveKeystoneId(
+                    PermanentGrowthBranch.Survival),
+                Is.EqualTo("S-KA"));
+            Assert.That(PermanentGrowthProfile.HasLastBreath, Is.True);
+
+            Buy("S-B3", "S-KB");
             Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkRecovery),
-                Is.EqualTo(1));
+                PermanentGrowthProfile.GetActiveKeystoneId(
+                    PermanentGrowthBranch.Survival),
+                Is.EqualTo("S-KA"),
+                "두 번째 비기 해금이 사용자의 현재 장착을 몰래 바꾸면 안 됩니다.");
+
+            Assert.That(PermanentGrowthProfile.TryEquipKeystone("S-KB"), Is.True);
+            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KB"), Is.True);
+            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.False);
+            Assert.That(PermanentGrowthProfile.HasLastBreath, Is.False);
+
             Assert.That(
-                PermanentGrowthProfile.MeetsRequirements(
-                    PermanentGrowthType.InkRecovery),
+                PermanentGrowthProfile.ClearActiveKeystone(
+                    PermanentGrowthBranch.Survival),
                 Is.True);
             Assert.That(
-                PermanentGrowthProfile.GetLockReason(
-                    PermanentGrowthType.InkRecovery),
+                PermanentGrowthProfile.GetActiveKeystoneId(
+                    PermanentGrowthBranch.Survival),
                 Is.Empty);
-            Assert.That(
-                PermanentGrowthProfile.TryPurchase(
-                    PermanentGrowthType.InkRecovery),
+        }
+
+        [Test]
+        public void KeystoneEquipRejectsLockedNormalAndWrongIdsWithoutSaving()
+        {
+            SeedV2(4, "I00");
+            int saves = store.SaveCount;
+
+            Assert.That(PermanentGrowthProfile.TryEquipKeystone("I-KA"), Is.False);
+            Assert.That(PermanentGrowthProfile.TryEquipKeystone("I00"), Is.False);
+            Assert.That(PermanentGrowthProfile.TryEquipKeystone("missing"), Is.False);
+            Assert.That(store.SaveCount, Is.EqualTo(saves));
+        }
+
+        [Test]
+        public void RunSnapshotDoesNotChangeWhenLobbyLoadoutChangesLater()
+        {
+            SeedV2(13);
+            Buy("S00", "S-A1", "S-A2", "S-A3", "S-B1", "S-B2", "S-KA");
+            PermanentGrowthRunSnapshot snapshot =
+                PermanentGrowthProfile.CreateRunSnapshot();
+
+            Buy("S-B3", "S-KB");
+            Assert.That(PermanentGrowthProfile.TryEquipKeystone("S-KB"), Is.True);
+
+            Assert.That(snapshot.HasLastBreath, Is.True);
+            Assert.That(snapshot.HasStableHit, Is.False);
+            Assert.That(snapshot.HasNode("S-KB"), Is.False);
+            Assert.That(snapshot.GetActiveKeystoneId(PermanentGrowthBranch.Survival),
+                Is.EqualTo("S-KA"));
+            Assert.That(PermanentGrowthProfile.CreateRunSnapshot().HasStableHit,
                 Is.True);
-            Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkRecovery),
-                Is.EqualTo(2));
         }
 
         [Test]
-        public void Profile_schema1_기존_JSON의_레벨과_효과를_그대로_보존한다()
+        public void FullV1SaveMapsThirtyThreeNodesAndRefundsSixOverflowPoints()
         {
-            const string ranks =
-                "{\"id\":\"permanent.ink_capacity\",\"level\":2}," +
-                "{\"id\":\"permanent.ink_recovery\",\"level\":1}," +
-                "{\"id\":\"permanent.platform_lifetime\",\"level\":3}," +
-                "{\"id\":\"permanent.jump_charge\",\"level\":4}";
-            Seed(17, 120, ranks);
-
-            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(17));
-            Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(120));
-            Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkCapacity),
-                Is.EqualTo(2));
-            Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkRecovery),
-                Is.EqualTo(1));
-            Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.PlatformLifetime),
-                Is.EqualTo(3));
-            Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.JumpCharge),
-                Is.EqualTo(4));
-            Assert.That(
-                PermanentGrowthProfile.InkCapacityMultiplier,
-                Is.EqualTo(1.03f).Within(0.0001f));
-            Assert.That(
-                PermanentGrowthProfile.InkRecoveryMultiplier,
-                Is.EqualTo(1.02f).Within(0.0001f));
-            Assert.That(
-                PermanentGrowthProfile.PlatformLifetimeMultiplier,
-                Is.EqualTo(1.0375f).Within(0.0001f));
-            Assert.That(
-                PermanentGrowthProfile.JumpChargeMultiplier,
-                Is.EqualTo(0.97f).Within(0.0001f));
-        }
-
-        [Test]
-        public void Profile_신규_수치와_최종패시브를_노출한다()
-        {
-            const string ranks =
+            store.Json =
+                "{\"schemaVersion\":1,\"balanceVersion\":1," +
+                "\"wallet\":0,\"spent\":957," +
+                "\"tutorialRewardClaimed\":true," +
+                "\"lastSettledRunId\":\"legacy-full\",\"ranks\":[" +
+                "{\"id\":\"permanent.ink_capacity\",\"level\":6}," +
+                "{\"id\":\"permanent.ink_recovery\",\"level\":6}," +
+                "{\"id\":\"permanent.platform_lifetime\",\"level\":6}," +
+                "{\"id\":\"permanent.stroke_guard\",\"level\":1}," +
+                "{\"id\":\"permanent.jump_charge\",\"level\":6}," +
+                "{\"id\":\"permanent.jump_power\",\"level\":5}," +
+                "{\"id\":\"permanent.drawn_platform_leap\",\"level\":1}," +
                 "{\"id\":\"permanent.vitality\",\"level\":1}," +
                 "{\"id\":\"permanent.damage_grace\",\"level\":3}," +
                 "{\"id\":\"permanent.last_breath\",\"level\":1}," +
-                "{\"id\":\"permanent.jump_power\",\"level\":5}," +
-                "{\"id\":\"permanent.drawn_platform_leap\",\"level\":1}," +
-                "{\"id\":\"permanent.stroke_guard\",\"level\":1}";
-            Seed(0, 0, ranks);
+                "{\"id\":\"permanent.clone_spawn_grace\",\"level\":3}]}";
+            PermanentGrowthProfile.ResetCacheForTests();
 
-            Assert.That(PermanentGrowthProfile.MaxHealthBonus, Is.EqualTo(1));
+            Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.EqualTo(33));
+            Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(33));
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(6));
             Assert.That(
-                PermanentGrowthProfile.DamageGraceBonusSeconds,
-                Is.EqualTo(0.24f).Within(0.0001f));
-            Assert.That(PermanentGrowthProfile.HasLastBreath, Is.True);
+                PermanentGrowthCatalog.Nodes.Count(node =>
+                    PermanentGrowthProfile.IsNodeUnlocked(node.Id) &&
+                    node.Branch == PermanentGrowthBranch.Survival),
+                Is.EqualTo(8));
             Assert.That(
-                PermanentGrowthProfile.JumpPowerMultiplier,
-                Is.EqualTo(1.05f).Within(0.0001f));
+                PermanentGrowthCatalog.Nodes.Count(node =>
+                    PermanentGrowthProfile.IsNodeUnlocked(node.Id) &&
+                    node.Branch == PermanentGrowthBranch.Leap),
+                Is.EqualTo(12));
             Assert.That(
-                PermanentGrowthProfile.DrawnPlatformLeapMultiplier,
-                Is.EqualTo(1.10f).Within(0.0001f));
+                PermanentGrowthCatalog.Nodes.Count(node =>
+                    PermanentGrowthProfile.IsNodeUnlocked(node.Id) &&
+                    node.Branch == PermanentGrowthBranch.InkHandling),
+                Is.EqualTo(13));
             Assert.That(
-                PermanentGrowthProfile.NewPlatformsHaveStrokeGuard,
-                Is.True);
+                PermanentGrowthProfile.GetActiveKeystoneId(
+                    PermanentGrowthBranch.Leap),
+                Is.EqualTo("J-KA"));
+            Assert.That(
+                PermanentGrowthProfile.GetActiveKeystoneId(
+                    PermanentGrowthBranch.InkHandling),
+                Is.EqualTo("I-KA"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":2"));
+            Assert.That(store.Json, Does.Contain("\"ranks\":[]"));
         }
 
-        void Seed(int wallet, int spent, string rankObjects)
+        [Test]
+        public void LoadedV2SaveDropsUnknownAndDuplicateNodeIds()
         {
-            string ranks = string.IsNullOrEmpty(rankObjects)
-                ? string.Empty
-                : rankObjects;
+            SeedV2(50, "I00", "I00", "unknown", "S00");
+
+            Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.EqualTo(2));
+            Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(2));
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(37));
+            Assert.That(PermanentGrowthProfile.IsNodeUnlocked("unknown"), Is.False);
+        }
+
+        void Buy(params string[] nodeIds)
+        {
+            foreach (string nodeId in nodeIds)
+                Assert.That(PermanentGrowthProfile.TryPurchaseNode(nodeId),
+                    Is.True, nodeId);
+        }
+
+        void SeedV2(int wallet, params string[] ownedNodeIds)
+        {
+            string owned = ownedNodeIds == null || ownedNodeIds.Length == 0
+                ? "[]"
+                : "[\"" + string.Join("\",\"", ownedNodeIds) + "\"]";
             store.Json =
-                "{\"schemaVersion\":1,\"balanceVersion\":1," +
-                $"\"wallet\":{wallet},\"spent\":{spent}," +
+                "{\"schemaVersion\":1,\"balanceVersion\":2," +
+                $"\"wallet\":{wallet},\"spent\":0," +
                 "\"tutorialRewardClaimed\":true," +
-                "\"lastSettledRunId\":\"legacy-run\"," +
-                $"\"ranks\":[{ranks}]}}";
+                "\"lastSettledRunId\":\"\",\"ranks\":[]," +
+                $"\"ownedNodeIds\":{owned}," +
+                "\"survivalKeystoneId\":\"\"," +
+                "\"leapKeystoneId\":\"\"," +
+                "\"inkHandlingKeystoneId\":\"\"}";
             PermanentGrowthProfile.ResetCacheForTests();
             _ = PermanentGrowthProfile.Currency;
         }
