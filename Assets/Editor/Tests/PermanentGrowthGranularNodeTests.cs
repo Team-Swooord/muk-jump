@@ -46,16 +46,16 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void SnapshotComposesExpandedLeapStatsWithoutLegacyBonuses()
+        public void SnapshotComposesThreeStepLeapStatsWithoutLegacyBonuses()
         {
             var snapshot = new PermanentGrowthRunSnapshot(
                 new[]
                 {
                     "I00", "I-A1", "I-B1", "I-B2", "I-C1", "I-C2",
                     "S00", "S-A1", "S-A2", "S-A3", "S-C1",
-                    "J00", "J-A1", "J-A2", "J-A3", "J-A4", "J-A5",
-                    "J-B1", "J-B2", "J-B3", "J-B4", "J-B5",
-                    "J-C1", "J-C2", "J-C3", "J-C4", "J-C5",
+                    "J00", "J-A1", "J-A2", "J-A3",
+                    "J-B1", "J-B2", "J-B3",
+                    "J-C1", "J-C2", "J-C3",
                 },
                 null);
 
@@ -146,7 +146,7 @@ namespace MukJump.EditorTests
             Assert.That(view.TreeCanvas, Is.Not.Null);
             Assert.That(view.TreeCanvas.sizeDelta.x, Is.GreaterThan(1080f));
             Assert.That(view.TreeCanvas.sizeDelta.y, Is.GreaterThan(1920f));
-            Assert.That(view.CreatedNodeCount, Is.EqualTo(45));
+            Assert.That(view.CreatedNodeCount, Is.EqualTo(39));
 
             foreach (PermanentGrowthNodeDefinition definition
                      in PermanentGrowthCatalog.Nodes)

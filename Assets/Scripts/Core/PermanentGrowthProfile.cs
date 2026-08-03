@@ -50,7 +50,7 @@ namespace MukJump.Core
     public static class PermanentGrowthProfile
     {
         const int SchemaVersion = 1;
-        const int BalanceVersion = 3;
+        const int BalanceVersion = 4;
         const int V2TotalCost = 39;
         const int LegacyTotalCost = 957;
         const int SettledRunHistoryLimit = 64;
@@ -119,6 +119,15 @@ namespace MukJump.Core
                 8, 16, 28),
         };
 
+        static readonly HashSet<string> RetiredLeapNodeIds = new(
+            new[]
+            {
+                "J-A4", "J-A5",
+                "J-B4", "J-B5",
+                "J-C4", "J-C5",
+            },
+            StringComparer.Ordinal);
+
         static IPermanentGrowthStore store = new PlayerPrefsPermanentGrowthStore();
         static SaveData data;
         static bool loaded;
@@ -160,7 +169,7 @@ namespace MukJump.Core
             }
         }
 
-        // 로비·구 코드 호환용 조회. 실제 판에서는 RunGrowthController의 스냅샷을 쓴다.
+        // 로비·구 코드 호환용 조회. 실제 판에서는 영구 성장 런타임 스냅샷을 쓴다.
         public static float InkCapacityMultiplier =>
             CreateRunSnapshot().InkCapacityMultiplier;
         public static float InkRecoveryMultiplier =>
@@ -555,6 +564,8 @@ namespace MukJump.Core
                 MigrateLegacyBalance();
             if (data.balanceVersion < 3)
                 MigrateLeapTreeToV3();
+            if (data.balanceVersion < 4)
+                MigrateLeapTreeToV4();
             NormalizeLoadedData();
         }
 
@@ -653,6 +664,33 @@ namespace MukJump.Core
             // 지갑 상한은 바로 뒤 NormalizeLoadedData에서 유효 ID 수를 확정한 뒤
             // 한 번만 계산한다. 먼저 줄이면 구 저장의 먹빛을 잃을 수 있다.
             data.balanceVersion = 3;
+        }
+
+        /// 도약 계보를 다른 계보와 같은 3단계 구조로 줄인다.
+        /// v3에서 구매했던 삭제 노드는 한 개당 먹빛 하나로 돌려준다.
+        static void MigrateLeapTreeToV4()
+        {
+            data.ownedNodeIds ??= new List<string>();
+            var kept = new List<string>(data.ownedNodeIds.Count);
+            var seenRetired = new HashSet<string>(StringComparer.Ordinal);
+            int refund = 0;
+
+            for (int i = 0; i < data.ownedNodeIds.Count; i++)
+            {
+                string nodeId = data.ownedNodeIds[i];
+                if (RetiredLeapNodeIds.Contains(nodeId))
+                {
+                    if (seenRetired.Add(nodeId))
+                        refund++;
+                    continue;
+                }
+                kept.Add(nodeId);
+            }
+
+            data.ownedNodeIds = kept;
+            data.wallet = Mathf.Max(0, data.wallet) + refund;
+            data.spent = data.ownedNodeIds.Count;
+            data.balanceVersion = 4;
         }
 
         static void CompleteGrandfatheredPath(

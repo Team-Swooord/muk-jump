@@ -233,7 +233,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ResettingRunAugmentsDoesNotResetPermanentSnapshot()
+        public void ResettingRunRefreshesPermanentSnapshotWithoutChangingProfile()
         {
             SeedV2(0, "I00");
             var host = new GameObject("RunGrowthSeparationTest");
@@ -245,7 +245,6 @@ namespace MukJump.EditorTests
                         BindingFlags.Instance | BindingFlags.NonPublic)
                     ?.Invoke(runGrowth, null);
 
-                Assert.That(runGrowth.InkCapacityLevel, Is.Zero);
                 Assert.That(runGrowth.PermanentSnapshot.HasNode("I00"), Is.True);
                 Assert.That(PermanentGrowthProfile.IsNodeUnlocked("I00"), Is.True);
                 Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(1));

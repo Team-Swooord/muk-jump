@@ -105,11 +105,10 @@ namespace MukJump.EditorTests
             SeedGrowth(
                 new[]
                 {
-                    "J-B1", "J-B2", "J-B3", "J-B4", "J-B5",
-                    "J-C1", "J-C2", "J-C3", "J-C4", "J-C5",
+                    "J-B1", "J-B2", "J-B3",
+                    "J-C1", "J-C2", "J-C3",
                 });
-            CreatePlayingManager(out var growth);
-            SetProperty(growth, "JumpLevel", 5);
+            CreatePlayingManager(out _);
 
             var player = CreatePlayer("PermanentJumpPlayer");
             var autoJump = player.gameObject.AddComponent<AutoJump>();
@@ -125,7 +124,7 @@ namespace MukJump.EditorTests
 
             SetProperty(player, "CurrentPlatform", null);
             Invoke(autoJump, "Jump");
-            float expected = 10f * 1.20f * 1.05f * Mathf.Sqrt(1.0625f);
+            float expected = 10f * 1.05f * Mathf.Sqrt(1.0625f);
             Assert.That(player.Body.linearVelocity.y,
                 Is.EqualTo(expected).Within(0.001f));
             Assert.That(expected / 10f, Is.LessThan(1.30f));
@@ -141,27 +140,22 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void RunPlatformGuardIsConsumedBeforeSharedPermanentGuard()
+        public void SharedPermanentGuardIsConsumedBeforeHazardDestroysPlatform()
         {
             SeedGrowth(
                 new[] { "I-KC" },
                 inkKeystone: "I-KC");
             CreatePlayingManager(out var growth);
-            SetProperty(growth, "StrokeGuardLevel", 1);
-            PlatformCollider platform = SpawnPlatform("LayeredStrokeGuard");
+            PlatformCollider platform = SpawnPlatform("SharedPermanentStrokeGuard");
 
-            Assert.That(platform.HasStrokeGuard, Is.True);
             Assert.That(platform.BreakFromHazard(), Is.True);
-            Assert.That(platform.HasStrokeGuard, Is.False,
-                "첫 낙묵석은 한 판 굳은 획을 먼저 소비해야 합니다.");
             Assert.That(GetField<bool>(platform, "removalRequested"), Is.False);
+            Assert.That(growth.TryUsePermanentStrokeGuard(), Is.False,
+                "먹떼 공용 영구 비기는 첫 방어 직후 18초 재사용 대기여야 합니다.");
 
             Assert.That(platform.BreakFromHazard(), Is.True);
-            Assert.That(GetField<bool>(platform, "removalRequested"), Is.False,
-                "두 번째 낙묵석은 먹떼 공용 영구 비기를 소비하고 발판을 남겨야 합니다.");
-
-            Assert.That(growth.TryUsePermanentStrokeGuard(), Is.False,
-                "먹떼 공용 영구 비기는 18초 안에 다시 소비되면 안 됩니다.");
+            Assert.That(GetField<bool>(platform, "removalRequested"), Is.True,
+                "같은 재사용 시간 안의 두 번째 낙묵석은 발판을 제거해야 합니다.");
         }
 
         [Test]
