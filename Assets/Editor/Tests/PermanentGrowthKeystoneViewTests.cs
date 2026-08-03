@@ -46,6 +46,9 @@ namespace MukJump.EditorTests
 
             Transform popup = FindPopup(view);
             Assert.That(
+                popup.Find("ActionCostPlate").gameObject.activeSelf,
+                Is.False);
+            Assert.That(
                 popup.Find("ActionCostIcon").gameObject.activeSelf,
                 Is.False);
             Assert.That(
@@ -164,9 +167,15 @@ namespace MukJump.EditorTests
             Transform popup = FindPopup(view);
             Text description = popup.Find("ActionDescription").GetComponent<Text>();
             Text status = popup.Find("ActionStatus").GetComponent<Text>();
+            Text usage = popup.Find("ActionUsage").GetComponent<Text>();
+            Text effect = popup.Find("ActionNextEffect").GetComponent<Text>();
 
             Assert.That(description.resizeTextForBestFit, Is.True);
             Assert.That(description.resizeTextMinSize, Is.GreaterThanOrEqualTo(28));
+            Assert.That(usage.resizeTextForBestFit, Is.True);
+            Assert.That(usage.resizeTextMinSize, Is.GreaterThanOrEqualTo(26));
+            Assert.That(effect.resizeTextForBestFit, Is.True);
+            Assert.That(effect.resizeTextMinSize, Is.GreaterThanOrEqualTo(27));
             Assert.That(status.resizeTextForBestFit, Is.True);
             Assert.That(status.resizeTextMinSize, Is.GreaterThanOrEqualTo(25));
 
@@ -178,6 +187,106 @@ namespace MukJump.EditorTests
                 Assert.That(description.text, Is.Not.Empty, node.Id);
                 Assert.That(status.text, Is.Not.Empty, node.Id);
             }
+        }
+
+        [Test]
+        public void PopupUsesCompactInkInformationHierarchy()
+        {
+            SeedV2(new string[0]);
+            PermanentGrowthView view = BuildView();
+            SelectNode(view, "J00");
+
+            Transform popup = FindPopup(view);
+            Image infoPanel =
+                popup.Find("ActionInfoPanel").GetComponent<Image>();
+            Text name = popup.Find("ActionName").GetComponent<Text>();
+            Text branch = popup.Find("ActionBranchBrush/ActionBranch")
+                .GetComponent<Text>();
+            Text current =
+                popup.Find("ActionCurrentEffect").GetComponent<Text>();
+            Text usage = popup.Find("ActionUsage").GetComponent<Text>();
+            Text effect =
+                popup.Find("ActionNextEffect").GetComponent<Text>();
+            Text description =
+                popup.Find("ActionDescription").GetComponent<Text>();
+            RectTransform icon =
+                popup.Find("ActionIcon").GetComponent<RectTransform>();
+
+            Assert.That(infoPanel.color.a, Is.GreaterThanOrEqualTo(0.9f));
+            Assert.That(name.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(branch.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(current.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(usage.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(effect.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(description.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(icon.anchoredPosition.x,
+                Is.LessThan(name.rectTransform.anchoredPosition.x));
+            Assert.That(usage.text, Does.StartWith("적용 방식"));
+            Assert.That(effect.text, Does.StartWith("핵심 효과"));
+        }
+
+        [Test]
+        public void LeapNodesUseReadableOrganicSpacingWithoutOverlap()
+        {
+            SeedV2(new string[0]);
+            PermanentGrowthView view = BuildView();
+            var leapRects = new List<(string Id, Rect Bounds)>();
+            var leapGlowRects = new List<(string Id, Rect Bounds)>();
+
+            foreach (PermanentGrowthNodeDefinition definition
+                     in PermanentGrowthCatalog.Nodes)
+            {
+                if (definition.Branch != PermanentGrowthBranch.Leap)
+                    continue;
+                RectTransform node =
+                    FindNode(view, definition.Id).GetComponent<RectTransform>();
+                leapRects.Add((
+                    definition.Id,
+                    new Rect(
+                        node.anchoredPosition - node.sizeDelta * 0.5f,
+                        node.sizeDelta)));
+                RectTransform glow = node.Find("FruitGlow")
+                    .GetComponent<RectTransform>();
+                Vector2 glowCenter =
+                    node.anchoredPosition + glow.anchoredPosition;
+                leapGlowRects.Add((
+                    definition.Id,
+                    new Rect(
+                        glowCenter - glow.sizeDelta * 0.5f,
+                        glow.sizeDelta)));
+            }
+
+            for (int left = 0; left < leapRects.Count; left++)
+            for (int right = left + 1; right < leapRects.Count; right++)
+            {
+                Assert.That(
+                    leapRects[left].Bounds.Overlaps(leapRects[right].Bounds),
+                    Is.False,
+                    $"{leapRects[left].Id}와 {leapRects[right].Id}의 터치 영역이 겹칩니다.");
+            }
+
+            for (int left = 0; left < leapGlowRects.Count; left++)
+            for (int right = left + 1; right < leapGlowRects.Count; right++)
+            {
+                Assert.That(
+                    leapGlowRects[left].Bounds.Overlaps(
+                        leapGlowRects[right].Bounds),
+                    Is.False,
+                    $"{leapGlowRects[left].Id}와 {leapGlowRects[right].Id}의 광륜이 겹칩니다.");
+            }
+
+            RectTransform a2 = FindNode(view, "J-A2")
+                .GetComponent<RectTransform>();
+            RectTransform b2 = FindNode(view, "J-B2")
+                .GetComponent<RectTransform>();
+            RectTransform c2 = FindNode(view, "J-C2")
+                .GetComponent<RectTransform>();
+            Assert.That(a2.anchoredPosition.x,
+                Is.LessThan(b2.anchoredPosition.x - 250f));
+            Assert.That(c2.anchoredPosition.x,
+                Is.GreaterThan(b2.anchoredPosition.x + 250f));
+            Assert.That(a2.anchoredPosition.y,
+                Is.Not.EqualTo(b2.anchoredPosition.y));
         }
 
         PermanentGrowthView BuildView()
