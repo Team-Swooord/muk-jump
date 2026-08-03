@@ -315,38 +315,7 @@ public class FallingInkRockTests
         Assert.AreEqual(0.5f, itemSerialized.FindProperty("cloneChanceAt250m").floatValue);
 
         var growthController = FindFirstInScene<RunGrowthController>(builderTestScene);
-        var growthChoice = FindFirstInScene<GrowthChoiceView>(builderTestScene);
-        var growthSpawner = FindFirstInScene<GrowthScrollSpawner>(builderTestScene);
         Assert.IsNotNull(growthController);
-        Assert.IsNotNull(growthChoice);
-        Assert.IsNotNull(growthSpawner);
-        var growthChoiceSerialized = new SerializedObject(growthChoice);
-        Assert.IsNotNull(
-            growthChoiceSerialized.FindProperty("growthCardFrame")
-                .objectReferenceValue,
-            "증강 카드 공통 수묵 프레임이 씬 빌더에서 주입되어야 합니다.");
-        var growthIcons = growthChoiceSerialized.FindProperty("growthIcons");
-        Assert.IsNotNull(growthIcons);
-        Assert.AreEqual(8, growthIcons.arraySize);
-        for (int i = 0; i < growthIcons.arraySize; i++)
-        {
-            Assert.IsNotNull(
-                growthIcons.GetArrayElementAtIndex(i).objectReferenceValue,
-                $"성장 선택 아이콘 {i}번 슬롯이 비어 있습니다.");
-        }
-        Assert.AreNotSame(
-            growthIcons.GetArrayElementAtIndex(4).objectReferenceValue,
-            growthIcons.GetArrayElementAtIndex(5).objectReferenceValue,
-            "긴 여운과 겹친 획은 서로 다른 실루엣으로 즉시 구분되어야 합니다.");
-        var growthSerialized = new SerializedObject(growthSpawner);
-        Assert.IsNotNull(
-            growthSerialized.FindProperty("growthScrollSprite").objectReferenceValue);
-        Assert.AreEqual(
-            GrowthScrollSpawner.DefaultFirstHeight,
-            growthSerialized.FindProperty("firstHeight").floatValue);
-        Assert.AreEqual(
-            GrowthScrollSpawner.DefaultInterval,
-            growthSerialized.FindProperty("interval").floatValue);
 
         var capture = FindFirstInScene<StrokeCapture>(builderTestScene);
         Assert.IsNotNull(capture);
@@ -457,36 +426,27 @@ public class FallingInkRockTests
             lobbySerialized.FindProperty("startButton").objectReferenceValue as Button;
         var growthButton =
             lobbySerialized.FindProperty("growthButton").objectReferenceValue as Button;
-        var codexButton =
-            lobbySerialized.FindProperty("codexButton").objectReferenceValue as Button;
         var optionsButton =
             lobbySerialized.FindProperty("optionsButton").objectReferenceValue as Button;
         Assert.IsNotNull(startButton);
         Assert.IsNotNull(growthButton);
-        Assert.IsNotNull(codexButton);
         Assert.IsNotNull(optionsButton);
         AssertLobbyMenuButton(startButton, "시작");
         AssertLobbyMenuButton(growthButton, "성장");
-        AssertLobbyMenuButton(codexButton, "도감");
         AssertLobbyMenuButton(optionsButton, "옵션");
         Assert.That(startButton.GetComponent<RectTransform>().anchorMin.y,
             Is.EqualTo(0.46f).Within(0.001f));
         Assert.That(growthButton.GetComponent<RectTransform>().anchorMin.y,
             Is.EqualTo(0.385f).Within(0.001f));
-        Assert.That(codexButton.GetComponent<RectTransform>().anchorMin.y,
-            Is.EqualTo(0.31f).Within(0.001f));
         Assert.That(optionsButton.GetComponent<RectTransform>().anchorMin.y,
-            Is.EqualTo(0.235f).Within(0.001f));
+            Is.EqualTo(0.31f).Within(0.001f));
         Assert.Greater(
             startButton.GetComponent<RectTransform>().anchorMin.y,
             growthButton.GetComponent<RectTransform>().anchorMin.y);
         Assert.Greater(
             growthButton.GetComponent<RectTransform>().anchorMin.y,
-            codexButton.GetComponent<RectTransform>().anchorMin.y);
-        Assert.Greater(
-            codexButton.GetComponent<RectTransform>().anchorMin.y,
             optionsButton.GetComponent<RectTransform>().anchorMin.y);
-        Assert.IsNotNull(FindFirstInScene<LobbyCollectionView>(builderTestScene));
+        Assert.IsNull(lobby.transform.Find("CodexButton"));
         Assert.IsNotNull(FindFirstInScene<PermanentGrowthView>(builderTestScene));
         Assert.IsNotNull(FindFirstInScene<LobbyOptionsView>(builderTestScene));
         Assert.IsNotNull(FindFirstInScene<LobbyScreenNavigator>(builderTestScene));
@@ -552,8 +512,6 @@ public class FallingInkRockTests
             hudSerialized.FindProperty("vfxQualityButton").objectReferenceValue as Button);
         Assert.IsNotNull(
             hudSerialized.FindProperty("vfxStatsText").objectReferenceValue as Text);
-        Assert.IsNotNull(
-            hudSerialized.FindProperty("growthChoiceButton").objectReferenceValue as Button);
         Assert.IsNotNull(windIndicator);
         Assert.IsNotNull(newBestIndicator);
         var windSerialized = new SerializedObject(windIndicator);

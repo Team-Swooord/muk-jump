@@ -55,17 +55,10 @@ namespace MukJump.Drawing
             ? 1f
             : (ink + inkReserve) / Mathf.Max(0.001f, EffectiveInkCapacity);
         public float EffectiveInkCapacity =>
-            inkCapacity *
-            ActivePermanentGrowth.InkCapacityMultiplier *
-            (RunGrowthController.Instance != null
-                ? RunGrowthController.Instance.InkCapacityMultiplier
-                : 1f);
+            inkCapacity * ActivePermanentGrowth.InkCapacityMultiplier;
         public float EffectiveInkRegenPerSecond =>
             inkRegenPerSecond *
             ActivePermanentGrowth.InkRecoveryMultiplier *
-            (RunGrowthController.Instance != null
-                ? RunGrowthController.Instance.InkRecoveryMultiplier
-                : 1f) *
             (lowInkRecoveryActive ? 1.30f : 1f);
 
         PermanentGrowthRunSnapshot ActivePermanentGrowth =>
@@ -178,7 +171,7 @@ namespace MukJump.Drawing
 
             if (GameManager.Instance.State == GameState.Lobby)
             {
-                // 로비는 명시적인 시작·성장·도감 버튼만 입력받는다.
+                // 로비는 명시적인 시작·성장·옵션 버튼만 입력받는다.
                 // 여기서 획을 받으면 UI 탭과 동시에 발판이 생기는 입력 경합이 발생한다.
                 if (drawing) CancelStroke();
                 return;
@@ -408,7 +401,6 @@ namespace MukJump.Drawing
             growthController = next;
             if (growthController == null) return;
 
-            growthController.UpgradeSelected += HandleGrowthUpgradeSelected;
             growthController.RunReset += HandleGrowthRunReset;
             growthController.InkRestoreRequested += HandleInkRestoreRequested;
             growthController.InkRestoreRatioRequested += HandleInkRestoreRatioRequested;
@@ -420,19 +412,11 @@ namespace MukJump.Drawing
         {
             if (growthController != null)
             {
-                growthController.UpgradeSelected -= HandleGrowthUpgradeSelected;
                 growthController.RunReset -= HandleGrowthRunReset;
                 growthController.InkRestoreRequested -= HandleInkRestoreRequested;
                 growthController.InkRestoreRatioRequested -= HandleInkRestoreRatioRequested;
             }
             growthController = null;
-        }
-
-        void HandleGrowthUpgradeSelected(GrowthUpgradeType upgrade)
-        {
-            if (upgrade != GrowthUpgradeType.InkCapacity) return;
-
-            ApplyCapacityIncrease();
         }
 
         void HandlePermanentGrowthChanged()

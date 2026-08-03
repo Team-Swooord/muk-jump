@@ -231,10 +231,7 @@ namespace MukJump.Items
             float maximum = Mathf.Max(minimum, verticalSpacing.y);
             float baseSpacing = GameplayRandom.Range(
                 GameplayRandomStream.Items, minimum, maximum);
-            float growthMultiplier = RunGrowthController.Instance != null
-                ? RunGrowthController.Instance.ItemSpacingMultiplier
-                : 1f;
-            return Mathf.Max(0.1f, baseSpacing * growthMultiplier);
+            return Mathf.Max(0.1f, baseSpacing);
         }
 
         void TrySubscribeToGameManager()

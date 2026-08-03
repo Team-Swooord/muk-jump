@@ -13,7 +13,6 @@ namespace MukJump.Core
         Weather,
         Platforms,
         Player,
-        Growth,
     }
 
     /// 세션 seed에서 기능별 독립 xorshift32 스트림을 파생한다.
@@ -25,7 +24,7 @@ namespace MukJump.Core
         const float FloatUnit = 1f / 16777216f;
 
         static readonly uint[] states =
-            new uint[(int)GameplayRandomStream.Growth + 1];
+            new uint[(int)GameplayRandomStream.Player + 1];
         static bool initialized;
         static int sessionSeed;
         static int sessionVersion;

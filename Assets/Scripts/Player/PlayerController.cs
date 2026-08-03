@@ -267,8 +267,8 @@ namespace MukJump.Player
         public bool TakeHit()
         {
             if (IsDead) return false;
-            // 성장 두루마리는 물리 콜백 안에서 시간을 멈춘다. 같은 Physics2D 스텝에
-            // 이미 예약된 다른 충돌이 이어져도 선택판 뒤에서 피해가 적용되지 않게 한다.
+            // 일시정지·전환 중 같은 Physics2D 스텝에 예약된 충돌이 이어져도
+            // 닫힌 게임 화면 뒤에서 피해가 적용되지 않게 한다.
             var manager = GameManager.Instance;
             if (manager != null && !manager.IsGameplayTicking) return false;
             if (IsInkDropBoosted) return false;
@@ -284,10 +284,6 @@ namespace MukJump.Player
                 ApplyObstacleHitRecovery(shieldHitGraceDuration, false);
                 return true;
             }
-            if (RunGrowthController.Instance != null &&
-                RunGrowthController.Instance.TryAbsorbObstacleHit(this))
-                return true;
-
             if (CurrentHealth <= 1 &&
                 RunGrowthController.Instance != null &&
                 RunGrowthController.Instance.TrySurviveLethalObstacleHit(this))
@@ -314,17 +310,6 @@ namespace MukJump.Player
                     preserveMotion);
             }
             return true;
-        }
-
-        /// 먹두께 완충으로 장애물 피해를 견딘 뒤 겹친 콜라이더에서 빠져나올 최소한의
-        /// 속도만 준다. 아이템 점프처럼 높이 튀우지 않아 현재 발판 경로를 보존한다.
-        public void ApplyVitalityHitRecovery(float graceSeconds)
-        {
-            ApplyObstacleHitRecovery(
-                Mathf.Max(0f,
-                    graceSeconds +
-                    ActivePermanentGrowth.DamageGraceBonusSeconds),
-                true);
         }
 
         float EffectiveDamageHitGraceDuration =>

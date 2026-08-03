@@ -7,7 +7,6 @@ namespace MukJump.Core
     {
         Start,
         Growth,
-        Codex,
         Options,
     }
 
@@ -34,8 +33,7 @@ namespace MukJump.Core
 
         public static readonly Vector2 StartAnchor = new(MenuRailX, 0.46f);
         public static readonly Vector2 GrowthAnchor = new(MenuRailX, 0.385f);
-        public static readonly Vector2 CodexAnchor = new(MenuRailX, 0.31f);
-        public static readonly Vector2 OptionsAnchor = new(MenuRailX, 0.235f);
+        public static readonly Vector2 OptionsAnchor = new(MenuRailX, 0.31f);
 
         public static void ApplyRecord(Text label)
         {

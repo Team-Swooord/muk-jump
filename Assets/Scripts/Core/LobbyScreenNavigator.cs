@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace MukJump.Core
 {
-    /// 로비와 전용 성장·도감 화면 사이의 표시·입력·먹붓 전환을 한 곳에서 소유한다.
+    /// 로비와 전용 영구 성장 화면 사이의 표시·입력·먹붓 전환을 한 곳에서 소유한다.
     /// 별도 Unity 씬을 로드하지 않아 음악과 런타임 싱글톤 상태를 그대로 보존한다.
     [DisallowMultipleComponent]
     public sealed class LobbyScreenNavigator : MonoBehaviour
@@ -12,7 +12,6 @@ namespace MukJump.Core
         {
             Lobby,
             PermanentGrowth,
-            Codex,
         }
 
         public static LobbyScreenNavigator Instance { get; private set; }
@@ -21,7 +20,6 @@ namespace MukJump.Core
         BrushTransitionView transitionView;
         LobbyView lobbyView;
         PermanentGrowthView growthView;
-        LobbyCollectionView codexView;
         LobbyOptionsView optionsView;
         Coroutine revealWaitRoutine;
         LobbySection previousSection;
@@ -73,11 +71,6 @@ namespace MukJump.Core
             return RequestSection(LobbySection.PermanentGrowth);
         }
 
-        public bool OpenCodex()
-        {
-            return RequestSection(LobbySection.Codex);
-        }
-
         public bool ReturnToLobby()
         {
             return RequestSection(LobbySection.Lobby);
@@ -99,10 +92,6 @@ namespace MukJump.Core
                 growthView = GetComponent<PermanentGrowthView>();
             if (growthView == null)
                 growthView = FindFirstObjectByType<PermanentGrowthView>();
-            if (codexView == null)
-                codexView = GetComponent<LobbyCollectionView>();
-            if (codexView == null)
-                codexView = FindFirstObjectByType<LobbyCollectionView>();
             if (optionsView == null)
                 optionsView = GetComponent<LobbyOptionsView>();
             if (optionsView == null)
@@ -251,7 +240,6 @@ namespace MukJump.Core
             ApplyMenuSelection(section);
             bool showLobby = section == LobbySection.Lobby;
             bool showGrowth = section == LobbySection.PermanentGrowth;
-            bool showCodex = section == LobbySection.Codex;
 
             lobbyView?.SetNavigationPresentation(
                 showLobby,
@@ -259,9 +247,6 @@ namespace MukJump.Core
             growthView?.SetNavigationPresentation(
                 showGrowth,
                 showGrowth && interactive);
-            codexView?.SetNavigationPresentation(
-                showCodex,
-                showCodex && interactive);
         }
 
         void ApplyMenuSelection(LobbySection section)
@@ -270,7 +255,6 @@ namespace MukJump.Core
             lobbyView.SetActiveMenu(section switch
             {
                 LobbySection.PermanentGrowth => LobbyMenuSelection.Growth,
-                LobbySection.Codex => LobbyMenuSelection.Codex,
                 _ => LobbyMenuSelection.Start,
             });
         }

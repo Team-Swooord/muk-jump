@@ -39,7 +39,6 @@ namespace MukJump.Drawing
         public bool IsTemporaryDrawnPlatform =>
             lifetime > 0f && !windCurrentPlatform && !growthSafetyPlatform &&
             !removalRequested;
-        public bool HasStrokeGuard => runHazardGuardAvailable;
         EdgeCollider2D edge;
         readonly HashSet<int> windUsers = new();
         readonly Gradient fadeGradient = new();
@@ -55,7 +54,6 @@ namespace MukJump.Drawing
         float age;
         float lastEffectiveLifetime;
         bool removalRequested;
-        bool runHazardGuardAvailable;
         bool firstLandingHandled;
         float lifetimePauseRemaining;
         float spentInk;
@@ -72,9 +70,6 @@ namespace MukJump.Drawing
                 layer = LayerMask.NameToLayer("Platform"),
             };
             var platform = go.AddComponent<PlatformCollider>();
-            platform.runHazardGuardAvailable =
-                RunGrowthController.Instance != null &&
-                RunGrowthController.Instance.NewPlatformsHaveStrokeGuard;
             platform.spentInk = Mathf.Max(0f, consumedInk);
             platform.Build(worldPoints);
 
@@ -172,7 +167,6 @@ namespace MukJump.Drawing
             lifetime = 0f;
             age = 0f;
             removalRequested = false;
-            runHazardGuardAvailable = false;
             growthSafetyPlatform = false;
             firstLandingHandled = false;
             lifetimePauseRemaining = 0f;
@@ -341,12 +335,6 @@ namespace MukJump.Drawing
         {
             if (windCurrentPlatform || growthSafetyPlatform) return false;
             if (removalRequested) return false;
-            if (runHazardGuardAvailable)
-            {
-                // 한 판 굳은 획은 발판마다 한 번씩 가장 먼저 소비한다.
-                runHazardGuardAvailable = false;
-                return true;
-            }
             if (RunGrowthController.Instance != null &&
                 RunGrowthController.Instance.TryUsePermanentStrokeGuard())
             {
@@ -432,19 +420,12 @@ namespace MukJump.Drawing
             age = Mathf.Max(age, effectiveLifetime - fadeDuration);
         }
 
-        static int ActivePlatformBudget =>
-            MaxActivePlatforms +
-            (RunGrowthController.Instance != null
-                ? RunGrowthController.Instance.AdditionalPlatformSlots
-                : 0);
+        static int ActivePlatformBudget => MaxActivePlatforms;
 
         float EffectiveLifetime
         {
             get
             {
-                float growthMultiplier = RunGrowthController.Instance != null
-                    ? RunGrowthController.Instance.PlatformLifetimeMultiplier
-                    : 1f;
                 PermanentGrowthRunSnapshot permanent =
                     RunGrowthController.Instance != null
                         ? RunGrowthController.Instance.PermanentSnapshot
@@ -456,8 +437,7 @@ namespace MukJump.Drawing
                        Mathf.Clamp(
                            permanent.PlatformLifetimeMultiplier,
                            1f,
-                           1.04f) *
-                       Mathf.Clamp(growthMultiplier, 1f, 1.3f);
+                           1.04f);
             }
         }
 

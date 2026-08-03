@@ -134,16 +134,12 @@ namespace MukJump.Player
                 Vector3.up,
                 surfaceNormal,
                 normalInfluence).normalized;
-            // 세션 성장은 자동 점프에만 적용한다. 먹물방울·풍맥처럼 높이를 직접
-            // 지정하는 특수 상승은 PlayerController 경로라 기존 밸런스를 유지한다.
-            float growthMultiplier = RunGrowthController.Instance != null
-                ? RunGrowthController.Instance.JumpPowerMultiplier
-                : 1f;
+            // 영구 성장 점프 효과는 일반 자동 점프에만 적용한다. 먹물방울·풍맥처럼
+            // 높이를 직접 지정하는 특수 상승은 PlayerController 경로라 기존 밸런스를 유지한다.
             float permanentMultiplier =
                 ActivePermanentGrowth.JumpPowerMultiplier;
             float power = baseJumpSpeed * jumpStrengthMultiplier *
-                          PowerMultiplier() * growthMultiplier *
-                          permanentMultiplier;
+                          PowerMultiplier() * permanentMultiplier;
             float horizontal = direction.x * power + rb.linearVelocity.x * horizontalMomentumRetention;
             if (Mathf.Abs(direction.x) < 0.08f)
             {
