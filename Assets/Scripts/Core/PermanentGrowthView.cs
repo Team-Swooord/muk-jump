@@ -798,7 +798,7 @@ namespace MukJump.Core
                 selectedActionRoot,
                 LoadPermanentGrowthSprite("pg_hanji_card") ??
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, 28f),
+                new Vector2(0f, 8f),
                 new Vector2(700f, 520f),
                 WithAlpha(InkPalette.Ink, 0.94f));
             infoPanel.raycastTarget = false;
@@ -810,7 +810,7 @@ namespace MukJump.Core
                 "ActionBranchBrush",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(72f, 202f),
+                new Vector2(72f, 145f),
                 new Vector2(476f, 50f),
                 WithAlpha(InkPalette.Gold, 0.32f));
             selectedActionBranchText = CreateText(
@@ -828,8 +828,8 @@ namespace MukJump.Core
                 "ActionIconPlate",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(-260f, 250f),
-                new Vector2(104f, 104f),
+                new Vector2(-260f, 180f),
+                new Vector2(96f, 96f),
                 WithAlpha(InkPalette.Paper2, 0.96f));
             iconPlate.preserveAspect = true;
 
@@ -837,8 +837,8 @@ namespace MukJump.Core
                 "ActionIcon",
                 selectedActionRoot,
                 null,
-                new Vector2(-260f, 250f),
-                new Vector2(72f, 72f),
+                new Vector2(-260f, 180f),
+                new Vector2(68f, 68f),
                 Color.white);
             selectedActionIcon.preserveAspect = true;
 
@@ -847,7 +847,7 @@ namespace MukJump.Core
                 selectedActionRoot,
                 string.Empty,
                 44,
-                new Vector2(72f, 266f),
+                new Vector2(72f, 196f),
                 new Vector2(476f, 60f),
                 InkPalette.Paper,
                 FontStyle.Bold,
@@ -857,7 +857,7 @@ namespace MukJump.Core
                 "ActionDivider",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0f, 148f),
+                new Vector2(0f, 90f),
                 new Vector2(604f, 10f),
                 WithAlpha(InkPalette.Paper, 0.2f));
 
@@ -866,7 +866,7 @@ namespace MukJump.Core
                 selectedActionRoot,
                 string.Empty,
                 34,
-                new Vector2(0f, 88f),
+                new Vector2(0f, 30f),
                 new Vector2(604f, 58f),
                 InkPalette.Paper,
                 FontStyle.Bold,
@@ -878,9 +878,9 @@ namespace MukJump.Core
                 selectedActionRoot,
                 string.Empty,
                 30,
-                new Vector2(0f, -22f),
+                new Vector2(0f, -78f),
                 new Vector2(604f, 132f),
-                WithAlpha(InkPalette.Paper, 0.84f),
+                WithAlpha(InkPalette.Paper, 0.92f),
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
             selectedActionDescriptionText.lineSpacing = 1.08f;
@@ -921,7 +921,7 @@ namespace MukJump.Core
                 "EnhanceButton",
                 selectedActionRoot,
                 "강화하기",
-                new Vector2(0f, -318f),
+                new Vector2(0f, -304f),
                 new Vector2(344f, 104f),
                 36);
             purchaseButtonText =
@@ -932,7 +932,7 @@ namespace MukJump.Core
                 "CloseButton",
                 selectedActionRoot,
                 "닫기",
-                new Vector2(300f, 348f),
+                new Vector2(280f, 294f),
                 new Vector2(116f, 72f),
                 26);
             NodePopupCloseButton.onClick.AddListener(CloseNodePopup);
@@ -1324,7 +1324,7 @@ namespace MukJump.Core
             selectedActionCostText.gameObject.SetActive(showCost);
             selectedActionCostText.text = cost.ToString();
             PurchaseButton.GetComponent<RectTransform>().anchoredPosition =
-                new Vector2(0f, -318f);
+                new Vector2(0f, -304f);
 
             if (purchaseButtonText != null)
             {

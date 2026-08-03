@@ -211,9 +211,27 @@ namespace MukJump.EditorTests
             Assert.That(branch.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
             Assert.That(effect.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
             Assert.That(description.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+            Assert.That(description.fontStyle, Is.EqualTo(FontStyle.Normal));
+            Assert.That(
+                description.GetComponent<Outline>()?.enabled,
+                Is.False,
+                "설명문에는 Bold처럼 보이는 합성 외곽선을 사용하지 않습니다.");
             Assert.That(icon.anchoredPosition.x,
                 Is.LessThan(name.rectTransform.anchoredPosition.x));
             Assert.That(effect.text, Is.EqualTo("점프 준비시간 -1.5%"));
+
+            RectTransform infoRect = infoPanel.rectTransform;
+            float readableInfoTop = infoRect.anchoredPosition.y +
+                                    infoRect.sizeDelta.y * 0.5f - 24f;
+            Assert.That(
+                icon.anchoredPosition.y + icon.sizeDelta.y * 0.5f,
+                Is.LessThanOrEqualTo(readableInfoTop),
+                "아이콘은 검은 정보판 상단 안쪽에 있어야 합니다.");
+            Assert.That(
+                name.rectTransform.anchoredPosition.y +
+                name.rectTransform.sizeDelta.y * 0.5f,
+                Is.LessThanOrEqualTo(readableInfoTop),
+                "이름은 검은 정보판 상단 안쪽에 있어야 합니다.");
 
             RectTransform popupRect = popup.GetComponent<RectTransform>();
             foreach (string elementName in new[]
@@ -236,6 +254,14 @@ namespace MukJump.EditorTests
                     Is.LessThanOrEqualTo(popupRect.sizeDelta.y * 0.5f),
                     $"{elementName}이 팝업 상하로 삐져나옵니다.");
             }
+
+            RectTransform closeButton = popup.Find("CloseButton")
+                .GetComponent<RectTransform>();
+            Assert.That(
+                closeButton.anchoredPosition.y +
+                closeButton.sizeDelta.y * 0.5f,
+                Is.LessThanOrEqualTo(popupRect.sizeDelta.y * 0.5f - 64f),
+                "닫기 붓획은 한지 카드 상단 테두리 안쪽에 있어야 합니다.");
         }
 
         [Test]
