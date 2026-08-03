@@ -242,11 +242,13 @@ namespace MukJump.EditorTests
             Assert.That(popup, Is.Not.Null);
             Assert.That(popup.Find("ActionName"), Is.Not.Null);
             Assert.That(popup.Find("ActionDescription"), Is.Not.Null);
-            Assert.That(popup.Find("ActionCurrentEffect"), Is.Not.Null);
-            Assert.That(popup.Find("ActionNextEffect"), Is.Not.Null);
+            Assert.That(popup.Find("ActionEffectSummary"), Is.Not.Null);
+            Assert.That(popup.Find("ActionCurrentEffect"), Is.Null);
+            Assert.That(popup.Find("ActionUsage"), Is.Null);
+            Assert.That(popup.Find("ActionNextEffect"), Is.Null);
+            Assert.That(popup.Find("ActionStatus"), Is.Null);
             Assert.That(popup.Find("ActionCostIcon"), Is.Not.Null);
             Assert.That(popup.Find("EnhanceButton"), Is.Not.Null);
-            Assert.That(popup.Find("ActionStatus"), Is.Not.Null);
             Assert.That(popup.Find("CloseButton"), Is.Not.Null);
         }
 

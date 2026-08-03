@@ -188,7 +188,8 @@ namespace MukJump.EditorTests
                 Is.GreaterThanOrEqualTo(800f));
             Assert.That(
                 selectedAction.sizeDelta.y,
-                Is.GreaterThanOrEqualTo(850f));
+                Is.InRange(780f, 850f),
+                "상세창은 필요한 정보만 담은 짧은 카드여야 합니다.");
             Assert.That(selectedAction.gameObject.activeSelf, Is.False);
 
             growthView.SelectGrowthForTests(0);
@@ -204,15 +205,14 @@ namespace MukJump.EditorTests
             Assert.That(actionName, Is.Not.Null);
             Assert.That(actionName.fontStyle, Is.EqualTo(FontStyle.Bold));
             Assert.That(selectedAction.Find("ActionDescription"), Is.Not.Null);
-            Assert.That(selectedAction.Find("ActionCurrentEffect"), Is.Not.Null);
-            Assert.That(selectedAction.Find("ActionNextEffect"), Is.Not.Null);
+            Assert.That(selectedAction.Find("ActionEffectSummary"), Is.Not.Null);
+            Assert.That(selectedAction.Find("ActionCurrentEffect"), Is.Null);
+            Assert.That(selectedAction.Find("ActionUsage"), Is.Null);
+            Assert.That(selectedAction.Find("ActionNextEffect"), Is.Null);
+            Assert.That(selectedAction.Find("ActionStatus"), Is.Null);
             Assert.That(
                 selectedAction.Find("ActionCostIcon")?.GetComponent<Image>(),
                 Is.Not.Null);
-            Text actionStatus = selectedAction.Find("ActionStatus")
-                ?.GetComponent<Text>();
-            Assert.That(actionStatus, Is.Not.Null);
-            Assert.That(actionStatus.fontStyle, Is.EqualTo(FontStyle.Normal));
             Assert.That(
                 selectedAction.Find("EnhanceButton")?.GetComponent<Button>(),
                 Is.Not.Null);
@@ -334,14 +334,11 @@ namespace MukJump.EditorTests
             Text actionName = action.Find("ActionName")?.GetComponent<Text>();
             Text actionDescription = action.Find("ActionDescription")
                 ?.GetComponent<Text>();
-            Text currentEffect = action.Find("ActionCurrentEffect")
-                ?.GetComponent<Text>();
-            Text nextEffect = action.Find("ActionNextEffect")
+            Text effectSummary = action.Find("ActionEffectSummary")
                 ?.GetComponent<Text>();
             Assert.That(actionName, Is.Not.Null);
             Assert.That(actionDescription, Is.Not.Null);
-            Assert.That(currentEffect, Is.Not.Null);
-            Assert.That(nextEffect, Is.Not.Null);
+            Assert.That(effectSummary, Is.Not.Null);
 
             for (int slot = 0;
                  slot < PermanentGrowthCatalog.Nodes.Count;
@@ -357,8 +354,9 @@ namespace MukJump.EditorTests
                 Assert.That(
                     actionDescription.text,
                     Is.EqualTo(definition.Description));
-                Assert.That(currentEffect.text, Is.Not.Empty);
-                Assert.That(nextEffect.text, Is.Not.Empty);
+                Assert.That(
+                    effectSummary.text,
+                    Is.EqualTo(definition.EffectSummary));
                 Assert.That(view.TreeScrollRect.enabled, Is.False);
                 view.NodePopupCloseButton.onClick.Invoke();
                 Assert.That(view.IsNodePopupOpen, Is.False);

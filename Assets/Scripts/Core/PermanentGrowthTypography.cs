@@ -15,8 +15,7 @@ namespace MukJump.Core
                 "Balance" => 44,
                 "BranchTitle" => 34,
                 "ActionName" => 32,
-                "ActionUsage" => 27,
-                "ActionStatus" => 28,
+                "ActionEffectSummary" => 30,
                 _ => requestedSize,
             };
             return Math.Max(requestedSize, minimum);
@@ -46,10 +45,7 @@ namespace MukJump.Core
                 "ActionName" => 0.55f,
                 "ActionBranch" => 0.35f,
                 "ActionDescription" => 0.35f,
-                "ActionCurrentEffect" => 0.4f,
-                "ActionUsage" => 0.35f,
-                "ActionNextEffect" => 0.45f,
-                "ActionStatus" => 0.4f,
+                "ActionEffectSummary" => 0.45f,
                 _ => 1f,
             };
             float alpha = elementName switch
@@ -59,10 +55,7 @@ namespace MukJump.Core
                 "ActionName" => 0.24f,
                 "ActionBranch" => 0.18f,
                 "ActionDescription" => 0.2f,
-                "ActionCurrentEffect" => 0.2f,
-                "ActionUsage" => 0.18f,
-                "ActionNextEffect" => 0.22f,
-                "ActionStatus" => 0.2f,
+                "ActionEffectSummary" => 0.22f,
                 _ => 0.64f,
             };
             Color color = text.color;

@@ -160,24 +160,22 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void PopupLongCopy_UsesReadableBestFitInsteadOfClipping()
+        public void PopupCopy_UsesReadableBestFitWithoutDuplicateRows()
         {
             SeedV2(new string[0]);
             PermanentGrowthView view = BuildView();
             Transform popup = FindPopup(view);
             Text description = popup.Find("ActionDescription").GetComponent<Text>();
-            Text status = popup.Find("ActionStatus").GetComponent<Text>();
-            Text usage = popup.Find("ActionUsage").GetComponent<Text>();
-            Text effect = popup.Find("ActionNextEffect").GetComponent<Text>();
+            Text effect = popup.Find("ActionEffectSummary").GetComponent<Text>();
 
             Assert.That(description.resizeTextForBestFit, Is.True);
             Assert.That(description.resizeTextMinSize, Is.GreaterThanOrEqualTo(28));
-            Assert.That(usage.resizeTextForBestFit, Is.True);
-            Assert.That(usage.resizeTextMinSize, Is.GreaterThanOrEqualTo(26));
             Assert.That(effect.resizeTextForBestFit, Is.True);
-            Assert.That(effect.resizeTextMinSize, Is.GreaterThanOrEqualTo(27));
-            Assert.That(status.resizeTextForBestFit, Is.True);
-            Assert.That(status.resizeTextMinSize, Is.GreaterThanOrEqualTo(25));
+            Assert.That(effect.resizeTextMinSize, Is.GreaterThanOrEqualTo(30));
+            Assert.That(popup.Find("ActionCurrentEffect"), Is.Null);
+            Assert.That(popup.Find("ActionUsage"), Is.Null);
+            Assert.That(popup.Find("ActionNextEffect"), Is.Null);
+            Assert.That(popup.Find("ActionStatus"), Is.Null);
 
             foreach (PermanentGrowthNodeDefinition node
                      in PermanentGrowthCatalog.Nodes)
@@ -185,7 +183,7 @@ namespace MukJump.EditorTests
                 SelectNode(view, node.Id);
                 Canvas.ForceUpdateCanvases();
                 Assert.That(description.text, Is.Not.Empty, node.Id);
-                Assert.That(status.text, Is.Not.Empty, node.Id);
+                Assert.That(effect.text, Is.EqualTo(node.EffectSummary), node.Id);
             }
         }
 
@@ -202,11 +200,7 @@ namespace MukJump.EditorTests
             Text name = popup.Find("ActionName").GetComponent<Text>();
             Text branch = popup.Find("ActionBranchBrush/ActionBranch")
                 .GetComponent<Text>();
-            Text current =
-                popup.Find("ActionCurrentEffect").GetComponent<Text>();
-            Text usage = popup.Find("ActionUsage").GetComponent<Text>();
-            Text effect =
-                popup.Find("ActionNextEffect").GetComponent<Text>();
+            Text effect = popup.Find("ActionEffectSummary").GetComponent<Text>();
             Text description =
                 popup.Find("ActionDescription").GetComponent<Text>();
             RectTransform icon =
@@ -215,14 +209,33 @@ namespace MukJump.EditorTests
             Assert.That(infoPanel.color.a, Is.GreaterThanOrEqualTo(0.9f));
             Assert.That(name.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
             Assert.That(branch.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
-            Assert.That(current.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
-            Assert.That(usage.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
             Assert.That(effect.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
             Assert.That(description.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
             Assert.That(icon.anchoredPosition.x,
                 Is.LessThan(name.rectTransform.anchoredPosition.x));
-            Assert.That(usage.text, Does.StartWith("적용 방식"));
-            Assert.That(effect.text, Does.StartWith("핵심 효과"));
+            Assert.That(effect.text, Is.EqualTo("점프 준비시간 -1.5%"));
+
+            RectTransform popupRect = popup.GetComponent<RectTransform>();
+            foreach (string elementName in new[]
+                     {
+                         "ActionInfoPanel", "ActionIconPlate", "ActionIcon",
+                         "ActionName", "ActionDivider", "ActionEffectSummary",
+                         "ActionDescription", "ActionCostPlate", "ActionCostIcon",
+                         "ActionCost", "EnhanceButton", "CloseButton",
+                     })
+            {
+                RectTransform child = popup.Find(elementName)
+                    ?.GetComponent<RectTransform>();
+                Assert.That(child, Is.Not.Null, elementName);
+                Assert.That(
+                    Mathf.Abs(child.anchoredPosition.x) + child.sizeDelta.x * 0.5f,
+                    Is.LessThanOrEqualTo(popupRect.sizeDelta.x * 0.5f),
+                    $"{elementName}이 팝업 좌우로 삐져나옵니다.");
+                Assert.That(
+                    Mathf.Abs(child.anchoredPosition.y) + child.sizeDelta.y * 0.5f,
+                    Is.LessThanOrEqualTo(popupRect.sizeDelta.y * 0.5f),
+                    $"{elementName}이 팝업 상하로 삐져나옵니다.");
+            }
         }
 
         [Test]
@@ -232,19 +245,23 @@ namespace MukJump.EditorTests
             PermanentGrowthView view = BuildView();
             var leapRects = new List<(string Id, Rect Bounds)>();
             var leapGlowRects = new List<(string Id, Rect Bounds)>();
+            var inkRects = new List<(string Id, Rect Bounds)>();
 
             foreach (PermanentGrowthNodeDefinition definition
                      in PermanentGrowthCatalog.Nodes)
             {
-                if (definition.Branch != PermanentGrowthBranch.Leap)
-                    continue;
                 RectTransform node =
                     FindNode(view, definition.Id).GetComponent<RectTransform>();
+                Rect bounds = new(
+                    node.anchoredPosition - node.sizeDelta * 0.5f,
+                    node.sizeDelta);
+                if (definition.Branch == PermanentGrowthBranch.InkHandling)
+                    inkRects.Add((definition.Id, bounds));
+                if (definition.Branch != PermanentGrowthBranch.Leap)
+                    continue;
                 leapRects.Add((
                     definition.Id,
-                    new Rect(
-                        node.anchoredPosition - node.sizeDelta * 0.5f,
-                        node.sizeDelta)));
+                    bounds));
                 RectTransform glow = node.Find("FruitGlow")
                     .GetComponent<RectTransform>();
                 Vector2 glowCenter =
@@ -273,6 +290,15 @@ namespace MukJump.EditorTests
                         leapGlowRects[right].Bounds),
                     Is.False,
                     $"{leapGlowRects[left].Id}와 {leapGlowRects[right].Id}의 광륜이 겹칩니다.");
+            }
+
+            foreach ((string leapId, Rect leapBounds) in leapRects)
+            foreach ((string inkId, Rect inkBounds) in inkRects)
+            {
+                Assert.That(
+                    leapBounds.Overlaps(inkBounds),
+                    Is.False,
+                    $"도약 {leapId}와 먹 운용 {inkId}의 터치 영역이 겹칩니다.");
             }
 
             RectTransform a2 = FindNode(view, "J-A2")

@@ -8,7 +8,7 @@ namespace MukJump.Core
 {
     /// 로비의 영구 성장 전용 화면.
     /// 생존·도약·먹 운용 세 계보를 하나의 드래그형 먹나무로 표시한다.
-    /// 노드를 누르면 화면 중앙 상세 팝업에서 효과·조건·비용을 확인하고 강화한다.
+    /// 노드를 누르면 화면 중앙 상세 팝업에서 핵심 수치·설명·비용을 확인하고 강화한다.
     [DisallowMultipleComponent]
     public sealed class PermanentGrowthView : MonoBehaviour
     {
@@ -20,7 +20,9 @@ namespace MukJump.Core
         const float TreeBackgroundOpacity = 0.42f;
         const float TreeBranchOpacity = 1f;
         const float BranchVisibleEndpointOverlap = 18f;
-        static readonly Vector2 TreeCanvasSize = new(3400f, 3200f);
+        const float LeapBranchHorizontalOffset = 300f;
+        const float LeapLeftKeystoneExtraOffset = 140f;
+        static readonly Vector2 TreeCanvasSize = new(3600f, 3200f);
         static readonly Vector2 TreeBackgroundSize = new(2200f, 3060f);
         static readonly Vector2 TreeBackgroundPosition = Vector2.zero;
         static readonly Vector2 TreeRootPosition = new(0f, -1420f);
@@ -80,10 +82,7 @@ namespace MukJump.Core
         Text selectedActionBranchText;
         Text selectedActionNameText;
         Text selectedActionDescriptionText;
-        Text selectedActionCurrentEffectText;
-        Text selectedActionUsageText;
-        Text selectedActionNextEffectText;
-        Text selectedActionStatusText;
+        Text selectedActionEffectSummaryText;
         Image selectedActionIcon;
         Image selectedActionCostPlate;
         Image selectedActionCostIcon;
@@ -779,8 +778,8 @@ namespace MukJump.Core
             selectedActionRoot = CreateRect(
                 "SelectedGrowthAction",
                 parent,
-                new Vector2(0f, -18f),
-                new Vector2(860f, 1040f));
+                new Vector2(0f, -8f),
+                new Vector2(820f, 820f));
             Image popupPaper =
                 selectedActionRoot.gameObject.AddComponent<Image>();
             popupPaper.sprite =
@@ -799,8 +798,8 @@ namespace MukJump.Core
                 selectedActionRoot,
                 LoadPermanentGrowthSprite("pg_hanji_card") ??
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, 20f),
-                new Vector2(744f, 770f),
+                new Vector2(0f, 28f),
+                new Vector2(700f, 520f),
                 WithAlpha(InkPalette.Ink, 0.94f));
             infoPanel.raycastTarget = false;
             if (infoPanel.sprite != null &&
@@ -811,16 +810,16 @@ namespace MukJump.Core
                 "ActionBranchBrush",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(84f, 274f),
-                new Vector2(500f, 54f),
+                new Vector2(72f, 202f),
+                new Vector2(476f, 50f),
                 WithAlpha(InkPalette.Gold, 0.32f));
             selectedActionBranchText = CreateText(
                 "ActionBranch",
                 branchBrush.transform,
                 string.Empty,
-                27,
+                26,
                 Vector2.zero,
-                new Vector2(456f, 48f),
+                new Vector2(432f, 44f),
                 InkPalette.Paper,
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
@@ -829,8 +828,8 @@ namespace MukJump.Core
                 "ActionIconPlate",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(-278f, 316f),
-                new Vector2(112f, 112f),
+                new Vector2(-260f, 250f),
+                new Vector2(104f, 104f),
                 WithAlpha(InkPalette.Paper2, 0.96f));
             iconPlate.preserveAspect = true;
 
@@ -838,8 +837,8 @@ namespace MukJump.Core
                 "ActionIcon",
                 selectedActionRoot,
                 null,
-                new Vector2(-278f, 316f),
-                new Vector2(76f, 76f),
+                new Vector2(-260f, 250f),
+                new Vector2(72f, 72f),
                 Color.white);
             selectedActionIcon.preserveAspect = true;
 
@@ -847,9 +846,9 @@ namespace MukJump.Core
                 "ActionName",
                 selectedActionRoot,
                 string.Empty,
-                46,
-                new Vector2(84f, 350f),
-                new Vector2(500f, 64f),
+                44,
+                new Vector2(72f, 266f),
+                new Vector2(476f, 60f),
                 InkPalette.Paper,
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft);
@@ -858,79 +857,42 @@ namespace MukJump.Core
                 "ActionDivider",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0f, 224f),
-                new Vector2(640f, 12f),
+                new Vector2(0f, 148f),
+                new Vector2(604f, 10f),
                 WithAlpha(InkPalette.Paper, 0.2f));
 
-            selectedActionCurrentEffectText = CreateText(
-                "ActionCurrentEffect",
+            selectedActionEffectSummaryText = CreateText(
+                "ActionEffectSummary",
                 selectedActionRoot,
                 string.Empty,
-                30,
-                new Vector2(0f, 166f),
-                new Vector2(640f, 54f),
-                WithAlpha(InkPalette.Paper, 0.84f),
+                34,
+                new Vector2(0f, 88f),
+                new Vector2(604f, 58f),
+                InkPalette.Paper,
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft);
-
-            selectedActionUsageText = CreateText(
-                "ActionUsage",
-                selectedActionRoot,
-                string.Empty,
-                28,
-                new Vector2(0f, 100f),
-                new Vector2(640f, 58f),
-                WithAlpha(InkPalette.Paper, 0.78f),
-                FontStyle.Normal,
-                TextAnchor.MiddleLeft);
-            EnableBestFit(selectedActionUsageText, 26);
+            EnableBestFit(selectedActionEffectSummaryText, 30);
 
             selectedActionDescriptionText = CreateText(
                 "ActionDescription",
                 selectedActionRoot,
                 string.Empty,
                 30,
-                new Vector2(0f, -116f),
-                new Vector2(640f, 122f),
+                new Vector2(0f, -22f),
+                new Vector2(604f, 132f),
                 WithAlpha(InkPalette.Paper, 0.84f),
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
-            selectedActionDescriptionText.lineSpacing = 1.04f;
+            selectedActionDescriptionText.lineSpacing = 1.08f;
             selectedActionDescriptionText.verticalOverflow =
                 VerticalWrapMode.Truncate;
             EnableBestFit(selectedActionDescriptionText, 28);
-
-            selectedActionNextEffectText = CreateText(
-                "ActionNextEffect",
-                selectedActionRoot,
-                string.Empty,
-                32,
-                new Vector2(0f, 18f),
-                new Vector2(640f, 86f),
-                InkPalette.Paper,
-                FontStyle.Bold,
-                TextAnchor.MiddleLeft);
-            EnableBestFit(selectedActionNextEffectText, 27);
-
-            selectedActionStatusText = CreateText(
-                "ActionStatus",
-                selectedActionRoot,
-                string.Empty,
-                27,
-                new Vector2(0f, -244f),
-                new Vector2(640f, 96f),
-                WithAlpha(InkPalette.Paper, 0.72f),
-                FontStyle.Normal,
-                TextAnchor.MiddleLeft);
-            selectedActionStatusText.verticalOverflow =
-                VerticalWrapMode.Truncate;
-            EnableBestFit(selectedActionStatusText, 25);
 
             selectedActionCostPlate = CreateImage(
                 "ActionCostPlate",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(-40f, -322f),
+                new Vector2(-40f, -184f),
                 new Vector2(54f, 54f),
                 WithAlpha(InkPalette.Paper2, 0.92f));
             selectedActionCostPlate.preserveAspect = true;
@@ -940,7 +902,7 @@ namespace MukJump.Core
                 selectedActionRoot,
                 LoadPermanentGrowthSprite("pg_ink_drop") ??
                 LoadIcon(PermanentGrowthType.InkCapacity),
-                new Vector2(-40f, -322f),
+                new Vector2(-40f, -184f),
                 new Vector2(34f, 34f),
                 Color.white);
             selectedActionCostIcon.preserveAspect = true;
@@ -949,7 +911,7 @@ namespace MukJump.Core
                 selectedActionRoot,
                 "0",
                 34,
-                new Vector2(22f, -322f),
+                new Vector2(22f, -184f),
                 new Vector2(88f, 54f),
                 InkPalette.Paper,
                 FontStyle.Bold,
@@ -959,9 +921,9 @@ namespace MukJump.Core
                 "EnhanceButton",
                 selectedActionRoot,
                 "강화하기",
-                new Vector2(0f, -438f),
-                new Vector2(380f, 128f),
-                38);
+                new Vector2(0f, -318f),
+                new Vector2(344f, 104f),
+                36);
             purchaseButtonText =
                 PurchaseButton.GetComponentInChildren<Text>(true);
             PurchaseButton.onClick.AddListener(HandleSelectedPurchase);
@@ -970,9 +932,9 @@ namespace MukJump.Core
                 "CloseButton",
                 selectedActionRoot,
                 "닫기",
-                new Vector2(340f, 446f),
-                new Vector2(138f, 96f),
-                28);
+                new Vector2(300f, 348f),
+                new Vector2(116f, 72f),
+                26);
             NodePopupCloseButton.onClick.AddListener(CloseNodePopup);
 
             selectedActionDimmer.gameObject.SetActive(false);
@@ -1311,10 +1273,7 @@ namespace MukJump.Core
                 selectedActionBranchText == null ||
                 selectedActionNameText == null ||
                 selectedActionDescriptionText == null ||
-                selectedActionCurrentEffectText == null ||
-                selectedActionUsageText == null ||
-                selectedActionNextEffectText == null ||
-                selectedActionStatusText == null ||
+                selectedActionEffectSummaryText == null ||
                 selectedActionIcon == null ||
                 selectedActionCostPlate == null ||
                 selectedActionCostIcon == null ||
@@ -1358,48 +1317,14 @@ namespace MukJump.Core
             selectedActionIcon.color = selectedActionIcon.sprite != null
                 ? Color.white
                 : InkPalette.Ink;
-            selectedActionCurrentEffectText.text = unlocked
-                ? definition.IsKeystone
-                    ? activeKeystone
-                        ? "상태  ·  장착 중"
-                        : "상태  ·  해금됨"
-                    : "상태  ·  항상 적용 중"
-                : requirementsMet
-                    ? hasEnoughCurrency
-                        ? "상태  ·  해금 가능"
-                        : "상태  ·  먹빛 부족"
-                    : "상태  ·  선행 열매 필요";
-            selectedActionUsageText.text =
-                ResolveGrowthUsageText(definition);
-            selectedActionNextEffectText.text =
-                $"핵심 효과  ·  {definition.EffectSummary}";
-            selectedActionStatusText.text = unlocked
-                ? definition.IsKeystone
-                    ? activeKeystone
-                        ? "현재 장착한 비기입니다. 다음 도전에도 유지됩니다."
-                        : replacementPending
-                            ? $"{PermanentGrowthCatalog.GetNode(activeKeystoneId)?.DisplayName}에서 " +
-                              $"{definition.DisplayName}(으)로 교체할까요?"
-                            : "해금된 비기입니다. 같은 계보에서 하나만 장착합니다."
-                    : "해금 완료 · 모든 도전에 자동 적용"
-                : requirementsMet
-                    ? hasEnoughCurrency
-                        ? "강화할 준비가 되었습니다."
-                        : $"먹빛 {cost - PermanentGrowthProfile.Currency}개 부족"
-                    : PermanentGrowthProfile.GetNodeLockReason(definition);
-            selectedActionStatusText.color =
-                !unlocked && requirementsMet && !hasEnoughCurrency
-                    ? InkPalette.Red
-                    : requirementsMet || unlocked
-                        ? WithAlpha(InkPalette.Paper, 0.72f)
-                        : InkPalette.Red;
+            selectedActionEffectSummaryText.text = definition.EffectSummary;
             bool showCost = !unlocked;
             selectedActionCostPlate.gameObject.SetActive(showCost);
             selectedActionCostIcon.gameObject.SetActive(showCost);
             selectedActionCostText.gameObject.SetActive(showCost);
             selectedActionCostText.text = cost.ToString();
             PurchaseButton.GetComponent<RectTransform>().anchoredPosition =
-                new Vector2(0f, -438f);
+                new Vector2(0f, -318f);
 
             if (purchaseButtonText != null)
             {
@@ -1499,9 +1424,10 @@ namespace MukJump.Core
             // 차이를 둬 나뭇가지답게 보이되, 터치 영역은 겹치지 않는다.
             bool usesFiveStepPaths =
                 PermanentGrowthCatalog.GetNode("J-A4") != null;
+            Vector2 resolved;
             if (!usesFiveStepPaths)
             {
-                return definition.Id switch
+                resolved = definition.Id switch
                 {
                     "J00" => new Vector2(700f, -1080f),
                     "J-A1" => new Vector2(520f, -750f),
@@ -1519,30 +1445,38 @@ namespace MukJump.Core
                     _ => fallback,
                 };
             }
-
-            return definition.Id switch
+            else
             {
-                "J00" => new Vector2(700f, -1080f),
-                "J-A1" => new Vector2(520f, -810f),
-                "J-A2" => new Vector2(400f, -500f),
-                "J-A3" => new Vector2(470f, -180f),
-                "J-A4" => new Vector2(350f, 120f),
-                "J-A5" => new Vector2(460f, 430f),
-                "J-KA" => new Vector2(330f, 780f),
-                "J-B1" => new Vector2(780f, -790f),
-                "J-B2" => new Vector2(830f, -470f),
-                "J-B3" => new Vector2(750f, -150f),
-                "J-B4" => new Vector2(850f, 160f),
-                "J-B5" => new Vector2(780f, 460f),
-                "J-KB" => new Vector2(830f, 830f),
-                "J-C1" => new Vector2(1060f, -820f),
-                "J-C2" => new Vector2(1190f, -520f),
-                "J-C3" => new Vector2(1110f, -210f),
-                "J-C4" => new Vector2(1240f, 90f),
-                "J-C5" => new Vector2(1150f, 410f),
-                "J-KC" => new Vector2(1280f, 770f),
-                _ => fallback,
-            };
+                resolved = definition.Id switch
+                {
+                    "J00" => new Vector2(700f, -1080f),
+                    "J-A1" => new Vector2(520f, -810f),
+                    "J-A2" => new Vector2(400f, -500f),
+                    "J-A3" => new Vector2(470f, -180f),
+                    "J-A4" => new Vector2(350f, 120f),
+                    "J-A5" => new Vector2(460f, 430f),
+                    "J-KA" => new Vector2(330f, 780f),
+                    "J-B1" => new Vector2(780f, -790f),
+                    "J-B2" => new Vector2(830f, -470f),
+                    "J-B3" => new Vector2(750f, -150f),
+                    "J-B4" => new Vector2(850f, 160f),
+                    "J-B5" => new Vector2(780f, 460f),
+                    "J-KB" => new Vector2(830f, 830f),
+                    "J-C1" => new Vector2(1060f, -820f),
+                    "J-C2" => new Vector2(1190f, -520f),
+                    "J-C3" => new Vector2(1110f, -210f),
+                    "J-C4" => new Vector2(1240f, 90f),
+                    "J-C5" => new Vector2(1150f, 410f),
+                    "J-KC" => new Vector2(1280f, 770f),
+                    _ => fallback,
+                };
+            }
+
+            float extraOffset = definition.Id == "J-KA"
+                ? LeapLeftKeystoneExtraOffset
+                : 0f;
+            return resolved +
+                new Vector2(LeapBranchHorizontalOffset + extraOffset, 0f);
         }
 
         static float CalculateTreeZoom(float screenWidth, float screenHeight)
@@ -1572,7 +1506,9 @@ namespace MukJump.Core
                 PermanentGrowthBranch.InkHandling =>
                     new Vector2(0f, -1270f),
                 PermanentGrowthBranch.Leap =>
-                    new Vector2(700f, -1210f),
+                    new Vector2(
+                        700f + LeapBranchHorizontalOffset,
+                        -1210f),
                 _ => Vector2.zero,
             };
         }
@@ -1586,21 +1522,6 @@ namespace MukJump.Core
                 PermanentGrowthNodeKind.Mechanic => "특성",
                 PermanentGrowthNodeKind.Keystone => "비기",
                 _ => "열매",
-            };
-        }
-
-        static string ResolveGrowthUsageText(
-            PermanentGrowthNodeDefinition definition)
-        {
-            if (definition == null)
-                return string.Empty;
-            return definition.NodeKind switch
-            {
-                PermanentGrowthNodeKind.Keystone =>
-                    "적용 방식  ·  비기 장착 후 자동 발동",
-                PermanentGrowthNodeKind.Mechanic =>
-                    "적용 방식  ·  조건 충족 시 자동 발동",
-                _ => "적용 방식  ·  해금 즉시 영구 적용",
             };
         }
 
