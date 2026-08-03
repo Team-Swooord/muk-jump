@@ -140,8 +140,9 @@ public sealed class ItemSpawnerBalanceTests
         Invoke(manager, "SetState", GameState.Playing);
 
         var sourceObject = Track(new GameObject("CloneSource"));
-        sourceObject.AddComponent<Rigidbody2D>();
-        sourceObject.AddComponent<CircleCollider2D>();
+        var sourceBody = sourceObject.AddComponent<Rigidbody2D>();
+        sourceBody.linearVelocity = new Vector2(1.25f, 2.5f);
+        sourceObject.AddComponent<CircleCollider2D>().radius = 0.4f;
         var source = sourceObject.AddComponent<PlayerController>();
         manager.RegisterPlayer(source);
 
@@ -154,7 +155,12 @@ public sealed class ItemSpawnerBalanceTests
         manager.GetLivingPlayersNonAlloc(living);
         for (int i = 0; i < living.Count; i++)
             if (living[i] != source)
+            {
+                Assert.That(living[i].Body.linearVelocity,
+                    Is.EqualTo(sourceBody.linearVelocity),
+                    "생성 직후 분신을 옆으로 밀어 원본과 다시 벌리면 안 됩니다.");
                 Track(living[i].gameObject);
+            }
     }
 
     [Test]
@@ -253,7 +259,7 @@ public sealed class ItemSpawnerBalanceTests
     }
 
     [Test]
-    public void CloneSpawnChoosesOpenScreenCandidateInsteadOfFixedPile()
+    public void CloneSpawnStaysImmediatelyBesideCollector()
     {
         RetagExistingMainCameras();
         var cameraObject = Track(new GameObject("CloneSpawnCamera"));
@@ -267,24 +273,16 @@ public sealed class ItemSpawnerBalanceTests
 
         var sourceObject = Track(new GameObject("CloneSource"));
         sourceObject.AddComponent<Rigidbody2D>();
-        sourceObject.AddComponent<CircleCollider2D>();
+        sourceObject.AddComponent<CircleCollider2D>().radius = 0.4f;
         var source = sourceObject.AddComponent<PlayerController>();
         manager.RegisterPlayer(source);
-        for (int i = 0; i < 7; i++)
-        {
-            var occupied = Track(new GameObject($"Occupied_{i}"));
-            occupied.transform.position = new Vector3(-1.9f + i % 2 * 3.8f, 0f, 0f);
-            occupied.AddComponent<Rigidbody2D>();
-            occupied.AddComponent<CircleCollider2D>();
-            manager.RegisterPlayer(occupied.AddComponent<PlayerController>());
-        }
 
-        Vector3 result = (Vector3)Invoke(manager, "FindCloneSpawnPosition", source, 8);
+        Vector3 result = (Vector3)Invoke(manager, "FindCloneSpawnPosition", source, 1);
 
-        Assert.Greater(Mathf.Abs(Mathf.Abs(result.x) - 1.9f), 0.25f,
-            "8마리 이후에도 ±1.9 위치에 계속 겹치면 안 됩니다.");
-        float halfWidth = worldCamera.orthographicSize * worldCamera.aspect;
-        Assert.That(result.x, Is.InRange(-halfWidth + 0.65f, halfWidth - 0.65f));
+        Assert.That(Mathf.Abs(result.x - source.transform.position.x),
+            Is.EqualTo(0.9f).Within(0.001f),
+            "반지름 0.4 캐릭터는 0.1 간격을 두고 바로 옆에 생겨야 합니다.");
+        Assert.That(result.y, Is.EqualTo(source.transform.position.y).Within(0.001f));
     }
 
     [Test]
@@ -305,21 +303,29 @@ public sealed class ItemSpawnerBalanceTests
 
         var sourceObject = Track(new GameObject("OppositeCloneSource"));
         sourceObject.AddComponent<Rigidbody2D>();
-        sourceObject.AddComponent<CircleCollider2D>();
+        sourceObject.AddComponent<CircleCollider2D>().radius = 0.4f;
         var source = sourceObject.AddComponent<PlayerController>();
         manager.RegisterPlayer(source);
 
         source.transform.position = new Vector3(1.25f, 7f, 0f);
         Vector3 fromLeft = (Vector3)Invoke(
             manager, "FindCloneSpawnPosition", source, 1);
-        Assert.Greater(fromLeft.x, cameraObject.transform.position.x,
-            "카메라 왼쪽에서 먹분신을 획득하면 새 분신은 오른쪽 절반에 생겨야 합니다.");
+        Assert.Greater(fromLeft.x, source.transform.position.x,
+            "카메라 왼쪽의 획득자에게는 화면 안쪽인 오른편 바로 옆에 생겨야 합니다.");
+        Assert.That(fromLeft.x - source.transform.position.x,
+            Is.EqualTo(0.9f).Within(0.001f));
+        Assert.Less(fromLeft.x, cameraObject.transform.position.x,
+            "인접 생성 때문에 화면 중앙을 넘어 멀리 떨어지면 안 됩니다.");
 
         source.transform.position = new Vector3(5.25f, 7f, 0f);
         Vector3 fromRight = (Vector3)Invoke(
             manager, "FindCloneSpawnPosition", source, 2);
-        Assert.Less(fromRight.x, cameraObject.transform.position.x,
-            "카메라 오른쪽에서 먹분신을 획득하면 새 분신은 왼쪽 절반에 생겨야 합니다.");
+        Assert.Less(fromRight.x, source.transform.position.x,
+            "카메라 오른쪽의 획득자에게는 화면 안쪽인 왼편 바로 옆에 생겨야 합니다.");
+        Assert.That(source.transform.position.x - fromRight.x,
+            Is.EqualTo(0.9f).Within(0.001f));
+        Assert.Greater(fromRight.x, cameraObject.transform.position.x,
+            "인접 생성 때문에 화면 중앙을 넘어 멀리 떨어지면 안 됩니다.");
     }
 
     [Test]
@@ -341,7 +347,7 @@ public sealed class ItemSpawnerBalanceTests
         var sourceObject = Track(new GameObject("CenteredCloneSource"));
         sourceObject.transform.position = new Vector3(-2f, 2f, 0f);
         sourceObject.AddComponent<Rigidbody2D>();
-        sourceObject.AddComponent<CircleCollider2D>();
+        sourceObject.AddComponent<CircleCollider2D>().radius = 0.4f;
         var source = sourceObject.AddComponent<PlayerController>();
         manager.RegisterPlayer(source);
 
@@ -352,6 +358,10 @@ public sealed class ItemSpawnerBalanceTests
 
         Assert.Greater(odd.x, cameraObject.transform.position.x);
         Assert.Less(even.x, cameraObject.transform.position.x);
+        Assert.That(Mathf.Abs(odd.x - source.transform.position.x),
+            Is.EqualTo(0.9f).Within(0.001f));
+        Assert.That(Mathf.Abs(even.x - source.transform.position.x),
+            Is.EqualTo(0.9f).Within(0.001f));
     }
 
     void RetagExistingMainCameras()

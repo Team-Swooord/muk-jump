@@ -28,11 +28,10 @@ namespace MukJump.Core
         /// 먹분신은 각각 물리·애니메이션을 가진 실제 목숨이다. 모바일에서 한 판이
         /// 무한히 무거워지지 않으면서도 화면을 먹떼로 채울 수 있는 안전 상한이다.
         public const int MaxLivingPlayers = 24;
-        /// 새 분신의 중심이 화면 벽과 겹치지 않게 남기는 월드 여백.
-        public const float CloneSpawnHorizontalMargin = 1.1f;
-        /// 획득자가 화면 경계에 있어도 새 분신이 즉시 추락하거나 상단에서 잘리지
-        /// 않게 하는 월드 여백.
-        public const float CloneSpawnVerticalMargin = 1.15f;
+        /// 원본과 새 분신의 보이는 외곽 사이에 남기는 짧은 월드 간격.
+        public const float CloneSpawnHorizontalGap = 0.1f;
+        /// 화면 경계와 새 분신 외곽 사이에 남기는 최소 월드 간격.
+        public const float CloneSpawnScreenEdgePadding = 0.05f;
 
         public static GameManager Instance { get; private set; }
 
@@ -81,7 +80,6 @@ namespace MukJump.Core
         readonly List<PlayerController> players = new();
         readonly List<PlayerController> swarmScratch =
             new(MaxLivingPlayers);
-        int cloneSpawnEnvironmentMask = int.MinValue;
         readonly List<MonoBehaviour> cloneHookBehaviours = new();
         readonly List<IRuntimeCloneLifecycle> cloneHooks = new();
 
@@ -425,7 +423,6 @@ namespace MukJump.Core
             var sourceBody = source.GetComponent<Rigidbody2D>();
             int cloneIndex = Mathf.Max(1, LivingPlayerCount);
             Vector3 spawnPosition = FindCloneSpawnPosition(source, cloneIndex);
-            float direction = spawnPosition.x < source.transform.position.x ? -1f : 1f;
 
             // 구체적인 아이템·VFX 타입을 모른 채 복제 생명주기 계약만 호출한다.
             // 각 기능은 동기 Instantiate 동안 게임 상태가 아닌 캐시 자식을 스스로 분리한다.
@@ -462,8 +459,7 @@ namespace MukJump.Core
             var cloneBody = clone.GetComponent<Rigidbody2D>();
             clone.ConfigureAsClone(source.NormalGravityScale);
             if (sourceBody != null && cloneBody != null)
-                cloneBody.linearVelocity = sourceBody.linearVelocity +
-                                           Vector2.right * (direction * 0.45f);
+                cloneBody.linearVelocity = sourceBody.linearVelocity;
 
             RegisterPlayer(clone);
             RunGrowthController.Instance?.NotifyCloneCreated(source, clone);
@@ -494,127 +490,88 @@ namespace MukJump.Core
             return true;
         }
 
-        /// 먹은 캐릭터의 반대쪽 화면 절반 안에서만 후보를 만들고, 그 안에서 현재
-        /// 생존자·발판·장애물과 가장 멀리 떨어진 지점을 골라 좌우 규칙과
-        /// 24마리 분산을 함께 지킨다.
+        /// 먹은 캐릭터의 스프라이트·Collider 외곽 바로 옆에 새 분신을 만든다. 화면 가운데에서는
+        /// 좌우를 번갈아 쓰고, 한쪽에 치우친 캐릭터는 화면 안쪽을 우선해 생성한다.
+        /// 대량 분산보다 획득한 순간 두 캐릭터가 한 쌍으로 읽히는 것이 우선이다.
         Vector3 FindCloneSpawnPosition(PlayerController source, int cloneIndex)
         {
             Vector3 sourcePosition = source.transform.position;
+            Physics2D.SyncTransforms();
+
+            Collider2D sourceCollider = source.PrimaryCollider;
+            float footprintWidth = 0.8f;
+            float footprintMinOffset = -footprintWidth * 0.5f;
+            float footprintMaxOffset = footprintWidth * 0.5f;
+            bool hasFootprint = false;
+            Bounds footprint = default;
+            if (sourceCollider != null)
+            {
+                footprint = sourceCollider.bounds;
+                hasFootprint = footprint.size.x > 0.01f;
+            }
+
+            var sourceRenderer = source.GetComponent<SpriteRenderer>();
+            if (sourceRenderer != null && sourceRenderer.sprite != null)
+            {
+                Bounds visualBounds = sourceRenderer.bounds;
+                if (visualBounds.size.x > 0.01f)
+                {
+                    if (hasFootprint)
+                        footprint.Encapsulate(visualBounds);
+                    else
+                    {
+                        footprint = visualBounds;
+                        hasFootprint = true;
+                    }
+                }
+            }
+
+            if (hasFootprint)
+            {
+                footprintWidth = footprint.size.x;
+                footprintMinOffset = footprint.min.x - sourcePosition.x;
+                footprintMaxOffset = footprint.max.x - sourcePosition.x;
+            }
+
+            float adjacentDistance = footprintWidth + CloneSpawnHorizontalGap;
             var worldCamera = Camera.main;
             if (worldCamera == null)
             {
                 float fallbackDirection = ResolveOppositeCloneSide(
                     sourcePosition.x, 0f, cloneIndex);
-                float fallbackX = Mathf.Abs(sourcePosition.x) > 0.2f
-                    ? -sourcePosition.x
-                    : fallbackDirection * 0.9f;
-                return new Vector3(fallbackX, sourcePosition.y, sourcePosition.z);
+                return sourcePosition +
+                       Vector3.right * (fallbackDirection * adjacentDistance);
             }
 
-            const int CandidateCount = 13;
-            const int VerticalCandidateCount = 5;
-            const float SpawnClearanceRadius = 0.52f;
             float halfWidth = worldCamera.orthographicSize * worldCamera.aspect;
             float cameraCenterX = worldCamera.transform.position.x;
-            float horizontalMargin = Mathf.Min(
-                CloneSpawnHorizontalMargin,
-                Mathf.Max(0f, halfWidth * 0.45f));
-            float usableHalfWidth = Mathf.Max(
-                0.1f,
-                halfWidth - horizontalMargin);
-            float left = cameraCenterX - usableHalfWidth;
-            float right = cameraCenterX + usableHalfWidth;
-            float halfHeight = worldCamera.orthographicSize;
-            float verticalMargin = Mathf.Min(
-                CloneSpawnVerticalMargin,
-                Mathf.Max(0f, halfHeight * 0.45f));
-            float safeBottom =
-                worldCamera.transform.position.y - halfHeight + verticalMargin;
-            float safeTop =
-                worldCamera.transform.position.y + halfHeight - verticalMargin;
-            float safeSourceY = Mathf.Clamp(
-                sourcePosition.y,
-                safeBottom,
-                safeTop);
             float direction = ResolveOppositeCloneSide(
                 sourcePosition.x, cameraCenterX, cloneIndex);
-            float centerGap = Mathf.Min(0.25f, Mathf.Max(0f, (right - left) * 0.08f));
-            float sideStart = cameraCenterX + direction * centerGap;
-            float sideEnd = direction > 0f ? right : left;
-            if ((direction > 0f && sideEnd <= sideStart) ||
-                (direction < 0f && sideEnd >= sideStart))
-            {
-                sideStart = cameraCenterX;
-                sideEnd = direction > 0f ? right : left;
-            }
+            float cameraLeft = cameraCenterX - halfWidth;
+            float cameraRight = cameraCenterX + halfWidth;
+            float minRootX = cameraLeft + CloneSpawnScreenEdgePadding -
+                             footprintMinOffset;
+            float maxRootX = cameraRight - CloneSpawnScreenEdgePadding -
+                             footprintMaxOffset;
 
-            Vector3 best = sourcePosition;
-            float bestClearance = float.NegativeInfinity;
-            CleanupPlayers();
-            if (cloneSpawnEnvironmentMask == int.MinValue)
-                cloneSpawnEnvironmentMask =
-                    LayerMask.GetMask("Platform", "Obstacle");
-            Physics2D.SyncTransforms();
+            float preferredX = Mathf.Clamp(
+                sourcePosition.x + direction * adjacentDistance,
+                minRootX,
+                maxRootX);
+            float alternateX = Mathf.Clamp(
+                sourcePosition.x - direction * adjacentDistance,
+                minRootX,
+                maxRootX);
 
-            for (int candidateIndex = 0; candidateIndex < CandidateCount; candidateIndex++)
-            {
-                float order = (candidateIndex + cloneIndex * 5) % CandidateCount;
-                float x = Mathf.Lerp(
-                    sideStart, sideEnd, order / (CandidateCount - 1f));
-                for (int verticalIndex = 0;
-                     verticalIndex < VerticalCandidateCount;
-                     verticalIndex++)
-                {
-                    int centeredIndex = (verticalIndex + 1) / 2;
-                    float signedOffset = verticalIndex == 0
-                        ? 0f
-                        : centeredIndex * 0.58f *
-                          (verticalIndex % 2 == 1 ? 1f : -1f);
-                    float y = Mathf.Clamp(
-                        safeSourceY + signedOffset,
-                        safeBottom,
-                        safeTop);
-                    var candidate = new Vector3(x, y, sourcePosition.z);
-                    if (cloneSpawnEnvironmentMask != 0 &&
-                        Physics2D.OverlapCircle(
-                            candidate,
-                            SpawnClearanceRadius,
-                            cloneSpawnEnvironmentMask) != null)
-                        continue;
+            // 화면 끝에서 선호 방향의 간격이 눌리면 반대쪽의 온전한 인접 위치를 쓴다.
+            if (Mathf.Abs(preferredX - sourcePosition.x) <
+                Mathf.Abs(alternateX - sourcePosition.x))
+                preferredX = alternateX;
 
-                    float nearestSqr = float.PositiveInfinity;
-                    for (int i = 0; i < players.Count; i++)
-                    {
-                        if (players[i] == null || players[i].IsDead) continue;
-                        nearestSqr = Mathf.Min(
-                            nearestSqr,
-                            (players[i].transform.position - candidate).sqrMagnitude);
-                    }
-
-                    // 거의 같은 여백이면 원본 가까이에 생겨 획득 연출이 자연스러운 후보를 택한다.
-                    float score = nearestSqr -
-                                  Mathf.Abs(x - sourcePosition.x) * 0.01f -
-                                  Mathf.Abs(y - safeSourceY) * 0.004f;
-                    if (score <= bestClearance) continue;
-                    bestClearance = score;
-                    best = candidate;
-                }
-            }
-
-            // 화면 절반이 모두 막힌 극단적인 경우에도 카메라 밖이나 수직 경계에는
-            // 생성하지 않는다. 생성 직후 유예가 겹친 판정을 한 차례 보호한다.
-            if (float.IsNegativeInfinity(bestClearance))
-            {
-                best = new Vector3(
-                    Mathf.Clamp(
-                        cameraCenterX +
-                        direction * Mathf.Min(0.9f, usableHalfWidth),
-                        left,
-                        right),
-                    safeSourceY,
-                    sourcePosition.z);
-            }
-            return best;
+            return new Vector3(
+                preferredX,
+                sourcePosition.y,
+                sourcePosition.z);
         }
 
         static float ResolveOppositeCloneSide(
