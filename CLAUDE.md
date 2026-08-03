@@ -15,26 +15,19 @@ Claude Code를 포함한 모든 코딩 에이전트는 다음 순서를 지킨�
 
 1. 루트의 `AGENTS.md`와 이 `CLAUDE.md`를 끝까지 읽는다.
 2. `git status --short --branch`로 현재 브랜치와 다른 작업자의 미커밋 변경을 확인한다.
-3. `main`에서 직접 작업하지 않는다. 깨끗한 최신 `main`에서 `feature/*` 또는 `fix/*`
-   브랜치를 만든 뒤 작업한다.
+3. `main` 하나에서 직접 작업한다. 별도 브랜치·clone·worktree는 만들지 않는다.
 4. 구현에 앞서 관련 스크립트와 `MukJumpSceneBuilder.cs`의 현재 연결 구조를 확인한다.
 5. 기능 구현 후 Unity 컴파일 로그와 변경 파일을 검증하고 AI 활용 기록을 갱신한다.
 
 ### 사용자와 합의된 기본 작업 흐름
 
 - 기능 단위로 구현하고 Conventional Commit 형식의 작은 커밋을 남긴다.
-- 완료된 커밋은 현재 기능 브랜치까지 `push`한다.
-- `main` 병합은 사용자가 명시적으로 요청했을 때만 PR을 만들어 진행한다.
-- 예외로 `.github/workflows/weekday-main-merge.yml`은 사용자가 사전 승인한 자동화다.
-  평일 21:00 KST에 원격 `feature/ui-polish`의 새 커밋만 대상으로 충돌을 사전
-  검사하고, GitHub Branch Merge API로 일반 Merge commit을 `main`에 만든다.
-  조직 정책상 Actions의 PR 생성이 금지되어 있으므로 이 자동화에만 직접 병합을 허용한다.
-- 커밋 기록 보존을 위해 PR은 `Squash and merge`가 아니라 일반 `Merge pull request`를 쓴다.
-- 병합 후 로컬 `main`을 원격과 동기화하고 병합된 기능 브랜치를 삭제한 뒤 다음
-  `feature/*` 브랜치를 만든다.
+- 완료된 커밋은 원격 `main`까지 `push`한다.
+- UI·게임·문서를 하나의 Unity 프로젝트에서 연속 작업하며 별도 브랜치와 자동 머지는 사용하지 않는다.
 - `git add -A`와 `git add .`은 사용하지 않고 이번 작업에서 수정한 파일만 명시적으로 추가한다.
 - 다른 에이전트의 미커밋 변경은 커밋·리셋·체크아웃하지 않는다.
-- GitHub로 push하거나 PR을 병합하는 외부 변경은 실행 전에 사용자 승인을 확인한다.
+- 이 저장소의 완료된 기능 커밋을 원격 `main`으로 push하는 것은 사용자가 상시 승인했다.
+  릴리스·배포·외부 게시처럼 범위가 다른 작업은 별도로 확인한다.
 
 ### Unity와 원격 조작 원칙
 
@@ -330,7 +323,8 @@ docs/
   착지·방어막·사망 모바일 진동을 적용
 - 대량 먹분신에서는 카메라·위험물·맵 진행이 먹떼의 하위 중앙값을 따라 소수 선두의
   돌출 상승이 나머지를 화면 아래로 밀거나 위험을 조기 해금하지 않게 한다. 새 분신은
-  획득 캐릭터와 반대쪽 화면 절반의 가장 빈 X 후보에 배치한다. 눈·다리 없는 먹
+  획득 캐릭터의 보이는 외곽 바로 옆에 같은 높이로 배치하고, 화면 가운데에서는 좌우를
+  번갈아 쓰며 가장자리에서는 안쪽을 우선한다. 눈·다리 없는 먹
   몸통이 0.12초 맺힌 뒤 완성 프레임이 0.18초 동안 뿅 나타나며, 분신마다 고정
   보조 렌더러 하나만 재사용한다. 분신용 방어막 입자는 4개·파편은 6개로 줄이고
   0.14초 안의 동시 사망 피드백은 한 번만 낸다.
@@ -442,24 +436,19 @@ docs/
   아닌 입력 확률 기반 가설이며 상세 조건과 후속 검증표는
   `docs/balance-report-2026-07-27.md`를 기준으로 한다.
 - `Assets/Scenes/Main.unity`는 `MukJumpSceneBuilder.cs`로만 생성하며 수동 편집하지 않는다.
-- PR #12까지 기능별 커밋을 일반 merge해 `main`에 반영했다. 병합된
-  `feature/ui-polish`와 `feature/game-polish`는 삭제했고, 후속 작업은 최신
-  `main`에서 새 기능 브랜치를 만들어 진행한다.
+- 과거 기능 브랜치의 완료 작업을 `main`에 통합했다. 2026-08-03부터 후속 작업은
+  `/Users/seungyeoning/Desktop/UnityProject/muk-jump`의 `main` 하나에서 진행한다.
 
 ## 12. 리포 운영 방침 (커밋 기록이 심사 대상 — "정형화된 개발 프로세스" 흔적을 남길 것)
 
-- 브랜치 전략: `main`(항상 빌드 가능) + `feature/*` 브랜치 → PR 머지. 2인 팀이므로 develop
-  브랜치는 생략하고 feature → main PR로 단순화.
-  - 예: `feature/auto-jump`, `feature/stroke-drawing`, `feature/ai-ink-pipeline`, `feature/android-build`
+- 브랜치 전략: `main` 단일 브랜치. UI와 게임을 별도 clone/worktree로 나누지 않는다.
 - 커밋 컨벤션: Conventional Commits — `feat:` `fix:` `chore:` `docs:` `art:` `build:` `refactor:`
   - 예: `feat(drawing): 터치 스트로크 캡처 및 베지어 스무딩 추가`
-- 작업 단위: 기능 하나 = 브랜치 하나 = PR 하나. 커밋은 의미 단위로 잘게 나눠서, 한 번에
-  몰아서 커밋하지 않는다 (심사자가 커밋 히스토리를 본다는 전제).
+- 작업 단위: 기능 하나 = 의미 있는 작은 커밋 하나 이상. 한 번에 몰아서 커밋하지 않는다.
 - 대용량 바이너리(아트 원본 등)가 커지면 Git LFS 검토.
 - README에 실행 방법·빌드 방법을 반드시 명시 (심사자 실행 가능성 요건, 3절 참고).
 - 현재 합의된 한 사이클:
-  `feature/* 작업 → 기능별 commit → push → 사용자 요청 시 PR 일반 merge → main pull →
-  병합 브랜치 삭제 → 다음 feature 브랜치`.
+  `main 상태 확인 → 기능 구현 → 빠른 검증 → 명시적 stage → 기능별 commit → main push`.
 
 ## 13. AI 활용 내역 기록 지침 (4번 제출물의 원본 자료)
 

@@ -1,32 +1,26 @@
-# 먹점프 고정 브랜치 정책
+# 먹점프 `main` 단일 브랜치 정책
 
-## 유지할 브랜치
+## 유지할 브랜치와 프로젝트
 
-저장소는 아래 세 브랜치만 사용한다.
+2026-08-03 사용자 결정에 따라 저장소는 `main` 하나만 사용한다. UI·플레이·물리·
+콘텐츠·문서는 모두 `/Users/seungyeoning/Desktop/UnityProject/muk-jump`에서 작업한다.
+사용자가 다시 요청하기 전에는 기능 브랜치, 별도 clone, 추가 worktree를 만들지 않는다.
 
-- `main`: 제출·배포 기준. 직접 작업하거나 직접 커밋하지 않는다.
-- `feature/ui`: 로비, HUD, 패널, 타이포그래피, UI 입력·전환·연출 작업.
-- `feature/game`: 플레이어, 드로잉 물리, 카메라, 아이템, 장애물, 스폰·밸런스 작업.
+## 동시 작업
 
-사용자가 정책 변경을 명시하지 않는 한 기능별 임시 브랜치, 개인 이름 브랜치,
-추가 worktree를 만들지 않는다.
+같은 워킹트리에 여러 작성자가 동시에 수정하지 않는다. 주 에이전트 한 명만 파일을
+수정하고, 보조 에이전트는 읽기 전용 조사·리뷰를 수행한다. 작업 전후 `git status`로
+사용자 또는 다른 도구의 미커밋 변경을 확인하며 소유권이 불명확한 파일은 덮어쓰지 않는다.
 
-## 교차 파일
-
-`Assets/Editor/MukJumpSceneBuilder.cs`, `Assets/Scenes/Main.unity`, `CLAUDE.md`,
-`docs/ai-usage-log.md`처럼 UI와 게임 양쪽이 공유하는 파일은 같은 시점에 두
-브랜치에서 중복 수정하지 않는다. 작업의 주목적에 맞는 한 브랜치가 소유하고,
-다른 브랜치는 병합된 `main`을 받은 뒤 후속 작업한다.
-
-`Assets/Scenes/Main.unity`는 씬 빌더로만 재생성하며 직접 편집하지 않는다.
+`Assets/Scenes/Main.unity`는 `Assets/Editor/MukJumpSceneBuilder.cs`로만 재생성하고
+직접 편집하지 않는다.
 
 ## 작업 순서
 
-1. 작업 전 현재 브랜치와 전체 변경 파일을 확인한다.
-2. UI 작업은 `feature/ui`, 게임 작업은 `feature/game`에 작은 기능 단위로 커밋한다.
-3. 현재 작업 브랜치를 push하고 `main` 대상 PR을 일반 merge한다.
-4. 병합 뒤 워킹트리가 깨끗한 두 작업 브랜치를 최신 `main`으로 fast-forward한다.
-5. 두 고정 작업 브랜치는 삭제하지 않는다.
+1. `main`과 전체 변경 파일을 확인한다.
+2. 요청한 기능을 작은 단위로 구현하고 빠른 컴파일·로그 검증을 수행한다.
+3. 이번 작업에서 수정한 파일만 명시적으로 stage한다. `git add .`과 `git add -A`는 금지한다.
+4. Conventional Commit 형식의 한국어 커밋을 만든다.
+5. 원격 `main`으로 push해 GitHub와 Unity 작업 폴더를 같은 상태로 유지한다.
 
-미커밋 변경이 있으면 브랜치 전환·fast-forward·reset·stash를 하지 않고 먼저
-변경 소유권을 확인한다.
+긴 Unity Test Runner·반복 밸런스 플레이는 사용자가 명시적으로 요청할 때만 실행한다.
