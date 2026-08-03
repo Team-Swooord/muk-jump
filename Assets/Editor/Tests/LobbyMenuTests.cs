@@ -37,16 +37,14 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void LobbySeparatesThreePermanentGrowthBranchesFromRunCodex()
+        public void LobbyBuildsThreePermanentGrowthBranches()
         {
-            managerHost = new GameObject("LobbyCollectionTestManager");
+            managerHost = new GameObject("PermanentGrowthTestManager");
             var manager = managerHost.AddComponent<GameManager>();
             Invoke(manager, "OnEnable");
-            viewHost = new GameObject("LobbyCollectionTestHost");
+            viewHost = new GameObject("PermanentGrowthTestHost");
             var growthView = viewHost.AddComponent<PermanentGrowthView>();
-            var codexView = viewHost.AddComponent<LobbyCollectionView>();
             growthView.BuildForTests();
-            codexView.BuildForTests();
 
             growthView.Open();
             Assert.That(growthView.IsOpen, Is.True);
@@ -80,15 +78,21 @@ namespace MukJump.EditorTests
                 Is.EqualTo(ScrollRect.MovementType.Clamped));
             Assert.That(treeCanvas.sizeDelta.x, Is.GreaterThan(viewport.sizeDelta.x));
             Assert.That(treeCanvas.sizeDelta.y, Is.GreaterThan(viewport.sizeDelta.y));
-            Assert.That(viewport.sizeDelta.x, Is.EqualTo(1080f));
-            Assert.That(viewport.sizeDelta.y, Is.EqualTo(1920f));
+            Assert.That(viewport.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(viewport.anchorMax, Is.EqualTo(Vector2.one));
+            Assert.That(viewport.offsetMin, Is.EqualTo(Vector2.zero));
+            Assert.That(viewport.offsetMax, Is.EqualTo(Vector2.zero));
             Assert.That(viewport.anchoredPosition, Is.EqualTo(Vector2.zero));
             Assert.That(
                 viewport.GetComponent<RectMask2D>().padding,
                 Is.EqualTo(Vector4.zero));
             Assert.That(
                 treeCanvas.localScale.x,
-                Is.EqualTo(0.84f).Within(0.001f));
+                Is.EqualTo(
+                    PermanentGrowthView.CalculateTreeZoomForTests(
+                        Screen.width,
+                        Screen.height))
+                    .Within(0.001f));
             Assert.That(
                 viewport.GetSiblingIndex(),
                 Is.Zero,
@@ -99,24 +103,15 @@ namespace MukJump.EditorTests
             Canvas.ForceUpdateCanvases();
             AssertContainedInViewport(inkRoot, viewport, "먹나무 뿌리");
             AssertContainedInViewport(
-                FindGrowthNode(
-                    treeCanvas,
-                    PermanentGrowthType.Vitality,
-                    1),
+                FindGrowthNode(treeCanvas, "S00"),
                 viewport,
                 "생존 첫 열매");
             AssertContainedInViewport(
-                FindGrowthNode(
-                    treeCanvas,
-                    PermanentGrowthType.InkCapacity,
-                    1),
+                FindGrowthNode(treeCanvas, "I00"),
                 viewport,
                 "먹 운용 첫 열매");
             AssertContainedInViewport(
-                FindGrowthNode(
-                    treeCanvas,
-                    PermanentGrowthType.JumpCharge,
-                    1),
+                FindGrowthNode(treeCanvas, "J00"),
                 viewport,
                 "도약 첫 열매");
             Assert.That(
@@ -232,20 +227,7 @@ namespace MukJump.EditorTests
             Assert.That(growthView.IsNodePopupOpen, Is.False);
 
             growthView.Close();
-            codexView.OpenCodex();
-            Assert.That(codexView.CurrentModeName, Is.EqualTo("Codex"));
-            Assert.That(codexView.FilteredCount, Is.EqualTo(100));
-            Assert.That(codexView.CreatedRowCount, Is.EqualTo(4),
-                "100개 도감을 열 때도 고정된 큰 카드 네 개만 재사용해야 합니다.");
-            Assert.That(codexView.IsCardBackVisible(0), Is.False);
-            codexView.FlipCardForTests(0);
-            Assert.That(codexView.IsCardBackVisible(0), Is.True,
-                "도감 카드를 누르면 큰 그림 앞면에서 설명 뒷면으로 전환돼야 합니다.");
-            codexView.FlipCardForTests(0);
-            Assert.That(codexView.IsCardBackVisible(0), Is.False);
-
-            codexView.Close();
-            Assert.That(codexView.IsOpen, Is.False);
+            Assert.That(growthView.IsOpen, Is.False);
         }
 
         [Test]
@@ -270,7 +252,7 @@ namespace MukJump.EditorTests
                     "SafeAreaRoot/PermanentGrowthScreen/SelectedGrowthAction")
                 ?.GetComponent<RectTransform>();
             RectTransform selectedNode = treeCanvas.Find(
-                    "GrowthNode_permanent_ink_capacity_rank_1")
+                    "GrowthNode_I00")
                 ?.GetComponent<RectTransform>();
             Assert.That(viewport, Is.Not.Null);
             Assert.That(treeCanvas, Is.Not.Null);
@@ -445,6 +427,15 @@ namespace MukJump.EditorTests
                 PermanentGrowthCatalog.GetNode(type, rank);
             return treeCanvas.Find(
                     $"GrowthNode_{SanitizeNodeId(definition.Id)}")
+                ?.GetComponent<RectTransform>();
+        }
+
+        static RectTransform FindGrowthNode(
+            RectTransform treeCanvas,
+            string nodeId)
+        {
+            return treeCanvas.Find(
+                    $"GrowthNode_{SanitizeNodeId(nodeId)}")
                 ?.GetComponent<RectTransform>();
         }
 
@@ -665,25 +656,20 @@ namespace MukJump.EditorTests
 
             Button start = CreateLegacyButton(viewHost.transform, "StartButton", "시작");
             Button growth = CreateLegacyButton(viewHost.transform, "GrowthButton", "성장");
-            Button codex = CreateLegacyButton(viewHost.transform, "CodexButton", "도감");
             var view = viewHost.AddComponent<LobbyView>();
             SetField(view, "bestText", recordLabel);
             SetField(view, "startButton", start);
             SetField(view, "growthButton", growth);
-            SetField(view, "codexButton", codex);
             SetField(view, "optionsButton", null);
 
             view.ApplyMenuLayoutForTests();
 
             AssertMenuLayout(view.StartButton, "시작", LobbyMenuLayout.StartAnchor);
             AssertMenuLayout(view.GrowthButton, "성장", LobbyMenuLayout.GrowthAnchor);
-            AssertMenuLayout(view.CodexButton, "도감", LobbyMenuLayout.CodexAnchor);
             AssertMenuLayout(view.OptionsButton, "옵션", LobbyMenuLayout.OptionsAnchor);
             Assert.That(LobbyMenuLayout.StartAnchor.x,
                 Is.EqualTo(LobbyMenuLayout.MenuRailX));
             Assert.That(LobbyMenuLayout.GrowthAnchor.x,
-                Is.EqualTo(LobbyMenuLayout.MenuRailX));
-            Assert.That(LobbyMenuLayout.CodexAnchor.x,
                 Is.EqualTo(LobbyMenuLayout.MenuRailX));
             Assert.That(LobbyMenuLayout.OptionsAnchor.x,
                 Is.EqualTo(LobbyMenuLayout.MenuRailX));
@@ -723,9 +709,6 @@ namespace MukJump.EditorTests
                 view.GrowthButton.GetComponent<CanvasGroup>().alpha,
                 Is.EqualTo(1f).Within(0.001f));
             Assert.That(
-                view.CodexButton.GetComponent<CanvasGroup>().alpha,
-                Is.EqualTo(1f).Within(0.001f));
-            Assert.That(
                 view.OptionsButton.GetComponent<CanvasGroup>().alpha,
                 Is.EqualTo(1f).Within(0.001f));
             Assert.That(
@@ -735,17 +718,12 @@ namespace MukJump.EditorTests
                 view.GrowthButton.targetGraphic.color.a,
                 Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
             Assert.That(
-                view.CodexButton.targetGraphic.color.a,
-                Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
-            Assert.That(
                 view.OptionsButton.targetGraphic.color.a,
                 Is.EqualTo(LobbyMenuLayout.SecondaryAlpha).Within(0.001f));
 
             AssertSelectedMenu(view, LobbyMenuSelection.Start);
             view.SetActiveMenu(LobbyMenuSelection.Growth);
             AssertSelectedMenu(view, LobbyMenuSelection.Growth);
-            view.SetActiveMenu(LobbyMenuSelection.Codex);
-            AssertSelectedMenu(view, LobbyMenuSelection.Codex);
             view.SetActiveMenu(LobbyMenuSelection.Options);
             AssertSelectedMenu(view, LobbyMenuSelection.Options);
 
@@ -774,14 +752,11 @@ namespace MukJump.EditorTests
                 CreateLegacyButton(viewHost.transform, "StartButton", "시작");
             Button growth =
                 CreateLegacyButton(viewHost.transform, "GrowthButton", "성장");
-            Button codex =
-                CreateLegacyButton(viewHost.transform, "CodexButton", "도감");
             Button option =
                 CreateLegacyButton(viewHost.transform, "OptionsButton", "옵션");
             var view = viewHost.AddComponent<LobbyView>();
             SetField(view, "startButton", start);
             SetField(view, "growthButton", growth);
-            SetField(view, "codexButton", codex);
             SetField(view, "optionsButton", option);
             view.ApplyMenuLayoutForTests();
 
@@ -792,47 +767,6 @@ namespace MukJump.EditorTests
             options.Close();
             Invoke(view, "RefreshMenuSelection");
             AssertSelectedMenu(view, LobbyMenuSelection.Start);
-        }
-
-        [Test]
-        public void CodexUsesAsymmetricHeaderAboveTheCardGrid()
-        {
-            viewHost = new GameObject("LobbyCodexHierarchyHost");
-            var codexView = viewHost.AddComponent<LobbyCollectionView>();
-            codexView.BuildForTests();
-
-            Transform panel = viewHost.transform.Find(
-                "LobbyCollectionCanvas/ScreenRoot/SafeAreaRoot/CodexGallery");
-            Assert.IsNotNull(panel);
-            Text title = panel.Find("Title")?.GetComponent<Text>();
-            Text subtitle = panel.Find("Subtitle")?.GetComponent<Text>();
-            RectTransform category =
-                panel.Find("CategoryButton") as RectTransform;
-            RectTransform headerRule =
-                panel.Find("HeaderStroke") as RectTransform;
-            RectTransform firstCard =
-                panel.Find("CodexCard1") as RectTransform;
-
-            Assert.IsNotNull(title);
-            Assert.IsNotNull(subtitle);
-            Assert.IsNotNull(category);
-            Assert.IsNotNull(headerRule);
-            Assert.IsNotNull(firstCard);
-            Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
-            Assert.That(subtitle.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
-            Assert.That(title.rectTransform.anchoredPosition.x,
-                Is.LessThan(0f));
-            Assert.That(category.anchoredPosition.x, Is.GreaterThan(0f));
-            Assert.That(
-                category.anchoredPosition.y,
-                Is.EqualTo(subtitle.rectTransform.anchoredPosition.y),
-                "도감 설명과 계보 필터는 같은 상단 정보 띠에 있어야 합니다.");
-            Assert.That(headerRule.anchoredPosition.y,
-                Is.LessThan(subtitle.rectTransform.anchoredPosition.y));
-            Assert.That(headerRule.anchoredPosition.y,
-                Is.GreaterThan(
-                    firstCard.anchoredPosition.y +
-                    firstCard.sizeDelta.y * 0.5f));
         }
 
         [Test]
@@ -971,9 +905,6 @@ namespace MukJump.EditorTests
             AssertMenuAlpha(
                 view.GrowthButton,
                 expected == LobbyMenuSelection.Growth);
-            AssertMenuAlpha(
-                view.CodexButton,
-                expected == LobbyMenuSelection.Codex);
             AssertMenuAlpha(
                 view.OptionsButton,
                 expected == LobbyMenuSelection.Options);

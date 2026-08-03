@@ -121,9 +121,16 @@ namespace MukJump.Core
             subscribedManager.GetLivingPlayersNonAlloc(livingPlayers);
             float zoneMultiplier = ZoneStrengthMultiplier;
             float horizontalMultiplier = IsUpdraftActive ? updraftHorizontalMultiplier : 1f;
+            float permanentWindMultiplier =
+                RunGrowthController.Instance != null
+                    ? RunGrowthController.Instance.PermanentSnapshot
+                        .WindInfluenceMultiplier
+                    : 1f;
             float horizontalAcceleration = breezeAcceleration * zoneMultiplier *
-                                           horizontalMultiplier;
-            float horizontalLimit = breezeSpeedLimit * zoneMultiplier;
+                                           horizontalMultiplier *
+                                           permanentWindMultiplier;
+            float horizontalLimit = breezeSpeedLimit * zoneMultiplier *
+                                    permanentWindMultiplier;
             float deltaTime = Time.fixedDeltaTime;
 
             for (int i = 0; i < livingPlayers.Count; i++)

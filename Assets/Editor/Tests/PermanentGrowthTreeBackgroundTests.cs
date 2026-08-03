@@ -152,9 +152,10 @@ namespace MukJump.EditorTests
             var view = viewHost.AddComponent<PermanentGrowthView>();
             view.BuildForTests();
 
-            Assert.That(
-                view.TreeViewport.sizeDelta,
-                Is.EqualTo(new Vector2(1080f, 1920f)));
+            Assert.That(view.TreeViewport.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(view.TreeViewport.anchorMax, Is.EqualTo(Vector2.one));
+            Assert.That(view.TreeViewport.offsetMin, Is.EqualTo(Vector2.zero));
+            Assert.That(view.TreeViewport.offsetMax, Is.EqualTo(Vector2.zero));
             Assert.That(
                 view.TreeViewport.anchoredPosition,
                 Is.EqualTo(Vector2.zero));
@@ -164,7 +165,18 @@ namespace MukJump.EditorTests
                 Is.EqualTo(Vector4.zero));
             Assert.That(
                 view.TreeCanvas.localScale,
-                Is.EqualTo(Vector3.one * 0.84f));
+                Is.EqualTo(
+                    Vector3.one *
+                    PermanentGrowthView.CalculateTreeZoomForTests(
+                        Screen.width,
+                        Screen.height)));
+            Assert.That(
+                PermanentGrowthView.CalculateTreeZoomForTests(1080f, 1920f),
+                Is.EqualTo(0.66f).Within(0.001f));
+            Assert.That(
+                PermanentGrowthView.CalculateTreeZoomForTests(1080f, 2400f),
+                Is.EqualTo(0.528f).Within(0.001f),
+                "20:9 화면은 좌우 계보 뿌리가 잘리지 않도록 나무만 축소해야 합니다.");
 
             Assert.That(
                 view.TreeViewport.parent.name,

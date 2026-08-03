@@ -280,7 +280,7 @@ namespace MukJump.EditorTests
                 viewHost.AddComponent<PermanentGrowthView>();
             growthView.BuildForTests();
 
-            growthView.SelectGrowthForTests(0);
+            growthView.SelectGrowthForTests("I00");
             growthView.PurchaseButton.onClick.Invoke();
 
             Assert.That(
@@ -329,7 +329,7 @@ namespace MukJump.EditorTests
                     "Update",
                     BindingFlags.Instance | BindingFlags.NonPublic)
                 ?.Invoke(growthView, null);
-            growthView.SelectGrowthForTests(1);
+            growthView.SelectGrowthForTests("I-A1");
             Assert.That(growthView.PurchaseButton.interactable, Is.True);
             Assert.That(growthView.BackButton.interactable, Is.True);
             growthView.PurchaseButton.onClick.Invoke();
@@ -374,7 +374,7 @@ namespace MukJump.EditorTests
                     "Update",
                     BindingFlags.Instance | BindingFlags.NonPublic)
                 ?.Invoke(growthView, null);
-            growthView.SelectGrowthForTests(6);
+            growthView.SelectGrowthForTests("I-B1");
             growthView.PurchaseButton.onClick.Invoke();
 
             Assert.That(

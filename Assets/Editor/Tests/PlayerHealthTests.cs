@@ -1,9 +1,11 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using MukJump.Core;
+using MukJump.Items;
 using MukJump.Player;
 
 namespace MukJump.EditorTests
@@ -118,6 +120,41 @@ namespace MukJump.EditorTests
             Assert.That(player.CurrentHealth, Is.Zero);
             Assert.That(notifiedCurrent, Is.Zero);
             Assert.That(notifiedMax, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void HitInkPuffIsSingleReusableCloneExcludedVisual()
+        {
+            var player = CreatePlayer("HitInkPuffPlayer");
+            var view = player.gameObject.AddComponent<ItemEffectView>();
+            var renderer = player.GetComponent<SpriteRenderer>();
+            renderer.sprite = CreateTestSprite();
+            Vector3 rootScale = player.transform.localScale;
+            var collider = player.GetComponent<CircleCollider2D>();
+            float radius = collider.radius;
+            Vector2 offset = collider.offset;
+
+            view.PlayVitalityHit();
+            view.PlayVitalityHit();
+
+            Assert.That(CountDirectChildren(
+                player.transform, "GrowthVitalityPuff"), Is.EqualTo(1));
+            Transform puff = player.transform.Find("GrowthVitalityPuff");
+            Assert.That(puff, Is.Not.Null);
+            Assert.That(puff.GetComponent<SpriteRenderer>(), Is.Not.Null);
+
+            var lifecycle = (IRuntimeCloneLifecycle)view;
+            lifecycle.PrepareForRuntimeClone();
+            Assert.That(puff.parent, Is.Null);
+            var clone = Track(Object.Instantiate(player.gameObject));
+            Assert.That(clone.transform.Find("GrowthVitalityPuff"), Is.Null,
+                "고정 캐시 VFX가 먹분신 수만큼 복제되면 안 됩니다.");
+            lifecycle.RestoreAfterRuntimeClone();
+
+            Assert.That(puff.parent, Is.SameAs(player.transform));
+            Assert.That(player.transform.localScale, Is.EqualTo(rootScale));
+            Assert.That(collider.radius, Is.EqualTo(radius));
+            Assert.That(collider.offset, Is.EqualTo(offset));
         }
 
         [Test]
@@ -253,6 +290,27 @@ namespace MukJump.EditorTests
                 frames[i] = sprite;
             }
             return frames;
+        }
+
+        Sprite CreateTestSprite()
+        {
+            var texture = Track(new Texture2D(4, 4, TextureFormat.RGBA32, false));
+            texture.SetPixels(Enumerable.Repeat(Color.black, 16).ToArray());
+            texture.Apply();
+            return Track(Sprite.Create(
+                texture,
+                new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                100f));
+        }
+
+        static int CountDirectChildren(Transform root, string objectName)
+        {
+            int count = 0;
+            for (int i = 0; i < root.childCount; i++)
+                if (root.GetChild(i).name == objectName)
+                    count++;
+            return count;
         }
 
         static void SetBaseFrames(CharacterAnimator animator, Sprite[] frames)

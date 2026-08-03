@@ -13,7 +13,6 @@ namespace MukJump.EditorTests
         GameManager manager;
         LobbyView lobby;
         PermanentGrowthView growth;
-        LobbyCollectionView codex;
         LobbyScreenNavigator navigator;
 
         [SetUp]
@@ -27,7 +26,6 @@ namespace MukJump.EditorTests
             Invoke(manager, "OnEnable");
             systemsHost.AddComponent<BrushTransitionView>();
             growth = systemsHost.AddComponent<PermanentGrowthView>();
-            codex = systemsHost.AddComponent<LobbyCollectionView>();
 
             lobbyHost = new GameObject(
                 "DedicatedScreenLobby",
@@ -38,7 +36,6 @@ namespace MukJump.EditorTests
 
             navigator = systemsHost.AddComponent<LobbyScreenNavigator>();
             growth.BuildForTests();
-            codex.BuildForTests();
             navigator.BuildForTests();
         }
 
@@ -53,33 +50,17 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void GrowthAndCodexBuildAsDedicatedFullScreens()
+        public void GrowthBuildsAsDedicatedFullScreen()
         {
             Assert.That(growth.IsDedicatedScreen, Is.True);
-            Assert.That(codex.IsDedicatedScreen, Is.True);
             AssertDedicatedScreen(
                 growth.ScreenRoot,
                 growth.BackButton,
                 "PermanentGrowthScreen");
-            AssertDedicatedScreen(
-                codex.ScreenRoot,
-                codex.BackButton,
-                "CodexGallery");
-            Transform codexGallery = codex.ScreenRoot.Find(
-                "SafeAreaRoot/CodexGallery");
-            AssertSharedActionButton(
-                codexGallery?.Find("CategoryButton")?.GetComponent<Button>());
-            AssertSharedActionButton(
-                codexGallery?.Find("PreviousButton")?.GetComponent<Button>());
-            AssertSharedActionButton(
-                codexGallery?.Find("NextButton")?.GetComponent<Button>());
             AssertSemanticSelectionSurface(
                 growth.ScreenRoot.Find(
                         "TreeLayerRoot/TreeViewport/TreeCanvas/" +
-                        "GrowthNode_permanent_ink_capacity_rank_1")
-                    ?.GetComponent<Button>());
-            AssertSemanticSelectionSurface(
-                codexGallery?.Find("CodexCard1/HitSurface")
+                        "GrowthNode_I00")
                     ?.GetComponent<Button>());
 
             Assert.That(
@@ -87,73 +68,44 @@ namespace MukJump.EditorTests
                     "PermanentGrowthCanvas/InkDim"),
                 Is.Null);
             Assert.That(
-                systemsHost.transform.Find(
-                    "LobbyCollectionCanvas/InkDim"),
-                Is.Null);
-            Assert.That(
                 growth.ScreenRoot.Find(
                     "SafeAreaRoot/PermanentGrowthScreen/ScrollOutline"),
                 Is.Null);
-            Assert.That(
-                codex.ScreenRoot.Find(
-                    "SafeAreaRoot/CodexGallery/ScrollOutline"),
-                Is.Null);
         }
 
-        [TestCase(LobbyScreenNavigator.LobbySection.PermanentGrowth)]
-        [TestCase(LobbyScreenNavigator.LobbySection.Codex)]
-        public void ScreenEntrySwapsOnlyAtBrushCover(
-            LobbyScreenNavigator.LobbySection destination)
+        [Test]
+        public void ScreenEntrySwapsOnlyAtBrushCover()
         {
             Assert.That(navigator.CurrentSection,
                 Is.EqualTo(LobbyScreenNavigator.LobbySection.Lobby));
             Assert.That(lobby.IsInteractive, Is.True);
 
-            bool requested = destination ==
-                             LobbyScreenNavigator.LobbySection.PermanentGrowth
-                ? navigator.OpenGrowth()
-                : navigator.OpenCodex();
+            bool requested = navigator.OpenGrowth();
 
             Assert.That(requested, Is.True);
             Assert.That(navigator.IsTransitioning, Is.True);
             Assert.That(
                 lobby.ActiveMenu,
-                Is.EqualTo(
-                    destination ==
-                    LobbyScreenNavigator.LobbySection.PermanentGrowth
-                        ? LobbyMenuSelection.Growth
-                        : LobbyMenuSelection.Codex));
+                Is.EqualTo(LobbyMenuSelection.Growth));
             Assert.That(navigator.CurrentSection,
                 Is.EqualTo(LobbyScreenNavigator.LobbySection.Lobby));
             Assert.That(lobby.IsVisible, Is.True);
             Assert.That(lobby.IsInteractive, Is.False);
             Assert.That(growth.IsOpen, Is.False);
-            Assert.That(codex.IsOpen, Is.False);
 
             navigator.CompleteCoverForTests();
 
-            Assert.That(navigator.CurrentSection, Is.EqualTo(destination));
+            Assert.That(navigator.CurrentSection,
+                Is.EqualTo(LobbyScreenNavigator.LobbySection.PermanentGrowth));
             Assert.That(lobby.IsVisible, Is.False);
             Assert.That(growth.IsOpen, Is.False);
-            Assert.That(codex.IsOpen, Is.False);
-            Assert.That(
-                destination ==
-                LobbyScreenNavigator.LobbySection.PermanentGrowth
-                    ? growth.ScreenRoot.anchoredPosition.y
-                    : codex.ScreenRoot.anchoredPosition.y,
+            Assert.That(growth.ScreenRoot.anchoredPosition.y,
                 Is.Zero.Within(0.001f));
 
             navigator.CompleteRevealForTests();
 
             Assert.That(navigator.IsTransitioning, Is.False);
-            Assert.That(growth.IsOpen,
-                Is.EqualTo(
-                    destination ==
-                    LobbyScreenNavigator.LobbySection.PermanentGrowth));
-            Assert.That(codex.IsOpen,
-                Is.EqualTo(
-                    destination ==
-                    LobbyScreenNavigator.LobbySection.Codex));
+            Assert.That(growth.IsOpen, Is.True);
         }
 
         [Test]
@@ -195,7 +147,6 @@ namespace MukJump.EditorTests
         {
             Assert.That(navigator.OpenGrowth(), Is.True);
             Assert.That(navigator.OpenGrowth(), Is.False);
-            Assert.That(navigator.OpenCodex(), Is.False);
             Assert.That(navigator.ReturnToLobby(), Is.False);
             Assert.That(navigator.PendingSection,
                 Is.EqualTo(
@@ -203,8 +154,7 @@ namespace MukJump.EditorTests
 
             navigator.CompleteCoverForTests();
             navigator.CompleteRevealForTests();
-            Assert.That(navigator.OpenCodex(), Is.True);
-            Assert.That(navigator.OpenCodex(), Is.False);
+            Assert.That(navigator.OpenGrowth(), Is.False);
         }
 
         [Test]
@@ -214,7 +164,6 @@ namespace MukJump.EditorTests
             SetField(transition, "playing", true);
 
             Assert.That(navigator.OpenGrowth(), Is.False);
-            Assert.That(navigator.OpenCodex(), Is.False);
             Assert.That(navigator.IsTransitioning, Is.False);
             Assert.That(lobby.IsVisible, Is.True);
             Assert.That(lobby.IsInteractive, Is.True);
@@ -240,27 +189,24 @@ namespace MukJump.EditorTests
             Invoke(manager, "SetState", GameState.Playing);
 
             Assert.That(navigator.OpenGrowth(), Is.False);
-            Assert.That(navigator.OpenCodex(), Is.False);
             Assert.That(navigator.IsTransitioning, Is.False);
             Assert.That(growth.IsOpen, Is.False);
-            Assert.That(codex.IsOpen, Is.False);
             Assert.That(lobby.IsInteractive, Is.False);
         }
 
         [Test]
         public void LeavingLobbyImmediatelyClosesDedicatedScreen()
         {
-            Assert.That(navigator.OpenCodex(), Is.True);
+            Assert.That(navigator.OpenGrowth(), Is.True);
             navigator.CompleteCoverForTests();
             navigator.CompleteRevealForTests();
-            Assert.That(codex.IsOpen, Is.True);
+            Assert.That(growth.IsOpen, Is.True);
 
             Invoke(manager, "SetState", GameState.Playing);
 
             Assert.That(navigator.CurrentSection,
                 Is.EqualTo(LobbyScreenNavigator.LobbySection.Lobby));
             Assert.That(navigator.IsTransitioning, Is.False);
-            Assert.That(codex.IsOpen, Is.False);
             Assert.That(growth.IsOpen, Is.False);
             Assert.That(lobby.IsInteractive, Is.False);
         }

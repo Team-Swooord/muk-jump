@@ -20,7 +20,6 @@ namespace MukJump.Core
     {
         None,
         UserMenu,
-        GrowthChoice,
     }
 
     /// 게임 상태(로비/플레이/게임오버)와 시작·재도전 흐름을 관리한다.
@@ -77,6 +76,7 @@ namespace MukJump.Core
         float timeScaleBeforePause = 1f;
         float fixedDeltaBeforePause = 0.02f;
         float maxSwarmProgressHeight;
+        float activeGameplaySeconds;
         [SerializeField, HideInInspector] string currentRunId;
         readonly List<PlayerController> players = new();
         readonly List<PlayerController> swarmScratch =
@@ -176,10 +176,6 @@ namespace MukJump.Core
                 gameObject.AddComponent<PauseMenuView>();
             if (GetComponent<RunGrowthController>() == null)
                 gameObject.AddComponent<RunGrowthController>();
-            if (GetComponent<GrowthChoiceView>() == null)
-                gameObject.AddComponent<GrowthChoiceView>();
-            if (GetComponent<LobbyCollectionView>() == null)
-                gameObject.AddComponent<LobbyCollectionView>();
             if (GetComponent<PermanentGrowthView>() == null)
                 gameObject.AddComponent<PermanentGrowthView>();
             if (GetComponent<LobbyOptionsView>() == null)
@@ -214,6 +210,15 @@ namespace MukJump.Core
 
         void Update()
         {
+            if (State == GameState.Playing)
+            {
+                // 일시정지·화면 전환 시간을 제외한 실제 조작 가능 시간만
+                // 영구 성장 보상 판정에 사용한다.
+                if (IsGameplayTicking)
+                    activeGameplaySeconds += Time.unscaledDeltaTime;
+                return;
+            }
+
             if (State == GameState.Lobby)
                 return;
 
@@ -310,23 +315,6 @@ namespace MukJump.Core
             return true;
         }
 
-        /// 성장 두루마리는 메뉴 일시정지와 같은 시간 정지를 쓰되 별도 소유권을 가진다.
-        /// 선택 UI만 이 계약으로 닫을 수 있어 일시정지판과 겹치거나 교차 해제되지 않는다.
-        public bool BeginGrowthChoicePause()
-        {
-            return BeginPause(GameplayPauseReason.GrowthChoice);
-        }
-
-        public bool EndGrowthChoicePause()
-        {
-            if (PauseReason != GameplayPauseReason.GrowthChoice ||
-                IsTransitioning)
-                return false;
-            PointerInput.SuppressUntilRelease();
-            RestorePausedWorld(true);
-            return true;
-        }
-
         /// 일시정지 화면에서 현재 씬을 다시 불러 로비와 새 세션으로 안전하게 돌아간다.
         public bool ReturnToLobby()
         {
@@ -382,6 +370,7 @@ namespace MukJump.Core
         GameOverResult SettleGameOverResult()
         {
             int height = ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0;
+            int swarmProgressHeight = Mathf.FloorToInt(SwarmProgressHeight);
             int previousBest = ScoreManager.Instance != null ? ScoreManager.Instance.Best : 0;
             bool recordsAllowed =
                 ScoreManager.Instance == null || ScoreManager.Instance.RecordsAllowed;
@@ -395,8 +384,10 @@ namespace MukJump.Core
             PermanentGrowthSettlement settlement =
                 PermanentGrowthProfile.SettleRun(
                     currentRunId,
+                    swarmProgressHeight,
                     height,
                     previousBest,
+                    activeGameplaySeconds,
                     rewardsAllowed);
             ScoreManager.Instance?.SaveBest();
             int best = ScoreManager.Instance != null ? ScoreManager.Instance.Best : previousBest;
@@ -475,6 +466,7 @@ namespace MukJump.Core
                                            Vector2.right * (direction * 0.45f);
 
             RegisterPlayer(clone);
+            RunGrowthController.Instance?.NotifyCloneCreated(source, clone);
             clone.GetComponent<InkCloneArrivalView>()?.Play();
             GameFeedbackController.Instance?.PlayCloneArrival(clone.transform.position);
             return true;
@@ -723,6 +715,7 @@ namespace MukJump.Core
             // 연출 난수와 분리된 게임 규칙 스트림을 판 시작 직전에 함께 초기화한다.
             GameplayRandom.ResetSession();
             currentRunId = Guid.NewGuid().ToString("N");
+            activeGameplaySeconds = 0f;
             var player = HighestLivingPlayer;
             SetState(GameState.Playing);
             player?.BeginFromLobby();

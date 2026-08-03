@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 씬 빌더가 구성한 로비 Canvas의 표시와 시작·성장·도감·옵션 진입을 담당한다.
+    /// 씬 빌더가 구성한 로비 Canvas의 표시와 시작·성장·옵션 진입을 담당한다.
     [ExecuteAlways]
     [RequireComponent(typeof(CanvasGroup))]
     public class LobbyView : MonoBehaviour
@@ -11,10 +11,8 @@ namespace MukJump.Core
         [SerializeField] Text bestText;
         [SerializeField] Button startButton;
         [SerializeField] Button growthButton;
-        [SerializeField] Button codexButton;
         [SerializeField] Button optionsButton;
 
-        LobbyCollectionView collectionView;
         PermanentGrowthView permanentGrowthView;
         LobbyOptionsView optionsView;
         LobbyScreenNavigator screenNavigator;
@@ -29,7 +27,6 @@ namespace MukJump.Core
 
         public Button StartButton => startButton;
         public Button GrowthButton => growthButton;
-        public Button CodexButton => codexButton;
         public Button OptionsButton => optionsButton;
         public bool IsInteractive =>
             canvasGroup != null && canvasGroup.blocksRaycasts;
@@ -82,7 +79,6 @@ namespace MukJump.Core
             if (listenersBound) return;
             startButton?.onClick.AddListener(HandleStartPressed);
             growthButton?.onClick.AddListener(HandleGrowthPressed);
-            codexButton?.onClick.AddListener(HandleCodexPressed);
             optionsButton?.onClick.AddListener(HandleOptionsPressed);
             listenersBound = true;
         }
@@ -92,7 +88,6 @@ namespace MukJump.Core
             if (!listenersBound) return;
             startButton?.onClick.RemoveListener(HandleStartPressed);
             growthButton?.onClick.RemoveListener(HandleGrowthPressed);
-            codexButton?.onClick.RemoveListener(HandleCodexPressed);
             optionsButton?.onClick.RemoveListener(HandleOptionsPressed);
             listenersBound = false;
         }
@@ -102,7 +97,6 @@ namespace MukJump.Core
             LobbyScreenNavigator navigator = ResolveScreenNavigator();
             if (navigator != null && !navigator.CanStartGame)
                 return;
-            collectionView?.Close();
             permanentGrowthView?.Close();
             optionsView?.Close();
             GameManager.Instance?.StartGameFromMenu();
@@ -117,27 +111,10 @@ namespace MukJump.Core
                 navigator.OpenGrowth();
                 return;
             }
-            ResolveCollectionView()?.Close();
             PermanentGrowthView growth = ResolvePermanentGrowthView();
             growth?.Open();
             if (growth != null && growth.IsOpen)
                 SetActiveMenu(LobbyMenuSelection.Growth);
-        }
-
-        void HandleCodexPressed()
-        {
-            ResolveOptionsView()?.Close();
-            LobbyScreenNavigator navigator = ResolveScreenNavigator();
-            if (navigator != null)
-            {
-                navigator.OpenCodex();
-                return;
-            }
-            ResolvePermanentGrowthView()?.Close();
-            LobbyCollectionView codex = ResolveCollectionView();
-            codex?.OpenCodex();
-            if (codex != null && codex.IsOpen)
-                SetActiveMenu(LobbyMenuSelection.Codex);
         }
 
         void HandleOptionsPressed()
@@ -146,18 +123,10 @@ namespace MukJump.Core
             if (navigator != null && !navigator.CanStartGame)
                 return;
             ResolvePermanentGrowthView()?.Close();
-            ResolveCollectionView()?.Close();
             LobbyOptionsView options = ResolveOptionsView();
             options?.Open();
             if (options != null && options.IsOpen)
                 SetActiveMenu(LobbyMenuSelection.Options);
-        }
-
-        LobbyCollectionView ResolveCollectionView()
-        {
-            if (collectionView == null)
-                collectionView = FindFirstObjectByType<LobbyCollectionView>();
-            return collectionView;
         }
 
         PermanentGrowthView ResolvePermanentGrowthView()
@@ -195,8 +164,8 @@ namespace MukJump.Core
             SetVisible(show, show && navigationInteractive);
         }
 
-        /// 실행 중이던 구버전 Main 백업이 복원돼도 네 메뉴가 즉시 같은 규칙을 쓴다.
-        /// 옵션 버튼 자체가 없는 구버전 씬은 도감 버튼의 수묵 그래픽을 한 번 복제한다.
+        /// 실행 중이던 구버전 Main 백업이 복원돼도 세 메뉴가 즉시 같은 규칙을 쓴다.
+        /// 옵션 버튼이 없으면 성장 버튼의 수묵 그래픽을 복제한다.
         void EnsureMenuLayout()
         {
             if (optionsButton == null)
@@ -206,11 +175,9 @@ namespace MukJump.Core
             }
             if (optionsButton == null)
             {
-                Button source = codexButton != null
-                    ? codexButton
-                    : growthButton != null
-                        ? growthButton
-                        : startButton;
+                Button source = growthButton != null
+                    ? growthButton
+                    : startButton;
                 if (source != null && source.transform.parent != null)
                 {
                     GameObject clone = Instantiate(
@@ -235,11 +202,6 @@ namespace MukJump.Core
                 LobbyMenuLayout.GrowthAnchor,
                 primary: activeMenu == LobbyMenuSelection.Growth);
             LobbyMenuLayout.ApplyButton(
-                codexButton,
-                "도감",
-                LobbyMenuLayout.CodexAnchor,
-                primary: activeMenu == LobbyMenuSelection.Codex);
-            LobbyMenuLayout.ApplyButton(
                 optionsButton,
                 "옵션",
                 LobbyMenuLayout.OptionsAnchor,
@@ -256,9 +218,6 @@ namespace MukJump.Core
             LobbyMenuLayout.ApplySelectionEmphasis(
                 growthButton,
                 selection == LobbyMenuSelection.Growth);
-            LobbyMenuLayout.ApplySelectionEmphasis(
-                codexButton,
-                selection == LobbyMenuSelection.Codex);
             LobbyMenuLayout.ApplySelectionEmphasis(
                 optionsButton,
                 selection == LobbyMenuSelection.Options);
@@ -286,8 +245,6 @@ namespace MukJump.Core
 
             if (ResolvePermanentGrowthView()?.IsOpen == true)
                 SetActiveMenu(LobbyMenuSelection.Growth);
-            else if (ResolveCollectionView()?.IsOpen == true)
-                SetActiveMenu(LobbyMenuSelection.Codex);
             else
                 SetActiveMenu(LobbyMenuSelection.Start);
         }
@@ -299,8 +256,6 @@ namespace MukJump.Core
             {
                 LobbyScreenNavigator.LobbySection.PermanentGrowth =>
                     LobbyMenuSelection.Growth,
-                LobbyScreenNavigator.LobbySection.Codex =>
-                    LobbyMenuSelection.Codex,
                 _ => LobbyMenuSelection.Start,
             };
         }

@@ -40,6 +40,11 @@ namespace MukJump.Drawing
         float unlimitedInkUntil;
         RunGrowthController growthController;
         float appliedInkCapacity;
+        float strokeBaseInkSpent;
+        float strokeReserveInkSpent;
+        float lastValidStrokeAt = float.NegativeInfinity;
+        bool idleStrokeDiscountEligible;
+        bool lowInkRecoveryActive;
         readonly List<Player.PlayerController> livingPlayers = new();
         readonly List<Vector2> safeSegment = new();
         readonly List<Vector2> safeSegmentCandidate = new();
@@ -50,17 +55,16 @@ namespace MukJump.Drawing
             ? 1f
             : (ink + inkReserve) / Mathf.Max(0.001f, EffectiveInkCapacity);
         public float EffectiveInkCapacity =>
-            inkCapacity *
-            PermanentGrowthProfile.InkCapacityMultiplier *
-            (RunGrowthController.Instance != null
-                ? RunGrowthController.Instance.InkCapacityMultiplier
-                : 1f);
+            inkCapacity * ActivePermanentGrowth.InkCapacityMultiplier;
         public float EffectiveInkRegenPerSecond =>
             inkRegenPerSecond *
-            PermanentGrowthProfile.InkRecoveryMultiplier *
-            (RunGrowthController.Instance != null
-                ? RunGrowthController.Instance.InkRecoveryMultiplier
-                : 1f);
+            ActivePermanentGrowth.InkRecoveryMultiplier *
+            (lowInkRecoveryActive ? 1.30f : 1f);
+
+        PermanentGrowthRunSnapshot ActivePermanentGrowth =>
+            RunGrowthController.Instance != null
+                ? RunGrowthController.Instance.PermanentSnapshot
+                : PermanentGrowthProfile.CreateRunSnapshot();
 
         public void AddInkReserve(float capacityRatio)
         {
@@ -167,7 +171,7 @@ namespace MukJump.Drawing
 
             if (GameManager.Instance.State == GameState.Lobby)
             {
-                // 로비는 명시적인 시작·성장·도감 버튼만 입력받는다.
+                // 로비는 명시적인 시작·성장·옵션 버튼만 입력받는다.
                 // 여기서 획을 받으면 UI 탭과 동시에 발판이 생기는 입력 경합이 발생한다.
                 if (drawing) CancelStroke();
                 return;
@@ -186,9 +190,12 @@ namespace MukJump.Drawing
             }
 
             if (!drawing)
+            {
+                UpdateLowInkRecoveryState();
                 ink = Mathf.Min(
                     EffectiveInkCapacity,
                     ink + EffectiveInkRegenPerSecond * Time.deltaTime);
+            }
 
             if (PointerInput.TryGetPressed(out var screenPos))
             {
@@ -221,6 +228,10 @@ namespace MukJump.Drawing
         {
             drawing = true;
             strokeLength = 0f;
+            strokeBaseInkSpent = 0f;
+            strokeReserveInkSpent = 0f;
+            idleStrokeDiscountEligible =
+                Time.time - lastValidStrokeAt >= 2f;
             points.Clear();
             points.Add(worldPos);
             GameFeedbackController.Instance?.StartBrushDrawing();
@@ -292,7 +303,10 @@ namespace MukJump.Drawing
         {
             float reserveUse = Mathf.Min(inkReserve, amount);
             inkReserve -= reserveUse;
-            ink = Mathf.Max(0f, ink - (amount - reserveUse));
+            float baseUse = amount - reserveUse;
+            ink = Mathf.Max(0f, ink - baseUse);
+            strokeReserveInkSpent += reserveUse;
+            strokeBaseInkSpent += baseUse;
         }
 
         void EndStroke()
@@ -325,8 +339,42 @@ namespace MukJump.Drawing
                 return;
             }
 
-            PlatformCollider.Spawn(smoothed);
+            float validLength = BezierSmoother.PolylineLength(smoothed);
+            float consumedInk = ApplyPermanentStrokeDiscount(validLength);
+            PlatformCollider.Spawn(smoothed, consumedInk);
+            lastValidStrokeAt = Time.time;
             GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, true);
+        }
+
+        float ApplyPermanentStrokeDiscount(float validLength)
+        {
+            float multiplier = 1f;
+            if (ActivePermanentGrowth.HasShortStrokeDiscount && validLength <= 1.5f)
+                multiplier *= 0.92f;
+            if (ActivePermanentGrowth.HasIdleStrokeDiscount && idleStrokeDiscountEligible)
+                multiplier *= 0.90f;
+
+            float reserveRefund = strokeReserveInkSpent * (1f - multiplier);
+            float baseRefund = strokeBaseInkSpent * (1f - multiplier);
+            inkReserve += reserveRefund;
+            ink = Mathf.Min(EffectiveInkCapacity, ink + baseRefund);
+            return (strokeReserveInkSpent + strokeBaseInkSpent) * multiplier;
+        }
+
+        void UpdateLowInkRecoveryState()
+        {
+            if (!ActivePermanentGrowth.HasLowInkRecovery)
+            {
+                lowInkRecoveryActive = false;
+                return;
+            }
+
+            float usableInk = Mathf.Max(0f, ink) + Mathf.Max(0f, inkReserve);
+            float ratio = usableInk / Mathf.Max(0.001f, EffectiveInkCapacity);
+            if (!lowInkRecoveryActive && ratio < 0.25f)
+                lowInkRecoveryActive = true;
+            else if (lowInkRecoveryActive && ratio >= 0.40f)
+                lowInkRecoveryActive = false;
         }
 
         void CancelStroke()
@@ -353,8 +401,9 @@ namespace MukJump.Drawing
             growthController = next;
             if (growthController == null) return;
 
-            growthController.UpgradeSelected += HandleGrowthUpgradeSelected;
             growthController.RunReset += HandleGrowthRunReset;
+            growthController.InkRestoreRequested += HandleInkRestoreRequested;
+            growthController.InkRestoreRatioRequested += HandleInkRestoreRatioRequested;
             if (appliedInkCapacity <= 0f)
                 appliedInkCapacity = EffectiveInkCapacity;
         }
@@ -363,17 +412,11 @@ namespace MukJump.Drawing
         {
             if (growthController != null)
             {
-                growthController.UpgradeSelected -= HandleGrowthUpgradeSelected;
                 growthController.RunReset -= HandleGrowthRunReset;
+                growthController.InkRestoreRequested -= HandleInkRestoreRequested;
+                growthController.InkRestoreRatioRequested -= HandleInkRestoreRatioRequested;
             }
             growthController = null;
-        }
-
-        void HandleGrowthUpgradeSelected(GrowthUpgradeType upgrade)
-        {
-            if (upgrade != GrowthUpgradeType.InkCapacity) return;
-
-            ApplyCapacityIncrease();
         }
 
         void HandlePermanentGrowthChanged()
@@ -399,8 +442,26 @@ namespace MukJump.Drawing
             CancelActiveStroke();
             inkReserve = 0f;
             unlimitedInkUntil = 0f;
+            strokeBaseInkSpent = 0f;
+            strokeReserveInkSpent = 0f;
+            lastValidStrokeAt = float.NegativeInfinity;
+            idleStrokeDiscountEligible = false;
+            lowInkRecoveryActive = false;
             appliedInkCapacity = EffectiveInkCapacity;
             ink = appliedInkCapacity;
+        }
+
+        void HandleInkRestoreRequested(float amount)
+        {
+            if (amount <= 0f)
+                return;
+            ink = Mathf.Min(EffectiveInkCapacity, ink + amount);
+        }
+
+        void HandleInkRestoreRatioRequested(float ratio)
+        {
+            HandleInkRestoreRequested(
+                EffectiveInkCapacity * Mathf.Max(0f, ratio));
         }
 
         /// 캐릭터와 겹치는 부분만 잘라내고 가장 긴 안전 구간은 살린다.

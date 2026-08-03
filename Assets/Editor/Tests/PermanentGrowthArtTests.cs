@@ -280,7 +280,7 @@ namespace MukJump.EditorTests
             Transform selectedNode = viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/TreeLayerRoot/" +
                 "TreeViewport/TreeCanvas/" +
-                "GrowthNode_permanent_ink_capacity_rank_1");
+                "GrowthNode_I00");
             Assert.That(selectedNode.Find("NodeLevel"), Is.Null);
             Assert.That(
                 selectedNode.Find("NodeSurface").GetComponent<Image>().color,

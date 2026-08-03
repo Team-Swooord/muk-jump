@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.Linq;
 
 namespace MukJump.Core
 {
-    /// 게임이 끝나도 저장되는 먹방울이 성장 종류.
-    /// 한 판 전용 GrowthUpgradeType과 enum·저장 ID를 공유하지 않는다.
+    /// 영구 성장의 실제 효과 ID. 기존 0~10 값은 구 저장 마이그레이션을 위해 보존한다.
     public enum PermanentGrowthType
     {
         InkCapacity = 0,
@@ -19,9 +18,33 @@ namespace MukJump.Core
         DrawnPlatformLeap = 8,
         StrokeGuard = 9,
         CloneSpawnGrace = 10,
+        HitHorizontalStability = 11,
+        HitReboundControl = 12,
+        HitInkRecovery = 13,
+        StableHit = 14,
+        CloneSourceGrace = 15,
+        CloneDeathHeal = 16,
+        CloneBond = 17,
+        DrawnChargeRhythm = 18,
+        ConsecutiveLandingRhythm = 19,
+        ShortPlatformControl = 20,
+        ApexHang = 21,
+        FallControl = 22,
+        WindControl = 23,
+        LastFallBrake = 24,
+        ShortStrokeEfficiency = 25,
+        IdleStrokeEfficiency = 26,
+        NaturalExpiryRefund = 27,
+        DrawnLandingInk = 28,
+        LowInkRecovery = 29,
+        FirstLandingPause = 30,
+        // 기존 0~30 값은 저장 호환을 위해 그대로 두고 도약 v4 효과만 뒤에 붙인다.
+        JumpHeight = 31,
+        SafetyPlatform = 32,
+        DoubleJump = 33,
+        WallCling = 34,
     }
 
-    /// 영구 성장 화면의 세 가지 큰 계보.
     public enum PermanentGrowthBranch
     {
         Survival,
@@ -31,11 +54,12 @@ namespace MukJump.Core
 
     public enum PermanentGrowthNodeKind
     {
+        Root,
         Stat,
-        Capstone,
+        Mechanic,
+        Keystone,
     }
 
-    /// UI가 수치 뒤에 붙일 단위를 안전하게 고를 수 있도록 원시 효과값의 의미를 구분한다.
     public enum PermanentGrowthValueKind
     {
         Percent,
@@ -43,11 +67,77 @@ namespace MukJump.Core
         Seconds,
     }
 
+    /// 구 테스트·도구가 효과 그룹을 읽을 때 사용하는 호환 구조다.
+    /// 구매 그래프의 단일 진실 원천은 PermanentGrowthNodeDefinition이다.
+    public sealed class PermanentGrowthDefinition
+    {
+        readonly int[] costs;
+
+        public PermanentGrowthDefinition(
+            string id,
+            PermanentGrowthType type,
+            PermanentGrowthBranch branch,
+            PermanentGrowthNodeKind nodeKind,
+            int branchOrder,
+            string name,
+            string description,
+            string effectUnit,
+            float effectPerLevel,
+            bool reducesValue,
+            PermanentGrowthValueKind valueKind,
+            params int[] costs)
+        {
+            Id = id;
+            Type = type;
+            Branch = branch;
+            NodeKind = nodeKind;
+            BranchOrder = branchOrder;
+            Name = name;
+            Description = description;
+            EffectUnit = effectUnit;
+            EffectPerLevel = effectPerLevel;
+            ReducesValue = reducesValue;
+            ValueKind = valueKind;
+            this.costs = costs ?? Array.Empty<int>();
+        }
+
+        public string Id { get; }
+        public PermanentGrowthType Type { get; }
+        public PermanentGrowthBranch Branch { get; }
+        public PermanentGrowthNodeKind NodeKind { get; }
+        public bool IsCapstone => NodeKind == PermanentGrowthNodeKind.Keystone;
+        public int BranchOrder { get; }
+        public string Name { get; }
+        public string Description { get; }
+        public string EffectUnit { get; }
+        public float EffectPerLevel { get; }
+        public bool ReducesValue { get; }
+        public PermanentGrowthValueKind ValueKind { get; }
+        public int MaxLevel => costs.Length;
+        public IReadOnlyList<PermanentGrowthRequirement> Requirements =>
+            Array.Empty<PermanentGrowthRequirement>();
+
+        public int GetCost(int currentLevel) =>
+            currentLevel >= 0 && currentLevel < costs.Length
+                ? costs[currentLevel]
+                : 0;
+
+        public int CostThroughLevel(int level) =>
+            Math.Clamp(level, 0, costs.Length);
+
+        public float GetDisplayValueAtLevel(int level)
+        {
+            float value = Math.Clamp(level, 0, MaxLevel) * EffectPerLevel;
+            return ValueKind == PermanentGrowthValueKind.Percent
+                ? value * 100f
+                : value;
+        }
+    }
+
+    /// 구 저장의 선행조건 타입을 역직렬화하는 호환 구조다.
     public readonly struct PermanentGrowthRequirement
     {
-        public PermanentGrowthRequirement(
-            PermanentGrowthType type,
-            int minimumLevel)
+        public PermanentGrowthRequirement(PermanentGrowthType type, int minimumLevel)
         {
             Type = type;
             MinimumLevel = Math.Max(1, minimumLevel);
@@ -77,383 +167,111 @@ namespace MukJump.Core
         public int DisplayOrder { get; }
     }
 
-    public sealed class PermanentGrowthDefinition
-    {
-        readonly int[] costs;
-        readonly PermanentGrowthRequirement[] requirements;
-
-        public PermanentGrowthDefinition(
-            string id,
-            PermanentGrowthType type,
-            PermanentGrowthBranch branch,
-            PermanentGrowthNodeKind nodeKind,
-            int branchOrder,
-            string name,
-            string description,
-            string effectUnit,
-            float effectPerLevel,
-            bool reducesValue,
-            PermanentGrowthValueKind valueKind,
-            PermanentGrowthRequirement[] requirements,
-            params int[] costs)
-        {
-            Id = id;
-            Type = type;
-            Branch = branch;
-            NodeKind = nodeKind;
-            BranchOrder = branchOrder;
-            Name = name;
-            Description = description;
-            EffectUnit = effectUnit;
-            EffectPerLevel = effectPerLevel;
-            ReducesValue = reducesValue;
-            ValueKind = valueKind;
-            this.requirements = requirements ?? Array.Empty<PermanentGrowthRequirement>();
-            this.costs = costs ?? Array.Empty<int>();
-        }
-
-        public string Id { get; }
-        public PermanentGrowthType Type { get; }
-        public PermanentGrowthBranch Branch { get; }
-        public PermanentGrowthNodeKind NodeKind { get; }
-        public bool IsCapstone => NodeKind == PermanentGrowthNodeKind.Capstone;
-        public int BranchOrder { get; }
-        public string Name { get; }
-        public string Description { get; }
-        public string EffectUnit { get; }
-        public float EffectPerLevel { get; }
-        public bool ReducesValue { get; }
-        public PermanentGrowthValueKind ValueKind { get; }
-        public IReadOnlyList<PermanentGrowthRequirement> Requirements => requirements;
-        public int MaxLevel => costs.Length;
-
-        public int GetCost(int currentLevel)
-        {
-            return currentLevel >= 0 && currentLevel < costs.Length
-                ? costs[currentLevel]
-                : 0;
-        }
-
-        public int CostThroughLevel(int level)
-        {
-            int total = 0;
-            int count = Math.Min(Math.Max(0, level), costs.Length);
-            for (int i = 0; i < count; i++)
-                total += Math.Max(0, costs[i]);
-            return total;
-        }
-
-        public float GetPercentAtLevel(int level)
-        {
-            return Math.Max(0, Math.Min(level, MaxLevel)) * EffectPerLevel * 100f;
-        }
-
-        public float GetDisplayValueAtLevel(int level)
-        {
-            float value =
-                Math.Max(0, Math.Min(level, MaxLevel)) * EffectPerLevel;
-            return ValueKind == PermanentGrowthValueKind.Percent
-                ? value * 100f
-                : value;
-        }
-    }
-
-    /// 저장 트랙의 각 rank를 성장 화면에서 한 번씩 구매하는 열매 노드로 펼친 정의.
-    /// 저장은 기존 PermanentGrowthDefinition의 stable ID와 level을 계속 사용한다.
+    /// 한 번만 해금하는 열매 하나의 완전한 정의. 이름·아이콘·효과·부모를 직접 소유한다.
     public sealed class PermanentGrowthNodeDefinition
     {
         readonly string[] parentIds;
 
         public PermanentGrowthNodeDefinition(
             string id,
-            PermanentGrowthDefinition trackDefinition,
-            int rank,
+            string displayName,
+            string description,
+            string effectSummary,
+            string iconKey,
+            PermanentGrowthType effectId,
+            float effectValue,
+            string effectUnit,
+            PermanentGrowthValueKind valueKind,
+            bool reducesValue,
+            PermanentGrowthBranch branch,
+            PermanentGrowthNodeKind nodeKind,
             string[] parentIds,
-            bool isCommonTrunk,
+            int requiredOwnedCountInBranch,
+            string keystoneGroup,
             float layoutX,
-            float layoutY)
+            float layoutY,
+            int effectRank = 1)
         {
             Id = id;
-            TrackDefinition = trackDefinition;
-            Rank = Math.Max(1, rank);
+            DisplayName = displayName;
+            Description = description;
+            EffectSummary = effectSummary;
+            IconKey = iconKey;
+            EffectId = effectId;
+            EffectValue = effectValue;
+            EffectUnit = effectUnit;
+            ValueKind = valueKind;
+            ReducesValue = reducesValue;
+            Branch = branch;
+            NodeKind = nodeKind;
             this.parentIds = parentIds ?? Array.Empty<string>();
-            IsCommonTrunk = isCommonTrunk;
+            RequiredOwnedCountInBranch = Math.Max(0, requiredOwnedCountInBranch);
+            KeystoneGroup = keystoneGroup ?? string.Empty;
             LayoutX = layoutX;
             LayoutY = layoutY;
+            Rank = Math.Max(1, effectRank);
         }
 
         public string Id { get; }
-        public PermanentGrowthDefinition TrackDefinition { get; }
-        public PermanentGrowthType Type => TrackDefinition.Type;
-        public PermanentGrowthBranch Branch => TrackDefinition.Branch;
-        public PermanentGrowthNodeKind NodeKind => TrackDefinition.NodeKind;
-        public bool IsCapstone => TrackDefinition.IsCapstone;
-        public int Rank { get; }
-        public int TrackMaxLevel => TrackDefinition.MaxLevel;
-        public int Cost => TrackDefinition.GetCost(Rank - 1);
-        public string Name => TrackDefinition.Name;
-        public string Description => TrackDefinition.Description;
-        public string EffectUnit => TrackDefinition.EffectUnit;
-        public float EffectPerRank => TrackDefinition.EffectPerLevel;
-        public PermanentGrowthValueKind ValueKind => TrackDefinition.ValueKind;
-        public bool ReducesValue => TrackDefinition.ReducesValue;
+        public string DisplayName { get; }
+        public string Name => DisplayName;
+        public string Description { get; }
+        public string EffectSummary { get; }
+        public string IconKey { get; }
+        public PermanentGrowthType EffectId { get; }
+        public PermanentGrowthType Type => EffectId;
+        public float EffectValue { get; }
+        public string EffectUnit { get; }
+        public PermanentGrowthValueKind ValueKind { get; }
+        public bool ReducesValue { get; }
+        public PermanentGrowthBranch Branch { get; }
+        public PermanentGrowthNodeKind NodeKind { get; }
+        public bool IsKeystone => NodeKind == PermanentGrowthNodeKind.Keystone;
         public IReadOnlyList<string> ParentIds => parentIds;
-        /// 세 전문 계보로 갈라지기 전에 모두가 순서대로 여는 기초 줄기다.
-        public bool IsCommonTrunk { get; }
+        public int RequiredOwnedCountInBranch { get; }
+        public string KeystoneGroup { get; }
         public float LayoutX { get; }
         public float LayoutY { get; }
+        public int Cost => 1;
+        public int Rank { get; }
     }
 
-    /// 영구 성장의 이름·상한·비용·효과 수치를 소유하는 단일 진실 원천.
+    /// 영구 성장 v4의 39개 stable node ID와 해금 그래프를 소유한다.
     public static class PermanentGrowthCatalog
     {
-        static readonly PermanentGrowthDefinition[] Definitions =
-        {
-            new(
-                "permanent.ink_capacity",
-                PermanentGrowthType.InkCapacity,
-                PermanentGrowthBranch.InkHandling,
-                PermanentGrowthNodeKind.Stat,
-                0,
-                "먹그릇",
-                "한 번에 품을 수 있는 기본 먹이 늘어납니다",
-                "최대 먹",
-                0.015f,
-                false,
-                PermanentGrowthValueKind.Percent,
-                Array.Empty<PermanentGrowthRequirement>(),
-                6, 10, 16, 24, 34, 46),
-            new(
-                "permanent.ink_recovery",
-                PermanentGrowthType.InkRecovery,
-                PermanentGrowthBranch.InkHandling,
-                PermanentGrowthNodeKind.Stat,
-                1,
-                "숨고르기",
-                "붓을 쉬는 동안 기본 먹 회복이 빨라집니다",
-                "먹 회복",
-                0.02f,
-                false,
-                PermanentGrowthValueKind.Percent,
-                Requirements(
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.InkCapacity,
-                        2)),
-                6, 10, 16, 24, 34, 46),
-            new(
-                "permanent.platform_lifetime",
-                PermanentGrowthType.PlatformLifetime,
-                PermanentGrowthBranch.InkHandling,
-                PermanentGrowthNodeKind.Stat,
-                2,
-                "먹결",
-                "그린 임시 발판의 기본 여운이 길어집니다",
-                "발판 수명",
-                0.0125f,
-                false,
-                PermanentGrowthValueKind.Percent,
-                Requirements(
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.InkRecovery,
-                        2)),
-                7, 11, 17, 25, 35, 47),
-            new(
-                "permanent.jump_charge",
-                PermanentGrowthType.JumpCharge,
-                PermanentGrowthBranch.Leap,
-                PermanentGrowthNodeKind.Stat,
-                0,
-                "발놀림",
-                "다음 자동 점프를 준비하는 시간이 짧아집니다",
-                "충전 시간",
-                0.0075f,
-                true,
-                PermanentGrowthValueKind.Percent,
-                Array.Empty<PermanentGrowthRequirement>(),
-                7, 12, 18, 26, 36, 48),
-            new(
-                "permanent.vitality",
-                PermanentGrowthType.Vitality,
-                PermanentGrowthBranch.Survival,
-                PermanentGrowthNodeKind.Stat,
-                0,
-                "먹심",
-                "한 판을 시작할 때 기본 최대 체력이 한 칸 늘어납니다",
-                "최대 체력",
-                1f,
-                false,
-                PermanentGrowthValueKind.Flat,
-                Array.Empty<PermanentGrowthRequirement>(),
-                24),
-            new(
-                "permanent.damage_grace",
-                PermanentGrowthType.DamageGrace,
-                PermanentGrowthBranch.Survival,
-                PermanentGrowthNodeKind.Stat,
-                1,
-                "먹숨",
-                "피격 뒤 다시 다치지 않는 시간이 길어집니다",
-                "피격 여유",
-                0.08f,
-                false,
-                PermanentGrowthValueKind.Seconds,
-                Requirements(
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.Vitality,
-                        1)),
-                8, 16, 28),
-            new(
-                "permanent.last_breath",
-                PermanentGrowthType.LastBreath,
-                PermanentGrowthBranch.Survival,
-                PermanentGrowthNodeKind.Capstone,
-                2,
-                "마지막 먹숨",
-                "한 판에 한 번 치명적인 장애물 피해를 견딥니다",
-                "최종 패시브",
-                1f,
-                false,
-                PermanentGrowthValueKind.Flat,
-                Requirements(
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.Vitality,
-                        1),
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.DamageGrace,
-                        3),
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.CloneSpawnGrace,
-                        3)),
-                56),
-            new(
-                "permanent.jump_power",
-                PermanentGrowthType.JumpPower,
-                PermanentGrowthBranch.Leap,
-                PermanentGrowthNodeKind.Stat,
-                1,
-                "먹도약",
-                "기본 자동 점프의 힘이 조금씩 강해집니다",
-                "점프 힘",
-                0.01f,
-                false,
-                PermanentGrowthValueKind.Percent,
-                Requirements(
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.JumpCharge,
-                        3)),
-                8, 13, 19, 27, 37),
-            new(
-                "permanent.drawn_platform_leap",
-                PermanentGrowthType.DrawnPlatformLeap,
-                PermanentGrowthBranch.Leap,
-                PermanentGrowthNodeKind.Capstone,
-                2,
-                "먹결 도약",
-                "직접 그린 발판에서 자동 점프 힘이 크게 늘어납니다",
-                "먹발판 도약",
-                0.10f,
-                false,
-                PermanentGrowthValueKind.Percent,
-                Requirements(
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.JumpCharge,
-                        6),
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.JumpPower,
-                        5)),
-                52),
-            new(
-                "permanent.stroke_guard",
-                PermanentGrowthType.StrokeGuard,
-                PermanentGrowthBranch.InkHandling,
-                PermanentGrowthNodeKind.Capstone,
-                3,
-                "굳은 먹결",
-                "새로 그린 발판이 낙묵석 한 번을 견딥니다",
-                "최종 패시브",
-                1f,
-                false,
-                PermanentGrowthValueKind.Flat,
-                Requirements(
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.InkCapacity,
-                        6),
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.InkRecovery,
-                        6),
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.PlatformLifetime,
-                        6)),
-                56),
-            new(
-                "permanent.clone_spawn_grace",
-                PermanentGrowthType.CloneSpawnGrace,
-                PermanentGrowthBranch.Survival,
-                PermanentGrowthNodeKind.Stat,
-                3,
-                "분신 숨결",
-                "새 먹분신이 태어난 뒤 장애물을 버티는 시간이 길어집니다",
-                "분신 무적",
-                0.15f,
-                false,
-                PermanentGrowthValueKind.Seconds,
-                Requirements(
-                    new PermanentGrowthRequirement(
-                        PermanentGrowthType.Vitality,
-                        1)),
-                8, 16, 28),
-        };
-
         static readonly PermanentGrowthBranchMetadata[] BranchDefinitions =
         {
             new(
                 PermanentGrowthBranch.Survival,
                 "생존",
-                "피격을 견디고 마지막 한 번을 버티는 먹의 몸",
+                "개체 내구·피격 안정·먹떼 연계",
                 0),
-            new(
-                PermanentGrowthBranch.Leap,
-                "도약",
-                "자동 점프의 준비와 힘을 다듬는 먹의 발",
-                1),
             new(
                 PermanentGrowthBranch.InkHandling,
                 "먹 운용",
-                "먹의 양과 회복, 그린 발판을 다루는 먹의 결",
+                "먹 절약·회복 순환·발판 유지",
+                1),
+            new(
+                PermanentGrowthBranch.Leap,
+                "도약",
+                "준비시간·점프 힘·점프 높이와 세 구조 비기",
                 2),
         };
 
-        readonly struct NodePoint
-        {
-            public NodePoint(float x, float y)
-            {
-                X = x;
-                Y = y;
-            }
-
-            public float X { get; }
-            public float Y { get; }
-        }
-
+        // UI 호환을 위해 먹 운용 뿌리를 첫 슬롯에 둔다. 그래프 자체는 세 뿌리가 독립이다.
         static readonly PermanentGrowthNodeDefinition[] NodeDefinitions =
             BuildNodeDefinitions();
+        static readonly PermanentGrowthDefinition[] Definitions =
+            BuildEffectDefinitions();
+        static readonly Dictionary<string, PermanentGrowthNodeDefinition> NodesById =
+            NodeDefinitions.ToDictionary(node => node.Id, StringComparer.Ordinal);
 
         public static IReadOnlyList<PermanentGrowthDefinition> All => Definitions;
         public static IReadOnlyList<PermanentGrowthNodeDefinition> Nodes =>
             NodeDefinitions;
         public static IReadOnlyList<PermanentGrowthBranchMetadata> Branches =>
             BranchDefinitions;
-
-        public static int TotalCost
-        {
-            get
-            {
-                int total = 0;
-                for (int i = 0; i < Definitions.Length; i++)
-                    total += Definitions[i].CostThroughLevel(Definitions[i].MaxLevel);
-                return total;
-            }
-        }
+        public static int TotalCost => NodeDefinitions.Length;
 
         public static PermanentGrowthDefinition Get(PermanentGrowthType type)
         {
@@ -472,7 +290,9 @@ namespace MukJump.Core
             return default;
         }
 
-        public static bool TryGet(string id, out PermanentGrowthDefinition definition)
+        public static bool TryGet(
+            string id,
+            out PermanentGrowthDefinition definition)
         {
             for (int i = 0; i < Definitions.Length; i++)
             {
@@ -486,269 +306,381 @@ namespace MukJump.Core
             return false;
         }
 
-        public static PermanentGrowthNodeDefinition GetNode(
-            PermanentGrowthType type,
-            int rank)
-        {
-            for (int i = 0; i < NodeDefinitions.Length; i++)
-                if (NodeDefinitions[i].Type == type &&
-                    NodeDefinitions[i].Rank == rank)
-                    return NodeDefinitions[i];
-            return null;
-        }
-
-        public static PermanentGrowthNodeDefinition GetNode(string id)
-        {
-            return TryGetNode(id, out PermanentGrowthNodeDefinition definition)
-                ? definition
-                : null;
-        }
+        public static PermanentGrowthNodeDefinition GetNode(string id) =>
+            TryGetNode(id, out PermanentGrowthNodeDefinition node) ? node : null;
 
         public static bool TryGetNode(
             string id,
             out PermanentGrowthNodeDefinition definition)
         {
-            for (int i = 0; i < NodeDefinitions.Length; i++)
-            {
-                if (!string.Equals(
-                        NodeDefinitions[i].Id,
-                        id,
-                        StringComparison.Ordinal))
-                    continue;
-                definition = NodeDefinitions[i];
+            if (!string.IsNullOrEmpty(id) && NodesById.TryGetValue(id, out definition))
                 return true;
-            }
-
             definition = null;
             return false;
         }
 
-        public static string GetNodeId(
+        /// 구 도구가 효과와 단계로 찾을 때 사용하는 호환 조회다.
+        public static PermanentGrowthNodeDefinition GetNode(
             PermanentGrowthType type,
             int rank)
         {
-            PermanentGrowthDefinition definition = Get(type);
-            return definition != null &&
-                   rank >= 1 &&
-                   rank <= definition.MaxLevel
-                ? BuildNodeId(definition.Id, rank)
-                : string.Empty;
+            for (int i = 0; i < NodeDefinitions.Length; i++)
+                if (NodeDefinitions[i].EffectId == type &&
+                    NodeDefinitions[i].Rank == rank)
+                    return NodeDefinitions[i];
+            return null;
         }
+
+        public static string GetNodeId(PermanentGrowthType type, int rank) =>
+            GetNode(type, rank)?.Id ?? string.Empty;
+
+        public static int CountGeneralNodes(PermanentGrowthBranch branch)
+        {
+            int count = 0;
+            for (int i = 0; i < NodeDefinitions.Length; i++)
+                if (NodeDefinitions[i].Branch == branch &&
+                    !NodeDefinitions[i].IsKeystone)
+                    count++;
+            return count;
+        }
+
+        public static IReadOnlyList<string> MigrationOrder(
+            PermanentGrowthBranch branch)
+        {
+            return branch switch
+            {
+                PermanentGrowthBranch.Survival => SurvivalMigrationOrder,
+                PermanentGrowthBranch.Leap => LeapMigrationOrder,
+                _ => InkMigrationOrder,
+            };
+        }
+
+        static readonly string[] SurvivalMigrationOrder =
+        {
+            "S00", "S-A1", "S-B1", "S-C1", "S-A2", "S-B2", "S-C2",
+            "S-A3", "S-B3", "S-C3", "S-KA", "S-KB", "S-KC",
+        };
+
+        static readonly string[] LeapMigrationOrder =
+        {
+            "J00", "J-A1", "J-B1", "J-C1", "J-A2", "J-B2", "J-C2",
+            "J-A3", "J-B3", "J-C3", "J-KA", "J-KB", "J-KC",
+        };
+
+        static readonly string[] InkMigrationOrder =
+        {
+            "I00", "I-A1", "I-B1", "I-C1", "I-A2", "I-B2", "I-C2",
+            "I-A3", "I-B3", "I-C3", "I-KA", "I-KB", "I-KC",
+        };
 
         static PermanentGrowthNodeDefinition[] BuildNodeDefinitions()
         {
             var nodes = new List<PermanentGrowthNodeDefinition>(39);
 
-            AddTrackNodes(
-                nodes,
-                PermanentGrowthType.InkCapacity,
-                new[]
-                {
-                    new NodePoint(0f, -1200f),
-                    new NodePoint(-70f, -960f),
-                    new NodePoint(-300f, 300f),
-                    new NodePoint(-420f, 540f),
-                    new NodePoint(-300f, 780f),
-                    new NodePoint(-440f, 1020f),
-                });
-            AddTrackNodes(
-                nodes,
-                PermanentGrowthType.InkRecovery,
-                new[]
-                {
-                    new NodePoint(55f, -720f),
-                    new NodePoint(-45f, -480f),
-                    new NodePoint(0f, 350f),
-                    new NodePoint(0f, 590f),
-                    new NodePoint(60f, 830f),
-                    new NodePoint(0f, 1080f),
-                });
-            AddTrackNodes(
-                nodes,
-                PermanentGrowthType.PlatformLifetime,
-                new[]
-                {
-                    new NodePoint(40f, -240f),
-                    new NodePoint(0f, 60f),
-                    new NodePoint(300f, 300f),
-                    new NodePoint(420f, 540f),
-                    new NodePoint(300f, 780f),
-                    new NodePoint(440f, 1020f),
-                });
-            AddTrackNodes(
-                nodes,
-                PermanentGrowthType.JumpCharge,
-                new[]
-                {
-                    new NodePoint(520f, 40f),
-                    new NodePoint(640f, 270f),
-                    new NodePoint(740f, 500f),
-                    new NodePoint(620f, 730f),
-                    new NodePoint(740f, 960f),
-                    new NodePoint(660f, 1190f),
-                });
-            AddTrackNodes(
-                nodes,
-                PermanentGrowthType.Vitality,
-                new[]
-                {
-                    new NodePoint(-520f, 40f),
-                });
-            AddTrackNodes(
-                nodes,
-                PermanentGrowthType.DamageGrace,
-                new[]
-                {
-                    new NodePoint(-1040f, 300f),
-                    new NodePoint(-1120f, 560f),
-                    new NodePoint(-1000f, 820f),
-                });
-            AddTrackNodes(
-                nodes,
-                PermanentGrowthType.LastBreath,
-                new[]
-                {
-                    new NodePoint(-820f, 1200f),
-                });
-            AddTrackNodes(
-                nodes,
-                PermanentGrowthType.JumpPower,
-                new[]
-                {
-                    new NodePoint(930f, 520f),
-                    new NodePoint(1120f, 720f),
-                    new NodePoint(930f, 920f),
-                    new NodePoint(1120f, 1120f),
-                    new NodePoint(930f, 1320f),
-                });
-            AddTrackNodes(
-                nodes,
-                PermanentGrowthType.DrawnPlatformLeap,
-                new[]
-                {
-                    new NodePoint(690f, 1470f),
-                });
-            AddTrackNodes(
-                nodes,
-                PermanentGrowthType.StrokeGuard,
-                new[]
-                {
-                    new NodePoint(0f, 1420f),
-                });
-            AddTrackNodes(
-                nodes,
-                PermanentGrowthType.CloneSpawnGrace,
-                new[]
-                {
-                    new NodePoint(-660f, 320f),
-                    new NodePoint(-720f, 580f),
-                    new NodePoint(-680f, 840f),
-                });
+            // 먹 운용 — 중앙 주가지
+            Add(nodes, "I00", "작은 벼루", "먹을 담는 기본 그릇을 넓힙니다.",
+                "최대 먹 +3%", "ink.capacity.seed", PermanentGrowthType.InkCapacity,
+                0.03f, "최대 먹", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Root,
+                null, 0, "", 0f, -1040f, 1);
+            Add(nodes, "I-A1", "깊은 벼루", "벼루의 깊이를 더해 먹을 오래 품습니다.",
+                "최대 먹 +3%", "ink.capacity.deep", PermanentGrowthType.InkCapacity,
+                0.03f, "최대 먹", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
+                P("I00"), 0, "", -350f, -770f, 2);
+            Add(nodes, "I-A2", "마른 붓끝", "짧고 정확한 획의 먹 소모를 줄입니다.",
+                "1.5m 이하 유효 획 비용 -8%", "ink.stroke.short",
+                PermanentGrowthType.ShortStrokeEfficiency, 0.08f, "짧은 획 비용",
+                PermanentGrowthValueKind.Percent, true,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Mechanic,
+                P("I-A1"), 0, "", -430f, -430f);
+            Add(nodes, "I-A3", "남겨 둔 먹", "잠시 붓을 쉬었다 그린 첫 획을 아낍니다.",
+                "2초 휴식 뒤 첫 유효 획 비용 -10%", "ink.stroke.idle",
+                PermanentGrowthType.IdleStrokeEfficiency, 0.10f, "휴식 획 비용",
+                PermanentGrowthValueKind.Percent, true,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Mechanic,
+                P("I-A2"), 0, "", -350f, -80f);
+            Add(nodes, "I-KA", "되돌아온 먹", "자연스럽게 마른 발판의 먹 일부가 벼루로 돌아옵니다.",
+                "자연 소멸 시 10% 환급 · 최대 0.6", "ink.refund.expiry",
+                PermanentGrowthType.NaturalExpiryRefund, 0.10f, "환급",
+                PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
+                P("I-A3"), 4, "ink", -500f, 300f);
+
+            Add(nodes, "I-B1", "첫 숨", "먹이 차오르는 기본 호흡을 빠르게 합니다.",
+                "먹 회복 +4%", "ink.recovery.first", PermanentGrowthType.InkRecovery,
+                0.04f, "먹 회복", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
+                P("I00"), 0, "", 0f, -710f, 1);
+            Add(nodes, "I-B2", "고른 숨", "먹의 회복 호흡을 한 번 더 다듬습니다.",
+                "먹 회복 +4%", "ink.recovery.even", PermanentGrowthType.InkRecovery,
+                0.04f, "먹 회복", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
+                P("I-B1"), 0, "", 70f, -370f, 2);
+            Add(nodes, "I-B3", "산속 먹샘", "직접 그린 발판에 착지하면 작은 먹샘이 솟습니다.",
+                "착지 시 먹 0.20 회복 · 4초", "ink.recovery.landing",
+                PermanentGrowthType.DrawnLandingInk, 0.20f, "착지 먹",
+                PermanentGrowthValueKind.Flat, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Mechanic,
+                P("I-B2"), 0, "", 0f, -20f);
+            Add(nodes, "I-KB", "마르지 않는 벼루", "먹이 바닥날 때 회복이 빨라져 다시 획을 준비합니다.",
+                "먹 25% 미만 회복 +30% · 40%까지", "ink.recovery.low",
+                PermanentGrowthType.LowInkRecovery, 0.30f, "저먹 회복",
+                PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
+                P("I-B3"), 4, "ink", 0f, 360f);
+
+            Add(nodes, "I-C1", "남은 획", "발판에 남는 먹의 여운을 늘립니다.",
+                "발판 수명 +2%", "ink.platform.remaining",
+                PermanentGrowthType.PlatformLifetime, 0.02f, "발판 수명",
+                PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
+                P("I00"), 0, "", 350f, -780f, 1);
+            Add(nodes, "I-C2", "이어진 획", "발판의 여운을 한 번 더 이어 줍니다.",
+                "발판 수명 +2%", "ink.platform.long", PermanentGrowthType.PlatformLifetime,
+                0.02f, "발판 수명", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
+                P("I-C1"), 0, "", 430f, -450f, 2);
+            Add(nodes, "I-C3", "붙잡은 획", "첫 착지 순간 발판이 잠시 마르지 않습니다.",
+                "첫 착지 때 수명 감소 0.15초 정지", "ink.platform.pause",
+                PermanentGrowthType.FirstLandingPause, 0.15f, "수명 정지",
+                PermanentGrowthValueKind.Seconds, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Mechanic,
+                P("I-C2"), 0, "", 350f, -110f);
+            Add(nodes, "I-KC", "굳은 먹결", "먹떼가 낙묵석 한 번을 받아내 발판을 지킵니다.",
+                "낙묵석 방어 1회 · 공용 18초", "ink.platform.guard",
+                PermanentGrowthType.StrokeGuard, 18f, "재사용",
+                PermanentGrowthValueKind.Seconds, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
+                P("I-C3"), 4, "ink", 500f, 280f);
+
+            // 생존 — 왼쪽 주가지
+            Add(nodes, "S00", "먹피의 씨", "먹피가 굳어 연속 장애물 피해를 늦춥니다.",
+                "피격 뒤 무적 +0.05초", "survival.guard.seed",
+                PermanentGrowthType.DamageGrace, 0.05f, "피격 여유",
+                PermanentGrowthValueKind.Seconds, false,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Root,
+                null, 0, "", -700f, -980f, 1);
+            Add(nodes, "S-A1", "얇은 먹피", "보호 먹피를 한 겹 더 두릅니다.",
+                "피격 뒤 무적 +0.05초", "survival.guard.thin",
+                PermanentGrowthType.DamageGrace, 0.05f, "피격 여유",
+                PermanentGrowthValueKind.Seconds, false,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
+                P("S00"), 0, "", -1320f, -720f, 2);
+            Add(nodes, "S-A2", "겹친 먹피", "겹친 먹피가 다음 충돌까지 시간을 벌어 줍니다.",
+                "피격 뒤 무적 +0.05초", "survival.guard.layered",
+                PermanentGrowthType.DamageGrace, 0.05f, "피격 여유",
+                PermanentGrowthValueKind.Seconds, false,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
+                P("S-A1"), 0, "", -1420f, -390f, 3);
+            Add(nodes, "S-A3", "깊은 먹심", "모든 현재·미래 먹방울이의 몸이 한 칸 단단해집니다.",
+                "모든 먹방울이 최대 체력 +1", "survival.guard.heart",
+                PermanentGrowthType.Vitality, 1f, "최대 체력",
+                PermanentGrowthValueKind.Flat, false,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Mechanic,
+                P("S-A2"), 0, "", -1320f, -60f);
+            Add(nodes, "S-KA", "마지막 먹숨", "마지막 생존자가 장애물로 쓰러질 때 한 번 버팁니다. 추락은 막지 않습니다.",
+                "한 판 1회 · 체력 1 · 무적 0.8초", "survival.keystone.last",
+                PermanentGrowthType.LastBreath, 0.8f, "생존 무적",
+                PermanentGrowthValueKind.Seconds, false,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,
+                P("S-A3"), 4, "survival", -1480f, 300f);
+
+            Add(nodes, "S-B1", "낮은 흔들림", "피격 뒤 수평 관성을 더 많이 보존합니다.",
+                "수평 속도 보존 82% → 90%", "survival.stability.horizontal",
+                PermanentGrowthType.HitHorizontalStability, 0.90f, "속도 보존",
+                PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
+                P("S00"), 0, "", -980f, -660f);
+            Add(nodes, "S-B2", "굳은 중심", "장애물 반동이 아이템 점프처럼 솟지 않게 줄입니다.",
+                "최소 상승 반동 1.6 → 1.3", "survival.stability.rebound",
+                PermanentGrowthType.HitReboundControl, 1.3f, "최소 반동",
+                PermanentGrowthValueKind.Flat, true,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Mechanic,
+                P("S-B1"), 0, "", -1040f, -330f);
+            Add(nodes, "S-B3", "되찾은 먹", "비치명 피해가 먹의 일부를 되돌립니다.",
+                "최대 먹 4% 회복 · 공용 8초", "survival.stability.ink",
+                PermanentGrowthType.HitInkRecovery, 0.04f, "먹 회복",
+                PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Mechanic,
+                P("S-B2"), 0, "", -950f, 0f);
+            Add(nodes, "S-KB", "흐트러지지 않음", "주기적으로 체력만 잃고 속도와 발판 접착은 지킵니다.",
+                "피격 움직임 보존 · 공용 12초", "survival.keystone.stable",
+                PermanentGrowthType.StableHit, 12f, "재사용",
+                PermanentGrowthValueKind.Seconds, false,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,
+                P("S-B3"), 4, "survival", -1000f, 360f);
+
+            Add(nodes, "S-C1", "첫 분신숨", "새 분신이 태어난 뒤 장애물 보호를 더 받습니다.",
+                "새 분신 보호 +0.15초", "survival.clone.first",
+                PermanentGrowthType.CloneSpawnGrace, 0.15f, "분신 보호",
+                PermanentGrowthValueKind.Seconds, false,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
+                P("S00"), 0, "", -650f, -720f);
+            Add(nodes, "S-C2", "나눠진 숨", "분신을 만든 원본도 잠깐 장애물에서 보호됩니다.",
+                "분신 생성 시 원본 보호 0.25초", "survival.clone.source",
+                PermanentGrowthType.CloneSourceGrace, 0.25f, "원본 보호",
+                PermanentGrowthValueKind.Seconds, false,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Mechanic,
+                P("S-C1"), 0, "", -560f, -400f);
+            Add(nodes, "S-C3", "남은 먹맥", "분신이 사라지면 가장 약한 생존자에게 먹맥이 이어집니다.",
+                "분신 사망 시 체력 +1 · 공용 30초", "survival.clone.heal",
+                PermanentGrowthType.CloneDeathHeal, 30f, "재사용",
+                PermanentGrowthValueKind.Seconds, false,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Mechanic,
+                P("S-C2"), 0, "", -650f, -70f);
+            Add(nodes, "S-KC", "함께 맺힘", "먹분신 획득 순간 먹떼 전체가 하나의 숨을 나눕니다.",
+                "최저 체력 +1 · 전체 보호 0.35초", "survival.keystone.bond",
+                PermanentGrowthType.CloneBond, 0.35f, "전체 보호",
+                PermanentGrowthValueKind.Seconds, false,
+                PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,
+                P("S-C3"), 4, "survival", -520f, 290f);
+
+            // 도약 — 공용 뿌리 뒤에 준비·힘·높이 세 갈래가 각각 3칸과 비기로 이어진다.
+            Add(nodes, "J00", "도약의 씨", "세 갈래 도약 성장을 여는 첫 박자를 익힙니다.",
+                "점프 준비시간 -1.5%", "leap.rhythm.seed", PermanentGrowthType.JumpCharge,
+                0.015f, "준비시간", PermanentGrowthValueKind.Percent, true,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Root,
+                null, 0, "", 700f, -1080f, 1);
+
+            Add(nodes, "J-A1", "고른 박자 I", "자동 점프의 준비 박자를 짧게 다듬습니다.",
+                "점프 준비시간 -1.5%", "leap.rhythm.01", PermanentGrowthType.JumpCharge,
+                0.015f, "준비시간", PermanentGrowthValueKind.Percent, true,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J00"), 0, "", 560f, -820f, 2);
+            Add(nodes, "J-A2", "고른 박자 II", "자동 점프의 준비 박자를 짧게 다듬습니다.",
+                "점프 준비시간 -1.5%", "leap.rhythm.02", PermanentGrowthType.JumpCharge,
+                0.015f, "준비시간", PermanentGrowthValueKind.Percent, true,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-A1"), 0, "", 520f, -510f, 3);
+            Add(nodes, "J-A3", "고른 박자 III", "자동 점프의 준비 박자를 짧게 다듬습니다.",
+                "점프 준비시간 -1.5%", "leap.rhythm.03", PermanentGrowthType.JumpCharge,
+                0.015f, "준비시간", PermanentGrowthValueKind.Percent, true,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-A2"), 0, "", 600f, -200f, 4);
+            Add(nodes, "J-KA", "벽의 먹발", "측면 벽에 닿으면 잠시 매달려 박자를 채운 뒤 안쪽으로 점프합니다.",
+                "벽 매달림 · 최대 1.2초", "leap.keystone.wall",
+                PermanentGrowthType.WallCling, 1.2f, "매달림",
+                PermanentGrowthValueKind.Seconds, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Keystone,
+                P("J-A3"), 4, "leap", 520f, 110f);
+
+            Add(nodes, "J-B1", "돋는 먹발 I", "기본 자동 점프 힘을 고르게 키웁니다.",
+                "기본 점프 힘 +1.67%", "leap.power.01", PermanentGrowthType.JumpPower,
+                0.05f / 3f, "점프 힘", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J00"), 0, "", 760f, -800f, 1);
+            Add(nodes, "J-B2", "돋는 먹발 II", "기본 자동 점프 힘을 고르게 키웁니다.",
+                "기본 점프 힘 +1.67%", "leap.power.02", PermanentGrowthType.JumpPower,
+                0.05f / 3f, "점프 힘", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-B1"), 0, "", 830f, -490f, 2);
+            Add(nodes, "J-B3", "돋는 먹발 III", "기본 자동 점프 힘을 고르게 키웁니다.",
+                "기본 점프 힘 +1.67%", "leap.power.03", PermanentGrowthType.JumpPower,
+                0.05f / 3f, "점프 힘", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-B2"), 0, "", 770f, -180f, 3);
+            Add(nodes, "J-KB", "다섯 번째 먹자리", "먹떼의 일반 자동 점프 다섯 번마다 잠시 머물 안전 발판을 만듭니다.",
+                "5회마다 단방향 발판 · 6초", "leap.keystone.safety",
+                PermanentGrowthType.SafetyPlatform, 5f, "점프 횟수",
+                PermanentGrowthValueKind.Flat, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Keystone,
+                P("J-B3"), 4, "leap", 850f, 130f);
+
+            Add(nodes, "J-C1", "높은 먹발 I", "자동 점프가 닿는 정점 높이를 늘립니다.",
+                "점프 높이 +2.08%", "leap.height.01", PermanentGrowthType.JumpHeight,
+                0.0625f / 3f, "점프 높이", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J00"), 0, "", 1020f, -820f, 1);
+            Add(nodes, "J-C2", "높은 먹발 II", "자동 점프가 닿는 정점 높이를 늘립니다.",
+                "점프 높이 +2.08%", "leap.height.02", PermanentGrowthType.JumpHeight,
+                0.0625f / 3f, "점프 높이", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-C1"), 0, "", 1110f, -510f, 2);
+            Add(nodes, "J-C3", "높은 먹발 III", "자동 점프가 닿는 정점 높이를 늘립니다.",
+                "점프 높이 +2.08%", "leap.height.03", PermanentGrowthType.JumpHeight,
+                0.0625f / 3f, "점프 높이", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
+                P("J-C2"), 0, "", 1040f, -200f, 3);
+            Add(nodes, "J-KC", "겹친 먹발", "일반 자동 점프의 첫 정점에서 한 번 더 뛰어오릅니다.",
+                "2단 점프 · 힘 40% · 공용 12초", "leap.keystone.double",
+                PermanentGrowthType.DoubleJump, 0.40f, "추가 점프 힘",
+                PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Keystone,
+                P("J-C3"), 4, "leap", 1140f, 110f);
 
             return nodes.ToArray();
         }
 
-        static void AddTrackNodes(
+        static void Add(
             ICollection<PermanentGrowthNodeDefinition> nodes,
-            PermanentGrowthType type,
-            IReadOnlyList<NodePoint> positions)
+            string id,
+            string name,
+            string description,
+            string effectSummary,
+            string iconKey,
+            PermanentGrowthType effectId,
+            float effectValue,
+            string effectUnit,
+            PermanentGrowthValueKind valueKind,
+            bool reducesValue,
+            PermanentGrowthBranch branch,
+            PermanentGrowthNodeKind kind,
+            string[] parents,
+            int requiredOwned,
+            string keystoneGroup,
+            float x,
+            float y,
+            int effectRank = 1)
         {
-            PermanentGrowthDefinition definition = Get(type);
-            if (definition == null ||
-                positions == null ||
-                positions.Count != definition.MaxLevel)
-                throw new InvalidOperationException(
-                    $"{type} rank 노드 배치가 저장 트랙과 일치하지 않습니다.");
+            nodes.Add(new PermanentGrowthNodeDefinition(
+                id,
+                name,
+                description,
+                effectSummary,
+                iconKey,
+                effectId,
+                effectValue,
+                effectUnit,
+                valueKind,
+                reducesValue,
+                branch,
+                kind,
+                parents,
+                requiredOwned,
+                keystoneGroup,
+                x,
+                y,
+                effectRank));
+        }
 
-            for (int rank = 1; rank <= definition.MaxLevel; rank++)
-            {
-                string[] parentIds = GetParentOverride(type, rank);
-                if (parentIds == null && rank > 1)
+        static PermanentGrowthDefinition[] BuildEffectDefinitions()
+        {
+            return NodeDefinitions
+                .GroupBy(node => node.EffectId)
+                .Select((group, order) =>
                 {
-                    parentIds = new[]
-                    {
-                        BuildNodeId(definition.Id, rank - 1),
-                    };
-                }
-                else if (parentIds == null)
-                {
-                    parentIds =
-                        new string[definition.Requirements.Count];
-                    for (int i = 0; i < definition.Requirements.Count; i++)
-                    {
-                        PermanentGrowthRequirement requirement =
-                            definition.Requirements[i];
-                        PermanentGrowthDefinition parent =
-                            Get(requirement.Type);
-                        if (parent == null)
-                            throw new InvalidOperationException(
-                                $"{definition.Id}의 부모 트랙이 없습니다.");
-                        parentIds[i] = BuildNodeId(
-                            parent.Id,
-                            requirement.MinimumLevel);
-                    }
-                }
-
-                NodePoint point = positions[rank - 1];
-                nodes.Add(new PermanentGrowthNodeDefinition(
-                    BuildNodeId(definition.Id, rank),
-                    definition,
-                    rank,
-                    parentIds,
-                    IsCommonTrunkNode(type, rank),
-                    point.X,
-                    point.Y));
-            }
+                    PermanentGrowthNodeDefinition first = group.First();
+                    int[] costs = Enumerable.Repeat(1, group.Count()).ToArray();
+                    return new PermanentGrowthDefinition(
+                        $"permanent.effect.{group.Key}",
+                        group.Key,
+                        first.Branch,
+                        group.Any(node => node.IsKeystone)
+                            ? PermanentGrowthNodeKind.Keystone
+                            : first.NodeKind,
+                        order,
+                        first.DisplayName,
+                        first.Description,
+                        first.EffectUnit,
+                        first.EffectValue,
+                        first.ReducesValue,
+                        first.ValueKind,
+                        costs);
+                })
+                .ToArray();
         }
 
-        static string[] GetParentOverride(
-            PermanentGrowthType type,
-            int rank)
-        {
-            if (rank == 1 &&
-                (type == PermanentGrowthType.Vitality ||
-                 type == PermanentGrowthType.JumpCharge))
-            {
-                return new[]
-                {
-                    GetNodeId(PermanentGrowthType.PlatformLifetime, 1),
-                };
-            }
-
-            if (rank == 3 &&
-                (type == PermanentGrowthType.InkCapacity ||
-                 type == PermanentGrowthType.InkRecovery))
-            {
-                return new[]
-                {
-                    GetNodeId(PermanentGrowthType.PlatformLifetime, 2),
-                };
-            }
-
-            return null;
-        }
-
-        static bool IsCommonTrunkNode(
-            PermanentGrowthType type,
-            int rank)
-        {
-            return (type == PermanentGrowthType.InkCapacity && rank <= 2) ||
-                   (type == PermanentGrowthType.InkRecovery && rank <= 2) ||
-                   (type == PermanentGrowthType.PlatformLifetime && rank == 1);
-        }
-
-        static string BuildNodeId(string trackId, int rank)
-        {
-            return string.Concat(
-                trackId,
-                ".rank.",
-                rank.ToString(CultureInfo.InvariantCulture));
-        }
-
-        static PermanentGrowthRequirement[] Requirements(
-            params PermanentGrowthRequirement[] values)
-        {
-            return values ?? Array.Empty<PermanentGrowthRequirement>();
-        }
+        static string[] P(string id) => new[] { id };
     }
 }

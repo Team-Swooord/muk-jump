@@ -58,26 +58,6 @@ namespace MukJump.EditorTools
         const string GoldenBrushItemPath = "Assets/Art/UI/golden_brush.png";
         const string InkShieldItemPath = "Assets/Art/UI/ink_shield.png";
         const string InkCloneItemPath = "Assets/Art/UI/ink_clone.png";
-        const string GrowthScrollPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_scroll.png";
-        const string GrowthCardFramePath =
-            "Assets/Resources/MukJump/UI/Growth/growth_card_frame.png";
-        const string GrowthVitalityPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_vitality.png";
-        const string GrowthJumpPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_jump.png";
-        const string GrowthInkCapacityPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_ink_capacity.png";
-        const string GrowthInkRegenPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_ink_recovery.png";
-        const string GrowthPlatformLifetimePath =
-            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_platform_lifetime.png";
-        const string GrowthPlatformSlotsPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_platform_slots.png";
-        const string GrowthGuardPath =
-            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_stroke_guard.png";
-        const string GrowthFortunePath =
-            "Assets/Resources/MukJump/UI/Growth/growth_card_icon_item_fortune.png";
         const string ActionButtonPath =
             "Assets/Resources/MukJump/UI/Common/action_button_brush.png";
         // 유기적인 붓획은 9-slice 시 작은 버튼에서 모서리만 남아 먹 얼룩처럼
@@ -676,26 +656,11 @@ namespace MukJump.EditorTools
             go.AddComponent<BrushTransitionView>();
             go.AddComponent<GameOverPopupView>();
             go.AddComponent<PauseMenuView>();
-            var growthController = go.GetComponent<RunGrowthController>() ??
-                                   go.AddComponent<RunGrowthController>();
-            var growthChoiceView = go.GetComponent<GrowthChoiceView>() ??
-                                   go.AddComponent<GrowthChoiceView>();
-            go.AddComponent<LobbyCollectionView>();
+            go.AddComponent<RunGrowthController>();
             go.AddComponent<PermanentGrowthView>();
             go.AddComponent<LobbyOptionsView>();
             go.AddComponent<LobbyScreenNavigator>();
             go.AddComponent<InkUiFeedbackController>();
-            growthChoiceView.SetCardFrame(
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthCardFramePath));
-            growthChoiceView.SetSprites(
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthVitalityPath),
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthJumpPath),
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthInkCapacityPath),
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthInkRegenPath),
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthPlatformLifetimePath),
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthPlatformSlotsPath),
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthGuardPath),
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthFortunePath));
             go.AddComponent<ScoreManager>();
             for (int i = 0; i < 6; i++)
                 ConfigureAudioSource(go.AddComponent<AudioSource>(), loop: false, priority: 128);
@@ -789,16 +754,6 @@ namespace MukJump.EditorTools
             itemSo.FindProperty("cloneChanceAt30m").floatValue = 0.35f;
             itemSo.FindProperty("cloneChanceAt250m").floatValue = 0.5f;
             itemSo.ApplyModifiedPropertiesWithoutUndo();
-
-            var growthSpawner = go.AddComponent<GrowthScrollSpawner>();
-            var growthSpawnerSo = new SerializedObject(growthSpawner);
-            growthSpawnerSo.FindProperty("growthScrollSprite").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<Sprite>(GrowthScrollPath);
-            growthSpawnerSo.FindProperty("firstHeight").floatValue =
-                GrowthScrollSpawner.DefaultFirstHeight;
-            growthSpawnerSo.FindProperty("interval").floatValue =
-                GrowthScrollSpawner.DefaultInterval;
-            growthSpawnerSo.ApplyModifiedPropertiesWithoutUndo();
 
             var eventSystem = new GameObject(
                 "EventSystem",
@@ -900,12 +855,6 @@ namespace MukJump.EditorTools
                 buttonTexture,
                 "성장",
                 LobbyMenuLayout.GrowthAnchor);
-            var codexButton = CreateLobbyMenuButton(
-                "CodexButton",
-                root.transform,
-                buttonTexture,
-                "도감",
-                LobbyMenuLayout.CodexAnchor);
             var optionsButton = CreateLobbyMenuButton(
                 "OptionsButton",
                 root.transform,
@@ -918,7 +867,6 @@ namespace MukJump.EditorTools
             so.FindProperty("bestText").objectReferenceValue = lobbyBest;
             so.FindProperty("startButton").objectReferenceValue = startButton;
             so.FindProperty("growthButton").objectReferenceValue = growthButton;
-            so.FindProperty("codexButton").objectReferenceValue = codexButton;
             so.FindProperty("optionsButton").objectReferenceValue = optionsButton;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
@@ -1074,10 +1022,6 @@ namespace MukJump.EditorTools
                 new Color(0.2f, 0.58f, 0.48f), "여유 +35%");
             var haetaeButton = CreateDebugTextButton("HaetaeButton", debugPanel,
                 new Vector2(22f, -438f), new Vector2(145f, 72f), "먹해태");
-            var growthChoiceButton = CreateDebugTextButton(
-                "GrowthChoiceButton", debugPanel,
-                new Vector2(22f, -526f), new Vector2(145f, 72f), "증강 선택");
-
             CreateText("MapDebugTitle", debugPanel, "맵 이동", 30, FontStyle.Bold,
                 new Vector2(0.76f, 0.9f), new Vector2(175f, 55f), InkPalette.Paper);
             var mapStartButton = CreateDebugTextButton("MapStartButton", debugPanel,
@@ -1125,8 +1069,6 @@ namespace MukJump.EditorTools
             so.FindProperty("inkCloneButton").objectReferenceValue = inkCloneButton;
             so.FindProperty("inkReserveButton").objectReferenceValue = inkReserveButton;
             so.FindProperty("haetaeButton").objectReferenceValue = haetaeButton;
-            so.FindProperty("growthChoiceButton").objectReferenceValue =
-                growthChoiceButton;
             so.FindProperty("mapStartButton").objectReferenceValue = mapStartButton;
             so.FindProperty("mapWindButton").objectReferenceValue = mapWindButton;
             so.FindProperty("mapRainButton").objectReferenceValue = mapRainButton;
@@ -1634,23 +1576,6 @@ namespace MukJump.EditorTools
             ConfigureItemSprite(GoldenBrushItemPath, "황금 붓");
             ConfigureItemSprite(InkShieldItemPath, "먹 방어막");
             ConfigureItemSprite(InkCloneItemPath, "먹분신");
-            ConfigureGrowthSprite(GrowthScrollPath, "성장 두루마리");
-            ConfigureGrowthCardSprites();
-        }
-
-        [MenuItem("MukJump/Configure Growth Card Sprites")]
-        public static void ConfigureGrowthCardSprites()
-        {
-            ConfigureGrowthCardFrameSprite();
-            ConfigureGrowthSprite(GrowthVitalityPath, "먹두께 성장");
-            ConfigureGrowthSprite(GrowthJumpPath, "도약 성장");
-            ConfigureGrowthSprite(GrowthInkCapacityPath, "큰 벼루 성장");
-            ConfigureGrowthSprite(GrowthInkRegenPath, "먹샘 성장");
-            ConfigureGrowthSprite(GrowthPlatformLifetimePath, "긴 여운 성장");
-            ConfigureGrowthSprite(GrowthPlatformSlotsPath, "겹친 획 성장");
-            ConfigureGrowthSprite(GrowthGuardPath, "굳은 획 성장");
-            ConfigureGrowthSprite(GrowthFortunePath, "길운 성장");
-            AssetDatabase.SaveAssets();
         }
 
         static void ConfigureInkDropJumpVfxAssets()
@@ -1736,46 +1661,6 @@ namespace MukJump.EditorTools
             }
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.filterMode = FilterMode.Bilinear;
-            importer.SaveAndReimport();
-        }
-
-        /// 선택 카드에서는 최대 146px, 월드에서는 약 0.9유닛으로 보이는 단순 아이콘이라
-        /// 512가 충분하다. 재사용 가능한 원본 해상도는 보존하고 런타임 GPU 비용만 줄인다.
-        static void ConfigureGrowthSprite(string path, string displayName)
-        {
-            ConfigureItemSprite(path, displayName);
-            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer == null) return;
-            importer.maxTextureSize = 512;
-            importer.textureCompression = TextureImporterCompression.CompressedHQ;
-            importer.SaveAndReimport();
-        }
-
-        /// 공통 카드 프레임은 1:3 세로 비율과 투명 외곽을 보존하고,
-        /// 모바일에서도 글자 뒤 산수화가 뭉개지지 않도록 한 단계 높은 해상도를 쓴다.
-        static void ConfigureGrowthCardFrameSprite()
-        {
-            ConfigureSprite(GrowthCardFramePath, pixelsPerUnit: 100f);
-            var importer = AssetImporter.GetAtPath(GrowthCardFramePath) as TextureImporter;
-            if (importer == null)
-            {
-                Debug.LogWarning(
-                    $"[MukJump] 증강 카드 프레임을 찾을 수 없음: {GrowthCardFramePath}");
-                return;
-            }
-
-            var textureSettings = new TextureImporterSettings();
-            importer.ReadTextureSettings(textureSettings);
-            textureSettings.spriteMeshType = SpriteMeshType.FullRect;
-            importer.SetTextureSettings(textureSettings);
-            importer.alphaIsTransparency = true;
-            importer.mipmapEnabled = false;
-            importer.npotScale = TextureImporterNPOTScale.None;
-            importer.wrapMode = TextureWrapMode.Clamp;
-            importer.filterMode = FilterMode.Bilinear;
-            importer.maxTextureSize = 1024;
-            importer.textureCompression = TextureImporterCompression.CompressedHQ;
-            importer.compressionQuality = 100;
             importer.SaveAndReimport();
         }
 
