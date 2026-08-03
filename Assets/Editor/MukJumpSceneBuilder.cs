@@ -69,11 +69,8 @@ namespace MukJump.EditorTools
         {
             PermanentGrowthUiRoot + "pg_hanji_background.png",
             PermanentGrowthUiRoot + "pg_tree_trunk.png",
-            PermanentGrowthUiRoot + "pg_tree_trunk_mask.png",
-            PermanentGrowthUiRoot + "pg_tree_background_v2.png",
             PermanentGrowthUiRoot + "pg_tree_background_v3.png",
             PermanentGrowthUiRoot + "pg_branch.png",
-            PermanentGrowthUiRoot + "pg_branch_mask.png",
             PermanentGrowthUiRoot + "pg_branch_piece_01.png",
             PermanentGrowthUiRoot + "pg_branch_piece_02.png",
             PermanentGrowthUiRoot + "pg_branch_piece_03.png",
@@ -81,11 +78,9 @@ namespace MukJump.EditorTools
             PermanentGrowthUiRoot + "pg_branch_piece_05.png",
             PermanentGrowthUiRoot + "pg_branch_piece_06.png",
             PermanentGrowthUiRoot + "pg_node_bud.png",
-            PermanentGrowthUiRoot + "pg_node_bloom.png",
             PermanentGrowthUiRoot + "pg_node_bloom_mask.png",
             PermanentGrowthUiRoot + "pg_selected_ring.png",
             PermanentGrowthUiRoot + "pg_hanji_card.png",
-            PermanentGrowthUiRoot + "pg_currency_badge.png",
             PermanentGrowthUiRoot + "pg_root_emblem.png",
             PermanentGrowthUiRoot + "pg_icon_capacity.png",
             PermanentGrowthUiRoot + "pg_icon_recovery.png",
@@ -205,11 +200,9 @@ namespace MukJump.EditorTools
                 bool large =
                     path.EndsWith("pg_hanji_background.png") ||
                     path.EndsWith("pg_tree_trunk.png") ||
-                    path.EndsWith("pg_tree_trunk_mask.png") ||
                     path.Contains("pg_tree_background_v");
                 bool medium =
                     path.EndsWith("pg_branch.png") ||
-                    path.EndsWith("pg_branch_mask.png") ||
                     path.Contains("pg_branch_piece_") ||
                     path.EndsWith("pg_hanji_card.png");
                 bool opaque =
@@ -299,11 +292,9 @@ namespace MukJump.EditorTools
                 bool large =
                     path.EndsWith("pg_hanji_background.png") ||
                     path.EndsWith("pg_tree_trunk.png") ||
-                    path.EndsWith("pg_tree_trunk_mask.png") ||
                     path.Contains("pg_tree_background_v");
                 bool medium =
                     path.EndsWith("pg_branch.png") ||
-                    path.EndsWith("pg_branch_mask.png") ||
                     path.Contains("pg_branch_piece_") ||
                     path.EndsWith("pg_hanji_card.png");
                 bool opaque =

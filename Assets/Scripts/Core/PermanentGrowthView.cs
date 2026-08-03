@@ -429,11 +429,10 @@ namespace MukJump.Core
         void BuildThreeBranchTree(Transform panel)
         {
             // 열매 노드는 연결선 위가 아니라 한 그루의 큰 먹나무 위에 맺힌다.
-            // 가장자리까지 투명 여백을 둔 v3를 우선 사용해 흰 사각형이나 잘린
-            // 가지 끝이 보이지 않게 한다. 이전 에셋은 호환 폴백으로만 남긴다.
+            // 가장자리까지 투명 여백을 둔 v3를 사용해 흰 사각형이나 잘린
+            // 가지 끝이 보이지 않게 한다.
             Sprite treeBackgroundSprite =
-                LoadPermanentGrowthSprite("pg_tree_background_v3") ??
-                LoadPermanentGrowthSprite("pg_tree_background_v2");
+                LoadPermanentGrowthSprite("pg_tree_background_v3");
             if (treeBackgroundSprite != null)
             {
                 Image treeBackground = CreateImage(
@@ -810,7 +809,7 @@ namespace MukJump.Core
                 "ActionBranchBrush",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(72f, 145f),
+                new Vector2(72f, 130f),
                 new Vector2(476f, 50f),
                 WithAlpha(InkPalette.Gold, 0.32f));
             selectedActionBranchText = CreateText(
@@ -871,7 +870,6 @@ namespace MukJump.Core
                 InkPalette.Paper,
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft);
-            EnableBestFit(selectedActionEffectSummaryText, 30);
 
             selectedActionDescriptionText = CreateText(
                 "ActionDescription",
@@ -886,7 +884,6 @@ namespace MukJump.Core
             selectedActionDescriptionText.lineSpacing = 1.08f;
             selectedActionDescriptionText.verticalOverflow =
                 VerticalWrapMode.Truncate;
-            EnableBestFit(selectedActionDescriptionText, 28);
 
             selectedActionCostPlate = CreateImage(
                 "ActionCostPlate",
@@ -922,7 +919,7 @@ namespace MukJump.Core
                 selectedActionRoot,
                 "강화하기",
                 new Vector2(0f, -304f),
-                new Vector2(344f, 104f),
+                new Vector2(344f, InkUiStyle.MinimumTapHeight),
                 36);
             purchaseButtonText =
                 PurchaseButton.GetComponentInChildren<Text>(true);
@@ -932,8 +929,8 @@ namespace MukJump.Core
                 "CloseButton",
                 selectedActionRoot,
                 "닫기",
-                new Vector2(280f, 294f),
-                new Vector2(116f, 72f),
+                new Vector2(300f, 286f),
+                new Vector2(150f, InkUiStyle.MinimumTapHeight),
                 26);
             NodePopupCloseButton.onClick.AddListener(CloseNodePopup);
 
@@ -2046,15 +2043,6 @@ namespace MukJump.Core
                 strong: style is FontStyle.Bold or FontStyle.BoldAndItalic);
             PermanentGrowthTypography.ApplyLayout(text, objectName);
             return text;
-        }
-
-        static void EnableBestFit(Text text, int minimumSize)
-        {
-            if (text == null)
-                return;
-            text.resizeTextForBestFit = true;
-            text.resizeTextMinSize = Mathf.Clamp(minimumSize, 10, text.fontSize);
-            text.resizeTextMaxSize = text.fontSize;
         }
 
         Button CreateBrushButton(

@@ -6,6 +6,8 @@
 - 생성 원본: `pg_tree_background_v2_chroma.png`
 - 게임용 투명본:
   `Assets/Resources/MukJump/UI/PermanentGrowth/pg_tree_background_v2.png`
+- 보존 상태: v3 확정 후 게임용 v2는 2026-08-03에 제거했다. 생성 원본과
+  프롬프트는 AI 활용 계보 증빙으로 유지한다.
 
 ## 최종 프롬프트
 

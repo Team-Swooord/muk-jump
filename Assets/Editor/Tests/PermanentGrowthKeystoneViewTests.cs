@@ -160,7 +160,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void PopupCopy_UsesReadableBestFitWithoutDuplicateRows()
+        public void PopupCopy_UsesFixedReadableTypeWithoutDuplicateRows()
         {
             SeedV2(new string[0]);
             PermanentGrowthView view = BuildView();
@@ -168,10 +168,10 @@ namespace MukJump.EditorTests
             Text description = popup.Find("ActionDescription").GetComponent<Text>();
             Text effect = popup.Find("ActionEffectSummary").GetComponent<Text>();
 
-            Assert.That(description.resizeTextForBestFit, Is.True);
-            Assert.That(description.resizeTextMinSize, Is.GreaterThanOrEqualTo(28));
-            Assert.That(effect.resizeTextForBestFit, Is.True);
-            Assert.That(effect.resizeTextMinSize, Is.GreaterThanOrEqualTo(30));
+            Assert.That(description.resizeTextForBestFit, Is.False);
+            Assert.That(description.fontSize, Is.EqualTo(30));
+            Assert.That(effect.resizeTextForBestFit, Is.False);
+            Assert.That(effect.fontSize, Is.EqualTo(34));
             Assert.That(popup.Find("ActionCurrentEffect"), Is.Null);
             Assert.That(popup.Find("ActionUsage"), Is.Null);
             Assert.That(popup.Find("ActionNextEffect"), Is.Null);
@@ -257,11 +257,32 @@ namespace MukJump.EditorTests
 
             RectTransform closeButton = popup.Find("CloseButton")
                 .GetComponent<RectTransform>();
+            RectTransform enhanceButton = popup.Find("EnhanceButton")
+                .GetComponent<RectTransform>();
+            Assert.That(
+                enhanceButton.sizeDelta.y,
+                Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight),
+                "강화 버튼의 실제 터치 높이는 공통 모바일 최소치를 지켜야 합니다.");
+            Assert.That(
+                closeButton.sizeDelta.y,
+                Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight),
+                "닫기 버튼의 실제 터치 높이는 공통 모바일 최소치를 지켜야 합니다.");
             Assert.That(
                 closeButton.anchoredPosition.y +
                 closeButton.sizeDelta.y * 0.5f,
                 Is.LessThanOrEqualTo(popupRect.sizeDelta.y * 0.5f - 64f),
                 "닫기 붓획은 한지 카드 상단 테두리 안쪽에 있어야 합니다.");
+
+            RectTransform branchBrush = popup.Find("ActionBranchBrush")
+                .GetComponent<RectTransform>();
+            float branchTop = branchBrush.anchoredPosition.y +
+                              branchBrush.sizeDelta.y * 0.5f;
+            float nameBottom = name.rectTransform.anchoredPosition.y -
+                               name.rectTransform.sizeDelta.y * 0.5f;
+            Assert.That(
+                branchTop,
+                Is.LessThan(nameBottom),
+                "계보 붓획과 노드 이름 영역은 겹치지 않아야 합니다.");
         }
 
         [Test]

@@ -209,15 +209,13 @@ public sealed class MovingObstacleTests
     }
 
     [Test]
-    public void RuntimeFallbackReplacesLegacyMorphingDragonSheet()
+    public void RuntimeFallbackReplacesSerializedFramesFromWrongTexture()
     {
         var spawnerObject = Track(new GameObject("ObstacleSpawner"));
         var spawner = spawnerObject.AddComponent<ObstacleSpawner>();
-        var legacyFrames = Resources.LoadAll<Sprite>(
-            "MukJump/Obstacles/child_ink_dragon_4frame");
-        Assert.AreEqual(4, legacyFrames.Length);
-        System.Array.Sort(legacyFrames,
-            (left, right) => string.CompareOrdinal(left.name, right.name));
+        var legacyFrames = CreateDragonFrames(300, 100);
+        for (int i = 0; i < legacyFrames.Length; i++)
+            legacyFrames[i].texture.name = "legacy_dragon_sheet";
         SetField(spawner, "dragonSprite", legacyFrames[0]);
         SetField(spawner, "dragonFrames", legacyFrames);
 

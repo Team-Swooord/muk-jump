@@ -15,16 +15,12 @@ namespace MukJump.EditorTests
         {
             "pg_hanji_background",
             "pg_tree_trunk",
-            "pg_tree_trunk_mask",
             "pg_tree_background_v3",
             "pg_branch",
-            "pg_branch_mask",
             "pg_node_bud",
-            "pg_node_bloom",
             "pg_node_bloom_mask",
             "pg_selected_ring",
             "pg_hanji_card",
-            "pg_currency_badge",
             "pg_root_emblem",
             "pg_icon_capacity",
             "pg_icon_recovery",
@@ -106,11 +102,9 @@ namespace MukJump.EditorTests
                 bool large =
                     SpriteNames[i] == "pg_hanji_background" ||
                     SpriteNames[i] == "pg_tree_trunk" ||
-                    SpriteNames[i] == "pg_tree_trunk_mask" ||
                     SpriteNames[i].StartsWith("pg_tree_background_v");
                 bool medium =
                     SpriteNames[i] == "pg_branch" ||
-                    SpriteNames[i] == "pg_branch_mask" ||
                     SpriteNames[i] == "pg_hanji_card";
                 Assert.That(
                     importer.maxTextureSize,
