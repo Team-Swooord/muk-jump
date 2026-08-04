@@ -26,7 +26,9 @@ namespace MukJump.Core
         Text heightText;
         Text bestText;
         Text growthRewardText;
+        Text touchHint;
         Coroutine showRoutine;
+        GameOverResult boundResult;
 
         public void Show(int height, int best, bool reachedNewBest)
         {
@@ -43,14 +45,34 @@ namespace MukJump.Core
         {
             BuildIfNeeded();
             ApplySafeArea();
+            boundResult = result;
             BindResult(result);
             if (showRoutine != null)
                 StopCoroutine(showRoutine);
-            showRoutine = StartCoroutine(ShowRoutine(result.ReachedNewBest));
+            showRoutine = StartCoroutine(ShowRoutine());
+        }
+
+        public void RefreshResult(GameOverResult result)
+        {
+            BuildIfNeeded();
+            boundResult = result;
+            BindResult(result);
+            if (showRoutine == null && rootGroup.blocksRaycasts)
+            {
+                ApplyRevealPose(1f, result.ReachedNewBest);
+            }
         }
 
         public string GrowthRewardLabel =>
             growthRewardText != null ? growthRewardText.text : string.Empty;
+        public string TouchHintLabel =>
+            touchHint != null ? touchHint.text : string.Empty;
+
+        public void ShowPendingAbandonConfirmation()
+        {
+            BuildIfNeeded();
+            touchHint.text = "한 번 더 터치해 기록·먹빛 포기";
+        }
 
         void OnDisable()
         {
@@ -267,9 +289,9 @@ namespace MukJump.Core
                 "Caption",
                 growthResult,
                 "영구 성장 · 먹빛",
-                28,
-                new Vector2(-128f, 0f),
-                new Vector2(320f, 52f),
+                27,
+                new Vector2(-182f, 0f),
+                new Vector2(230f, 52f),
                 ReadableMutedColor(),
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
@@ -277,9 +299,9 @@ namespace MukJump.Core
                 "Value",
                 growthResult,
                 "+0 · 보유 0",
-                32,
-                new Vector2(178f, 0f),
-                new Vector2(250f, 58f),
+                26,
+                new Vector2(112f, 0f),
+                new Vector2(370f, 58f),
                 InkPalette.TextDark,
                 FontStyle.Normal,
                 TextAnchor.MiddleRight);
@@ -292,7 +314,7 @@ namespace MukJump.Core
                 new Vector2(0f, -270f),
                 new Vector2(580f, 104f),
                 InkPalette.Ink);
-            var touchHint = CreateText(
+            touchHint = CreateText(
                 "TouchHint",
                 retryBrush.transform,
                 "터치하여 로비로",
@@ -353,10 +375,28 @@ namespace MukJump.Core
         {
             heightText.text = FormatHeight(result.Height);
             bestText.text = FormatHeight(result.Best);
-            growthRewardText.text = result.RewardsAllowed
-                ? $"+{Mathf.Max(0, result.EarnedGrowthCurrency)} · " +
-                  $"보유 {Mathf.Max(0, result.GrowthCurrencyBalance)}"
-                : "디버그 판 · 보상 없음";
+            switch (result.PersistenceState)
+            {
+                case GameOverPersistenceState.ScoreBaselinePending:
+                    growthRewardText.text = "기록 기준 확인 중 · 자동 재시도";
+                    touchHint.text = "이번 판 기록·먹빛 포기";
+                    break;
+                case GameOverPersistenceState.GrowthRecoveryRequired:
+                    growthRewardText.text = "저장 실패 · 성장 복구 필요";
+                    touchHint.text = "로비에서 성장 복구";
+                    break;
+                case GameOverPersistenceState.RecordWritePending:
+                    growthRewardText.text = "기록 저장 중 · 자동 재시도";
+                    touchHint.text = "재시도 중단하고 로비로";
+                    break;
+                default:
+                    growthRewardText.text = result.RewardsAllowed
+                        ? $"+{Mathf.Max(0, result.EarnedGrowthCurrency)} · " +
+                          $"보유 {Mathf.Max(0, result.GrowthCurrencyBalance)}"
+                        : "디버그 판 · 보상 없음";
+                    touchHint.text = "터치하여 로비로";
+                    break;
+            }
             newBestSeal.gameObject.SetActive(result.ReachedNewBest);
         }
 
@@ -372,20 +412,22 @@ namespace MukJump.Core
                 true));
         }
 
-        IEnumerator ShowRoutine(bool reachedNewBest)
+        IEnumerator ShowRoutine()
         {
             rootGroup.blocksRaycasts = true;
-            ApplyRevealPose(0f, reachedNewBest);
+            ApplyRevealPose(0f, boundResult.ReachedNewBest);
 
             float elapsed = 0f;
             while (elapsed < RevealDuration)
             {
                 elapsed += Time.unscaledDeltaTime;
-                ApplyRevealPose(elapsed / RevealDuration, reachedNewBest);
+                ApplyRevealPose(
+                    elapsed / RevealDuration,
+                    boundResult.ReachedNewBest);
                 yield return null;
             }
 
-            ApplyRevealPose(1f, reachedNewBest);
+            ApplyRevealPose(1f, boundResult.ReachedNewBest);
             showRoutine = null;
         }
 

@@ -124,7 +124,7 @@ namespace MukJump.Player
             hasLaunched = true;
             wasRising = true;
             doubleJumpUsed = false;
-            doubleJumpArmed = ActivePermanentGrowth.HasDoubleJump;
+            doubleJumpArmed = false;
 
             Vector2 surfaceNormal = player.GroundNormal;
             player.ReleaseWallClingForAutomaticJump();
@@ -153,9 +153,13 @@ namespace MukJump.Player
                                        ActivePermanentGrowth
                                            .JumpVerticalSpeedMultiplier;
             rb.linearVelocity = new Vector2(horizontal, primaryJumpVerticalSpeed);
-            RunGrowthController.Instance?.NotifyPrimaryAutomaticJump(
+            RunGrowthController growth = RunGrowthController.Instance;
+            growth?.NotifyPrimaryAutomaticJump(
                 player,
                 rb.linearVelocity);
+            doubleJumpArmed = ActivePermanentGrowth.HasDoubleJump &&
+                growth != null &&
+                growth.TryReserveDoubleJump(player);
             GameFeedbackController.Instance?.PlayJump(transform.position);
             Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
                 transform, Mathf.InverseLerp(10f, 18f, power));
@@ -178,6 +182,17 @@ namespace MukJump.Player
         /// 실제 착지는 다음 공중 사이클의 2단점프 소모 상태를 정리한다.
         public void NotifyLanding(bool isTemporaryDrawnPlatform)
         {
+            RunGrowthController.Instance?.CancelDoubleJumpReservation(player);
+            doubleJumpArmed = false;
+            doubleJumpUsed = false;
+            primaryJumpVerticalSpeed = 0f;
+        }
+
+        /// 먹물방울·풍맥 같은 특수 상승은 일반 자동점프의 정점 비기를 쓰지 않는다.
+        /// 이미 잡은 먹떼 공용 예약을 즉시 돌려 다른 대표가 사용할 수 있게 한다.
+        public void CancelForSpecialLaunch()
+        {
+            RunGrowthController.Instance?.CancelDoubleJumpReservation(player);
             doubleJumpArmed = false;
             doubleJumpUsed = false;
             primaryJumpVerticalSpeed = 0f;

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
@@ -12,10 +13,16 @@ namespace MukJump.EditorTests
     {
         GameObject playerObject;
         GameObject itemObject;
+        HashSet<int> existingPlatformIds;
 
         [SetUp]
         public void SetUp()
         {
+            existingPlatformIds = new HashSet<int>();
+            foreach (Drawing.PlatformCollider platform in
+                     Object.FindObjectsByType<Drawing.PlatformCollider>(
+                         FindObjectsSortMode.None))
+                existingPlatformIds.Add(platform.GetInstanceID());
             PermanentGrowthProfile.UseStoreForTests(
                 new MemoryPermanentGrowthStore());
         }
@@ -27,6 +34,11 @@ namespace MukJump.EditorTests
                 Object.DestroyImmediate(playerObject);
             if (itemObject != null)
                 Object.DestroyImmediate(itemObject);
+            foreach (Drawing.PlatformCollider platform in
+                     Object.FindObjectsByType<Drawing.PlatformCollider>(
+                         FindObjectsSortMode.None))
+                if (!existingPlatformIds.Contains(platform.GetInstanceID()))
+                    Object.DestroyImmediate(platform.gameObject);
             PermanentGrowthProfile.RestoreDefaultStoreForTests();
         }
 
@@ -42,6 +54,41 @@ namespace MukJump.EditorTests
             Assert.That(consumed, Is.True);
             Assert.That(player.HasShield, Is.False);
             Assert.That(invulnerableUntil, Is.GreaterThan(Time.time));
+        }
+
+        [Test]
+        public void DuplicateShieldPickupRemainsUntilCurrentShieldIsSpent()
+        {
+            var player = CreatePlayer();
+            var manager = playerObject.AddComponent<GameManager>();
+            Invoke(manager, "OnEnable");
+            SetAutoProperty(manager, "State", GameState.Playing);
+
+            Assert.That(ItemEffect.Apply(ItemType.InkShield, player), Is.True);
+            Assert.That(player.HasShield, Is.True);
+
+            itemObject = new GameObject("DuplicateShieldPickup");
+            var pickup = itemObject.AddComponent<ItemPickup>();
+            pickup.Configure(ItemType.InkShield, 0f);
+            bool released = false;
+            pickup.ReleaseRequested += _ => released = true;
+
+            Invoke(pickup, "OnTriggerEnter2D",
+                player.GetComponent<CircleCollider2D>());
+
+            Assert.That(released, Is.False,
+                "보유 중인 비중첩 방어막 픽업은 풀로 반환되면 안 됩니다.");
+            Assert.That(itemObject.GetComponent<CircleCollider2D>().enabled, Is.True);
+            Assert.That(player.HasShield, Is.True);
+
+            Assert.That((bool)Invoke(player, "ConsumeShield"), Is.True);
+            Invoke(pickup, "OnTriggerEnter2D",
+                player.GetComponent<CircleCollider2D>());
+
+            Assert.That(released, Is.True,
+                "기존 방어막을 쓴 뒤에는 남은 픽업을 다시 획득할 수 있어야 합니다.");
+            Assert.That(itemObject.GetComponent<CircleCollider2D>().enabled, Is.False);
+            Assert.That(player.HasShield, Is.True);
         }
 
         [Test]

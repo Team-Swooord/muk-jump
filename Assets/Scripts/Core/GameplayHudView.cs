@@ -61,7 +61,7 @@ namespace MukJump.Core
         int lastScreenHeight;
         Rect lastSafeArea;
         float nextVfxStatsRefreshTime;
-        readonly Image[] healthSegments = new Image[3];
+        readonly Image[] healthSegments = new Image[4];
         readonly List<PlayerController> healthScratch =
             new(GameManager.MaxLivingPlayers);
 
@@ -356,7 +356,7 @@ namespace MukJump.Core
                 new Vector2(0.5f, 0f);
             healthRoot.pivot = new Vector2(0.5f, 0.5f);
             healthRoot.anchoredPosition = new Vector2(0f, -22f);
-            healthRoot.sizeDelta = new Vector2(310f, 48f);
+            healthRoot.sizeDelta = new Vector2(360f, 48f);
 
             if (healthLabel == null)
                 healthLabel = healthRoot.Find("HealthLabel")?.GetComponent<Text>();
@@ -405,7 +405,7 @@ namespace MukJump.Core
                 var rect = segment.rectTransform;
                 rect.anchorMin = rect.anchorMax = new Vector2(0f, 0.5f);
                 rect.pivot = new Vector2(0f, 0.5f);
-                rect.anchoredPosition = new Vector2(130f + i * 55f, 0f);
+                rect.anchoredPosition = new Vector2(126f + i * 53f, 0f);
                 rect.sizeDelta = new Vector2(47f, 15f);
                 healthSegments[i] = segment;
             }

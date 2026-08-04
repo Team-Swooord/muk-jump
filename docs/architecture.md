@@ -274,9 +274,15 @@ kinematic body와 fixed step 이동을 사용한다.
 - `PermanentGrowthCatalog`는 생존·도약·먹 운용 각 13개, 총 39개 stable-ID 노드를
   소유한다. 각 분류는 뿌리 1개 뒤 A/B/C 세 갈래로 나뉘고, 갈래마다 일반 노드
   3개와 비기 1개가 있다. 비용은 모두 먹빛 1개다.
-- `PermanentGrowthProfile`은 `schemaVersion=1`, `balanceVersion=4` 저장에서 먹빛,
+- `PermanentGrowthProfile`은 `schemaVersion=1`, `balanceVersion=5` 저장에서 먹빛,
   소유 node ID, 분류별 장착 비기 하나와 정산 run ID를 소유한다. 45노드 저장의
   제거된 도약 4·5단계는 고유 ID당 먹빛 1개를 환급하고 기존 비기 ID는 보존한다.
+  정상 저장은 primary를 먼저 확정한 뒤 backup을 갱신한다. primary가 손상됐거나
+  지원 범위 밖의 schema/balance이면 원문을 그대로 둔 읽기 전용 복구 상태로
+  진입하고 구매·장착·정산을 거부한다. 사용자가 검증된 backup 복원 또는 2회 확인
+  초기화를 선택할 때만 기존 primary를 quarantine에 보존하고 교체한다. v5의 고도
+  이정표 watermark는 최고 기록 표시 저장과 분리되어 부분 저장 뒤 중복 지급을 막고,
+  미완료 backup target과 reset/restore marker는 검증 전 자동 삭제하지 않는다.
 - `PermanentGrowthRunSnapshot`은 플레이 시작 순간의 소유 node ID와 장착 비기를
   복사한 불변 계약이다. 플레이어·자동 점프·드로잉·발판은 프로필을 실시간 조회하지
   않고 이 스냅샷만 읽는다.

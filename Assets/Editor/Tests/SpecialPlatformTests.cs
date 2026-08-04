@@ -101,6 +101,34 @@ public sealed class SpecialPlatformTests
         Assert.That(next, Is.GreaterThan(75f));
     }
 
+    [Test]
+    public void DebugResetScheduleDestroysPreviouslySpawnedWindPlatforms()
+    {
+        var root = new GameObject("RestPlatformSpawnerCleanupTests");
+        cleanup.Add(root);
+        var spawner = root.AddComponent<RestPlatformSpawner>();
+
+        InvokeSpawnWindPlatform(spawner, new Vector2(-1f, 20f), "FIRST");
+        InvokeSpawnWindPlatform(spawner, new Vector2(1f, 30f), "SECOND");
+
+        var spawned = (List<PlatformCollider>)GetField(spawner, "spawned");
+        Assert.That(spawned, Has.Count.EqualTo(2));
+        var first = spawned[0];
+        var second = spawned[1];
+        cleanup.Add(first.gameObject);
+        cleanup.Add(second.gameObject);
+
+        spawner.DebugResetSchedule(250);
+
+        Assert.That(spawned, Is.Empty,
+            "디버그 고도 이동 시 이전 풍맥 목록이 남으면 왕복마다 계속 누적됩니다.");
+        Assert.IsTrue(first == null,
+            "디버그 리셋은 이전에 생성한 풍맥 오브젝트까지 제거해야 합니다.");
+        Assert.IsTrue(second == null,
+            "고고도 풍맥도 카메라 아래 정리 조건과 무관하게 제거해야 합니다.");
+        Assert.That((float)GetField(spawner, "nextWindHeight"), Is.GreaterThan(250f));
+    }
+
     PlatformCollider Track(PlatformCollider platform)
     {
         cleanup.Add(platform.gameObject);
@@ -160,6 +188,16 @@ public sealed class SpecialPlatformTests
         target.GetType().GetField(
             fieldName, BindingFlags.Instance | BindingFlags.NonPublic)
             ?.SetValue(target, value);
+    }
+
+    static void InvokeSpawnWindPlatform(
+        RestPlatformSpawner spawner,
+        Vector2 center,
+        string suffix)
+    {
+        spawner.GetType().GetMethod(
+                "SpawnWindPlatform", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?.Invoke(spawner, new object[] { center, 3.4f, suffix });
     }
 
     static object GetField(object target, string fieldName)

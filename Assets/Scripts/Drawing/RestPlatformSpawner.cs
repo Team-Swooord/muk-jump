@@ -32,6 +32,7 @@ namespace MukJump.Drawing
         void OnDisable()
         {
             if (Instance == this) Instance = null;
+            ClearSpawnedPlatforms();
         }
 
         void Start()
@@ -63,6 +64,7 @@ namespace MukJump.Drawing
 
         public void DebugResetSchedule(int currentHeight)
         {
+            ClearSpawnedPlatforms();
             scheduledSessionVersion = GameplayRandom.SessionVersion;
             ScheduleNextWind(Mathf.Max(0, currentHeight));
         }
@@ -182,6 +184,23 @@ namespace MukJump.Drawing
                 Destroy(spawned[i].gameObject);
                 spawned.RemoveAt(i);
             }
+        }
+
+        void ClearSpawnedPlatforms()
+        {
+            for (int i = spawned.Count - 1; i >= 0; i--)
+            {
+                var platform = spawned[i];
+                if (platform == null) continue;
+
+                // Play Mode에서는 삭제가 프레임 끝까지 지연되므로 즉시 충돌과 렌더를 끈다.
+                platform.gameObject.SetActive(false);
+                if (Application.isPlaying)
+                    Destroy(platform.gameObject);
+                else
+                    DestroyImmediate(platform.gameObject);
+            }
+            spawned.Clear();
         }
 
         void OnValidate()

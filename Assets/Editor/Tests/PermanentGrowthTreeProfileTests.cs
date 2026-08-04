@@ -186,7 +186,7 @@ namespace MukJump.EditorTests
                 PermanentGrowthProfile.GetActiveKeystoneId(
                     PermanentGrowthBranch.InkHandling),
                 Is.EqualTo("I-KA"));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":4"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":5"));
             Assert.That(store.Json, Does.Contain("\"ranks\":[]"));
         }
 
@@ -197,7 +197,8 @@ namespace MukJump.EditorTests
                 "{\"schemaVersion\":1,\"balanceVersion\":2," +
                 "\"wallet\":4,\"spent\":5," +
                 "\"tutorialRewardClaimed\":true," +
-                "\"lastSettledRunId\":\"kept-run\",\"ranks\":[]," +
+                "\"lastSettledRunId\":\"kept-run\"," +
+                "\"settledRunIds\":[\"kept-run\"],\"ranks\":[]," +
                 "\"ownedNodeIds\":[\"J00\",\"J-B1\",\"J-B2\",\"J-B3\",\"J-KB\"]," +
                 "\"survivalKeystoneId\":\"\"," +
                 "\"leapKeystoneId\":\"J-KB\"," +
@@ -213,7 +214,7 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(4));
             Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(5));
             Assert.That(store.Json, Does.Contain("\"lastSettledRunId\":\"kept-run\""));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":4"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":5"));
         }
 
         [Test]
@@ -223,7 +224,8 @@ namespace MukJump.EditorTests
                 "{\"schemaVersion\":1,\"balanceVersion\":3," +
                 "\"wallet\":2,\"spent\":12," +
                 "\"tutorialRewardClaimed\":true," +
-                "\"lastSettledRunId\":\"v3-run\",\"ranks\":[]," +
+                "\"lastSettledRunId\":\"v3-run\"," +
+                "\"settledRunIds\":[\"v3-run\"],\"ranks\":[]," +
                 "\"ownedNodeIds\":[\"J00\",\"J-B1\",\"J-B2\",\"J-B3\"," +
                 "\"J-A4\",\"J-A5\",\"J-B4\",\"J-B4\",\"J-B5\"," +
                 "\"J-C4\",\"J-C5\",\"J-KB\"]," +
@@ -246,7 +248,7 @@ namespace MukJump.EditorTests
                 PermanentGrowthProfile.GetActiveKeystoneId(
                     PermanentGrowthBranch.Leap),
                 Is.EqualTo("J-KB"));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":4"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":5"));
         }
 
         [Test]
@@ -276,7 +278,8 @@ namespace MukJump.EditorTests
                 "{\"schemaVersion\":1,\"balanceVersion\":2," +
                 $"\"wallet\":{wallet},\"spent\":0," +
                 "\"tutorialRewardClaimed\":true," +
-                "\"lastSettledRunId\":\"\",\"ranks\":[]," +
+                "\"lastSettledRunId\":\"\",\"settledRunIds\":[]," +
+                "\"ranks\":[]," +
                 $"\"ownedNodeIds\":{owned}," +
                 "\"survivalKeystoneId\":\"\"," +
                 "\"leapKeystoneId\":\"\"," +

@@ -16,7 +16,7 @@ namespace MukJump.Core
         const float ReferenceWidth = 1080f;
         const float ReferenceHeight = 1920f;
         const string ArtResourceRoot = "MukJump/UI/PermanentGrowth/";
-        const float TreeCanvasZoom = 0.66f;
+        const float TreeCanvasZoom = 0.60f;
         const float TreeBackgroundOpacity = 0.42f;
         const float TreeBranchOpacity = 1f;
         const float BranchVisibleEndpointOverlap = 18f;
@@ -88,6 +88,11 @@ namespace MukJump.Core
         Image selectedActionCostIcon;
         Text selectedActionCostText;
         Text purchaseButtonText;
+        RectTransform recoveryPromptRoot;
+        Text recoveryMessageText;
+        Text recoveryResetButtonText;
+        bool recoveryResetArmed;
+        float recoveryResetArmedAt;
         GameManager manager;
         Rect lastSafeArea;
         int lastScreenWidth;
@@ -108,6 +113,8 @@ namespace MukJump.Core
         public Button BackButton { get; private set; }
         public Button PurchaseButton { get; private set; }
         public Button NodePopupCloseButton { get; private set; }
+        public Button RestoreBackupButton { get; private set; }
+        public Button ResetGrowthSaveButton { get; private set; }
         public RectTransform ScreenRoot { get; private set; }
         public RectTransform TreeViewport { get; private set; }
         public RectTransform TreeCanvas { get; private set; }
@@ -116,6 +123,9 @@ namespace MukJump.Core
         public bool IsNodePopupOpen =>
             nodePopupOpen && selectedActionRoot != null &&
             selectedActionRoot.gameObject.activeSelf;
+        public bool IsRecoveryPromptOpen =>
+            recoveryPromptRoot != null &&
+            recoveryPromptRoot.gameObject.activeSelf;
         public int CreatedRowCount => branchHeaders.Count;
         public int CreatedNodeCount => nodes.Count;
         public string BalanceLabel => balanceText != null
@@ -307,6 +317,7 @@ namespace MukJump.Core
             BuildTreeViewport(treeLayerRoot);
             BuildHeader(contentPanel);
             BuildSelectedNodePopup(contentPanel);
+            BuildRecoveryPrompt(contentPanel);
 
             ApplySafeArea();
             SelectInitialNode();
@@ -358,7 +369,9 @@ namespace MukJump.Core
             TreeCanvas.anchoredPosition = Vector2.zero;
             if (treeScrollRect == null) return;
             treeScrollRect.StopMovement();
-            treeScrollRect.horizontalNormalizedPosition = 0.5f;
+            // 좌(-700)·중앙(0)·우(+1000) 세 계보 뿌리가 첫 화면에 함께
+            // 들어오도록 중앙보다 아주 조금 오른쪽을 기준으로 연다.
+            treeScrollRect.horizontalNormalizedPosition = 0.56f;
             treeScrollRect.verticalNormalizedPosition = 0f;
         }
 
@@ -373,7 +386,7 @@ namespace MukJump.Core
                 "CurrencyDrop",
                 balanceHud,
                 LoadPermanentGrowthSprite("pg_ink_drop") ??
-                LoadIcon(PermanentGrowthType.InkCapacity),
+                InkUiTextureFactory.CreateInkDropSprite(),
                 new Vector2(-50f, 0f),
                 new Vector2(54f, 54f),
                 Color.white);
@@ -636,7 +649,7 @@ namespace MukJump.Core
                 ? new Vector2(252f, 276f)
                 : rootNode
                     ? new Vector2(216f, 240f)
-                    : new Vector2(196f, 224f);
+                    : new Vector2(200f, 224f);
             RectTransform root = CreateRect(
                 $"GrowthNode_{SanitizeNodeId(definition.Id)}",
                 parent,
@@ -849,7 +862,7 @@ namespace MukJump.Core
                 new Vector2(72f, 196f),
                 new Vector2(476f, 60f),
                 InkPalette.Paper,
-                FontStyle.Bold,
+                FontStyle.Normal,
                 TextAnchor.MiddleLeft);
 
             CreateImage(
@@ -868,7 +881,7 @@ namespace MukJump.Core
                 new Vector2(0f, 30f),
                 new Vector2(604f, 58f),
                 InkPalette.Paper,
-                FontStyle.Bold,
+                FontStyle.Normal,
                 TextAnchor.MiddleLeft);
 
             selectedActionDescriptionText = CreateText(
@@ -898,7 +911,7 @@ namespace MukJump.Core
                 "ActionCostIcon",
                 selectedActionRoot,
                 LoadPermanentGrowthSprite("pg_ink_drop") ??
-                LoadIcon(PermanentGrowthType.InkCapacity),
+                InkUiTextureFactory.CreateInkDropSprite(),
                 new Vector2(-40f, -184f),
                 new Vector2(34f, 34f),
                 Color.white);
@@ -911,7 +924,7 @@ namespace MukJump.Core
                 new Vector2(22f, -184f),
                 new Vector2(88f, 54f),
                 InkPalette.Paper,
-                FontStyle.Bold,
+                FontStyle.Normal,
                 TextAnchor.MiddleLeft);
 
             PurchaseButton = CreateBrushButton(
@@ -934,8 +947,176 @@ namespace MukJump.Core
                 26);
             NodePopupCloseButton.onClick.AddListener(CloseNodePopup);
 
+            ApplyRegularPopupTypography(selectedActionRoot);
+
             selectedActionDimmer.gameObject.SetActive(false);
             selectedActionRoot.gameObject.SetActive(false);
+        }
+
+        static void ApplyRegularPopupTypography(Transform popup)
+        {
+            if (popup == null)
+                return;
+
+            Text[] texts = popup.GetComponentsInChildren<Text>(true);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                Text text = texts[i];
+                text.fontStyle = FontStyle.Normal;
+                Outline outline = text.GetComponent<Outline>();
+                if (outline != null)
+                    outline.enabled = false;
+            }
+        }
+
+        void BuildRecoveryPrompt(Transform parent)
+        {
+            recoveryPromptRoot = CreateStretchRect(
+                "GrowthRecoveryPrompt",
+                parent);
+            Image blocker =
+                recoveryPromptRoot.gameObject.AddComponent<Image>();
+            blocker.color = new Color(0.04f, 0.035f, 0.03f, 0.68f);
+            blocker.raycastTarget = true;
+
+            RectTransform panel = CreateRect(
+                "RecoveryPanel",
+                recoveryPromptRoot,
+                Vector2.zero,
+                new Vector2(820f, 660f));
+            Image paper = panel.gameObject.AddComponent<Image>();
+            paper.sprite = InkUiTextureFactory.CreateBrushSprite();
+            paper.type = Image.Type.Sliced;
+            paper.color = InkPalette.Paper;
+            paper.raycastTarget = true;
+
+            CreateText(
+                "RecoveryTitle",
+                panel,
+                "성장 저장 확인",
+                52,
+                new Vector2(0f, 218f),
+                new Vector2(680f, 84f),
+                InkPalette.TextDark,
+                FontStyle.Normal);
+            recoveryMessageText = CreateText(
+                "RecoveryMessage",
+                panel,
+                string.Empty,
+                32,
+                new Vector2(0f, 66f),
+                new Vector2(660f, 210f),
+                InkPalette.TextDark,
+                FontStyle.Normal);
+
+            RestoreBackupButton = CreateBrushButton(
+                "RestoreBackupButton",
+                panel,
+                "저장 복구",
+                new Vector2(-190f, -194f),
+                new Vector2(330f, InkUiStyle.MinimumTapHeight),
+                38);
+            RestoreBackupButton.onClick.AddListener(HandleRestoreBackup);
+
+            ResetGrowthSaveButton = CreateBrushButton(
+                "ResetGrowthSaveButton",
+                panel,
+                "새로 시작",
+                new Vector2(190f, -194f),
+                new Vector2(330f, InkUiStyle.MinimumTapHeight),
+                38);
+            recoveryResetButtonText = ResetGrowthSaveButton.transform
+                .Find("Label")?.GetComponent<Text>();
+            ResetGrowthSaveButton.onClick.AddListener(HandleResetGrowthSave);
+            recoveryPromptRoot.gameObject.SetActive(false);
+        }
+
+        void HandleRestoreBackup()
+        {
+            // 복원 시도 자체가 파괴적 초기화 확인을 취소한다. 복원이 일시 실패한
+            // 뒤 남은 armed 상태에서 정상 primary를 한 번에 지우면 안 된다.
+            recoveryResetArmed = false;
+            recoveryResetArmedAt = 0f;
+            if (recoveryResetButtonText != null)
+                recoveryResetButtonText.text = "새로 시작";
+            if (!PermanentGrowthProfile.TryRestoreBackup())
+            {
+                if (recoveryMessageText != null)
+                    recoveryMessageText.text =
+                        "저장 복구를 완료하지 못했습니다.\n잠시 뒤 다시 시도하세요.";
+                return;
+            }
+            Refresh();
+        }
+
+        void HandleResetGrowthSave()
+        {
+            if (!PermanentGrowthProfile.RequiresRecovery)
+                return;
+            if (!recoveryResetArmed)
+            {
+                recoveryResetArmed = true;
+                recoveryResetArmedAt = Time.unscaledTime;
+                if (recoveryMessageText != null)
+                    recoveryMessageText.text =
+                        "기존 저장은 복구용으로 보존됩니다.\n" +
+                        "정말 새 기록으로 시작하려면 한 번 더 누르세요.";
+                if (recoveryResetButtonText != null)
+                    recoveryResetButtonText.text = "초기화 확인";
+                return;
+            }
+
+            if (Time.unscaledTime - recoveryResetArmedAt < 0.35f)
+                return;
+            if (!PermanentGrowthProfile.TryResetAfterLoadFailure())
+            {
+                recoveryResetArmed = false;
+                recoveryResetArmedAt = 0f;
+                if (recoveryResetButtonText != null)
+                    recoveryResetButtonText.text = "새로 시작";
+                if (recoveryMessageText != null)
+                    recoveryMessageText.text =
+                        "정상 저장 또는 복구 후보를 확인했습니다.\n" +
+                        "먼저 저장 복구를 시도하세요.";
+                return;
+            }
+            recoveryResetArmed = false;
+            recoveryResetArmedAt = 0f;
+            Refresh();
+        }
+
+        void RefreshRecoveryPrompt()
+        {
+            if (recoveryPromptRoot == null)
+                return;
+
+            bool visible = PermanentGrowthProfile.RequiresRecovery;
+            recoveryPromptRoot.gameObject.SetActive(visible);
+            if (!visible)
+            {
+                recoveryResetArmed = false;
+                recoveryResetArmedAt = 0f;
+                return;
+            }
+
+            bool canRestore = PermanentGrowthProfile.CanRestoreBackup;
+            RestoreBackupButton.gameObject.SetActive(canRestore);
+            RectTransform resetRect =
+                ResetGrowthSaveButton.transform as RectTransform;
+            resetRect.anchoredPosition = canRestore
+                ? new Vector2(190f, -194f)
+                : new Vector2(0f, -194f);
+            if (!recoveryResetArmed && recoveryMessageText != null)
+            {
+                recoveryMessageText.text = canRestore
+                    ? "성장 저장을 안전하게 잠갔습니다.\n" +
+                      "검증된 백업을 복원하거나 새 기록으로 시작하세요."
+                    : "성장 저장을 읽지 못했습니다. 원본은 보존됩니다.\n" +
+                      "새 기록으로 시작하려면 아래에서 확인하세요.";
+            }
+            if (!recoveryResetArmed && recoveryResetButtonText != null)
+                recoveryResetButtonText.text = "새로 시작";
+            recoveryPromptRoot.SetAsLastSibling();
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -1028,7 +1209,10 @@ namespace MukJump.Core
 
         void HandleSelectedPurchase()
         {
-            if (selectedSlot < 0 || selectedSlot >= nodes.Count)
+            if (selectedSlot < 0 || selectedSlot >= nodes.Count ||
+                purchaseInProgress ||
+                purchaseUiLocked ||
+                Time.unscaledTime < purchaseLockedUntil)
                 return;
 
             PermanentGrowthNodeDefinition definition =
@@ -1040,6 +1224,7 @@ namespace MukJump.Core
                 {
                     pendingKeystoneId = string.Empty;
                     PermanentGrowthProfile.ClearActiveKeystone(definition.Branch);
+                    LockKeystoneInput();
                 }
                 else
                 {
@@ -1052,18 +1237,26 @@ namespace MukJump.Core
                             StringComparison.Ordinal))
                     {
                         pendingKeystoneId = definition.Id;
+                        LockKeystoneInput();
                         Refresh();
                         return;
                     }
 
                     pendingKeystoneId = string.Empty;
                     PermanentGrowthProfile.TryEquipKeystone(definition.Id);
+                    LockKeystoneInput();
                 }
                 Refresh();
                 return;
             }
 
             HandlePurchase(selectedSlot);
+        }
+
+        void LockKeystoneInput()
+        {
+            purchaseUiLocked = true;
+            purchaseLockedUntil = Time.unscaledTime + 0.25f;
         }
 
 #if UNITY_EDITOR
@@ -1233,6 +1426,7 @@ namespace MukJump.Core
 #endif
             UpdateTreeInteraction();
             RefreshSelectedNodePopup();
+            RefreshRecoveryPrompt();
         }
 
         static Color ResolveGrowthPathColor(
@@ -1255,7 +1449,9 @@ namespace MukJump.Core
         void UpdateTreeInteraction()
         {
             if (treeScrollRect == null) return;
-            bool blocked = purchaseUiLocked || IsNodePopupOpen;
+            bool blocked = purchaseUiLocked ||
+                           IsNodePopupOpen ||
+                           PermanentGrowthProfile.RequiresRecovery;
             treeScrollRect.enabled = !blocked;
             if (blocked)
                 treeScrollRect.StopMovement();

@@ -38,9 +38,13 @@ namespace MukJump.Core
             if (outline == null)
                 outline = text.gameObject.AddComponent<Outline>();
 
-            // 본문은 글자 자체 획만 보여야 한다. 작은 합성 외곽선도 서예 폰트의
-            // 획을 뭉쳐 Bold처럼 보이게 하므로 설명문에서는 완전히 끈다.
-            if (elementName == "ActionDescription")
+            // 성장 상세창은 모든 정보의 굵기를 Normal로 통일한다. 작은 합성
+            // 외곽선도 서예 폰트의 획을 뭉쳐 Bold처럼 보이므로 전부 끈다.
+            if (elementName is "ActionName" or
+                "ActionBranch" or
+                "ActionEffectSummary" or
+                "ActionDescription" or
+                "ActionCost")
             {
                 outline.enabled = false;
                 return;
@@ -52,18 +56,12 @@ namespace MukJump.Core
             {
                 "Balance" => 2f,
                 "BranchTitle" => 0.65f,
-                "ActionName" => 0.55f,
-                "ActionBranch" => 0.35f,
-                "ActionEffectSummary" => 0.45f,
                 _ => 1f,
             };
             float alpha = elementName switch
             {
                 "Balance" => 0.8f,
                 "BranchTitle" => 0.28f,
-                "ActionName" => 0.24f,
-                "ActionBranch" => 0.18f,
-                "ActionEffectSummary" => 0.22f,
                 _ => 0.64f,
             };
             Color color = text.color;

@@ -203,7 +203,7 @@ namespace MukJump.EditorTests
             Text actionName = selectedAction.Find("ActionName")
                 ?.GetComponent<Text>();
             Assert.That(actionName, Is.Not.Null);
-            Assert.That(actionName.fontStyle, Is.EqualTo(FontStyle.Bold));
+            Assert.That(actionName.fontStyle, Is.EqualTo(FontStyle.Normal));
             Assert.That(selectedAction.Find("ActionDescription"), Is.Not.Null);
             Assert.That(selectedAction.Find("ActionEffectSummary"), Is.Not.Null);
             Assert.That(selectedAction.Find("ActionCurrentEffect"), Is.Null);

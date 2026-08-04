@@ -14,12 +14,13 @@ namespace MukJump.EditorTests
         LobbyView lobby;
         PermanentGrowthView growth;
         LobbyScreenNavigator navigator;
+        MemoryPermanentGrowthStore growthStore;
 
         [SetUp]
         public void SetUp()
         {
-            PermanentGrowthProfile.UseStoreForTests(
-                new MemoryPermanentGrowthStore());
+            growthStore = new MemoryPermanentGrowthStore();
+            PermanentGrowthProfile.UseStoreForTests(growthStore);
 
             systemsHost = new GameObject("DedicatedScreenSystems");
             manager = systemsHost.AddComponent<GameManager>();
@@ -155,6 +156,78 @@ namespace MukJump.EditorTests
             navigator.CompleteCoverForTests();
             navigator.CompleteRevealForTests();
             Assert.That(navigator.OpenGrowth(), Is.False);
+        }
+
+        [Test]
+        public void RecoveryStateBlocksStartAndRoutesToGrowthRecoveryPrompt()
+        {
+            growthStore.Json = "{broken json";
+            growthStore.BackupJson =
+                "{\"schemaVersion\":1,\"balanceVersion\":4," +
+                "\"wallet\":2,\"spent\":1," +
+                "\"tutorialRewardClaimed\":true," +
+                "\"lastSettledRunId\":\"\",\"settledRunIds\":[]," +
+                "\"ranks\":[],\"ownedNodeIds\":[\"I00\"]," +
+                "\"survivalKeystoneId\":\"\"," +
+                "\"leapKeystoneId\":\"\"," +
+                "\"inkHandlingKeystoneId\":\"\"}";
+            PermanentGrowthProfile.ResetCacheForTests();
+
+            manager.StartGameFromMenu();
+            Assert.That(manager.State, Is.EqualTo(GameState.Lobby));
+            Assert.That(navigator.CanStartGame, Is.False);
+
+            Invoke(lobby, "HandleStartPressed");
+            Assert.That(navigator.IsTransitioning, Is.True,
+                "초기 로비에서 시작을 눌러도 복구 화면으로 보내야 합니다.");
+            navigator.CompleteCoverForTests();
+            navigator.CompleteRevealForTests();
+
+            Assert.That(growth.IsRecoveryPromptOpen, Is.True);
+            Assert.That(growth.RestoreBackupButton.gameObject.activeSelf, Is.True);
+            growth.RestoreBackupButton.onClick.Invoke();
+            Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.False);
+            Assert.That(growth.IsRecoveryPromptOpen, Is.False);
+
+            Assert.That(navigator.ReturnToLobby(), Is.True);
+            navigator.CompleteCoverForTests();
+            navigator.CompleteRevealForTests();
+            manager.StartGameFromMenu();
+            Assert.That(manager.State, Is.EqualTo(GameState.Playing));
+        }
+
+        [Test]
+        public void RecoveryResetRequiresTwoClicksThenAllowsSettlement()
+        {
+            growthStore.Json = "{broken json";
+            growthStore.BackupJson = string.Empty;
+            PermanentGrowthProfile.ResetCacheForTests();
+
+            Assert.That(navigator.OpenGrowth(), Is.True);
+            navigator.CompleteCoverForTests();
+            navigator.CompleteRevealForTests();
+            Assert.That(growth.IsRecoveryPromptOpen, Is.True);
+            Assert.That(growth.RestoreBackupButton.gameObject.activeSelf, Is.False);
+
+            growth.ResetGrowthSaveButton.onClick.Invoke();
+            Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.True);
+            Assert.That(growth.IsRecoveryPromptOpen, Is.True);
+            Assert.That(
+                growth.ResetGrowthSaveButton
+                    .GetComponentInChildren<Text>(true).text,
+                Is.EqualTo("초기화 확인"));
+
+            SetField(growth, "recoveryResetArmedAt", -1f);
+            growth.ResetGrowthSaveButton.onClick.Invoke();
+            Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.False);
+            Assert.That(growth.IsRecoveryPromptOpen, Is.False);
+            PermanentGrowthSettlement settlement =
+                PermanentGrowthProfile.SettleRun(
+                    "ui-reset-settlement", 0, 0, 0, 0f, true);
+            Assert.That(settlement.Accepted, Is.True);
+            Assert.That(settlement.Earned, Is.EqualTo(1));
+            PermanentGrowthProfile.ResetCacheForTests();
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(1));
         }
 
         [Test]

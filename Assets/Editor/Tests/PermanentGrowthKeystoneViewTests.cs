@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using MukJump.Core;
 using NUnit.Framework;
 using UnityEngine;
@@ -122,6 +123,14 @@ namespace MukJump.EditorTests
                 Is.EqualTo("S-KA"),
                 "첫 클릭은 교체 의사만 확인하고 기존 비기를 유지해야 합니다.");
             Assert.That(PurchaseLabel(view), Is.EqualTo("교체 확인"));
+            Assert.That(view.PurchaseButton.interactable, Is.False,
+                "빠른 두 번 탭으로 교체 확인을 건너뛰면 안 됩니다.");
+
+            SetField(
+                view,
+                "purchaseLockedUntil",
+                Time.unscaledTime - 0.01f);
+            Invoke(view, "Update");
             Assert.That(view.PurchaseButton.interactable, Is.True);
 
             view.PurchaseButton.onClick.Invoke();
@@ -153,6 +162,11 @@ namespace MukJump.EditorTests
             Assert.That(PurchaseLabel(view), Is.EqualTo("교체 확인"));
 
             view.NodePopupCloseButton.onClick.Invoke();
+            SetField(
+                view,
+                "purchaseLockedUntil",
+                Time.unscaledTime - 0.01f);
+            Invoke(view, "Update");
             SelectNode(view, "S-KB");
 
             Assert.That(PurchaseLabel(view), Is.EqualTo("교체하기"));
@@ -216,6 +230,19 @@ namespace MukJump.EditorTests
                 description.GetComponent<Outline>()?.enabled,
                 Is.False,
                 "설명문에는 Bold처럼 보이는 합성 외곽선을 사용하지 않습니다.");
+            foreach (Text popupText in popup.GetComponentsInChildren<Text>(true))
+            {
+                Assert.That(
+                    popupText.fontStyle,
+                    Is.EqualTo(FontStyle.Normal),
+                    $"{popupText.transform.parent?.name}/{popupText.name}은 " +
+                    "성장 상세창에서 Bold를 사용하면 안 됩니다.");
+                Assert.That(
+                    popupText.GetComponent<Outline>()?.enabled ?? false,
+                    Is.False,
+                    $"{popupText.transform.parent?.name}/{popupText.name}은 " +
+                    "합성 외곽선으로 굵기를 더하면 안 됩니다.");
+            }
             Assert.That(icon.anchoredPosition.x,
                 Is.LessThan(name.rectTransform.anchoredPosition.x));
             Assert.That(effect.text, Is.EqualTo("점프 준비시간 -1.5%"));
@@ -377,20 +404,42 @@ namespace MukJump.EditorTests
             string[] ownedNodeIds,
             string survivalKeystoneId = "")
         {
-            string owned = ownedNodeIds == null || ownedNodeIds.Length == 0
+            var expanded = new HashSet<string>(System.StringComparer.Ordinal);
+            if (ownedNodeIds != null)
+                for (int i = 0; i < ownedNodeIds.Length; i++)
+                    AddNodeAndParents(ownedNodeIds[i], expanded);
+            var ordered = new List<string>();
+            foreach (PermanentGrowthNodeDefinition definition in
+                     PermanentGrowthCatalog.Nodes)
+                if (expanded.Contains(definition.Id))
+                    ordered.Add(definition.Id);
+            string owned = ordered.Count == 0
                 ? "[]"
-                : "[\"" + string.Join("\",\"", ownedNodeIds) + "\"]";
+                : "[\"" + string.Join("\",\"", ordered) + "\"]";
             store.Json =
                 "{\"schemaVersion\":1,\"balanceVersion\":2," +
                 "\"wallet\":0,\"spent\":0," +
                 "\"tutorialRewardClaimed\":true," +
-                "\"lastSettledRunId\":\"\",\"ranks\":[]," +
+                "\"lastSettledRunId\":\"\",\"settledRunIds\":[]," +
+                "\"ranks\":[]," +
                 $"\"ownedNodeIds\":{owned}," +
                 $"\"survivalKeystoneId\":\"{survivalKeystoneId}\"," +
                 "\"leapKeystoneId\":\"\"," +
                 "\"inkHandlingKeystoneId\":\"\"}";
             PermanentGrowthProfile.ResetCacheForTests();
             _ = PermanentGrowthProfile.Currency;
+        }
+
+        static void AddNodeAndParents(
+            string nodeId,
+            HashSet<string> expanded)
+        {
+            PermanentGrowthNodeDefinition node =
+                PermanentGrowthCatalog.GetNode(nodeId);
+            if (node == null || !expanded.Add(node.Id))
+                return;
+            for (int i = 0; i < node.ParentIds.Count; i++)
+                AddNodeAndParents(node.ParentIds[i], expanded);
         }
 
         GameObject Track(GameObject gameObject)
@@ -401,7 +450,8 @@ namespace MukJump.EditorTests
 
         static Transform FindNode(PermanentGrowthView view, string nodeId)
         {
-            Transform node = view.TreeCanvas.Find($"GrowthNode_{nodeId}");
+            string objectId = nodeId?.Replace('-', '_') ?? "unknown";
+            Transform node = view.TreeCanvas.Find($"GrowthNode_{objectId}");
             Assert.That(node, Is.Not.Null, nodeId);
             return node;
         }
@@ -434,6 +484,18 @@ namespace MukJump.EditorTests
         static string ActiveSurvivalKeystone() =>
             PermanentGrowthProfile.GetActiveKeystoneId(
                 PermanentGrowthBranch.Survival);
+
+        static object Invoke(object target, string methodName) =>
+            target.GetType().GetMethod(
+                methodName,
+                BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.Invoke(target, null);
+
+        static void SetField(object target, string fieldName, object value) =>
+            target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.SetValue(target, value);
 
         static void AssertColorRgb(Color actual, Color expected)
         {

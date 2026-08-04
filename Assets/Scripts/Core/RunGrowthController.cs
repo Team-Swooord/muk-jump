@@ -32,6 +32,7 @@ namespace MukJump.Core
         float sharedStrokeGuardReadyAt;
         float lastFallBrakeReadyAt;
         float doubleJumpReadyAt;
+        PlayerController doubleJumpReservedPlayer;
         PlatformCollider activeSafetyPlatform;
 
         void Awake()
@@ -172,19 +173,46 @@ namespace MukJump.Core
             return activeSafetyPlatform != null;
         }
 
-        /// 자동 2단점프는 대표 한 체만, 먹떼 공용 12초마다 한 번 허용한다.
+        /// 이륙 순간의 먹떼 대표에게 2단점프 사용권을 예약한다. 정점에 도달할 때
+        /// 대표가 바뀌어도 예약자는 사용권을 잃지 않는다.
+        public bool TryReserveDoubleJump(PlayerController player)
+        {
+            if (doubleJumpReservedPlayer != null &&
+                doubleJumpReservedPlayer.IsDead)
+                doubleJumpReservedPlayer = null;
+            if (player == null || player.IsDead ||
+                !PermanentSnapshot.HasDoubleJump ||
+                manager == null || manager.State != GameState.Playing ||
+                Time.time < doubleJumpReadyAt)
+                return false;
+            if (doubleJumpReservedPlayer == player)
+                return true;
+            if (doubleJumpReservedPlayer != null || !IsSwarmRepresentative(player))
+                return false;
+            doubleJumpReservedPlayer = player;
+            return true;
+        }
+
+        /// 예약된 자동 2단점프를 먹떼 공용 12초 사용권으로 소비한다.
         /// 먹물방울·풍맥은 AutoJump에서 이 경로를 호출하지 않는다.
         public bool TryUseDoubleJump(PlayerController player)
         {
             if (player == null || player.IsDead ||
                 !PermanentSnapshot.HasDoubleJump ||
                 manager == null || manager.State != GameState.Playing ||
-                !IsSwarmRepresentative(player) ||
+                doubleJumpReservedPlayer != player ||
                 Time.time < doubleJumpReadyAt)
                 return false;
 
+            doubleJumpReservedPlayer = null;
             doubleJumpReadyAt = Time.time + 12f;
             return true;
+        }
+
+        public void CancelDoubleJumpReservation(PlayerController player)
+        {
+            if (doubleJumpReservedPlayer == player)
+                doubleJumpReservedPlayer = null;
         }
 
         /// 카메라·난이도와 같은 하위 중앙 먹떼 대표를 사용한다. 선두만 구조 비기를
@@ -313,6 +341,7 @@ namespace MukJump.Core
             sharedStrokeGuardReadyAt = float.NegativeInfinity;
             lastFallBrakeReadyAt = float.NegativeInfinity;
             doubleJumpReadyAt = float.NegativeInfinity;
+            doubleJumpReservedPlayer = null;
             SafetyJumpProgress = 0;
             if (activeSafetyPlatform != null)
                 Destroy(activeSafetyPlatform.gameObject);

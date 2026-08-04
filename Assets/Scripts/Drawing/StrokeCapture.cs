@@ -231,6 +231,7 @@ namespace MukJump.Drawing
             strokeBaseInkSpent = 0f;
             strokeReserveInkSpent = 0f;
             idleStrokeDiscountEligible =
+                ActivePermanentGrowth.HasIdleStrokeDiscount &&
                 Time.time - lastValidStrokeAt >= 2f;
             points.Clear();
             points.Add(worldPos);
@@ -240,55 +241,98 @@ namespace MukJump.Drawing
 
         void ContinueStroke(Vector2 screenPos)
         {
-            Vector2 world = ToWorld(screenPos);
-            float step = Vector2.Distance(points[^1], world);
-            if (step < minPointDistance) return;
+            AppendWorldSample(ToWorld(screenPos));
+        }
 
-            // 먹이 다 떨어지면 그 지점에서 획이 끝난다 — 회복될 때까지 더 그릴 수 없다
-            if (!HasUnlimitedInk && ink + inkReserve <= 0f)
+        /// 한 프레임의 큰 포인터 이동도 30m 경계와 먹 잔량 지점에서 정확히
+        /// 보간한다. 경계 뒤의 잔여 구간은 같은 프레임에 다음 획으로 넘겨 틈을
+        /// 만들지 않는다.
+        void AppendWorldSample(Vector2 requestedWorld)
+        {
+            while (drawing && points.Count > 0)
             {
-                EndStroke();
-                return;
-            }
+                Vector2 segmentStart = points[^1];
+                float requestedStep = Vector2.Distance(segmentStart, requestedWorld);
+                if (requestedStep < minPointDistance)
+                    return;
 
-            // 한 획의 최대 길이 초과 시 그 지점에서 끊고, 손을 떼지 않았다면 바로 그
-            // 지점에서 새 획을 이어 시작한다 (끊지 않으면 다음 프레임의 이동분만큼 틈이
-            // 생겨 일직선으로 길게 그은 발판 중간이 붕 뜨는 문제가 있었음)
-            if (strokeLength + step > maxContinuousStrokeLength)
-            {
-                Vector2 seam = points[^1];
-                EndStroke();
-                BeginStrokeAtWorld(seam);
-                return;
-            }
-
-            bool exhaustsInk = false;
-            if (!HasUnlimitedInk)
-            {
-                float availableInk = Mathf.Max(0f, ink) + Mathf.Max(0f, inkReserve);
-                float affordableStep = LimitStepToAvailableInk(step, ink, inkReserve);
-                exhaustsInk = availableInk <= step;
-                if (affordableStep <= 0f)
+                if (!HasUnlimitedInk && ink + inkReserve <= 0f)
                 {
                     EndStroke();
                     return;
                 }
 
-                // 포인터가 한 프레임에 멀리 이동해도 남은 먹으로 지불할 수 있는
-                // 지점까지만 선과 콜라이더를 만든다.
-                world = Vector2.MoveTowards(points[^1], world, affordableStep);
-                step = affordableStep;
+                float remainingStroke = Mathf.Max(
+                    0f,
+                    maxContinuousStrokeLength - strokeLength);
+                if (remainingStroke <= 0.0001f)
+                {
+                    FinalizeStrokeAndRestartAtSeam();
+                    continue;
+                }
+
+                bool crossesStrokeBoundary = requestedStep > remainingStroke;
+                float targetStep = crossesStrokeBoundary
+                    ? remainingStroke
+                    : requestedStep;
+                Vector2 targetWorld = Vector2.MoveTowards(
+                    segmentStart,
+                    requestedWorld,
+                    targetStep);
+
+                bool exhaustsInk = false;
+                float inkCost = 0f;
+                if (!HasUnlimitedInk)
+                {
+                    float availableInk =
+                        Mathf.Max(0f, ink) + Mathf.Max(0f, inkReserve);
+                    float affordableStep = LimitDiscountedStepToAvailableInk(
+                        targetStep,
+                        strokeLength,
+                        availableInk,
+                        ActivePermanentGrowth.HasShortStrokeDiscount,
+                        idleStrokeDiscountEligible);
+                    exhaustsInk = affordableStep + 0.0001f < targetStep;
+                    if (affordableStep <= 0.0001f)
+                    {
+                        EndStroke();
+                        return;
+                    }
+
+                    targetStep = affordableStep;
+                    targetWorld = Vector2.MoveTowards(
+                        segmentStart,
+                        requestedWorld,
+                        targetStep);
+                    inkCost = StrokeInkCost(
+                                  strokeLength + targetStep,
+                                  ActivePermanentGrowth.HasShortStrokeDiscount,
+                                  idleStrokeDiscountEligible) -
+                              StrokeInkCost(
+                                  strokeLength,
+                                  ActivePermanentGrowth.HasShortStrokeDiscount,
+                                  idleStrokeDiscountEligible);
+                }
+
+                strokeLength += targetStep;
+                if (!HasUnlimitedInk)
+                    ConsumeInk(Mathf.Max(0f, inkCost));
+                points.Add(targetWorld);
+                GameFeedbackController.Instance?.PlayBrushMovement(targetStep);
+                UpdatePreview();
+
+                if (exhaustsInk)
+                {
+                    EndStroke();
+                    return;
+                }
+
+                if (!crossesStrokeBoundary)
+                    return;
+
+                FinalizeStrokeAndRestartAtSeam();
+                // requestedWorld은 그대로 유지해 seam 뒤 꼬리를 즉시 처리한다.
             }
-
-            strokeLength += step;
-            if (!HasUnlimitedInk)
-                ConsumeInk(step);
-            points.Add(world);
-            GameFeedbackController.Instance?.PlayBrushMovement(step);
-            UpdatePreview();
-
-            if (exhaustsInk)
-                EndStroke();
         }
 
         static float LimitStepToAvailableInk(float requestedStep, float currentInk,
@@ -297,6 +341,62 @@ namespace MukJump.Drawing
             return Mathf.Min(
                 Mathf.Max(0f, requestedStep),
                 Mathf.Max(0f, currentInk) + Mathf.Max(0f, reserve));
+        }
+
+        static float LimitDiscountedStepToAvailableInk(
+            float requestedStep,
+            float currentStrokeLength,
+            float availableInk,
+            bool shortStrokeDiscount,
+            bool idleStrokeDiscount)
+        {
+            requestedStep = Mathf.Max(0f, requestedStep);
+            availableInk = Mathf.Max(0f, availableInk);
+            if (requestedStep <= 0f || availableInk <= 0f)
+                return 0f;
+
+            float costBefore = StrokeInkCost(
+                currentStrokeLength,
+                shortStrokeDiscount,
+                idleStrokeDiscount);
+            float fullCost = StrokeInkCost(
+                                 currentStrokeLength + requestedStep,
+                                 shortStrokeDiscount,
+                                 idleStrokeDiscount) -
+                             costBefore;
+            if (fullCost <= availableInk + 0.0001f)
+                return requestedStep;
+
+            // 1.5m 단획 할인 경계에는 작은 비용 점프가 있으므로 단순 나눗셈 대신
+            // 단조 비용 함수의 최대 지점을 이분 탐색한다.
+            float low = 0f;
+            float high = requestedStep;
+            for (int i = 0; i < 24; i++)
+            {
+                float middle = (low + high) * 0.5f;
+                float cost = StrokeInkCost(
+                                 currentStrokeLength + middle,
+                                 shortStrokeDiscount,
+                                 idleStrokeDiscount) -
+                             costBefore;
+                if (cost <= availableInk)
+                    low = middle;
+                else
+                    high = middle;
+            }
+            return low;
+        }
+
+        static float StrokeInkCost(
+            float rawLength,
+            bool shortStrokeDiscount,
+            bool idleStrokeDiscount)
+        {
+            rawLength = Mathf.Max(0f, rawLength);
+            float multiplier = idleStrokeDiscount ? 0.90f : 1f;
+            if (shortStrokeDiscount && rawLength <= 1.5f + 0.0001f)
+                multiplier *= 0.92f;
+            return rawLength * multiplier;
         }
 
         void ConsumeInk(float amount)
@@ -311,6 +411,11 @@ namespace MukJump.Drawing
 
         void EndStroke()
         {
+            // 최대 길이 분할과 포인터 해제가 같은 획을 연달아 종료해도 이미 확정한
+            // 점열로 발판을 다시 만들지 않는다. 활성 획만 한 번 선점해 확정한다.
+            if (!drawing)
+                return;
+
             drawing = false;
             GameFeedbackController.Instance?.StopBrushDrawing();
             DestroyPreview();
@@ -339,26 +444,20 @@ namespace MukJump.Drawing
                 return;
             }
 
-            float validLength = BezierSmoother.PolylineLength(smoothed);
-            float consumedInk = ApplyPermanentStrokeDiscount(validLength);
+            float consumedInk = strokeReserveInkSpent + strokeBaseInkSpent;
             PlatformCollider.Spawn(smoothed, consumedInk);
             lastValidStrokeAt = Time.time;
             GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, true);
         }
 
-        float ApplyPermanentStrokeDiscount(float validLength)
+        void FinalizeStrokeAndRestartAtSeam()
         {
-            float multiplier = 1f;
-            if (ActivePermanentGrowth.HasShortStrokeDiscount && validLength <= 1.5f)
-                multiplier *= 0.92f;
-            if (ActivePermanentGrowth.HasIdleStrokeDiscount && idleStrokeDiscountEligible)
-                multiplier *= 0.90f;
+            if (!drawing || points.Count == 0)
+                return;
 
-            float reserveRefund = strokeReserveInkSpent * (1f - multiplier);
-            float baseRefund = strokeBaseInkSpent * (1f - multiplier);
-            inkReserve += reserveRefund;
-            ink = Mathf.Min(EffectiveInkCapacity, ink + baseRefund);
-            return (strokeReserveInkSpent + strokeBaseInkSpent) * multiplier;
+            Vector2 seam = points[^1];
+            EndStroke();
+            BeginStrokeAtWorld(seam);
         }
 
         void UpdateLowInkRecoveryState()

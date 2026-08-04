@@ -172,10 +172,10 @@ namespace MukJump.EditorTests
                         Screen.height)));
             Assert.That(
                 PermanentGrowthView.CalculateTreeZoomForTests(1080f, 1920f),
-                Is.EqualTo(0.66f).Within(0.001f));
+                Is.EqualTo(0.60f).Within(0.001f));
             Assert.That(
                 PermanentGrowthView.CalculateTreeZoomForTests(1080f, 2400f),
-                Is.EqualTo(0.528f).Within(0.001f),
+                Is.EqualTo(0.48f).Within(0.001f),
                 "20:9 화면은 좌우 계보 뿌리가 잘리지 않도록 나무만 축소해야 합니다.");
 
             Assert.That(

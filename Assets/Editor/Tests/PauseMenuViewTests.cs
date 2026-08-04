@@ -23,23 +23,26 @@ public class PauseMenuViewTests
         originalAudioPause = AudioListener.pause;
         PermanentGrowthProfile.UseStoreForTests(
             new MemoryPermanentGrowthStore());
+        ScoreManager.UseStoreForTests(new MemoryScoreStore());
     }
 
     [TearDown]
     public void TearDown()
     {
-        AudioListener.pause = originalAudioPause;
-        if (!Mathf.Approximately(Time.timeScale, originalTimeScale))
-            Time.timeScale = originalTimeScale;
-        if (!Mathf.Approximately(Time.fixedDeltaTime, originalFixedDeltaTime))
-            Time.fixedDeltaTime = originalFixedDeltaTime;
         if (host != null)
             Object.DestroyImmediate(host);
         if (playerHost != null)
             Object.DestroyImmediate(playerHost);
         if (cameraHost != null)
             Object.DestroyImmediate(cameraHost);
+        AudioListener.pause = originalAudioPause;
+        if (!Mathf.Approximately(Time.timeScale, originalTimeScale))
+            Time.timeScale = originalTimeScale;
+        if (!Mathf.Approximately(Time.fixedDeltaTime, originalFixedDeltaTime))
+            Time.fixedDeltaTime = originalFixedDeltaTime;
+        PointerInput.ResetSuppressionForTests();
         PermanentGrowthProfile.RestoreDefaultStoreForTests();
+        ScoreManager.RestoreDefaultStoreForTests();
     }
 
     [Test]
@@ -82,7 +85,11 @@ public class PauseMenuViewTests
         Assert.IsNotNull(resume);
         Assert.IsNotNull(lobby);
         Assert.GreaterOrEqual(title.fontSize, 54);
-        Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
+        Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+        Assert.That(
+            title.rectTransform.anchoredPosition.x,
+            Is.Zero.Within(0.001f),
+            "일시정지 제목은 두루마리의 수평 중앙에 있어야 합니다.");
         Assert.GreaterOrEqual(
             resume.transform.Find("Label").GetComponent<Text>().fontSize, 38);
         Assert.GreaterOrEqual(
@@ -273,6 +280,201 @@ public class PauseMenuViewTests
             "BindResult",
             new GameOverResult(120, 120, false, 0, 32, false));
         Assert.That(view.GrowthRewardLabel, Is.EqualTo("디버그 판 · 보상 없음"));
+
+        Invoke(
+            view,
+            "BindResult",
+            new GameOverResult(120, 120, false, 0, 32, true, false));
+        Assert.That(
+            view.GrowthRewardLabel,
+            Is.EqualTo("저장 실패 · 성장 복구 필요"));
+        Assert.That(view.TouchHintLabel, Is.EqualTo("로비에서 성장 복구"));
+        Text rewardValue = host.transform.Find(
+                "GameOverPopupCanvas/SafeAreaRoot/ScrollResultPopup/" +
+                "ResultContent/PermanentGrowthReward/Value")
+            ?.GetComponent<Text>();
+        Assert.That(rewardValue, Is.Not.Null);
+        Assert.That(
+            rewardValue.preferredWidth,
+            Is.LessThanOrEqualTo(rewardValue.rectTransform.rect.width + 0.01f));
+        Assert.That(
+            rewardValue.preferredHeight,
+            Is.LessThanOrEqualTo(rewardValue.rectTransform.rect.height + 0.01f));
+    }
+
+    [Test]
+    public void RecoverySettlementFlowsFromManagerIntoGameOverWarning()
+    {
+        var recoveryStore = new MemoryPermanentGrowthStore
+        {
+            Json = "{broken json",
+        };
+        PermanentGrowthProfile.UseStoreForTests(recoveryStore);
+
+        host = new GameObject("RecoverySettlementHost");
+        var score = host.AddComponent<ScoreManager>();
+        Invoke(score, "OnEnable");
+        var manager = host.AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+        var popup = host.AddComponent<GameOverPopupView>();
+        Invoke(popup, "BuildIfNeeded");
+
+        var result = (GameOverResult)Invoke(manager, "SettleGameOverResult");
+        Assert.That(result.RewardsAllowed, Is.True);
+        Assert.That(result.GrowthRewardSaved, Is.False);
+        Invoke(popup, "BindResult", result);
+        Assert.That(popup.GrowthRewardLabel,
+            Is.EqualTo("저장 실패 · 성장 복구 필요"));
+        Assert.That(result.PersistenceState,
+            Is.EqualTo(GameOverPersistenceState.GrowthRecoveryRequired));
+    }
+
+    [Test]
+    public void GrowthSaveFailureDoesNotAdvanceBestOrLoseMilestoneRight()
+    {
+        var growthStore = new MemoryPermanentGrowthStore
+        {
+            ThrowOnPrimarySave = true,
+        };
+        PermanentGrowthProfile.UseStoreForTests(growthStore);
+        var scoreStore = new MemoryScoreStore();
+        ScoreManager.UseStoreForTests(scoreStore);
+
+        host = new GameObject("AtomicGameOverHost");
+        var score = host.AddComponent<ScoreManager>();
+        Invoke(score, "OnEnable");
+        Invoke(score, "Awake");
+        SetProperty(score, "Height", 100);
+        var manager = host.AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+
+        var result = (GameOverResult)Invoke(manager, "SettleGameOverResult");
+
+        Assert.That(result.GrowthRewardSaved, Is.False);
+        Assert.That(score.Best, Is.Zero);
+        Assert.That(scoreStore.Best, Is.Zero,
+            "성장 정산 실패 시 최고 기록을 먼저 확정하면 이정표 권리를 잃습니다.");
+    }
+
+    [Test]
+    public void ScoreSaveFailureCannotDuplicateGrowthMilestoneOrBlockResult()
+    {
+        var growthStore = new MemoryPermanentGrowthStore();
+        PermanentGrowthProfile.UseStoreForTests(growthStore);
+        var scoreStore = new MemoryScoreStore
+        {
+            ThrowOnSave = true,
+        };
+        ScoreManager.UseStoreForTests(scoreStore);
+
+        host = new GameObject("ScoreFailureGameOverHost");
+        var score = host.AddComponent<ScoreManager>();
+        Invoke(score, "OnEnable");
+        Invoke(score, "Awake");
+        SetProperty(score, "Height", 100);
+        var manager = host.AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+
+        var result = (GameOverResult)Invoke(manager, "SettleGameOverResult");
+
+        Assert.That(result.GrowthRewardSaved, Is.True);
+        Assert.That(result.EarnedGrowthCurrency, Is.EqualTo(2),
+            "첫 판 보상 1개와 100m 최초 이정표 1개가 정산돼야 합니다.");
+        Assert.That(score.Best, Is.Zero,
+            "최고 기록 저장 실패는 메모리 Best도 이전 값으로 되돌려야 합니다.");
+
+        scoreStore.ThrowOnSave = false;
+        PermanentGrowthProfile.ResetCacheForTests();
+        PermanentGrowthSettlement next = PermanentGrowthProfile.SettleRun(
+            "after-score-failure",
+            0,
+            100,
+            0,
+            0f,
+            true);
+        Assert.That(next.Accepted, Is.True);
+        Assert.That(next.Earned, Is.Zero,
+            "성장 저장의 이정표 watermark가 100m 중복 지급을 막아야 합니다.");
+    }
+
+    [Test]
+    public void GameOverPersistenceMessagesDistinguishRetryAndRecovery()
+    {
+        host = new GameObject("GameOverPersistenceMessageHost");
+        var view = host.AddComponent<GameOverPopupView>();
+        Invoke(view, "BuildIfNeeded");
+
+        Invoke(
+            view,
+            "BindResult",
+            new GameOverResult(
+                120,
+                0,
+                false,
+                0,
+                0,
+                true,
+                false,
+                false,
+                GameOverPersistenceState.ScoreBaselinePending));
+        Assert.That(
+            view.GrowthRewardLabel,
+            Is.EqualTo("기록 기준 확인 중 · 자동 재시도"));
+        Assert.That(view.TouchHintLabel, Is.EqualTo("이번 판 기록·먹빛 포기"));
+
+        Invoke(
+            view,
+            "BindResult",
+            new GameOverResult(
+                120,
+                0,
+                false,
+                2,
+                2,
+                true,
+                true,
+                false,
+                GameOverPersistenceState.RecordWritePending));
+        Assert.That(
+            view.GrowthRewardLabel,
+            Is.EqualTo("기록 저장 중 · 자동 재시도"));
+        Assert.That(view.TouchHintLabel, Is.EqualTo("재시도 중단하고 로비로"));
+    }
+
+    [Test]
+    public void RecordWriteRetryDoesNotSettleGrowthTwice()
+    {
+        var growthStore = new MemoryPermanentGrowthStore();
+        PermanentGrowthProfile.UseStoreForTests(growthStore);
+        var scoreStore = new MemoryScoreStore
+        {
+            ThrowOnSave = true,
+        };
+        ScoreManager.UseStoreForTests(scoreStore);
+
+        host = new GameObject("RecordWriteRetryHost");
+        var score = host.AddComponent<ScoreManager>();
+        Invoke(score, "OnEnable");
+        Invoke(score, "Awake");
+        SetProperty(score, "Height", 100);
+        var manager = host.AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+
+        var pending = (GameOverResult)Invoke(manager, "SettleGameOverResult");
+        Assert.That(pending.PersistenceState,
+            Is.EqualTo(GameOverPersistenceState.RecordWritePending));
+        int growthSaveCount = growthStore.SaveCount;
+        SetField(manager, "latestGameOverResult", pending);
+
+        scoreStore.ThrowOnSave = false;
+        Invoke(manager, "RetryPendingGameOverPersistence");
+
+        var completed = GetField<GameOverResult>(manager, "latestGameOverResult");
+        Assert.That(completed.PersistenceState,
+            Is.EqualTo(GameOverPersistenceState.Complete));
+        Assert.That(scoreStore.Best, Is.EqualTo(100));
+        Assert.That(growthStore.SaveCount, Is.EqualTo(growthSaveCount),
+            "기록 저장 재시도는 이미 확정한 성장 정산을 다시 호출하면 안 됩니다.");
     }
 
     [Test]

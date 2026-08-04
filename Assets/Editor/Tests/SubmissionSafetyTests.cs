@@ -12,11 +12,18 @@ namespace MukJump.EditorTests
     {
         GameObject root;
 
+        [SetUp]
+        public void SetUp()
+        {
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+        }
+
         [TearDown]
         public void TearDown()
         {
             if (root != null)
                 Object.DestroyImmediate(root);
+            ScoreManager.RestoreDefaultStoreForTests();
         }
 
         [Test]
@@ -35,6 +42,159 @@ namespace MukJump.EditorTests
             Assert.That(score.RecordsAllowed, Is.False);
             Assert.That(score.Best, Is.EqualTo(savedBest));
             Assert.That(score.IsNewBestThisRun, Is.False);
+        }
+
+        [Test]
+        public void TransientBestReadFailureCannotDowngradeExistingRecord()
+        {
+            var store = new MemoryScoreStore
+            {
+                Best = 100,
+                ThrowOnLoad = true,
+            };
+            ScoreManager.UseStoreForTests(store);
+            root = new GameObject("ScoreReadRecoveryTest");
+            var score = root.AddComponent<ScoreManager>();
+            Invoke(score, "OnEnable");
+            Invoke(score, "Awake");
+            SetProperty(score, "Height", 50);
+
+            store.ThrowOnLoad = false;
+            Assert.That(score.TrySaveBest(), Is.True);
+            Assert.That(score.Best, Is.EqualTo(100));
+            Assert.That(store.Best, Is.EqualTo(100));
+            Assert.That(store.SaveCount, Is.Zero);
+        }
+
+        [Test]
+        public void PersistentBestReadFailureBlocksRecordWrite()
+        {
+            var store = new MemoryScoreStore
+            {
+                Best = 100,
+                ThrowOnLoad = true,
+            };
+            ScoreManager.UseStoreForTests(store);
+            root = new GameObject("ScoreReadFailureTest");
+            var score = root.AddComponent<ScoreManager>();
+            Invoke(score, "OnEnable");
+            Invoke(score, "Awake");
+            SetProperty(score, "Height", 150);
+
+            Assert.That(score.TrySaveBest(), Is.False);
+            Assert.That(store.Best, Is.EqualTo(100));
+            Assert.That(store.SaveCount, Is.Zero);
+        }
+
+        [Test]
+        public void AmbiguousAppliedScoreWriteIsRetriedIdempotently()
+        {
+            var store = new MemoryScoreStore
+            {
+                Best = 100,
+                ThrowOnSave = true,
+                ApplyBeforeThrow = true,
+            };
+            ScoreManager.UseStoreForTests(store);
+            root = new GameObject("AmbiguousScoreWriteTest");
+            var score = root.AddComponent<ScoreManager>();
+            Invoke(score, "OnEnable");
+            Invoke(score, "Awake");
+            SetProperty(score, "Height", 200);
+
+            Assert.That(score.TrySaveBest(), Is.False,
+                "flush 예외 뒤 같은 프로세스 readback만으로 내구 저장을 확정하면 안 됩니다.");
+            Assert.That(store.Best, Is.EqualTo(200));
+
+            store.ThrowOnSave = false;
+            Assert.That(score.TrySaveBest(), Is.True);
+            Assert.That(score.Best, Is.EqualTo(200));
+            Assert.That(store.Best, Is.EqualTo(200));
+        }
+
+        [Test]
+        public void PendingScoreRetryCannotDowngradeNewerPersistedBest()
+        {
+            var store = new MemoryScoreStore
+            {
+                Best = 100,
+                ThrowOnSave = true,
+            };
+            ScoreManager.UseStoreForTests(store);
+            root = new GameObject("MonotonicScoreRetryTest");
+            var score = root.AddComponent<ScoreManager>();
+            Invoke(score, "OnEnable");
+            Invoke(score, "Awake");
+            SetProperty(score, "Height", 150);
+
+            Assert.That(score.TrySaveBest(), Is.False);
+            store.Best = 200;
+            store.ThrowOnSave = false;
+
+            Assert.That(score.TrySaveBest(), Is.True);
+            Assert.That(score.Best, Is.EqualTo(200));
+            Assert.That(store.Best, Is.EqualTo(200));
+        }
+
+        [Test]
+        public void AbandonedRecordCandidateCannotLeakIntoNextRun()
+        {
+            var store = new MemoryScoreStore
+            {
+                Best = 0,
+                ThrowOnSave = true,
+            };
+            ScoreManager.UseStoreForTests(store);
+            root = new GameObject("AbandonedScoreRunOne");
+            var firstScore = root.AddComponent<ScoreManager>();
+            Invoke(firstScore, "OnEnable");
+            Invoke(firstScore, "Awake");
+            SetProperty(firstScore, "Height", 100);
+
+            Assert.That(firstScore.TrySaveBest(), Is.False);
+            firstScore.StopPendingBestSaveRetry();
+            Object.DestroyImmediate(root);
+
+            store.ThrowOnSave = false;
+            root = new GameObject("AbandonedScoreRunTwo");
+            var secondScore = root.AddComponent<ScoreManager>();
+            Invoke(secondScore, "OnEnable");
+            Invoke(secondScore, "Awake");
+            SetProperty(secondScore, "Height", 10);
+
+            Assert.That(secondScore.TrySaveBest(), Is.True);
+            Assert.That(store.Best, Is.EqualTo(10),
+                "포기한 이전 판 100m 후보가 다음 10m 판에 섞이면 안 됩니다.");
+        }
+
+        [Test]
+        public void AppliedAmbiguousRecordRemainsMonotonicWhenRetryStops()
+        {
+            var store = new MemoryScoreStore
+            {
+                Best = 0,
+                ThrowOnSave = true,
+                ApplyBeforeThrow = true,
+            };
+            ScoreManager.UseStoreForTests(store);
+            root = new GameObject("AppliedAmbiguousScoreRunOne");
+            var firstScore = root.AddComponent<ScoreManager>();
+            Invoke(firstScore, "OnEnable");
+            Invoke(firstScore, "Awake");
+            SetProperty(firstScore, "Height", 200);
+
+            Assert.That(firstScore.TrySaveBest(), Is.False);
+            firstScore.StopPendingBestSaveRetry();
+            Object.DestroyImmediate(root);
+
+            store.ThrowOnSave = false;
+            root = new GameObject("AppliedAmbiguousScoreRunTwo");
+            var secondScore = root.AddComponent<ScoreManager>();
+            Invoke(secondScore, "OnEnable");
+            Invoke(secondScore, "Awake");
+
+            Assert.That(secondScore.Best, Is.EqualTo(200),
+                "flush 예외 전에 이미 반영된 단조 최고기록은 안전하게 하향 롤백할 수 없습니다.");
         }
 
         [Test]
@@ -108,6 +268,16 @@ namespace MukJump.EditorTests
             return target.GetType().GetMethod(
                 methodName, BindingFlags.Instance | BindingFlags.NonPublic)
                 ?.Invoke(target, null);
+        }
+
+        static void SetProperty(object target, string propertyName, object value)
+        {
+            target.GetType().GetProperty(
+                    propertyName,
+                    BindingFlags.Instance |
+                    BindingFlags.Public |
+                    BindingFlags.NonPublic)
+                ?.SetValue(target, value);
         }
     }
 }

@@ -235,7 +235,7 @@ namespace MukJump.EditorTests
         public void DoubleJumpUsesFortyPercentOnceAndSharedCooldownBlocksRepeat()
         {
             SeedGrowth(new[] { "J-KC" }, leapKeystone: "J-KC");
-            var manager = CreatePlayingManager(out _);
+            var manager = CreatePlayingManager(out var growth);
             var player = CreatePlayer("PermanentDoubleJump");
             manager.RegisterPlayer(player);
             var autoJump = player.gameObject.AddComponent<AutoJump>();
@@ -244,6 +244,7 @@ namespace MukJump.EditorTests
             SetField(autoJump, "primaryJumpVerticalSpeed", 10f);
             SetField(autoJump, "doubleJumpArmed", true);
             SetField(autoJump, "doubleJumpUsed", false);
+            Assert.That(growth.TryReserveDoubleJump(player), Is.True);
 
             Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(true));
             Assert.That(player.Body.linearVelocity.y,
@@ -254,6 +255,27 @@ namespace MukJump.EditorTests
             SetField(autoJump, "doubleJumpUsed", false);
             Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(false),
                 "같은 먹떼는 12초 공용 재사용 시간을 공유해야 합니다.");
+        }
+
+        [Test]
+        public void SpecialLaunchImmediatelyReleasesSharedDoubleJumpReservation()
+        {
+            SeedGrowth(new[] { "J-KC" }, leapKeystone: "J-KC");
+            var manager = CreatePlayingManager(out var growth);
+            var player = CreatePlayer("PermanentSpecialLaunchReservation");
+            manager.RegisterPlayer(player);
+            var autoJump = player.gameObject.AddComponent<AutoJump>();
+            Invoke(autoJump, "Awake");
+            SetField(autoJump, "doubleJumpArmed", true);
+            Assert.That(growth.TryReserveDoubleJump(player), Is.True);
+
+            player.LaunchToHeight(10f);
+
+            Assert.That(
+                GetField<PlayerController>(growth, "doubleJumpReservedPlayer"),
+                Is.Null,
+                "특수 상승이 일반 2단점프 공용 예약을 붙잡으면 안 됩니다.");
+            Assert.That(GetField<bool>(autoJump, "doubleJumpArmed"), Is.False);
         }
 
         [Test]
@@ -347,19 +369,48 @@ namespace MukJump.EditorTests
             string leapKeystone = "",
             string inkKeystone = "")
         {
-            string owned = ownedNodeIds == null || ownedNodeIds.Length == 0
+            string[] validOwned = ExpandWithRequiredParents(ownedNodeIds);
+            string owned = validOwned.Length == 0
                 ? "[]"
-                : "[\"" + string.Join("\",\"", ownedNodeIds) + "\"]";
+                : "[\"" + string.Join("\",\"", validOwned) + "\"]";
             store.Json =
                 "{\"schemaVersion\":1,\"balanceVersion\":2," +
                 "\"wallet\":0,\"spent\":0," +
                 "\"tutorialRewardClaimed\":false," +
-                "\"lastSettledRunId\":\"\",\"ranks\":[]," +
+                "\"lastSettledRunId\":\"\",\"settledRunIds\":[]," +
+                "\"ranks\":[]," +
                 $"\"ownedNodeIds\":{owned}," +
                 $"\"survivalKeystoneId\":\"{survivalKeystone}\"," +
                 $"\"leapKeystoneId\":\"{leapKeystone}\"," +
                 $"\"inkHandlingKeystoneId\":\"{inkKeystone}\"}}";
             PermanentGrowthProfile.ResetCacheForTests();
+        }
+
+        static string[] ExpandWithRequiredParents(IEnumerable<string> requestedIds)
+        {
+            var requested = new HashSet<string>(
+                requestedIds ?? System.Array.Empty<string>(),
+                System.StringComparer.Ordinal);
+            var stack = new Stack<string>(requested);
+            while (stack.Count > 0)
+            {
+                PermanentGrowthNodeDefinition node =
+                    PermanentGrowthCatalog.GetNode(stack.Pop());
+                if (node == null)
+                    continue;
+                for (int i = 0; i < node.ParentIds.Count; i++)
+                    if (requested.Add(node.ParentIds[i]))
+                        stack.Push(node.ParentIds[i]);
+            }
+
+            var ordered = new List<string>(requested.Count);
+            for (int i = 0; i < PermanentGrowthCatalog.Nodes.Count; i++)
+            {
+                string id = PermanentGrowthCatalog.Nodes[i].Id;
+                if (requested.Contains(id))
+                    ordered.Add(id);
+            }
+            return ordered.ToArray();
         }
 
         T Track<T>(T value) where T : Object

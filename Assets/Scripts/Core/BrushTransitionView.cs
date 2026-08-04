@@ -328,20 +328,26 @@ namespace MukJump.Core
     {
         static Sprite brushSprite;
         static Sprite blobSprite;
+        static Sprite inkDropSprite;
         static Texture2D brushTexture;
         static Texture2D blobTexture;
+        static Texture2D inkDropTexture;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ReleaseRuntimeAssets()
         {
             DestroyRuntimeObject(brushSprite);
             DestroyRuntimeObject(blobSprite);
+            DestroyRuntimeObject(inkDropSprite);
             DestroyRuntimeObject(brushTexture);
             DestroyRuntimeObject(blobTexture);
+            DestroyRuntimeObject(inkDropTexture);
             brushSprite = null;
             blobSprite = null;
+            inkDropSprite = null;
             brushTexture = null;
             blobTexture = null;
+            inkDropTexture = null;
         }
 
         public static Sprite CreateBrushSprite()
@@ -400,6 +406,44 @@ namespace MukJump.Core
                 new Vector2(0.5f, 0.5f), 100f);
             blobSprite.name = "MukJump_InkBlobMask";
             return blobSprite;
+        }
+
+        public static Sprite CreateInkDropSprite()
+        {
+            if (inkDropSprite != null) return inkDropSprite;
+            const int size = 128;
+            var texture = NewTexture(size, size, "MukJump_InkDropMask");
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float nx = (x / (float)(size - 1) - 0.5f) * 2f;
+                float ny = (y / (float)(size - 1) - 0.5f) * 2f;
+                float circleDistance =
+                    new Vector2(nx, ny + 0.28f).magnitude - 0.62f;
+                float upperProgress = Mathf.InverseLerp(-0.18f, 0.94f, ny);
+                float upperHalfWidth = Mathf.Lerp(0.58f, 0f, upperProgress);
+                float triangleDistance = Mathf.Max(
+                    Mathf.Abs(nx) - upperHalfWidth,
+                    Mathf.Max(-ny - 0.18f, ny - 0.94f));
+                float signedDistance = Mathf.Min(circleDistance, triangleDistance);
+                float alpha = Mathf.Clamp01(-signedDistance * 28f + 0.5f);
+                pixels[y * size + x] = new Color32(
+                    255,
+                    255,
+                    255,
+                    (byte)Mathf.RoundToInt(alpha * 255f));
+            }
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            inkDropTexture = texture;
+            inkDropSprite = Sprite.Create(
+                texture,
+                new Rect(0, 0, size, size),
+                new Vector2(0.5f, 0.5f),
+                100f);
+            inkDropSprite.name = "MukJump_InkDropMask";
+            return inkDropSprite;
         }
 
         static Texture2D NewTexture(int width, int height, string textureName)

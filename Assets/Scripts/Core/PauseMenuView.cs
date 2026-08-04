@@ -89,8 +89,7 @@ namespace MukJump.Core
         public static bool IsPointerOverControls(Vector2 screenPosition)
         {
             if (Instance == null) return false;
-            if (Instance.overlayVisible &&
-                Instance.overlayGroup != null &&
+            if (Instance.overlayGroup != null &&
                 Instance.overlayGroup.blocksRaycasts)
                 return true;
             return Instance.pauseButtonRect != null &&
@@ -297,9 +296,9 @@ namespace MukJump.Core
             BuildPauseScrollFrame(panel);
 
             var title = CreateText("Title", panel, "잠시 멈춤", 58,
-                new Vector2(-30f, 165f), new Vector2(520f, 78f),
+                new Vector2(0f, 165f), new Vector2(520f, 78f),
                 InkPalette.TextDark, FontStyle.Normal);
-            title.alignment = TextAnchor.MiddleLeft;
+            title.alignment = TextAnchor.MiddleCenter;
             AddSoftWeight(title, InkPalette.Ink, 0.2f);
 
             resumeButton = CreateBrushButton("ResumeButton", panel, "계속하기",

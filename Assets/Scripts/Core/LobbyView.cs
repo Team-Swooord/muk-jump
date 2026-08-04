@@ -95,6 +95,15 @@ namespace MukJump.Core
         void HandleStartPressed()
         {
             LobbyScreenNavigator navigator = ResolveScreenNavigator();
+            if (PermanentGrowthProfile.RequiresRecovery)
+            {
+                ResolveOptionsView()?.Close();
+                if (navigator != null)
+                    navigator.OpenGrowth();
+                else
+                    ResolvePermanentGrowthView()?.Open();
+                return;
+            }
             if (navigator != null && !navigator.CanStartGame)
                 return;
             permanentGrowthView?.Close();

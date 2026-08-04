@@ -261,7 +261,19 @@ namespace MukJump.Player
             }
         }
 
-        public void GrantShield() => HasShield = true;
+        /// 방어막은 한 번의 피해만 막는 비중첩 효과다. 이미 보유 중이면 false를
+        /// 반환해 다음 픽업이 소비되지 않도록 한다.
+        public bool TryGrantShield()
+        {
+            if (IsDead || HasShield)
+                return false;
+
+            HasShield = true;
+            return true;
+        }
+
+        /// 기존 장애물·테스트 호출부와의 호환을 유지하는 명령형 래퍼.
+        public void GrantShield() => TryGrantShield();
 
         /// 장애물 피해. 실제로 처리한 접촉이면 true를 반환해 장애물이 스스로 사라지게 한다.
         public bool TakeHit()
@@ -426,6 +438,7 @@ namespace MukJump.Player
         public void LaunchToHeight(float height)
         {
             if (!EnsureBody()) return;
+            GetComponent<AutoJump>()?.CancelForSpecialLaunch();
             automaticJumpInFlight = false;
             // 대각선 발판 접착 중에는 gravityScale이 0이므로 먼저 접착을 풀어야
             // 목표 높이에 필요한 점프 속도가 정상적으로 계산된다.

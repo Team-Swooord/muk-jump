@@ -44,8 +44,13 @@ namespace MukJump.Core
 
         void OnValidate()
         {
-            ConfigureVisuals();
-            ApplyVisibility();
+            // OnValidate 중 CanvasGroup 값을 바꾸면 자식 Graphic으로
+            // OnCanvasGroupChanged SendMessage가 발생해 에디터 Console을 오염시킨다.
+            // 여기서는 직렬화 참조만 복구하고 실제 시각 적용은 Awake/OnEnable에 맡긴다.
+            if (rootGroup == null)
+                rootGroup = GetComponent<CanvasGroup>();
+            if (stampRoot != null && sealText == null)
+                sealText = stampRoot.Find("SealText")?.GetComponent<Text>();
         }
 
         void Update()

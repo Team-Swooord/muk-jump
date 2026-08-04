@@ -216,20 +216,49 @@ namespace MukJump.EditorTests
 
         void SeedV2(params string[] ownedNodeIds)
         {
-            string owned = ownedNodeIds == null || ownedNodeIds.Length == 0
+            string[] validOwned = ExpandWithRequiredParents(ownedNodeIds);
+            string owned = validOwned.Length == 0
                 ? "[]"
-                : "[\"" + string.Join("\",\"", ownedNodeIds) + "\"]";
+                : "[\"" + string.Join("\",\"", validOwned) + "\"]";
             store.Json =
                 "{\"schemaVersion\":1,\"balanceVersion\":2," +
                 "\"wallet\":0,\"spent\":0," +
                 "\"tutorialRewardClaimed\":true," +
-                "\"lastSettledRunId\":\"\",\"ranks\":[]," +
+                "\"lastSettledRunId\":\"\",\"settledRunIds\":[]," +
+                "\"ranks\":[]," +
                 $"\"ownedNodeIds\":{owned}," +
                 "\"survivalKeystoneId\":\"\"," +
                 "\"leapKeystoneId\":\"\"," +
                 "\"inkHandlingKeystoneId\":\"\"}";
             PermanentGrowthProfile.ResetCacheForTests();
             _ = PermanentGrowthProfile.Currency;
+        }
+
+        static string[] ExpandWithRequiredParents(IEnumerable<string> requestedIds)
+        {
+            var requested = new HashSet<string>(
+                requestedIds ?? Array.Empty<string>(),
+                StringComparer.Ordinal);
+            var stack = new Stack<string>(requested);
+            while (stack.Count > 0)
+            {
+                PermanentGrowthNodeDefinition node =
+                    PermanentGrowthCatalog.GetNode(stack.Pop());
+                if (node == null)
+                    continue;
+                for (int i = 0; i < node.ParentIds.Count; i++)
+                    if (requested.Add(node.ParentIds[i]))
+                        stack.Push(node.ParentIds[i]);
+            }
+
+            var ordered = new List<string>(requested.Count);
+            for (int i = 0; i < PermanentGrowthCatalog.Nodes.Count; i++)
+            {
+                string id = PermanentGrowthCatalog.Nodes[i].Id;
+                if (requested.Contains(id))
+                    ordered.Add(id);
+            }
+            return ordered.ToArray();
         }
 
         T Track<T>(T value) where T : Object

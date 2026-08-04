@@ -389,7 +389,7 @@ namespace MukJump.Core
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I00"), 0, "", -350f, -770f, 2);
             Add(nodes, "I-A2", "마른 붓끝", "짧고 정확한 획의 먹 소모를 줄입니다.",
-                "1.5m 이하 유효 획 비용 -8%", "ink.stroke.short",
+                "1.5m 이하로 그린 획 비용 -8%", "ink.stroke.short",
                 PermanentGrowthType.ShortStrokeEfficiency, 0.08f, "짧은 획 비용",
                 PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Mechanic,

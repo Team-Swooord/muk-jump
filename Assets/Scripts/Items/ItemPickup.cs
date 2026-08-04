@@ -45,7 +45,8 @@ namespace MukJump.Items
                         .RequestSharedGoldenBrush(strokeCapture);
                     break;
                 case ItemType.InkShield:
-                    player.GrantShield();
+                    if (!player.TryGrantShield())
+                        return false;
                     break;
                 case ItemType.InkClone:
                     if (!manager.TryCreateInkClone(player)) return false;

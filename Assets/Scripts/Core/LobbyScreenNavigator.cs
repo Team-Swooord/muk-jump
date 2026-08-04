@@ -31,7 +31,9 @@ namespace MukJump.Core
             LobbySection.Lobby;
         public bool IsTransitioning { get; private set; }
         public bool CanStartGame =>
-            !IsTransitioning && CurrentSection == LobbySection.Lobby;
+            !IsTransitioning &&
+            CurrentSection == LobbySection.Lobby &&
+            !PermanentGrowthProfile.RequiresRecovery;
 
         void Awake()
         {

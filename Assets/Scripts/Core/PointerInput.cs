@@ -87,6 +87,13 @@ namespace MukJump.Core
             suppressedUntilRelease = true;
         }
 
+#if UNITY_EDITOR
+        public static void ResetSuppressionForTests()
+        {
+            suppressedUntilRelease = false;
+        }
+#endif
+
         static bool IsAnyPressed()
         {
             var touch = Touchscreen.current;

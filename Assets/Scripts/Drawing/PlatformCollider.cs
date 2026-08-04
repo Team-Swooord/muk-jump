@@ -313,6 +313,10 @@ namespace MukJump.Drawing
             {
                 if (removalCause == RemovalCause.None)
                     removalCause = RemovalCause.NaturalExpiry;
+                // Destroy는 프레임 끝까지 지연된다. 그 사이 새 획의 예산 퇴출이
+                // 자연 소멸 원인을 덮어써 환급을 지우지 않도록 즉시 목록에서 뺀다.
+                removalRequested = true;
+                active.Remove(this);
                 Destroy(gameObject);
             }
         }
