@@ -23,8 +23,6 @@ namespace MukJump.Core
         [SerializeField] Text heightCaption;
         [SerializeField] Text bestText;
         [SerializeField] Text bestCaption;
-        [SerializeField] RectTransform healthRoot;
-        [SerializeField] Text healthLabel;
         [SerializeField] RectTransform itemTestControls;
         [SerializeField] RectTransform debugPanel;
         [SerializeField] Button debugToggleButton;
@@ -54,15 +52,13 @@ namespace MukJump.Core
 
         int lastHeight = int.MinValue;
         int lastBest = int.MinValue;
-        int lastHealth = int.MinValue;
-        int lastMaxHealth = int.MinValue;
         bool lastNewBest;
         int lastScreenWidth;
         int lastScreenHeight;
         Rect lastSafeArea;
         float nextVfxStatsRefreshTime;
-        readonly Image[] healthSegments = new Image[4];
-        readonly List<PlayerController> healthScratch =
+        bool playerHealthBootstrapComplete;
+        readonly List<PlayerController> playerHealthScratch =
             new(GameManager.MaxLivingPlayers);
 
         void OnEnable()
@@ -70,9 +66,8 @@ namespace MukJump.Core
             Instance = this;
             lastHeight = int.MinValue;
             lastBest = int.MinValue;
-            lastHealth = int.MinValue;
-            lastMaxHealth = int.MinValue;
             lastNewBest = false;
+            playerHealthBootstrapComplete = false;
             if (Application.isPlaying && GameManager.DebugToolsAvailable)
                 EnsureVfxDebugControls();
             ApplyCrispTextSettings();
@@ -83,7 +78,8 @@ namespace MukJump.Core
             if (newBestIndicator == null)
                 newBestIndicator = GetComponentInChildren<NewBestIndicatorView>(true);
             EnsureTopHudContainer();
-            EnsureHealthDisplay();
+            HideLegacyAggregateHealth();
+            playerHealthBootstrapComplete = EnsurePlayerHealthBillboards();
             if (newBestIndicator == null)
                 newBestIndicator = NewBestIndicatorView.CreateRuntime(
                     topHudRoot != null ? topHudRoot : transform);
@@ -248,7 +244,6 @@ namespace MukJump.Core
             ConfigureText(heightCaption);
             ConfigureText(bestText);
             ConfigureText(bestCaption);
-            ConfigureText(healthLabel);
             ConfigureText(invincibleLabel);
             ConfigureDebugButton(debugToggleButton, null, 27);
             ConfigureDebugButton(invincibleButton, null, 27);
@@ -326,89 +321,33 @@ namespace MukJump.Core
                 bestCaption = topHudRoot.Find("BestCaption")?.GetComponent<Text>();
         }
 
-        /// 체력은 캐릭터 위에 여러 개 띄우지 않고 상단에 얇은 먹선 세 칸으로 표시한다.
-        /// 런타임 생성이라 구형 씬도 재빌드 없이 같은 HUD 규칙을 사용한다.
-        void EnsureHealthDisplay()
+        /// 이전에 생성된 Main 씬의 상단 통합 체력 HUD는 숨기고, 각 캐릭터의
+        /// 월드 체력 표시만 사용한다.
+        void HideLegacyAggregateHealth()
         {
-            if (topHudRoot == null) return;
-            if (healthRoot == null)
-                healthRoot = topHudRoot.Find("HealthRoot") as RectTransform;
-            if (healthRoot == null)
+            Transform legacyHealth = topHudRoot != null
+                ? topHudRoot.Find("HealthRoot")
+                : null;
+            if (legacyHealth != null)
+                legacyHealth.gameObject.SetActive(false);
+        }
+
+        /// 씬을 다시 생성하지 않은 이전 Main도 첫 플레이 프레임에 새 표시를 얻는다.
+        /// 원본에 한 번 붙으면 이후 먹분신은 해당 컴포넌트를 함께 복제한다.
+        bool EnsurePlayerHealthBillboards()
+        {
+            var manager = GameManager.Instance;
+            if (manager == null) return false;
+            manager.GetLivingPlayersNonAlloc(playerHealthScratch);
+            for (int i = 0; i < playerHealthScratch.Count; i++)
             {
-                var rootObject = new GameObject(
-                    "HealthRoot",
-                    typeof(RectTransform),
-                    typeof(CanvasRenderer),
-                    typeof(Image));
-                healthRoot = rootObject.GetComponent<RectTransform>();
-                healthRoot.SetParent(topHudRoot, false);
-                var background = rootObject.GetComponent<Image>();
-                background.sprite = InkUiTextureFactory.CreateBrushSprite();
-                background.color = new Color(
-                    InkPalette.Paper.r,
-                    InkPalette.Paper.g,
-                    InkPalette.Paper.b,
-                    0.88f);
-                background.raycastTarget = false;
+                PlayerController player = playerHealthScratch[i];
+                if (player == null || player.IsDead ||
+                    player.GetComponent<PlayerHealthBillboard>() != null)
+                    continue;
+                player.gameObject.AddComponent<PlayerHealthBillboard>();
             }
-
-            healthRoot.anchorMin = healthRoot.anchorMax =
-                new Vector2(0.5f, 0f);
-            healthRoot.pivot = new Vector2(0.5f, 0.5f);
-            healthRoot.anchoredPosition = new Vector2(0f, -22f);
-            healthRoot.sizeDelta = new Vector2(360f, 48f);
-
-            if (healthLabel == null)
-                healthLabel = healthRoot.Find("HealthLabel")?.GetComponent<Text>();
-            if (healthLabel == null)
-            {
-                var labelObject = new GameObject(
-                    "HealthLabel",
-                    typeof(RectTransform),
-                    typeof(CanvasRenderer),
-                    typeof(Text));
-                var labelRect = labelObject.GetComponent<RectTransform>();
-                labelRect.SetParent(healthRoot, false);
-                healthLabel = labelObject.GetComponent<Text>();
-            }
-            var healthLabelRect = healthLabel.rectTransform;
-            healthLabelRect.anchorMin = healthLabelRect.anchorMax =
-                new Vector2(0f, 0.5f);
-            healthLabelRect.pivot = new Vector2(0f, 0.5f);
-            healthLabelRect.anchoredPosition = new Vector2(22f, 0f);
-            healthLabelRect.sizeDelta = new Vector2(112f, 42f);
-            healthLabel.font = InkPalette.UiFont;
-            healthLabel.fontSize = 28;
-            healthLabel.fontStyle = FontStyle.Bold;
-            healthLabel.alignment = TextAnchor.MiddleLeft;
-            healthLabel.color = InkPalette.Ink;
-            healthLabel.raycastTarget = false;
-
-            for (int i = 0; i < healthSegments.Length; i++)
-            {
-                string segmentName = $"HealthSegment{i}";
-                var segment = healthRoot.Find(segmentName)?.GetComponent<Image>();
-                if (segment == null)
-                {
-                    var segmentObject = new GameObject(
-                        segmentName,
-                        typeof(RectTransform),
-                        typeof(CanvasRenderer),
-                        typeof(Image));
-                    var segmentRect = segmentObject.GetComponent<RectTransform>();
-                    segmentRect.SetParent(healthRoot, false);
-                    segment = segmentObject.GetComponent<Image>();
-                    segment.sprite = InkUiTextureFactory.CreateBrushSprite();
-                    segment.raycastTarget = false;
-                }
-
-                var rect = segment.rectTransform;
-                rect.anchorMin = rect.anchorMax = new Vector2(0f, 0.5f);
-                rect.pivot = new Vector2(0f, 0.5f);
-                rect.anchoredPosition = new Vector2(126f + i * 53f, 0f);
-                rect.sizeDelta = new Vector2(47f, 15f);
-                healthSegments[i] = segment;
-            }
+            return playerHealthScratch.Count > 0;
         }
 
         void ApplyPolishedRuntimeLayout()
@@ -710,10 +649,9 @@ namespace MukJump.Core
             if (canvas != null) canvas.enabled = visible;
             windIndicator?.SetVisible(visible);
             newBestIndicator?.SetVisible(visible);
-            if (healthRoot != null)
-                healthRoot.gameObject.SetActive(visible);
             if (!visible) return;
-            RefreshHealthDisplay();
+            if (!playerHealthBootstrapComplete)
+                playerHealthBootstrapComplete = EnsurePlayerHealthBillboards();
             if (heightText == null) return;
             RefreshInvincibleButton();
             RefreshVfxDebugStats(false);
@@ -737,46 +675,6 @@ namespace MukJump.Core
                 lastNewBest = newBest;
                 bestText.text = $"최고 {FormatHeight(best)}";
                 bestText.color = newBest ? InkPalette.Red : InkPalette.Ink;
-            }
-        }
-
-        void RefreshHealthDisplay()
-        {
-            var manager = GameManager.Instance;
-            if (manager == null || healthRoot == null) return;
-
-            manager.GetLivingPlayersNonAlloc(healthScratch);
-            int current = 0;
-            int maximum = 0;
-            for (int i = 0; i < healthScratch.Count; i++)
-            {
-                var player = healthScratch[i];
-                if (player == null || player.IsDead) continue;
-                if (maximum == 0 || player.CurrentHealth < current)
-                {
-                    current = player.CurrentHealth;
-                    maximum = player.MaxHealth;
-                }
-            }
-
-            bool hasLivingPlayer = maximum > 0;
-            healthRoot.gameObject.SetActive(hasLivingPlayer);
-            if (!hasLivingPlayer ||
-                current == lastHealth && maximum == lastMaxHealth)
-                return;
-
-            lastHealth = current;
-            lastMaxHealth = maximum;
-            if (healthLabel != null)
-                healthLabel.text = $"내구 {current}/{maximum}";
-            for (int i = 0; i < healthSegments.Length; i++)
-            {
-                var segment = healthSegments[i];
-                if (segment == null) continue;
-                segment.gameObject.SetActive(i < maximum);
-                Color color = InkPalette.Ink;
-                color.a = i < current ? 0.96f : 0.18f;
-                segment.color = color;
             }
         }
 

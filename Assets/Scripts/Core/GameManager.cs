@@ -32,6 +32,9 @@ namespace MukJump.Core
         public const float CloneSpawnHorizontalGap = 0.1f;
         /// 화면 경계와 새 분신 외곽 사이에 남기는 최소 월드 간격.
         public const float CloneSpawnScreenEdgePadding = 0.05f;
+        /// 카메라 상단 안전선은 먹떼의 상위 75% 지점을 본다. 소수의 단독
+        /// 급상승에는 끌려가지 않으면서, 실제 상위 무리는 화면 안에 남긴다.
+        public const float SwarmCameraUpperPercentile = 0.75f;
 
         public static GameManager Instance { get; private set; }
 
@@ -103,7 +106,7 @@ namespace MukJump.Core
         public bool CanCreateInkClone =>
             State == GameState.Playing && LivingPlayerCount < MaxLivingPlayers;
 
-        /// 점수는 선두 기록을 유지하되, 카메라와 난이도 진행은 먹떼의 하위 중앙값을 쓴다.
+        /// 점수는 선두 기록을 유지하되, 난이도 진행은 먹떼의 하위 중앙값을 쓴다.
         /// 소수의 먹물방울 부스트가 나머지 무리를 화면 아래로 밀거나 위험물을 조기 해금하지
         /// 않도록 두 기준을 의도적으로 분리한다.
         public float SwarmProgressHeight
@@ -121,7 +124,7 @@ namespace MukJump.Core
             }
         }
 
-        /// 카메라와 점수는 살아 있는 캐릭터 중 가장 높은 캐릭터를 기준으로 한다.
+        /// 점수·선두 대상 시스템은 살아 있는 캐릭터 중 가장 높은 캐릭터를 기준으로 한다.
         public PlayerController HighestLivingPlayer
         {
             get
@@ -331,6 +334,55 @@ namespace MukJump.Core
             return representative != null
                 ? representative.transform.position.y
                 : float.NegativeInfinity;
+        }
+
+        /// 카메라 전용 먹떼 프레임을 반환한다. 중앙 대표는 기존 진행 기준과 같은
+        /// 하위 중앙값으로 안정적으로 따라가고, 별도의 상위 75% 안전점이 빠른 상위
+        /// 무리를 화면 밖으로 놓치지 않게 한다. 사망한 본체/분신은 호출 전에 제외된다.
+        public bool TryGetSwarmCameraFrame(
+            out PlayerController representative,
+            out float clusterY,
+            out float upperGuardY)
+        {
+            GetLivingPlayersNonAlloc(swarmScratch);
+            return ResolveSwarmCameraFrame(
+                swarmScratch,
+                out representative,
+                out clusterY,
+                out upperGuardY);
+        }
+
+        /// 정렬된 먹떼의 하위 중앙값과 상위 75% 지점을 한 번의 정렬로 계산한다.
+        /// 1~3마리는 가장 높은 생존자까지 보호하고, 4마리부터는 단독 이상치가
+        /// 카메라를 끌어올리지 않는다.
+        public static bool ResolveSwarmCameraFrame(
+            List<PlayerController> living,
+            out PlayerController representative,
+            out float clusterY,
+            out float upperGuardY)
+        {
+            representative = null;
+            clusterY = float.NegativeInfinity;
+            upperGuardY = float.NegativeInfinity;
+            if (living == null || living.Count == 0)
+                return false;
+
+            for (int i = living.Count - 1; i >= 0; i--)
+                if (living[i] == null || living[i].IsDead)
+                    living.RemoveAt(i);
+            if (living.Count == 0)
+                return false;
+
+            living.Sort(ComparePlayerHeight);
+            int clusterIndex = (living.Count - 1) / 2;
+            int upperIndex = Mathf.Clamp(
+                Mathf.CeilToInt(living.Count * SwarmCameraUpperPercentile) - 1,
+                clusterIndex,
+                living.Count - 1);
+            representative = living[clusterIndex];
+            clusterY = representative.transform.position.y;
+            upperGuardY = living[upperIndex].transform.position.y;
+            return true;
         }
 
         /// 디버그 창에서만 사용하는 무적 모드. 장애물과 화면 하단에서 죽지 않고 되튄다.

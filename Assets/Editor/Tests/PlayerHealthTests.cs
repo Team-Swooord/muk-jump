@@ -217,10 +217,14 @@ namespace MukJump.EditorTests
         }
 
         [TestCase(
-            "Assets/Resources/MukJump/Player/muk_spritesheet_hit_01.png")]
+            "Assets/Art/Character/Player/muk_spritesheet.png", 780f)]
         [TestCase(
-            "Assets/Resources/MukJump/Player/muk_spritesheet_hit_02.png")]
-        public void DamageSheetsKeepEightMatchingAnimationStates(string assetPath)
+            "Assets/Resources/MukJump/Player/muk_spritesheet_hit_01.png", 735f)]
+        [TestCase(
+            "Assets/Resources/MukJump/Player/muk_spritesheet_hit_02.png", 690f)]
+        public void CharacterSheetsGrowByDamageStageAndKeepEightStates(
+            string assetPath,
+            float expectedPpu)
         {
             var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
             Assert.IsNotNull(texture, assetPath);
@@ -232,7 +236,7 @@ namespace MukJump.EditorTests
             Assert.That(importer.spriteImportMode,
                 Is.EqualTo(SpriteImportMode.Multiple));
             Assert.That(importer.spritePixelsPerUnit,
-                Is.EqualTo(900f).Within(0.001f));
+                Is.EqualTo(expectedPpu).Within(0.001f));
             Assert.That(importer.maxTextureSize, Is.GreaterThanOrEqualTo(4096));
 
             string[] expectedStates =
@@ -262,6 +266,104 @@ namespace MukJump.EditorTests
                 frameCount++;
             }
             Assert.That(frameCount, Is.EqualTo(8));
+        }
+
+        [Test]
+        public void DeathFramesKeepTheLiveVisualScaleCorrectionRatio()
+        {
+            System.Type builderType =
+                typeof(MukJump.EditorTools.MukJumpSceneBuilder);
+            var livePpu = builderType.GetField(
+                "CharPpu",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            var deathPpu = builderType.GetField(
+                "DeathPpu",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            var hitOnePpu = builderType.GetField(
+                "CharHitOnePpu",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            var hitTwoPpu = builderType.GetField(
+                "CharHitTwoPpu",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(livePpu, Is.Not.Null);
+            Assert.That(deathPpu, Is.Not.Null);
+            Assert.That(hitOnePpu, Is.Not.Null);
+            Assert.That(hitTwoPpu, Is.Not.Null);
+            float live = (float)livePpu.GetRawConstantValue();
+            float death = (float)deathPpu.GetRawConstantValue();
+            float hitOne = (float)hitOnePpu.GetRawConstantValue();
+            float hitTwo = (float)hitTwoPpu.GetRawConstantValue();
+            Assert.That(live, Is.EqualTo(780f).Within(0.001f));
+            Assert.That(hitOne, Is.EqualTo(735f).Within(0.001f));
+            Assert.That(hitTwo, Is.EqualTo(690f).Within(0.001f));
+            Assert.That(hitOne, Is.LessThan(live));
+            Assert.That(hitTwo, Is.LessThan(hitOne));
+            Assert.That(death, Is.EqualTo(live * 0.8f).Within(0.001f));
+        }
+
+        [Test]
+        public void WorldHealthBillboardUsesHorizontalSpriteAboveVisualBounds()
+        {
+            MethodInfo positionMethod = typeof(PlayerHealthBillboard).GetMethod(
+                "ResolveWorldPosition",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo visibilityMethod = typeof(PlayerHealthBillboard).GetMethod(
+                "ShouldDisplay",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(positionMethod, Is.Not.Null);
+            Assert.That(visibilityMethod, Is.Not.Null);
+
+            var bounds = new Bounds(
+                new Vector3(2f, 3f, 0f),
+                new Vector3(1.4f, 1.8f, 0f));
+            var position = (Vector3)positionMethod.Invoke(null, new object[]
+            {
+                bounds,
+                new Vector3(2f, 3f, 0f),
+                0.12f,
+            });
+            Assert.That(position.x, Is.EqualTo(bounds.center.x).Within(0.001f));
+            Assert.That(position.y,
+                Is.EqualTo(bounds.max.y + 0.12f).Within(0.001f));
+
+            Assert.That(visibilityMethod.Invoke(null, new object[]
+            {
+                true, GameState.Playing, false, true,
+            }), Is.True);
+            Assert.That(visibilityMethod.Invoke(null, new object[]
+            {
+                true, GameState.Lobby, false, true,
+            }), Is.False);
+            Assert.That(visibilityMethod.Invoke(null, new object[]
+            {
+                true, GameState.Playing, true, true,
+            }), Is.False);
+        }
+
+        [Test]
+        public void OriginalAndCloneOwnIndependentSingleHealthRenderers()
+        {
+            PlayerController original = CreatePlayer("HealthBarOriginal");
+            original.GetComponent<SpriteRenderer>().sprite = CreateTestSprite();
+            var originalBillboard =
+                original.gameObject.AddComponent<PlayerHealthBillboard>();
+            Invoke(originalBillboard, "Awake");
+
+            Assert.That(CountDirectChildren(
+                original.transform, "PlayerHealthBillboard"), Is.EqualTo(1));
+
+            GameObject cloneObject = Track(Object.Instantiate(original.gameObject));
+            var clone = cloneObject.GetComponent<PlayerController>();
+            clone.ConfigureAsClone(1f);
+            var cloneBillboard = cloneObject.GetComponent<PlayerHealthBillboard>();
+            Invoke(cloneBillboard, "Awake");
+
+            Assert.That(cloneBillboard, Is.Not.Null);
+            Assert.That(CountDirectChildren(
+                clone.transform, "PlayerHealthBillboard"), Is.EqualTo(1));
+            Assert.That(cloneBillboard.HealthRenderer,
+                Is.Not.SameAs(originalBillboard.HealthRenderer));
+            Assert.That(clone.CurrentHealth, Is.EqualTo(clone.MaxHealth));
         }
 
         PlayerController CreatePlayer(string objectName)

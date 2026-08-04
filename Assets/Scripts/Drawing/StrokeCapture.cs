@@ -479,6 +479,15 @@ namespace MukJump.Drawing
                         overlapsPlayer =
                             (point - playerPosition).sqrMagnitude < clearanceSquared;
                     }
+                    if (!overlapsPlayer)
+                    {
+                        var visual = player.GetComponent<SpriteRenderer>();
+                        if (visual != null && visual.sprite != null)
+                            overlapsPlayer = ContainsExpandedVisualBounds(
+                                visual.bounds,
+                                point,
+                                surfacePadding);
+                    }
                     if (overlapsPlayer)
                     {
                         blocked = true;
@@ -501,6 +510,18 @@ namespace MukJump.Drawing
 
             KeepLongerSegment(current, currentLength, longest, ref longestLength);
             return longest;
+        }
+
+        static bool ContainsExpandedVisualBounds(
+            Bounds visualBounds,
+            Vector2 point,
+            float padding)
+        {
+            padding = Mathf.Max(0f, padding);
+            return point.x >= visualBounds.min.x - padding &&
+                   point.x <= visualBounds.max.x + padding &&
+                   point.y >= visualBounds.min.y - padding &&
+                   point.y <= visualBounds.max.y + padding;
         }
 
         static void KeepLongerSegment(

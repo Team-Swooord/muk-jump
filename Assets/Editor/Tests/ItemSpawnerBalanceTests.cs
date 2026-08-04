@@ -129,6 +129,92 @@ public sealed class ItemSpawnerBalanceTests
         Assert.AreEqual(10f, representative.transform.position.y, 0.001f);
     }
 
+    [TestCase(1, 0, 0)]
+    [TestCase(2, 0, 1)]
+    [TestCase(5, 2, 3)]
+    [TestCase(24, 11, 17)]
+    public void SwarmCameraFrameUsesStableClusterAndUpperQuartile(
+        int playerCount,
+        int expectedClusterIndex,
+        int expectedUpperIndex)
+    {
+        var players = new List<PlayerController>(playerCount);
+        for (int i = playerCount - 1; i >= 0; i--)
+        {
+            var playerObject = Track(new GameObject($"FramePlayer_{i}"));
+            playerObject.transform.position = Vector3.up * i;
+            playerObject.AddComponent<Rigidbody2D>();
+            playerObject.AddComponent<CircleCollider2D>();
+            players.Add(playerObject.AddComponent<PlayerController>());
+        }
+
+        bool resolved = GameManager.ResolveSwarmCameraFrame(
+            players,
+            out var representative,
+            out float clusterY,
+            out float upperGuardY);
+
+        Assert.That(resolved, Is.True);
+        Assert.That(representative, Is.Not.Null);
+        Assert.That(clusterY, Is.EqualTo(expectedClusterIndex).Within(0.001f));
+        Assert.That(upperGuardY, Is.EqualTo(expectedUpperIndex).Within(0.001f));
+    }
+
+    [Test]
+    public void SwarmCameraUpperGuardIgnoresOneExtremeOutlier()
+    {
+        var players = new List<PlayerController>();
+        foreach (float height in new[] { 100f, 12f, 11f, 10f, 9f })
+        {
+            var playerObject = Track(new GameObject($"GuardPlayer_{height}"));
+            playerObject.transform.position = Vector3.up * height;
+            playerObject.AddComponent<Rigidbody2D>();
+            playerObject.AddComponent<CircleCollider2D>();
+            players.Add(playerObject.AddComponent<PlayerController>());
+        }
+
+        Assert.That(GameManager.ResolveSwarmCameraFrame(
+            players,
+            out var representative,
+            out float clusterY,
+            out float upperGuardY), Is.True);
+        Assert.That(representative.transform.position.y,
+            Is.EqualTo(11f).Within(0.001f));
+        Assert.That(clusterY, Is.EqualTo(11f).Within(0.001f));
+        Assert.That(upperGuardY, Is.EqualTo(12f).Within(0.001f),
+            "한 마리의 과도한 상승보다 실제 상위 먹떼를 화면 안전선으로 써야 합니다.");
+    }
+
+    [Test]
+    public void SwarmCameraFrameDropsDeadOriginalAndUsesLivingClones()
+    {
+        var players = new List<PlayerController>();
+        foreach (float height in new[] { 4f, 8f, 12f })
+        {
+            var playerObject = Track(new GameObject($"LivingClone_{height}"));
+            playerObject.transform.position = Vector3.up * height;
+            playerObject.AddComponent<Rigidbody2D>();
+            playerObject.AddComponent<CircleCollider2D>();
+            players.Add(playerObject.AddComponent<PlayerController>());
+        }
+        typeof(PlayerController).GetProperty(
+                nameof(PlayerController.IsDead),
+                BindingFlags.Instance | BindingFlags.Public |
+                BindingFlags.NonPublic)
+            ?.SetValue(players[0], true);
+        PlayerController expectedRepresentative = players[1];
+
+        Assert.That(GameManager.ResolveSwarmCameraFrame(
+            players,
+            out var representative,
+            out float clusterY,
+            out float upperGuardY), Is.True);
+        Assert.That(representative, Is.SameAs(expectedRepresentative),
+            "사망 원본을 제거한 뒤 정렬된 첫 생존 분신이 2마리 먹떼의 대표여야 합니다.");
+        Assert.That(clusterY, Is.EqualTo(8f).Within(0.001f));
+        Assert.That(upperGuardY, Is.EqualTo(12f).Within(0.001f));
+    }
+
     [Test]
     public void ClonePickupAddsExactlyOnePlayer()
     {

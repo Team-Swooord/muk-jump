@@ -111,10 +111,15 @@ namespace MukJump.EditorTools
         };
         const int CharFrameSize = 1024;
         const int CharSheetColumns = 4;
-        const float CharPpu = 900f;
+        // 루트 Transform·물리 콜라이더는 그대로 두고 시각 크기만 기존보다 약 15% 키운다.
+        const float CharPpu = 780f;
+        // 먹방울이는 피해를 입을수록 먹이 불어난 듯 조금씩 커진다. PPU만 낮춰
+        // 충돌 크기와 점프 물리는 바꾸지 않는다.
+        const float CharHitOnePpu = 735f;
+        const float CharHitTwoPpu = 690f;
         // 사망 원본은 같은 1024 캔버스 안에서 캐릭터가 약 80% 크기로 들어가 있어
         // 일반/점프 프레임과 화면상 몸통 크기를 맞추기 위해 1.25배 확대한다.
-        const float DeathPpu = 720f;
+        const float DeathPpu = CharPpu * 0.8f;
         // 캐릭터 프레임의 월드 폭 — 별도 캔버스의 스프라이트(죽음 포즈 등)도 이 폭에 맞춘다
         const float CharWorldWidth = CharFrameSize / CharPpu;
 
@@ -276,7 +281,41 @@ namespace MukJump.EditorTools
                     ConfigurePermanentGrowthSprites();
                 if (NeedsActionButtonSpriteConfiguration())
                     ConfigureActionButtonSprite();
+                if (NeedsCharacterVisualConfiguration())
+                {
+                    ConfigureCharacterSheets();
+                    ConfigureDeathSprites();
+                }
             };
+        }
+
+        static bool NeedsCharacterVisualConfiguration()
+        {
+            (string path, float ppu)[] liveSheets =
+            {
+                (CharSheetPath, CharPpu),
+                (CharHitOneSheetPath, CharHitOnePpu),
+                (CharHitTwoSheetPath, CharHitTwoPpu),
+            };
+            for (int i = 0; i < liveSheets.Length; i++)
+            {
+                var importer =
+                    AssetImporter.GetAtPath(liveSheets[i].path) as TextureImporter;
+                if (importer == null ||
+                    !Mathf.Approximately(
+                        importer.spritePixelsPerUnit,
+                        liveSheets[i].ppu))
+                    return true;
+            }
+            for (int i = 0; i < DeathFramePaths.Length; i++)
+            {
+                var importer =
+                    AssetImporter.GetAtPath(DeathFramePaths[i]) as TextureImporter;
+                if (importer == null ||
+                    !Mathf.Approximately(importer.spritePixelsPerUnit, DeathPpu))
+                    return true;
+            }
+            return false;
         }
 
         static bool NeedsPermanentGrowthSpriteConfiguration()
@@ -502,6 +541,7 @@ namespace MukJump.EditorTools
                 AssetDatabase.LoadAssetAtPath<Sprite>(DeathSplashPath);
             playerSo.FindProperty("cloneSpawnGraceDuration").floatValue = 1f;
             playerSo.ApplyModifiedPropertiesWithoutUndo();
+            go.AddComponent<PlayerHealthBillboard>();
             var itemEffectView = go.AddComponent<ItemEffectView>();
             var itemEffectSo = new SerializedObject(itemEffectView);
             itemEffectSo.FindProperty("effectDroplet").objectReferenceValue =
@@ -1704,12 +1744,12 @@ namespace MukJump.EditorTools
         [MenuItem("MukJump/Configure Character Sheets")]
         public static void ConfigureCharacterSheets()
         {
-            ConfigureCharacterSheet(CharSheetPath);
-            ConfigureCharacterSheet(CharHitOneSheetPath);
-            ConfigureCharacterSheet(CharHitTwoSheetPath);
+            ConfigureCharacterSheet(CharSheetPath, CharPpu);
+            ConfigureCharacterSheet(CharHitOneSheetPath, CharHitOnePpu);
+            ConfigureCharacterSheet(CharHitTwoSheetPath, CharHitTwoPpu);
         }
 
-        static void ConfigureCharacterSheet(string sheetPath)
+        static void ConfigureCharacterSheet(string sheetPath, float pixelsPerUnit)
         {
             var importer = (TextureImporter)AssetImporter.GetAtPath(sheetPath);
             if (importer == null)
@@ -1720,7 +1760,7 @@ namespace MukJump.EditorTools
 
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Multiple;
-            importer.spritePixelsPerUnit = 900;
+            importer.spritePixelsPerUnit = pixelsPerUnit;
             importer.alphaIsTransparency = true;
             importer.mipmapEnabled = false;
 

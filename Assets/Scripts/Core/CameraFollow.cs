@@ -2,7 +2,8 @@ using UnityEngine;
 
 namespace MukJump.Core
 {
-    /// 클라이밍 게임 카메라: 먹떼 대표를 화면의 균형 추적선에 두고 위로만 올라간다.
+    /// 클라이밍 게임 카메라: 먹떼 중앙을 균형 추적선에 두고 상위 무리도
+    /// 별도 안전선으로 보호하면서 위로만 올라간다.
     [RequireComponent(typeof(Camera))]
     public class CameraFollow : MonoBehaviour
     {
@@ -79,12 +80,16 @@ namespace MukJump.Core
         void LateUpdate()
         {
             float followY = target != null ? target.position.y : float.NegativeInfinity;
+            float upperGuardY = followY;
             if (GameManager.Instance != null)
             {
-                if (GameManager.Instance.TryGetSwarmAnchor(
-                        out var representative, out float swarmY))
+                if (GameManager.Instance.TryGetSwarmCameraFrame(
+                        out var representative,
+                        out float clusterY,
+                        out float swarmUpperGuardY))
                 {
-                    followY = swarmY;
+                    followY = clusterY;
+                    upperGuardY = swarmUpperGuardY;
                     target = representative.transform;
                     impulseLeader = target;
                 }
@@ -108,6 +113,8 @@ namespace MukJump.Core
 
             if (float.IsNegativeInfinity(followY))
                 followY = target.position.y;
+            if (float.IsNegativeInfinity(upperGuardY))
+                upperGuardY = followY;
 
             var pos = transform.position;
             EnsureCameraMetrics();
@@ -120,12 +127,13 @@ namespace MukJump.Core
             pos.y = Mathf.Lerp(
                 pos.y, highestFollowTargetY, smoothSpeed * Time.deltaTime);
 
-            // 먹물방울 50m 상승처럼 보간보다 빠른 이동만 화면 상단 안전선으로 붙잡는다.
+            // 먹물방울·엇갈린 분신 점프처럼 보간보다 빠른 상위 무리를 화면 상단
+            // 안전선으로 붙잡는다. 다수 먹떼에서는 단독 이상치를 제외한 상위 75%를 쓴다.
             // 점프 줌으로 순간 변경되는 orthographicSize가 아닌 기본 반높이를 사용해야
             // 같은 점프 안에서 추적선이 흔들리며 카메라가 조금씩 올라가는 현상이 없다.
             pos.y = ResolveHardCeilingCameraY(
                 pos.y,
-                followY,
+                upperGuardY,
                 SafeBaseHalfHeight,
                 SafeHardCeilingViewportY);
             highestFollowTargetY = Mathf.Max(highestFollowTargetY, pos.y);

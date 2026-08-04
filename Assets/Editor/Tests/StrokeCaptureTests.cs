@@ -96,6 +96,52 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void EnlargedVisualBoundsBlockStrokeOutsidePhysicsCollider()
+        {
+            playerObject = new GameObject("EnlargedVisualPlayer");
+            var renderer = playerObject.AddComponent<SpriteRenderer>();
+            var texture = new Texture2D(8, 8, TextureFormat.RGBA32, false);
+            texture.SetPixels(new Color[64]);
+            texture.Apply();
+            renderer.sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, 8f, 8f),
+                Vector2.one * 0.5f,
+                4f);
+            playerObject.AddComponent<Rigidbody2D>();
+            playerObject.AddComponent<CircleCollider2D>().radius = 0.4f;
+            var player = playerObject.AddComponent<PlayerController>();
+
+            MethodInfo method = typeof(StrokeCapture).GetMethod(
+                "SelectLongestSafeSegment",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            var result = (List<Vector2>)method.Invoke(null, new object[]
+            {
+                new List<Vector2>
+                {
+                    new(-2f, 0f),
+                    new(-1.25f, 0f),
+                    new(0.9f, 0f),
+                    new(1.3f, 0f),
+                    new(2.2f, 0f),
+                },
+                new List<PlayerController> { player },
+                0.75f,
+                new List<Vector2>(),
+                new List<Vector2>(),
+            });
+
+            Assert.That(result, Is.EqualTo(new[]
+            {
+                new Vector2(1.3f, 0f),
+                new Vector2(2.2f, 0f),
+            }), "콜라이더 밖이어도 커진 캐릭터 스프라이트와 겹치면 획에서 제외해야 합니다.");
+
+            Object.DestroyImmediate(renderer.sprite);
+            Object.DestroyImmediate(texture);
+        }
+
+        [Test]
         public void EndStrokeFinalizesTheActivePointSetOnlyOnce()
         {
             StrokeCapture capture = CreateActiveStroke(new Vector2(10001f, 10000f));
