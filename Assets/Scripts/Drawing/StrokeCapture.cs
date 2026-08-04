@@ -10,6 +10,12 @@ namespace MukJump.Drawing
     /// 손을 떼면 BezierSmoother로 다듬어 PlatformCollider 발판을 생성한다.
     public class StrokeCapture : MonoBehaviour
     {
+        public const float DefaultInkCapacity = 24f;
+        public const float InkReserveItemRatio = 0.25f;
+        const float LegacyInkCapacityV0 = 12f;
+        const float LegacyInkCapacityV1 = 18f;
+        public const int CurrentInkCapacityTuningVersion = 1;
+
         [Tooltip("이 간격(월드 단위) 이상 움직였을 때만 점 추가")]
         [SerializeField] float minPointDistance = 0.15f;
         [Tooltip("한 획의 최대 길이. 넘치면 그 지점에서 획을 끊고 이어 그린다")]
@@ -24,9 +30,12 @@ namespace MukJump.Drawing
 
         [Header("먹자리 — 화면에 유지되는 총 먹선 길이")]
         [Tooltip("동시에 유지할 수 있는 먹선의 기본 월드 길이")]
-        [SerializeField] float inkCapacity = 18f;
+        [SerializeField] float inkCapacity = DefaultInkCapacity;
         [Tooltip("총 먹자리를 넘긴 오래된 획이 시작점부터 지워지는 시간")]
         [SerializeField] float evictionFadeDuration = 1.1f;
+        // 기존 Main 씬에는 이 필드가 없으므로 0을 유지해야 12m 직렬화 값을
+        // 재생 시 24m로 올릴 수 있다. 새 씬은 빌더가 현재 버전을 명시한다.
+        [SerializeField, HideInInspector] int inkCapacityTuningVersion;
 
         readonly List<Vector2> points = new();
         Camera cam;
@@ -42,21 +51,30 @@ namespace MukJump.Drawing
         readonly List<Vector2> safeSegment = new();
         readonly List<Vector2> safeSegmentCandidate = new();
 
-        /// HUD 먹 게이지용. 1을 넘는 값은 붓 여유 아이템으로 늘어난 먹자리다.
+        /// HUD 먹 게이지용. 확정 획과 현재 그리고 있는 획을 모두 포함한다.
         public bool HasUnlimitedInk => Time.time < unlimitedInkUntil;
+        public float PendingStrokeBudgetCost => drawing
+            ? StrokeBudgetCost(
+                strokeLength,
+                ActivePermanentGrowth.InkBudgetCostMultiplier,
+                ActivePermanentGrowth.ShortStrokeBudgetCostMultiplier)
+            : 0f;
+        public float CurrentInkUsage =>
+            Mathf.Max(0f, PlatformCollider.ActiveInkCost + PendingStrokeBudgetCost);
+        public float CurrentInkRemaining =>
+            Mathf.Max(0f, EffectiveInkCapacity - CurrentInkUsage);
         public float InkRemaining01
         {
             get
             {
-                float baseCapacity = Mathf.Max(0.001f, BaseEffectiveInkCapacity);
-                if (HasUnlimitedInk)
-                    return EffectiveInkCapacity / baseCapacity;
-                float remaining = Mathf.Max(
-                    0f,
-                    EffectiveInkCapacity - PlatformCollider.ActiveInkCost);
-                return remaining / baseCapacity;
+                return CurrentInkRemaining /
+                       Mathf.Max(0.001f, EffectiveInkCapacity);
             }
         }
+        /// HUD 트랙의 실제 최대 길이. 영구 성장·날씨·붓 여유를 모두 반영한다.
+        public float InkCapacityRatio =>
+            EffectiveInkCapacity / Mathf.Max(0.001f, inkCapacity);
+        public float InkCapacityBonusRatio => Mathf.Max(0f, inkCapacityBonusRatio);
         public float BaseEffectiveInkCapacity =>
             inkCapacity *
             ActivePermanentGrowth.InkCapacityMultiplier *
@@ -77,6 +95,11 @@ namespace MukJump.Drawing
             RefreshInkBudget(true);
         }
 
+        void Awake()
+        {
+            UpgradeInkCapacityTuning();
+        }
+
         public void ActivateUnlimitedInk(float duration)
         {
             unlimitedInkUntil = Mathf.Max(
@@ -87,6 +110,8 @@ namespace MukJump.Drawing
 
         void OnEnable()
         {
+            // Play 중 스크립트 재컴파일 뒤에도 열린 씬의 구형 12m 값이 즉시 갱신된다.
+            UpgradeInkCapacityTuning();
             PermanentGrowthProfile.Changed += HandlePermanentGrowthChanged;
             TryBindGrowthController();
         }
@@ -589,6 +614,7 @@ namespace MukJump.Drawing
 
         void OnValidate()
         {
+            UpgradeInkCapacityTuning();
             minPointDistance = Mathf.Max(0.001f, minPointDistance);
             maxContinuousStrokeLength = Mathf.Max(minPointDistance, maxContinuousStrokeLength);
             minStrokeLength = Mathf.Max(minPointDistance, minStrokeLength);
@@ -596,6 +622,19 @@ namespace MukJump.Drawing
             playerClearance = Mathf.Max(0f, playerClearance);
             inkCapacity = Mathf.Max(0.001f, inkCapacity);
             evictionFadeDuration = Mathf.Max(0.15f, evictionFadeDuration);
+        }
+
+        void UpgradeInkCapacityTuning()
+        {
+            if (inkCapacityTuningVersion >= CurrentInkCapacityTuningVersion)
+                return;
+
+            // 현재 Main의 12m와 이전 설계 중간값 18m를 모두 씬 재생성 전부터
+            // 새 밸런스로 올린다. 사용자가 별도로 조정한 다른 값은 보존한다.
+            if (Mathf.Approximately(inkCapacity, LegacyInkCapacityV0) ||
+                Mathf.Approximately(inkCapacity, LegacyInkCapacityV1))
+                inkCapacity = DefaultInkCapacity;
+            inkCapacityTuningVersion = CurrentInkCapacityTuningVersion;
         }
     }
 }

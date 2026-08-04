@@ -3,6 +3,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using MukJump.Core;
+using MukJump.Drawing;
 using MukJump.Items;
 using MukJump.Player;
 
@@ -84,8 +85,29 @@ public sealed class ItemSpawnerBalanceTests
         var capture = Track(new GameObject("StrokeCapture"))
             .AddComponent<MukJump.Drawing.StrokeCapture>();
 
-        Assert.AreEqual(18f, (float)GetField(capture, "inkCapacity"));
+        Assert.AreEqual(
+            StrokeCapture.DefaultInkCapacity,
+            (float)GetField(capture, "inkCapacity"));
         Assert.AreEqual(1.1f, (float)GetField(capture, "evictionFadeDuration"));
+    }
+
+    [TestCase(12f)]
+    [TestCase(18f)]
+    public void LegacySceneInkCapacityUpgradesToCurrentBalance(float legacyCapacity)
+    {
+        var capture = Track(new GameObject("LegacyStrokeCapture"))
+            .AddComponent<StrokeCapture>();
+        SetField(capture, "inkCapacity", legacyCapacity);
+        SetField(capture, "inkCapacityTuningVersion", 0);
+
+        Invoke(capture, "UpgradeInkCapacityTuning");
+
+        Assert.AreEqual(
+            StrokeCapture.DefaultInkCapacity,
+            (float)GetField(capture, "inkCapacity"));
+        Assert.AreEqual(
+            StrokeCapture.CurrentInkCapacityTuningVersion,
+            (int)GetField(capture, "inkCapacityTuningVersion"));
     }
 
     [Test]
@@ -471,6 +493,15 @@ public sealed class ItemSpawnerBalanceTests
     {
         return target.GetType().GetField(fieldName,
             BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(target);
+    }
+
+    static void SetField(object target, string fieldName, object value)
+    {
+        FieldInfo field = target.GetType().GetField(
+            fieldName,
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(field, Is.Not.Null, fieldName);
+        field.SetValue(target, value);
     }
 
     static object Invoke(object target, string methodName, params object[] arguments)

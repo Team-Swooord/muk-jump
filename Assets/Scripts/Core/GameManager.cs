@@ -453,7 +453,21 @@ namespace MukJump.Core
                 SampleSwarmProgressIncluding(player);
             }
             if (LivingPlayerCount > 0)
+            {
+                if (player != null &&
+                    TryGetSwarmCameraFrame(
+                        out _,
+                        out _,
+                        out float survivingUpperGuardY) &&
+                    CameraFollow.ShouldReframeAfterDeath(
+                        player.transform.position.y,
+                        survivingUpperGuardY))
+                {
+                    Camera.main?.GetComponent<CameraFollow>()?
+                        .RequestSurvivorReframe();
+                }
                 return false;
+            }
             SampleActiveGameplayTime();
 
             EnterGameOver();

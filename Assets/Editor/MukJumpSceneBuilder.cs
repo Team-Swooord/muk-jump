@@ -712,7 +712,10 @@ namespace MukJump.EditorTools
                 ? linePrefab.GetComponent<RawImage>()?.texture as Texture2D
                 : null;
             strokeSo.FindProperty("lineSpriteTexture").objectReferenceValue = lineTexture;
-            strokeSo.FindProperty("inkCapacity").floatValue = 18f;
+            strokeSo.FindProperty("inkCapacity").floatValue =
+                StrokeCapture.DefaultInkCapacity;
+            strokeSo.FindProperty("inkCapacityTuningVersion").intValue =
+                StrokeCapture.CurrentInkCapacityTuningVersion;
             strokeSo.FindProperty("evictionFadeDuration").floatValue = 1.1f;
             strokeSo.ApplyModifiedPropertiesWithoutUndo();
 
@@ -1051,7 +1054,8 @@ namespace MukJump.EditorTools
                 new Vector2(22f, -165f), inkCloneTexture != null ? Color.white : InkPalette.Ink, "분신");
             var inkReserveButton = CreateItemTestButton("InkReserveButton", debugPanel,
                 placeholderTexture, new Vector2(22f, -320f),
-                new Color(0.2f, 0.58f, 0.48f), "여유 +35%");
+                new Color(0.2f, 0.58f, 0.48f),
+                $"여유 +{Mathf.RoundToInt(StrokeCapture.InkReserveItemRatio * 100f)}%");
             var haetaeButton = CreateDebugTextButton("HaetaeButton", debugPanel,
                 new Vector2(22f, -438f), new Vector2(145f, 72f), "먹해태");
             CreateText("MapDebugTitle", debugPanel, "맵 이동", 30, FontStyle.Bold,

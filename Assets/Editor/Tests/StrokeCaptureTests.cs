@@ -222,6 +222,30 @@ namespace MukJump.EditorTests
             Assert.That(actual, Is.EqualTo(expected).Within(0.001f));
         }
 
+        [Test]
+        public void ActiveStrokeImmediatelyConsumesTheVisibleInkGauge()
+        {
+            strokeObject = new GameObject("StrokeCaptureLiveGaugeTest");
+            var capture = strokeObject.AddComponent<StrokeCapture>();
+            float activeBefore = PlatformCollider.ActiveInkCost;
+            Vector2 start = new(10000f, 10000f);
+
+            GetMethod("BeginStrokeAtWorld").Invoke(capture, new object[] { start });
+            GetMethod("AppendWorldSample").Invoke(
+                capture,
+                new object[] { start + Vector2.right * 3f });
+
+            Assert.That(capture.PendingStrokeBudgetCost,
+                Is.EqualTo(3f).Within(0.001f));
+            Assert.That(capture.CurrentInkUsage,
+                Is.EqualTo(activeBefore + 3f).Within(0.001f));
+            Assert.That(capture.CurrentInkRemaining,
+                Is.EqualTo(Mathf.Max(
+                    0f,
+                    capture.EffectiveInkCapacity - activeBefore - 3f))
+                    .Within(0.001f));
+        }
+
         StrokeCapture CreateActiveStroke(Vector2 end)
         {
             strokeObject = new GameObject("StrokeCaptureSplitTest");

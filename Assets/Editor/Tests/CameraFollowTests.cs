@@ -99,6 +99,42 @@ public sealed class CameraFollowTests
         Assert.AreEqual(ceilingViewportY, resolvedViewportY, 0.001f);
     }
 
+    [Test]
+    public void DeathReframePlacesLowerSurvivorsBackInsideTheViewOnce()
+    {
+        const float currentCameraY = 50f;
+        const float survivorClusterY = 12f;
+        const float halfHeight = 9.6f;
+        const float viewportY = 0.46f;
+
+        float cameraY = CameraFollow.ResolveSurvivorReframeCameraY(
+            currentCameraY,
+            survivorClusterY,
+            halfHeight,
+            viewportY);
+        float resolvedViewportY =
+            ((survivorClusterY - cameraY) / halfHeight + 1f) * 0.5f;
+
+        Assert.AreEqual(viewportY, resolvedViewportY, 0.001f);
+        Assert.Less(cameraY, currentCameraY);
+    }
+
+    [Test]
+    public void OnlyADeadUpperLeaderRequestsSurvivorReframe()
+    {
+        Assert.That(
+            CameraFollow.ShouldReframeAfterDeath(
+                dyingPlayerY: 18f,
+                survivingUpperGuardY: 12f),
+            Is.True);
+        Assert.That(
+            CameraFollow.ShouldReframeAfterDeath(
+                dyingPlayerY: 8f,
+                survivingUpperGuardY: 12f),
+            Is.False,
+            "낮은 분신 사망이 카메라와 추락 사망선을 반복해서 내리면 안 됩니다.");
+    }
+
     static void Invoke(object target, string methodName)
     {
         target.GetType().GetMethod(

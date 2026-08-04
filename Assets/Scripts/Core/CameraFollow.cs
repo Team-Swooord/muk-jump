@@ -20,6 +20,11 @@ namespace MukJump.Core
         [SerializeField] float smoothSpeed = 4f;
         [Tooltip("먹물방울처럼 급상승할 때 캐릭터가 화면 밖으로 나가지 않게 하는 상단 한계선")]
         [SerializeField, Range(0.8f, 0.98f)] float hardCeilingViewportY = 0.9f;
+        [Header("먹떼 생존 재구도")]
+        [Tooltip("높은 개체가 죽었을 때 남은 먹떼를 다시 놓는 화면 높이")]
+        [SerializeField, Range(0.35f, 0.55f)] float survivorReframeViewportY = 0.46f;
+        [Tooltip("개체 사망 뒤 생존 먹떼로 한 번만 내려오는 카메라 시간")]
+        [SerializeField, Min(0.1f)] float survivorReframeDuration = 0.5f;
         [Header("강한 점프 카메라 강조")]
         [SerializeField, Range(0f, 0.08f)] float jumpZoomAmount = 0.025f;
         [SerializeField, Range(0f, 0.2f)] float jumpShakeAmount = 0.055f;
@@ -32,6 +37,18 @@ namespace MukJump.Core
         Vector2 visualShake;
         Camera worldCamera;
         Transform impulseLeader;
+        bool survivorReframeRequested;
+        bool survivorReframeActive;
+        float survivorReframeElapsed;
+        float survivorReframeFromY;
+        float survivorReframeTargetY;
+
+        /// 높은 본체·분신이 사라진 뒤 남은 먹떼가 화면 아래에 고립되지 않도록
+        /// 다음 프레임의 생존 대표 위치로 한 번만 재구도한다.
+        public void RequestSurvivorReframe()
+        {
+            survivorReframeRequested = true;
+        }
 
         public void PlayJumpImpulse(Transform source, float strength)
         {
@@ -118,14 +135,32 @@ namespace MukJump.Core
 
             var pos = transform.position;
             EnsureCameraMetrics();
-            highestFollowTargetY = Mathf.Max(highestFollowTargetY, pos.y);
-            highestFollowTargetY = ResolveHighestFollowTargetY(
-                highestFollowTargetY,
-                followY,
-                SafeBaseHalfHeight,
-                SafeUpperFollowViewportY);
-            pos.y = Mathf.Lerp(
-                pos.y, highestFollowTargetY, smoothSpeed * Time.deltaTime);
+            BeginSurvivorReframeIfRequested(pos.y, followY);
+            if (survivorReframeActive)
+            {
+                survivorReframeElapsed += Time.deltaTime;
+                float progress = Mathf.Clamp01(
+                    survivorReframeElapsed /
+                    Mathf.Max(0.1f, survivorReframeDuration));
+                pos.y = Mathf.Lerp(
+                    survivorReframeFromY,
+                    survivorReframeTargetY,
+                    Mathf.SmoothStep(0f, 1f, progress));
+                highestFollowTargetY = pos.y;
+                if (progress >= 1f)
+                    survivorReframeActive = false;
+            }
+            else
+            {
+                highestFollowTargetY = Mathf.Max(highestFollowTargetY, pos.y);
+                highestFollowTargetY = ResolveHighestFollowTargetY(
+                    highestFollowTargetY,
+                    followY,
+                    SafeBaseHalfHeight,
+                    SafeUpperFollowViewportY);
+                pos.y = Mathf.Lerp(
+                    pos.y, highestFollowTargetY, smoothSpeed * Time.deltaTime);
+            }
 
             // 먹물방울·엇갈린 분신 점프처럼 보간보다 빠른 상위 무리를 화면 상단
             // 안전선으로 붙잡는다. 다수 먹떼에서는 단독 이상치를 제외한 상위 75%를 쓴다.
@@ -139,6 +174,29 @@ namespace MukJump.Core
             highestFollowTargetY = Mathf.Max(highestFollowTargetY, pos.y);
             transform.position = pos;
             UpdateJumpImpulse();
+        }
+
+        void BeginSurvivorReframeIfRequested(float currentCameraY, float clusterY)
+        {
+            if (!survivorReframeRequested)
+                return;
+            survivorReframeRequested = false;
+
+            float targetY = ResolveSurvivorReframeCameraY(
+                currentCameraY,
+                clusterY,
+                SafeBaseHalfHeight,
+                survivorReframeViewportY);
+            if (targetY >= currentCameraY - 0.01f)
+            {
+                survivorReframeActive = false;
+                return;
+            }
+
+            survivorReframeFromY = currentCameraY;
+            survivorReframeTargetY = targetY;
+            survivorReframeElapsed = 0f;
+            survivorReframeActive = true;
         }
 
         /// 같은 높이의 점프 정점을 반복해도 카메라가 누적 상승하지 않게 이미 확정한
@@ -171,6 +229,40 @@ namespace MukJump.Core
             float ceilingOffset = ViewportWorldOffset(
                 baseHalfHeight, ceilingViewportY);
             return Mathf.Max(currentCameraY, trackedY - ceilingOffset);
+        }
+
+        /// 사망 이벤트에서만 사용하는 1회성 하강 목표. 일반 낙하 중에는 호출하지
+        /// 않으므로 카메라가 추락을 따라 내려가 사망선을 무력화하지 않는다.
+        public static float ResolveSurvivorReframeCameraY(
+            float currentCameraY,
+            float clusterY,
+            float baseHalfHeight,
+            float viewportY)
+        {
+            if (float.IsNaN(clusterY) || float.IsInfinity(clusterY) ||
+                baseHalfHeight <= 0f)
+                return currentCameraY;
+            float safeViewportY = float.IsNaN(viewportY) || float.IsInfinity(viewportY)
+                ? 0.46f
+                : Mathf.Clamp(viewportY, 0.2f, 0.55f);
+            float viewportOffset = Mathf.Max(0.01f, baseHalfHeight) *
+                                   (safeViewportY * 2f - 1f);
+            float targetY = clusterY - viewportOffset;
+            return Mathf.Min(currentCameraY, targetY);
+        }
+
+        /// 낮은 개체의 추락까지 카메라 하강 사유로 삼으면 연속 사망 때마다
+        /// 화면 하단 사망선도 함께 내려간다. 기존 상단 안전점을 실제로 이끌던
+        /// 개체가 사라졌을 때만 남은 먹떼로 재구도한다.
+        public static bool ShouldReframeAfterDeath(
+            float dyingPlayerY,
+            float survivingUpperGuardY)
+        {
+            if (float.IsNaN(dyingPlayerY) || float.IsInfinity(dyingPlayerY) ||
+                float.IsNaN(survivingUpperGuardY) ||
+                float.IsInfinity(survivingUpperGuardY))
+                return false;
+            return dyingPlayerY >= survivingUpperGuardY - 0.05f;
         }
 
         public static float ViewportWorldOffset(

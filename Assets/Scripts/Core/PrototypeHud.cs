@@ -56,18 +56,33 @@ namespace MukJump.Core
 
             // 화면 하단 먹 게이지: 화면에 더 남길 수 있는 먹자리
             if (strokeCapture != null)
-                DrawInkGauge(strokeCapture.InkRemaining01);
+                DrawInkGauge(
+                    strokeCapture.InkRemaining01,
+                    strokeCapture.CurrentInkRemaining,
+                    strokeCapture.CurrentInkUsage,
+                    strokeCapture.EffectiveInkCapacity,
+                    strokeCapture.InkCapacityRatio,
+                    strokeCapture.InkCapacityBonusRatio);
         }
 
         /// 붓 획 모양 먹 게이지: 트랙 위에 fill을 왼쪽부터 잔량만큼 잘라 그리고,
         /// 오른쪽 끝에 붓 아이콘을 붙인다. 이미지 미할당 시 단색 막대 폴백.
-        void DrawInkGauge(float ratio)
+        void DrawInkGauge(
+            float ratio,
+            float remainingInk,
+            float usedInk,
+            float maxInk,
+            float capacityRatio,
+            float reserveRatio)
         {
             float baseRatio = Mathf.Clamp01(ratio);
-            float reserveRatio = Mathf.Max(0f, ratio - 1f);
+            float safeCapacityRatio = Mathf.Clamp(capacityRatio, 0.72f, 1.5f);
+            bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
             if (inkGaugeFill == null || inkGaugeTrack == null)
             {
-                float bw = Screen.width * 0.6f;
+                float bw = Mathf.Min(
+                    Screen.width * 0.82f,
+                    Screen.width * 0.64f * safeCapacityRatio);
                 float bh = Screen.height * 0.014f;
                 float by = Screen.height * 0.955f;
                 var back = new Rect((Screen.width - bw) / 2, by, bw, bh);
@@ -76,11 +91,15 @@ namespace MukJump.Core
                 fillRect.width = bw * baseRatio;
                 DrawRect(fillRect, InkPalette.Ink);
                 DrawReserveGauge(back, reserveRatio);
+                DrawCapacityLabel(back, remainingInk, usedInk, maxInk, golden);
                 return;
             }
 
-            // 게이지 본체: 화면 폭 55%, 세로는 이미지 비율(4:1) 유지
-            float w = Screen.width * 0.55f;
+            // 기본부터 충분히 길게 보이고, 성장·날씨·붓 여유가 실제 최대 폭에도 반영된다.
+            // 반복 아이템으로 수치가 커져도 화면 밖으로 나가지는 않고 숫자로 정확히 표시한다.
+            float w = Mathf.Min(
+                Screen.width * 0.82f,
+                Screen.width * 0.64f * safeCapacityRatio);
             float h = w * (inkGaugeFill.height / (float)inkGaugeFill.width);
             float iconSize = inkBrushIcon != null ? h * 1.0f : 0f;
             float overlap = iconSize * 0.65f;     // 붓이 획의 끝을 그리고 있는 것처럼 깊게 겹침
@@ -95,8 +114,6 @@ namespace MukJump.Core
             var area = new Rect(x, y, w, h);
             GUI.DrawTexture(area, inkGaugeTrack, ScaleMode.StretchToFill);
 
-            bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
-
             if (baseRatio > 0f)
             {
                 // 왼쪽부터 잔량 비율만큼만 가로로 잘라 그린다 (UV도 같은 비율로 잘라 왜곡 방지)
@@ -107,6 +124,7 @@ namespace MukJump.Core
                     new Rect(1f - baseRatio, 0f, baseRatio, 1f));
             }
             DrawReserveGauge(area, reserveRatio);
+            DrawCapacityLabel(area, remainingInk, usedInk, maxInk, golden);
 
             if (golden)
                 DrawGoldenGaugeEffect(area);
@@ -138,26 +156,48 @@ namespace MukJump.Core
             if (reserveRatio <= 0f) return;
             float blockWidth = Mathf.Max(8f, area.width * 0.085f);
             float gap = Mathf.Max(2f, area.width * 0.008f);
-            int fullBlocks = Mathf.FloorToInt(reserveRatio / 0.35f);
-            float partial = Mathf.Repeat(reserveRatio, 0.35f) / 0.35f;
+            int fullBlocks = Mathf.FloorToInt(
+                reserveRatio / StrokeCapture.InkReserveItemRatio);
+            float partial = Mathf.Repeat(
+                reserveRatio,
+                StrokeCapture.InkReserveItemRatio) /
+                StrokeCapture.InkReserveItemRatio;
             int visibleBlocks = Mathf.Min(8, fullBlocks + (partial > 0.01f ? 1 : 0));
             for (int i = 0; i < visibleBlocks; i++)
             {
                 float fill = i < fullBlocks ? 1f : partial;
                 var block = new Rect(area.x + i * (blockWidth + gap),
-                    area.y - area.height * 0.34f, blockWidth * fill,
-                    Mathf.Max(3f, area.height * 0.16f));
+                    area.y - Mathf.Max(4f, area.height * 0.08f), blockWidth * fill,
+                    Mathf.Max(3f, area.height * 0.08f));
                 DrawRect(block, new Color(0.18f, 0.5f, 0.42f, 0.95f));
             }
-            var label = new Rect(area.xMax - 130f, area.y - area.height * 0.68f, 130f, 32f);
+        }
+
+        static void DrawCapacityLabel(
+            Rect area,
+            float remainingInk,
+            float usedInk,
+            float maxInk,
+            bool golden)
+        {
+            var label = new Rect(
+                area.x,
+                area.y - Mathf.Max(34f, area.height * 0.42f),
+                area.width,
+                34f);
             var labelStyle = new GUIStyle(GUI.skin.label)
             {
                 font = InkPalette.UiFont,
-                alignment = TextAnchor.MiddleRight,
-                fontSize = Mathf.RoundToInt(Mathf.Clamp(Screen.height * 0.017f, 22f, 34f)),
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = Mathf.RoundToInt(
+                    Mathf.Clamp(Screen.height * 0.018f, 22f, 34f)),
+                fontStyle = FontStyle.Bold,
             };
-            labelStyle.normal.textColor = InkPalette.TextDark;
-            GUI.Label(label, $"+{Mathf.RoundToInt(reserveRatio * 100f)}%", labelStyle);
+            labelStyle.normal.textColor = golden ? InkPalette.Gold : InkPalette.TextDark;
+            string value = golden && usedInk > maxInk + 0.01f
+                ? $"먹자리 {maxInk:0.#}m · 초과 {usedInk - maxInk:0.#}m 유지"
+                : $"먹자리 {remainingInk:0.#} / {maxInk:0.#}m";
+            GUI.Label(label, value, labelStyle);
         }
 
         static void DrawGoldenGaugeEffect(Rect area)

@@ -55,7 +55,7 @@ namespace MukJump.Items
                     var reserveTarget =
                         UnityEngine.Object.FindFirstObjectByType<StrokeCapture>();
                     if (reserveTarget == null) return false;
-                    reserveTarget.AddInkReserve(0.35f);
+                    reserveTarget.AddInkReserve(StrokeCapture.InkReserveItemRatio);
                     break;
                 default:
                     return false;

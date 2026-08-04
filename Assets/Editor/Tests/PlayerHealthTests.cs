@@ -190,6 +190,38 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void FourthHealthPointAddsAThirdVisibleGrowthStage()
+        {
+            var player = CreatePlayer("FourHealthDamageAnimatorTarget");
+            SetField(player, "maxHealth", 4);
+            SetAutoProperty(player, "CurrentHealth", 1);
+            Assert.That(player.DamageStage, Is.EqualTo(3));
+
+            var animator = player.gameObject.AddComponent<CharacterAnimator>();
+            var baseFrames = CreateFrames("base-four-health");
+            var firstHitFrames = CreateFrames("hit01-four-health");
+            var secondHitFrames = CreateFrames("hit02-four-health");
+            SetBaseFrames(animator, baseFrames);
+            SetField(animator, "damageStageOneFrames", firstHitFrames);
+            SetField(animator, "damageStageTwoFrames", secondHitFrames);
+            Invoke(animator, "Awake");
+
+            Vector3 rootScale = player.transform.localScale;
+            float colliderRadius = player.GetComponent<CircleCollider2D>().radius;
+            Invoke(animator, "LateUpdate");
+
+            Sprite thirdStage = player.GetComponent<SpriteRenderer>().sprite;
+            Assert.That(thirdStage, Is.Not.Null);
+            Assert.That(thirdStage.pixelsPerUnit,
+                Is.LessThan(secondHitFrames[4].pixelsPerUnit));
+            Assert.That(thirdStage.bounds.size.x,
+                Is.GreaterThan(secondHitFrames[4].bounds.size.x));
+            Assert.That(player.transform.localScale, Is.EqualTo(rootScale));
+            Assert.That(player.GetComponent<CircleCollider2D>().radius,
+                Is.EqualTo(colliderRadius));
+        }
+
+        [Test]
         public void CharacterAnimatorOrdersShuffledFramesBySemanticStateNames()
         {
             var source = CreateFrames("semantic");

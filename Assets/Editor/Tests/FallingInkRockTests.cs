@@ -320,8 +320,10 @@ public class FallingInkRockTests
         var capture = FindFirstInScene<StrokeCapture>(builderTestScene);
         Assert.IsNotNull(capture);
         var captureSerialized = new SerializedObject(capture);
-        Assert.AreEqual(18f,
+        Assert.AreEqual(StrokeCapture.DefaultInkCapacity,
             captureSerialized.FindProperty("inkCapacity").floatValue);
+        Assert.AreEqual(StrokeCapture.CurrentInkCapacityTuningVersion,
+            captureSerialized.FindProperty("inkCapacityTuningVersion").intValue);
         Assert.AreEqual(1.1f,
             captureSerialized.FindProperty("evictionFadeDuration").floatValue);
 

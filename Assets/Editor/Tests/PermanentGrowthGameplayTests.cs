@@ -306,13 +306,18 @@ namespace MukJump.EditorTests
         {
             var host = Track(new GameObject("PermanentInkReserve"));
             var stroke = host.AddComponent<StrokeCapture>();
-            SetField(stroke, "inkCapacity", 18f);
+            SetField(stroke, "inkCapacity", StrokeCapture.DefaultInkCapacity);
 
-            stroke.AddInkReserve(0.35f);
-            stroke.AddInkReserve(0.35f);
+            stroke.AddInkReserve(StrokeCapture.InkReserveItemRatio);
+            stroke.AddInkReserve(StrokeCapture.InkReserveItemRatio);
 
             Assert.That(stroke.EffectiveInkCapacity,
-                Is.EqualTo(30.6f).Within(0.0001f));
+                Is.EqualTo(36f).Within(0.0001f));
+            Assert.That(stroke.InkCapacityBonusRatio,
+                Is.EqualTo(0.5f).Within(0.0001f));
+            Assert.That(stroke.InkCapacityRatio,
+                Is.EqualTo(1.5f).Within(0.0001f),
+                "HUD 최대 먹자리 폭도 붓 여유 누적을 그대로 반영해야 합니다.");
         }
 
         GameManager CreatePlayingManager(out RunGrowthController growth)

@@ -260,7 +260,10 @@ namespace MukJump.Core
             ConfigureDebugButton(goldenBrushButton, null, 26);
             ConfigureDebugButton(inkShieldButton, null, 26);
             ConfigureDebugButton(inkCloneButton, null, 26);
-            ConfigureDebugButton(inkReserveButton, null, 26);
+            ConfigureDebugButton(
+                inkReserveButton,
+                $"여유 +{Mathf.RoundToInt(StrokeCapture.InkReserveItemRatio * 100f)}%",
+                26);
             var mapTitle = debugPanel != null
                 ? debugPanel.Find("MapDebugTitle")?.GetComponent<Text>()
                 : null;

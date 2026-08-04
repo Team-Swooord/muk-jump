@@ -67,8 +67,9 @@ namespace MukJump.Player
         public int MaxHealth =>
             Mathf.Max(1, maxHealth + ActivePermanentGrowth.MaxHealthBonus);
         public int CurrentHealth { get; private set; }
-        /// 피격 횟수에 맞춘 시각 단계. 물리 크기는 바꾸지 않는다.
-        public int DamageStage => Mathf.Clamp(MaxHealth - CurrentHealth, 0, 2);
+        /// 피격 횟수에 맞춘 시각 단계. 최대 체력이 늘어도 매 비치명 피격을 구분한다.
+        /// 물리 크기는 바꾸지 않고 CharacterAnimator가 렌더 스프라이트만 키운다.
+        public int DamageStage => Mathf.Max(0, MaxHealth - CurrentHealth);
         public float NormalGravityScale => normalGravityScale;
         public Rigidbody2D Body => rb;
         public Collider2D PrimaryCollider

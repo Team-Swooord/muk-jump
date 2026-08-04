@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MukJump.Player
@@ -56,6 +57,7 @@ namespace MukJump.Player
         const int FallFrame = 5;
         const int DiveFrame = 6;
         const int LandFrame = 7;
+        const float ExtraDamageGrowthPerStage = 1.065f;
         const string DamageStageOneResource =
             "MukJump/Player/muk_spritesheet_hit_01";
         const string DamageStageTwoResource =
@@ -67,12 +69,22 @@ namespace MukJump.Player
         };
         static Sprite[] cachedDamageStageOneFrames;
         static Sprite[] cachedDamageStageTwoFrames;
+        static readonly Dictionary<long, Sprite> enlargedDamageSprites = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetRuntimeFrameCache()
         {
             cachedDamageStageOneFrames = null;
             cachedDamageStageTwoFrames = null;
+            foreach (Sprite sprite in enlargedDamageSprites.Values)
+            {
+                if (sprite == null) continue;
+                if (Application.isPlaying)
+                    Object.Destroy(sprite);
+                else
+                    Object.DestroyImmediate(sprite);
+            }
+            enlargedDamageSprites.Clear();
         }
 
         void Awake()
@@ -164,19 +176,61 @@ namespace MukJump.Player
 
         Sprite ResolveStateSprite(int frameIndex)
         {
+            int damageStage = player != null ? player.DamageStage : 0;
             Sprite[] damageFrames = player != null
-                ? player.DamageStage switch
+                ? damageStage switch
                 {
                     1 => damageStageOneFrames,
-                    2 => damageStageTwoFrames,
+                    >= 2 => damageStageTwoFrames,
                     _ => null,
                 }
                 : null;
+            Sprite selected;
             if (HasValidFrames(damageFrames) &&
                 frameIndex >= 0 && frameIndex < damageFrames.Length &&
                 damageFrames[frameIndex] != null)
-                return damageFrames[frameIndex];
-            return BaseFrame(frameIndex);
+                selected = damageFrames[frameIndex];
+            else
+                selected = BaseFrame(frameIndex);
+
+            // 세 번째 이상 피격은 별도 아트가 없어도 마지막 피격 시트의 PPU만
+            // 단계적으로 낮춘 런타임 Sprite를 공유한다. Collider/루트 Scale은 그대로다.
+            return damageStage > 2
+                ? ResolveEnlargedDamageSprite(selected, damageStage - 2)
+                : selected;
+        }
+
+        public static float DamageVisualScaleForStage(int damageStage) =>
+            damageStage <= 2
+                ? 1f
+                : Mathf.Pow(ExtraDamageGrowthPerStage, damageStage - 2);
+
+        static Sprite ResolveEnlargedDamageSprite(Sprite source, int extraStages)
+        {
+            if (source == null || source.texture == null || extraStages <= 0)
+                return source;
+
+            long key = ((long)source.GetInstanceID() << 32) ^ (uint)extraStages;
+            if (enlargedDamageSprites.TryGetValue(key, out Sprite cached) && cached != null)
+                return cached;
+
+            Rect rect = source.rect;
+            Vector2 pivot = new(
+                source.pivot.x / Mathf.Max(1f, rect.width),
+                source.pivot.y / Mathf.Max(1f, rect.height));
+            float scale = DamageVisualScaleForStage(extraStages + 2);
+            var enlarged = Sprite.Create(
+                source.texture,
+                rect,
+                pivot,
+                source.pixelsPerUnit / Mathf.Max(1f, scale),
+                0,
+                SpriteMeshType.FullRect,
+                source.border,
+                false);
+            enlarged.name = $"{source.name}_damage_{extraStages + 2}";
+            enlargedDamageSprites[key] = enlarged;
+            return enlarged;
         }
 
         Sprite BaseFrame(int frameIndex)
