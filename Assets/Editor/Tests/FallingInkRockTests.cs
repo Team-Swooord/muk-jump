@@ -397,6 +397,14 @@ public class FallingInkRockTests
         Assert.AreEqual(0.9f,
             cameraFollowSerialized.FindProperty("hardCeilingViewportY").floatValue,
             0.001f);
+        Assert.AreEqual(
+            CameraFollow.SurvivorReframeViewportY,
+            cameraFollowSerialized.FindProperty("survivorReframeViewportY").floatValue,
+            0.001f);
+        Assert.AreEqual(
+            CameraFollow.SurvivorReframeSeconds,
+            cameraFollowSerialized.FindProperty("survivorReframeDuration").floatValue,
+            0.001f);
         Assert.AreSame(player.transform,
             cameraFollowSerialized.FindProperty("target").objectReferenceValue);
 

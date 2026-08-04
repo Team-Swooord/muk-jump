@@ -447,6 +447,10 @@ namespace MukJump.EditorTools
             so.FindProperty("followTuningVersion").intValue =
                 CameraFollow.CurrentFollowTuningVersion;
             so.FindProperty("hardCeilingViewportY").floatValue = 0.9f;
+            so.FindProperty("survivorReframeViewportY").floatValue =
+                CameraFollow.SurvivorReframeViewportY;
+            so.FindProperty("survivorReframeDuration").floatValue =
+                CameraFollow.SurvivorReframeSeconds;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 

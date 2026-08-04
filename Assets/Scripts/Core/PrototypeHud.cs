@@ -20,13 +20,14 @@ namespace MukJump.Core
         Texture2D goldenBrushIcon;
         bool ownsGoldenBrushIcon;
 
+        void OnEnable()
+        {
+            EnsureRuntimeReferences();
+        }
+
         void Start()
         {
-            strokeCapture = FindFirstObjectByType<StrokeCapture>();
-            goldenBrushIcon = goldenBrushItemIcon != null
-                ? goldenBrushItemIcon
-                : CreateColoredSilhouette(inkBrushIcon, new Color(1f, 0.68f, 0.08f));
-            ownsGoldenBrushIcon = goldenBrushItemIcon == null && goldenBrushIcon != null;
+            EnsureRuntimeReferences();
         }
 
         void OnDestroy()
@@ -46,6 +47,11 @@ namespace MukJump.Core
         {
             if (GameManager.Instance == null) return;
 
+            // Play 중 스크립트 재컴파일에서는 Start가 다시 호출되지 않을 수 있다.
+            // 비직렬화 참조가 사라진 경우 즉시 다시 묶어 게이지가 숨는 일을 막는다.
+            if (strokeCapture == null)
+                strokeCapture = FindFirstObjectByType<StrokeCapture>();
+
             if (GameManager.Instance.State == GameState.Lobby)
                 return;
 
@@ -63,6 +69,22 @@ namespace MukJump.Core
                     strokeCapture.EffectiveInkCapacity,
                     strokeCapture.InkCapacityRatio,
                     strokeCapture.InkCapacityBonusRatio);
+        }
+
+        void EnsureRuntimeReferences()
+        {
+            if (strokeCapture == null)
+                strokeCapture = FindFirstObjectByType<StrokeCapture>();
+            if (goldenBrushIcon != null)
+                return;
+
+            goldenBrushIcon = goldenBrushItemIcon != null
+                ? goldenBrushItemIcon
+                : CreateColoredSilhouette(
+                    inkBrushIcon,
+                    new Color(1f, 0.68f, 0.08f));
+            ownsGoldenBrushIcon =
+                goldenBrushItemIcon == null && goldenBrushIcon != null;
         }
 
         /// 붓 획 모양 먹 게이지: 트랙 위에 fill을 왼쪽부터 잔량만큼 잘라 그리고,

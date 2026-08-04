@@ -10,6 +10,8 @@ namespace MukJump.Core
         /// 7월 29일 이전 34% 선행 구도와 과보정된 75% 데드존의 중간값.
         /// 위쪽 진행 공간을 확보하되 같은 높이의 반복 점프는 누적 추적하지 않는다.
         public const float BalancedFollowViewportY = 0.55f;
+        public const float SurvivorReframeViewportY = 0.46f;
+        public const float SurvivorReframeSeconds = 0.5f;
         public const int CurrentFollowTuningVersion = 1;
 
         [SerializeField] Transform target;
@@ -22,9 +24,11 @@ namespace MukJump.Core
         [SerializeField, Range(0.8f, 0.98f)] float hardCeilingViewportY = 0.9f;
         [Header("먹떼 생존 재구도")]
         [Tooltip("높은 개체가 죽었을 때 남은 먹떼를 다시 놓는 화면 높이")]
-        [SerializeField, Range(0.35f, 0.55f)] float survivorReframeViewportY = 0.46f;
+        [SerializeField, Range(0.35f, 0.55f)] float survivorReframeViewportY =
+            SurvivorReframeViewportY;
         [Tooltip("개체 사망 뒤 생존 먹떼로 한 번만 내려오는 카메라 시간")]
-        [SerializeField, Min(0.1f)] float survivorReframeDuration = 0.5f;
+        [SerializeField, Min(0.1f)] float survivorReframeDuration =
+            SurvivorReframeSeconds;
         [Header("강한 점프 카메라 강조")]
         [SerializeField, Range(0f, 0.08f)] float jumpZoomAmount = 0.025f;
         [SerializeField, Range(0f, 0.2f)] float jumpShakeAmount = 0.055f;
@@ -141,7 +145,7 @@ namespace MukJump.Core
                 survivorReframeElapsed += Time.deltaTime;
                 float progress = Mathf.Clamp01(
                     survivorReframeElapsed /
-                    Mathf.Max(0.1f, survivorReframeDuration));
+                    SafeSurvivorReframeDuration);
                 pos.y = Mathf.Lerp(
                     survivorReframeFromY,
                     survivorReframeTargetY,
@@ -186,7 +190,7 @@ namespace MukJump.Core
                 currentCameraY,
                 clusterY,
                 SafeBaseHalfHeight,
-                survivorReframeViewportY);
+                SafeSurvivorReframeViewportY);
             if (targetY >= currentCameraY - 0.01f)
             {
                 survivorReframeActive = false;
@@ -330,6 +334,8 @@ namespace MukJump.Core
             upperFollowViewportY = SafeUpperFollowViewportY;
             smoothSpeed = Mathf.Max(0f, smoothSpeed);
             hardCeilingViewportY = SafeHardCeilingViewportY;
+            survivorReframeViewportY = SafeSurvivorReframeViewportY;
+            survivorReframeDuration = SafeSurvivorReframeDuration;
             jumpImpulseDuration = Mathf.Max(0.1f, jumpImpulseDuration);
         }
 
@@ -374,5 +380,19 @@ namespace MukJump.Core
                     hardCeilingViewportY,
                     Mathf.Max(0.8f, SafeUpperFollowViewportY),
                     0.98f);
+
+        float SafeSurvivorReframeViewportY =>
+            float.IsNaN(survivorReframeViewportY) ||
+            float.IsInfinity(survivorReframeViewportY) ||
+            survivorReframeViewportY < 0.35f
+                ? SurvivorReframeViewportY
+                : Mathf.Clamp(survivorReframeViewportY, 0.35f, 0.55f);
+
+        float SafeSurvivorReframeDuration =>
+            float.IsNaN(survivorReframeDuration) ||
+            float.IsInfinity(survivorReframeDuration) ||
+            survivorReframeDuration < 0.1f
+                ? SurvivorReframeSeconds
+                : survivorReframeDuration;
     }
 }

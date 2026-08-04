@@ -64,6 +64,8 @@ public sealed class CameraFollowTests
             var follow = cameraObject.AddComponent<CameraFollow>();
             SetField(follow, "upperFollowViewportY", 0.75f);
             SetField(follow, "followTuningVersion", 0);
+            SetField(follow, "survivorReframeViewportY", 0f);
+            SetField(follow, "survivorReframeDuration", 0f);
 
             Invoke(follow, "OnEnable");
 
@@ -74,6 +76,14 @@ public sealed class CameraFollowTests
             Assert.AreEqual(
                 CameraFollow.CurrentFollowTuningVersion,
                 GetField<int>(follow, "followTuningVersion"));
+            Assert.AreEqual(
+                CameraFollow.SurvivorReframeViewportY,
+                GetField<float>(follow, "survivorReframeViewportY"),
+                0.001f);
+            Assert.AreEqual(
+                CameraFollow.SurvivorReframeSeconds,
+                GetField<float>(follow, "survivorReframeDuration"),
+                0.001f);
         }
         finally
         {
