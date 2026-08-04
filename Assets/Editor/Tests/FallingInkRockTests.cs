@@ -320,8 +320,10 @@ public class FallingInkRockTests
         var capture = FindFirstInScene<StrokeCapture>(builderTestScene);
         Assert.IsNotNull(capture);
         var captureSerialized = new SerializedObject(capture);
-        Assert.AreEqual(3f,
-            captureSerialized.FindProperty("inkRegenPerSecond").floatValue);
+        Assert.AreEqual(18f,
+            captureSerialized.FindProperty("inkCapacity").floatValue);
+        Assert.AreEqual(1.1f,
+            captureSerialized.FindProperty("evictionFadeDuration").floatValue);
 
         var player = FindFirstInScene<PlayerController>(builderTestScene);
         Assert.IsNotNull(player);

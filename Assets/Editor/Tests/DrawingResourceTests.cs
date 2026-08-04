@@ -23,45 +23,57 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void PointerStepCannotSpendMoreInkThanAvailable()
+        public void OverflowReleasesTheOldestStrokeBeforeNewerStrokes()
         {
-            var method = typeof(StrokeCapture).GetMethod(
-                "LimitStepToAvailableInk",
-                BindingFlags.Static | BindingFlags.NonPublic);
-
-            Assert.That(method, Is.Not.Null);
-            float limited = (float)method.Invoke(null, new object[] { 8f, 0.2f, 0.15f });
-
-            Assert.That(limited, Is.EqualTo(0.35f).Within(0.000001f));
-        }
-
-        [Test]
-        public void RapidStrokesScheduleEveryPlatformBeyondBudgetForFade()
-        {
-            var activeField = typeof(PlatformCollider).GetField(
-                "active", BindingFlags.Static | BindingFlags.NonPublic);
-            var ageField = typeof(PlatformCollider).GetField(
-                "age", BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(activeField, Is.Not.Null);
-            Assert.That(ageField, Is.Not.Null);
-
-            var active = (IList)activeField.GetValue(null);
-            int initialCount = active.Count;
             var spawned = new List<PlatformCollider>();
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < 3; i++)
             {
                 var platform = PlatformCollider.Spawn(new List<Vector2>
                 {
                     new(i, 0f),
                     new(i + 1f, 0f),
-                });
+                }, 5f);
                 spawned.Add(platform);
                 created.Add(platform.gameObject);
             }
 
-            Assert.That(active.Count, Is.LessThanOrEqualTo(Mathf.Max(4, initialCount)));
-            Assert.That((float)ageField.GetValue(spawned[0]), Is.GreaterThan(0f));
-            Assert.That((float)ageField.GetValue(spawned[1]), Is.GreaterThan(0f));
+            PlatformCollider.ReconcileActiveInkBudget(12f);
+
+            Assert.That(spawned[0].RetainedInkCost,
+                Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(spawned[1].RetainedInkCost,
+                Is.EqualTo(5f).Within(0.0001f));
+            Assert.That(spawned[2].RetainedInkCost,
+                Is.EqualTo(5f).Within(0.0001f));
+            Assert.That(PlatformCollider.ActiveInkCost,
+                Is.EqualTo(12f).Within(0.0001f));
+            Assert.That(GetField<float>(spawned[0], "evictionTargetFraction"),
+                Is.EqualTo(0.6f).Within(0.0001f));
+        }
+
+        [Test]
+        public void PartialEvictionTrimsColliderFromTheOldestVisibleEnd()
+        {
+            var points = new List<Vector2>();
+            for (int i = 0; i <= 20; i++)
+                points.Add(new Vector2(i * 0.25f, 0f));
+
+            PlatformCollider platform = PlatformCollider.Spawn(points, 10f);
+            created.Add(platform.gameObject);
+            var edge = platform.GetComponent<EdgeCollider2D>();
+            int originalPointCount = edge.pointCount;
+
+            PlatformCollider.ReconcileActiveInkBudget(5f);
+            Invoke(platform, "FadeVisual", 0.5f);
+            Invoke(platform, "TrimCollider", 0.5f);
+
+            Assert.That(edge.enabled, Is.True);
+            Assert.That(edge.pointCount, Is.LessThan(originalPointCount));
+            Assert.That(edge.points[0].x, Is.GreaterThan(0f),
+                "오래된 획은 처음 그린 쪽부터 충돌 영역이 줄어야 합니다.");
+            Assert.That(platform.Line.colorGradient.alphaKeys[0].alpha,
+                Is.EqualTo(0f).Within(0.0001f),
+                "콜라이더가 사라진 앞부분은 먹선도 함께 투명해야 합니다.");
         }
 
         [Test]
@@ -113,6 +125,22 @@ namespace MukJump.EditorTests
 
             Assert.That(blob == null, Is.True);
             Assert.That(blobField.GetValue(null), Is.Null);
+        }
+
+        static T GetField<T>(object target, string name)
+        {
+            FieldInfo field = target.GetType().GetField(
+                name, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, name);
+            return (T)field.GetValue(target);
+        }
+
+        static void Invoke(object target, string name, params object[] args)
+        {
+            MethodInfo method = target.GetType().GetMethod(
+                name, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, name);
+            method.Invoke(target, args);
         }
     }
 }

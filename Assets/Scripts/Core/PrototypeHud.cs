@@ -3,7 +3,7 @@ using MukJump.Drawing;
 
 namespace MukJump.Core
 {
-    /// 화면 하단의 붓 획 모양 먹 잔량과 붓 여유를 표시하는 경량 HUD.
+    /// 화면 하단에 남은 총 먹자리와 붓 여유를 표시하는 경량 HUD.
     public class PrototypeHud : MonoBehaviour
     {
         [Header("먹 게이지 이미지 (붓 획 모양) — 미할당 시 단색 막대로 폴백")]
@@ -54,7 +54,7 @@ namespace MukJump.Core
                 return;
             }
 
-            // 화면 하단 먹 게이지: 전역 잉크 잔량
+            // 화면 하단 먹 게이지: 화면에 더 남길 수 있는 먹자리
             if (strokeCapture != null)
                 DrawInkGauge(strokeCapture.InkRemaining01);
         }

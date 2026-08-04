@@ -379,7 +379,7 @@ namespace MukJump.EditorTests
 
             Assert.That(
                 PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkRecovery),
+                    PermanentGrowthType.InkBudgetEfficiency),
                 Is.EqualTo(1));
             Assert.That(
                 presentation.IsPlaying,

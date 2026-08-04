@@ -151,54 +151,29 @@ namespace MukJump.EditorTests
                 Is.EqualTo(0.5f).Within(0.001f));
         }
 
-        [TestCase(13f, 0f, 12f, false, true, 13f)]
-        [TestCase(1.5f, 0f, 1.38f, true, false, 1.5f)]
-        [TestCase(1.5f, 0f, 1.242f, true, true, 1.5f)]
-        public void PermanentDiscountExtendsAffordableDrawingLength(
-            float requested,
-            float currentLength,
-            float available,
-            bool shortDiscount,
-            bool idleDiscount,
+        [TestCase(10f, 1f, 1f, 10f)]
+        [TestCase(10f, 0.97f, 1f, 9.7f)]
+        [TestCase(1.5f, 0.97f, 0.94f, 1.3677f)]
+        [TestCase(2f, 0.97f, 0.94f, 1.94f)]
+        public void PermanentEfficiencyReducesRetainedInkBudgetCost(
+            float rawLength,
+            float globalMultiplier,
+            float shortMultiplier,
             float expected)
         {
             MethodInfo method = typeof(StrokeCapture).GetMethod(
-                "LimitDiscountedStepToAvailableInk",
+                "StrokeBudgetCost",
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
 
             float actual = (float)method.Invoke(null, new object[]
             {
-                requested,
-                currentLength,
-                available,
-                shortDiscount,
-                idleDiscount,
+                rawLength,
+                globalMultiplier,
+                shortMultiplier,
             });
 
             Assert.That(actual, Is.EqualTo(expected).Within(0.001f));
-        }
-
-        [Test]
-        public void LockedIdleDiscountDoesNotReduceActualFirstStrokeCost()
-        {
-            strokeObject = new GameObject("StrokeCaptureLockedIdleDiscount");
-            var capture = strokeObject.AddComponent<StrokeCapture>();
-            SetField(capture, "ink", 10f);
-            Vector2 start = new(10000f, 10000f);
-
-            GetMethod("BeginStrokeAtWorld").Invoke(capture, new object[] { start });
-            GetMethod("AppendWorldSample").Invoke(
-                capture,
-                new object[] { start + Vector2.right });
-
-            Assert.That(
-                GetField<bool>(capture, "idleStrokeDiscountEligible"),
-                Is.False,
-                "I-A3를 해금하지 않은 프로필은 첫 획도 휴식 할인을 받으면 안 됩니다.");
-            Assert.That(GetField<float>(capture, "ink"),
-                Is.EqualTo(9f).Within(0.001f),
-                "미해금 획 1m는 먹 1을 정확히 소모해야 합니다.");
         }
 
         StrokeCapture CreateActiveStroke(Vector2 end)

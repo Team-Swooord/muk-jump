@@ -17,7 +17,7 @@ namespace MukJump.Items
         [SerializeField] Sprite inkShieldSprite;
         [Tooltip("먹분신 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
         [SerializeField] Sprite inkCloneSprite;
-        [Tooltip("붓 여유 게이지 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
+        [Tooltip("판 한정 총 먹자리 확장 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
         [SerializeField] Sprite inkReserveSprite;
         [SerializeField] Vector2 verticalSpacing = new(10f, 16f);
         [SerializeField] Vector2 horizontalRange = new(-4f, 4f);

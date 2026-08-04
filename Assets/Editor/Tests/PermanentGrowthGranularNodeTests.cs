@@ -43,6 +43,9 @@ namespace MukJump.EditorTests
             Assert.That((int)PermanentGrowthType.FirstLandingPause, Is.EqualTo(30));
             Assert.That((int)PermanentGrowthType.JumpHeight, Is.EqualTo(31));
             Assert.That((int)PermanentGrowthType.WallCling, Is.EqualTo(34));
+            Assert.That((int)PermanentGrowthType.InkBudgetEfficiency, Is.EqualTo(35));
+            Assert.That((int)PermanentGrowthType.InkEvictionFade, Is.EqualTo(36));
+            Assert.That((int)PermanentGrowthType.InkEvictionDelay, Is.EqualTo(37));
         }
 
         [Test]
@@ -51,7 +54,9 @@ namespace MukJump.EditorTests
             var snapshot = new PermanentGrowthRunSnapshot(
                 new[]
                 {
-                    "I00", "I-A1", "I-B1", "I-B2", "I-C1", "I-C2",
+                    "I00", "I-A1", "I-A2", "I-A3",
+                    "I-B1", "I-B2", "I-B3",
+                    "I-C1", "I-C2", "I-C3",
                     "S00", "S-A1", "S-A2", "S-A3", "S-C1",
                     "J00", "J-A1", "J-A2", "J-A3",
                     "J-B1", "J-B2", "J-B3",
@@ -60,11 +65,16 @@ namespace MukJump.EditorTests
                 null);
 
             Assert.That(snapshot.InkCapacityMultiplier,
-                Is.EqualTo(1.06f).Within(0.0001f));
-            Assert.That(snapshot.InkRecoveryMultiplier,
                 Is.EqualTo(1.08f).Within(0.0001f));
-            Assert.That(snapshot.PlatformLifetimeMultiplier,
-                Is.EqualTo(1.04f).Within(0.0001f));
+            Assert.That(snapshot.InkBudgetCostMultiplier,
+                Is.EqualTo(0.97f).Within(0.0001f));
+            Assert.That(snapshot.ShortStrokeBudgetCostMultiplier,
+                Is.EqualTo(0.94f).Within(0.0001f));
+            Assert.That(snapshot.InkEvictionFadeBonusSeconds,
+                Is.EqualTo(0.20f).Within(0.0001f));
+            Assert.That(snapshot.InkEvictionDelaySeconds,
+                Is.EqualTo(0.10f).Within(0.0001f));
+            Assert.That(snapshot.HasShortStrokeDiscount, Is.True);
             Assert.That(snapshot.DamageGraceBonusSeconds,
                 Is.EqualTo(0.15f).Within(0.0001f));
             Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(1));
@@ -104,7 +114,8 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.HasStableHit, Is.True);
             Assert.That(snapshot.HasSafetyPlatform, Is.True);
             Assert.That(snapshot.HasShortPlatformKeystone, Is.False);
-            Assert.That(snapshot.HasSharedStrokeGuard, Is.True);
+            Assert.That(snapshot.InkEvictionFadeBonusSeconds,
+                Is.EqualTo(0.45f).Within(0.0001f));
             Assert.That(snapshot.GetActiveKeystoneId(PermanentGrowthBranch.Survival),
                 Is.EqualTo("S-KB"));
         }

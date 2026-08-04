@@ -35,9 +35,16 @@ namespace MukJump.Core
 
         public int OwnedNodeCount => ownedNodeIds.Count;
         public float InkCapacityMultiplier => 1f + EffectTotal(PermanentGrowthType.InkCapacity);
-        public float InkRecoveryMultiplier => 1f + EffectTotal(PermanentGrowthType.InkRecovery);
-        public float PlatformLifetimeMultiplier =>
-            1f + EffectTotal(PermanentGrowthType.PlatformLifetime);
+        public float InkBudgetCostMultiplier => Mathf.Max(
+            0.55f,
+            1f - EffectTotal(PermanentGrowthType.InkBudgetEfficiency));
+        public float InkEvictionFadeBonusSeconds =>
+            EffectTotal(PermanentGrowthType.InkEvictionFade);
+        public float InkEvictionDelaySeconds =>
+            EffectTotal(PermanentGrowthType.InkEvictionDelay);
+        public float ShortStrokeBudgetCostMultiplier => Mathf.Max(
+            0.55f,
+            1f - EffectTotal(PermanentGrowthType.ShortStrokeEfficiency));
         public float JumpChargeMultiplier =>
             Mathf.Max(0.5f, 1f - EffectTotal(PermanentGrowthType.JumpCharge));
         public int MaxHealthBonus => HasNode("S-A3") ? 1 : 0;
@@ -64,15 +71,11 @@ namespace MukJump.Core
         public float DoubleJumpVerticalSpeedRatio => HasDoubleJump
             ? EffectTotal(PermanentGrowthType.DoubleJump)
             : 0f;
-        public bool HasShortStrokeDiscount => HasNode("I-A2");
-        public bool HasIdleStrokeDiscount => HasNode("I-A3");
+        public bool HasShortStrokeDiscount => ShortStrokeBudgetCostMultiplier < 0.9999f;
         public bool HasDrawnChargeRhythm => false;
         public bool HasApexHang => false;
-        public bool HasFirstLandingPause => HasNode("I-C3");
         public bool HasCloneSourceGrace => HasNode("S-C2");
         public bool HasCloneDeathHeal => HasNode("S-C3");
-        public bool HasHitInkRecovery => HasNode("S-B3");
-        public bool HasDrawnLandingInk => HasNode("I-B3");
         public bool HasLastBreath => IsKeystoneActive("S-KA");
         public bool HasStableHit => IsKeystoneActive("S-KB");
         public bool HasCloneBond => IsKeystoneActive("S-KC");
@@ -83,9 +86,6 @@ namespace MukJump.Core
         public bool HasConsecutiveLandingRhythm => false;
         public bool HasShortPlatformKeystone => false;
         public bool HasLastFallBrake => false;
-        public bool HasNaturalExpiryRefund => IsKeystoneActive("I-KA");
-        public bool HasLowInkRecovery => IsKeystoneActive("I-KB");
-        public bool HasSharedStrokeGuard => IsKeystoneActive("I-KC");
 
         public bool HasNode(string nodeId) =>
             !string.IsNullOrEmpty(nodeId) && ownedNodeIds.Contains(nodeId);

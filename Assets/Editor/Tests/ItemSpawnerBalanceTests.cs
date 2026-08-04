@@ -79,16 +79,13 @@ public sealed class ItemSpawnerBalanceTests
     }
 
     [Test]
-    public void DrawingBalanceUsesFasterRecoveryAndShorterLifetime()
+    public void DrawingBalanceUsesRetainedInkCapacityAndGradualEviction()
     {
         var capture = Track(new GameObject("StrokeCapture"))
             .AddComponent<MukJump.Drawing.StrokeCapture>();
-        var platform = Track(new GameObject("Platform"))
-            .AddComponent<MukJump.Drawing.PlatformCollider>();
 
-        Assert.AreEqual(3f, (float)GetField(capture, "inkRegenPerSecond"));
-        Assert.AreEqual(4.5f, (float)GetField(platform, "lifetime"));
-        Assert.AreEqual(0.8f, (float)GetField(platform, "fadeDuration"));
+        Assert.AreEqual(18f, (float)GetField(capture, "inkCapacity"));
+        Assert.AreEqual(1.1f, (float)GetField(capture, "evictionFadeDuration"));
     }
 
     [Test]

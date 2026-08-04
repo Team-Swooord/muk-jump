@@ -19,17 +19,11 @@ namespace MukJump.Core
         public PermanentGrowthRunSnapshot PermanentSnapshot { get; private set; } =
             PermanentGrowthRunSnapshot.Empty;
         public event Action RunReset;
-        /// 먹 자원은 StrokeCapture 한 곳이 소유하므로 규칙형 성장도 복구 요청만 전달한다.
-        public event Action<float> InkRestoreRequested;
-        public event Action<float> InkRestoreRatioRequested;
 
         GameManager manager;
         readonly List<PlayerController> livingPlayers = new(GameManager.MaxLivingPlayers);
-        float hitInkRecoveryReadyAt;
         float stableHitReadyAt;
         float cloneDeathHealReadyAt;
-        float drawnLandingInkReadyAt;
-        float sharedStrokeGuardReadyAt;
         float lastFallBrakeReadyAt;
         float doubleJumpReadyAt;
         PlayerController doubleJumpReservedPlayer;
@@ -69,16 +63,6 @@ namespace MukJump.Core
             return true;
         }
 
-        /// 실제 체력만 줄어든 비치명 장애물 피해 뒤 발동하는 먹 회복이다.
-        public void NotifyNonLethalObstacleHit()
-        {
-            if (!PermanentSnapshot.HasHitInkRecovery ||
-                Time.time < hitInkRecoveryReadyAt)
-                return;
-            hitInkRecoveryReadyAt = Time.time + 8f;
-            InkRestoreRatioRequested?.Invoke(0.04f);
-        }
-
         /// 장착 비기 S-KB의 공용 12초 사용권. true면 피해 뒤 물리를 바꾸지 않는다.
         public bool TryPreserveHitMotion()
         {
@@ -116,33 +100,6 @@ namespace MukJump.Core
             if (!RestoreLowestHealth(1))
                 return;
             cloneDeathHealReadyAt = Time.time + 30f;
-        }
-
-        public void NotifyDrawnPlatformLanding()
-        {
-            if (!PermanentSnapshot.HasDrawnLandingInk ||
-                Time.time < drawnLandingInkReadyAt)
-                return;
-            drawnLandingInkReadyAt = Time.time + 4f;
-            InkRestoreRequested?.Invoke(0.20f);
-        }
-
-        public bool TryRefundExpiredPlatform(float spentInk)
-        {
-            if (!PermanentSnapshot.HasNaturalExpiryRefund || spentInk <= 0f)
-                return false;
-            InkRestoreRequested?.Invoke(Mathf.Min(0.6f, spentInk * 0.10f));
-            return true;
-        }
-
-        /// 영구 성장으로 해금한 먹떼 공용 낙묵석 방어다.
-        public bool TryUsePermanentStrokeGuard()
-        {
-            if (!PermanentSnapshot.HasSharedStrokeGuard ||
-                Time.time < sharedStrokeGuardReadyAt)
-                return false;
-            sharedStrokeGuardReadyAt = Time.time + 18f;
-            return true;
         }
 
         /// 먹떼 대표의 일반 1차 자동점프만 센다. 분신마다 세면 한 프레임에 최대
@@ -334,11 +291,8 @@ namespace MukJump.Core
         {
             PermanentSnapshot = PermanentGrowthProfile.CreateRunSnapshot();
             LastBreathAvailable = PermanentSnapshot.HasLastBreath;
-            hitInkRecoveryReadyAt = float.NegativeInfinity;
             stableHitReadyAt = float.NegativeInfinity;
             cloneDeathHealReadyAt = float.NegativeInfinity;
-            drawnLandingInkReadyAt = float.NegativeInfinity;
-            sharedStrokeGuardReadyAt = float.NegativeInfinity;
             lastFallBrakeReadyAt = float.NegativeInfinity;
             doubleJumpReadyAt = float.NegativeInfinity;
             doubleJumpReservedPlayer = null;

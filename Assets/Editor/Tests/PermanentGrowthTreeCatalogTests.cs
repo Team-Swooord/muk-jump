@@ -133,17 +133,25 @@ namespace MukJump.EditorTests
         [Test]
         public void CoreBalanceValuesMatchThreeStepLeapContract()
         {
-            AssertEffect("I00", PermanentGrowthType.InkCapacity, 0.03f);
-            AssertEffect("I-A1", PermanentGrowthType.InkCapacity, 0.03f);
-            AssertEffect("I-B1", PermanentGrowthType.InkRecovery, 0.04f);
-            AssertEffect("I-B2", PermanentGrowthType.InkRecovery, 0.04f);
-            AssertEffect("I-C1", PermanentGrowthType.PlatformLifetime, 0.02f);
-            AssertEffect("I-C2", PermanentGrowthType.PlatformLifetime, 0.02f);
+            AssertEffect("I00", PermanentGrowthType.InkCapacity, 0.02f);
+            AssertEffect("I-A1", PermanentGrowthType.InkCapacity, 0.02f);
+            AssertEffect("I-A2", PermanentGrowthType.InkCapacity, 0.02f);
+            AssertEffect("I-A3", PermanentGrowthType.InkCapacity, 0.02f);
+            AssertEffect("I-KA", PermanentGrowthType.InkCapacity, 0.06f);
+            AssertEffect("I-B1", PermanentGrowthType.InkBudgetEfficiency, 0.015f);
+            AssertEffect("I-B2", PermanentGrowthType.InkBudgetEfficiency, 0.015f);
+            AssertEffect("I-B3", PermanentGrowthType.ShortStrokeEfficiency, 0.06f);
+            AssertEffect("I-KB", PermanentGrowthType.InkBudgetEfficiency, 0.05f);
+            AssertEffect("I-C1", PermanentGrowthType.InkEvictionFade, 0.10f);
+            AssertEffect("I-C2", PermanentGrowthType.InkEvictionFade, 0.10f);
+            AssertEffect("I-C3", PermanentGrowthType.InkEvictionDelay, 0.10f);
+            AssertEffect("I-KC", PermanentGrowthType.InkEvictionFade, 0.45f);
 
             AssertEffect("S00", PermanentGrowthType.DamageGrace, 0.05f);
             AssertEffect("S-A1", PermanentGrowthType.DamageGrace, 0.05f);
             AssertEffect("S-A2", PermanentGrowthType.DamageGrace, 0.05f);
             AssertEffect("S-A3", PermanentGrowthType.Vitality, 1f);
+            AssertEffect("S-B3", PermanentGrowthType.DamageGrace, 0.08f);
             AssertEffect("S-C1", PermanentGrowthType.CloneSpawnGrace, 0.15f);
 
             AssertEffect("J00", PermanentGrowthType.JumpCharge, 0.015f);
@@ -168,7 +176,7 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthCatalog.GetNode("J-KC").EffectSummary,
                 Does.Contain("12초"));
             Assert.That(PermanentGrowthCatalog.GetNode("I-KC").EffectSummary,
-                Does.Contain("18초"));
+                Does.Contain("0.45초"));
         }
 
         [Test]

@@ -6,7 +6,8 @@ using MukJump.Core;
 namespace MukJump.Drawing
 {
     /// 스트로크 점열 하나 = 발판 하나. LineRenderer(붓선 비주얼) + EdgeCollider2D(물리).
-    /// 일정 시간이 지나면 먹이 마르듯 서서히 사라진다. 씬에 미리 배치하면(시작 지형) 영구 발판.
+    /// 플레이어가 그린 먹선은 시간으로 사라지지 않고 총 먹자리 예산을 넘길 때
+    /// 가장 오래된 획의 시작점부터 시각·물리가 함께 지워진다.
     [RequireComponent(typeof(LineRenderer), typeof(EdgeCollider2D))]
     public class PlatformCollider : MonoBehaviour
     {
@@ -18,9 +19,12 @@ namespace MukJump.Drawing
             Hazard,
         }
 
-        const int MaxActivePlatforms = 4;
+        // 0.6m 최소 획만 반복하는 비정상 입력에서도 Collider가 무한히 늘지 않게 하는
+        // 모바일 안전 상한이다. 정상 플레이의 실제 제한은 개수가 아니라 총 먹 길이다.
+        const int MaxRuntimeDrawnPlatforms = 96;
         static readonly List<PlatformCollider> active = new();
-        public static float RuntimeLifetimeMultiplier { get; set; } = 1f;
+        static readonly List<PlatformCollider> runtimeDrawn = new();
+        public static float RuntimeInkCapacityMultiplier { get; set; } = 1f;
 
         [Tooltip("생성 후 유지 시간(초). 0 이하면 영구 발판")]
         [SerializeField] float lifetime = 4.5f;
@@ -34,11 +38,40 @@ namespace MukJump.Drawing
         public bool IsGrowthSafetyPlatform => growthSafetyPlatform;
         public bool IsOneWayPlatform =>
             windCurrentPlatform || growthSafetyPlatform;
-        /// 런타임에서 플레이어가 그린 유한 수명 먹선만 해태 돌진을 막을 수 있다.
-        /// 시작 지형과 풍맥처럼 영구 배치된 발판은 수문장을 자동으로 제거하지 않는다.
+        /// 런타임에서 플레이어가 그린 먹선만 해태 돌진과 상호작용한다.
+        /// 이름은 구 호출 호환을 유지하지만, 현재 먹선은 시간제 수명이 아니라 총량 예산을 쓴다.
         public bool IsTemporaryDrawnPlatform =>
-            lifetime > 0f && !windCurrentPlatform && !growthSafetyPlatform &&
-            !removalRequested;
+            (runtimeDrawnPlatform || lifetime > 0f) &&
+            !windCurrentPlatform && !growthSafetyPlatform && !removalRequested;
+        public float RetainedInkCost => retainedInkCost;
+        public static float ActiveInkCost
+        {
+            get
+            {
+                float total = 0f;
+                for (int i = active.Count - 1; i >= 0; i--)
+                {
+                    PlatformCollider platform = active[i];
+                    if (platform == null)
+                    {
+                        active.RemoveAt(i);
+                        continue;
+                    }
+                    total += Mathf.Max(0f, platform.retainedInkCost);
+                }
+                return total;
+            }
+        }
+        public static int ActiveDrawnPlatformCount
+        {
+            get
+            {
+                for (int i = runtimeDrawn.Count - 1; i >= 0; i--)
+                    if (runtimeDrawn[i] == null)
+                        runtimeDrawn.RemoveAt(i);
+                return runtimeDrawn.Count;
+            }
+        }
         EdgeCollider2D edge;
         readonly HashSet<int> windUsers = new();
         readonly Gradient fadeGradient = new();
@@ -54,39 +87,82 @@ namespace MukJump.Drawing
         float age;
         float lastEffectiveLifetime;
         bool removalRequested;
-        bool firstLandingHandled;
-        float lifetimePauseRemaining;
-        float spentInk;
+        bool runtimeDrawnPlatform;
+        float initialInkCost;
+        float retainedInkCost;
+        float evictionVisualFraction;
+        float evictionTargetFraction;
+        float evictionFadeDuration = 1.1f;
+        float evictionDelay;
+        float evictionRequestedAt = float.PositiveInfinity;
         RemovalCause removalCause;
         int lastColliderCutoff = -1;
 
         /// 스무딩 완료된 월드 좌표 점열로 발판을 생성한다 (런타임 드로잉 경로)
         public static PlatformCollider Spawn(
             List<Vector2> worldPoints,
-            float consumedInk = 0f)
+            float inkBudgetCost = 0f,
+            float evictionFadeSeconds = 1.1f,
+            float evictionDelaySeconds = 0f)
         {
             var go = new GameObject("InkPlatform")
             {
                 layer = LayerMask.NameToLayer("Platform"),
             };
             var platform = go.AddComponent<PlatformCollider>();
-            platform.spentInk = Mathf.Max(0f, consumedInk);
+            platform.runtimeDrawnPlatform = true;
+            platform.lifetime = 0f;
             platform.Build(worldPoints);
+            platform.initialInkCost = Mathf.Max(
+                0.001f,
+                inkBudgetCost > 0f ? inkBudgetCost : platform.Length);
+            platform.retainedInkCost = platform.initialInkCost;
+            platform.evictionFadeDuration = Mathf.Max(0.15f, evictionFadeSeconds);
+            platform.evictionDelay = Mathf.Max(0f, evictionDelaySeconds);
 
             active.Add(platform);
-            while (active.Count > ActivePlatformBudget)
+            runtimeDrawn.Add(platform);
+            while (runtimeDrawn.Count > MaxRuntimeDrawnPlatforms)
             {
-                var oldest = active[0];
+                var oldest = runtimeDrawn[0];
+                if (oldest == null)
+                {
+                    runtimeDrawn.RemoveAt(0);
+                    continue;
+                }
+                // 총량 확장 아이템을 비정상적으로 반복 획득한 장시간 세션에서도
+                // 실제 Collider/Renderer 수만큼은 모바일 안전 상한을 넘지 않는다.
+                oldest.ForceImmediateRemoval();
+            }
+
+            SketchToInkService.Instance?.Stylize(platform);
+            return platform;
+        }
+
+        /// 현재 총 먹자리를 넘긴 길이만큼 가장 오래된 획부터 FIFO로 비운다.
+        /// 비용은 즉시 ledger에서 빠지지만 비주얼과 콜라이더는 설정된 시간 동안
+        /// 획의 시작점부터 같이 줄어들어 갑작스럽게 발판 전체가 꺼지지 않는다.
+        public static void ReconcileActiveInkBudget(float capacity)
+        {
+            float overflow = Mathf.Max(0f, ActiveInkCost - Mathf.Max(0.001f, capacity));
+            int guard = MaxRuntimeDrawnPlatforms * 2;
+            while (overflow > 0.0001f && active.Count > 0 && guard-- > 0)
+            {
+                PlatformCollider oldest = active[0];
                 if (oldest == null)
                 {
                     active.RemoveAt(0);
                     continue;
                 }
-                oldest.BeginFade(); // 가장 오래된 발판부터 먹이 마른다
-            }
 
-            SketchToInkService.Instance?.Stylize(platform);
-            return platform;
+                float released = oldest.RequestBudgetEviction(overflow);
+                if (released <= 0.0001f)
+                {
+                    active.RemoveAt(0);
+                    continue;
+                }
+                overflow -= released;
+            }
         }
 
         /// 아래에서는 통과하고, 위에 착지하면 상승 기류를 받는 영구 풍맥 발판.
@@ -104,6 +180,14 @@ namespace MukJump.Drawing
             SketchToInkService.Instance?.Stylize(platform);
             platform.ApplySpecialVisual(InkPalette.WindPlatform, 0.62f, 0.84f);
             return platform;
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetRuntimeState()
+        {
+            active.Clear();
+            runtimeDrawn.Clear();
+            RuntimeInkCapacityMultiplier = 1f;
         }
 
         /// 영구 도약 비기가 만드는 단방향 안전 발판. 드로잉 예산과 먹 환급에서 제외하고
@@ -168,9 +252,12 @@ namespace MukJump.Drawing
             age = 0f;
             removalRequested = false;
             growthSafetyPlatform = false;
-            firstLandingHandled = false;
-            lifetimePauseRemaining = 0f;
-            spentInk = 0f;
+            runtimeDrawnPlatform = false;
+            initialInkCost = 0f;
+            retainedInkCost = 0f;
+            evictionVisualFraction = 0f;
+            evictionTargetFraction = 0f;
+            evictionRequestedAt = float.PositiveInfinity;
             removalCause = RemovalCause.None;
             lastColliderCutoff = -1;
             Length = BezierSmoother.PolylineLength(points);
@@ -279,19 +366,17 @@ namespace MukJump.Drawing
         void Update()
         {
             if (removalRequested) return;
+            if (runtimeDrawnPlatform)
+            {
+                UpdateBudgetEviction();
+                return;
+            }
             if (lifetime <= 0f) return; // 영구 발판
 
             float effectiveLifetime = EffectiveLifetime;
             SynchronizeLifetimeProgress(effectiveLifetime);
 
-            float ageDelta = Time.deltaTime;
-            if (lifetimePauseRemaining > 0f)
-            {
-                float paused = Mathf.Min(lifetimePauseRemaining, ageDelta);
-                lifetimePauseRemaining -= paused;
-                ageDelta -= paused;
-            }
-            age += ageDelta;
+            age += Time.deltaTime;
             float remaining = effectiveLifetime - age;
 
             if (remaining <= fadeDuration)
@@ -339,12 +424,6 @@ namespace MukJump.Drawing
         {
             if (windCurrentPlatform || growthSafetyPlatform) return false;
             if (removalRequested) return false;
-            if (RunGrowthController.Instance != null &&
-                RunGrowthController.Instance.TryUsePermanentStrokeGuard())
-            {
-                // 영구 굳은 먹결은 발판별 상태가 아니라 먹떼 공용 18초 사용권이다.
-                return true;
-            }
             if (!TryBeginHazardRemoval()) return false;
             Destroy(gameObject);
             return true;
@@ -357,7 +436,82 @@ namespace MukJump.Drawing
             removalCause = RemovalCause.Hazard;
             if (edge != null) edge.enabled = false;
             active.Remove(this);
+            runtimeDrawn.Remove(this);
+            retainedInkCost = 0f;
             return true;
+        }
+
+        void ForceImmediateRemoval()
+        {
+            if (removalRequested)
+            {
+                // Destroy 예약 뒤 프레임 끝까지 목록에 남아 있는 객체도 상한 루프에서
+                // 즉시 제외해 97번째 획 생성 시 같은 항목을 영원히 반복하지 않는다.
+                active.Remove(this);
+                runtimeDrawn.Remove(this);
+                retainedInkCost = 0f;
+                return;
+            }
+            removalRequested = true;
+            removalCause = RemovalCause.BudgetEviction;
+            retainedInkCost = 0f;
+            active.Remove(this);
+            runtimeDrawn.Remove(this);
+            if (edge != null)
+                edge.enabled = false;
+            if (Line != null)
+                Line.enabled = false;
+            if (specialOutline != null)
+                specialOutline.enabled = false;
+            Destroy(gameObject);
+        }
+
+        float RequestBudgetEviction(float requestedInk)
+        {
+            if (!runtimeDrawnPlatform || removalRequested ||
+                retainedInkCost <= 0.0001f || initialInkCost <= 0.0001f)
+                return 0f;
+
+            float released = Mathf.Min(
+                retainedInkCost,
+                Mathf.Max(0f, requestedInk));
+            if (released <= 0f)
+                return 0f;
+
+            retainedInkCost -= released;
+            evictionTargetFraction = Mathf.Clamp01(
+                1f - retainedInkCost / initialInkCost);
+            if (float.IsPositiveInfinity(evictionRequestedAt))
+                evictionRequestedAt = Time.time;
+            if (retainedInkCost <= 0.0001f)
+            {
+                retainedInkCost = 0f;
+                active.Remove(this);
+            }
+            return released;
+        }
+
+        void UpdateBudgetEviction()
+        {
+            if (evictionTargetFraction <= evictionVisualFraction + 0.0001f ||
+                Time.time < evictionRequestedAt + evictionDelay)
+                return;
+
+            float speed = 1f / Mathf.Max(0.15f, evictionFadeDuration);
+            evictionVisualFraction = Mathf.MoveTowards(
+                evictionVisualFraction,
+                evictionTargetFraction,
+                speed * Time.deltaTime);
+            FadeVisual(evictionVisualFraction);
+            TrimCollider(evictionVisualFraction);
+
+            if (evictionVisualFraction < 0.9999f)
+                return;
+            removalRequested = true;
+            removalCause = RemovalCause.BudgetEviction;
+            if (edge != null)
+                edge.enabled = false;
+            Destroy(gameObject);
         }
 
         /// 처음 붓을 댄 쪽(t=0 지점)부터 투명해지는 알파 스윕 — 선의 길이·두께는 그대로,
@@ -366,7 +520,9 @@ namespace MukJump.Drawing
         {
             const float feather = 0.3f; // 투명↔불투명 경계의 부드러운 폭
 
-            float front = Mathf.Lerp(0f, 1f + feather, t); // t=1이면 끝까지 완전히 투명
+            // collider가 잘린 경계 t부터 오른쪽으로만 feather를 둔다. 보이는 먹선인데
+            // 이미 밟을 수 없는 구간이 생기지 않게 시각·물리의 시작점을 맞춘다.
+            float front = Mathf.Min(1f + feather, t + feather);
 
             // 페이드 중 매 프레임 Gradient와 키 배열을 새로 만들지 않고 버퍼를 재사용한다.
             fadeAlphaKeys[0] = new GradientAlphaKey(0f, 0f);
@@ -397,10 +553,20 @@ namespace MukJump.Drawing
         {
             if (originalPoints == null || originalPoints.Length < 2) return;
 
-            int cutoff = Mathf.Clamp(Mathf.FloorToInt(t * (originalPoints.Length - 1)), 0,
-                originalPoints.Length - 2);
+            int maxCutoff = originalPoints.Length - 2;
+            int rawCutoff = Mathf.Clamp(
+                Mathf.FloorToInt(t * (originalPoints.Length - 1)),
+                0,
+                maxCutoff);
+            // EdgeCollider 재베이크와 배열 할당을 획당 최대 약 16회로 양자화한다.
+            int quantum = Mathf.Max(1, Mathf.CeilToInt(maxCutoff / 16f));
+            int cutoff = t >= 0.9999f
+                ? maxCutoff
+                : Mathf.Min(maxCutoff, rawCutoff / quantum * quantum);
             if (cutoff == lastColliderCutoff) return;
             lastColliderCutoff = cutoff;
+            if (cutoff == 0)
+                return;
 
             var remainingPoints = new Vector2[originalPoints.Length - cutoff];
             for (int i = 0; i < remainingPoints.Length; i++)
@@ -408,62 +574,20 @@ namespace MukJump.Drawing
             edge.points = remainingPoints; // 배열 전체를 한 번에 대입해야 콜라이더에 반영된다
         }
 
-        /// 발판 수 초과 시 수명을 앞당겨 페이드아웃 시작
-        void BeginFade()
-        {
-            // 이미 페이드 예약된 발판을 예산 목록에서 먼저 빼야, 빠르게 여러 획을
-            // 그어도 같은 첫 발판만 반복 예약되고 후속 발판이 무한 누적되지 않는다.
-            active.Remove(this);
-            // 최대 4개 규칙은 비주얼 수가 아니라 실제로 밟을 수 있는 발판 수다.
-            // 먹이 마르는 모습은 남기되 예산에서 밀린 순간 물리 충돌은 즉시 제거한다.
-            if (edge != null) edge.enabled = false;
-            if (lifetime <= 0f || removalRequested) return;
-            removalCause = RemovalCause.BudgetEviction;
-            float effectiveLifetime = EffectiveLifetime;
-            lastEffectiveLifetime = effectiveLifetime;
-            age = Mathf.Max(age, effectiveLifetime - fadeDuration);
-        }
-
-        static int ActivePlatformBudget => MaxActivePlatforms;
-
         float EffectiveLifetime
         {
             get
             {
-                PermanentGrowthRunSnapshot permanent =
-                    RunGrowthController.Instance != null
-                        ? RunGrowthController.Instance.PermanentSnapshot
-                        : PermanentGrowthProfile.CreateRunSnapshot();
-                if (growthSafetyPlatform)
-                    return lifetime;
-                return lifetime *
-                       Mathf.Clamp(RuntimeLifetimeMultiplier, 0.35f, 1f) *
-                       Mathf.Clamp(
-                           permanent.PlatformLifetimeMultiplier,
-                           1f,
-                           1.04f);
+                return lifetime;
             }
         }
 
         void OnDestroy()
         {
-            if (removalCause == RemovalCause.NaturalExpiry && spentInk > 0f)
-                RunGrowthController.Instance?.TryRefundExpiredPlatform(spentInk);
             active.Remove(this);
+            runtimeDrawn.Remove(this);
+            retainedInkCost = 0f;
         }
 
-        /// 각 발판의 첫 착지에서만 영구 먹결의 수명 정지를 적용한다.
-        public void NotifyFirstLanding()
-        {
-            if (firstLandingHandled || !IsTemporaryDrawnPlatform)
-                return;
-            firstLandingHandled = true;
-            PermanentGrowthRunSnapshot permanent =
-                RunGrowthController.Instance != null
-                    ? RunGrowthController.Instance.PermanentSnapshot
-                    : PermanentGrowthProfile.CreateRunSnapshot();
-            if (permanent.HasFirstLandingPause)
-                lifetimePauseRemaining = Mathf.Max(lifetimePauseRemaining, 0.15f);
-        }
     }
 }

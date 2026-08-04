@@ -140,7 +140,7 @@ namespace MukJump.Core
     public static class PermanentGrowthProfile
     {
         const int SchemaVersion = 1;
-        const int BalanceVersion = 5;
+        const int BalanceVersion = 6;
         const int V2TotalCost = 39;
         const int LegacyTotalCost = 957;
         const int SettledRunHistoryLimit = 64;
@@ -366,10 +366,12 @@ namespace MukJump.Core
         // 로비·구 코드 호환용 조회. 실제 판에서는 영구 성장 런타임 스냅샷을 쓴다.
         public static float InkCapacityMultiplier =>
             CreateRunSnapshot().InkCapacityMultiplier;
-        public static float InkRecoveryMultiplier =>
-            CreateRunSnapshot().InkRecoveryMultiplier;
-        public static float PlatformLifetimeMultiplier =>
-            CreateRunSnapshot().PlatformLifetimeMultiplier;
+        public static float InkBudgetCostMultiplier =>
+            CreateRunSnapshot().InkBudgetCostMultiplier;
+        public static float InkEvictionFadeBonusSeconds =>
+            CreateRunSnapshot().InkEvictionFadeBonusSeconds;
+        public static float InkEvictionDelaySeconds =>
+            CreateRunSnapshot().InkEvictionDelaySeconds;
         public static float JumpChargeMultiplier =>
             CreateRunSnapshot().JumpChargeMultiplier;
         public static int MaxHealthBonus => CreateRunSnapshot().MaxHealthBonus;
@@ -382,8 +384,6 @@ namespace MukJump.Core
             CreateRunSnapshot().JumpPowerMultiplier;
         public static float DrawnPlatformLeapMultiplier =>
             CreateRunSnapshot().DrawnPlatformLeapMultiplier;
-        public static bool NewPlatformsHaveStrokeGuard =>
-            CreateRunSnapshot().HasSharedStrokeGuard;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
@@ -1051,6 +1051,8 @@ namespace MukJump.Core
                 MigrateLeapTreeToV4();
             if (data.balanceVersion < 5)
                 MigrateMilestoneWatermarkToV5();
+            if (data.balanceVersion < 6)
+                MigrateInkBudgetSemanticsToV6();
             NormalizeLoadedData();
             return !string.Equals(
                 before,
@@ -1106,7 +1108,9 @@ namespace MukJump.Core
                 if (header.balanceVersion >= 2 &&
                     parsed.settledRunIds == null)
                     return false;
-                if (header.balanceVersion == BalanceVersion &&
+                // v5와 v6는 동일한 노드 ID·부모 그래프를 사용한다. v5도 마이그레이션
+                // 전에 검증해야 손상된 그래프를 정규화한 뒤 정상 저장으로 덮지 않는다.
+                if (header.balanceVersion >= 5 &&
                     !HasValidOwnedGraph(parsed))
                     return false;
                 return true;
@@ -1460,6 +1464,13 @@ namespace MukJump.Core
         {
             data.rewardedBestHeight = Mathf.Max(0, data.rewardedBestHeight);
             data.balanceVersion = 5;
+        }
+
+        /// v6는 구매 그래프와 저장 payload를 바꾸지 않고 먹 계열 노드의 의미만
+        /// 회복형 자원에서 총 먹자리 예산으로 교체한다. stable node ID는 그대로 승계한다.
+        static void MigrateInkBudgetSemanticsToV6()
+        {
+            data.balanceVersion = 6;
         }
 
         static void CompleteGrandfatheredPath(

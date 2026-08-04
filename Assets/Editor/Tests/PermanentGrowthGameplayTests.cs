@@ -140,7 +140,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void SharedPermanentGuardIsConsumedBeforeHazardDestroysPlatform()
+        public void InkEvictionKeystoneExtendsFadeWithoutBlockingHazards()
         {
             SeedGrowth(
                 new[] { "I-KC" },
@@ -148,14 +148,11 @@ namespace MukJump.EditorTests
             CreatePlayingManager(out var growth);
             PlatformCollider platform = SpawnPlatform("SharedPermanentStrokeGuard");
 
-            Assert.That(platform.BreakFromHazard(), Is.True);
-            Assert.That(GetField<bool>(platform, "removalRequested"), Is.False);
-            Assert.That(growth.TryUsePermanentStrokeGuard(), Is.False,
-                "먹떼 공용 영구 비기는 첫 방어 직후 18초 재사용 대기여야 합니다.");
-
+            Assert.That(growth.PermanentSnapshot.InkEvictionFadeBonusSeconds,
+                Is.EqualTo(0.65f).Within(0.0001f));
             Assert.That(platform.BreakFromHazard(), Is.True);
             Assert.That(GetField<bool>(platform, "removalRequested"), Is.True,
-                "같은 재사용 시간 안의 두 번째 낙묵석은 발판을 제거해야 합니다.");
+                "먹 운용 비기는 오래된 획의 소멸만 늦추며 낙묵석은 막지 않습니다.");
         }
 
         [Test]
@@ -305,24 +302,17 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void LowInkRecoveryCountsReserveAsUsableInk()
+        public void InkReserveStacksAsAdditionalRetainedCapacity()
         {
-            SeedGrowth(new[] { "I-KB" }, inkKeystone: "I-KB");
-            CreatePlayingManager(out _);
-            var host = Track(new GameObject("PermanentLowInkRecovery"));
+            var host = Track(new GameObject("PermanentInkReserve"));
             var stroke = host.AddComponent<StrokeCapture>();
-            SetField(stroke, "inkCapacity", 12f);
-            SetField(stroke, "ink", 0f);
-            SetField(stroke, "inkReserve", 12f);
+            SetField(stroke, "inkCapacity", 18f);
 
-            Invoke(stroke, "UpdateLowInkRecoveryState");
-            Assert.That(GetField<bool>(stroke, "lowInkRecoveryActive"), Is.False,
-                "여유 먹이 충분하면 기본 벼루가 비어도 저먹 회복을 켜면 안 됩니다.");
+            stroke.AddInkReserve(0.35f);
+            stroke.AddInkReserve(0.35f);
 
-            SetField(stroke, "inkReserve", 0f);
-            SetField(stroke, "ink", 2f);
-            Invoke(stroke, "UpdateLowInkRecoveryState");
-            Assert.That(GetField<bool>(stroke, "lowInkRecoveryActive"), Is.True);
+            Assert.That(stroke.EffectiveInkCapacity,
+                Is.EqualTo(30.6f).Within(0.0001f));
         }
 
         GameManager CreatePlayingManager(out RunGrowthController growth)

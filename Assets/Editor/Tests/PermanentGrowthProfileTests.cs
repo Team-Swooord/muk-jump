@@ -228,7 +228,7 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.IsNodeUnlocked("I00"), Is.True);
             Assert.That(PermanentGrowthProfile.IsNodeUnlocked("S00"), Is.False);
             Assert.That(PermanentGrowthProfile.InkCapacityMultiplier,
-                Is.EqualTo(1.03f).Within(0.0001f));
+                Is.EqualTo(1.02f).Within(0.0001f));
             Assert.That(changedCount, Is.EqualTo(1));
         }
 
@@ -274,7 +274,7 @@ namespace MukJump.EditorTests
         public void FutureBalanceSaveIsPreservedWithoutDroppingUnknownNodes()
         {
             const string future =
-                "{\"schemaVersion\":1,\"balanceVersion\":6," +
+                "{\"schemaVersion\":1,\"balanceVersion\":7," +
                 "\"wallet\":9,\"ownedNodeIds\":[\"I-D1\"]," +
                 "\"inkHandlingKeystoneId\":\"I-D1\"}";
             store.Json = future;
@@ -293,7 +293,7 @@ namespace MukJump.EditorTests
         public void HeaderOnlyCurrentSaveCannotOverwriteValidBackup()
         {
             const string truncated =
-                "{\"schemaVersion\":1,\"balanceVersion\":5}";
+                "{\"schemaVersion\":1,\"balanceVersion\":6}";
             string backup = CurrentSaveJson(5, "I00");
             store.Json = truncated;
             store.BackupJson = backup;
@@ -310,7 +310,47 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void CurrentV5MissingMilestoneWatermarkCannotBeCanonicalized()
+        public void VersionFiveInkTreeMigratesToNewBudgetSemanticsWithoutDataLoss()
+        {
+            store.Json = CurrentSaveJson(3, "I00", "I-A1")
+                .Replace("\"balanceVersion\":6", "\"balanceVersion\":5");
+            PermanentGrowthProfile.ResetCacheForTests();
+
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(3));
+            Assert.That(PermanentGrowthProfile.IsNodeUnlocked("I00"), Is.True);
+            Assert.That(PermanentGrowthProfile.IsNodeUnlocked("I-A1"), Is.True);
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":6"));
+        }
+
+        [Test]
+        public void VersionFiveInvalidOwnedGraphCannotOverwriteValidBackup()
+        {
+            string backup = CurrentSaveJson(5, "I00");
+            string[] invalidPrimaries =
+            {
+                CurrentSaveJson(3, "I-A1")
+                    .Replace("\"balanceVersion\":6", "\"balanceVersion\":5"),
+                CurrentSaveJson(3, "I00", "I00")
+                    .Replace("\"balanceVersion\":6", "\"balanceVersion\":5"),
+            };
+
+            for (int i = 0; i < invalidPrimaries.Length; i++)
+            {
+                store.Json = invalidPrimaries[i];
+                store.BackupJson = backup;
+                PermanentGrowthProfile.ResetCacheForTests();
+
+                Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(5));
+                Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.True);
+                Assert.That(store.Json, Is.EqualTo(invalidPrimaries[i]));
+                Assert.That(store.BackupJson, Is.EqualTo(backup));
+                Assert.That(store.SaveCount, Is.Zero);
+                Assert.That(store.BackupSaveCount, Is.Zero);
+            }
+        }
+
+        [Test]
+        public void CurrentV6MissingMilestoneWatermarkCannotBeCanonicalized()
         {
             string truncated = CurrentSaveJson(4, "I00")
                 .Replace("\"rewardMilestoneWatermarkInitialized\":false,", "")
@@ -324,7 +364,7 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(2));
             Assert.That(store.Json, Is.EqualTo(truncated));
             Assert.That(store.BackupJson, Is.EqualTo(backup),
-                "v5 watermark가 잘린 primary가 정상 backup을 덮으면 안 됩니다.");
+                "v6 필수 payload가 잘린 primary가 정상 backup을 덮으면 안 됩니다.");
             Assert.That(store.SaveCount, Is.Zero);
         }
 
@@ -615,7 +655,7 @@ namespace MukJump.EditorTests
             Assert.That(failingStore.BackupQuarantineJson,
                 Is.EqualTo(futureBackup));
             Assert.That(failingStore.BackupJson,
-                Does.Contain("\"balanceVersion\":5"));
+                Does.Contain("\"balanceVersion\":6"));
         }
 
         [Test]
@@ -655,7 +695,7 @@ namespace MukJump.EditorTests
             failingStore.ThrowOnBackupLoad = false;
             Assert.That(PermanentGrowthProfile.TryRestoreBackup(), Is.True);
             Assert.That(failingStore.QuarantineJson, Is.EqualTo(v2));
-            Assert.That(failingStore.Json, Does.Contain("\"balanceVersion\":5"));
+            Assert.That(failingStore.Json, Does.Contain("\"balanceVersion\":6"));
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(7));
             Assert.That(PermanentGrowthProfile.IsNodeUnlocked("I00"), Is.True);
         }
@@ -1248,7 +1288,7 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.TryResetAfterLoadFailure(), Is.True);
             Assert.That(store.QuarantineJson, Is.EqualTo(corrupt));
             Assert.That(store.BackupJson, Is.EqualTo(backup));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":5"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":6"));
             Assert.That(PermanentGrowthProfile.Currency, Is.Zero);
             PermanentGrowthSettlement settlement =
                 PermanentGrowthProfile.SettleRun(
@@ -1320,7 +1360,7 @@ namespace MukJump.EditorTests
                 ? "[]"
                 : "[\"" + string.Join("\",\"", ownedNodeIds) + "\"]";
             return
-                "{\"schemaVersion\":1,\"balanceVersion\":5," +
+                "{\"schemaVersion\":1,\"balanceVersion\":6," +
                 $"\"wallet\":{wallet},\"spent\":{ownedNodeIds?.Length ?? 0}," +
                 "\"tutorialRewardClaimed\":true," +
                 "\"rewardMilestoneWatermarkInitialized\":false," +

@@ -315,7 +315,6 @@ namespace MukJump.Player
                 RunGrowthController growth = RunGrowthController.Instance;
                 bool preserveMotion = growth != null &&
                                       growth.TryPreserveHitMotion();
-                growth?.NotifyNonLethalObstacleHit();
                 ApplyObstacleHitRecovery(
                     EffectiveDamageHitGraceDuration,
                     true,
@@ -684,11 +683,6 @@ namespace MukJump.Player
                 bool drawnPlatform = platform != null &&
                                      platform.IsTemporaryDrawnPlatform;
                 GetComponent<AutoJump>()?.NotifyLanding(drawnPlatform);
-                if (drawnPlatform)
-                {
-                    platform.NotifyFirstLanding();
-                    RunGrowthController.Instance?.NotifyDrawnPlatformLanding();
-                }
             }
 
             var sideWall = collision.collider.GetComponent<ScreenSideWall>();

@@ -44,7 +44,7 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.MeetsNodeRequirements("I-A2"), Is.False);
             Assert.That(PermanentGrowthProfile.TryPurchaseNode("I-A2"), Is.False);
             Assert.That(PermanentGrowthProfile.GetNodeLockReason("I-A2"),
-                Does.Contain("깊은 벼루"));
+                Does.Contain("넓은 벼루"));
 
             Assert.That(PermanentGrowthProfile.TryPurchaseNode("I00"), Is.True);
             Assert.That(PermanentGrowthProfile.TryPurchaseNode("I-A1"), Is.True);
@@ -186,7 +186,7 @@ namespace MukJump.EditorTests
                 PermanentGrowthProfile.GetActiveKeystoneId(
                     PermanentGrowthBranch.InkHandling),
                 Is.EqualTo("I-KA"));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":5"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":6"));
             Assert.That(store.Json, Does.Contain("\"ranks\":[]"));
         }
 
@@ -214,7 +214,7 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(4));
             Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(5));
             Assert.That(store.Json, Does.Contain("\"lastSettledRunId\":\"kept-run\""));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":5"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":6"));
         }
 
         [Test]
@@ -248,7 +248,7 @@ namespace MukJump.EditorTests
                 PermanentGrowthProfile.GetActiveKeystoneId(
                     PermanentGrowthBranch.Leap),
                 Is.EqualTo("J-KB"));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":5"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":6"));
         }
 
         [Test]

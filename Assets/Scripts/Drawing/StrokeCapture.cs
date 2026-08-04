@@ -22,44 +22,49 @@ namespace MukJump.Drawing
         [Tooltip("캐릭터에서 이 거리 안의 획 부분만 잘라낸다 (물리 밀어내기 악용 방지)")]
         [SerializeField] float playerClearance = 0.55f;
 
-        [Header("먹(잉크) 자원 — 무한 드로잉 방지")]
-        [Tooltip("먹 총량 (월드 단위 길이). 그은 만큼 소모된다")]
-        [SerializeField] float inkCapacity = 12f;
-        [Tooltip("초당 먹 회복량 (그리는 중에는 회복하지 않음)")]
-        [SerializeField] float inkRegenPerSecond = 3f;
-        [Tooltip("먹이 이보다 적으면 새 획을 시작할 수 없다")]
-        [SerializeField] float minInkToStart = 0.8f;
+        [Header("먹자리 — 화면에 유지되는 총 먹선 길이")]
+        [Tooltip("동시에 유지할 수 있는 먹선의 기본 월드 길이")]
+        [SerializeField] float inkCapacity = 18f;
+        [Tooltip("총 먹자리를 넘긴 오래된 획이 시작점부터 지워지는 시간")]
+        [SerializeField] float evictionFadeDuration = 1.1f;
 
         readonly List<Vector2> points = new();
         Camera cam;
         bool drawing;
         float strokeLength;
-        float ink;
-        float inkReserve;
+        float inkCapacityBonusRatio;
         LineRenderer preview;
         float unlimitedInkUntil;
         RunGrowthController growthController;
         float appliedInkCapacity;
-        float strokeBaseInkSpent;
-        float strokeReserveInkSpent;
-        float lastValidStrokeAt = float.NegativeInfinity;
-        bool idleStrokeDiscountEligible;
-        bool lowInkRecoveryActive;
+        bool unlimitedInkWasActive;
         readonly List<Player.PlayerController> livingPlayers = new();
         readonly List<Vector2> safeSegment = new();
         readonly List<Vector2> safeSegmentCandidate = new();
 
-        /// HUD 먹 게이지용. 1을 넘는 값은 아이템으로 쌓은 일회성 여유분이다.
+        /// HUD 먹 게이지용. 1을 넘는 값은 붓 여유 아이템으로 늘어난 먹자리다.
         public bool HasUnlimitedInk => Time.time < unlimitedInkUntil;
-        public float InkRemaining01 => HasUnlimitedInk
-            ? 1f
-            : (ink + inkReserve) / Mathf.Max(0.001f, EffectiveInkCapacity);
+        public float InkRemaining01
+        {
+            get
+            {
+                float baseCapacity = Mathf.Max(0.001f, BaseEffectiveInkCapacity);
+                if (HasUnlimitedInk)
+                    return EffectiveInkCapacity / baseCapacity;
+                float remaining = Mathf.Max(
+                    0f,
+                    EffectiveInkCapacity - PlatformCollider.ActiveInkCost);
+                return remaining / baseCapacity;
+            }
+        }
+        public float BaseEffectiveInkCapacity =>
+            inkCapacity *
+            ActivePermanentGrowth.InkCapacityMultiplier *
+            Mathf.Clamp(PlatformCollider.RuntimeInkCapacityMultiplier, 0.35f, 1f);
         public float EffectiveInkCapacity =>
-            inkCapacity * ActivePermanentGrowth.InkCapacityMultiplier;
-        public float EffectiveInkRegenPerSecond =>
-            inkRegenPerSecond *
-            ActivePermanentGrowth.InkRecoveryMultiplier *
-            (lowInkRecoveryActive ? 1.30f : 1f);
+            BaseEffectiveInkCapacity * (1f + Mathf.Max(0f, inkCapacityBonusRatio));
+        public float EffectiveEvictionFadeDuration =>
+            evictionFadeDuration + ActivePermanentGrowth.InkEvictionFadeBonusSeconds;
 
         PermanentGrowthRunSnapshot ActivePermanentGrowth =>
             RunGrowthController.Instance != null
@@ -68,12 +73,16 @@ namespace MukJump.Drawing
 
         public void AddInkReserve(float capacityRatio)
         {
-            inkReserve += EffectiveInkCapacity * Mathf.Max(0f, capacityRatio);
+            inkCapacityBonusRatio += Mathf.Max(0f, capacityRatio);
+            RefreshInkBudget(true);
         }
 
         public void ActivateUnlimitedInk(float duration)
         {
-            unlimitedInkUntil = Mathf.Max(unlimitedInkUntil, Time.time + duration);
+            unlimitedInkUntil = Mathf.Max(
+                unlimitedInkUntil,
+                Time.time + Mathf.Max(0f, duration));
+            unlimitedInkWasActive = HasUnlimitedInk;
         }
 
         void OnEnable()
@@ -98,7 +107,7 @@ namespace MukJump.Drawing
                 Debug.LogError("[MukJump] MainCamera를 찾을 수 없어 드로잉 좌표를 변환할 수 없습니다.", this);
             TryBindGrowthController();
             appliedInkCapacity = EffectiveInkCapacity;
-            ink = appliedInkCapacity;
+            unlimitedInkWasActive = HasUnlimitedInk;
             UseLineSpriteFromMainUi();
         }
 
@@ -189,13 +198,7 @@ namespace MukJump.Drawing
                 return;
             }
 
-            if (!drawing)
-            {
-                UpdateLowInkRecoveryState();
-                ink = Mathf.Min(
-                    EffectiveInkCapacity,
-                    ink + EffectiveInkRegenPerSecond * Time.deltaTime);
-            }
+            RefreshInkBudget();
 
             if (PointerInput.TryGetPressed(out var screenPos))
             {
@@ -208,7 +211,7 @@ namespace MukJump.Drawing
 
                 if (drawing)
                     ContinueStroke(screenPos);
-                else if (HasUnlimitedInk || ink + inkReserve >= minInkToStart)
+                else
                     BeginStroke(screenPos);
             }
             else if (drawing)
@@ -228,11 +231,6 @@ namespace MukJump.Drawing
         {
             drawing = true;
             strokeLength = 0f;
-            strokeBaseInkSpent = 0f;
-            strokeReserveInkSpent = 0f;
-            idleStrokeDiscountEligible =
-                ActivePermanentGrowth.HasIdleStrokeDiscount &&
-                Time.time - lastValidStrokeAt >= 2f;
             points.Clear();
             points.Add(worldPos);
             GameFeedbackController.Instance?.StartBrushDrawing();
@@ -244,9 +242,8 @@ namespace MukJump.Drawing
             AppendWorldSample(ToWorld(screenPos));
         }
 
-        /// 한 프레임의 큰 포인터 이동도 30m 경계와 먹 잔량 지점에서 정확히
-        /// 보간한다. 경계 뒤의 잔여 구간은 같은 프레임에 다음 획으로 넘겨 틈을
-        /// 만들지 않는다.
+        /// 한 프레임의 큰 포인터 이동도 30m 경계에서 정확히 보간한다.
+        /// 경계 뒤의 잔여 구간은 같은 프레임에 다음 획으로 넘겨 틈을 만들지 않는다.
         void AppendWorldSample(Vector2 requestedWorld)
         {
             while (drawing && points.Count > 0)
@@ -255,12 +252,6 @@ namespace MukJump.Drawing
                 float requestedStep = Vector2.Distance(segmentStart, requestedWorld);
                 if (requestedStep < minPointDistance)
                     return;
-
-                if (!HasUnlimitedInk && ink + inkReserve <= 0f)
-                {
-                    EndStroke();
-                    return;
-                }
 
                 float remainingStroke = Mathf.Max(
                     0f,
@@ -280,52 +271,10 @@ namespace MukJump.Drawing
                     requestedWorld,
                     targetStep);
 
-                bool exhaustsInk = false;
-                float inkCost = 0f;
-                if (!HasUnlimitedInk)
-                {
-                    float availableInk =
-                        Mathf.Max(0f, ink) + Mathf.Max(0f, inkReserve);
-                    float affordableStep = LimitDiscountedStepToAvailableInk(
-                        targetStep,
-                        strokeLength,
-                        availableInk,
-                        ActivePermanentGrowth.HasShortStrokeDiscount,
-                        idleStrokeDiscountEligible);
-                    exhaustsInk = affordableStep + 0.0001f < targetStep;
-                    if (affordableStep <= 0.0001f)
-                    {
-                        EndStroke();
-                        return;
-                    }
-
-                    targetStep = affordableStep;
-                    targetWorld = Vector2.MoveTowards(
-                        segmentStart,
-                        requestedWorld,
-                        targetStep);
-                    inkCost = StrokeInkCost(
-                                  strokeLength + targetStep,
-                                  ActivePermanentGrowth.HasShortStrokeDiscount,
-                                  idleStrokeDiscountEligible) -
-                              StrokeInkCost(
-                                  strokeLength,
-                                  ActivePermanentGrowth.HasShortStrokeDiscount,
-                                  idleStrokeDiscountEligible);
-                }
-
                 strokeLength += targetStep;
-                if (!HasUnlimitedInk)
-                    ConsumeInk(Mathf.Max(0f, inkCost));
                 points.Add(targetWorld);
                 GameFeedbackController.Instance?.PlayBrushMovement(targetStep);
                 UpdatePreview();
-
-                if (exhaustsInk)
-                {
-                    EndStroke();
-                    return;
-                }
 
                 if (!crossesStrokeBoundary)
                     return;
@@ -335,78 +284,16 @@ namespace MukJump.Drawing
             }
         }
 
-        static float LimitStepToAvailableInk(float requestedStep, float currentInk,
-            float reserve)
-        {
-            return Mathf.Min(
-                Mathf.Max(0f, requestedStep),
-                Mathf.Max(0f, currentInk) + Mathf.Max(0f, reserve));
-        }
-
-        static float LimitDiscountedStepToAvailableInk(
-            float requestedStep,
-            float currentStrokeLength,
-            float availableInk,
-            bool shortStrokeDiscount,
-            bool idleStrokeDiscount)
-        {
-            requestedStep = Mathf.Max(0f, requestedStep);
-            availableInk = Mathf.Max(0f, availableInk);
-            if (requestedStep <= 0f || availableInk <= 0f)
-                return 0f;
-
-            float costBefore = StrokeInkCost(
-                currentStrokeLength,
-                shortStrokeDiscount,
-                idleStrokeDiscount);
-            float fullCost = StrokeInkCost(
-                                 currentStrokeLength + requestedStep,
-                                 shortStrokeDiscount,
-                                 idleStrokeDiscount) -
-                             costBefore;
-            if (fullCost <= availableInk + 0.0001f)
-                return requestedStep;
-
-            // 1.5m 단획 할인 경계에는 작은 비용 점프가 있으므로 단순 나눗셈 대신
-            // 단조 비용 함수의 최대 지점을 이분 탐색한다.
-            float low = 0f;
-            float high = requestedStep;
-            for (int i = 0; i < 24; i++)
-            {
-                float middle = (low + high) * 0.5f;
-                float cost = StrokeInkCost(
-                                 currentStrokeLength + middle,
-                                 shortStrokeDiscount,
-                                 idleStrokeDiscount) -
-                             costBefore;
-                if (cost <= availableInk)
-                    low = middle;
-                else
-                    high = middle;
-            }
-            return low;
-        }
-
-        static float StrokeInkCost(
+        static float StrokeBudgetCost(
             float rawLength,
-            bool shortStrokeDiscount,
-            bool idleStrokeDiscount)
+            float globalCostMultiplier,
+            float shortStrokeMultiplier)
         {
             rawLength = Mathf.Max(0f, rawLength);
-            float multiplier = idleStrokeDiscount ? 0.90f : 1f;
-            if (shortStrokeDiscount && rawLength <= 1.5f + 0.0001f)
-                multiplier *= 0.92f;
+            float multiplier = Mathf.Clamp(globalCostMultiplier, 0.55f, 1f);
+            if (rawLength <= 1.5f + 0.0001f)
+                multiplier *= Mathf.Clamp(shortStrokeMultiplier, 0.55f, 1f);
             return rawLength * multiplier;
-        }
-
-        void ConsumeInk(float amount)
-        {
-            float reserveUse = Mathf.Min(inkReserve, amount);
-            inkReserve -= reserveUse;
-            float baseUse = amount - reserveUse;
-            ink = Mathf.Max(0f, ink - baseUse);
-            strokeReserveInkSpent += reserveUse;
-            strokeBaseInkSpent += baseUse;
         }
 
         void EndStroke()
@@ -437,16 +324,24 @@ namespace MukJump.Drawing
             // 캐릭터와 너무 가까운 부분만 잘라내 콜라이더 밀어내기로 캐릭터를
             // 튕겨 올리는 악용은 막되, 나머지 유효한 획은 발판으로 살린다.
             smoothed = LongestSafeSegment(smoothed);
-            if (smoothed.Count < 2 ||
-                BezierSmoother.PolylineLength(smoothed) < minStrokeLength)
+            float validLength = BezierSmoother.PolylineLength(smoothed);
+            if (smoothed.Count < 2 || validLength < minStrokeLength)
             {
                 GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, false);
                 return;
             }
 
-            float consumedInk = strokeReserveInkSpent + strokeBaseInkSpent;
-            PlatformCollider.Spawn(smoothed, consumedInk);
-            lastValidStrokeAt = Time.time;
+            float budgetCost = StrokeBudgetCost(
+                validLength,
+                ActivePermanentGrowth.InkBudgetCostMultiplier,
+                ActivePermanentGrowth.ShortStrokeBudgetCostMultiplier);
+            PlatformCollider.Spawn(
+                smoothed,
+                budgetCost,
+                EffectiveEvictionFadeDuration,
+                ActivePermanentGrowth.InkEvictionDelaySeconds);
+            if (!HasUnlimitedInk)
+                PlatformCollider.ReconcileActiveInkBudget(EffectiveInkCapacity);
             GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, true);
         }
 
@@ -458,22 +353,6 @@ namespace MukJump.Drawing
             Vector2 seam = points[^1];
             EndStroke();
             BeginStrokeAtWorld(seam);
-        }
-
-        void UpdateLowInkRecoveryState()
-        {
-            if (!ActivePermanentGrowth.HasLowInkRecovery)
-            {
-                lowInkRecoveryActive = false;
-                return;
-            }
-
-            float usableInk = Mathf.Max(0f, ink) + Mathf.Max(0f, inkReserve);
-            float ratio = usableInk / Mathf.Max(0.001f, EffectiveInkCapacity);
-            if (!lowInkRecoveryActive && ratio < 0.25f)
-                lowInkRecoveryActive = true;
-            else if (lowInkRecoveryActive && ratio >= 0.40f)
-                lowInkRecoveryActive = false;
         }
 
         void CancelStroke()
@@ -501,8 +380,6 @@ namespace MukJump.Drawing
             if (growthController == null) return;
 
             growthController.RunReset += HandleGrowthRunReset;
-            growthController.InkRestoreRequested += HandleInkRestoreRequested;
-            growthController.InkRestoreRatioRequested += HandleInkRestoreRatioRequested;
             if (appliedInkCapacity <= 0f)
                 appliedInkCapacity = EffectiveInkCapacity;
         }
@@ -510,57 +387,36 @@ namespace MukJump.Drawing
         void UnbindGrowthController()
         {
             if (growthController != null)
-            {
                 growthController.RunReset -= HandleGrowthRunReset;
-                growthController.InkRestoreRequested -= HandleInkRestoreRequested;
-                growthController.InkRestoreRatioRequested -= HandleInkRestoreRatioRequested;
-            }
             growthController = null;
         }
 
         void HandlePermanentGrowthChanged()
         {
-            ApplyCapacityIncrease();
+            RefreshInkBudget(true);
         }
 
-        void ApplyCapacityIncrease()
+        void RefreshInkBudget(bool force = false)
         {
             float nextCapacity = EffectiveInkCapacity;
-            if (appliedInkCapacity <= 0f)
-            {
-                appliedInkCapacity = nextCapacity;
-                return;
-            }
-            float addedCapacity = Mathf.Max(0f, nextCapacity - appliedInkCapacity);
-            ink = Mathf.Min(nextCapacity, ink + addedCapacity);
+            bool unlimited = HasUnlimitedInk;
+            bool unlimitedEnded = unlimitedInkWasActive && !unlimited;
+            if (!unlimited &&
+                (force || unlimitedEnded ||
+                 !Mathf.Approximately(appliedInkCapacity, nextCapacity)))
+                PlatformCollider.ReconcileActiveInkBudget(nextCapacity);
             appliedInkCapacity = nextCapacity;
+            unlimitedInkWasActive = unlimited;
         }
 
         void HandleGrowthRunReset()
         {
             CancelActiveStroke();
-            inkReserve = 0f;
+            inkCapacityBonusRatio = 0f;
             unlimitedInkUntil = 0f;
-            strokeBaseInkSpent = 0f;
-            strokeReserveInkSpent = 0f;
-            lastValidStrokeAt = float.NegativeInfinity;
-            idleStrokeDiscountEligible = false;
-            lowInkRecoveryActive = false;
             appliedInkCapacity = EffectiveInkCapacity;
-            ink = appliedInkCapacity;
-        }
-
-        void HandleInkRestoreRequested(float amount)
-        {
-            if (amount <= 0f)
-                return;
-            ink = Mathf.Min(EffectiveInkCapacity, ink + amount);
-        }
-
-        void HandleInkRestoreRatioRequested(float ratio)
-        {
-            HandleInkRestoreRequested(
-                EffectiveInkCapacity * Mathf.Max(0f, ratio));
+            unlimitedInkWasActive = false;
+            PlatformCollider.ReconcileActiveInkBudget(appliedInkCapacity);
         }
 
         /// 캐릭터와 겹치는 부분만 잘라내고 가장 긴 안전 구간은 살린다.
@@ -718,8 +574,7 @@ namespace MukJump.Drawing
             previewWidth = Mathf.Max(0.01f, previewWidth);
             playerClearance = Mathf.Max(0f, playerClearance);
             inkCapacity = Mathf.Max(0.001f, inkCapacity);
-            inkRegenPerSecond = Mathf.Max(0f, inkRegenPerSecond);
-            minInkToStart = Mathf.Clamp(minInkToStart, 0f, inkCapacity);
+            evictionFadeDuration = Mathf.Max(0.15f, evictionFadeDuration);
         }
     }
 }

@@ -43,6 +43,10 @@ namespace MukJump.Core
         SafetyPlatform = 32,
         DoubleJump = 33,
         WallCling = 34,
+        // 먹자리 v6. 기존 enum 값은 저장 호환 때문에 재사용하지 않고 뒤에 추가한다.
+        InkBudgetEfficiency = 35,
+        InkEvictionFade = 36,
+        InkEvictionDelay = 37,
     }
 
     public enum PermanentGrowthBranch
@@ -249,7 +253,7 @@ namespace MukJump.Core
             new(
                 PermanentGrowthBranch.InkHandling,
                 "먹 운용",
-                "먹 절약·회복 순환·발판 유지",
+                "총 먹자리·획 점유 절약·오래된 획 소멸",
                 1),
             new(
                 PermanentGrowthBranch.Leap,
@@ -377,79 +381,80 @@ namespace MukJump.Core
         {
             var nodes = new List<PermanentGrowthNodeDefinition>(39);
 
-            // 먹 운용 — 중앙 주가지
-            Add(nodes, "I00", "작은 벼루", "먹을 담는 기본 그릇을 넓힙니다.",
-                "최대 먹 +3%", "ink.capacity.seed", PermanentGrowthType.InkCapacity,
-                0.03f, "최대 먹", PermanentGrowthValueKind.Percent, false,
+            // 먹 운용 — 회복형 자원을 없애고 화면에 남길 수 있는 총 먹자리로 통일한다.
+            Add(nodes, "I00", "먹자리의 씨", "화면에 오래 남길 수 있는 먹선의 자리를 넓힙니다.",
+                "총 먹자리 +2%", "ink.capacity.seed", PermanentGrowthType.InkCapacity,
+                0.02f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Root,
                 null, 0, "", 0f, -1040f, 1);
-            Add(nodes, "I-A1", "깊은 벼루", "벼루의 깊이를 더해 먹을 오래 품습니다.",
-                "최대 먹 +3%", "ink.capacity.deep", PermanentGrowthType.InkCapacity,
-                0.03f, "최대 먹", PermanentGrowthValueKind.Percent, false,
+            Add(nodes, "I-A1", "넓은 벼루", "한 화면에 남겨 둘 수 있는 먹선을 늘립니다.",
+                "총 먹자리 +2%", "ink.capacity.wide", PermanentGrowthType.InkCapacity,
+                0.02f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I00"), 0, "", -350f, -770f, 2);
-            Add(nodes, "I-A2", "마른 붓끝", "짧고 정확한 획의 먹 소모를 줄입니다.",
-                "1.5m 이하로 그린 획 비용 -8%", "ink.stroke.short",
-                PermanentGrowthType.ShortStrokeEfficiency, 0.08f, "짧은 획 비용",
-                PermanentGrowthValueKind.Percent, true,
-                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Mechanic,
+            Add(nodes, "I-A2", "깊은 먹자리", "먹자리를 깊게 다져 더 긴 길을 남깁니다.",
+                "총 먹자리 +2%", "ink.capacity.deep", PermanentGrowthType.InkCapacity,
+                0.02f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-A1"), 0, "", -430f, -430f);
-            Add(nodes, "I-A3", "남겨 둔 먹", "잠시 붓을 쉬었다 그린 첫 획을 아낍니다.",
-                "2초 휴식 뒤 첫 유효 획 비용 -10%", "ink.stroke.idle",
-                PermanentGrowthType.IdleStrokeEfficiency, 0.10f, "휴식 획 비용",
-                PermanentGrowthValueKind.Percent, true,
-                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Mechanic,
+            Add(nodes, "I-A3", "큰 먹자리", "넓어진 먹자리가 오래된 획을 더 늦게 밀어냅니다.",
+                "총 먹자리 +2%", "ink.capacity.great", PermanentGrowthType.InkCapacity,
+                0.02f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
+                PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-A2"), 0, "", -350f, -80f);
-            Add(nodes, "I-KA", "되돌아온 먹", "자연스럽게 마른 발판의 먹 일부가 벼루로 돌아옵니다.",
-                "자연 소멸 시 10% 환급 · 최대 0.6", "ink.refund.expiry",
-                PermanentGrowthType.NaturalExpiryRefund, 0.10f, "환급",
+            Add(nodes, "I-KA", "넓어진 화폭", "넓은 화폭을 펼쳐 한 번에 더 많은 길을 남깁니다.",
+                "총 먹자리 +6%", "ink.capacity.keystone",
+                PermanentGrowthType.InkCapacity, 0.06f, "총 먹자리",
                 PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
                 P("I-A3"), 4, "ink", -500f, 300f);
 
-            Add(nodes, "I-B1", "첫 숨", "먹이 차오르는 기본 호흡을 빠르게 합니다.",
-                "먹 회복 +4%", "ink.recovery.first", PermanentGrowthType.InkRecovery,
-                0.04f, "먹 회복", PermanentGrowthValueKind.Percent, false,
+            Add(nodes, "I-B1", "가는 붓끝", "같은 길이를 더 적은 먹자리로 그립니다.",
+                "먹자리 점유 -1.5%", "ink.budget.fine",
+                PermanentGrowthType.InkBudgetEfficiency,
+                0.015f, "먹자리 점유", PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I00"), 0, "", 0f, -710f, 1);
-            Add(nodes, "I-B2", "고른 숨", "먹의 회복 호흡을 한 번 더 다듬습니다.",
-                "먹 회복 +4%", "ink.recovery.even", PermanentGrowthType.InkRecovery,
-                0.04f, "먹 회복", PermanentGrowthValueKind.Percent, false,
+            Add(nodes, "I-B2", "아낀 먹결", "먹결을 고르게 펴 획의 자리 낭비를 줄입니다.",
+                "먹자리 점유 -1.5%", "ink.budget.even",
+                PermanentGrowthType.InkBudgetEfficiency,
+                0.015f, "먹자리 점유", PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-B1"), 0, "", 70f, -370f, 2);
-            Add(nodes, "I-B3", "산속 먹샘", "직접 그린 발판에 착지하면 작은 먹샘이 솟습니다.",
-                "착지 시 먹 0.20 회복 · 4초", "ink.recovery.landing",
-                PermanentGrowthType.DrawnLandingInk, 0.20f, "착지 먹",
-                PermanentGrowthValueKind.Flat, false,
+            Add(nodes, "I-B3", "짧은 먹선", "짧고 정확한 획은 먹자리를 더 적게 차지합니다.",
+                "1.5m 이하 획 점유 -6%", "ink.budget.short",
+                PermanentGrowthType.ShortStrokeEfficiency, 0.06f, "짧은 획 점유",
+                PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Mechanic,
                 P("I-B2"), 0, "", 0f, -20f);
-            Add(nodes, "I-KB", "마르지 않는 벼루", "먹이 바닥날 때 회복이 빨라져 다시 획을 준비합니다.",
-                "먹 25% 미만 회복 +30% · 40%까지", "ink.recovery.low",
-                PermanentGrowthType.LowInkRecovery, 0.30f, "저먹 회복",
-                PermanentGrowthValueKind.Percent, false,
+            Add(nodes, "I-KB", "한 붓의 길", "모든 획의 먹자리 점유를 크게 줄입니다.",
+                "먹자리 점유 -5%", "ink.budget.keystone",
+                PermanentGrowthType.InkBudgetEfficiency, 0.05f, "먹자리 점유",
+                PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
                 P("I-B3"), 4, "ink", 0f, 360f);
 
-            Add(nodes, "I-C1", "남은 획", "발판에 남는 먹의 여운을 늘립니다.",
-                "발판 수명 +2%", "ink.platform.remaining",
-                PermanentGrowthType.PlatformLifetime, 0.02f, "발판 수명",
-                PermanentGrowthValueKind.Percent, false,
+            Add(nodes, "I-C1", "천천히 번진 먹", "밀려난 오래된 획이 더 천천히 사라집니다.",
+                "소멸 시간 +0.10초", "ink.eviction.fade.first",
+                PermanentGrowthType.InkEvictionFade, 0.10f, "소멸 시간",
+                PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I00"), 0, "", 350f, -780f, 1);
-            Add(nodes, "I-C2", "이어진 획", "발판의 여운을 한 번 더 이어 줍니다.",
-                "발판 수명 +2%", "ink.platform.long", PermanentGrowthType.PlatformLifetime,
-                0.02f, "발판 수명", PermanentGrowthValueKind.Percent, false,
+            Add(nodes, "I-C2", "오래 남은 먹", "먹의 여운을 늘려 발판 변화를 읽기 쉽게 합니다.",
+                "소멸 시간 +0.10초", "ink.eviction.fade.second",
+                PermanentGrowthType.InkEvictionFade, 0.10f, "소멸 시간",
+                PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-C1"), 0, "", 430f, -450f, 2);
-            Add(nodes, "I-C3", "붙잡은 획", "첫 착지 순간 발판이 잠시 마르지 않습니다.",
-                "첫 착지 때 수명 감소 0.15초 정지", "ink.platform.pause",
-                PermanentGrowthType.FirstLandingPause, 0.15f, "수명 정지",
+            Add(nodes, "I-C3", "머금은 먹", "먹자리를 넘겨도 오래된 획이 잠깐 버팁니다.",
+                "소멸 시작 +0.10초 지연", "ink.eviction.delay",
+                PermanentGrowthType.InkEvictionDelay, 0.10f, "소멸 지연",
                 PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Mechanic,
                 P("I-C2"), 0, "", 350f, -110f);
-            Add(nodes, "I-KC", "굳은 먹결", "먹떼가 낙묵석 한 번을 받아내 발판을 지킵니다.",
-                "낙묵석 방어 1회 · 공용 18초", "ink.platform.guard",
-                PermanentGrowthType.StrokeGuard, 18f, "재사용",
+            Add(nodes, "I-KC", "붙잡은 먹길", "밀려난 획이 충분히 보인 뒤 사라지게 합니다.",
+                "소멸 시간 +0.45초", "ink.eviction.keystone",
+                PermanentGrowthType.InkEvictionFade, 0.45f, "소멸 시간",
                 PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
                 P("I-C3"), 4, "ink", 500f, 280f);
@@ -498,10 +503,10 @@ namespace MukJump.Core
                 PermanentGrowthValueKind.Flat, true,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Mechanic,
                 P("S-B1"), 0, "", -1040f, -330f);
-            Add(nodes, "S-B3", "되찾은 먹", "비치명 피해가 먹의 일부를 되돌립니다.",
-                "최대 먹 4% 회복 · 공용 8초", "survival.stability.ink",
-                PermanentGrowthType.HitInkRecovery, 0.04f, "먹 회복",
-                PermanentGrowthValueKind.Percent, false,
+            Add(nodes, "S-B3", "고요한 중심", "피격 뒤 몸을 추스를 시간을 조금 더 확보합니다.",
+                "피격 뒤 무적 +0.08초", "survival.stability.grace",
+                PermanentGrowthType.DamageGrace, 0.08f, "피격 여유",
+                PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Mechanic,
                 P("S-B2"), 0, "", -950f, 0f);
             Add(nodes, "S-KB", "흐트러지지 않음", "주기적으로 체력만 잃고 속도와 발판 접착은 지킵니다.",

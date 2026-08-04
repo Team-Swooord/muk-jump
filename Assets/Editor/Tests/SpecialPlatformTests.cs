@@ -46,26 +46,29 @@ public sealed class SpecialPlatformTests
     }
 
     [Test]
-    public void DrawnPlatformCollisionBudgetNeverExceedsFour()
+    public void DrawnPlatformBudgetUsesRetainedLengthInsteadOfFourObjects()
     {
         var platforms = new List<PlatformCollider>();
         for (int i = 0; i < 8; i++)
-            platforms.Add(Track(PlatformCollider.Spawn(CreatePoints())));
+            platforms.Add(Track(PlatformCollider.Spawn(CreatePoints(), 1f)));
 
-        int enabledColliderCount = 0;
         for (int i = 0; i < platforms.Count; i++)
         {
             var edge = platforms[i].GetComponent<EdgeCollider2D>();
             Assert.IsNotNull(edge);
-            if (edge.enabled) enabledColliderCount++;
-
-            Assert.That(edge.enabled, Is.EqualTo(i >= 4),
-                $"최근 네 발판만 충돌 가능해야 합니다. index={i}");
+            Assert.IsTrue(edge.enabled,
+                "총 먹자리 안에서는 발판 개수와 무관하게 충돌이 유지되어야 합니다.");
         }
 
-        Assert.That(enabledColliderCount, Is.EqualTo(4));
-        Assert.IsTrue(platforms[0].Line.enabled,
-            "예산에서 밀린 발판은 먹이 마르는 비주얼을 위해 즉시 삭제하지 않습니다.");
+        PlatformCollider.ReconcileActiveInkBudget(4f);
+        Assert.That(PlatformCollider.ActiveInkCost,
+            Is.EqualTo(4f).Within(0.0001f));
+        for (int i = 0; i < platforms.Count; i++)
+        {
+            float target = GetField<float>(platforms[i], "evictionTargetFraction");
+            Assert.That(target, Is.EqualTo(i < 4 ? 1f : 0f).Within(0.0001f),
+                $"오래된 네 획부터 순서대로 소멸 예약되어야 합니다. index={i}");
+        }
     }
 
     [TestCase(0f, 0f)]
@@ -80,7 +83,7 @@ public sealed class SpecialPlatformTests
 
         spawner.DebugResetSchedule(40);
 
-        float next = (float)GetField(spawner, "nextWindHeight");
+        float next = GetField<float>(spawner, "nextWindHeight");
         Assert.That(next, Is.GreaterThan(40f),
             "풍맥 간격이 0 이하이면 Update의 while이 끝나지 않을 수 있습니다.");
     }
@@ -96,7 +99,7 @@ public sealed class SpecialPlatformTests
 
         spawner.DebugResetSchedule(75);
 
-        float next = (float)GetField(spawner, "nextWindHeight");
+        float next = GetField<float>(spawner, "nextWindHeight");
         Assert.That(float.IsNaN(next) || float.IsInfinity(next), Is.False);
         Assert.That(next, Is.GreaterThan(75f));
     }
@@ -111,7 +114,7 @@ public sealed class SpecialPlatformTests
         InvokeSpawnWindPlatform(spawner, new Vector2(-1f, 20f), "FIRST");
         InvokeSpawnWindPlatform(spawner, new Vector2(1f, 30f), "SECOND");
 
-        var spawned = (List<PlatformCollider>)GetField(spawner, "spawned");
+        var spawned = GetField<List<PlatformCollider>>(spawner, "spawned");
         Assert.That(spawned, Has.Count.EqualTo(2));
         var first = spawned[0];
         var second = spawned[1];
@@ -126,7 +129,7 @@ public sealed class SpecialPlatformTests
             "디버그 리셋은 이전에 생성한 풍맥 오브젝트까지 제거해야 합니다.");
         Assert.IsTrue(second == null,
             "고고도 풍맥도 카메라 아래 정리 조건과 무관하게 제거해야 합니다.");
-        Assert.That((float)GetField(spawner, "nextWindHeight"), Is.GreaterThan(250f));
+        Assert.That(GetField<float>(spawner, "nextWindHeight"), Is.GreaterThan(250f));
     }
 
     PlatformCollider Track(PlatformCollider platform)
@@ -200,10 +203,11 @@ public sealed class SpecialPlatformTests
             ?.Invoke(spawner, new object[] { center, 3.4f, suffix });
     }
 
-    static object GetField(object target, string fieldName)
+    static T GetField<T>(object target, string fieldName)
     {
-        return target.GetType().GetField(
-            fieldName, BindingFlags.Instance | BindingFlags.NonPublic)
+        object value = target.GetType().GetField(
+                fieldName, BindingFlags.Instance | BindingFlags.NonPublic)
             ?.GetValue(target);
+        return value is T typed ? typed : default;
     }
 }

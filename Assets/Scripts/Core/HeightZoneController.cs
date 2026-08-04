@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 using MukJump.Drawing;
 using MukJump.Obstacles;
 using MukJump.AI;
@@ -19,7 +20,8 @@ namespace MukJump.Core
         }
 
         [SerializeField, Min(20f)] float zoneHeight = 250f;
-        [SerializeField, Range(0.4f, 1f)] float rainPlatformLifetimeMultiplier = 0.72f;
+        [FormerlySerializedAs("rainPlatformLifetimeMultiplier")]
+        [SerializeField, Range(0.4f, 1f)] float rainInkCapacityMultiplier = 0.72f;
         [SerializeField, Range(0.35f, 1f)] float gorgeRockIntervalMultiplier = 0.62f;
 
         const int DefaultBaseMapCount = 4;
@@ -81,8 +83,8 @@ namespace MukJump.Core
                 CreateWeatherLines();
             if (currentZone == Zone.RockGorge && gorgeLines == null)
                 CreateGorgeLines();
-            PlatformCollider.RuntimeLifetimeMultiplier =
-                currentZone == Zone.InkRain ? rainPlatformLifetimeMultiplier : 1f;
+            PlatformCollider.RuntimeInkCapacityMultiplier =
+                currentZone == Zone.InkRain ? rainInkCapacityMultiplier : 1f;
             if (rockSpawner == null) rockSpawner = FindFirstObjectByType<FallingInkRockSpawner>();
             if (rockSpawner != null)
                 rockSpawner.RuntimeIntervalMultiplier =
@@ -94,7 +96,7 @@ namespace MukJump.Core
                 : currentZone switch
                 {
                     Zone.WindPass => ("바람 고개", "산등성이의 바람이 조금 거세집니다"),
-                    Zone.InkRain => ("먹비 골짜기", "그린 발판이 더 빨리 마릅니다"),
+                    Zone.InkRain => ("먹비 골짜기", "먹비가 번져 남길 수 있는 먹자리가 줄어듭니다"),
                     Zone.RockGorge => ("낙묵 협곡", "낙묵석이 더 자주 떨어집니다"),
                     _ => ("고요한 산길", "잠시 숨을 고르세요"),
                 };
@@ -245,7 +247,7 @@ namespace MukJump.Core
         void OnDisable()
         {
             currentBand = -1;
-            PlatformCollider.RuntimeLifetimeMultiplier = 1f;
+            PlatformCollider.RuntimeInkCapacityMultiplier = 1f;
             if (rockSpawner != null) rockSpawner.RuntimeIntervalMultiplier = 1f;
             if (weatherLines != null)
                 for (int i = 0; i < weatherLines.Length; i++)

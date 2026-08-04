@@ -1935,9 +1935,12 @@ namespace MukJump.Core
         {
             string permanentPath = type switch
             {
-                PermanentGrowthType.InkCapacity => "pg_icon_capacity",
+                PermanentGrowthType.InkCapacity or
+                PermanentGrowthType.InkBudgetEfficiency => "pg_icon_capacity",
                 PermanentGrowthType.InkRecovery => "pg_icon_recovery",
                 PermanentGrowthType.PlatformLifetime or
+                PermanentGrowthType.InkEvictionFade or
+                PermanentGrowthType.InkEvictionDelay or
                 PermanentGrowthType.FirstLandingPause or
                 PermanentGrowthType.NaturalExpiryRefund or
                 PermanentGrowthType.StrokeGuard => "pg_icon_platform",
@@ -1973,7 +1976,8 @@ namespace MukJump.Core
 
             string fallbackPath = type switch
             {
-                PermanentGrowthType.InkCapacity =>
+                PermanentGrowthType.InkCapacity or
+                PermanentGrowthType.InkBudgetEfficiency =>
                     "MukJump/UI/Growth/growth_ink_capacity",
                 PermanentGrowthType.InkRecovery =>
                     "MukJump/UI/Growth/growth_ink_regen",
@@ -2006,6 +2010,8 @@ namespace MukJump.Core
                 PermanentGrowthType.StrokeGuard =>
                     "MukJump/UI/Growth/growth_guard",
                 PermanentGrowthType.DrawnPlatformLeap or
+                PermanentGrowthType.InkEvictionFade or
+                PermanentGrowthType.InkEvictionDelay or
                 PermanentGrowthType.FirstLandingPause or
                 PermanentGrowthType.NaturalExpiryRefund =>
                     "MukJump/UI/Growth/growth_platform",
