@@ -84,6 +84,11 @@ public class PauseMenuViewTests
         var overlayGroup = overlay.GetComponent<CanvasGroup>();
         Assert.IsNotNull(overlayGroup);
         Assert.IsFalse(overlayGroup.blocksRaycasts);
+        var pauseDim = overlay.Find("InkDim")?.GetComponent<Image>();
+        Assert.IsNotNull(pauseDim);
+        Assert.IsTrue(pauseDim.raycastTarget);
+        Assert.That(pauseDim.color.a,
+            Is.EqualTo(InkUiStyle.PopupDimAlpha).Within(0.001f));
 
         var panel = overlay.Find("SafeAreaRoot/PauseScroll") as RectTransform;
         Assert.IsNotNull(panel);
@@ -163,6 +168,12 @@ public class PauseMenuViewTests
         Assert.IsNotNull(canvas);
         Assert.AreEqual(5000, canvas.sortingOrder);
         Assert.IsTrue(canvas.pixelPerfect);
+
+        var gameOverDim = canvasRoot.Find("InkWash")?.GetComponent<Image>();
+        Assert.IsNotNull(gameOverDim);
+        Assert.IsTrue(gameOverDim.raycastTarget);
+        Assert.That(gameOverDim.color.a,
+            Is.EqualTo(InkUiStyle.PopupDimAlpha).Within(0.001f));
 
         var rootGroup = canvasRoot.GetComponent<CanvasGroup>();
         Assert.IsNotNull(rootGroup);
@@ -654,6 +665,38 @@ public class PauseMenuViewTests
         Assert.IsFalse(manager.IsPaused);
         Assert.IsTrue(manager.IsGameplayTicking);
         Assert.That(Time.timeScale, Is.EqualTo(originalTimeScale).Within(0.000001f));
+        Assert.That(Time.fixedDeltaTime,
+            Is.EqualTo(originalFixedDeltaTime).Within(0.000001f));
+        Assert.AreEqual(originalAudioPause, AudioListener.pause);
+    }
+
+    [Test]
+    public void FirstRunTutorialPauseOwnsWorldUntilTutorialReleasesIt()
+    {
+        host = new GameObject("GameManagerHost");
+        var manager = host.AddComponent<GameManager>();
+        SetProperty(manager, "State", GameState.Playing);
+        Invoke(manager, "OnEnable");
+
+        Assert.IsTrue(manager.PauseForFirstRunTutorial());
+        Assert.IsTrue(manager.IsPaused);
+        Assert.AreEqual(
+            GameplayPauseReason.FirstRunTutorial,
+            manager.PauseReason);
+        Assert.IsFalse(manager.IsGameplayTicking);
+        Assert.AreEqual(0f, Time.timeScale);
+        Assert.IsTrue(AudioListener.pause);
+        Assert.IsFalse(manager.PauseGame(),
+            "사용자 일시정지가 튜토리얼의 정지 소유권을 빼앗으면 안 됩니다.");
+        Assert.IsFalse(manager.ResumeGame(),
+            "사용자 메뉴 닫기가 튜토리얼을 몰래 재개하면 안 됩니다.");
+
+        Assert.IsTrue(manager.ResumeFirstRunTutorial());
+        Assert.IsFalse(manager.IsPaused);
+        Assert.AreEqual(GameplayPauseReason.None, manager.PauseReason);
+        Assert.IsTrue(manager.IsGameplayTicking);
+        Assert.That(Time.timeScale,
+            Is.EqualTo(originalTimeScale).Within(0.000001f));
         Assert.That(Time.fixedDeltaTime,
             Is.EqualTo(originalFixedDeltaTime).Within(0.000001f));
         Assert.AreEqual(originalAudioPause, AudioListener.pause);

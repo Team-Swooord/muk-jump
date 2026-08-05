@@ -232,7 +232,9 @@ namespace MukJump.EditorTests
                     definition.Id);
             }
 
-            Transform popup = panel.Find("SelectedGrowthAction");
+            Transform popup = view.ScreenRoot.Find(
+                "GrowthNodePopupOverlay/SafeAreaRoot/PopupContent/" +
+                "SelectedGrowthAction");
             Assert.That(popup, Is.Not.Null);
             Assert.That(popup.Find("ActionName"), Is.Not.Null);
             Assert.That(popup.Find("ActionDescription"), Is.Not.Null);

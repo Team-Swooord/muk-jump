@@ -186,8 +186,8 @@ namespace MukJump.Core
             var dim = CreateStretchImage(
                 "InkDim",
                 root.transform,
-                new Color(0.025f, 0.023f, 0.02f, 0.66f));
-            dim.raycastTarget = true;
+                InkUiStyle.PopupDimColor);
+            InkUiStyle.ConfigurePopupDim(dim);
             safeAreaRoot = CreateStretchRect("SafeAreaRoot", root.transform);
             optionsPanel = CreateRect(
                 "OptionsScroll",
@@ -343,7 +343,7 @@ namespace MukJump.Core
             var iconPaper = CreateImage(
                 "TutorialIconPaper", panel,
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, 285f), new Vector2(500f, 500f),
+                new Vector2(0f, 315f), new Vector2(430f, 430f),
                 new Color(
                     InkPalette.Paper2.r,
                     InkPalette.Paper2.g,
@@ -351,33 +351,33 @@ namespace MukJump.Core
                     0.94f));
             tutorialImage = CreateImage(
                 "TutorialIcon", iconPaper.transform, null,
-                Vector2.zero, new Vector2(360f, 360f), Color.white);
+                Vector2.zero, new Vector2(300f, 300f), Color.white);
             tutorialImage.preserveAspect = true;
 
             tutorialTitle = CreateReadableText(
                 "TutorialTitle", panel, string.Empty,
                 InkUiStyle.CardTitleSize,
-                new Vector2(0f, -55f), new Vector2(660f, 90f),
+                new Vector2(0f, 30f), new Vector2(680f, 90f),
                 InkPalette.TextDark,
                 TextAnchor.MiddleCenter,
                 strong: true);
             tutorialDescription = CreateReadableText(
                 "TutorialDescription", panel, string.Empty,
                 InkUiStyle.BodySize,
-                new Vector2(0f, -215f), new Vector2(660f, 210f),
+                new Vector2(0f, -200f), new Vector2(680f, 300f),
                 InkPalette.TextDark,
                 TextAnchor.MiddleLeft);
             tutorialDescription.lineSpacing = 1.2f;
 
             tutorialPreviousButton = CreatePaperButton(
                 "PreviousButton", panel, "이전",
-                new Vector2(-190f, -500f),
+                new Vector2(-190f, -520f),
                 new Vector2(240f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.BodySize);
             tutorialPreviousButton.onClick.AddListener(PreviousTutorialPage);
             var next = CreateBrushButton(
                 "NextButton", panel, "다음",
-                new Vector2(190f, -500f),
+                new Vector2(190f, -520f),
                 new Vector2(320f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.BodySize);
             tutorialNextLabel = next.transform

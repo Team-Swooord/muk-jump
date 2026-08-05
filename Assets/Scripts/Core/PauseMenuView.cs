@@ -288,8 +288,8 @@ namespace MukJump.Core
             overlayGroup.blocksRaycasts = false;
 
             var backdrop = CreateStretchImage(
-                "InkDim", overlayRoot, new Color(0.035f, 0.032f, 0.028f, 0.56f));
-            backdrop.raycastTarget = true;
+                "InkDim", overlayRoot, InkUiStyle.PopupDimColor);
+            InkUiStyle.ConfigurePopupDim(backdrop);
 
             safeAreaRoot = CreateStretchRect("SafeAreaRoot", overlayRoot);
             panel = CreateRect(

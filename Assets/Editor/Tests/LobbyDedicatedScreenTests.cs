@@ -185,6 +185,18 @@ namespace MukJump.EditorTests
 
             Assert.That(growth.IsRecoveryPromptOpen, Is.True);
             Assert.That(growth.RestoreBackupButton.gameObject.activeSelf, Is.True);
+            RectTransform recoveryOverlay = growth.ScreenRoot.Find(
+                    "GrowthRecoveryPrompt")
+                ?.GetComponent<RectTransform>();
+            Image recoveryDim = recoveryOverlay?.GetComponent<Image>();
+            Assert.That(recoveryOverlay, Is.Not.Null);
+            Assert.That(recoveryDim, Is.Not.Null);
+            Assert.That(recoveryOverlay.parent, Is.SameAs(growth.ScreenRoot));
+            Assert.That(recoveryOverlay.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(recoveryOverlay.anchorMax, Is.EqualTo(Vector2.one));
+            Assert.That(recoveryDim.raycastTarget, Is.True);
+            Assert.That(recoveryDim.color.a,
+                Is.EqualTo(InkUiStyle.PopupDimAlpha).Within(0.001f));
             growth.RestoreBackupButton.onClick.Invoke();
             Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.False);
             Assert.That(growth.IsRecoveryPromptOpen, Is.False);

@@ -347,10 +347,13 @@ kinematic body와 fixed step 이동을 사용한다.
 - `GameplayTutorialCatalog`는 먹 그리기·발판·장애물·날씨·맵 5장 문구와 아이콘을
   첫 플레이와 옵션 다시 보기에 공통 제공한다. `FirstRunTutorialController`는 성장
   저장 복구와 화면 전환 검사를 통과한 첫 `시작`에서만 예약되고, `Playing` 진입 뒤
-  Safe Area 카드로 열린다. 실제 `StrokeCapture.ValidStrokeCreated`와 상단 접촉
-  `GameManager.PlayerLanded`를 관찰해 첫 두 행동을 검증하며 나머지 정보는 초반 30m
-  안전 구간에서 짧게 순차 노출한다. 완료·2회 확인 건너뛰기만 버전 저장하며 중도
-  사망은 다음 판에 다시 시작한다. 카드 전체와 건너뛰기 영역은 월드 드로잉을 차단한다.
+  `GameplayPauseReason.FirstRunTutorial` 소유권으로 `timeScale=0`·오디오 정지를 건다.
+  Safe Area 중앙의 5장 한지 팝업을 이전·다음으로 읽고 마지막 `시작하기` 또는 확인된
+  건너뛰기 뒤에만 재개한다. 전체 화면 dim과 CanvasGroup이 아래 HUD·월드 먹선을 모두
+  차단하고, 사용자 일시정지 메뉴는 튜토리얼의 정지 소유권을 해제할 수 없다.
+- 모달 장막은 `InkUiStyle.ConfigurePopupDim()`으로 68% 먹색과 Raycast를 함께 설정한다.
+  옵션·일시정지·게임오버·성장 노드 상세·저장 복구·첫 튜토리얼이 같은 계약을 쓰며,
+  관찰용 DEBUG 서랍과 비상호작용 화면 전환 VFX는 모달이 아니므로 예외다.
 - `LobbyOptionsView`는 로비 전용 5장 다시 보기, 세로로 쌓인 오디오 조절행, 로컬
   UID와 언어·고객센터·계정 연동 목업만 소유한다. 설정 카드·토글은 밝은 한지 면을
   사용하고 `닫기`·`다음` 같은 주 행동만 검은 붓획을 사용한다. 외부 로그인 토큰은

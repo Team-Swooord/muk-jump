@@ -76,6 +76,9 @@ namespace MukJump.Core
         RectTransform safeAreaRoot;
         RectTransform contentPanel;
         ScrollRect treeScrollRect;
+        RectTransform selectedActionOverlayRoot;
+        RectTransform selectedActionSafeAreaRoot;
+        RectTransform selectedActionContentPanel;
         RectTransform selectedActionRoot;
         Image selectedActionDimmer;
         Text balanceText;
@@ -91,6 +94,8 @@ namespace MukJump.Core
         Text selectedActionCostText;
         Text purchaseButtonText;
         RectTransform recoveryPromptRoot;
+        RectTransform recoverySafeAreaRoot;
+        RectTransform recoveryContentPanel;
         Text recoveryMessageText;
         Text recoveryResetButtonText;
         bool recoveryResetArmed;
@@ -319,8 +324,8 @@ namespace MukJump.Core
 
             BuildTreeViewport(treeLayerRoot);
             BuildHeader(contentPanel);
-            BuildSelectedNodePopup(contentPanel);
-            BuildRecoveryPrompt(contentPanel);
+            BuildSelectedNodePopup(ScreenRoot);
+            BuildRecoveryPrompt(ScreenRoot);
 
             ApplySafeArea();
             SelectInitialNode();
@@ -808,19 +813,31 @@ namespace MukJump.Core
 
         void BuildSelectedNodePopup(Transform parent)
         {
+            selectedActionOverlayRoot = CreateStretchRect(
+                "GrowthNodePopupOverlay",
+                parent);
             selectedActionDimmer = CreateStretchImage(
                 "GrowthNodePopupDimmer",
-                parent,
-                WithAlpha(InkPalette.Ink, 0.48f));
-            selectedActionDimmer.raycastTarget = true;
+                selectedActionOverlayRoot,
+                InkUiStyle.PopupDimColor);
+            InkUiStyle.ConfigurePopupDim(selectedActionDimmer);
             Button dimmerButton =
                 selectedActionDimmer.gameObject.AddComponent<Button>();
             dimmerButton.transition = Selectable.Transition.None;
             dimmerButton.onClick.AddListener(CloseNodePopup);
 
+            selectedActionSafeAreaRoot = CreateStretchRect(
+                "SafeAreaRoot",
+                selectedActionOverlayRoot);
+            selectedActionContentPanel = CreateRect(
+                "PopupContent",
+                selectedActionSafeAreaRoot,
+                Vector2.zero,
+                new Vector2(ReferenceWidth, ReferenceHeight));
+
             selectedActionRoot = CreateRect(
                 "SelectedGrowthAction",
-                parent,
+                selectedActionContentPanel,
                 new Vector2(0f, -8f),
                 new Vector2(820f, 820f));
             Image popupPaper =
@@ -980,7 +997,7 @@ namespace MukJump.Core
 
             ApplyRegularPopupTypography(selectedActionRoot);
 
-            selectedActionDimmer.gameObject.SetActive(false);
+            selectedActionOverlayRoot.gameObject.SetActive(false);
             selectedActionRoot.gameObject.SetActive(false);
         }
 
@@ -1007,12 +1024,20 @@ namespace MukJump.Core
                 parent);
             Image blocker =
                 recoveryPromptRoot.gameObject.AddComponent<Image>();
-            blocker.color = new Color(0.04f, 0.035f, 0.03f, 0.68f);
-            blocker.raycastTarget = true;
+            InkUiStyle.ConfigurePopupDim(blocker);
+
+            recoverySafeAreaRoot = CreateStretchRect(
+                "SafeAreaRoot",
+                recoveryPromptRoot);
+            recoveryContentPanel = CreateRect(
+                "PopupContent",
+                recoverySafeAreaRoot,
+                Vector2.zero,
+                new Vector2(ReferenceWidth, ReferenceHeight));
 
             RectTransform panel = CreateRect(
                 "RecoveryPanel",
-                recoveryPromptRoot,
+                recoveryContentPanel,
                 Vector2.zero,
                 new Vector2(820f, 660f));
             Image paper = panel.gameObject.AddComponent<Image>();
@@ -1619,17 +1644,15 @@ namespace MukJump.Core
             nodePopupOpen = visible && selectedActionRoot != null;
             if (!nodePopupOpen)
                 pendingKeystoneId = string.Empty;
-            if (selectedActionDimmer != null)
+            if (selectedActionOverlayRoot != null)
             {
-                selectedActionDimmer.gameObject.SetActive(nodePopupOpen);
+                selectedActionOverlayRoot.gameObject.SetActive(nodePopupOpen);
                 if (nodePopupOpen)
-                    selectedActionDimmer.transform.SetAsLastSibling();
+                    selectedActionOverlayRoot.SetAsLastSibling();
             }
             if (selectedActionRoot != null)
             {
                 selectedActionRoot.gameObject.SetActive(nodePopupOpen);
-                if (nodePopupOpen)
-                    selectedActionRoot.SetAsLastSibling();
             }
             UpdateTreeInteraction();
         }
@@ -2195,22 +2218,15 @@ namespace MukJump.Core
                 return;
 
             Rect safe = MobileUiLayout.CurrentSafeArea;
-            MobileUiLayout.ApplySafeArea(
-                safeAreaRoot,
-                safe,
-                Screen.width,
-                Screen.height);
-            if (contentPanel != null && safe.width > 0f && safe.height > 0f)
-            {
-                float contentScale = MobileUiLayout.CalculateFitScale(
-                    new Vector2(ReferenceWidth, ReferenceHeight),
-                    safe,
-                    Screen.width,
-                    Screen.height,
-                    Vector2.zero);
-                contentPanel.anchoredPosition = Vector2.zero;
-                contentPanel.localScale = Vector3.one * contentScale;
-            }
+            ApplySafeAreaContent(safeAreaRoot, contentPanel, safe);
+            ApplySafeAreaContent(
+                selectedActionSafeAreaRoot,
+                selectedActionContentPanel,
+                safe);
+            ApplySafeAreaContent(
+                recoverySafeAreaRoot,
+                recoveryContentPanel,
+                safe);
             if (TreeCanvas != null)
             {
                 TreeCanvas.localScale = Vector3.one * CalculateTreeZoom(
@@ -2221,6 +2237,30 @@ namespace MukJump.Core
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
             lastSafeArea = Screen.safeArea;
+        }
+
+        static void ApplySafeAreaContent(
+            RectTransform safeRoot,
+            RectTransform fittedContent,
+            Rect safe)
+        {
+            if (safeRoot == null || fittedContent == null)
+                return;
+            MobileUiLayout.ApplySafeArea(
+                safeRoot,
+                safe,
+                Screen.width,
+                Screen.height);
+            if (safe.width <= 0f || safe.height <= 0f)
+                return;
+            float contentScale = MobileUiLayout.CalculateFitScale(
+                new Vector2(ReferenceWidth, ReferenceHeight),
+                safe,
+                Screen.width,
+                Screen.height,
+                Vector2.zero);
+            fittedContent.anchoredPosition = Vector2.zero;
+            fittedContent.localScale = Vector3.one * contentScale;
         }
 
         static RectTransform CreateRect(

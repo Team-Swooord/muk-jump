@@ -20,6 +20,7 @@ namespace MukJump.Core
     {
         None,
         UserMenu,
+        FirstRunTutorial,
     }
 
     /// 게임 상태(로비/플레이/게임오버)와 시작·재도전 흐름을 관리한다.
@@ -416,6 +417,22 @@ namespace MukJump.Core
         public bool ResumeGame()
         {
             if (PauseReason != GameplayPauseReason.UserMenu || IsTransitioning)
+                return false;
+            PointerInput.SuppressUntilRelease();
+            RestorePausedWorld(true);
+            return true;
+        }
+
+        /// 첫 플레이 설명을 읽는 동안 자동 점프·스폰·날씨·기록 시간을 함께 멈춘다.
+        /// 사용자 일시정지와 소유권을 분리해 어느 한쪽이 다른 팝업을 닫지 않게 한다.
+        public bool PauseForFirstRunTutorial()
+        {
+            return BeginPause(GameplayPauseReason.FirstRunTutorial);
+        }
+
+        public bool ResumeFirstRunTutorial()
+        {
+            if (PauseReason != GameplayPauseReason.FirstRunTutorial)
                 return false;
             PointerInput.SuppressUntilRelease();
             RestorePausedWorld(true);

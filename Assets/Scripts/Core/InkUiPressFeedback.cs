@@ -105,6 +105,20 @@ namespace MukJump.Core
         public const int StandardButtonLabelSize = 36;
         public const int ActionButtonLabelSize = 40;
         public const float MinimumTapHeight = 120f;
+        public const float PopupDimAlpha = 0.68f;
+
+        /// 팝업 뒤의 플레이·로비 UI를 한 단계 뒤로 보내는 공통 먹색 장막.
+        /// 화면마다 제각각인 옅은 회색을 쓰지 않아 팝업의 깊이와 입력 경계를 통일한다.
+        public static Color PopupDimColor =>
+            new Color(0.035f, 0.032f, 0.028f, PopupDimAlpha);
+
+        /// 모달 팝업이 항상 같은 깊이와 입력 경계를 갖도록 배경 장막을 한 번에 설정한다.
+        public static void ConfigurePopupDim(Image dim)
+        {
+            if (dim == null) return;
+            dim.color = PopupDimColor;
+            dim.raycastTarget = true;
+        }
 
         static Sprite actionButtonSprite;
 

@@ -177,7 +177,9 @@ namespace MukJump.EditorTests
             Assert.That(
                 growthPanel.Find("PermanentHint"),
                 Is.Null);
-            var selectedAction = growthPanel.Find("SelectedGrowthAction")
+            var selectedAction = growthView.ScreenRoot.Find(
+                    "GrowthNodePopupOverlay/SafeAreaRoot/PopupContent/" +
+                    "SelectedGrowthAction")
                 ?.GetComponent<RectTransform>();
             Assert.That(selectedAction, Is.Not.Null);
             Assert.That(selectedAction.IsChildOf(treeCanvas), Is.False,
@@ -200,9 +202,32 @@ namespace MukJump.EditorTests
             Assert.That(growthView.IsNodePopupOpen, Is.True);
             Assert.That(selectedAction.gameObject.activeSelf, Is.True);
             Assert.That(
-                growthPanel.Find("GrowthNodePopupDimmer")
+                growthView.ScreenRoot.Find(
+                    "GrowthNodePopupOverlay/GrowthNodePopupDimmer")
                     ?.gameObject.activeSelf,
                 Is.True);
+            RectTransform growthOverlay = growthView.ScreenRoot
+                .Find("GrowthNodePopupOverlay")
+                ?.GetComponent<RectTransform>();
+            Image growthDim = growthView.ScreenRoot
+                .Find("GrowthNodePopupOverlay/GrowthNodePopupDimmer")
+                ?.GetComponent<Image>();
+            Assert.That(growthOverlay, Is.Not.Null);
+            Assert.That(growthDim, Is.Not.Null);
+            Assert.That(growthDim.raycastTarget, Is.True);
+            Assert.That(growthDim.color.a,
+                Is.EqualTo(InkUiStyle.PopupDimAlpha).Within(0.001f));
+            Assert.That(growthDim.rectTransform.anchorMin,
+                Is.EqualTo(Vector2.zero));
+            Assert.That(growthDim.rectTransform.anchorMax,
+                Is.EqualTo(Vector2.one));
+            Assert.That(growthOverlay.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(growthOverlay.anchorMax, Is.EqualTo(Vector2.one));
+            Assert.That(growthOverlay.parent, Is.SameAs(growthView.ScreenRoot));
+            Assert.That(
+                growthDim.transform.parent,
+                Is.SameAs(growthOverlay),
+                "성장 팝업 dim은 축소되는 1080×1920 카드가 아니라 실제 화면을 덮어야 합니다.");
             Text actionName = selectedAction.Find("ActionName")
                 ?.GetComponent<Text>();
             Assert.That(actionName, Is.Not.Null);
@@ -252,7 +277,8 @@ namespace MukJump.EditorTests
             RectTransform treeCanvas = view.TreeCanvas;
             ScrollRect scrollRect = view.TreeScrollRect;
             RectTransform selectedAction = view.ScreenRoot.Find(
-                    "SafeAreaRoot/PermanentGrowthScreen/SelectedGrowthAction")
+                    "GrowthNodePopupOverlay/SafeAreaRoot/PopupContent/" +
+                    "SelectedGrowthAction")
                 ?.GetComponent<RectTransform>();
             RectTransform selectedNode = treeCanvas.Find(
                     "GrowthNode_I00")
@@ -331,7 +357,8 @@ namespace MukJump.EditorTests
 
             RectTransform treeCanvas = view.TreeCanvas;
             RectTransform action = view.ScreenRoot.Find(
-                    "SafeAreaRoot/PermanentGrowthScreen/SelectedGrowthAction")
+                    "GrowthNodePopupOverlay/SafeAreaRoot/PopupContent/" +
+                    "SelectedGrowthAction")
                 ?.GetComponent<RectTransform>();
             Assert.That(action, Is.Not.Null);
             Text actionName = action.Find("ActionName")?.GetComponent<Text>();
@@ -534,6 +561,14 @@ namespace MukJump.EditorTests
             optionsView.BuildForTests();
             optionsView.Open();
 
+            Image optionsDim = viewHost.transform
+                .Find("LobbyOptionsCanvas/InkDim")
+                ?.GetComponent<Image>();
+            Assert.That(optionsDim, Is.Not.Null);
+            Assert.That(optionsDim.raycastTarget, Is.True);
+            Assert.That(optionsDim.color.a,
+                Is.EqualTo(InkUiStyle.PopupDimAlpha).Within(0.001f));
+
             Transform page = viewHost.transform.Find(
                 "LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/OptionsPage");
             Assert.IsNotNull(page);
@@ -621,6 +656,11 @@ namespace MukJump.EditorTests
             AssertOptionButton(tutorialPage, "NextButton", usesActionBrush: true);
             AssertQuietOptionText(
                 tutorialPage.Find("TutorialDescription")?.GetComponent<Text>());
+            RectTransform tutorialDescription = tutorialPage
+                .Find("TutorialDescription") as RectTransform;
+            Assert.That(tutorialDescription, Is.Not.Null);
+            Assert.That(tutorialDescription.sizeDelta,
+                Is.EqualTo(new Vector2(680f, 300f)));
 
             optionsView.Close();
             CanvasGroup root = viewHost.transform

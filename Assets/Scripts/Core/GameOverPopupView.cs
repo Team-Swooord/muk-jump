@@ -144,8 +144,8 @@ namespace MukJump.Core
             var backdrop = CreateStretchImage(
                 "InkWash",
                 root.transform,
-                new Color(0.035f, 0.032f, 0.028f, 0.56f));
-            backdrop.raycastTarget = false;
+                InkUiStyle.PopupDimColor);
+            InkUiStyle.ConfigurePopupDim(backdrop);
 
             safeAreaRoot = CreateStretchRect("SafeAreaRoot", root.transform);
             panel = CreateRect(

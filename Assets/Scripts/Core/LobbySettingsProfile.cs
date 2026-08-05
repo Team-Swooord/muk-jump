@@ -36,7 +36,7 @@ namespace MukJump.Core
     /// 플랫폼 로그인 버튼은 표시만 하며 이 프로필에 인증 정보는 저장하지 않는다.
     public static class LobbySettingsProfile
     {
-        public const int CurrentGameplayTutorialVersion = 4;
+        public const int CurrentGameplayTutorialVersion = 5;
 
         const string BgmVolumeKey = "MukJump.Settings.BgmVolume";
         const string SfxVolumeKey = "MukJump.Settings.SfxVolume";

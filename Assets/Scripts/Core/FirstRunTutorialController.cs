@@ -1,22 +1,18 @@
-using MukJump.Drawing;
-using MukJump.Player;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 첫 시작 직후 실제 플레이 위에서 핵심 조작을 한 가지씩 익히게 한다.
-    /// 초반 30m 안전 구간 안에서 끝나며 게임 상태와 물리를 별도로 복제하지 않는다.
+    /// 첫 시작 직후 게임 시간을 멈추고 핵심 규칙을 5장 설명 팝업으로 익히게 한다.
+    /// 마지막 장을 닫은 뒤에만 자동 점프와 월드 진행을 다시 시작한다.
     [DisallowMultipleComponent]
     public sealed class FirstRunTutorialController : MonoBehaviour
     {
-        public const float PanelDesignWidth = 900f;
-        public const float PanelDesignHeight = 320f;
+        public const float PanelDesignWidth = 820f;
+        public const float PanelDesignHeight = 1180f;
         public const float PanelEdgePadding = 24f;
 
-        const int CanvasSortingOrder = 900;
-        const float LandingHintTimeout = 6f;
-        const float InformationPageDuration = 2.4f;
+        const int CanvasSortingOrder = 1200;
         const float SkipConfirmationSeconds = 2.5f;
 
         public static FirstRunTutorialController Instance { get; private set; }
@@ -24,21 +20,22 @@ namespace MukJump.Core
         CanvasGroup rootGroup;
         RectTransform safeAreaRoot;
         RectTransform panel;
-        RectTransform skipHitRect;
         Image topicIcon;
         Text titleText;
         Text descriptionText;
         Text progressText;
         Text skipLabel;
+        Text nextLabel;
+        Button previousButton;
+        Button nextButton;
         GameManager manager;
         GameManager subscribedManager;
-        StrokeCapture subscribedStrokeCapture;
         int currentStep = -1;
-        float stepElapsed;
         float skipArmedUntil;
         bool pendingFirstRun;
         bool active;
         bool skipArmed;
+        bool ownsTutorialPause;
         int lastScreenWidth;
         int lastScreenHeight;
         Rect lastSafeArea;
@@ -65,6 +62,7 @@ namespace MukJump.Core
 
         void OnDisable()
         {
+            ReleaseTutorialPause();
             UnbindRuntimeSignals();
             pendingFirstRun = false;
             active = false;
@@ -86,21 +84,15 @@ namespace MukJump.Core
                 return;
             }
 
-            if (skipArmed && Time.unscaledTime > skipArmedUntil)
-                ResetSkipConfirmation();
-            if (!manager.IsGameplayTicking)
-                return;
-
-            stepElapsed += Time.unscaledDeltaTime;
-            if (currentStep == 1 && stepElapsed >= LandingHintTimeout)
+            if (ownsTutorialPause &&
+                manager.PauseReason != GameplayPauseReason.FirstRunTutorial)
             {
-                AdvanceStep();
+                EndWithoutCompletion();
                 return;
             }
 
-            if (currentStep >= 2 &&
-                stepElapsed >= InformationPageDuration)
-                AdvanceStep();
+            if (skipArmed && Time.unscaledTime > skipArmedUntil)
+                ResetSkipConfirmation();
         }
 
         /// 실제 시작 진입점이 복구 검사를 통과한 뒤 호출한다.
@@ -113,18 +105,8 @@ namespace MukJump.Core
         public static bool IsPointerOverControls(Vector2 screenPosition)
         {
             FirstRunTutorialController tutorial = Instance;
-            return tutorial != null &&
-                   tutorial.active &&
-                   (tutorial.panel != null &&
-                    RectTransformUtility.RectangleContainsScreenPoint(
-                        tutorial.panel,
-                        screenPosition,
-                        null) ||
-                    tutorial.skipHitRect != null &&
-                    RectTransformUtility.RectangleContainsScreenPoint(
-                        tutorial.skipHitRect,
-                        screenPosition,
-                        null));
+            // 전체 화면 dim이 입력을 소유하므로 팝업 바깥도 월드 먹선으로 전달하지 않는다.
+            return tutorial != null && tutorial.active;
         }
 
         void BindRuntimeSignals()
@@ -135,45 +117,19 @@ namespace MukJump.Core
             if (subscribedManager != nextManager)
             {
                 if (subscribedManager != null)
-                {
                     subscribedManager.StateChanged -= HandleStateChanged;
-                    subscribedManager.PlayerLanded -= HandlePlayerLanded;
-                }
                 subscribedManager = nextManager;
                 manager = nextManager;
                 if (subscribedManager != null)
-                {
                     subscribedManager.StateChanged += HandleStateChanged;
-                    subscribedManager.PlayerLanded += HandlePlayerLanded;
-                }
             }
-
-            StrokeCapture nextCapture = GetComponent<StrokeCapture>();
-            if (nextCapture == null)
-                nextCapture = FindFirstObjectByType<StrokeCapture>();
-            if (subscribedStrokeCapture == nextCapture)
-                return;
-            if (subscribedStrokeCapture != null)
-                subscribedStrokeCapture.ValidStrokeCreated -=
-                    HandleValidStrokeCreated;
-            subscribedStrokeCapture = nextCapture;
-            if (subscribedStrokeCapture != null)
-                subscribedStrokeCapture.ValidStrokeCreated +=
-                    HandleValidStrokeCreated;
         }
 
         void UnbindRuntimeSignals()
         {
             if (subscribedManager != null)
-            {
                 subscribedManager.StateChanged -= HandleStateChanged;
-                subscribedManager.PlayerLanded -= HandlePlayerLanded;
-            }
-            if (subscribedStrokeCapture != null)
-                subscribedStrokeCapture.ValidStrokeCreated -=
-                    HandleValidStrokeCreated;
             subscribedManager = null;
-            subscribedStrokeCapture = null;
             manager = null;
         }
 
@@ -188,32 +144,19 @@ namespace MukJump.Core
                 EndWithoutCompletion();
         }
 
-        void HandleValidStrokeCreated(
-            PlatformCollider platform,
-            float validLength,
-            float inkBudgetCost)
-        {
-            if (!active || currentStep != 0 || platform == null)
-                return;
-            AdvanceStep();
-        }
-
-        void HandlePlayerLanded(
-            PlayerController player,
-            PlatformCollider platform)
-        {
-            if (!active || currentStep != 1 || player == null ||
-                platform == null || !platform.IsTemporaryDrawnPlatform)
-                return;
-            AdvanceStep();
-        }
-
         void BeginTutorial()
         {
             pendingFirstRun = false;
+            manager ??= GameManager.Instance;
+            ownsTutorialPause =
+                manager != null && manager.PauseForFirstRunTutorial();
+            if (manager != null && !ownsTutorialPause)
+            {
+                EndWithoutCompletion();
+                return;
+            }
             active = true;
             currentStep = 0;
-            stepElapsed = 0f;
             ResetSkipConfirmation();
             ShowCurrentPage();
             SetVisible(true);
@@ -230,9 +173,29 @@ namespace MukJump.Core
             }
 
             currentStep++;
-            stepElapsed = 0f;
             ResetSkipConfirmation();
             ShowCurrentPage();
+        }
+
+        void PreviousStep()
+        {
+            if (!active || currentStep <= 0)
+                return;
+            currentStep--;
+            ResetSkipConfirmation();
+            ShowCurrentPage();
+        }
+
+        void HandleNextPressed()
+        {
+            if (!active)
+                return;
+            if (currentStep >= GameplayTutorialCatalog.Count - 1)
+            {
+                CompleteTutorial(true);
+                return;
+            }
+            AdvanceStep();
         }
 
         void HandleSkipPressed()
@@ -260,6 +223,7 @@ namespace MukJump.Core
             currentStep = GameplayTutorialCatalog.Count;
             ResetSkipConfirmation();
             SetVisible(false);
+            ReleaseTutorialPause();
             LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
             if (suppressPointerUntilRelease)
                 PointerInput.SuppressUntilRelease();
@@ -272,6 +236,16 @@ namespace MukJump.Core
             currentStep = -1;
             ResetSkipConfirmation();
             SetVisible(false);
+            ReleaseTutorialPause();
+        }
+
+        void ReleaseTutorialPause()
+        {
+            if (!ownsTutorialPause)
+                return;
+            if (manager != null)
+                manager.ResumeFirstRunTutorial();
+            ownsTutorialPause = false;
         }
 
         void ResetSkipConfirmation()
@@ -293,6 +267,11 @@ namespace MukJump.Core
             descriptionText.text = page.Description;
             progressText.text =
                 $"{currentStep + 1} / {GameplayTutorialCatalog.Count}";
+            previousButton.interactable = currentStep > 0;
+            nextLabel.text =
+                currentStep == GameplayTutorialCatalog.Count - 1
+                    ? "시작하기"
+                    : "다음";
             topicIcon.sprite = Resources.Load<Sprite>(
                 page.SpriteResourcePath);
             topicIcon.color = topicIcon.sprite != null
@@ -330,94 +309,146 @@ namespace MukJump.Core
                 root.GetComponent<CanvasScaler>());
             rootGroup = root.GetComponent<CanvasGroup>();
 
+            Image dim = CreateStretchImage(
+                "TutorialDim",
+                root.transform,
+                InkUiStyle.PopupDimColor);
+            InkUiStyle.ConfigurePopupDim(dim);
+
             safeAreaRoot = CreateStretchRect(
                 "SafeAreaRoot",
                 root.transform);
             panel = CreateRect(
                 "TutorialPanel",
                 safeAreaRoot,
-                new Vector2(0f, -145f),
-                new Vector2(PanelDesignWidth, PanelDesignHeight),
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f));
+                Vector2.zero,
+                new Vector2(PanelDesignWidth, PanelDesignHeight));
 
-            var paper = panel.gameObject.AddComponent<Image>();
-            paper.sprite = Resources.Load<Sprite>(
+            Sprite cardSprite = Resources.Load<Sprite>(
                 "MukJump/UI/PermanentGrowth/pg_hanji_card");
-            if (paper.sprite == null)
-                paper.sprite = InkUiTextureFactory.CreateBlobSprite();
+            if (cardSprite == null)
+                cardSprite = InkUiTextureFactory.CreateBlobSprite();
+            CreateImage(
+                "Shadow",
+                panel,
+                new Vector2(0f, -12f),
+                new Vector2(830f, 1190f),
+                WithAlpha(InkPalette.Ink, 0.28f)).sprite = cardSprite;
+            CreateImage(
+                "Outline",
+                panel,
+                Vector2.zero,
+                new Vector2(PanelDesignWidth, PanelDesignHeight),
+                InkPalette.Ink).sprite = cardSprite;
+            Image paper = CreateImage(
+                "Paper",
+                panel,
+                Vector2.zero,
+                new Vector2(812f, 1172f),
+                new Color(
+                    InkPalette.Paper.r,
+                    InkPalette.Paper.g,
+                    InkPalette.Paper.b,
+                    0.99f));
+            paper.sprite = cardSprite;
             paper.type = Image.Type.Simple;
-            paper.color = new Color(
-                InkPalette.Paper.r,
-                InkPalette.Paper.g,
-                InkPalette.Paper.b,
-                0.97f);
-            // 빈 한지 영역도 EventSystem 입력을 받아 아래 HUD 버튼으로 탭이 새지 않게 한다.
-            // 월드 드로잉은 IsPointerOverControls에서 같은 Rect를 별도로 차단한다.
             paper.raycastTarget = true;
 
+            CreateText(
+                "Header",
+                panel,
+                "첫 여정 안내",
+                InkUiStyle.CaptionSize,
+                new Vector2(-235f, 515f),
+                new Vector2(280f, 58f),
+                TextAnchor.MiddleLeft,
+                false);
+            progressText = CreateText(
+                "Progress",
+                panel,
+                "1 / 5",
+                InkUiStyle.CaptionSize,
+                new Vector2(275f, 515f),
+                new Vector2(170f, 58f),
+                TextAnchor.MiddleRight,
+                false);
+            CreateDivider(panel, "HeaderDivider", 465f, 680f);
+
+            Image iconPaper = CreateImage(
+                "TopicIconPaper",
+                panel,
+                new Vector2(0f, 300f),
+                new Vector2(320f, 300f),
+                new Color(
+                    InkPalette.Paper2.r,
+                    InkPalette.Paper2.g,
+                    InkPalette.Paper2.b,
+                    0.94f));
+            iconPaper.sprite = InkUiTextureFactory.CreateBlobSprite();
             topicIcon = CreateImage(
                 "TopicIcon",
                 panel,
-                new Vector2(-338f, -148f),
-                new Vector2(132f, 132f),
-                Color.white,
-                new Vector2(0.5f, 1f));
+                new Vector2(0f, 300f),
+                new Vector2(230f, 230f),
+                Color.white);
             topicIcon.preserveAspect = true;
             titleText = CreateText(
                 "Title",
                 panel,
                 string.Empty,
                 InkUiStyle.CardTitleSize,
-                new Vector2(10f, -72f),
-                new Vector2(500f, 70f),
-                TextAnchor.MiddleLeft,
-                true,
-                new Vector2(0.5f, 1f));
+                new Vector2(0f, 100f),
+                new Vector2(680f, 80f),
+                TextAnchor.MiddleCenter,
+                true);
             descriptionText = CreateText(
                 "Description",
                 panel,
                 string.Empty,
-                32,
-                new Vector2(15f, -187f),
-                new Vector2(550f, 118f),
+                InkUiStyle.BodySize,
+                new Vector2(0f, -100f),
+                new Vector2(680f, 280f),
                 TextAnchor.MiddleLeft,
-                false,
-                new Vector2(0.5f, 1f));
-            descriptionText.lineSpacing = 1.08f;
-            progressText = CreateText(
-                "Progress",
+                false);
+            descriptionText.lineSpacing = 1.18f;
+            CreateText(
+                "PauseHint",
                 panel,
-                "1 / 5",
+                "안내를 마치면 먹방울과 월드가 움직이기 시작해요",
                 InkUiStyle.CaptionSize,
-                new Vector2(-330f, -276f),
-                new Vector2(170f, 52f),
-                TextAnchor.MiddleLeft,
-                false,
-                new Vector2(0.5f, 1f));
+                new Vector2(0f, -275f),
+                new Vector2(680f, 54f),
+                TextAnchor.MiddleCenter,
+                false);
 
-            RectTransform skipRect = CreateRect(
+            previousButton = CreatePaperButton(
+                "PreviousButton",
+                panel,
+                "이전",
+                new Vector2(-190f, -380f),
+                new Vector2(240f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.StandardButtonLabelSize);
+            previousButton.onClick.AddListener(PreviousStep);
+            nextButton = CreateBrushButton(
+                "NextButton",
+                panel,
+                "다음",
+                new Vector2(190f, -380f),
+                new Vector2(320f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.ActionButtonLabelSize);
+            nextLabel = nextButton.transform
+                .Find("Label")?.GetComponent<Text>();
+            nextButton.onClick.AddListener(HandleNextPressed);
+
+            Button skipButton = CreatePaperButton(
                 "SkipButton",
                 panel,
-                new Vector2(322f, -64f),
-                new Vector2(220f, InkUiStyle.MinimumTapHeight),
-                new Vector2(0.5f, 1f));
-            skipHitRect = skipRect;
-            var skipBackground = skipRect.gameObject.AddComponent<Image>();
-            var skipButton = skipRect.gameObject.AddComponent<Button>();
-            skipLabel = CreateText(
-                "Label",
-                skipRect,
                 "건너뛰기",
-                InkUiStyle.CaptionSize,
-                Vector2.zero,
-                new Vector2(210f, 86f),
-                TextAnchor.MiddleCenter,
-                true);
-            InkUiStyle.ConfigureActionButton(
-                skipButton,
-                skipBackground,
-                skipLabel);
+                new Vector2(0f, -520f),
+                new Vector2(300f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.StandardButtonLabelSize);
+            skipLabel = skipButton.transform
+                .Find("Paper/Label")?.GetComponent<Text>();
             skipButton.onClick.AddListener(HandleSkipPressed);
 
             ApplySafeAreaAndScale();
@@ -518,6 +549,102 @@ namespace MukJump.Core
             return image;
         }
 
+        static Image CreateStretchImage(
+            string objectName,
+            Transform parent,
+            Color color)
+        {
+            RectTransform rect = CreateStretchRect(objectName, parent);
+            var image = rect.gameObject.AddComponent<Image>();
+            image.color = color;
+            return image;
+        }
+
+        static Button CreatePaperButton(
+            string objectName,
+            Transform parent,
+            string label,
+            Vector2 position,
+            Vector2 size,
+            int fontSize)
+        {
+            Image outline = CreateImage(
+                objectName,
+                parent,
+                position,
+                size,
+                InkPalette.Ink);
+            Image paper = CreateImage(
+                "Paper",
+                outline.transform,
+                Vector2.zero,
+                size - new Vector2(4f, 4f),
+                InkPalette.Paper2);
+            var button = outline.gameObject.AddComponent<Button>();
+            CreateText(
+                "Label",
+                paper.transform,
+                label,
+                fontSize,
+                Vector2.zero,
+                size - new Vector2(28f, 16f),
+                TextAnchor.MiddleCenter,
+                true);
+            InkUiStyle.ConfigureButton(button, paper);
+            return button;
+        }
+
+        static Button CreateBrushButton(
+            string objectName,
+            Transform parent,
+            string label,
+            Vector2 position,
+            Vector2 size,
+            int fontSize)
+        {
+            Image background = CreateImage(
+                objectName,
+                parent,
+                position,
+                size,
+                InkPalette.Ink);
+            var button = background.gameObject.AddComponent<Button>();
+            Text labelText = CreateText(
+                "Label",
+                background.transform,
+                label,
+                fontSize,
+                Vector2.zero,
+                size - new Vector2(36f, 14f),
+                TextAnchor.MiddleCenter,
+                true);
+            InkUiStyle.ConfigureActionButton(
+                button,
+                background,
+                labelText);
+            return button;
+        }
+
+        static void CreateDivider(
+            Transform parent,
+            string objectName,
+            float y,
+            float width)
+        {
+            CreateImage(
+                objectName,
+                parent,
+                new Vector2(0f, y),
+                new Vector2(width, 2f),
+                WithAlpha(InkPalette.Ink, 0.2f));
+        }
+
+        static Color WithAlpha(Color color, float alpha)
+        {
+            color.a = Mathf.Clamp01(alpha);
+            return color;
+        }
+
         static Text CreateText(
             string objectName,
             Transform parent,
@@ -552,12 +679,12 @@ namespace MukJump.Core
             int screenWidth,
             int screenHeight)
         {
-            return MobileUiLayout.CalculateWidthFitScale(
-                PanelDesignWidth,
+            return MobileUiLayout.CalculateFitScale(
+                new Vector2(PanelDesignWidth, PanelDesignHeight),
                 safeArea,
                 screenWidth,
                 screenHeight,
-                PanelEdgePadding);
+                Vector2.one * PanelEdgePadding);
         }
 
 #if UNITY_EDITOR

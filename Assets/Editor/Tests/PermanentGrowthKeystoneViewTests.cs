@@ -473,7 +473,8 @@ namespace MukJump.EditorTests
         static Transform FindPopup(PermanentGrowthView view)
         {
             Transform popup = view.ScreenRoot.Find(
-                "SafeAreaRoot/PermanentGrowthScreen/SelectedGrowthAction");
+                "GrowthNodePopupOverlay/SafeAreaRoot/PopupContent/" +
+                "SelectedGrowthAction");
             Assert.That(popup, Is.Not.Null);
             return popup;
         }
