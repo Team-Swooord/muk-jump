@@ -6,7 +6,7 @@ using MukJump.Core;
 namespace MukJump.Drawing
 {
     /// 스트로크 점열 하나 = 발판 하나. LineRenderer(붓선 비주얼) + EdgeCollider2D(물리).
-    /// 플레이어가 그린 먹선은 시간으로 사라지지 않고 총 먹자리 예산을 넘길 때
+    /// 플레이어가 그린 먹선은 일정 시간 뒤 마르고, 총 먹자리 예산을 넘겨도
     /// 가장 오래된 획의 시작점부터 시각·물리가 함께 지워진다.
     [RequireComponent(typeof(LineRenderer), typeof(EdgeCollider2D))]
     public class PlatformCollider : MonoBehaviour
@@ -22,6 +22,7 @@ namespace MukJump.Drawing
         // 0.6m 최소 획만 반복하는 비정상 입력에서도 Collider가 무한히 늘지 않게 하는
         // 모바일 안전 상한이다. 정상 플레이의 실제 제한은 개수가 아니라 총 먹 길이다.
         const int MaxRuntimeDrawnPlatforms = 96;
+        public const float DefaultNaturalHoldDuration = 3.4f;
         static readonly List<PlatformCollider> active = new();
         static readonly List<PlatformCollider> runtimeDrawn = new();
         public static float RuntimeInkCapacityMultiplier { get; set; } = 1f;
@@ -38,8 +39,8 @@ namespace MukJump.Drawing
         public bool IsGrowthSafetyPlatform => growthSafetyPlatform;
         public bool IsOneWayPlatform =>
             windCurrentPlatform || growthSafetyPlatform;
-        /// 런타임에서 플레이어가 그린 먹선만 해태 돌진과 상호작용한다.
-        /// 이름은 구 호출 호환을 유지하지만, 현재 먹선은 시간제 수명이 아니라 총량 예산을 쓴다.
+        /// 런타임에서 플레이어가 그린 유한 수명 먹선만 해태 돌진과 상호작용한다.
+        /// 시작 지형과 풍맥처럼 영구 배치된 발판은 수문장을 자동으로 제거하지 않는다.
         public bool IsTemporaryDrawnPlatform =>
             (runtimeDrawnPlatform || lifetime > 0f) &&
             !windCurrentPlatform && !growthSafetyPlatform && !removalRequested;
@@ -95,6 +96,9 @@ namespace MukJump.Drawing
         float evictionFadeDuration = 1.1f;
         float evictionDelay;
         float evictionRequestedAt = float.PositiveInfinity;
+        float naturalHoldDuration = DefaultNaturalHoldDuration;
+        float naturalAge;
+        bool naturalExpiryRequested;
         RemovalCause removalCause;
         int lastColliderCutoff = -1;
 
@@ -103,7 +107,8 @@ namespace MukJump.Drawing
             List<Vector2> worldPoints,
             float inkBudgetCost = 0f,
             float evictionFadeSeconds = 1.1f,
-            float evictionDelaySeconds = 0f)
+            float evictionDelaySeconds = 0f,
+            float naturalHoldSeconds = DefaultNaturalHoldDuration)
         {
             var go = new GameObject("InkPlatform")
             {
@@ -119,6 +124,7 @@ namespace MukJump.Drawing
             platform.retainedInkCost = platform.initialInkCost;
             platform.evictionFadeDuration = Mathf.Max(0.15f, evictionFadeSeconds);
             platform.evictionDelay = Mathf.Max(0f, evictionDelaySeconds);
+            platform.naturalHoldDuration = Mathf.Max(0.1f, naturalHoldSeconds);
 
             active.Add(platform);
             runtimeDrawn.Add(platform);
@@ -258,6 +264,9 @@ namespace MukJump.Drawing
             evictionVisualFraction = 0f;
             evictionTargetFraction = 0f;
             evictionRequestedAt = float.PositiveInfinity;
+            naturalHoldDuration = 0f;
+            naturalAge = 0f;
+            naturalExpiryRequested = false;
             removalCause = RemovalCause.None;
             lastColliderCutoff = -1;
             Length = BezierSmoother.PolylineLength(points);
@@ -368,7 +377,7 @@ namespace MukJump.Drawing
             if (removalRequested) return;
             if (runtimeDrawnPlatform)
             {
-                UpdateBudgetEviction();
+                UpdateRuntimeDrawnPlatform(Time.deltaTime, Time.time);
                 return;
             }
             if (lifetime <= 0f) return; // 영구 발판
@@ -479,6 +488,8 @@ namespace MukJump.Drawing
                 return 0f;
 
             retainedInkCost -= released;
+            if (removalCause == RemovalCause.None)
+                removalCause = RemovalCause.BudgetEviction;
             evictionTargetFraction = Mathf.Clamp01(
                 1f - retainedInkCost / initialInkCost);
             if (float.IsPositiveInfinity(evictionRequestedAt))
@@ -491,24 +502,63 @@ namespace MukJump.Drawing
             return released;
         }
 
-        void UpdateBudgetEviction()
+        void UpdateRuntimeDrawnPlatform(float deltaTime, float now)
+        {
+            float safeDeltaTime = Mathf.Max(0f, deltaTime);
+            bool evictionWasAlreadyRequested =
+                !float.IsPositiveInfinity(evictionRequestedAt);
+            naturalAge += safeDeltaTime;
+            float evictionDeltaTime = safeDeltaTime;
+            if (!naturalExpiryRequested &&
+                naturalHoldDuration > 0f &&
+                naturalAge >= naturalHoldDuration)
+            {
+                float overtime = Mathf.Max(0f, naturalAge - naturalHoldDuration);
+                RequestNaturalExpiry(now - overtime);
+                // 한 프레임이 유지시간 경계를 크게 넘겨도 초과분만 페이드에 쓴다.
+                // 이미 FIFO가 진행 중이었다면 그 소멸은 프레임 전체만큼 계속 간다.
+                if (!evictionWasAlreadyRequested)
+                    evictionDeltaTime = overtime;
+            }
+
+            UpdateBudgetEviction(evictionDeltaTime, now);
+        }
+
+        void RequestNaturalExpiry(float requestTime)
+        {
+            if (naturalExpiryRequested || removalRequested)
+                return;
+
+            naturalExpiryRequested = true;
+            if (removalCause == RemovalCause.None)
+                removalCause = RemovalCause.NaturalExpiry;
+
+            retainedInkCost = 0f;
+            active.Remove(this);
+            evictionTargetFraction = 1f;
+            if (float.IsPositiveInfinity(evictionRequestedAt))
+                evictionRequestedAt = requestTime;
+        }
+
+        void UpdateBudgetEviction(float deltaTime, float now)
         {
             if (evictionTargetFraction <= evictionVisualFraction + 0.0001f ||
-                Time.time < evictionRequestedAt + evictionDelay)
+                now < evictionRequestedAt + evictionDelay)
                 return;
 
             float speed = 1f / Mathf.Max(0.15f, evictionFadeDuration);
             evictionVisualFraction = Mathf.MoveTowards(
                 evictionVisualFraction,
                 evictionTargetFraction,
-                speed * Time.deltaTime);
+                speed * Mathf.Max(0f, deltaTime));
             FadeVisual(evictionVisualFraction);
             TrimCollider(evictionVisualFraction);
 
             if (evictionVisualFraction < 0.9999f)
                 return;
             removalRequested = true;
-            removalCause = RemovalCause.BudgetEviction;
+            if (removalCause == RemovalCause.None)
+                removalCause = RemovalCause.BudgetEviction;
             if (edge != null)
                 edge.enabled = false;
             Destroy(gameObject);

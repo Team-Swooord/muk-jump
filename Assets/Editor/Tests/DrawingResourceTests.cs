@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using MukJump.AI;
 using MukJump.Core;
 using MukJump.Drawing;
@@ -77,6 +78,113 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void RuntimeStrokeNaturallyExpiresThroughTheSharedFadePipeline()
+        {
+            var points = CreateDetailedStrokePoints();
+            float activeBefore = PlatformCollider.ActiveInkCost;
+            PlatformCollider platform = PlatformCollider.Spawn(
+                points,
+                3.2f,
+                evictionFadeSeconds: 1.1f,
+                evictionDelaySeconds: 0f,
+                naturalHoldSeconds: PlatformCollider.DefaultNaturalHoldDuration);
+            created.Add(platform.gameObject);
+            var edge = platform.GetComponent<EdgeCollider2D>();
+            int originalPointCount = edge.pointCount;
+
+            Invoke(platform, "UpdateRuntimeDrawnPlatform", 3.39f, 3.39f);
+            Assert.That(platform.RetainedInkCost,
+                Is.EqualTo(3.2f).Within(0.0001f));
+            Assert.That(GetField<float>(platform, "evictionTargetFraction"), Is.Zero);
+
+            Invoke(platform, "UpdateRuntimeDrawnPlatform", 0.02f, 3.41f);
+            Assert.That(platform.RetainedInkCost, Is.Zero,
+                "자연 소멸을 시작한 획은 총 먹자리 ledger를 한 번만 반환해야 합니다.");
+            Assert.That(PlatformCollider.ActiveInkCost,
+                Is.EqualTo(activeBefore).Within(0.0001f));
+            Assert.That(GetField<float>(platform, "evictionTargetFraction"), Is.EqualTo(1f));
+            Assert.That(GetField<object>(platform, "removalCause").ToString(),
+                Is.EqualTo("NaturalExpiry"));
+
+            Invoke(platform, "UpdateRuntimeDrawnPlatform", 0.53f, 3.94f);
+            Assert.That(GetField<float>(platform, "evictionVisualFraction"),
+                Is.EqualTo(0.5f).Within(0.02f));
+            Assert.That(edge.pointCount, Is.LessThan(originalPointCount),
+                "마르는 먹선은 보이는 시작점과 실제 충돌 영역이 함께 줄어야 합니다.");
+        }
+
+        [Test]
+        public void NaturalExpiryNeverRestoresAPartiallyBudgetEvictedCollider()
+        {
+            PlatformCollider platform = PlatformCollider.Spawn(
+                CreateDetailedStrokePoints(),
+                4f,
+                evictionFadeSeconds: 1.1f,
+                evictionDelaySeconds: 0f,
+                naturalHoldSeconds: PlatformCollider.DefaultNaturalHoldDuration);
+            created.Add(platform.gameObject);
+            var edge = platform.GetComponent<EdgeCollider2D>();
+
+            Invoke(platform, "RequestBudgetEviction", 2f);
+            float requestedAt = GetField<float>(platform, "evictionRequestedAt");
+            Invoke(platform, "UpdateBudgetEviction", 0.55f, requestedAt + 0.55f);
+            int partiallyTrimmedCount = edge.pointCount;
+            Assert.That(GetField<float>(platform, "evictionVisualFraction"),
+                Is.EqualTo(0.5f).Within(0.01f));
+
+            SetField(platform, "naturalAge",
+                PlatformCollider.DefaultNaturalHoldDuration - 0.01f);
+            Invoke(platform, "UpdateRuntimeDrawnPlatform", 0.02f, requestedAt + 0.57f);
+
+            Assert.That(GetField<float>(platform, "evictionTargetFraction"), Is.EqualTo(1f));
+            Assert.That(edge.pointCount, Is.LessThanOrEqualTo(partiallyTrimmedCount),
+                "시간 소멸과 FIFO 소멸이 겹쳐도 잘린 콜라이더를 되살리면 안 됩니다.");
+            Assert.That(platform.RetainedInkCost, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator CompletedNaturalExpiryReleasesRegistryAndLedgerExactlyOnce()
+        {
+            float inkBefore = PlatformCollider.ActiveInkCost;
+            int countBefore = PlatformCollider.ActiveDrawnPlatformCount;
+            PlatformCollider platform = PlatformCollider.Spawn(
+                CreateDetailedStrokePoints(),
+                2.4f,
+                evictionFadeSeconds: 1.1f,
+                evictionDelaySeconds: 0f,
+                naturalHoldSeconds: PlatformCollider.DefaultNaturalHoldDuration);
+            created.Add(platform.gameObject);
+
+            Assert.That(PlatformCollider.ActiveDrawnPlatformCount, Is.EqualTo(countBefore + 1));
+            Assert.That(PlatformCollider.ActiveInkCost,
+                Is.EqualTo(inkBefore + 2.4f).Within(0.0001f));
+
+            Invoke(platform, "UpdateRuntimeDrawnPlatform",
+                PlatformCollider.DefaultNaturalHoldDuration,
+                PlatformCollider.DefaultNaturalHoldDuration);
+            Invoke(platform, "UpdateRuntimeDrawnPlatform", 1.1f,
+                PlatformCollider.DefaultNaturalHoldDuration + 1.1f);
+
+            Assert.That(GetField<float>(platform, "evictionVisualFraction"), Is.EqualTo(1f));
+            Assert.That(GetField<bool>(platform, "removalRequested"), Is.True);
+            Assert.That(platform.BreakFromHazard(), Is.False,
+                "완료된 자연 소멸에 위험물 제거가 다시 진입하면 안 됩니다.");
+
+            // Destroy는 프레임 끝에 실행됩니다. 실제 콜백 전후로 같은 정리 루틴이
+            // 반복되어도 정적 ledger/registry가 정확히 한 번만 줄어드는지 고정합니다.
+            Invoke(platform, "OnDestroy");
+            Invoke(platform, "OnDestroy");
+            Assert.That(PlatformCollider.ActiveDrawnPlatformCount, Is.EqualTo(countBefore));
+            Assert.That(PlatformCollider.ActiveInkCost, Is.EqualTo(inkBefore).Within(0.0001f));
+
+            yield return null;
+
+            Assert.That(platform == null, Is.True);
+            Assert.That(PlatformCollider.ActiveDrawnPlatformCount, Is.EqualTo(countBefore));
+            Assert.That(PlatformCollider.ActiveInkCost, Is.EqualTo(inkBefore).Within(0.0001f));
+        }
+
+        [Test]
         public void ReplacingProceduralBrushDoesNotLeakOwnedTexture()
         {
             var reset = typeof(FallbackInkStyle).GetMethod(
@@ -133,6 +241,22 @@ namespace MukJump.EditorTests
                 name, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, name);
             return (T)field.GetValue(target);
+        }
+
+        static void SetField(object target, string name, object value)
+        {
+            FieldInfo field = target.GetType().GetField(
+                name, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, name);
+            field.SetValue(target, value);
+        }
+
+        static List<Vector2> CreateDetailedStrokePoints()
+        {
+            var points = new List<Vector2>();
+            for (int i = 0; i <= 20; i++)
+                points.Add(new Vector2(i * 0.16f, 0f));
+            return points;
         }
 
         static void Invoke(object target, string name, params object[] args)

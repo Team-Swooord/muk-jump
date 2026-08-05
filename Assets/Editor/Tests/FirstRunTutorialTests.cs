@@ -44,6 +44,12 @@ namespace MukJump.EditorTests
             foreach (GameplayTutorialTopic topic in
                      Enum.GetValues(typeof(GameplayTutorialTopic)))
                 Assert.That(topics, Does.Contain(topic));
+
+            GameplayTutorialPage drawingPage = GameplayTutorialCatalog.Get(0);
+            Assert.That(drawingPage.Description, Does.Contain("곧 마르고"));
+            Assert.That(drawingPage.Description, Does.Contain("오래된 선부터"));
+            Assert.That(LobbySettingsProfile.CurrentGameplayTutorialVersion,
+                Is.EqualTo(3));
         }
 
         [Test]

@@ -39,7 +39,7 @@ namespace MukJump.Core
             new(
                 GameplayTutorialTopic.DrawInk,
                 "한 획이 발판이 돼요",
-                "먹방울은 1초마다 뛰어요. 내려올 곳에 먹선을 그리세요.\n먹이 넘치면 가장 오래된 선부터 지워져요.",
+                "먹방울은 1초마다 뛰어요. 내려올 곳에 먹선을 그리세요.\n먹선은 곧 마르고, 넘치면 오래된 선부터 지워져요.",
                 "MukJump/UI/Growth/growth_platform"),
             new(
                 GameplayTutorialTopic.LandingPlatform,

@@ -329,6 +329,8 @@ public class FallingInkRockTests
             captureSerialized.FindProperty("inkCapacityTuningVersion").intValue);
         Assert.AreEqual(1.1f,
             captureSerialized.FindProperty("evictionFadeDuration").floatValue);
+        Assert.AreEqual(PlatformCollider.DefaultNaturalHoldDuration,
+            captureSerialized.FindProperty("naturalHoldDuration").floatValue);
 
         var player = FindFirstInScene<PlayerController>(builderTestScene);
         Assert.IsNotNull(player);

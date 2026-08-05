@@ -134,6 +134,34 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void InkEvictionPathExtendsNaturalLifetimeFromFourPointFiveToFivePointTwoFive()
+        {
+            var regular = new PermanentGrowthRunSnapshot(
+                new[] { "I00", "I-C1", "I-C2", "I-C3" },
+                null);
+            var keystone = new PermanentGrowthRunSnapshot(
+                new[] { "I00", "I-C1", "I-C2", "I-C3", "I-KC" },
+                new Dictionary<PermanentGrowthBranch, string>
+                {
+                    [PermanentGrowthBranch.InkHandling] = "I-KC",
+                });
+
+            const float baseLifetime =
+                PlatformCollider.DefaultNaturalHoldDuration + 1.1f;
+            Assert.That(baseLifetime, Is.EqualTo(4.5f).Within(0.0001f));
+            Assert.That(
+                baseLifetime +
+                regular.InkEvictionDelaySeconds +
+                regular.InkEvictionFadeBonusSeconds,
+                Is.EqualTo(4.8f).Within(0.0001f));
+            Assert.That(
+                baseLifetime +
+                keystone.InkEvictionDelaySeconds +
+                keystone.InkEvictionFadeBonusSeconds,
+                Is.EqualTo(5.25f).Within(0.0001f));
+        }
+
+        [Test]
         public void OwnedKeystoneOnlyAffectsRunWhenEquippedInItsBranchSlot()
         {
             var owned = new[] { "S-KA", "S-KB", "J-KB", "I-KC" };

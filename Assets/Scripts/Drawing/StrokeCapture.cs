@@ -35,6 +35,9 @@ namespace MukJump.Drawing
         [SerializeField] float inkCapacity = DefaultInkCapacity;
         [Tooltip("총 먹자리를 넘긴 오래된 획이 시작점부터 지워지는 시간")]
         [SerializeField] float evictionFadeDuration = 1.1f;
+        [Tooltip("유효 먹선이 선명하게 유지된 뒤 자연 소멸을 시작하는 시간")]
+        [SerializeField] float naturalHoldDuration =
+            PlatformCollider.DefaultNaturalHoldDuration;
         // 기존 Main 씬에는 이 필드가 없으므로 0을 유지해야 구 12/18/24m 값을
         // 재생 시 현재 한 획 기준으로 바꿀 수 있다. 새 씬은 빌더가 현재 버전을 명시한다.
         [SerializeField, HideInInspector] int inkCapacityTuningVersion;
@@ -91,6 +94,11 @@ namespace MukJump.Drawing
             inkCapacity * Mathf.Max(0f, inkCapacityBonusRatio);
         public float EffectiveEvictionFadeDuration =>
             evictionFadeDuration + ActivePermanentGrowth.InkEvictionFadeBonusSeconds;
+        /// 기본 4.5초(선명 3.4초 + 번짐 1.1초)에 먹 계보의 지연·여운을 더한다.
+        public float EffectiveNaturalInkLifetime =>
+            naturalHoldDuration +
+            ActivePermanentGrowth.InkEvictionDelaySeconds +
+            EffectiveEvictionFadeDuration;
 
         PermanentGrowthRunSnapshot ActivePermanentGrowth =>
             RunGrowthController.Instance != null
@@ -374,8 +382,9 @@ namespace MukJump.Drawing
             PlatformCollider platform = PlatformCollider.Spawn(
                 smoothed,
                 budgetCost,
-                EffectiveEvictionFadeDuration,
-                ActivePermanentGrowth.InkEvictionDelaySeconds);
+                evictionFadeSeconds: EffectiveEvictionFadeDuration,
+                evictionDelaySeconds: ActivePermanentGrowth.InkEvictionDelaySeconds,
+                naturalHoldSeconds: naturalHoldDuration);
             if (!HasUnlimitedInk)
                 PlatformCollider.ReconcileActiveInkBudget(EffectiveInkCapacity);
             ValidStrokeCreated?.Invoke(platform, validLength, budgetCost);
@@ -665,6 +674,7 @@ namespace MukJump.Drawing
             playerClearance = Mathf.Max(0f, playerClearance);
             inkCapacity = Mathf.Max(0.001f, inkCapacity);
             evictionFadeDuration = Mathf.Max(0.15f, evictionFadeDuration);
+            naturalHoldDuration = Mathf.Max(0.1f, naturalHoldDuration);
         }
 
         void UpgradeInkCapacityTuning()

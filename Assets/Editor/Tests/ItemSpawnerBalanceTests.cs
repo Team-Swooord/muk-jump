@@ -89,6 +89,10 @@ public sealed class ItemSpawnerBalanceTests
             StrokeCapture.DefaultInkCapacity,
             (float)GetField(capture, "inkCapacity"));
         Assert.AreEqual(1.1f, (float)GetField(capture, "evictionFadeDuration"));
+        Assert.AreEqual(
+            PlatformCollider.DefaultNaturalHoldDuration,
+            (float)GetField(capture, "naturalHoldDuration"));
+        Assert.AreEqual(4.5f, capture.EffectiveNaturalInkLifetime, 0.0001f);
     }
 
     [TestCase(12f, 0)]

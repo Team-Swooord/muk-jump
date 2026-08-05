@@ -434,25 +434,25 @@ namespace MukJump.Core
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
                 P("I-B3"), 4, "ink", 0f, 360f);
 
-            Add(nodes, "I-C1", "천천히 번진 먹", "밀려난 오래된 획이 더 천천히 사라집니다.",
+            Add(nodes, "I-C1", "천천히 번진 먹", "시간이 지나거나 밀려난 획이 더 천천히 사라집니다.",
                 "소멸 시간 +0.10초", "ink.eviction.fade.first",
                 PermanentGrowthType.InkEvictionFade, 0.10f, "소멸 시간",
                 PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I00"), 0, "", 350f, -780f, 1);
-            Add(nodes, "I-C2", "오래 남은 먹", "먹의 여운을 늘려 발판 변화를 읽기 쉽게 합니다.",
+            Add(nodes, "I-C2", "오래 남은 먹", "자연 소멸의 여운을 늘려 발판 변화를 읽기 쉽게 합니다.",
                 "소멸 시간 +0.10초", "ink.eviction.fade.second",
                 PermanentGrowthType.InkEvictionFade, 0.10f, "소멸 시간",
                 PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-C1"), 0, "", 430f, -450f, 2);
-            Add(nodes, "I-C3", "머금은 먹", "먹자리를 넘겨도 오래된 획이 잠깐 버팁니다.",
+            Add(nodes, "I-C3", "머금은 먹", "오래된 획이 마르기 직전 잠깐 더 버팁니다.",
                 "소멸 시작 +0.10초 지연", "ink.eviction.delay",
                 PermanentGrowthType.InkEvictionDelay, 0.10f, "소멸 지연",
                 PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Mechanic,
                 P("I-C2"), 0, "", 350f, -110f);
-            Add(nodes, "I-KC", "붙잡은 먹길", "밀려난 획이 충분히 보인 뒤 사라지게 합니다.",
+            Add(nodes, "I-KC", "붙잡은 먹길", "자연히 마르거나 밀려난 획의 여운을 길게 붙잡습니다.",
                 "소멸 시간 +0.45초", "ink.eviction.keystone",
                 PermanentGrowthType.InkEvictionFade, 0.45f, "소멸 시간",
                 PermanentGrowthValueKind.Seconds, false,

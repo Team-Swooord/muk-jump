@@ -726,6 +726,8 @@ namespace MukJump.EditorTools
             strokeSo.FindProperty("inkCapacityTuningVersion").intValue =
                 StrokeCapture.CurrentInkCapacityTuningVersion;
             strokeSo.FindProperty("evictionFadeDuration").floatValue = 1.1f;
+            strokeSo.FindProperty("naturalHoldDuration").floatValue =
+                PlatformCollider.DefaultNaturalHoldDuration;
             strokeSo.ApplyModifiedPropertiesWithoutUndo();
 
             var obstaclesRoot = new GameObject("Obstacles");
