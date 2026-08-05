@@ -2647,3 +2647,25 @@
   텍스트 겹침과 저장 실패 문구를 재검토했다. 사용자 지시에 따라 Play와 전체 Unity
   Test Runner는 실행하지 않고 Runtime·Editor Roslyn 정적 컴파일만 수행한다.
 - 외부 에셋/라이선스: 새 외부 에셋 없음.
+
+### 2026-08-05 — Android·iPhone 공통 반응형 UI 안전영역
+
+- 사용 도구: OpenAI Codex 멀티 에이전트 읽기 전용 UI 감사, Apple HIG Layout,
+  Android edge-to-edge/insets 공식 가이드, Unity `Screen.safeArea`·Device Simulator
+  공식 문서, ripgrep, Unity Roslyn 정적 컴파일
+- 목적: 실기기에서 옵션을 비롯한 UI가 노치·다이내믹 아일랜드·상태 바·홈 제스처
+  영역을 뚫거나 일부가 사라지는 문제를 특정 화면별 보정이 아닌 공통 규칙으로 해결한다.
+- 주요 프롬프트/지시: “Android와 iPhone에서 옵션 포함 모든 UI를 유연하게 만들고,
+  다른 화면도 함께 점검해 단계별로 적용한다.”
+- 결과물: `MobileUiLayout`에 안전영역 검증, 논리 크기·중심·인셋, 패널 비율 축소,
+  IMGUI 좌표 변환을 통합했다. 로비 기록·메뉴·로고, 옵션, 성장 고정 HUD, 상단 HUD,
+  일시정지, 결과창과 하단 먹 게이지에 적용하고 화면/인셋 변경 시 다시 계산한다.
+  Player Settings도 Portrait 전용으로 고정해 실기기 자동 회전이 세로 UI를 깨지 않게 했다.
+  일시정지의 보이는 78px 원형은 유지하면서 투명 탭 영역을 120px로 확장했다.
+  full-bleed 배경·붓 전환·비상호작용 VFX는 의도적으로 Safe Area 밖까지 유지한다.
+  씬 빌더를 실행해 `Main.unity`도 `SafeAreaRoot/LobbyContentRoot` 계층으로 재생성했다.
+- 사람의 수정/검토 내용: 540×960, Android 1080×2400, iPhone 1179×2556,
+  1536×2048 태블릿과 좌우 인셋 fixture의 순수 레이아웃 회귀 계약을 추가했다.
+  Device Simulator는 배치·입력 확인용이지 실기기 성능 대체가 아님을 문서화했고,
+  사용자 지시에 따라 Play와 전체 Test Runner는 실행하지 않았다.
+- 외부 에셋/라이선스: 새 외부 에셋 없음.

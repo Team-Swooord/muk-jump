@@ -12,6 +12,8 @@ namespace MukJump.Core
         const float RevealDuration = 0.3f;
         const float RollOpenDistance = 360f;
         const float ClosedPaperScale = 0.18f;
+        static readonly Vector2 PanelDesignSize = new(800f, 900f);
+        static readonly Vector2 PanelEdgePadding = new(28f, 32f);
 
         CanvasGroup rootGroup;
         RectTransform safeAreaRoot;
@@ -31,6 +33,19 @@ namespace MukJump.Core
         Text touchHint;
         Coroutine showRoutine;
         GameOverResult boundResult;
+        int lastScreenWidth;
+        int lastScreenHeight;
+        Rect lastSafeArea;
+        float panelLayoutScale = 1f;
+
+        void Update()
+        {
+            if (!Application.isPlaying || safeAreaRoot == null) return;
+            if (lastScreenWidth != Screen.width ||
+                lastScreenHeight != Screen.height ||
+                lastSafeArea != Screen.safeArea)
+                ApplySafeArea();
+        }
 
         public void Show(int height, int best, bool reachedNewBest)
         {
@@ -119,9 +134,7 @@ namespace MukJump.Core
             canvas.sortingOrder = CanvasSortingOrder;
             canvas.pixelPerfect = true;
             var scaler = root.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
-            scaler.matchWidthOrHeight = 1f;
+            MobileUiLayout.ConfigurePortraitScaler(scaler);
 
             rootGroup = root.GetComponent<CanvasGroup>();
             rootGroup.alpha = 0f;
@@ -139,7 +152,7 @@ namespace MukJump.Core
                 "ScrollResultPopup",
                 safeAreaRoot,
                 Vector2.zero,
-                new Vector2(800f, 900f));
+                PanelDesignSize);
 
             BuildScrollPaper();
             BuildContent();
@@ -539,7 +552,9 @@ namespace MukJump.Core
             float content = EaseOutCubic(Mathf.InverseLerp(0.22f, 0.78f, t));
 
             rootGroup.alpha = appear;
-            panel.localScale = Vector3.one * Mathf.Lerp(0.97f, 1f, unroll);
+            panel.localScale = Vector3.one *
+                               (panelLayoutScale *
+                                Mathf.Lerp(0.97f, 1f, unroll));
             panel.localEulerAngles = Vector3.zero;
             scrollBody.localScale = new Vector3(
                 1f,
@@ -584,15 +599,32 @@ namespace MukJump.Core
             if (safeAreaRoot == null || Screen.width <= 0 || Screen.height <= 0)
                 return;
 
-            Rect safe = Screen.safeArea;
-            safeAreaRoot.anchorMin = new Vector2(
-                Mathf.Clamp01(safe.xMin / Screen.width),
-                Mathf.Clamp01(safe.yMin / Screen.height));
-            safeAreaRoot.anchorMax = new Vector2(
-                Mathf.Clamp01(safe.xMax / Screen.width),
-                Mathf.Clamp01(safe.yMax / Screen.height));
-            safeAreaRoot.offsetMin = Vector2.zero;
-            safeAreaRoot.offsetMax = Vector2.zero;
+            Rect safe = MobileUiLayout.CurrentSafeArea;
+            MobileUiLayout.ApplySafeArea(
+                safeAreaRoot,
+                safe,
+                Screen.width,
+                Screen.height);
+
+            float previousLayoutScale = Mathf.Max(0.01f, panelLayoutScale);
+            float presentationScale = panel != null
+                ? panel.localScale.x / previousLayoutScale
+                : 1f;
+            panelLayoutScale = MobileUiLayout.CalculateFitScale(
+                PanelDesignSize,
+                safe,
+                Screen.width,
+                Screen.height,
+                PanelEdgePadding);
+            if (panel != null)
+            {
+                panel.anchoredPosition = Vector2.zero;
+                panel.localScale = Vector3.one *
+                                   (panelLayoutScale * presentationScale);
+            }
+            lastScreenWidth = Screen.width;
+            lastScreenHeight = Screen.height;
+            lastSafeArea = Screen.safeArea;
         }
 
         static RectTransform CreateScrollRoll(Transform parent, float y, bool top)

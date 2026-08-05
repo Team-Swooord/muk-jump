@@ -161,6 +161,10 @@ namespace MukJump.EditorTools
             BuildSceneContents(configureUiImporters: true);
 
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
+            PlayerSettings.allowedAutorotateToPortrait = true;
+            PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
+            PlayerSettings.allowedAutorotateToLandscapeLeft = false;
+            PlayerSettings.allowedAutorotateToLandscapeRight = false;
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -849,9 +853,26 @@ namespace MukJump.EditorTools
             canvas.pixelPerfect = true;
 
             var scaler = root.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
-            scaler.matchWidthOrHeight = 1f;
+            MobileUiLayout.ConfigurePortraitScaler(scaler);
+
+            var safeAreaObject = new GameObject(
+                "SafeAreaRoot",
+                typeof(RectTransform));
+            var safeAreaRoot = safeAreaObject.GetComponent<RectTransform>();
+            safeAreaRoot.SetParent(root.transform, false);
+            safeAreaRoot.anchorMin = Vector2.zero;
+            safeAreaRoot.anchorMax = Vector2.one;
+            safeAreaRoot.offsetMin = Vector2.zero;
+            safeAreaRoot.offsetMax = Vector2.zero;
+            var contentObject = new GameObject(
+                "LobbyContentRoot",
+                typeof(RectTransform));
+            var contentRoot = contentObject.GetComponent<RectTransform>();
+            contentRoot.SetParent(safeAreaRoot, false);
+            contentRoot.anchorMin = Vector2.zero;
+            contentRoot.anchorMax = Vector2.one;
+            contentRoot.offsetMin = Vector2.zero;
+            contentRoot.offsetMax = Vector2.zero;
 
             Texture2D logoTexture = null;
             if (AssetDatabase.GetMainAssetTypeAtPath(LobbyLogoPath) != null)
@@ -863,7 +884,11 @@ namespace MukJump.EditorTools
 
             if (logoTexture != null)
             {
-                var logo = CreateUiObject("Logo", root.transform, LobbyLogoAnchor, LobbyLogoSize);
+                var logo = CreateUiObject(
+                    "Logo",
+                    contentRoot,
+                    LobbyLogoAnchor,
+                    LobbyLogoSize);
                 logo.anchoredPosition = LobbyLogoPosition;
                 var image = logo.gameObject.AddComponent<RawImage>();
                 image.texture = logoTexture;
@@ -872,31 +897,31 @@ namespace MukJump.EditorTools
             }
             else
             {
-                var logo = CreateText("Logo", root.transform, "먹점프", 112, FontStyle.Bold,
+                var logo = CreateText("Logo", contentRoot, "먹점프", 112, FontStyle.Bold,
                     LobbyLogoAnchor, LobbyLogoSize, InkPalette.Ink);
                 logo.rectTransform.anchoredPosition = LobbyLogoPosition;
             }
 
             if (configureUiImporters)
                 ConfigureUiTexture(StartButtonPath);
-            var lobbyBest = CreateLobbyRecordDisplay("BestDisplay", root.transform, "최고 0",
+            var lobbyBest = CreateLobbyRecordDisplay("BestDisplay", contentRoot, "최고 0",
                 LobbyMenuLayout.RecordAnchor);
             var buttonTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
             var startButton = CreateLobbyMenuButton(
                 "StartButton",
-                root.transform,
+                contentRoot,
                 buttonTexture,
                 "시작",
                 LobbyMenuLayout.StartAnchor);
             var growthButton = CreateLobbyMenuButton(
                 "GrowthButton",
-                root.transform,
+                contentRoot,
                 buttonTexture,
                 "성장",
                 LobbyMenuLayout.GrowthAnchor);
             var optionsButton = CreateLobbyMenuButton(
                 "OptionsButton",
-                root.transform,
+                contentRoot,
                 buttonTexture,
                 "옵션",
                 LobbyMenuLayout.OptionsAnchor);
@@ -908,6 +933,7 @@ namespace MukJump.EditorTools
             so.FindProperty("growthButton").objectReferenceValue = growthButton;
             so.FindProperty("optionsButton").objectReferenceValue = optionsButton;
             so.ApplyModifiedPropertiesWithoutUndo();
+            view.RefreshResponsiveLayout();
         }
 
         static Button CreateLobbyMenuButton(
@@ -989,9 +1015,7 @@ namespace MukJump.EditorTools
             canvas.pixelPerfect = true;
 
             var scaler = root.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
-            scaler.matchWidthOrHeight = 1f;
+            MobileUiLayout.ConfigurePortraitScaler(scaler);
 
             if (configureUiImporters)
                 ConfigureUiTexture(GaugeTrackPath);

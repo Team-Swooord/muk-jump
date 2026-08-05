@@ -8,6 +8,16 @@ namespace MukJump.Core
     [RequireComponent(typeof(CanvasGroup))]
     public class LobbyView : MonoBehaviour
     {
+        const float LobbyHorizontalPadding = 24f;
+        // 원본 로고 PNG의 유효 알파 폭과 중심 편차를 함께 잡는다.
+        // 투명 캔버스 전체(1281px)를 맞추면 일반 9:16에서도 제목이 불필요하게 작아진다.
+        const float LobbyLogoVisibleWidth = 872.88f;
+        const float LobbyLogoVisibleCenterOffset = 30.88f;
+        const float LobbyLogoAnchorOffset = 12f;
+        static readonly float LobbyContentDesignWidth =
+            (Mathf.Abs(LobbyMenuLayout.ButtonPosition.x) +
+             LobbyMenuLayout.BackgroundSize.x * 0.5f) * 2f;
+
         [SerializeField] Text bestText;
         [SerializeField] Button startButton;
         [SerializeField] Button growthButton;
@@ -24,6 +34,12 @@ namespace MukJump.Core
         bool navigationInteractive = true;
         int lastDisplayedBest = int.MinValue;
         LobbyMenuSelection activeMenu = LobbyMenuSelection.Start;
+        RectTransform safeAreaRoot;
+        RectTransform lobbyContentRoot;
+        RectTransform logoRect;
+        int lastScreenWidth;
+        int lastScreenHeight;
+        Rect lastSafeArea;
 
         public Button StartButton => startButton;
         public Button GrowthButton => growthButton;
@@ -37,9 +53,7 @@ namespace MukJump.Core
         void OnEnable()
         {
             canvasGroup = GetComponent<CanvasGroup>();
-            ApplyUiFont();
-            // Play 전 Game View와 런타임 로비가 같은 중앙 정렬을 사용한다.
-            EnsureMenuLayout();
+            RefreshResponsiveLayout();
             if (Application.isPlaying)
             {
                 BindListeners();
@@ -48,7 +62,7 @@ namespace MukJump.Core
 
         void Start()
         {
-            EnsureMenuLayout();
+            RefreshResponsiveLayout();
             BindListeners();
             RefreshBest();
         }
@@ -60,6 +74,13 @@ namespace MukJump.Core
 
         void Update()
         {
+            if (lastScreenWidth != Screen.width ||
+                lastScreenHeight != Screen.height ||
+                lastSafeArea != Screen.safeArea ||
+                safeAreaRoot == null || lobbyContentRoot == null ||
+                logoRect == null)
+                EnsureSafeAreaLayout();
+
             if (!Application.isPlaying)
                 return;
 
@@ -72,6 +93,14 @@ namespace MukJump.Core
             SetVisible(show, show && navigationInteractive);
             if (!show) return;
             RefreshBest();
+        }
+
+        /// 씬 빌더와 런타임이 같은 로비 배치 계산을 공유한다.
+        public void RefreshResponsiveLayout()
+        {
+            ApplyUiFont();
+            EnsureMenuLayout();
+            EnsureSafeAreaLayout();
         }
 
         void BindListeners()
@@ -179,8 +208,15 @@ namespace MukJump.Core
         {
             if (optionsButton == null)
             {
-                optionsButton = transform.Find("OptionsButton")
-                    ?.GetComponent<Button>();
+                Button[] buttons = GetComponentsInChildren<Button>(true);
+                for (int i = 0; i < buttons.Length; i++)
+                {
+                    if (buttons[i].name == "OptionsButton")
+                    {
+                        optionsButton = buttons[i];
+                        break;
+                    }
+                }
             }
             if (optionsButton == null)
             {
@@ -215,6 +251,113 @@ namespace MukJump.Core
                 "옵션",
                 LobbyMenuLayout.OptionsAnchor,
                 primary: activeMenu == LobbyMenuSelection.Options);
+        }
+
+        void EnsureSafeAreaLayout()
+        {
+            if (Screen.width <= 0 || Screen.height <= 0) return;
+
+            if (safeAreaRoot == null)
+                safeAreaRoot = transform.Find("SafeAreaRoot") as RectTransform;
+            if (safeAreaRoot == null && Application.isPlaying)
+            {
+                var safeObject = new GameObject(
+                    "SafeAreaRoot",
+                    typeof(RectTransform));
+                safeAreaRoot = safeObject.GetComponent<RectTransform>();
+                safeAreaRoot.SetParent(transform, false);
+                safeAreaRoot.anchorMin = Vector2.zero;
+                safeAreaRoot.anchorMax = Vector2.one;
+                safeAreaRoot.offsetMin = Vector2.zero;
+                safeAreaRoot.offsetMax = Vector2.zero;
+            }
+            if (safeAreaRoot == null) return;
+
+            if (lobbyContentRoot == null)
+                lobbyContentRoot = safeAreaRoot.Find("LobbyContentRoot")
+                    as RectTransform;
+            if (lobbyContentRoot == null && Application.isPlaying)
+            {
+                var contentObject = new GameObject(
+                    "LobbyContentRoot",
+                    typeof(RectTransform));
+                lobbyContentRoot = contentObject.GetComponent<RectTransform>();
+                lobbyContentRoot.SetParent(safeAreaRoot, false);
+                lobbyContentRoot.anchorMin = Vector2.zero;
+                lobbyContentRoot.anchorMax = Vector2.one;
+                lobbyContentRoot.offsetMin = Vector2.zero;
+                lobbyContentRoot.offsetMax = Vector2.zero;
+            }
+            if (lobbyContentRoot == null) return;
+
+            MoveLobbyContentToSafeArea();
+            Rect safe = MobileUiLayout.CurrentSafeArea;
+            MobileUiLayout.ApplySafeArea(
+                safeAreaRoot,
+                safe,
+                Screen.width,
+                Screen.height);
+
+            float contentScale = MobileUiLayout.CalculateWidthFitScale(
+                LobbyContentDesignWidth,
+                safe,
+                Screen.width,
+                Screen.height,
+                LobbyHorizontalPadding);
+            lobbyContentRoot.anchoredPosition = Vector2.zero;
+            lobbyContentRoot.localScale = Vector3.one * contentScale;
+
+            if (logoRect == null)
+                logoRect = lobbyContentRoot.Find("Logo") as RectTransform;
+            if (logoRect != null)
+            {
+                float logoScale =
+                    MobileUiLayout.CalculateVisibleContentFitScale(
+                    LobbyLogoVisibleWidth,
+                    LobbyLogoVisibleCenterOffset,
+                    LobbyLogoAnchorOffset,
+                    contentScale,
+                    safe,
+                    Screen.width,
+                    Screen.height,
+                    LobbyHorizontalPadding);
+                logoRect.localScale = Vector3.one * logoScale;
+            }
+
+            CanvasScaler scaler = GetComponent<CanvasScaler>();
+            MobileUiLayout.ConfigurePortraitScaler(scaler);
+            lastScreenWidth = Screen.width;
+            lastScreenHeight = Screen.height;
+            lastSafeArea = Screen.safeArea;
+        }
+
+        void MoveLobbyContentToSafeArea()
+        {
+            if (safeAreaRoot == null) return;
+            MoveDirectChild("Logo");
+            if (bestText != null)
+                MoveRootToSafeArea(bestText.transform.parent);
+            MoveRootToSafeArea(startButton?.transform);
+            MoveRootToSafeArea(growthButton?.transform);
+            MoveRootToSafeArea(optionsButton?.transform);
+        }
+
+        void MoveDirectChild(string objectName)
+        {
+            Transform child = transform.Find(objectName);
+            if (child == null)
+                child = safeAreaRoot.Find(objectName);
+            MoveRootToSafeArea(child);
+        }
+
+        void MoveRootToSafeArea(Transform child)
+        {
+            if (child == null || child == safeAreaRoot ||
+                child == lobbyContentRoot ||
+                child.parent == lobbyContentRoot)
+                return;
+            if (child.parent == transform || child.parent == safeAreaRoot)
+                child.SetParent(lobbyContentRoot, false);
         }
 
         public void SetActiveMenu(LobbyMenuSelection selection)

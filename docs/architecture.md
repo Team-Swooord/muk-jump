@@ -300,6 +300,10 @@ kinematic body와 fixed step 이동을 사용한다.
 대기시간만 소유한다.
 
 - `LobbyView`는 씬 빌더가 만든 `시작`·`성장`·`옵션` 버튼만 연결한다.
+- `MobileUiLayout`은 `Screen.safeArea` 검증, 1080×1920 논리 좌표 변환, 패널
+  fit-scale과 IMGUI 좌표 변환을 한 곳에서 소유한다. 의미 UI는 Safe Area 아래에 두고
+  배경·전환·비상호작용 VFX만 full-bleed로 유지한다. 개별 View가 서로 다른
+  노치/제스처 수학을 다시 만들지 않는다.
 - `LobbyScreenNavigator`는 `Lobby / PermanentGrowth` 중 하나만 활성화한다.
   옵션은 로비 위 모달이며, 붓 전환 중 연속 탭과 게임 시작은 거부한다.
 - `PermanentGrowthCatalog`는 생존·도약·먹 운용 각 13개, 총 39개 stable-ID 노드를

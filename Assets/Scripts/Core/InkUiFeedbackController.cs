@@ -173,9 +173,7 @@ namespace MukJump.Core
             canvas.sortingOrder = CanvasSortingOrder;
             canvas.pixelPerfect = true;
             var scaler = root.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
-            scaler.matchWidthOrHeight = 1f;
+            MobileUiLayout.ConfigurePortraitScaler(scaler);
 
             canvasRoot = root.GetComponent<RectTransform>();
             canvasRoot.anchorMin = Vector2.zero;

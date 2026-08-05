@@ -11,6 +11,8 @@ namespace MukJump.Core
         const int CanvasSortingOrder = 1000;
         const float ShowDuration = 0.18f;
         const float HideDuration = 0.12f;
+        static readonly Vector2 PanelDesignSize = new(760f, 680f);
+        static readonly Vector2 PanelEdgePadding = new(28f, 32f);
 
         public static PauseMenuView Instance { get; private set; }
 
@@ -29,6 +31,7 @@ namespace MukJump.Core
         int lastScreenWidth;
         int lastScreenHeight;
         Rect lastSafeArea;
+        float panelLayoutScale = 1f;
 
         void Awake()
         {
@@ -204,7 +207,7 @@ namespace MukJump.Core
             if (!animate || !Application.isPlaying)
             {
                 overlayGroup.alpha = visible ? 1f : 0f;
-                panel.localScale = Vector3.one;
+                ApplyPanelPresentationScale(1f);
                 return;
             }
             visibilityRoutine = StartCoroutine(AnimateVisibility(visible));
@@ -214,12 +217,13 @@ namespace MukJump.Core
         {
             float startAlpha = overlayGroup.alpha;
             float targetAlpha = visible ? 1f : 0f;
-            float startScale = panel.localScale.x;
+            float safeLayoutScale = Mathf.Max(0.01f, panelLayoutScale);
+            float startScale = panel.localScale.x / safeLayoutScale;
             float targetScale = visible ? 1f : 0.98f;
             if (visible && startAlpha <= 0.001f)
             {
                 startScale = 0.96f;
-                panel.localScale = Vector3.one * startScale;
+                ApplyPanelPresentationScale(startScale);
             }
 
             float duration = visible ? ShowDuration : HideDuration;
@@ -230,13 +234,13 @@ namespace MukJump.Core
                 float progress = Mathf.Clamp01(elapsed / duration);
                 float eased = visible ? EaseOutCubic(progress) : Smooth01(progress);
                 overlayGroup.alpha = Mathf.Lerp(startAlpha, targetAlpha, eased);
-                panel.localScale = Vector3.one *
-                                   Mathf.Lerp(startScale, targetScale, eased);
+                ApplyPanelPresentationScale(
+                    Mathf.Lerp(startScale, targetScale, eased));
                 yield return null;
             }
 
             overlayGroup.alpha = targetAlpha;
-            panel.localScale = Vector3.one * targetScale;
+            ApplyPanelPresentationScale(targetScale);
             if (!visible)
                 overlayGroup.blocksRaycasts = false;
             visibilityRoutine = null;
@@ -272,9 +276,7 @@ namespace MukJump.Core
             rootCanvas.sortingOrder = CanvasSortingOrder;
             rootCanvas.pixelPerfect = true;
             var scaler = rootObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
-            scaler.matchWidthOrHeight = 1f;
+            MobileUiLayout.ConfigurePortraitScaler(scaler);
 
             pauseButton = CreatePauseButton(rootObject.transform);
             pauseButtonRect = pauseButton.transform as RectTransform;
@@ -290,8 +292,11 @@ namespace MukJump.Core
             backdrop.raycastTarget = true;
 
             safeAreaRoot = CreateStretchRect("SafeAreaRoot", overlayRoot);
-            panel = CreateRect("PauseScroll", safeAreaRoot, Vector2.zero,
-                new Vector2(760f, 680f));
+            panel = CreateRect(
+                "PauseScroll",
+                safeAreaRoot,
+                Vector2.zero,
+                PanelDesignSize);
 
             BuildPauseScrollFrame(panel);
 
@@ -335,6 +340,7 @@ namespace MukJump.Core
                 ? panel.Find("LobbyButton")?.GetComponent<Button>()
                 : null;
             bool complete = rootCanvas != null && pauseButton != null &&
+                            pauseButton.transform.Find("Visual") != null &&
                             overlayRoot != null && overlayGroup != null &&
                             safeAreaRoot != null && panel != null &&
                             resumeButton != null && lobbyButton != null;
@@ -465,12 +471,22 @@ namespace MukJump.Core
         Button CreatePauseButton(Transform parent)
         {
             Sprite blob = InkUiTextureFactory.CreateBlobSprite();
-            var outer = CreateImage("PauseButton", parent, blob, Vector2.zero,
+            RectTransform hitSurface = CreateRect(
+                "PauseButton",
+                parent,
+                Vector2.zero,
+                new Vector2(
+                    InkUiStyle.MinimumTapHeight,
+                    InkUiStyle.MinimumTapHeight));
+            var hitImage = hitSurface.gameObject.AddComponent<Image>();
+            hitImage.color = Color.clear;
+            hitImage.raycastTarget = true;
+            var outer = CreateImage("Visual", hitSurface, blob, Vector2.zero,
                 new Vector2(78f, 78f), InkPalette.Ink);
             var inner = CreateImage("Paper", outer.transform, blob, Vector2.zero,
                 new Vector2(62f, 62f), InkPalette.Paper);
-            var button = outer.gameObject.AddComponent<Button>();
-            button.targetGraphic = inner;
+            var button = hitSurface.gameObject.AddComponent<Button>();
+            button.targetGraphic = outer;
             EnableFullButtonRaycast(button);
             button.colors = ReadableButtonColors();
             button.navigation = new Navigation { mode = Navigation.Mode.None };
@@ -503,28 +519,50 @@ namespace MukJump.Core
                 Screen.width <= 0 || Screen.height <= 0)
                 return;
 
-            Rect safe = Screen.safeArea;
-            Vector2 minimum = new(
-                Mathf.Clamp01(safe.xMin / Screen.width),
-                Mathf.Clamp01(safe.yMin / Screen.height));
-            Vector2 maximum = new(
-                Mathf.Clamp01(safe.xMax / Screen.width),
-                Mathf.Clamp01(safe.yMax / Screen.height));
-            safeAreaRoot.anchorMin = minimum;
-            safeAreaRoot.anchorMax = maximum;
-            safeAreaRoot.offsetMin = Vector2.zero;
-            safeAreaRoot.offsetMax = Vector2.zero;
+            Rect safe = MobileUiLayout.CurrentSafeArea;
+            MobileUiLayout.ApplySafeArea(
+                safeAreaRoot,
+                safe,
+                Screen.width,
+                Screen.height);
+
+            float previousLayoutScale = Mathf.Max(0.01f, panelLayoutScale);
+            float presentationScale = panel != null
+                ? panel.localScale.x / previousLayoutScale
+                : 1f;
+            panelLayoutScale = MobileUiLayout.CalculateFitScale(
+                PanelDesignSize,
+                safe,
+                Screen.width,
+                Screen.height,
+                PanelEdgePadding);
+            if (panel != null)
+            {
+                panel.anchoredPosition = Vector2.zero;
+                ApplyPanelPresentationScale(presentationScale);
+            }
 
             pauseButtonRect.anchorMin = pauseButtonRect.anchorMax =
-                new Vector2(maximum.x, maximum.y);
+                new Vector2(
+                    safe.xMax / Screen.width,
+                    safe.yMax / Screen.height);
             pauseButtonRect.pivot = new Vector2(0.5f, 0.5f);
             // 가독성 보강으로 높아진 상단 HUD와 겹치지 않도록 한 칸 아래에 둔다.
-            pauseButtonRect.anchoredPosition = new Vector2(-62f, -245f);
-            pauseButtonRect.sizeDelta = new Vector2(78f, 78f);
+            pauseButtonRect.anchoredPosition = new Vector2(-82f, -245f);
+            pauseButtonRect.sizeDelta = new Vector2(
+                InkUiStyle.MinimumTapHeight,
+                InkUiStyle.MinimumTapHeight);
 
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
-            lastSafeArea = safe;
+            lastSafeArea = Screen.safeArea;
+        }
+
+        void ApplyPanelPresentationScale(float presentationScale)
+        {
+            if (panel == null) return;
+            panel.localScale = Vector3.one *
+                               (panelLayoutScale * presentationScale);
         }
 
         static RectTransform CreateRect(

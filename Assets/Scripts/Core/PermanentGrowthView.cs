@@ -286,9 +286,7 @@ namespace MukJump.Core
             rootCanvas.sortingOrder = CanvasSortingOrder;
             rootCanvas.pixelPerfect = true;
             var scaler = root.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, ReferenceHeight);
-            scaler.matchWidthOrHeight = 1f;
+            MobileUiLayout.ConfigurePortraitScaler(scaler);
 
             rootGroup = root.GetComponent<CanvasGroup>();
             // 높이를 기준으로 스케일하는 세로 UI에서도 19.5:9·20:9의 실제 논리 폭을
@@ -2196,27 +2194,22 @@ namespace MukJump.Core
                 Screen.height <= 0)
                 return;
 
-            Rect safe = Screen.safeArea;
-            safeAreaRoot.anchorMin = new Vector2(
-                Mathf.Clamp01(safe.xMin / Screen.width),
-                Mathf.Clamp01(safe.yMin / Screen.height));
-            safeAreaRoot.anchorMax = new Vector2(
-                Mathf.Clamp01(safe.xMax / Screen.width),
-                Mathf.Clamp01(safe.yMax / Screen.height));
-            safeAreaRoot.offsetMin = Vector2.zero;
-            safeAreaRoot.offsetMax = Vector2.zero;
+            Rect safe = MobileUiLayout.CurrentSafeArea;
+            MobileUiLayout.ApplySafeArea(
+                safeAreaRoot,
+                safe,
+                Screen.width,
+                Screen.height);
             if (contentPanel != null && safe.width > 0f && safe.height > 0f)
             {
-                float logicalSafeWidth =
-                    safe.width * ReferenceHeight / Screen.height;
-                float logicalSafeHeight =
-                    safe.height * ReferenceHeight / Screen.height;
-                float contentScale = Mathf.Min(
-                    1f,
-                    logicalSafeWidth / ReferenceWidth,
-                    logicalSafeHeight / ReferenceHeight);
-                contentPanel.localScale =
-                    Vector3.one * Mathf.Max(0.01f, contentScale);
+                float contentScale = MobileUiLayout.CalculateFitScale(
+                    new Vector2(ReferenceWidth, ReferenceHeight),
+                    safe,
+                    Screen.width,
+                    Screen.height,
+                    Vector2.zero);
+                contentPanel.anchoredPosition = Vector2.zero;
+                contentPanel.localScale = Vector3.one * contentScale;
             }
             if (TreeCanvas != null)
             {
@@ -2227,7 +2220,7 @@ namespace MukJump.Core
 
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
-            lastSafeArea = safe;
+            lastSafeArea = Screen.safeArea;
         }
 
         static RectTransform CreateRect(

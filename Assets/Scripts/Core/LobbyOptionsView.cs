@@ -205,9 +205,7 @@ namespace MukJump.Core
             canvas.sortingOrder = CanvasSortingOrder;
             canvas.pixelPerfect = true;
             var scaler = root.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
-            scaler.matchWidthOrHeight = 1f;
+            MobileUiLayout.ConfigurePortraitScaler(scaler);
             rootGroup = root.GetComponent<CanvasGroup>();
 
             var dim = CreateStretchImage(
@@ -584,34 +582,27 @@ namespace MukJump.Core
                 Screen.width <= 0 ||
                 Screen.height <= 0)
                 return;
-            Rect safe = Screen.safeArea;
-            safeAreaRoot.anchorMin = new Vector2(
-                Mathf.Clamp01(safe.xMin / Screen.width),
-                Mathf.Clamp01(safe.yMin / Screen.height));
-            safeAreaRoot.anchorMax = new Vector2(
-                Mathf.Clamp01(safe.xMax / Screen.width),
-                Mathf.Clamp01(safe.yMax / Screen.height));
-            safeAreaRoot.offsetMin = Vector2.zero;
-            safeAreaRoot.offsetMax = Vector2.zero;
+            Rect safe = MobileUiLayout.CurrentSafeArea;
+            MobileUiLayout.ApplySafeArea(
+                safeAreaRoot,
+                safe,
+                Screen.width,
+                Screen.height);
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
-            lastSafeArea = safe;
+            lastSafeArea = Screen.safeArea;
 
-            float referenceScale = 1920f / Screen.height;
-            Vector2 logicalSafeSize = new(
-                safe.width * referenceScale,
-                safe.height * referenceScale);
-            float usableWidth = Mathf.Max(
-                1f,
-                logicalSafeSize.x - SafeAreaPadding);
-            float usableHeight = Mathf.Max(
-                1f,
-                logicalSafeSize.y - SafeAreaPadding);
-            float panelScale = Mathf.Clamp01(Mathf.Min(
-                usableWidth / PanelWidth,
-                usableHeight / PanelHeight));
+            float panelScale = MobileUiLayout.CalculateFitScale(
+                new Vector2(PanelWidth, PanelHeight),
+                safe,
+                Screen.width,
+                Screen.height,
+                Vector2.one * (SafeAreaPadding * 0.5f));
             if (optionsPanel != null)
+            {
+                optionsPanel.anchoredPosition = Vector2.zero;
                 optionsPanel.localScale = Vector3.one * panelScale;
+            }
         }
 
         static CanvasGroup CreatePageGroup(string name, Transform parent)

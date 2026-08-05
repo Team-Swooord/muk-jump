@@ -61,7 +61,12 @@ namespace MukJump.Core
         }
         Sprite dotSprite;
         Text bannerText;
+        RectTransform bannerSafeAreaRoot;
+        RectTransform bannerRect;
         Coroutine bannerRoutine;
+        int lastOverlayScreenWidth;
+        int lastOverlayScreenHeight;
+        Rect lastOverlaySafeArea;
         Transform transientPoolRoot;
         ComponentPool<TransientVfxElement> lineVfxPool;
         ComponentPool<TransientVfxElement> spriteVfxPool;
@@ -99,6 +104,15 @@ namespace MukJump.Core
         void Awake()
         {
             EnsureInitialized();
+        }
+
+        void Update()
+        {
+            if (bannerText == null) return;
+            if (lastOverlayScreenWidth != Screen.width ||
+                lastOverlayScreenHeight != Screen.height ||
+                lastOverlaySafeArea != Screen.safeArea)
+                ApplyOverlayLayout();
         }
 
         void OnDestroy()
@@ -172,7 +186,9 @@ namespace MukJump.Core
             if (dotSprite == null) dotSprite = CreateDotSprite();
             if (bannerText == null)
             {
-                var existingBanner = transform.Find("FeedbackOverlay/ZoneBanner");
+                var existingBanner =
+                    transform.Find("FeedbackOverlay/SafeAreaRoot/ZoneBanner") ??
+                    transform.Find("FeedbackOverlay/ZoneBanner");
                 if (existingBanner != null)
                 {
                     bannerText = existingBanner.GetComponent<Text>();
@@ -1036,31 +1052,94 @@ namespace MukJump.Core
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 140;
             var scaler = canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
-            scaler.matchWidthOrHeight = 1f;
+            MobileUiLayout.ConfigurePortraitScaler(scaler);
+
+            var safeObject = new GameObject(
+                "SafeAreaRoot",
+                typeof(RectTransform));
+            bannerSafeAreaRoot = safeObject.GetComponent<RectTransform>();
+            bannerSafeAreaRoot.SetParent(canvasObject.transform, false);
+            bannerSafeAreaRoot.anchorMin = Vector2.zero;
+            bannerSafeAreaRoot.anchorMax = Vector2.one;
+            bannerSafeAreaRoot.offsetMin = Vector2.zero;
+            bannerSafeAreaRoot.offsetMax = Vector2.zero;
 
             var textObject = new GameObject("ZoneBanner", typeof(RectTransform), typeof(Text));
-            textObject.transform.SetParent(canvasObject.transform, false);
-            var rect = textObject.GetComponent<RectTransform>();
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.78f);
-            rect.sizeDelta = new Vector2(860f, 180f);
+            textObject.transform.SetParent(bannerSafeAreaRoot, false);
+            bannerRect = textObject.GetComponent<RectTransform>();
             bannerText = textObject.GetComponent<Text>();
             ConfigureBannerText();
+            ApplyOverlayLayout();
             bannerText.color = Color.clear;
         }
 
         void EnsureOverlay()
         {
-            if (bannerText != null) return;
-            var existingBanner = transform.Find("FeedbackOverlay/ZoneBanner");
-            if (existingBanner != null)
+            if (bannerText == null)
             {
-                bannerText = existingBanner.GetComponent<Text>();
-                ConfigureBannerText();
+                var existingBanner =
+                    transform.Find("FeedbackOverlay/SafeAreaRoot/ZoneBanner") ??
+                    transform.Find("FeedbackOverlay/ZoneBanner");
+                if (existingBanner != null)
+                    bannerText = existingBanner.GetComponent<Text>();
+            }
+            if (bannerText == null)
+            {
+                CreateOverlay();
                 return;
             }
-            CreateOverlay();
+
+            Transform overlay = transform.Find("FeedbackOverlay");
+            if (overlay == null)
+            {
+                CreateOverlay();
+                return;
+            }
+            bannerSafeAreaRoot = overlay.Find("SafeAreaRoot") as RectTransform;
+            if (bannerSafeAreaRoot == null)
+            {
+                var safeObject = new GameObject(
+                    "SafeAreaRoot",
+                    typeof(RectTransform));
+                bannerSafeAreaRoot = safeObject.GetComponent<RectTransform>();
+                bannerSafeAreaRoot.SetParent(overlay, false);
+            }
+            bannerSafeAreaRoot.anchorMin = Vector2.zero;
+            bannerSafeAreaRoot.anchorMax = Vector2.one;
+            bannerSafeAreaRoot.offsetMin = Vector2.zero;
+            bannerSafeAreaRoot.offsetMax = Vector2.zero;
+            bannerRect = bannerText.rectTransform;
+            if (bannerRect.parent != bannerSafeAreaRoot)
+                bannerRect.SetParent(bannerSafeAreaRoot, false);
+            ConfigureBannerText();
+            ApplyOverlayLayout();
+        }
+
+        void ApplyOverlayLayout()
+        {
+            if (bannerSafeAreaRoot == null || bannerRect == null ||
+                Screen.width <= 0 || Screen.height <= 0)
+                return;
+
+            Rect safe = MobileUiLayout.CurrentSafeArea;
+            MobileUiLayout.ApplySafeArea(
+                bannerSafeAreaRoot,
+                safe,
+                Screen.width,
+                Screen.height);
+            bannerRect.anchorMin = bannerRect.anchorMax =
+                new Vector2(0.5f, 0.78f);
+            bannerRect.anchoredPosition = Vector2.zero;
+            bannerRect.localScale = Vector3.one *
+                MobileUiLayout.CalculateWidthFitScale(
+                    860f,
+                    safe,
+                    Screen.width,
+                    Screen.height,
+                    24f);
+            lastOverlayScreenWidth = Screen.width;
+            lastOverlayScreenHeight = Screen.height;
+            lastOverlaySafeArea = Screen.safeArea;
         }
 
         IEnumerator AnimateBanner(string title, string subtitle)
@@ -1095,6 +1174,8 @@ namespace MukJump.Core
             bannerText.raycastTarget = false;
             var rect = bannerText.rectTransform;
             rect.sizeDelta = new Vector2(860f, 180f);
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.78f);
+            rect.anchoredPosition = Vector2.zero;
         }
 
         static AudioClip CreateTone(string name, float duration, float startFrequency,

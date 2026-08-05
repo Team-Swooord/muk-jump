@@ -453,16 +453,49 @@ namespace MukJump.Core
         void ApplySafeAreaLayout()
         {
             if (topHudRoot == null) return;
-            float scale = Screen.height > 0 ? 1920f / Screen.height : 1f;
-            float topInset = Mathf.Max(0f, Screen.height - Screen.safeArea.yMax) * scale;
-            float logicalWidth = Mathf.Max(720f, Screen.width * scale);
-            float hudScale = Mathf.Min(
-                1f, (logicalWidth - TopHudSideMargin) / TopHudWidth);
+            if (Screen.width <= 0 || Screen.height <= 0) return;
+            Rect safe = MobileUiLayout.CurrentSafeArea;
+            Vector2 logicalSafeSize = MobileUiLayout.GetLogicalSafeSize(
+                safe,
+                Screen.width,
+                Screen.height);
+            Vector2 safeCenterOffset =
+                MobileUiLayout.GetLogicalSafeCenterOffset(
+                    safe,
+                    Screen.width,
+                    Screen.height);
+            float topInset = MobileUiLayout.GetLogicalTopInset(
+                safe,
+                Screen.width,
+                Screen.height);
+            float hudScale = Mathf.Clamp(
+                (logicalSafeSize.x - TopHudSideMargin * 2f) / TopHudWidth,
+                0.01f,
+                1f);
             topHudRoot.anchorMin = topHudRoot.anchorMax = new Vector2(0.5f, 1f);
             topHudRoot.pivot = new Vector2(0.5f, 1f);
-            topHudRoot.anchoredPosition = new Vector2(0f, -(topInset + 52f));
+            topHudRoot.anchoredPosition = new Vector2(
+                safeCenterOffset.x,
+                -(topInset + 52f));
             topHudRoot.sizeDelta = new Vector2(TopHudWidth, TopHudHeight);
             topHudRoot.localScale = Vector3.one * hudScale;
+
+            if (itemTestControls != null)
+            {
+                float debugScale = Mathf.Clamp(
+                    Mathf.Min(
+                        (logicalSafeSize.x - 16f) / 410f,
+                        (logicalSafeSize.y - 16f) / 1320f),
+                    0.01f,
+                    1f);
+                itemTestControls.anchoredPosition = new Vector2(
+                    MobileUiLayout.GetLogicalLeftInset(
+                        safe,
+                        Screen.width,
+                        Screen.height) + 8f,
+                    safeCenterOffset.y);
+                itemTestControls.localScale = Vector3.one * debugScale;
+            }
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
             lastSafeArea = Screen.safeArea;

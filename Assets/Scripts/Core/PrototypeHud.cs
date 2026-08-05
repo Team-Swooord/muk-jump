@@ -94,14 +94,27 @@ namespace MukJump.Core
             float baseRatio = Mathf.Clamp01(ratio);
             float safeCapacityRatio = Mathf.Clamp(capacityRatio, 0.72f, 1.5f);
             bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
+            Rect safeGui = MobileUiLayout.ToGuiSafeArea(
+                Screen.safeArea,
+                Screen.width,
+                Screen.height);
+            float horizontalMargin = Mathf.Max(18f, safeGui.width * 0.04f);
+            float bottomMargin = Mathf.Max(18f, Screen.height * 0.014f);
+            float maximumGaugeWidth = Mathf.Max(
+                1f,
+                safeGui.width - horizontalMargin * 2f);
             if (inkGaugeFill == null || inkGaugeTrack == null)
             {
                 float bw = Mathf.Min(
-                    Screen.width * 0.82f,
-                    Screen.width * 0.64f * safeCapacityRatio);
+                    maximumGaugeWidth,
+                    safeGui.width * 0.64f * safeCapacityRatio);
                 float bh = Screen.height * 0.014f;
-                float by = Screen.height * 0.955f;
-                var back = new Rect((Screen.width - bw) / 2, by, bw, bh);
+                float by = safeGui.yMax - bottomMargin - bh;
+                var back = new Rect(
+                    safeGui.center.x - bw * 0.5f,
+                    by,
+                    bw,
+                    bh);
                 DrawRect(back, InkPalette.Paper2);
                 var fillRect = back;
                 fillRect.width = bw * baseRatio;
@@ -113,17 +126,26 @@ namespace MukJump.Core
             // 기본부터 충분히 길게 보이고, 성장·날씨·붓 여유가 실제 최대 폭에도 반영된다.
             // 반복 아이템으로 최대치가 커져도 트랙은 화면 밖으로 나가지 않는다.
             float w = Mathf.Min(
-                Screen.width * 0.82f,
-                Screen.width * 0.64f * safeCapacityRatio);
+                maximumGaugeWidth,
+                safeGui.width * 0.64f * safeCapacityRatio);
             float h = w * (inkGaugeFill.height / (float)inkGaugeFill.width);
             float iconSize = inkBrushIcon != null ? h * 1.0f : 0f;
             float overlap = iconSize * 0.65f;     // 붓이 획의 끝을 그리고 있는 것처럼 깊게 겹침
             float totalW = w + iconSize - overlap;
+            if (totalW > maximumGaugeWidth)
+            {
+                float fit = maximumGaugeWidth / totalW;
+                w *= fit;
+                h *= fit;
+                iconSize *= fit;
+                overlap *= fit;
+                totalW = w + iconSize - overlap;
+            }
 
             // 아이콘(게이지보다 큼)까지 포함한 전체가 화면 아래로 짤리지 않도록 배치
             float clusterH = Mathf.Max(h, iconSize);
-            float centerY = Screen.height * 0.975f - clusterH / 2;
-            float x = (Screen.width - totalW) / 2;
+            float centerY = safeGui.yMax - bottomMargin - clusterH * 0.5f;
+            float x = safeGui.center.x - totalW * 0.5f;
             float y = centerY - h / 2;
 
             var area = new Rect(x, y, w, h);

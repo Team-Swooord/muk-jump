@@ -426,7 +426,11 @@ public class FallingInkRockTests
         Assert.That(lobbyBest.rectTransform.sizeDelta.x, Is.EqualTo(400f).Within(0.01f));
         Assert.That(lobbyBest.rectTransform.sizeDelta.y, Is.EqualTo(80f).Within(0.01f));
 
-        var lobbyLogo = lobby.transform.Find("Logo") as RectTransform;
+        var lobbySafeArea = lobby.transform.Find("SafeAreaRoot") as RectTransform;
+        Assert.IsNotNull(lobbySafeArea);
+        var lobbyContent = lobbySafeArea.Find("LobbyContentRoot") as RectTransform;
+        Assert.IsNotNull(lobbyContent);
+        var lobbyLogo = lobbyContent.Find("Logo") as RectTransform;
         Assert.IsNotNull(lobbyLogo?.GetComponent<RawImage>());
         Assert.That(lobbyLogo.anchoredPosition.x, Is.EqualTo(12f).Within(0.01f));
         Assert.That(lobbyLogo.anchoredPosition.y, Is.EqualTo(79f).Within(0.01f));
@@ -468,7 +472,7 @@ public class FallingInkRockTests
             "Game View에서 로비 UI 입력 장치가 비활성화되지 않도록 가드가 필요합니다.");
         Assert.IsNotNull(
             uiInputGuard.GetComponent<UnityEngine.EventSystems.EventSystem>());
-        var bestDisplay = lobby.transform.Find("BestDisplay") as RectTransform;
+        var bestDisplay = lobbyContent.Find("BestDisplay") as RectTransform;
         Assert.IsNotNull(bestDisplay?.GetComponent<RawImage>());
         Assert.That(bestDisplay.anchorMin.x,
             Is.EqualTo(LobbyMenuLayout.RecordRailX).Within(0.001f));

@@ -61,6 +61,17 @@ public class PauseMenuViewTests
 
         var pauseButton = canvasRoot.Find("PauseButton")?.GetComponent<Button>();
         Assert.IsNotNull(pauseButton);
+        var pauseButtonRect = pauseButton.transform as RectTransform;
+        Assert.That(
+            pauseButtonRect.sizeDelta.x,
+            Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight));
+        Assert.That(
+            pauseButtonRect.sizeDelta.y,
+            Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight));
+        var pauseVisual = pauseButton.transform.Find("Visual") as RectTransform;
+        Assert.IsNotNull(pauseVisual);
+        Assert.That(pauseVisual.sizeDelta, Is.EqualTo(new Vector2(78f, 78f)),
+            "보이는 아이콘은 작게 유지하고 투명 터치 영역만 넓혀야 합니다.");
         Assert.IsTrue(pauseButton.GetComponent<Graphic>().raycastTarget);
         Assert.IsTrue(pauseButton.targetGraphic.raycastTarget);
         Assert.IsFalse(
@@ -562,10 +573,14 @@ public class PauseMenuViewTests
         var newBestGroup = newBestSeal.GetComponent<CanvasGroup>();
 
         Invoke(view, "ApplyRevealPose", 0f, true);
+        float panelLayoutScale =
+            GetField<float>(view, "panelLayoutScale");
         float closedPanelScale = panel.localScale.x;
         float closedScale = body.localScale.y;
-        Assert.GreaterOrEqual(closedPanelScale, 0.94f);
-        Assert.Less(closedPanelScale, 1f);
+        Assert.GreaterOrEqual(
+            closedPanelScale,
+            panelLayoutScale * 0.94f);
+        Assert.Less(closedPanelScale, panelLayoutScale);
         Assert.Greater(closedScale, 0f);
         Assert.That(topRoll.anchoredPosition.y, Is.Zero);
         Assert.That(bottomRoll.anchoredPosition.y, Is.Zero);
@@ -585,7 +600,9 @@ public class PauseMenuViewTests
         Assert.Greater(topRoll.anchoredPosition.y, 250f);
         Assert.That(topRoll.anchoredPosition.y,
             Is.EqualTo(-bottomRoll.anchoredPosition.y).Within(0.01f));
-        Assert.That(panel.localScale.x, Is.EqualTo(1f).Within(0.001f));
+        Assert.That(
+            panel.localScale.x,
+            Is.EqualTo(panelLayoutScale).Within(0.001f));
         Assert.That(content.anchoredPosition, Is.EqualTo(Vector2.zero));
         Assert.That(rootGroup.alpha, Is.EqualTo(1f).Within(0.001f));
         Assert.That(contentGroup.alpha, Is.EqualTo(1f).Within(0.001f));
