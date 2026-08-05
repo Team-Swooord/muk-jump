@@ -270,7 +270,12 @@ Player↔Obstacle, Player↔Item 충돌은 유지한다. 분신이 늘 때마다
 카메라를 따라가는 화면 양옆 벽은 움직이는 static collider가 아니라 독립 kinematic
 `Rigidbody2D`를 갖고 `FixedUpdate`에서 `MovePosition`한다. 마찰 0 전용 재질을 사용해
 카메라의 수직 이동을 캐릭터에 전달하지 않으며, 직렬화된 소유자 marker로 domain reload
-뒤 기존 벽을 다시 찾아 중복 collider 생성을 막는다. 좌우 이동 장애물도 같은 원칙으로
+뒤 기존 벽을 다시 찾아 중복 collider 생성을 막는다. 일반 벽의 최초 충돌과 접촉 유지
+모두 x를 안쪽으로 반사하고 양수 y를 0으로 만들어 급경사 먹선과의 상승 래칫을 차단하며, 음수 y와
+하강 중 `벽의 먹발` 진입은 유지한다. 각 벽의 `LineRenderer`는 충돌 면을 중심으로
+0.95m만 화면 안에 들어오는 옅은 붉은 먹띠를 그린다. `StrokeCapture`는 현재 카메라
+줌·비율로 계산한 같은 0.95m 띠와 캐릭터 외곽을 단일 무할당 패스로 잘라, 최종 유효
+구간만 `PlatformCollider`와 먹자리 ledger에 넘긴다. 좌우 이동 장애물도 같은 원칙으로
 kinematic body와 fixed step 이동을 사용한다.
 
 `CameraFollow`는 매 점프의 최고 정점을 진행도로 저장하지 않는다. 먹떼 중앙 대표가

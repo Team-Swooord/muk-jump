@@ -25,7 +25,8 @@ namespace MukJump.EditorTests
         public void SideWallsUseKinematicBodiesAndAreOwnedByComponent()
         {
             cameraObject = new GameObject("Camera");
-            cameraObject.AddComponent<Camera>();
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.orthographic = true;
             var sideWalls = cameraObject.AddComponent<ScreenSideWalls>();
             var ensureWalls = typeof(ScreenSideWalls).GetMethod(
                 "EnsureWalls", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -82,6 +83,77 @@ namespace MukJump.EditorTests
             Assert.That(collider.sharedMaterial.friction, Is.Zero);
             Assert.That(collider.sharedMaterial.bounciness, Is.Zero);
             Assert.That(wall.GetComponent<ScreenSideWall>(), Is.Not.Null);
+            var visual = wall.GetComponent<LineRenderer>();
+            Assert.That(visual, Is.Not.Null);
+            Assert.That(visual.useWorldSpace, Is.False);
+            Assert.That(visual.startWidth, Is.EqualTo(1.9f).Within(0.001f));
+            Assert.That(visual.startColor.a, Is.EqualTo(0.16f).Within(0.001f));
+        }
+
+        [TestCase(9.6f, 0.5625f)]
+        [TestCase(9.6f, 0.46153846f)]
+        public void DrawableRangeTracksPortraitViewportAndCameraMotion(
+            float orthographicSize,
+            float aspect)
+        {
+            cameraObject = new GameObject("CameraRange");
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.orthographic = true;
+            camera.orthographicSize = orthographicSize;
+            camera.aspect = aspect;
+            camera.transform.position = new Vector3(1.7f, 24f, -10f);
+            var sideWalls = cameraObject.AddComponent<ScreenSideWalls>();
+
+            Assert.That(sideWalls.TryGetDrawableWorldXRange(
+                out float minimumX,
+                out float maximumX), Is.True);
+
+            float halfWidth = orthographicSize * aspect;
+            Assert.That(minimumX,
+                Is.EqualTo(1.7f - halfWidth + 0.95f).Within(0.001f));
+            Assert.That(maximumX,
+                Is.EqualTo(1.7f + halfWidth - 0.95f).Within(0.001f));
+            Assert.That((minimumX + maximumX) * 0.5f,
+                Is.EqualTo(camera.transform.position.x).Within(0.001f));
+
+            camera.transform.position += Vector3.right * 2f;
+            camera.orthographicSize = orthographicSize * 0.92f;
+            Assert.That(sideWalls.TryGetDrawableWorldXRange(
+                out float movedMinimum,
+                out float movedMaximum), Is.True);
+            Assert.That((movedMinimum + movedMaximum) * 0.5f,
+                Is.EqualTo(camera.transform.position.x).Within(0.001f));
+            Assert.That(movedMaximum - movedMinimum,
+                Is.LessThan(maximumX - minimumX));
+        }
+
+        [Test]
+        public void OrdinarySideWallBounceCancelsOnlyUpwardRatchetVelocity()
+        {
+            MethodInfo method = typeof(PlayerController).GetMethod(
+                "ResolveSideWallBounceVelocity",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+
+            var rising = (Vector2)method.Invoke(null, new object[]
+            {
+                new Vector2(-7f, 5.2f),
+                1f,
+                2.4f,
+            });
+            Assert.That(rising.x, Is.EqualTo(3.85f).Within(0.001f));
+            Assert.That(rising.y, Is.Zero,
+                "최초 충돌과 접촉 유지 모두 급경사 먹선에서 얻은 상승 속도를 보존하면 안 됩니다.");
+
+            var falling = (Vector2)method.Invoke(null, new object[]
+            {
+                new Vector2(1f, -3.1f),
+                -1f,
+                2.4f,
+            });
+            Assert.That(falling.x, Is.EqualTo(-2.4f).Within(0.001f));
+            Assert.That(falling.y, Is.EqualTo(-3.1f).Within(0.001f),
+                "일반 하강 감각과 벽 비기 진입 조건은 유지해야 합니다.");
         }
     }
 }

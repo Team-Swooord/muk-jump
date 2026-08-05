@@ -46,6 +46,7 @@ namespace MukJump.Drawing
         LineRenderer preview;
         float unlimitedInkUntil;
         RunGrowthController growthController;
+        Player.ScreenSideWalls screenSideWalls;
         float appliedInkCapacity;
         bool unlimitedInkWasActive;
         readonly List<Player.PlayerController> livingPlayers = new();
@@ -135,6 +136,8 @@ namespace MukJump.Drawing
             cam = Camera.main;
             if (cam == null)
                 Debug.LogError("[MukJump] MainCamera를 찾을 수 없어 드로잉 좌표를 변환할 수 없습니다.", this);
+            else
+                screenSideWalls = cam.GetComponent<Player.ScreenSideWalls>();
             TryBindGrowthController();
             appliedInkCapacity = EffectiveInkCapacity;
             unlimitedInkWasActive = HasUnlimitedInk;
@@ -352,8 +355,8 @@ namespace MukJump.Drawing
                 return;
             }
 
-            // 캐릭터와 너무 가까운 부분만 잘라내 콜라이더 밀어내기로 캐릭터를
-            // 튕겨 올리는 악용은 막되, 나머지 유효한 획은 발판으로 살린다.
+            // 캐릭터와 너무 가까운 부분 및 화면 먹벽 띠만 잘라내 콜라이더 밀어내기와
+            // 측벽 사이 상승 래칫을 막되, 나머지 유효한 획은 발판으로 살린다.
             smoothed = LongestSafeSegment(smoothed);
             float validLength = BezierSmoother.PolylineLength(smoothed);
             if (smoothed.Count < 2 || validLength < minStrokeLength)
@@ -451,16 +454,27 @@ namespace MukJump.Drawing
             PlatformCollider.ReconcileActiveInkBudget(appliedInkCapacity);
         }
 
-        /// 캐릭터와 겹치는 부분만 잘라내고 가장 긴 안전 구간은 살린다.
+        /// 캐릭터·화면 먹벽과 겹치는 부분만 잘라내고 가장 긴 안전 구간은 살린다.
         /// 획 전체를 취소해 입력이 먹히지 않은 것처럼 보이던 불편을 줄인다.
         List<Vector2> LongestSafeSegment(List<Vector2> strokePoints)
         {
             livingPlayers.Clear();
             GameManager.Instance?.GetLivingPlayersNonAlloc(livingPlayers);
-            if (livingPlayers.Count == 0) return strokePoints;
+            if (screenSideWalls == null && cam != null)
+                screenSideWalls = cam.GetComponent<Player.ScreenSideWalls>();
 
-            return SelectLongestSafeSegment(strokePoints, livingPlayers, playerClearance,
-                safeSegment, safeSegmentCandidate);
+            float minimumX = float.NegativeInfinity;
+            float maximumX = float.PositiveInfinity;
+            screenSideWalls?.TryGetDrawableWorldXRange(out minimumX, out maximumX);
+
+            return SelectLongestPlayableSegment(
+                strokePoints,
+                livingPlayers,
+                playerClearance,
+                minimumX,
+                maximumX,
+                safeSegment,
+                safeSegmentCandidate);
         }
 
         /// 실제 캐릭터 콜라이더 바깥에서 발판 Edge 반경 0.06m까지 포함한 여백이다.
@@ -480,6 +494,25 @@ namespace MukJump.Drawing
             List<Vector2> longest,
             List<Vector2> current)
         {
+            return SelectLongestPlayableSegment(
+                strokePoints,
+                players,
+                clearance,
+                float.NegativeInfinity,
+                float.PositiveInfinity,
+                longest,
+                current);
+        }
+
+        static List<Vector2> SelectLongestPlayableSegment(
+            IReadOnlyList<Vector2> strokePoints,
+            IReadOnlyList<Player.PlayerController> players,
+            float clearance,
+            float minimumX,
+            float maximumX,
+            List<Vector2> longest,
+            List<Vector2> current)
+        {
             longest.Clear();
             current.Clear();
             float longestLength = 0f;
@@ -492,9 +525,10 @@ namespace MukJump.Drawing
             for (int pointIndex = 0; pointIndex < strokePoints.Count; pointIndex++)
             {
                 Vector2 point = strokePoints[pointIndex];
-                bool blocked = false;
+                bool blocked = point.x < minimumX || point.x > maximumX;
                 for (int playerIndex = 0; playerIndex < players.Count; playerIndex++)
                 {
+                    if (blocked) break;
                     var player = players[playerIndex];
                     if (player == null || player.IsDead) continue;
                     var bodyShape = player.PrimaryCollider;

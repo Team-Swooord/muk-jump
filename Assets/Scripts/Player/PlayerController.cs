@@ -618,6 +618,16 @@ namespace MukJump.Player
                 MaintainWallCling();
                 return;
             }
+            // 벽과 급경사 먹선 사이에 접촉이 계속 유지되면 OnCollisionEnter가 다시
+            // 오지 않는다. 그 상태에서 다음 자동점프가 준 상승분도 매 물리 틱 제거한다.
+            if (sideWall != null && rb != null && rb.linearVelocity.y > 0f)
+            {
+                float inwardDirection = sideWall.IsLeft ? 1f : -1f;
+                rb.linearVelocity = ResolveSideWallBounceVelocity(
+                    rb.linearVelocity,
+                    inwardDirection,
+                    sideWallBounceSpeed);
+            }
 
             var platform = collision.collider.GetComponentInParent<PlatformCollider>();
             for (int i = 0; i < collision.contactCount; i++)
@@ -732,8 +742,25 @@ namespace MukJump.Player
             GameFeedbackController.Instance?.PlayWallHit(transform.position, inwardDirection);
             if (TryBeginWallCling(sideWall, inwardDirection))
                 return;
-            float bounceSpeed = Mathf.Max(sideWallBounceSpeed, Mathf.Abs(rb.linearVelocity.x) * 0.55f);
-            rb.linearVelocity = new Vector2(inwardDirection * bounceSpeed, rb.linearVelocity.y);
+            rb.linearVelocity = ResolveSideWallBounceVelocity(
+                rb.linearVelocity,
+                inwardDirection,
+                sideWallBounceSpeed);
+        }
+
+        /// 화면 벽과 급경사 먹선 사이에서 상승 속도가 반복 보존되는 래칫을 끊는다.
+        /// 하강 속도는 유지해 기존 낙하 감각을 바꾸지 않고, 벽 비기는 이 경로 전에 빠진다.
+        static Vector2 ResolveSideWallBounceVelocity(
+            Vector2 currentVelocity,
+            float inwardDirection,
+            float minimumBounceSpeed)
+        {
+            float bounceSpeed = Mathf.Max(
+                Mathf.Max(0f, minimumBounceSpeed),
+                Mathf.Abs(currentVelocity.x) * 0.55f);
+            return new Vector2(
+                Mathf.Sign(inwardDirection) * bounceSpeed,
+                Mathf.Min(currentVelocity.y, 0f));
         }
 
         void OnCollisionExit2D(Collision2D collision)

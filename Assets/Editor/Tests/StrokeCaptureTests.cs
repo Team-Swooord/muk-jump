@@ -142,6 +142,110 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void EdgeInkWallKeepsOnlyTheLongestInteriorStrokeSegment()
+        {
+            MethodInfo method = typeof(StrokeCapture).GetMethod(
+                "SelectLongestPlayableSegment",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+
+            var longest = new List<Vector2>();
+            var current = new List<Vector2>();
+            var result = (List<Vector2>)method.Invoke(null, new object[]
+            {
+                new List<Vector2>
+                {
+                    new(-5f, 0f),
+                    new(-4.3f, 0f),
+                    new(-3.2f, 0f),
+                    new(-5.1f, 0f),
+                    new(0f, 1f),
+                    new(1.2f, 1f),
+                    new(3.8f, 1f),
+                    new(5f, 1f),
+                },
+                new List<PlayerController>(),
+                0.55f,
+                -4.45f,
+                4.45f,
+                longest,
+                current,
+            });
+
+            Assert.AreSame(longest, result);
+            Assert.That(result, Is.EqualTo(new[]
+            {
+                new Vector2(0f, 1f),
+                new Vector2(1.2f, 1f),
+                new Vector2(3.8f, 1f),
+            }), "살아 있는 캐릭터가 없어도 화면 먹벽 띠는 획에서 제외해야 합니다.");
+        }
+
+        [Test]
+        public void PlayerClearanceAndEdgeWallShareOneReusableSelectionPass()
+        {
+            playerObject = new GameObject("PlayerAtCenter");
+            var player = playerObject.AddComponent<PlayerController>();
+            playerObject.transform.position = Vector3.zero;
+            MethodInfo method = typeof(StrokeCapture).GetMethod(
+                "SelectLongestPlayableSegment",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            var longest = new List<Vector2>();
+            var result = (List<Vector2>)method.Invoke(null, new object[]
+            {
+                new List<Vector2>
+                {
+                    new(-5f, 0f),
+                    new(-3f, 0f),
+                    new(-2f, 0f),
+                    Vector2.zero,
+                    new(1.5f, 0f),
+                    new(3f, 0f),
+                    new(5f, 0f),
+                },
+                new List<PlayerController> { player },
+                0.75f,
+                -4f,
+                4f,
+                longest,
+                new List<Vector2>(),
+            });
+
+            Assert.That(result, Is.EqualTo(new[]
+            {
+                new Vector2(1.5f, 0f),
+                new Vector2(3f, 0f),
+            }));
+        }
+
+        [Test]
+        public void StrokeEntirelyInsideEdgeWallCannotCreateAPlatform()
+        {
+            MethodInfo method = typeof(StrokeCapture).GetMethod(
+                "SelectLongestPlayableSegment",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            var result = (List<Vector2>)method.Invoke(null, new object[]
+            {
+                new List<Vector2>
+                {
+                    new(-5.2f, 0f),
+                    new(-5f, 1f),
+                    new(-4.7f, 2f),
+                },
+                new List<PlayerController>(),
+                0.55f,
+                -4.45f,
+                4.45f,
+                new List<Vector2>(),
+                new List<Vector2>(),
+            });
+
+            Assert.That(result, Is.Empty);
+        }
+
+        [Test]
         public void EndStrokeFinalizesTheActivePointSetOnlyOnce()
         {
             StrokeCapture capture = CreateActiveStroke(new Vector2(10001f, 10000f));
