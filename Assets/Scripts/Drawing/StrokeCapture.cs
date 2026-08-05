@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using MukJump.Core;
@@ -50,6 +51,10 @@ namespace MukJump.Drawing
         readonly List<Player.PlayerController> livingPlayers = new();
         readonly List<Vector2> safeSegment = new();
         readonly List<Vector2> safeSegmentCandidate = new();
+
+        /// 튜토리얼·분석 계층이 포인터 해제나 오브젝트 수를 추측하지 않고
+        /// 실제 유효 발판 생성만 관찰하는 계약이다.
+        public event Action<PlatformCollider, float, float> ValidStrokeCreated;
 
         /// HUD 먹 게이지용. 확정 획과 현재 그리고 있는 획을 모두 포함한다.
         public bool HasUnlimitedInk => Time.time < unlimitedInkUntil;
@@ -228,7 +233,8 @@ namespace MukJump.Drawing
             if (PointerInput.TryGetPressed(out var screenPos))
             {
                 if (GameplayHudView.IsPointerOverItemTestControls(screenPos) ||
-                    PauseMenuView.IsPointerOverControls(screenPos))
+                    PauseMenuView.IsPointerOverControls(screenPos) ||
+                    FirstRunTutorialController.IsPointerOverControls(screenPos))
                 {
                     if (drawing) CancelStroke();
                     return;
@@ -360,13 +366,14 @@ namespace MukJump.Drawing
                 validLength,
                 ActivePermanentGrowth.InkBudgetCostMultiplier,
                 ActivePermanentGrowth.ShortStrokeBudgetCostMultiplier);
-            PlatformCollider.Spawn(
+            PlatformCollider platform = PlatformCollider.Spawn(
                 smoothed,
                 budgetCost,
                 EffectiveEvictionFadeDuration,
                 ActivePermanentGrowth.InkEvictionDelaySeconds);
             if (!HasUnlimitedInk)
                 PlatformCollider.ReconcileActiveInkBudget(EffectiveInkCapacity);
+            ValidStrokeCreated?.Invoke(platform, validLength, budgetCost);
             GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, true);
         }
 

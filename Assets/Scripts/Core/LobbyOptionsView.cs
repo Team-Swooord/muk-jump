@@ -3,40 +3,15 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 로비 옵션, 로컬 소리 설정, 지원 안내와 4장 튜토리얼을 제공한다.
+    /// 로비 옵션, 로컬 소리 설정, 지원 안내와 5장 튜토리얼을 제공한다.
     /// 실제 고객센터·Google/Apple 연결은 하지 않으며 준비 중 정보만 제공한다.
     [DisallowMultipleComponent]
     public sealed class LobbyOptionsView : MonoBehaviour
     {
         const int CanvasSortingOrder = 4150;
-        const int TutorialPageCountValue = 4;
         const float PanelWidth = 900f;
         const float PanelHeight = 1510f;
         const float SafeAreaPadding = 40f;
-
-        static readonly string[] TutorialTitles =
-        {
-            "먹방울은 스스로 뛰어요",
-            "착지할 곳에 한 획을 그려요",
-            "선의 기울기가 방향을 정해요",
-            "먹자리를 이어 더 높이 올라요",
-        };
-
-        static readonly string[] TutorialDescriptions =
-        {
-            "캐릭터는 1초마다 자동으로 점프해요.\n점프 버튼을 찾지 않아도 됩니다.",
-            "손가락으로 선을 그으면 바로 발판이 돼요.\n떨어질 자리를 먼저 보고 그려주세요.",
-            "오른쪽으로 기울이면 오른쪽으로,\n왼쪽으로 기울이면 왼쪽으로 날아가요.",
-            "먹자리가 차면 가장 오래된 획부터 사라져요.\n새 획으로 길을 이어 최고 높이에 도전하세요.",
-        };
-
-        static readonly string[] TutorialSpritePaths =
-        {
-            "MukJump/UI/Growth/growth_jump",
-            "MukJump/UI/Growth/growth_platform",
-            "MukJump/UI/Growth/growth_guard",
-            "MukJump/UI/Growth/growth_ink_regen",
-        };
 
         CanvasGroup rootGroup;
         CanvasGroup optionsGroup;
@@ -68,7 +43,7 @@ namespace MukJump.Core
             rootGroup != null && rootGroup.blocksRaycasts;
         public bool IsTutorialOpen =>
             IsOpen && tutorialGroup != null && tutorialGroup.blocksRaycasts;
-        public int TutorialPageCount => TutorialPageCountValue;
+        public int TutorialPageCount => GameplayTutorialCatalog.Count;
         public int CurrentTutorialPage => currentTutorialPage;
         public string PlayerUidLabel => uidText != null ? uidText.text : string.Empty;
 
@@ -303,7 +278,7 @@ namespace MukJump.Core
                 new Vector2(-190f, -235f));
             account.onClick.AddListener(ShowConnectionGuide);
             var guide = CreateUtilityButton(
-                "GuideButton", panel, "책", "튜토리얼\n4장 다시 보기",
+                "GuideButton", panel, "책", "튜토리얼\n5장 다시 보기",
                 new Vector2(190f, -235f));
             guide.onClick.AddListener(() => ShowTutorialPage(0));
 
@@ -338,7 +313,7 @@ namespace MukJump.Core
             close.onClick.AddListener(ShowOptionsPage);
 
             tutorialPage = CreateReadableText(
-                "Page", panel, "1 / 4", InkUiStyle.BodySize,
+                "Page", panel, "1 / 5", InkUiStyle.BodySize,
                 new Vector2(265f, 625f), new Vector2(210f, 70f),
                 InkPalette.TextMuted);
 
@@ -523,23 +498,25 @@ namespace MukJump.Core
             currentTutorialPage = Mathf.Clamp(
                 page,
                 0,
-                TutorialPageCountValue - 1);
+                GameplayTutorialCatalog.Count - 1);
+
+            GameplayTutorialPage pageData =
+                GameplayTutorialCatalog.Get(currentTutorialPage);
             SetPageVisible(optionsGroup, false);
             SetPageVisible(tutorialGroup, true);
-            tutorialTitle.text = TutorialTitles[currentTutorialPage];
-            tutorialDescription.text =
-                TutorialDescriptions[currentTutorialPage];
+            tutorialTitle.text = pageData.Title;
+            tutorialDescription.text = pageData.Description;
             tutorialImage.sprite = Resources.Load<Sprite>(
-                TutorialSpritePaths[currentTutorialPage]);
+                pageData.SpriteResourcePath);
             tutorialImage.color = tutorialImage.sprite != null
                 ? Color.white
                 : InkPalette.Ink;
             tutorialPage.text =
-                $"{currentTutorialPage + 1} / {TutorialPageCountValue}";
+                $"{currentTutorialPage + 1} / {GameplayTutorialCatalog.Count}";
             tutorialPreviousButton.interactable =
                 currentTutorialPage > 0;
             tutorialNextLabel.text =
-                currentTutorialPage == TutorialPageCountValue - 1
+                currentTutorialPage == GameplayTutorialCatalog.Count - 1
                     ? "완료"
                     : "다음";
         }
@@ -552,7 +529,7 @@ namespace MukJump.Core
 
         void NextTutorialPage()
         {
-            if (currentTutorialPage < TutorialPageCountValue - 1)
+            if (currentTutorialPage < GameplayTutorialCatalog.Count - 1)
             {
                 ShowTutorialPage(currentTutorialPage + 1);
                 return;

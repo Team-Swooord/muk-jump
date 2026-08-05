@@ -488,7 +488,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void OptionsTutorialUsesFourSequentialPagesAndMarksCompletion()
+        public void OptionsTutorialUsesFiveSequentialPagesAndMarksCompletion()
         {
             viewHost = new GameObject("LobbyOptionsTestHost");
             var optionsView = viewHost.AddComponent<LobbyOptionsView>();
@@ -498,12 +498,16 @@ namespace MukJump.EditorTests
 
             Assert.That(optionsView.IsOpen, Is.True);
             Assert.That(optionsView.IsTutorialOpen, Is.True);
-            Assert.That(optionsView.TutorialPageCount, Is.EqualTo(4));
+            Assert.That(
+                optionsView.TutorialPageCount,
+                Is.EqualTo(GameplayTutorialCatalog.Count));
             Assert.That(optionsView.CurrentTutorialPage, Is.EqualTo(0));
             Assert.That(optionsView.PlayerUidLabel,
                 Does.StartWith("플레이어 UID   MUK-"));
 
-            for (int expectedPage = 1; expectedPage < 4; expectedPage++)
+            for (int expectedPage = 1;
+                 expectedPage < GameplayTutorialCatalog.Count;
+                 expectedPage++)
             {
                 Invoke(optionsView, "NextTutorialPage");
                 Assert.That(optionsView.CurrentTutorialPage,
@@ -515,7 +519,7 @@ namespace MukJump.EditorTests
 
             Assert.That(LobbySettingsProfile.TutorialSeen, Is.True);
             Assert.That(optionsView.IsTutorialOpen, Is.False,
-                "네 번째 안내의 완료 버튼은 옵션 본문으로 돌아가야 합니다.");
+                "마지막 안내의 완료 버튼은 옵션 본문으로 돌아가야 합니다.");
             Assert.That(optionsView.IsOpen, Is.True);
         }
 
@@ -631,6 +635,10 @@ namespace MukJump.EditorTests
                 Is.EqualTo(0.6f).Within(0.001f),
                 "음소거를 껐다 켜면 사용자가 마지막으로 고른 효과음 크기로 돌아가야 합니다.");
             Assert.That(LobbySettingsProfile.TutorialSeen, Is.True);
+            Assert.That(
+                LobbySettingsProfile.NeedsGameplayTutorial,
+                Is.True,
+                "과거 정적 가이드 완료 여부가 새 인터랙티브 안내 버전을 대신하면 안 됩니다.");
             Assert.That(LobbySettingsProfile.PlayerUid, Is.EqualTo(firstUid),
                 "로컬 UID는 옵션 화면을 다시 열어도 바뀌면 안 됩니다.");
         }

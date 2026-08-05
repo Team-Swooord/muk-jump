@@ -331,7 +331,14 @@ kinematic body와 fixed step 이동을 사용한다.
   노드를 표시한다. 진한 먹 받침 위에 잠금 봉오리·해금 빨간 열매·선택 먹고리·장착
   금빛 고리를 합성하고, 설명은 고정 `SelectedGrowthAction` 팝업에서만 보여 준다.
   UI 트리는 최초 진입 때 한 번 만들고 이후 리소스와 표현 객체를 재사용한다.
-- `LobbyOptionsView`는 로비 전용 4장 가이드, 2열 오디오 카드, 로컬 UID와
+- `GameplayTutorialCatalog`는 먹 그리기·발판·장애물·날씨·맵 5장 문구와 아이콘을
+  첫 플레이와 옵션 다시 보기에 공통 제공한다. `FirstRunTutorialController`는 성장
+  저장 복구와 화면 전환 검사를 통과한 첫 `시작`에서만 예약되고, `Playing` 진입 뒤
+  Safe Area 카드로 열린다. 실제 `StrokeCapture.ValidStrokeCreated`와 상단 접촉
+  `GameManager.PlayerLanded`를 관찰해 첫 두 행동을 검증하며 나머지 정보는 초반 30m
+  안전 구간에서 짧게 순차 노출한다. 완료·2회 확인 건너뛰기만 버전 저장하며 중도
+  사망은 다음 판에 다시 시작한다. 카드 전체와 건너뛰기 영역은 월드 드로잉을 차단한다.
+- `LobbyOptionsView`는 로비 전용 5장 다시 보기, 2열 오디오 카드, 로컬 UID와
   언어·고객센터·계정 연동 목업만 소유한다. 외부 로그인 토큰은 저장하지 않는다.
 - `InkUiStyle.ConfigureActionButton()`은 로비 세 메뉴의 전용 그래픽을 건드리지
   않고 화면 흐름을 확정하는 텍스트 버튼에만 공용 붓획을 적용한다.

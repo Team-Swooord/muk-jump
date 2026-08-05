@@ -721,6 +721,8 @@ namespace MukJump.Player
                 bool drawnPlatform = platform != null &&
                                      platform.IsTemporaryDrawnPlatform;
                 GetComponent<AutoJump>()?.NotifyLanding(drawnPlatform);
+                if (hasTopContact)
+                    GameManager.Instance?.NotifyPlayerLanded(this, platform);
             }
 
             var sideWall = collision.collider.GetComponent<ScreenSideWall>();

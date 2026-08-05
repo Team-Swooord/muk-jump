@@ -316,6 +316,9 @@ public class FallingInkRockTests
 
         var growthController = FindFirstInScene<RunGrowthController>(builderTestScene);
         Assert.IsNotNull(growthController);
+        Assert.IsNotNull(
+            FindFirstInScene<FirstRunTutorialController>(builderTestScene),
+            "씬 빌더가 첫 플레이 인터랙티브 튜토리얼을 한 개 구성해야 합니다.");
 
         var capture = FindFirstInScene<StrokeCapture>(builderTestScene);
         Assert.IsNotNull(capture);

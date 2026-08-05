@@ -63,6 +63,8 @@ namespace MukJump.Core
         public bool DebugInvincible { get; private set; }
         /// 스포너·연출이 GameManager 구현을 직접 폴링하지 않고 세션 경계에 반응하는 계약.
         public event Action<GameState, GameState> StateChanged;
+        /// 튜토리얼이 시작 지형·풍맥과 실제 드로잉 발판 착지를 구분해 관찰한다.
+        public event Action<PlayerController, PlatformCollider> PlayerLanded;
         /// 일시정지는 Playing 상태를 유지해 풀과 세션 예약을 보존하고 별도 계약으로 알린다.
         public event Action<bool> PauseChanged;
         /// 디버그 순간이동 뒤 과거 고도의 스폰 예약을 한 프레임에 소진하지 않게 알린다.
@@ -186,6 +188,8 @@ namespace MukJump.Core
                 gameObject.AddComponent<PermanentGrowthView>();
             if (GetComponent<LobbyOptionsView>() == null)
                 gameObject.AddComponent<LobbyOptionsView>();
+            if (GetComponent<FirstRunTutorialController>() == null)
+                gameObject.AddComponent<FirstRunTutorialController>();
             if (GetComponent<LobbyScreenNavigator>() == null)
                 gameObject.AddComponent<LobbyScreenNavigator>();
             if (GetComponent<InkUiFeedbackController>() == null)
@@ -285,6 +289,15 @@ namespace MukJump.Core
         public void UnregisterPlayer(PlayerController player)
         {
             if (player != null) players.Remove(player);
+        }
+
+        public void NotifyPlayerLanded(
+            PlayerController player,
+            PlatformCollider platform)
+        {
+            if (State != GameState.Playing || player == null || player.IsDead)
+                return;
+            PlayerLanded?.Invoke(player, platform);
         }
 
         /// 바람·카메라 같은 읽기 전용 시스템이 매 프레임 FindObjects 배열을 만들지 않도록
@@ -881,6 +894,8 @@ namespace MukJump.Core
                 PermanentGrowthProfile.RequiresRecovery ||
                 navigator != null && !navigator.CanStartGame)
                 return;
+            GetComponent<FirstRunTutorialController>()?
+                .PrepareForGameStart();
             PointerInput.SuppressUntilRelease();
             BeginPlayingAfterCover();
         }

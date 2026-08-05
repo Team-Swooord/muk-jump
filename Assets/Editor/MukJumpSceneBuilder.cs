@@ -698,6 +698,7 @@ namespace MukJump.EditorTools
             go.AddComponent<RunGrowthController>();
             go.AddComponent<PermanentGrowthView>();
             go.AddComponent<LobbyOptionsView>();
+            go.AddComponent<FirstRunTutorialController>();
             go.AddComponent<LobbyScreenNavigator>();
             go.AddComponent<InkUiFeedbackController>();
             go.AddComponent<ScoreManager>();

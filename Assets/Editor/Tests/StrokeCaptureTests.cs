@@ -146,12 +146,16 @@ namespace MukJump.EditorTests
         {
             StrokeCapture capture = CreateActiveStroke(new Vector2(10001f, 10000f));
             MethodInfo endStroke = GetMethod("EndStroke");
+            int resolvedCount = 0;
+            capture.ValidStrokeCreated += (_, _, _) => resolvedCount++;
 
             endStroke.Invoke(capture, null);
             endStroke.Invoke(capture, null);
 
             Assert.That(CountNewPlatforms(), Is.EqualTo(1),
                 "같은 활성 획의 종료 신호가 겹쳐도 발판은 한 번만 생성되어야 합니다.");
+            Assert.That(resolvedCount, Is.EqualTo(1),
+                "튜토리얼 완료 신호도 유효 발판 하나당 한 번만 발생해야 합니다.");
             Assert.That(GetField<bool>(capture, "drawing"), Is.False);
         }
 

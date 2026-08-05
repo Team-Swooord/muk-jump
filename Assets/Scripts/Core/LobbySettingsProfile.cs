@@ -36,11 +36,15 @@ namespace MukJump.Core
     /// 플랫폼 로그인 버튼은 표시만 하며 이 프로필에 인증 정보는 저장하지 않는다.
     public static class LobbySettingsProfile
     {
+        public const int CurrentGameplayTutorialVersion = 1;
+
         const string BgmVolumeKey = "MukJump.Settings.BgmVolume";
         const string SfxVolumeKey = "MukJump.Settings.SfxVolume";
         const string BgmResumeVolumeKey = "MukJump.Settings.BgmResumeVolume";
         const string SfxResumeVolumeKey = "MukJump.Settings.SfxResumeVolume";
         const string TutorialSeenKey = "MukJump.Settings.TutorialSeen";
+        const string GameplayTutorialVersionKey =
+            "MukJump.Settings.GameplayTutorialVersion";
         const string PlayerUidKey = "MukJump.Settings.PlayerUid";
 
         static ILobbySettingsStore store = new PlayerPrefsLobbySettingsStore();
@@ -50,6 +54,7 @@ namespace MukJump.Core
         static float bgmResumeVolume;
         static float sfxResumeVolume;
         static bool tutorialSeen;
+        static int gameplayTutorialVersion;
         static string playerUid;
 
         public static event Action Changed;
@@ -96,6 +101,37 @@ namespace MukJump.Core
             {
                 EnsureLoaded();
                 return tutorialSeen;
+            }
+        }
+
+        public static int GameplayTutorialVersion
+        {
+            get
+            {
+                EnsureLoaded();
+                return gameplayTutorialVersion;
+            }
+        }
+
+        /// 과거 4장 가이드를 본 사용자도 새 인터랙티브 안내는 한 번 경험한다.
+        public static bool NeedsGameplayTutorial
+        {
+            get
+            {
+                try
+                {
+                    EnsureLoaded();
+                    return gameplayTutorialVersion <
+                           CurrentGameplayTutorialVersion;
+                }
+                catch (Exception exception)
+                {
+                    // 옵션 저장 읽기 실패가 코어 플레이 진입까지 막아서는 안 된다.
+                    loaded = false;
+                    Debug.LogWarning(
+                        $"[MukJump] 튜토리얼 설정을 읽지 못해 이번 세션은 안내 없이 시작합니다: {exception.Message}");
+                    return false;
+                }
             }
         }
 
@@ -156,6 +192,35 @@ namespace MukJump.Core
             Changed?.Invoke();
         }
 
+        /// 완료 또는 확인된 건너뛰기만 새 안내 버전을 기록한다.
+        /// 저장 실패여도 현재 판은 계속하고 다음 실행에서 다시 안내한다.
+        public static bool TryMarkGameplayTutorialCompleted()
+        {
+            try
+            {
+                EnsureLoaded();
+                bool changed = gameplayTutorialVersion <
+                               CurrentGameplayTutorialVersion ||
+                               !tutorialSeen;
+                gameplayTutorialVersion = CurrentGameplayTutorialVersion;
+                tutorialSeen = true;
+                store.SetInt(
+                    GameplayTutorialVersionKey,
+                    gameplayTutorialVersion);
+                store.SetInt(TutorialSeenKey, 1);
+                store.Save();
+                if (changed)
+                    Changed?.Invoke();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"[MukJump] 튜토리얼 완료 상태를 저장하지 못했습니다: {exception.Message}");
+                return false;
+            }
+        }
+
         public static void Flush()
         {
             EnsureLoaded();
@@ -181,6 +246,9 @@ namespace MukJump.Core
                 0.1f,
                 1f);
             tutorialSeen = store.GetInt(TutorialSeenKey, 0) != 0;
+            gameplayTutorialVersion = Mathf.Max(
+                0,
+                store.GetInt(GameplayTutorialVersionKey, 0));
             playerUid = store.GetString(PlayerUidKey, string.Empty);
             if (string.IsNullOrWhiteSpace(playerUid))
             {
