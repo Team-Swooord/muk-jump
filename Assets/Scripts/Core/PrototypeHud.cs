@@ -64,9 +64,6 @@ namespace MukJump.Core
             if (strokeCapture != null)
                 DrawInkGauge(
                     strokeCapture.InkRemaining01,
-                    strokeCapture.CurrentInkRemaining,
-                    strokeCapture.CurrentInkUsage,
-                    strokeCapture.EffectiveInkCapacity,
                     strokeCapture.InkCapacityRatio,
                     strokeCapture.InkCapacityBonusRatio);
         }
@@ -91,9 +88,6 @@ namespace MukJump.Core
         /// 오른쪽 끝에 붓 아이콘을 붙인다. 이미지 미할당 시 단색 막대 폴백.
         void DrawInkGauge(
             float ratio,
-            float remainingInk,
-            float usedInk,
-            float maxInk,
             float capacityRatio,
             float reserveRatio)
         {
@@ -113,12 +107,11 @@ namespace MukJump.Core
                 fillRect.width = bw * baseRatio;
                 DrawRect(fillRect, InkPalette.Ink);
                 DrawReserveGauge(back, reserveRatio);
-                DrawCapacityLabel(back, remainingInk, usedInk, maxInk, golden);
                 return;
             }
 
             // 기본부터 충분히 길게 보이고, 성장·날씨·붓 여유가 실제 최대 폭에도 반영된다.
-            // 반복 아이템으로 수치가 커져도 화면 밖으로 나가지는 않고 숫자로 정확히 표시한다.
+            // 반복 아이템으로 최대치가 커져도 트랙은 화면 밖으로 나가지 않는다.
             float w = Mathf.Min(
                 Screen.width * 0.82f,
                 Screen.width * 0.64f * safeCapacityRatio);
@@ -146,7 +139,6 @@ namespace MukJump.Core
                     new Rect(1f - baseRatio, 0f, baseRatio, 1f));
             }
             DrawReserveGauge(area, reserveRatio);
-            DrawCapacityLabel(area, remainingInk, usedInk, maxInk, golden);
 
             if (golden)
                 DrawGoldenGaugeEffect(area);
@@ -193,33 +185,6 @@ namespace MukJump.Core
                     Mathf.Max(3f, area.height * 0.08f));
                 DrawRect(block, new Color(0.18f, 0.5f, 0.42f, 0.95f));
             }
-        }
-
-        static void DrawCapacityLabel(
-            Rect area,
-            float remainingInk,
-            float usedInk,
-            float maxInk,
-            bool golden)
-        {
-            var label = new Rect(
-                area.x,
-                area.y - Mathf.Max(34f, area.height * 0.42f),
-                area.width,
-                34f);
-            var labelStyle = new GUIStyle(GUI.skin.label)
-            {
-                font = InkPalette.UiFont,
-                alignment = TextAnchor.MiddleCenter,
-                fontSize = Mathf.RoundToInt(
-                    Mathf.Clamp(Screen.height * 0.018f, 22f, 34f)),
-                fontStyle = FontStyle.Bold,
-            };
-            labelStyle.normal.textColor = golden ? InkPalette.Gold : InkPalette.TextDark;
-            string value = golden && usedInk > maxInk + 0.01f
-                ? $"먹자리 {maxInk:0.#}m · 초과 {usedInk - maxInk:0.#}m 유지"
-                : $"먹자리 {remainingInk:0.#} / {maxInk:0.#}m";
-            GUI.Label(label, value, labelStyle);
         }
 
         static void DrawGoldenGaugeEffect(Rect area)

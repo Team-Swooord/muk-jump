@@ -10,7 +10,8 @@ namespace MukJump.Items
     [RequireComponent(typeof(PlayerController))]
     public class ItemEffectView : MonoBehaviour, IRuntimeCloneLifecycle
     {
-        const float VitalityHitDuration = 0.18f;
+        const float VitalityHitDuration = 0.24f;
+        const float VitalityFlashDuration = 0.06f;
 
         [SerializeField] int ringSegments = 48;
         [SerializeField] float ringRadius = 0.78f;
@@ -120,8 +121,8 @@ namespace MukJump.Items
                 ringSegments, ringRadius, wobble);
         }
 
-        /// 먹두께가 피해를 흡수했을 때 캐릭터 뒤의 먹 실루엣 하나를 재사용해
-        /// 짧게 부풀렸다 지운다. 루트 스케일과 콜라이더는 바꾸지 않는다.
+        /// 체력을 잃었을 때 캐시된 실루엣 하나를 앞면 종이빛 플래시와 뒤쪽 붉은
+        /// 먹 번짐으로 연속 재사용한다. 루트 스케일과 콜라이더는 바꾸지 않는다.
         public void PlayVitalityHit()
         {
             if (player == null || player.IsDead) return;
@@ -152,20 +153,48 @@ namespace MukJump.Items
                 return;
             }
 
-            vitalityHitTime = Mathf.Max(0f, vitalityHitTime - Time.deltaTime);
+            vitalityHitTime = Mathf.Max(
+                0f,
+                vitalityHitTime - Mathf.Min(Time.unscaledDeltaTime, 0.05f));
             float progress = 1f - vitalityHitTime / VitalityHitDuration;
             vitalityHitPuff.sprite = playerRenderer.sprite;
             vitalityHitPuff.flipX = playerRenderer.flipX;
             vitalityHitPuff.flipY = playerRenderer.flipY;
             vitalityHitPuff.sharedMaterial = playerRenderer.sharedMaterial;
             vitalityHitPuff.sortingLayerID = playerRenderer.sortingLayerID;
-            vitalityHitPuff.sortingOrder = playerRenderer.sortingOrder - 1;
-            float eased = 1f - Mathf.Pow(1f - progress, 3f);
-            vitalityHitPuff.transform.localScale =
-                Vector3.one * Mathf.Lerp(1.02f, 1.2f, eased);
-            Color color = InkPalette.Ink;
-            color.a = Mathf.Lerp(0.48f, 0f, progress);
-            vitalityHitPuff.color = color;
+            float flashRatio = VitalityFlashDuration / VitalityHitDuration;
+            if (progress <= flashRatio)
+            {
+                float flashProgress = Mathf.Clamp01(progress / flashRatio);
+                vitalityHitPuff.sortingOrder = playerRenderer.sortingOrder + 2;
+                vitalityHitPuff.transform.localScale = new Vector3(
+                    Mathf.Lerp(1.2f, 0.96f, flashProgress),
+                    Mathf.Lerp(0.86f, 1.12f, flashProgress),
+                    1f);
+                Color flash = Color.Lerp(
+                    InkPalette.Paper,
+                    InkPalette.Red,
+                    flashProgress * 0.34f);
+                flash.a = Mathf.Lerp(0.96f, 0.82f, flashProgress);
+                vitalityHitPuff.color = flash;
+            }
+            else
+            {
+                float tailProgress = Mathf.Clamp01(
+                    (progress - flashRatio) / (1f - flashRatio));
+                float eased = 1f - Mathf.Pow(1f - tailProgress, 3f);
+                vitalityHitPuff.sortingOrder = playerRenderer.sortingOrder - 1;
+                vitalityHitPuff.transform.localScale = new Vector3(
+                    Mathf.Lerp(1.02f, 1.35f, eased),
+                    Mathf.Lerp(1.08f, 1.22f, eased),
+                    1f);
+                Color spread = Color.Lerp(
+                    InkPalette.Red,
+                    InkPalette.Ink,
+                    tailProgress * 0.55f);
+                spread.a = Mathf.Lerp(0.68f, 0f, tailProgress);
+                vitalityHitPuff.color = spread;
+            }
             if (vitalityHitTime <= 0f)
                 vitalityHitPuff.enabled = false;
         }

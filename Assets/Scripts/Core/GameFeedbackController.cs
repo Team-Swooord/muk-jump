@@ -42,6 +42,7 @@ namespace MukJump.Core
         float lastDeathFeedbackTime = -10f;
         float lastHitStopRequestTime = -10f;
         float lastWallHitFeedbackTime = -10f;
+        float lastDamageHitFeedbackTime = -10f;
 
         enum HapticPattern
         {
@@ -227,6 +228,33 @@ namespace MukJump.Core
                 InkPalette.Ink,
                 VfxImportance.Normal,
                 2);
+        }
+
+        /// 실제 체력이 줄어든 순간만 짧은 붉은 링·충돌음·약한 진동으로 알린다.
+        /// 먹떼가 동시에 맞아도 공용 풀과 오디오 채널을 분신 수만큼 소모하지 않는다.
+        public void PlayDamageHit(Vector3 position)
+        {
+            EnsureInitialized();
+            if (Time.unscaledTime - lastDamageHitFeedbackTime < 0.07f) return;
+            lastDamageHitFeedbackTime = Time.unscaledTime;
+            VfxAudioManager.Instance?.PlayOneShot(wallHitClip, 0.56f);
+            StartCoroutine(AnimateRing(
+                position,
+                InkPalette.Red,
+                0.1f,
+                0.76f,
+                0.22f,
+                0.075f,
+                0.82f,
+                0.62f,
+                VfxImportance.Important));
+            SpawnDroplets(
+                position,
+                2,
+                InkPalette.Red,
+                VfxImportance.Decorative,
+                1);
+            PlayHaptic(HapticPattern.Landing, 0.42f);
         }
 
         public void PlayGameOver()

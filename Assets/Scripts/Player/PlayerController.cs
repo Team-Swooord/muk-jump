@@ -11,7 +11,7 @@ namespace MukJump.Player
     [RequireComponent(typeof(Rigidbody2D))]
     public class PlayerController : MonoBehaviour
     {
-        [Tooltip("캐릭터가 카메라 하단 가장자리에 이만큼 걸치면 죽음 연출 시작")]
+        [Tooltip("캐릭터가 카메라 하단 가장자리보다 이만큼 내려가면 추락 피해 처리")]
         [SerializeField] float deathEdgeMargin = 0.3f;
         [Header("사망 먹 번짐 연출")]
         [SerializeField] Sprite deathSplashSprite;
@@ -24,13 +24,13 @@ namespace MukJump.Player
         [Tooltip("새 분신이 장애물 위에 생성되어 즉사하지 않도록 보호하는 시간")]
         [SerializeField, Min(0f)] float cloneSpawnGraceDuration = 1f;
         [Header("체력")]
-        [Tooltip("장애물 피해를 버틸 수 있는 기본 횟수. 마지막 체력이 소진되면 사망")]
+        [Tooltip("장애물 피해와 추락을 버틸 수 있는 기본 횟수. 마지막 체력이 소진되면 사망")]
         [SerializeField, Min(1)] int maxHealth = DefaultMaxHealth;
         [Tooltip("체력 피해 뒤 겹친 장애물에 연속으로 맞지 않는 시간")]
         [SerializeField, Min(0f)] float damageHitGraceDuration = 0.55f;
         [Tooltip("접촉 노멀의 y가 이 값 이상이어야 '발판 위'로 인정")]
         [SerializeField] float groundNormalMinY = 0.4f;
-        [Tooltip("먹 방어막으로 추락을 막았을 때 다시 튀어 오르는 목표 높이")]
+        [Tooltip("화면 하단 추락에서 살아남았을 때 다시 튀어 오르는 목표 높이")]
         [SerializeField] float shieldRecoveryHeight = 35f;
         [Tooltip("화면 좌우 벽에 닿았을 때 안쪽으로 되튀는 최소 수평 속도")]
         [SerializeField, Min(0f)] float sideWallBounceSpeed = 2.4f;
@@ -253,13 +253,46 @@ namespace MukJump.Player
                 GameManager.Instance.State == GameState.Playing &&
                 transform.position.y < cam.transform.position.y - camHalfHeight - deathEdgeMargin)
             {
-                if (GameManager.Instance.DebugInvincible)
-                    RecoverFromFall();
-                else if (ConsumeShield())
-                    RecoverFromFall();
-                else
-                    Kill();
+                HandleFallBelowView();
             }
+        }
+
+        /// 화면 아래 추락은 개체별 피해로 처리한다. 방어막과 개발용 무적은 체력을
+        /// 보존하며, 체력이 남은 먹방울은 안전선으로 옮긴 뒤 즉시 다시 튀어 오른다.
+        /// 장애물 전용 마지막 생존 비기는 추락에는 적용하지 않는다.
+        void HandleFallBelowView()
+        {
+            var manager = GameManager.Instance;
+            if (manager != null && manager.DebugInvincible)
+            {
+                RecoverFromFall();
+                return;
+            }
+
+            if (ConsumeShield())
+            {
+                RecoverFromFall();
+                return;
+            }
+
+            GameFeedbackController.Instance?.PlayHitStop();
+            CurrentHealth = Mathf.Max(0, CurrentHealth - 1);
+            HealthChanged?.Invoke(CurrentHealth, MaxHealth);
+            if (CurrentHealth <= 0)
+            {
+                Kill();
+                return;
+            }
+
+            damageInvulnerableUntil = Mathf.Max(
+                damageInvulnerableUntil,
+                Time.time + EffectiveDamageHitGraceDuration);
+            GetComponent<ItemEffectView>()?.PlayVitalityHit();
+            RecoverFromFall();
+            Vector3 feedbackPosition = rb != null
+                ? new Vector3(rb.position.x, rb.position.y, transform.position.z)
+                : transform.position;
+            GameFeedbackController.Instance?.PlayDamageHit(feedbackPosition);
         }
 
         /// 방어막은 한 번의 피해만 막는 비중첩 효과다. 이미 보유 중이면 false를
@@ -357,7 +390,10 @@ namespace MukJump.Player
             }
             rb.WakeUp();
             if (playInkPuff)
+            {
                 GetComponent<ItemEffectView>()?.PlayVitalityHit();
+                GameFeedbackController.Instance?.PlayDamageHit(transform.position);
+            }
         }
 
         /// 규칙형 성장·비기가 기존 속도와 발판 상태를 건드리지 않고 보호 시간만 늘린다.
@@ -486,6 +522,7 @@ namespace MukJump.Player
 
         void RecoverFromFall()
         {
+            if (cam == null || !EnsureBody()) return;
             float safeY = cam.transform.position.y - camHalfHeight + 0.8f;
             rb.position = new Vector2(rb.position.x, safeY);
             LaunchToHeight(shieldRecoveryHeight);

@@ -103,7 +103,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void DirectFallStyleKillClearsHealthAndNotifiesHud()
+        public void DirectKillClearsHealthAndNotifiesHud()
         {
             var player = CreatePlayer("FallDeathTarget");
             int notifiedCurrent = -1;
@@ -120,6 +120,57 @@ namespace MukJump.EditorTests
             Assert.That(player.CurrentHealth, Is.Zero);
             Assert.That(notifiedCurrent, Is.Zero);
             Assert.That(notifiedMax, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void FallConsumesOneHealthAndRecoversUntilFinalFallKills()
+        {
+            var player = CreatePlayer("FallRecoveryTarget");
+            var cameraObject = Track(new GameObject("FallRecoveryCamera"));
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.transform.position = new Vector3(0f, 10f, -10f);
+            camera.orthographicSize = 5f;
+            SetField(player, "cam", camera);
+            SetField(player, "camHalfHeight", camera.orthographicSize);
+
+            player.Body.position = new Vector2(1.5f, -20f);
+            Invoke(player, "HandleFallBelowView");
+
+            Assert.That(player.CurrentHealth, Is.EqualTo(2));
+            Assert.That(player.IsDead, Is.False);
+            Assert.That(player.Body.position.x, Is.EqualTo(1.5f).Within(0.001f));
+            Assert.That(player.Body.position.y, Is.EqualTo(5.8f).Within(0.001f));
+            Assert.That(player.Body.linearVelocity.y, Is.GreaterThan(0f));
+
+            Invoke(player, "HandleFallBelowView");
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.IsDead, Is.False);
+
+            Invoke(player, "HandleFallBelowView");
+            Assert.That(player.CurrentHealth, Is.Zero);
+            Assert.That(player.IsDead, Is.True);
+        }
+
+        [Test]
+        public void FallConsumesShieldBeforeHealthAndStillRecovers()
+        {
+            var player = CreatePlayer("ShieldedFallRecoveryTarget");
+            var cameraObject = Track(new GameObject("ShieldedFallCamera"));
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.transform.position = new Vector3(0f, 8f, -10f);
+            camera.orthographicSize = 5f;
+            SetField(player, "cam", camera);
+            SetField(player, "camHalfHeight", camera.orthographicSize);
+            player.GrantShield();
+
+            player.Body.position = new Vector2(-1f, -20f);
+            Invoke(player, "HandleFallBelowView");
+
+            Assert.That(player.HasShield, Is.False);
+            Assert.That(player.CurrentHealth, Is.EqualTo(3));
+            Assert.That(player.IsDead, Is.False);
+            Assert.That(player.Body.position.y, Is.EqualTo(3.8f).Within(0.001f));
+            Assert.That(player.Body.linearVelocity.y, Is.GreaterThan(0f));
         }
 
         [Test]
@@ -141,7 +192,26 @@ namespace MukJump.EditorTests
                 player.transform, "GrowthVitalityPuff"), Is.EqualTo(1));
             Transform puff = player.transform.Find("GrowthVitalityPuff");
             Assert.That(puff, Is.Not.Null);
-            Assert.That(puff.GetComponent<SpriteRenderer>(), Is.Not.Null);
+            var puffRenderer = puff.GetComponent<SpriteRenderer>();
+            Assert.That(puffRenderer, Is.Not.Null);
+
+            Invoke(view, "UpdateVitalityHit");
+            Assert.That(puffRenderer.enabled, Is.True);
+            Assert.That(puffRenderer.sortingOrder,
+                Is.EqualTo(renderer.sortingOrder + 2),
+                "피격 첫 프레임은 검은 몸 앞에서 밝게 보여야 합니다.");
+            Assert.That(puffRenderer.color.a, Is.GreaterThan(0.8f));
+            Assert.That(puff.localScale.x, Is.Not.EqualTo(puff.localScale.y),
+                "앞면 플래시는 물리 루트 대신 자식 실루엣만 눌려야 합니다.");
+
+            SetField(view, "vitalityHitTime", 0.1f);
+            Invoke(view, "UpdateVitalityHit");
+            Assert.That(puffRenderer.sortingOrder,
+                Is.EqualTo(renderer.sortingOrder - 1),
+                "후반 붉은 먹 번짐은 몸 뒤로 빠져야 합니다.");
+            Assert.That(puffRenderer.color.r,
+                Is.GreaterThan(puffRenderer.color.g + 0.05f));
+            Assert.That(puff.localScale.x, Is.GreaterThan(1f));
 
             var lifecycle = (IRuntimeCloneLifecycle)view;
             lifecycle.PrepareForRuntimeClone();
@@ -370,6 +440,43 @@ namespace MukJump.EditorTests
             {
                 true, GameState.Playing, true, true,
             }), Is.False);
+        }
+
+        [TestCase(3)]
+        [TestCase(4)]
+        public void HealthBillboardPaintsEachHealthPointAsAnIndependentCell(
+            int maximum)
+        {
+            const int width = 96;
+            const int height = 14;
+            var pixels = new Color[width * height];
+            MethodInfo paintMethod = typeof(PlayerHealthBillboard).GetMethod(
+                "PaintHealthPixels",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(paintMethod, Is.Not.Null);
+
+            paintMethod.Invoke(null, new object[]
+            {
+                pixels,
+                width,
+                height,
+                maximum,
+                maximum,
+            });
+
+            int opaqueRuns = 0;
+            bool insideRun = false;
+            int sampleY = height / 2;
+            for (int x = 0; x < width; x++)
+            {
+                bool opaque = pixels[sampleY * width + x].a > 0.01f;
+                if (opaque && !insideRun)
+                    opaqueRuns++;
+                insideRun = opaque;
+            }
+
+            Assert.That(opaqueRuns, Is.EqualTo(maximum),
+                "최대 체력 수만큼 서로 떨어진 칸이 보여야 합니다.");
         }
 
         [Test]

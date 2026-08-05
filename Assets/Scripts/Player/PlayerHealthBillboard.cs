@@ -217,39 +217,38 @@ namespace MukJump.Player
             maximum = Mathf.Max(1, maximum);
             current = Mathf.Clamp(current, 0, maximum);
 
-            for (int y = 1; y < height - 1; y++)
-            {
-                for (int x = 1; x < width - 1; x++)
-                {
-                    bool border = x <= 2 || x >= width - 3 ||
-                                  y <= 2 || y >= height - 3;
-                    pixels[y * width + x] = border ? ink : paper;
-                }
-            }
-
-            int interiorStart = 4;
-            int interiorWidth = width - interiorStart * 2;
+            // 검은 채움 위에 검은 구분선을 얹으면 모바일 화면에서 한 줄처럼 합쳐진다.
+            // 각 체력을 독립된 먹 테두리 셀로 그리고 사이를 투명하게 비워 3/3, 2/3,
+            // 1/3 상태를 캐릭터가 작게 보일 때도 즉시 읽을 수 있게 한다.
+            const int outerMargin = 1;
+            int gap = maximum <= 6 ? 3 : 2;
+            int drawableWidth = Mathf.Max(
+                maximum * 3,
+                width - outerMargin * 2 - gap * (maximum - 1));
             for (int segment = 0; segment < maximum; segment++)
             {
-                int start = interiorStart +
-                            Mathf.RoundToInt(interiorWidth * segment /
-                                             (float)maximum);
-                int end = interiorStart +
-                          Mathf.RoundToInt(interiorWidth * (segment + 1) /
-                                           (float)maximum);
+                int start = outerMargin +
+                            Mathf.RoundToInt(drawableWidth * segment /
+                                             (float)maximum) +
+                            gap * segment;
+                int end = outerMargin +
+                          Mathf.RoundToInt(drawableWidth * (segment + 1) /
+                                           (float)maximum) +
+                          gap * segment;
                 bool filled = segment < current;
                 Color fill = current <= 1 ? wounded : ink;
-                for (int y = 4; y < height - 4; y++)
+                for (int y = outerMargin; y < height - outerMargin; y++)
                 {
                     for (int x = start; x < end; x++)
                     {
-                        if (segment > 0 && x <= start + 1)
-                        {
-                            pixels[y * width + x] = ink;
-                            continue;
-                        }
-                        if (filled)
-                            pixels[y * width + x] = fill;
+                        bool border = x <= start + 1 || x >= end - 2 ||
+                                      y <= outerMargin + 1 ||
+                                      y >= height - outerMargin - 2;
+                        pixels[y * width + x] = border
+                            ? ink
+                            : filled
+                                ? fill
+                                : paper;
                     }
                 }
             }
