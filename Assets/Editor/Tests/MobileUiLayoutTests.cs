@@ -42,24 +42,25 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void NarrowIPhoneSafeAreaFitsOptionsWithoutBestFitText()
+        public void NarrowIPhoneSafeAreaKeepsOptionsAtReadableScale()
         {
             Rect safe = new Rect(0f, 102f, 1179f, 2361f);
 
             float scale = MobileUiLayout.CalculateFitScale(
-                new Vector2(900f, 1510f),
+                new Vector2(820f, 1510f),
                 safe,
                 1179,
                 2556,
-                new Vector2(20f, 20f));
+                new Vector2(12f, 12f));
             Vector2 logicalSafe = MobileUiLayout.GetLogicalSafeSize(
                 safe,
                 1179,
                 2556);
 
-            Assert.LessOrEqual(900f * scale + 40f, logicalSafe.x + 0.01f);
-            Assert.LessOrEqual(1510f * scale + 40f, logicalSafe.y + 0.01f);
-            Assert.That(scale, Is.GreaterThan(0.9f));
+            Assert.LessOrEqual(820f * scale + 24f, logicalSafe.x + 0.01f);
+            Assert.LessOrEqual(1510f * scale + 24f, logicalSafe.y + 0.01f);
+            Assert.That(scale, Is.EqualTo(1f).Within(0.001f),
+                "좁은 아이폰에서도 설정 글자를 축소하지 않아야 합니다.");
         }
 
         [Test]

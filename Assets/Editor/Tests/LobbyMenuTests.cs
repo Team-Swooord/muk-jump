@@ -503,7 +503,7 @@ namespace MukJump.EditorTests
                 Is.EqualTo(GameplayTutorialCatalog.Count));
             Assert.That(optionsView.CurrentTutorialPage, Is.EqualTo(0));
             Assert.That(optionsView.PlayerUidLabel,
-                Does.StartWith("플레이어 UID   MUK-"));
+                Does.Match("^MUK-[0-9A-F]{8}$"));
 
             for (int expectedPage = 1;
                  expectedPage < GameplayTutorialCatalog.Count;
@@ -524,7 +524,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void OptionsUsesTwoColumnSupportLayoutWithTutorialBelowCustomerCenter()
+        public void OptionsUsesCalmHanjiHierarchyWithOnlyPrimaryActionInInk()
         {
             managerHost = new GameObject("LobbyOptionsLayoutManager");
             var manager = managerHost.AddComponent<GameManager>();
@@ -544,8 +544,10 @@ namespace MukJump.EditorTests
             RectTransform tutorial = RequireRect(page, "GuideButton");
 
             Assert.That(uid.anchoredPosition.y, Is.GreaterThan(bgm.anchoredPosition.y));
-            Assert.That(bgm.anchoredPosition.y, Is.EqualTo(sfx.anchoredPosition.y));
-            Assert.That(bgm.anchoredPosition.x, Is.EqualTo(-sfx.anchoredPosition.x));
+            Assert.That(bgm.anchoredPosition.x, Is.EqualTo(0f));
+            Assert.That(sfx.anchoredPosition.x, Is.EqualTo(0f));
+            Assert.That(bgm.anchoredPosition.y, Is.GreaterThan(sfx.anchoredPosition.y),
+                "두 음량 조절은 좁은 화면에서도 읽히는 한 줄 행으로 쌓아야 합니다.");
             Assert.That(support.anchoredPosition.x,
                 Is.EqualTo(tutorial.anchoredPosition.x));
             Assert.That(support.anchoredPosition.y,
@@ -556,28 +558,46 @@ namespace MukJump.EditorTests
             Text version = page.Find("Version")?.GetComponent<Text>();
             Assert.IsNotNull(title);
             Assert.IsNotNull(version);
-            Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
-            Assert.That(version.alignment, Is.EqualTo(TextAnchor.MiddleRight));
+            Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+            Assert.That(version.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
             Assert.That(
                 title.rectTransform.anchoredPosition.y,
-                Is.EqualTo(version.rectTransform.anchoredPosition.y),
-                "설정 제목과 버전은 하나의 상단 정보 띠로 읽혀야 합니다.");
+                Is.GreaterThan(version.rectTransform.anchoredPosition.y),
+                "버전은 제목 아래의 조용한 보조 정보여야 합니다.");
             Assert.That(
                 title.rectTransform.anchoredPosition.x,
-                Is.LessThan(version.rectTransform.anchoredPosition.x));
+                Is.EqualTo(version.rectTransform.anchoredPosition.x));
 
-            AssertMajorOptionButton(page, "LanguageButton");
-            AssertMajorOptionButton(page, "CustomerCenterButton");
-            AssertMajorOptionButton(page, "AccountConnectButton");
-            AssertMajorOptionButton(page, "GuideButton");
-            AssertMajorOptionButton(page, "CloseButton");
-            AssertMajorOptionButton(page, "UidButton");
-            AssertMajorOptionButton(
+            AssertOptionButton(page, "LanguageButton", usesActionBrush: false);
+            AssertOptionButton(page, "CustomerCenterButton", usesActionBrush: false);
+            AssertOptionButton(page, "AccountConnectButton", usesActionBrush: false);
+            AssertOptionButton(page, "GuideButton", usesActionBrush: false);
+            AssertOptionButton(page, "CloseButton", usesActionBrush: true);
+            AssertOptionButton(page, "UidButton", usesActionBrush: false);
+            AssertOptionButton(
                 page.Find("BgmCard/Paper"),
-                "Toggle");
-            AssertMajorOptionButton(
+                "Toggle",
+                usesActionBrush: false);
+            AssertOptionButton(
                 page.Find("SfxCard/Paper"),
-                "Toggle");
+                "Toggle",
+                usesActionBrush: false);
+
+            Assert.That(title.fontStyle, Is.EqualTo(FontStyle.Bold));
+            AssertQuietOptionText(page.Find("Version")?.GetComponent<Text>());
+            AssertQuietOptionText(page.Find("ConnectionStatus")?.GetComponent<Text>());
+            AssertQuietOptionText(page.Find("PrivacyCaption")?.GetComponent<Text>());
+            AssertQuietOptionText(
+                page.Find("CustomerCenterButton/Paper/Status")?.GetComponent<Text>());
+
+            RectTransform bgmSlider = RequireRect(page.Find("BgmCard/Paper"), "Slider");
+            RectTransform bgmToggle = RequireRect(page.Find("BgmCard/Paper"), "Toggle");
+            Assert.That(bgmSlider.sizeDelta.y,
+                Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight));
+            Assert.That(bgmSlider.anchoredPosition.x + bgmSlider.sizeDelta.x * 0.5f,
+                Is.LessThanOrEqualTo(
+                    bgmToggle.anchoredPosition.x - bgmToggle.sizeDelta.x * 0.5f),
+                "슬라이더와 음소거 버튼의 터치 영역이 겹치면 안 됩니다.");
 
             page.Find("CustomerCenterButton")
                 ?.GetComponent<Button>()
@@ -596,9 +616,11 @@ namespace MukJump.EditorTests
                     ?.blocksRaycasts,
                 Is.True);
             Transform tutorialPage = page.parent.Find("TutorialPage");
-            AssertMajorOptionButton(tutorialPage, "TutorialClose");
-            AssertMajorOptionButton(tutorialPage, "PreviousButton");
-            AssertMajorOptionButton(tutorialPage, "NextButton");
+            AssertOptionButton(tutorialPage, "TutorialClose", usesActionBrush: false);
+            AssertOptionButton(tutorialPage, "PreviousButton", usesActionBrush: false);
+            AssertOptionButton(tutorialPage, "NextButton", usesActionBrush: true);
+            AssertQuietOptionText(
+                tutorialPage.Find("TutorialDescription")?.GetComponent<Text>());
 
             optionsView.Close();
             CanvasGroup root = viewHost.transform
@@ -861,7 +883,10 @@ namespace MukJump.EditorTests
             return rect;
         }
 
-        static void AssertMajorOptionButton(Transform parent, string objectName)
+        static void AssertOptionButton(
+            Transform parent,
+            string objectName,
+            bool usesActionBrush)
         {
             Transform target = parent.Find(objectName);
             Assert.IsNotNull(target, $"{objectName} 버튼이 필요합니다.");
@@ -877,8 +902,25 @@ namespace MukJump.EditorTests
             Assert.That(
                 InkUiStyle.UsesActionButtonSprite(
                     button.targetGraphic as Image),
-                Is.True,
-                $"{objectName}은 공용 붓획 버튼을 사용해야 합니다.");
+                Is.EqualTo(usesActionBrush),
+                usesActionBrush
+                    ? $"{objectName} 주 행동은 공용 붓획을 사용해야 합니다."
+                    : $"{objectName} 카드·토글에는 공용 붓획을 사용하면 안 됩니다.");
+            if (!usesActionBrush)
+            {
+                Assert.That(button.targetGraphic.name, Is.EqualTo("Paper"),
+                    $"{objectName} 비활성 상태는 한지 면 전체에서 보여야 합니다.");
+            }
+        }
+
+        static void AssertQuietOptionText(Text text)
+        {
+            Assert.IsNotNull(text);
+            Assert.That(text.fontStyle, Is.EqualTo(FontStyle.Normal));
+            Assert.That(text.resizeTextForBestFit, Is.False);
+            var outline = text.GetComponent<Outline>();
+            Assert.That(outline == null || !outline.enabled, Is.True,
+                $"{text.name} 보조 문구에는 외곽선을 사용하면 안 됩니다.");
         }
 
         static void AssertMenuLayout(

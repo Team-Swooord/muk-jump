@@ -9,9 +9,9 @@ namespace MukJump.Core
     public sealed class LobbyOptionsView : MonoBehaviour
     {
         const int CanvasSortingOrder = 4150;
-        const float PanelWidth = 900f;
+        const float PanelWidth = 820f;
         const float PanelHeight = 1510f;
-        const float SafeAreaPadding = 40f;
+        const float SafeAreaPadding = 24f;
 
         CanvasGroup rootGroup;
         CanvasGroup optionsGroup;
@@ -209,36 +209,59 @@ namespace MukJump.Core
         {
             CreateReadableText(
                 "Title", panel, "설정", InkUiStyle.ScreenTitleSize,
-                new Vector2(-240f, 620f), new Vector2(360f, 86f),
+                new Vector2(0f, 660f), new Vector2(520f, 80f),
                 InkPalette.TextDark,
-                TextAnchor.MiddleLeft);
+                TextAnchor.MiddleCenter,
+                strong: true);
             CreateReadableText(
                 "Version", panel, $"v{Application.version}",
                 InkUiStyle.CaptionSize,
-                new Vector2(280f, 620f), new Vector2(260f, 48f),
+                new Vector2(0f, 590f), new Vector2(300f, 46f),
                 InkPalette.TextMuted,
-                TextAnchor.MiddleRight);
+                TextAnchor.MiddleCenter);
+            CreateDivider(panel, "HeaderDivider", 548f, 700f);
 
             var uidButton = CreatePaperButton(
                 "UidButton", panel, string.Empty,
-                new Vector2(0f, 500f),
-                new Vector2(740f, InkUiStyle.MinimumTapHeight),
+                new Vector2(0f, 475f),
+                new Vector2(700f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.BodySize);
             uidText = uidButton.transform
                 .Find("Paper/Label")?.GetComponent<Text>();
+            Transform uidPaper = uidButton.transform.Find("Paper");
+            if (uidText != null)
+            {
+                uidText.rectTransform.anchoredPosition = new Vector2(-14f, 0f);
+                uidText.rectTransform.sizeDelta = new Vector2(470f, 88f);
+                uidText.alignment = TextAnchor.MiddleCenter;
+                uidText.fontSize = InkUiStyle.BodySize;
+                uidText.fontStyle = FontStyle.Normal;
+            }
+            CreateReadableText(
+                "UidCaption", uidPaper, "UID", InkUiStyle.CaptionSize,
+                new Vector2(-290f, 0f), new Vector2(84f, 72f),
+                InkPalette.TextDark,
+                TextAnchor.MiddleLeft,
+                strong: true);
+            CreateReadableText(
+                "CopyHint", uidPaper, "복사", InkUiStyle.CaptionSize,
+                new Vector2(292f, 0f), new Vector2(88f, 72f),
+                InkPalette.TextMuted,
+                TextAnchor.MiddleRight);
             uidButton.onClick.AddListener(CopyUid);
 
             CreateReadableText(
                 "AudioCaption", panel, "소리",
-                InkUiStyle.CaptionSize,
-                new Vector2(-305f, 405f), new Vector2(130f, 48f),
-                InkPalette.TextDark, TextAnchor.MiddleLeft);
+                InkUiStyle.BodySize,
+                new Vector2(-290f, 380f), new Vector2(120f, 48f),
+                InkPalette.TextDark, TextAnchor.MiddleLeft,
+                strong: true);
 
             CreateAudioCard(
                 panel,
                 "BgmCard",
                 "배경음",
-                new Vector2(-190f, 215f),
+                new Vector2(0f, 285f),
                 out bgmSlider,
                 out bgmValue,
                 out Button bgmToggle,
@@ -250,7 +273,7 @@ namespace MukJump.Core
                 panel,
                 "SfxCard",
                 "효과음",
-                new Vector2(190f, 215f),
+                new Vector2(0f, 135f),
                 out sfxSlider,
                 out sfxValue,
                 out Button sfxToggle,
@@ -260,46 +283,46 @@ namespace MukJump.Core
 
             CreateReadableText(
                 "HelpCaption", panel, "도움과 정보",
-                InkUiStyle.CaptionSize,
-                new Vector2(-275f, 30f), new Vector2(200f, 48f),
-                InkPalette.TextDark, TextAnchor.MiddleLeft);
+                InkUiStyle.BodySize,
+                new Vector2(-250f, 35f), new Vector2(200f, 48f),
+                InkPalette.TextDark, TextAnchor.MiddleLeft,
+                strong: true);
 
             var language = CreateUtilityButton(
-                "LanguageButton", panel, "한", "언어\n한국어 · 고정",
-                new Vector2(-190f, -95f));
+                "LanguageButton", panel, "언어", "한국어",
+                new Vector2(-180f, -65f));
             language.onClick.AddListener(ShowLanguageGuide);
             var support = CreateUtilityButton(
-                "CustomerCenterButton", panel, "문", "고객센터\n준비 중",
-                new Vector2(190f, -95f));
+                "CustomerCenterButton", panel, "고객센터", "준비 중",
+                new Vector2(180f, -65f));
             support.onClick.AddListener(ShowCustomerCenterGuide);
             var account = CreateUtilityButton(
-                "AccountConnectButton", panel, "계",
-                "계정 연동\nGoogle · Apple",
-                new Vector2(-190f, -235f));
+                "AccountConnectButton", panel, "계정 연동", "준비 중",
+                new Vector2(-180f, -205f));
             account.onClick.AddListener(ShowConnectionGuide);
             var guide = CreateUtilityButton(
-                "GuideButton", panel, "책", "튜토리얼\n5장 다시 보기",
-                new Vector2(190f, -235f));
+                "GuideButton", panel, "튜토리얼", "다시 보기",
+                new Vector2(180f, -205f));
             guide.onClick.AddListener(() => ShowTutorialPage(0));
 
             connectionStatus = CreateReadableText(
                 "ConnectionStatus", panel,
-                "설정은 이 기기에 안전하게 저장됩니다",
+                "설정은 이 기기에 저장됩니다",
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, -345f), new Vector2(720f, 60f),
+                new Vector2(0f, -325f), new Vector2(700f, 56f),
                 InkPalette.TextMuted);
 
             var close = CreateBrushButton(
                 "CloseButton", panel, "닫기",
-                new Vector2(0f, -490f), new Vector2(420f, 120f),
+                new Vector2(0f, -450f), new Vector2(390f, 120f),
                 InkUiStyle.CardTitleSize);
             close.onClick.AddListener(Close);
 
             CreateReadableText(
                 "PrivacyCaption", panel,
-                "로컬 저장 · 개인정보 수집 없음",
+                "로컬 저장  ·  개인정보 수집 없음",
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, -625f), new Vector2(720f, 48f),
+                new Vector2(0f, -555f), new Vector2(700f, 44f),
                 InkPalette.TextMuted);
         }
 
@@ -307,20 +330,20 @@ namespace MukJump.Core
         {
             var close = CreatePaperButton(
                 "TutorialClose", panel, "옵션으로",
-                new Vector2(-265f, 625f),
-                new Vector2(210f, InkUiStyle.MinimumTapHeight),
+                new Vector2(-250f, 640f),
+                new Vector2(200f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.CaptionSize);
             close.onClick.AddListener(ShowOptionsPage);
 
             tutorialPage = CreateReadableText(
                 "Page", panel, "1 / 5", InkUiStyle.BodySize,
-                new Vector2(265f, 625f), new Vector2(210f, 70f),
+                new Vector2(250f, 640f), new Vector2(200f, 70f),
                 InkPalette.TextMuted);
 
             var iconPaper = CreateImage(
                 "TutorialIconPaper", panel,
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, 250f), new Vector2(560f, 560f),
+                new Vector2(0f, 285f), new Vector2(500f, 500f),
                 new Color(
                     InkPalette.Paper2.r,
                     InkPalette.Paper2.g,
@@ -328,33 +351,34 @@ namespace MukJump.Core
                     0.94f));
             tutorialImage = CreateImage(
                 "TutorialIcon", iconPaper.transform, null,
-                Vector2.zero, new Vector2(410f, 410f), Color.white);
+                Vector2.zero, new Vector2(360f, 360f), Color.white);
             tutorialImage.preserveAspect = true;
 
             tutorialTitle = CreateReadableText(
                 "TutorialTitle", panel, string.Empty,
-                InkUiStyle.ScreenTitleSize,
-                new Vector2(-40f, -100f), new Vector2(680f, 150f),
+                InkUiStyle.CardTitleSize,
+                new Vector2(0f, -55f), new Vector2(660f, 90f),
                 InkPalette.TextDark,
-                TextAnchor.MiddleLeft);
+                TextAnchor.MiddleCenter,
+                strong: true);
             tutorialDescription = CreateReadableText(
                 "TutorialDescription", panel, string.Empty,
-                38,
-                new Vector2(-40f, -285f), new Vector2(680f, 190f),
+                InkUiStyle.BodySize,
+                new Vector2(0f, -215f), new Vector2(660f, 210f),
                 InkPalette.TextDark,
                 TextAnchor.MiddleLeft);
-            tutorialDescription.lineSpacing = 1.15f;
+            tutorialDescription.lineSpacing = 1.2f;
 
             tutorialPreviousButton = CreatePaperButton(
                 "PreviousButton", panel, "이전",
-                new Vector2(-225f, -540f),
-                new Vector2(250f, InkUiStyle.MinimumTapHeight),
+                new Vector2(-190f, -500f),
+                new Vector2(240f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.BodySize);
             tutorialPreviousButton.onClick.AddListener(PreviousTutorialPage);
             var next = CreateBrushButton(
                 "NextButton", panel, "다음",
-                new Vector2(225f, -540f),
-                new Vector2(350f, InkUiStyle.MinimumTapHeight),
+                new Vector2(190f, -500f),
+                new Vector2(320f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.BodySize);
             tutorialNextLabel = next.transform
                 .Find("Label")?.GetComponent<Text>();
@@ -375,33 +399,34 @@ namespace MukJump.Core
                 objectName,
                 parent,
                 position,
-                new Vector2(350f, 280f));
+                new Vector2(700f, 132f));
             CreateImage(
                 "Outline", root, null, Vector2.zero,
-                new Vector2(350f, 280f), InkPalette.Ink);
+                new Vector2(700f, 132f), WithAlpha(InkPalette.Ink, 0.34f));
             var paper = CreateImage(
                 "Paper", root, null, Vector2.zero,
-                new Vector2(340f, 270f), InkPalette.Paper2);
+                new Vector2(696f, 128f), InkPalette.Paper2);
             CreateReadableText(
                 "Label", paper.transform, label, InkUiStyle.CardTitleSize,
-                new Vector2(-62f, 78f), new Vector2(185f, 58f),
-                InkPalette.TextDark, TextAnchor.MiddleLeft);
+                new Vector2(-275f, 0f), new Vector2(120f, 72f),
+                InkPalette.TextDark, TextAnchor.MiddleLeft,
+                strong: true);
             valueText = CreateReadableText(
                 "Value", paper.transform, "100%", InkUiStyle.CaptionSize,
-                new Vector2(104f, 78f), new Vector2(100f, 50f),
+                new Vector2(180f, 0f), new Vector2(90f, 58f),
                 InkPalette.TextDark, TextAnchor.MiddleRight);
 
             slider = CreateInkSlider(
                 "Slider",
                 paper.transform,
-                new Vector2(0f, 15f),
-                new Vector2(280f, 54f));
+                new Vector2(-45f, 0f),
+                new Vector2(300f, InkUiStyle.MinimumTapHeight));
             toggle = CreatePaperButton(
                 "Toggle",
                 paper.transform,
                 "켜짐",
-                new Vector2(0f, -70f),
-                new Vector2(280f, InkUiStyle.MinimumTapHeight),
+                new Vector2(285f, 0f),
+                new Vector2(120f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.CaptionSize);
             toggleLabel = toggle.transform
                 .Find("Paper/Label")?.GetComponent<Text>();
@@ -446,8 +471,7 @@ namespace MukJump.Core
             bgmSlider.value = LobbySettingsProfile.BgmVolume;
             sfxSlider.value = LobbySettingsProfile.SfxVolume;
             suppressSliderCallbacks = false;
-            uidText.text =
-                $"플레이어 UID   {LobbySettingsProfile.PlayerUid}   복사";
+            uidText.text = LobbySettingsProfile.PlayerUid;
             RefreshAudioLabels();
         }
 
@@ -598,26 +622,19 @@ namespace MukJump.Core
 
         static void BuildScrollFrame(Transform panel)
         {
-            Sprite brush = InkUiTextureFactory.CreateBrushSprite();
-            var shadow = CreateImage(
-                "InkShadow", panel, brush, new Vector2(12f, -15f),
-                new Vector2(1510f, 890f),
+            CreateImage(
+                "InkShadow", panel, null, new Vector2(8f, -10f),
+                new Vector2(800f, 1450f),
                 new Color(0f, 0f, 0f, 0.16f));
-            shadow.rectTransform.localEulerAngles =
-                new Vector3(0f, 0f, 90f);
-            var outline = CreateImage(
-                "ScrollOutline", panel, brush, Vector2.zero,
-                new Vector2(1490f, 870f), InkPalette.Ink);
-            outline.rectTransform.localEulerAngles =
-                new Vector3(0f, 0f, 90f);
-            var paper = CreateImage(
-                "HanjiPaper", panel, brush, Vector2.zero,
-                new Vector2(1462f, 842f), InkPalette.Paper);
-            paper.rectTransform.localEulerAngles =
-                new Vector3(0f, 0f, 90f);
+            CreateImage(
+                "ScrollOutline", panel, null, Vector2.zero,
+                new Vector2(800f, 1450f), WithAlpha(InkPalette.Ink, 0.72f));
+            CreateImage(
+                "HanjiPaper", panel, null, Vector2.zero,
+                new Vector2(792f, 1442f), InkPalette.Paper);
             CreateImage(
                 "PaperCore", panel, null, Vector2.zero,
-                new Vector2(790f, 1390f), InkPalette.Paper);
+                new Vector2(764f, 1414f), InkPalette.Paper2);
         }
 
         static Slider CreateInkSlider(
@@ -680,45 +697,28 @@ namespace MukJump.Core
         static Button CreateUtilityButton(
             string objectName,
             Transform parent,
-            string glyph,
-            string label,
+            string title,
+            string status,
             Vector2 position)
         {
             var button = CreatePaperButton(
                 objectName,
                 parent,
-                label,
+                string.Empty,
                 position,
                 new Vector2(350f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.BodySize);
             Transform paper = button.transform.Find("Paper");
-            var labelText = paper?.Find("Label")?.GetComponent<Text>();
-            if (labelText != null)
-            {
-                labelText.rectTransform.anchoredPosition =
-                    new Vector2(45f, 0f);
-                labelText.rectTransform.sizeDelta =
-                    new Vector2(230f, 102f);
-                labelText.alignment = TextAnchor.MiddleLeft;
-                labelText.lineSpacing = 0.9f;
-            }
-
             if (paper == null) return button;
-            var icon = CreateImage(
-                "IconInk",
-                paper,
-                InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(-125f, 0f),
-                new Vector2(70f, 70f),
-                InkPalette.Paper2);
             CreateReadableText(
-                "Glyph",
-                icon.transform,
-                glyph,
-                InkUiStyle.CaptionSize,
-                Vector2.zero,
-                new Vector2(58f, 58f),
-                InkPalette.TextDark);
+                "Title", paper, title, InkUiStyle.BodySize,
+                new Vector2(-74f, 0f), new Vector2(180f, 72f),
+                InkPalette.TextDark, TextAnchor.MiddleLeft,
+                strong: true);
+            CreateReadableText(
+                "Status", paper, status, InkUiStyle.CaptionSize,
+                new Vector2(98f, 0f), new Vector2(130f, 72f),
+                InkPalette.TextMuted, TextAnchor.MiddleRight);
             return button;
         }
 
@@ -735,17 +735,18 @@ namespace MukJump.Core
             outline.raycastTarget = true;
             var paper = CreateImage(
                 "Paper", outline.transform, null, Vector2.zero,
-                size - new Vector2(10f, 10f), InkPalette.Paper2);
+                size - new Vector2(4f, 4f), InkPalette.Paper2);
             var button = outline.gameObject.AddComponent<Button>();
-            var labelText = CreateReadableText(
-                "Label", paper.transform, label, fontSize,
+            CreateReadableText(
+                "Label", paper.transform, label,
+                Mathf.Max(fontSize, InkUiStyle.StandardButtonLabelSize),
                 Vector2.zero, size - new Vector2(28f, 16f),
-                InkPalette.TextLight);
-            InkUiStyle.ConfigureActionButton(
-                button,
-                outline,
-                labelText,
-                paper);
+                InkPalette.TextDark,
+                TextAnchor.MiddleCenter,
+                strong: true);
+            // 비활성 상태는 얇은 테두리만이 아니라 한지 면 전체가 흐려져야
+            // 첫 튜토리얼의 사용할 수 없는 `이전` 버튼도 즉시 구분된다.
+            InkUiStyle.ConfigureButton(button, paper);
             return button;
         }
 
@@ -764,7 +765,11 @@ namespace MukJump.Core
             var labelText = CreateReadableText(
                 "Label", brush.transform, label, fontSize,
                 Vector2.zero, size - new Vector2(36f, 14f),
-                InkPalette.TextLight);
+                InkPalette.TextLight,
+                TextAnchor.MiddleCenter,
+                strong: true,
+                outline: true,
+                wrap: false);
             InkUiStyle.ConfigureActionButton(
                 button,
                 brush,
@@ -780,7 +785,10 @@ namespace MukJump.Core
             Vector2 position,
             Vector2 size,
             Color color,
-            TextAnchor alignment = TextAnchor.MiddleCenter)
+            TextAnchor alignment = TextAnchor.MiddleCenter,
+            bool strong = false,
+            bool outline = false,
+            bool wrap = true)
         {
             var rect = CreateRect(objectName, parent, position, size);
             var text = rect.gameObject.AddComponent<Text>();
@@ -790,8 +798,33 @@ namespace MukJump.Core
                 text,
                 fontSize,
                 alignment,
-                strong: true);
+                strong,
+                wrap);
+            var textOutline = text.GetComponent<Outline>();
+            if (textOutline != null)
+                textOutline.enabled = outline;
             return text;
+        }
+
+        static void CreateDivider(
+            Transform parent,
+            string objectName,
+            float y,
+            float width)
+        {
+            CreateImage(
+                objectName,
+                parent,
+                null,
+                new Vector2(0f, y),
+                new Vector2(width, 2f),
+                WithAlpha(InkPalette.Ink, 0.18f));
+        }
+
+        static Color WithAlpha(Color color, float alpha)
+        {
+            color.a = Mathf.Clamp01(alpha);
+            return color;
         }
 
         static RectTransform CreateRect(
