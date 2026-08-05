@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using MukJump.Player;
 
 namespace MukJump.Core
 {
@@ -47,7 +48,10 @@ namespace MukJump.Core
             1f - EffectTotal(PermanentGrowthType.ShortStrokeEfficiency));
         public float JumpChargeMultiplier =>
             Mathf.Max(0.5f, 1f - EffectTotal(PermanentGrowthType.JumpCharge));
-        public int MaxHealthBonus => HasNode("S-A3") ? 1 : 0;
+        public int MaxHealthBonus => Mathf.Clamp(
+            Mathf.RoundToInt(EffectTotal(PermanentGrowthType.Vitality)),
+            0,
+            PlayerController.MaximumHealth - PlayerController.DefaultMaxHealth);
         public float DamageGraceBonusSeconds =>
             EffectTotal(PermanentGrowthType.DamageGrace);
         public float CloneSpawnGraceBonusSeconds =>

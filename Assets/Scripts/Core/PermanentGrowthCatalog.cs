@@ -460,25 +460,25 @@ namespace MukJump.Core
                 P("I-C3"), 4, "ink", 500f, 280f);
 
             // 생존 — 왼쪽 주가지
-            Add(nodes, "S00", "먹피의 씨", "먹피가 굳어 연속 장애물 피해를 늦춥니다.",
-                "피격 뒤 무적 +0.05초", "survival.guard.seed",
-                PermanentGrowthType.DamageGrace, 0.05f, "피격 여유",
-                PermanentGrowthValueKind.Seconds, false,
+            Add(nodes, "S00", "먹피의 씨", "모든 현재·미래 먹방울이의 몸에 첫 먹피를 더합니다.",
+                "모든 먹방울이 최대 체력 +1", "survival.guard.seed",
+                PermanentGrowthType.Vitality, 1f, "최대 체력",
+                PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Root,
                 null, 0, "", -700f, -980f, 1);
-            Add(nodes, "S-A1", "얇은 먹피", "보호 먹피를 한 겹 더 두릅니다.",
-                "피격 뒤 무적 +0.05초", "survival.guard.thin",
-                PermanentGrowthType.DamageGrace, 0.05f, "피격 여유",
-                PermanentGrowthValueKind.Seconds, false,
+            Add(nodes, "S-A1", "얇은 먹피", "모든 먹방울이의 보호 먹피를 한 겹 더 두릅니다.",
+                "모든 먹방울이 최대 체력 +1", "survival.guard.thin",
+                PermanentGrowthType.Vitality, 1f, "최대 체력",
+                PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
                 P("S00"), 0, "", -1320f, -720f, 2);
-            Add(nodes, "S-A2", "겹친 먹피", "겹친 먹피가 다음 충돌까지 시간을 벌어 줍니다.",
-                "피격 뒤 무적 +0.05초", "survival.guard.layered",
-                PermanentGrowthType.DamageGrace, 0.05f, "피격 여유",
-                PermanentGrowthValueKind.Seconds, false,
+            Add(nodes, "S-A2", "겹친 먹피", "겹친 먹피로 모든 먹방울이의 내구를 높입니다.",
+                "모든 먹방울이 최대 체력 +1", "survival.guard.layered",
+                PermanentGrowthType.Vitality, 1f, "최대 체력",
+                PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
                 P("S-A1"), 0, "", -1420f, -390f, 3);
-            Add(nodes, "S-A3", "깊은 먹심", "모든 현재·미래 먹방울이의 몸이 한 칸 단단해집니다.",
+            Add(nodes, "S-A3", "깊은 먹심", "마지막 먹피를 맺어 모든 먹방울이의 최대 내구를 완성합니다.",
                 "모든 먹방울이 최대 체력 +1", "survival.guard.heart",
                 PermanentGrowthType.Vitality, 1f, "최대 체력",
                 PermanentGrowthValueKind.Flat, false,

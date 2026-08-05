@@ -81,7 +81,7 @@ namespace MukJump.EditorTests
             yield return new WaitForFixedUpdate();
             yield return null;
 
-            bool survivedFirstContact = player != null && !player.IsDead;
+            bool diedOnFirstContact = player != null && player.IsDead;
             int healthAfterContact = player != null
                 ? player.CurrentHealth
                 : -1;
@@ -103,15 +103,15 @@ namespace MukJump.EditorTests
             AudioListener.pause = false;
             yield return new ExitPlayMode();
 
-            Assert.That(survivedFirstContact, Is.True);
-            Assert.That(healthAfterContact, Is.EqualTo(2),
-                "기본 체력은 첫 장애물 접촉을 한 번 버텨야 합니다.");
+            Assert.That(diedOnFirstContact, Is.True);
+            Assert.That(healthAfterContact, Is.Zero,
+                "기본 체력 1칸은 첫 무방비 장애물 접촉에 소진되어야 합니다.");
             Assert.That(triggerDisabled, Is.True,
                 "한 번 피해를 준 이동 장애물은 즉시 판정을 꺼야 합니다.");
         }
 
         [UnityTest]
-        public IEnumerator ChildDragonCapsuleConsumesShieldThenThreeHealthHits()
+        public IEnumerator ChildDragonCapsuleConsumesShieldThenOneHealthHit()
         {
             yield return new EnterPlayMode();
 
@@ -144,7 +144,7 @@ namespace MukJump.EditorTests
 
             Assert.IsFalse(player.IsDead);
             Assert.IsFalse(player.HasShield);
-            Assert.AreEqual(3, player.CurrentHealth);
+            Assert.AreEqual(1, player.CurrentHealth);
             Assert.IsFalse(capsule.enabled,
                 "방어막을 소모시킨 용도 한 번 충돌한 뒤 사라져야 합니다.");
             Assert.IsFalse(dragonObject.GetComponent<CircleCollider2D>().enabled);
@@ -152,7 +152,7 @@ namespace MukJump.EditorTests
             Object.Destroy(dragonObject);
             yield return null;
             bool everyDragonDisabledAfterHit = true;
-            for (int hit = 0; hit < 3; hit++)
+            for (int hit = 0; hit < 1; hit++)
             {
                 SetField(player, "damageInvulnerableUntil", Time.time - 1f);
                 var nextDragonObject = new GameObject(
@@ -171,7 +171,7 @@ namespace MukJump.EditorTests
                 yield return null;
             }
 
-            bool diedAfterThreeHealthHits = player.IsDead;
+            bool diedAfterOneHealthHit = player.IsDead;
             int remainingHealth = player.CurrentHealth;
             Object.Destroy(playerObject);
             Object.Destroy(managerObject);
@@ -184,7 +184,7 @@ namespace MukJump.EditorTests
             AudioListener.pause = false;
             yield return new ExitPlayMode();
 
-            Assert.IsTrue(diedAfterThreeHealthHits);
+            Assert.IsTrue(diedAfterOneHealthHit);
             Assert.AreEqual(0, remainingHealth);
             Assert.IsTrue(everyDragonDisabledAfterHit,
                 "각 어린 용은 한 번 피해를 준 직후 판정을 꺼야 합니다.");

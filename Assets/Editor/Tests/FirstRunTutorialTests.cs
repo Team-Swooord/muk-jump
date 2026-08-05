@@ -48,8 +48,11 @@ namespace MukJump.EditorTests
             GameplayTutorialPage drawingPage = GameplayTutorialCatalog.Get(0);
             Assert.That(drawingPage.Description, Does.Contain("곧 마르고"));
             Assert.That(drawingPage.Description, Does.Contain("오래된 선부터"));
+            GameplayTutorialPage obstaclePage = GameplayTutorialCatalog.Get(2);
+            Assert.That(obstaclePage.Description, Does.Contain("기본 체력은 1칸"));
+            Assert.That(obstaclePage.Description, Does.Contain("최대 5칸"));
             Assert.That(LobbySettingsProfile.CurrentGameplayTutorialVersion,
-                Is.EqualTo(3));
+                Is.EqualTo(4));
         }
 
         [Test]

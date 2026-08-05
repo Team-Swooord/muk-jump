@@ -24,8 +24,6 @@ namespace MukJump.Player
         [Tooltip("새 분신이 장애물 위에 생성되어 즉사하지 않도록 보호하는 시간")]
         [SerializeField, Min(0f)] float cloneSpawnGraceDuration = 1f;
         [Header("체력")]
-        [Tooltip("장애물 피해와 추락을 버틸 수 있는 기본 횟수. 마지막 체력이 소진되면 사망")]
-        [SerializeField, Min(1)] int maxHealth = DefaultMaxHealth;
         [Tooltip("체력 피해 뒤 겹친 장애물에 연속으로 맞지 않는 시간")]
         [SerializeField, Min(0f)] float damageHitGraceDuration = 0.55f;
         [Tooltip("접촉 노멀의 y가 이 값 이상이어야 '발판 위'로 인정")]
@@ -51,7 +49,8 @@ namespace MukJump.Player
         [Tooltip("발판에서 미끄러지지 않도록 표면 쪽으로 누르는 약한 힘")]
         [SerializeField, Min(0f)] float adhesionSpeed = 0.18f;
 
-        public const int DefaultMaxHealth = 3;
+        public const int DefaultMaxHealth = 1;
+        public const int MaximumHealth = 5;
 
         public bool IsGrounded { get; private set; }
         public bool IsDead { get; private set; }
@@ -64,8 +63,10 @@ namespace MukJump.Player
         public bool IsWallClinging { get; private set; }
         public bool CanAutomaticJumpFromCurrentSurface =>
             !IsWallClinging || Time.time >= wallClingReleaseAllowedAt;
-        public int MaxHealth =>
-            Mathf.Max(1, maxHealth + ActivePermanentGrowth.MaxHealthBonus);
+        public int MaxHealth => Mathf.Clamp(
+            DefaultMaxHealth + ActivePermanentGrowth.MaxHealthBonus,
+            DefaultMaxHealth,
+            MaximumHealth);
         public int CurrentHealth { get; private set; }
         /// 피격 횟수에 맞춘 시각 단계. 최대 체력이 늘어도 매 비치명 피격을 구분한다.
         /// 물리 크기는 바꾸지 않고 CharacterAnimator가 렌더 스프라이트만 키운다.
@@ -191,7 +192,6 @@ namespace MukJump.Player
         {
             rb = GetComponent<Rigidbody2D>();
             primaryCollider = GetComponent<Collider2D>();
-            maxHealth = Mathf.Max(1, maxHealth);
             CurrentHealth = MaxHealth;
             normalGravityScale = rb.gravityScale;
             rb.freezeRotation = true;
@@ -505,7 +505,6 @@ namespace MukJump.Player
 
         void ResetHealth()
         {
-            maxHealth = Mathf.Max(1, maxHealth);
             CurrentHealth = MaxHealth;
             HealthChanged?.Invoke(CurrentHealth, MaxHealth);
         }

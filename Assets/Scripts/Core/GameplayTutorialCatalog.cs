@@ -49,7 +49,7 @@ namespace MukJump.Core
             new(
                 GameplayTutorialTopic.Obstacles,
                 "붉은 먹은 위험해요",
-                "화면 가장자리 붉은 먹벽은 상승 힘을 끊어요.\n먹가시·낙묵석에 맞거나 추락하면 체력이 한 칸 줄어요.",
+                "화면 가장자리 붉은 먹벽은 상승 힘을 끊어요.\n기본 체력은 1칸, 먹피 성장으로 최대 5칸이에요.",
                 "MukJump/UI/Growth/growth_guard"),
             new(
                 GameplayTutorialTopic.Weather,

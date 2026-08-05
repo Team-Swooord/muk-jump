@@ -77,8 +77,8 @@ namespace MukJump.EditorTests
                 Is.EqualTo(0.10f).Within(0.0001f));
             Assert.That(snapshot.HasShortStrokeDiscount, Is.True);
             Assert.That(snapshot.DamageGraceBonusSeconds,
-                Is.EqualTo(0.15f).Within(0.0001f));
-            Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(1));
+                Is.Zero.Within(0.0001f));
+            Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(4));
             Assert.That(snapshot.CloneSpawnGraceBonusSeconds,
                 Is.EqualTo(0.15f).Within(0.0001f));
             Assert.That(snapshot.JumpChargeMultiplier,
@@ -97,6 +97,28 @@ namespace MukJump.EditorTests
                 Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.WindInfluenceMultiplier,
                 Is.EqualTo(1f).Within(0.0001f));
+        }
+
+        [TestCase(0, 0)]
+        [TestCase(1, 1)]
+        [TestCase(2, 2)]
+        [TestCase(3, 3)]
+        [TestCase(4, 4)]
+        public void SurvivalVitalityPathAddsExactlyOneHealthPerOwnedNode(
+            int unlockedCount,
+            int expectedBonus)
+        {
+            string[] path = { "S00", "S-A1", "S-A2", "S-A3" };
+            var owned = new List<string>(unlockedCount);
+            for (int i = 0; i < unlockedCount; i++)
+                owned.Add(path[i]);
+
+            var snapshot = new PermanentGrowthRunSnapshot(owned, null);
+
+            Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(expectedBonus));
+            Assert.That(
+                PlayerController.DefaultMaxHealth + snapshot.MaxHealthBonus,
+                Is.EqualTo(unlockedCount + 1));
         }
 
         [TestCase(0, 1.0f, 3.20f)]

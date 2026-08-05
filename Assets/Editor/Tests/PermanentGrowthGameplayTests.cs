@@ -34,27 +34,65 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void SurvivalGeneralFruitsIncreaseHealthAndDamageGrace()
+        public void SurvivalVitalityPathRaisesHealthFromOneToFive()
         {
             SeedGrowth(
                 new[] { "S00", "S-A1", "S-A2", "S-A3" });
             CreatePlayingManager(out _);
             var player = CreatePlayer("PermanentSurvivalStats");
 
-            Assert.That(player.MaxHealth, Is.EqualTo(4));
-            Assert.That(player.CurrentHealth, Is.EqualTo(4));
+            Assert.That(player.MaxHealth, Is.EqualTo(5));
+            Assert.That(player.CurrentHealth, Is.EqualTo(5));
 
             ExpireDamageGrace(player);
             float hitTime = Time.time;
             Assert.That(player.TakeHit(), Is.True);
 
-            Assert.That(player.CurrentHealth, Is.EqualTo(3));
+            Assert.That(player.CurrentHealth, Is.EqualTo(4));
             Assert.That(player.DamageStage, Is.EqualTo(1));
             float invulnerableUntil =
                 GetField<float>(player, "damageInvulnerableUntil");
             Assert.That(invulnerableUntil - hitTime,
-                Is.EqualTo(0.70f).Within(0.03f),
-                "기본 0.55초와 S00/S-A1/S-A2의 0.15초가 합산되어야 합니다.");
+                Is.EqualTo(0.55f).Within(0.03f),
+                "체력 경로는 최대 체력만 늘리고 피격 무적시간을 함께 올리면 안 됩니다.");
+
+            for (int expected = 3; expected >= 0; expected--)
+            {
+                ExpireDamageGrace(player);
+                Assert.That(player.TakeHit(), Is.True);
+                Assert.That(player.CurrentHealth, Is.EqualTo(expected));
+                Assert.That(player.DamageStage, Is.EqualTo(5 - expected));
+                Assert.That(player.IsDead, Is.EqualTo(expected == 0));
+            }
+        }
+
+        [Test]
+        public void FiveHealthFallRecoversFourTimesThenFinalFallKills()
+        {
+            SeedGrowth(new[] { "S00", "S-A1", "S-A2", "S-A3" });
+            CreatePlayingManager(out _);
+            var player = CreatePlayer("PermanentFallVitality");
+            var cameraObject = Track(new GameObject("PermanentFallCamera"));
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.transform.position = new Vector3(0f, 10f, -10f);
+            camera.orthographicSize = 5f;
+            SetField(player, "cam", camera);
+            SetField(player, "camHalfHeight", camera.orthographicSize);
+
+            for (int expected = 4; expected >= 0; expected--)
+            {
+                player.Body.position = new Vector2(1.25f, -20f);
+                Invoke(player, "HandleFallBelowView");
+
+                Assert.That(player.CurrentHealth, Is.EqualTo(expected));
+                Assert.That(player.IsDead, Is.EqualTo(expected == 0));
+                if (expected > 0)
+                {
+                    Assert.That(player.Body.position.y,
+                        Is.EqualTo(5.8f).Within(0.001f));
+                    Assert.That(player.Body.linearVelocity.y, Is.GreaterThan(0f));
+                }
+            }
         }
 
         [Test]

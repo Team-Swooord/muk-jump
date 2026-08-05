@@ -147,9 +147,9 @@ namespace MukJump.EditorTests
             AssertEffect("I-C3", PermanentGrowthType.InkEvictionDelay, 0.10f);
             AssertEffect("I-KC", PermanentGrowthType.InkEvictionFade, 0.45f);
 
-            AssertEffect("S00", PermanentGrowthType.DamageGrace, 0.05f);
-            AssertEffect("S-A1", PermanentGrowthType.DamageGrace, 0.05f);
-            AssertEffect("S-A2", PermanentGrowthType.DamageGrace, 0.05f);
+            AssertEffect("S00", PermanentGrowthType.Vitality, 1f);
+            AssertEffect("S-A1", PermanentGrowthType.Vitality, 1f);
+            AssertEffect("S-A2", PermanentGrowthType.Vitality, 1f);
             AssertEffect("S-A3", PermanentGrowthType.Vitality, 1f);
             AssertEffect("S-B3", PermanentGrowthType.DamageGrace, 0.08f);
             AssertEffect("S-C1", PermanentGrowthType.CloneSpawnGrace, 0.15f);

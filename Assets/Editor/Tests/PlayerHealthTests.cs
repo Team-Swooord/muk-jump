@@ -13,6 +13,7 @@ namespace MukJump.EditorTests
     public sealed class PlayerHealthTests
     {
         readonly List<Object> cleanup = new();
+        RunGrowthController growth;
 
         [SetUp]
         public void SetUp()
@@ -20,6 +21,9 @@ namespace MukJump.EditorTests
             var managerObject = Track(new GameObject("PlayerHealthManager"));
             var manager = managerObject.AddComponent<GameManager>();
             SetAutoProperty(manager, "State", GameState.Playing);
+            growth = managerObject.GetComponent<RunGrowthController>() ??
+                     managerObject.AddComponent<RunGrowthController>();
+            Invoke(growth, "OnEnable");
         }
 
         [TearDown]
@@ -32,33 +36,22 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ThreeUnprotectedHitsConsumeHealthThenKillWithoutPhysicsScaling()
+        public void BaseHealthOneDiesOnFirstUnprotectedHitWithoutPhysicsScaling()
         {
-            var player = CreatePlayer("ThreeHitTarget");
+            var player = CreatePlayer("OneHitTarget");
             var collider = player.GetComponent<CircleCollider2D>();
             Vector3 rootScale = player.transform.localScale;
             float colliderRadius = collider.radius;
             Vector2 colliderOffset = collider.offset;
 
-            Assert.That(player.MaxHealth, Is.EqualTo(3));
-            Assert.That(player.CurrentHealth, Is.EqualTo(3));
+            Assert.That(player.MaxHealth, Is.EqualTo(1));
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
             Assert.That((float)GetField(player, "damageHitGraceDuration"),
                 Is.EqualTo(0.55f).Within(0.001f));
 
             Assert.That(player.TakeHit(), Is.True);
-            Assert.That(player.CurrentHealth, Is.EqualTo(2));
-            Assert.That(player.DamageStage, Is.EqualTo(1));
-            Assert.That(player.IsDead, Is.False);
-
-            ExpireDamageGrace(player);
-            Assert.That(player.TakeHit(), Is.True);
-            Assert.That(player.CurrentHealth, Is.EqualTo(1));
-            Assert.That(player.DamageStage, Is.EqualTo(2));
-            Assert.That(player.IsDead, Is.False);
-
-            ExpireDamageGrace(player);
-            Assert.That(player.TakeHit(), Is.True);
             Assert.That(player.CurrentHealth, Is.Zero);
+            Assert.That(player.DamageStage, Is.EqualTo(1));
             Assert.That(player.IsDead, Is.True);
 
             Assert.That(player.transform.localScale, Is.EqualTo(rootScale));
@@ -74,16 +67,12 @@ namespace MukJump.EditorTests
 
             Assert.That(player.TakeHit(), Is.True);
             Assert.That(player.HasShield, Is.False);
-            Assert.That(player.CurrentHealth, Is.EqualTo(3));
-
-            ExpireDamageGrace(player);
-            Assert.That(player.TakeHit(), Is.True);
-            Assert.That(player.CurrentHealth, Is.EqualTo(2));
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
 
             player.ConfigureAsClone(1f);
 
             Assert.That(player.IsRuntimeClone, Is.True);
-            Assert.That(player.CurrentHealth, Is.EqualTo(3));
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
             Assert.That(player.DamageStage, Is.Zero);
         }
 
@@ -94,12 +83,12 @@ namespace MukJump.EditorTests
             player.LaunchInkDrop(1f, false);
 
             Assert.That(player.TakeHit(), Is.False);
-            Assert.That(player.CurrentHealth, Is.EqualTo(3));
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
 
             SetField(player, "IsInkDropBoosted", false);
             SetField(player, "damageInvulnerableUntil", Time.time + 10f);
             Assert.That(player.TakeHit(), Is.False);
-            Assert.That(player.CurrentHealth, Is.EqualTo(3));
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
         }
 
         [Test]
@@ -119,11 +108,11 @@ namespace MukJump.EditorTests
             Assert.That(player.IsDead, Is.True);
             Assert.That(player.CurrentHealth, Is.Zero);
             Assert.That(notifiedCurrent, Is.Zero);
-            Assert.That(notifiedMax, Is.EqualTo(3));
+            Assert.That(notifiedMax, Is.EqualTo(1));
         }
 
         [Test]
-        public void FallConsumesOneHealthAndRecoversUntilFinalFallKills()
+        public void BaseHealthOneFallConsumesTheLastPointAndKills()
         {
             var player = CreatePlayer("FallRecoveryTarget");
             var cameraObject = Track(new GameObject("FallRecoveryCamera"));
@@ -136,19 +125,10 @@ namespace MukJump.EditorTests
             player.Body.position = new Vector2(1.5f, -20f);
             Invoke(player, "HandleFallBelowView");
 
-            Assert.That(player.CurrentHealth, Is.EqualTo(2));
-            Assert.That(player.IsDead, Is.False);
-            Assert.That(player.Body.position.x, Is.EqualTo(1.5f).Within(0.001f));
-            Assert.That(player.Body.position.y, Is.EqualTo(5.8f).Within(0.001f));
-            Assert.That(player.Body.linearVelocity.y, Is.GreaterThan(0f));
-
-            Invoke(player, "HandleFallBelowView");
-            Assert.That(player.CurrentHealth, Is.EqualTo(1));
-            Assert.That(player.IsDead, Is.False);
-
-            Invoke(player, "HandleFallBelowView");
             Assert.That(player.CurrentHealth, Is.Zero);
             Assert.That(player.IsDead, Is.True);
+            Assert.That(player.Body.position.x, Is.EqualTo(1.5f).Within(0.001f));
+            Assert.That(player.Body.position.y, Is.EqualTo(-20f).Within(0.001f));
         }
 
         [Test]
@@ -167,7 +147,7 @@ namespace MukJump.EditorTests
             Invoke(player, "HandleFallBelowView");
 
             Assert.That(player.HasShield, Is.False);
-            Assert.That(player.CurrentHealth, Is.EqualTo(3));
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
             Assert.That(player.IsDead, Is.False);
             Assert.That(player.Body.position.y, Is.EqualTo(3.8f).Within(0.001f));
             Assert.That(player.Body.linearVelocity.y, Is.GreaterThan(0f));
@@ -230,6 +210,7 @@ namespace MukJump.EditorTests
         [Test]
         public void CharacterAnimatorUsesMatchingDamagePoseWithoutScalingRoot()
         {
+            ConfigureFiveHealthGrowth();
             var player = CreatePlayer("DamageAnimatorTarget");
             var animator = player.gameObject.AddComponent<CharacterAnimator>();
             var baseFrames = CreateFrames("base");
@@ -244,12 +225,12 @@ namespace MukJump.EditorTests
             float colliderRadius = player.GetComponent<CircleCollider2D>().radius;
             var renderer = player.GetComponent<SpriteRenderer>();
 
-            SetAutoProperty(player, "CurrentHealth", 2);
+            SetAutoProperty(player, "CurrentHealth", 4);
             Invoke(animator, "LateUpdate");
             Assert.That(renderer.sprite, Is.SameAs(firstHitFrames[4]),
                 "정점 상태는 피격 1단계 시트의 같은 apex 프레임을 사용해야 합니다.");
 
-            SetAutoProperty(player, "CurrentHealth", 1);
+            SetAutoProperty(player, "CurrentHealth", 3);
             Invoke(animator, "LateUpdate");
             Assert.That(renderer.sprite, Is.SameAs(secondHitFrames[4]),
                 "정점 상태는 피격 2단계 시트의 같은 apex 프레임을 사용해야 합니다.");
@@ -260,12 +241,13 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void FourthHealthPointAddsAThirdVisibleGrowthStage()
+        public void FiveHealthPathAddsFourthVisibleGrowthStage()
         {
-            var player = CreatePlayer("FourHealthDamageAnimatorTarget");
-            SetField(player, "maxHealth", 4);
+            ConfigureFiveHealthGrowth();
+            var player = CreatePlayer("FiveHealthDamageAnimatorTarget");
             SetAutoProperty(player, "CurrentHealth", 1);
-            Assert.That(player.DamageStage, Is.EqualTo(3));
+            Assert.That(player.MaxHealth, Is.EqualTo(5));
+            Assert.That(player.DamageStage, Is.EqualTo(4));
 
             var animator = player.gameObject.AddComponent<CharacterAnimator>();
             var baseFrames = CreateFrames("base-four-health");
@@ -442,8 +424,9 @@ namespace MukJump.EditorTests
             }), Is.False);
         }
 
+        [TestCase(1)]
         [TestCase(3)]
-        [TestCase(4)]
+        [TestCase(5)]
         public void HealthBillboardPaintsEachHealthPointAsAnIndependentCell(
             int maximum)
         {
@@ -482,6 +465,7 @@ namespace MukJump.EditorTests
         [Test]
         public void OriginalAndCloneOwnIndependentSingleHealthRenderers()
         {
+            ConfigureFiveHealthGrowth();
             PlayerController original = CreatePlayer("HealthBarOriginal");
             original.GetComponent<SpriteRenderer>().sprite = CreateTestSprite();
             var originalBillboard =
@@ -502,7 +486,9 @@ namespace MukJump.EditorTests
                 clone.transform, "PlayerHealthBillboard"), Is.EqualTo(1));
             Assert.That(cloneBillboard.HealthRenderer,
                 Is.Not.SameAs(originalBillboard.HealthRenderer));
+            Assert.That(original.MaxHealth, Is.EqualTo(5));
             Assert.That(clone.CurrentHealth, Is.EqualTo(clone.MaxHealth));
+            Assert.That(clone.CurrentHealth, Is.EqualTo(5));
         }
 
         PlayerController CreatePlayer(string objectName)
@@ -516,6 +502,15 @@ namespace MukJump.EditorTests
             SetField(player, "shieldHitGraceDuration", 0f);
             ExpireDamageGrace(player);
             return player;
+        }
+
+        void ConfigureFiveHealthGrowth()
+        {
+            Assert.That(growth, Is.Not.Null);
+            SetAutoProperty(growth, "PermanentSnapshot",
+                new PermanentGrowthRunSnapshot(
+                    new[] { "S00", "S-A1", "S-A2", "S-A3" },
+                    null));
         }
 
         Sprite[] CreateFrames(string prefix)

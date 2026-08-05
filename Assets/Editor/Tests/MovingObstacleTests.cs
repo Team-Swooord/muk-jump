@@ -78,7 +78,9 @@ public sealed class MovingObstacleTests
 
         Invoke(obstacle, "OnTriggerEnter2D", playerCollider);
 
-        Assert.That(player.CurrentHealth, Is.EqualTo(2));
+        Assert.That(player.CurrentHealth, Is.Zero);
+        Assert.That(player.IsDead, Is.True,
+            "기본 체력 1칸은 첫 무방비 장애물 피격에 소진되어야 합니다.");
         Assert.That(active.Count, Is.Zero,
             "유효 피격을 준 먹가시는 활성 목록에서 즉시 빠져야 합니다.");
         Assert.That(obstacle.gameObject.activeSelf, Is.False,
@@ -109,7 +111,7 @@ public sealed class MovingObstacleTests
         Invoke(obstacle, "OnTriggerEnter2D", playerCollider);
 
         Assert.That(releaseRequested, Is.False);
-        Assert.That(player.CurrentHealth, Is.EqualTo(3));
+        Assert.That(player.CurrentHealth, Is.EqualTo(1));
         Assert.That(obstacleObject.GetComponent<CircleCollider2D>().enabled, Is.True);
     }
 
