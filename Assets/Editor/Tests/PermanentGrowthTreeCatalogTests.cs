@@ -133,11 +133,11 @@ namespace MukJump.EditorTests
         [Test]
         public void CoreBalanceValuesMatchThreeStepLeapContract()
         {
-            AssertEffect("I00", PermanentGrowthType.InkCapacity, 0.02f);
-            AssertEffect("I-A1", PermanentGrowthType.InkCapacity, 0.02f);
-            AssertEffect("I-A2", PermanentGrowthType.InkCapacity, 0.02f);
-            AssertEffect("I-A3", PermanentGrowthType.InkCapacity, 0.02f);
-            AssertEffect("I-KA", PermanentGrowthType.InkCapacity, 0.06f);
+            AssertEffect("I00", PermanentGrowthType.InkCapacity, 0.30f);
+            AssertEffect("I-A1", PermanentGrowthType.InkCapacity, 0.30f);
+            AssertEffect("I-A2", PermanentGrowthType.InkCapacity, 0.30f);
+            AssertEffect("I-A3", PermanentGrowthType.InkCapacity, 0.30f);
+            AssertEffect("I-KA", PermanentGrowthType.InkCapacity, 0.30f);
             AssertEffect("I-B1", PermanentGrowthType.InkBudgetEfficiency, 0.015f);
             AssertEffect("I-B2", PermanentGrowthType.InkBudgetEfficiency, 0.015f);
             AssertEffect("I-B3", PermanentGrowthType.ShortStrokeEfficiency, 0.06f);

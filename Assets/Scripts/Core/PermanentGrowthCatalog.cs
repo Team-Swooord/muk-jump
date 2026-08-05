@@ -383,28 +383,28 @@ namespace MukJump.Core
 
             // 먹 운용 — 회복형 자원을 없애고 화면에 남길 수 있는 총 먹자리로 통일한다.
             Add(nodes, "I00", "먹자리의 씨", "화면에 오래 남길 수 있는 먹선의 자리를 넓힙니다.",
-                "총 먹자리 +2%", "ink.capacity.seed", PermanentGrowthType.InkCapacity,
-                0.02f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
+                "총 먹자리 +30%", "ink.capacity.seed", PermanentGrowthType.InkCapacity,
+                0.30f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Root,
                 null, 0, "", 0f, -1040f, 1);
             Add(nodes, "I-A1", "넓은 벼루", "한 화면에 남겨 둘 수 있는 먹선을 늘립니다.",
-                "총 먹자리 +2%", "ink.capacity.wide", PermanentGrowthType.InkCapacity,
-                0.02f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
+                "총 먹자리 +30%", "ink.capacity.wide", PermanentGrowthType.InkCapacity,
+                0.30f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I00"), 0, "", -350f, -770f, 2);
             Add(nodes, "I-A2", "깊은 먹자리", "먹자리를 깊게 다져 더 긴 길을 남깁니다.",
-                "총 먹자리 +2%", "ink.capacity.deep", PermanentGrowthType.InkCapacity,
-                0.02f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
+                "총 먹자리 +30%", "ink.capacity.deep", PermanentGrowthType.InkCapacity,
+                0.30f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-A1"), 0, "", -430f, -430f);
             Add(nodes, "I-A3", "큰 먹자리", "넓어진 먹자리가 오래된 획을 더 늦게 밀어냅니다.",
-                "총 먹자리 +2%", "ink.capacity.great", PermanentGrowthType.InkCapacity,
-                0.02f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
+                "총 먹자리 +30%", "ink.capacity.great", PermanentGrowthType.InkCapacity,
+                0.30f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-A2"), 0, "", -350f, -80f);
             Add(nodes, "I-KA", "넓어진 화폭", "넓은 화폭을 펼쳐 한 번에 더 많은 길을 남깁니다.",
-                "총 먹자리 +6%", "ink.capacity.keystone",
-                PermanentGrowthType.InkCapacity, 0.06f, "총 먹자리",
+                "총 먹자리 +30%", "ink.capacity.keystone",
+                PermanentGrowthType.InkCapacity, 0.30f, "총 먹자리",
                 PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
                 P("I-A3"), 4, "ink", -500f, 300f);

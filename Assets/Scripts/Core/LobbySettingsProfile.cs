@@ -36,7 +36,7 @@ namespace MukJump.Core
     /// 플랫폼 로그인 버튼은 표시만 하며 이 프로필에 인증 정보는 저장하지 않는다.
     public static class LobbySettingsProfile
     {
-        public const int CurrentGameplayTutorialVersion = 1;
+        public const int CurrentGameplayTutorialVersion = 2;
 
         const string BgmVolumeKey = "MukJump.Settings.BgmVolume";
         const string SfxVolumeKey = "MukJump.Settings.SfxVolume";
@@ -113,7 +113,7 @@ namespace MukJump.Core
             }
         }
 
-        /// 과거 4장 가이드를 본 사용자도 새 인터랙티브 안내는 한 번 경험한다.
+        /// 이전 안내를 본 사용자도 규칙이 바뀐 최신 인터랙티브 안내는 한 번 경험한다.
         public static bool NeedsGameplayTutorial
         {
             get

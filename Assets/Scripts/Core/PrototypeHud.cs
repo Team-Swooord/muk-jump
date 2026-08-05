@@ -6,6 +6,8 @@ namespace MukJump.Core
     /// 화면 하단에 남은 총 먹자리와 붓 여유를 표시하는 경량 HUD.
     public class PrototypeHud : MonoBehaviour
     {
+        const float BaseGaugeWidthRatio = 0.33f;
+
         [Header("먹 게이지 이미지 (붓 획 모양) — 미할당 시 단색 막대로 폴백")]
         [Tooltip("붓 획 실루엣, 채워진 상태 (왼쪽 가늘게 → 오른쪽 두껍게)")]
         [SerializeField] Texture2D inkGaugeFill;
@@ -92,7 +94,8 @@ namespace MukJump.Core
             float reserveRatio)
         {
             float baseRatio = Mathf.Clamp01(ratio);
-            float safeCapacityRatio = Mathf.Clamp(capacityRatio, 0.72f, 1.5f);
+            // 기본 1획부터 영구 성장 2.5획까지 트랙 폭으로 구분한다.
+            // 붓 여유가 더 쌓이면 Safe Area 폭에서 자연스럽게 상한에 닿는다.
             bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
             Rect safeGui = MobileUiLayout.ToGuiSafeArea(
                 Screen.safeArea,
@@ -100,14 +103,15 @@ namespace MukJump.Core
                 Screen.height);
             float horizontalMargin = Mathf.Max(18f, safeGui.width * 0.04f);
             float bottomMargin = Mathf.Max(18f, Screen.height * 0.014f);
-            float maximumGaugeWidth = Mathf.Max(
-                1f,
+            float maximumGaugeWidth = Mathf.Max(1f,
                 safeGui.width - horizontalMargin * 2f);
+            float gaugeTrackWidth = CalculateGaugeTrackWidth(
+                safeGui.width,
+                horizontalMargin,
+                capacityRatio);
             if (inkGaugeFill == null || inkGaugeTrack == null)
             {
-                float bw = Mathf.Min(
-                    maximumGaugeWidth,
-                    safeGui.width * 0.64f * safeCapacityRatio);
+                float bw = gaugeTrackWidth;
                 float bh = Screen.height * 0.014f;
                 float by = safeGui.yMax - bottomMargin - bh;
                 var back = new Rect(
@@ -125,9 +129,7 @@ namespace MukJump.Core
 
             // 기본부터 충분히 길게 보이고, 성장·날씨·붓 여유가 실제 최대 폭에도 반영된다.
             // 반복 아이템으로 최대치가 커져도 트랙은 화면 밖으로 나가지 않는다.
-            float w = Mathf.Min(
-                maximumGaugeWidth,
-                safeGui.width * 0.64f * safeCapacityRatio);
+            float w = gaugeTrackWidth;
             float h = w * (inkGaugeFill.height / (float)inkGaugeFill.width);
             float iconSize = inkBrushIcon != null ? h * 1.0f : 0f;
             float overlap = iconSize * 0.65f;     // 붓이 획의 끝을 그리고 있는 것처럼 깊게 겹침
@@ -185,6 +187,19 @@ namespace MukJump.Core
                 if (golden) DrawGoldenIconSparkles(iconRect);
                 GUI.color = previousColor;
             }
+        }
+
+        static float CalculateGaugeTrackWidth(
+            float safeWidth,
+            float horizontalMargin,
+            float capacityRatio)
+        {
+            float width = Mathf.Max(1f, safeWidth);
+            float maximumWidth = Mathf.Max(1f, width - Mathf.Max(0f, horizontalMargin) * 2f);
+            float representedCapacity = Mathf.Clamp(capacityRatio, 0.72f, 3.5f);
+            return Mathf.Min(
+                maximumWidth,
+                width * BaseGaugeWidthRatio * representedCapacity);
         }
 
         static void DrawReserveGauge(Rect area, float reserveRatio)

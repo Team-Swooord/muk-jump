@@ -91,14 +91,17 @@ public sealed class ItemSpawnerBalanceTests
         Assert.AreEqual(1.1f, (float)GetField(capture, "evictionFadeDuration"));
     }
 
-    [TestCase(12f)]
-    [TestCase(18f)]
-    public void LegacySceneInkCapacityUpgradesToCurrentBalance(float legacyCapacity)
+    [TestCase(12f, 0)]
+    [TestCase(18f, 0)]
+    [TestCase(24f, 1)]
+    public void LegacySceneInkCapacityUpgradesToCurrentBalance(
+        float legacyCapacity,
+        int legacyTuningVersion)
     {
         var capture = Track(new GameObject("LegacyStrokeCapture"))
             .AddComponent<StrokeCapture>();
         SetField(capture, "inkCapacity", legacyCapacity);
-        SetField(capture, "inkCapacityTuningVersion", 0);
+        SetField(capture, "inkCapacityTuningVersion", legacyTuningVersion);
 
         Invoke(capture, "UpgradeInkCapacityTuning");
 
@@ -108,6 +111,37 @@ public sealed class ItemSpawnerBalanceTests
         Assert.AreEqual(
             StrokeCapture.CurrentInkCapacityTuningVersion,
             (int)GetField(capture, "inkCapacityTuningVersion"));
+    }
+
+    [Test]
+    public void InkGaugeTrackRepresentsFullTwoPointFiveCapacityGrowth()
+    {
+        MethodInfo method = typeof(PrototypeHud).GetMethod(
+            "CalculateGaugeTrackWidth",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.That(method, Is.Not.Null);
+
+        const float safeWidth = 1000f;
+        const float horizontalMargin = 40f;
+        float baseWidth = (float)method.Invoke(
+            null,
+            new object[] { safeWidth, horizontalMargin, 1f });
+        float fullGrowthWidth = (float)method.Invoke(
+            null,
+            new object[] { safeWidth, horizontalMargin, 2.5f });
+
+        Assert.That(baseWidth, Is.EqualTo(330f).Within(0.001f));
+        Assert.That(fullGrowthWidth, Is.EqualTo(825f).Within(0.001f));
+        Assert.That(fullGrowthWidth / baseWidth,
+            Is.EqualTo(2.5f).Within(0.001f));
+
+        // 실제 1024×256 게이지와 붓 아이콘의 겹침까지 포함해도 4% 여백 안에 들어가
+        // DrawInkGauge의 후속 fit 단계가 2.5배 폭을 다시 줄이지 않아야 합니다.
+        float gaugeHeight = fullGrowthWidth * 0.25f;
+        float iconSize = gaugeHeight;
+        float clusterWidth = fullGrowthWidth + iconSize - iconSize * 0.65f;
+        Assert.That(clusterWidth,
+            Is.LessThanOrEqualTo(safeWidth - horizontalMargin * 2f));
     }
 
     [Test]

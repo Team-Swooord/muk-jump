@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using MukJump.Core;
+using MukJump.Drawing;
 using MukJump.Player;
 using NUnit.Framework;
 using UnityEngine;
@@ -65,7 +66,7 @@ namespace MukJump.EditorTests
                 null);
 
             Assert.That(snapshot.InkCapacityMultiplier,
-                Is.EqualTo(1.08f).Within(0.0001f));
+                Is.EqualTo(2.20f).Within(0.0001f));
             Assert.That(snapshot.InkBudgetCostMultiplier,
                 Is.EqualTo(0.97f).Within(0.0001f));
             Assert.That(snapshot.ShortStrokeBudgetCostMultiplier,
@@ -96,6 +97,40 @@ namespace MukJump.EditorTests
                 Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.WindInfluenceMultiplier,
                 Is.EqualTo(1f).Within(0.0001f));
+        }
+
+        [TestCase(0, 1.0f, 3.20f)]
+        [TestCase(1, 1.3f, 4.16f)]
+        [TestCase(2, 1.6f, 5.12f)]
+        [TestCase(3, 1.9f, 6.08f)]
+        [TestCase(4, 2.2f, 7.04f)]
+        [TestCase(5, 2.5f, 8.00f)]
+        public void InkCapacityPathGrowsOnePracticalStrokeToTwoPointFive(
+            int unlockedCount,
+            float expectedMultiplier,
+            float expectedCapacity)
+        {
+            string[] path = { "I00", "I-A1", "I-A2", "I-A3", "I-KA" };
+            var owned = new List<string>(unlockedCount);
+            for (int i = 0; i < unlockedCount; i++)
+                owned.Add(path[i]);
+            Dictionary<PermanentGrowthBranch, string> active = null;
+            if (unlockedCount >= path.Length)
+            {
+                active = new Dictionary<PermanentGrowthBranch, string>
+                {
+                    [PermanentGrowthBranch.InkHandling] = "I-KA",
+                };
+            }
+            var snapshot = new PermanentGrowthRunSnapshot(owned, active);
+
+            Assert.That(StrokeCapture.DefaultInkCapacity,
+                Is.EqualTo(3.2f).Within(0.0001f));
+            Assert.That(snapshot.InkCapacityMultiplier,
+                Is.EqualTo(expectedMultiplier).Within(0.0001f));
+            Assert.That(
+                StrokeCapture.DefaultInkCapacity * snapshot.InkCapacityMultiplier,
+                Is.EqualTo(expectedCapacity).Within(0.0001f));
         }
 
         [Test]
