@@ -190,6 +190,27 @@ namespace MukJump.EditorTests
             Assert.That(panel.Find("CurrencyBrush"), Is.Null);
             Assert.That(panel.Find("CurrencyHud/CurrencyDrop"), Is.Not.Null);
             Assert.That(panel.Find("CurrencyHud/Balance"), Is.Not.Null);
+            var balance = panel.Find("CurrencyHud/Balance") as RectTransform;
+            var journeyText = panel.Find("CurrencyHud/JourneyText")
+                ?.GetComponent<Text>();
+            var journeyTrack = panel.Find("CurrencyHud/JourneyTrack")
+                as RectTransform;
+            var journeyFill = panel.Find("CurrencyHud/JourneyTrack/Fill")
+                as RectTransform;
+            Assert.That(journeyText, Is.Not.Null);
+            Assert.That(journeyTrack, Is.Not.Null);
+            Assert.That(journeyFill, Is.Not.Null);
+            Assert.That(journeyText.resizeTextForBestFit, Is.False);
+            Assert.That(journeyText.fontSize, Is.GreaterThanOrEqualTo(26));
+            Assert.That(journeyTrack.sizeDelta.y, Is.GreaterThanOrEqualTo(9f));
+            Assert.That(journeyFill.anchorMin.x, Is.Zero);
+            Assert.That(journeyFill.anchorMax.x, Is.Zero);
+            Assert.That(journeyFill.pivot.x, Is.Zero);
+            float balanceBottom = balance.anchoredPosition.y -
+                                  balance.sizeDelta.y * 0.5f;
+            float journeyTop = journeyText.rectTransform.anchoredPosition.y +
+                               journeyText.rectTransform.sizeDelta.y * 0.5f;
+            Assert.That(balanceBottom, Is.GreaterThanOrEqualTo(journeyTop + 1f));
 
             foreach (PermanentGrowthNodeDefinition definition
                      in PermanentGrowthCatalog.Nodes)

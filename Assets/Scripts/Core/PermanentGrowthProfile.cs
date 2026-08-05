@@ -124,23 +124,41 @@ namespace MukJump.Core
 
     public readonly struct PermanentGrowthSettlement
     {
-        public PermanentGrowthSettlement(int earned, int balance, bool accepted)
+        public PermanentGrowthSettlement(
+            int earned,
+            int balance,
+            bool accepted,
+            int runDistanceMeters = 0,
+            long cumulativeDistanceMeters = 0L,
+            long previousRewardDistanceMeters = 0L,
+            long nextRewardDistanceMeters = 0L,
+            bool distanceJourneyComplete = false)
         {
             Earned = earned;
             Balance = balance;
             Accepted = accepted;
+            RunDistanceMeters = runDistanceMeters;
+            CumulativeDistanceMeters = cumulativeDistanceMeters;
+            PreviousRewardDistanceMeters = previousRewardDistanceMeters;
+            NextRewardDistanceMeters = nextRewardDistanceMeters;
+            DistanceJourneyComplete = distanceJourneyComplete;
         }
 
         public int Earned { get; }
         public int Balance { get; }
         public bool Accepted { get; }
+        public int RunDistanceMeters { get; }
+        public long CumulativeDistanceMeters { get; }
+        public long PreviousRewardDistanceMeters { get; }
+        public long NextRewardDistanceMeters { get; }
+        public bool DistanceJourneyComplete { get; }
     }
 
     /// 게임 종료 뒤에도 유지되는 먹빛·열매 소유·비기 장착 상태를 소유한다.
     public static class PermanentGrowthProfile
     {
         const int SchemaVersion = 1;
-        const int BalanceVersion = 6;
+        const int BalanceVersion = 7;
         const int V2TotalCost = 39;
         const int LegacyTotalCost = 957;
         const int SettledRunHistoryLimit = 64;
@@ -160,10 +178,12 @@ namespace MukJump.Core
             public int wallet;
             public int spent;
             public bool tutorialRewardClaimed;
-            // 최고 기록 저장과 성장 저장이 서로 다른 PlayerPrefs 트랜잭션이어도
-            // 최초 고도 이정표를 두 번 지급하지 않도록 성장 저장이 권리를 소유한다.
+            // v5~v6 구 저장 이관용. v7 신규 정산에는 누적 거리 단계를 쓴다.
             public bool rewardMilestoneWatermarkInitialized;
             public int rewardedBestHeight;
+            // v7: 결과창의 한 판 고도를 합산하는 39단계 성장 여정.
+            public long cumulativeDistanceMeters;
+            public int claimedDistanceRewardCount;
             public string lastSettledRunId = string.Empty;
             public List<string> settledRunIds = new();
             // balanceVersion 1 역직렬화·마이그레이션 전용.
@@ -272,6 +292,12 @@ namespace MukJump.Core
             "rewardedBestHeight",
         };
 
+        static readonly string[] DistanceRewardRequiredPayloadFields =
+        {
+            "cumulativeDistanceMeters",
+            "claimedDistanceRewardCount",
+        };
+
         static IPermanentGrowthStore store = new PlayerPrefsPermanentGrowthStore();
         static SaveData data;
         static bool loaded;
@@ -360,6 +386,65 @@ namespace MukJump.Core
             {
                 EnsureLoaded();
                 return data.ownedNodeIds.Count;
+            }
+        }
+
+        public static long CumulativeDistanceMeters
+        {
+            get
+            {
+                EnsureLoaded();
+                return data.cumulativeDistanceMeters;
+            }
+        }
+
+        public static int ClaimedDistanceRewardCount
+        {
+            get
+            {
+                EnsureLoaded();
+                return data.claimedDistanceRewardCount;
+            }
+        }
+
+        public static long PreviousDistanceRewardMeters
+        {
+            get
+            {
+                EnsureLoaded();
+                return RunRewardCalculator.GetPreviousRewardDistance(
+                    data.claimedDistanceRewardCount);
+            }
+        }
+
+        public static long NextDistanceRewardMeters
+        {
+            get
+            {
+                EnsureLoaded();
+                return RunRewardCalculator.GetNextRewardDistance(
+                    data.claimedDistanceRewardCount);
+            }
+        }
+
+        public static long DistanceToNextRewardMeters
+        {
+            get
+            {
+                EnsureLoaded();
+                return RunRewardCalculator.GetDistanceToNextReward(
+                    data.cumulativeDistanceMeters,
+                    data.claimedDistanceRewardCount);
+            }
+        }
+
+        public static bool IsDistanceJourneyComplete
+        {
+            get
+            {
+                EnsureLoaded();
+                return data.claimedDistanceRewardCount >=
+                       RunRewardCalculator.MaxRewardCount;
             }
         }
 
@@ -627,8 +712,8 @@ namespace MukJump.Core
         public static string GetLockReason(PermanentGrowthType type) =>
             GetNodeLockReason(FindNextNode(type));
 
-        /// 정상 게임오버를 runId로 멱등 정산한다. 기본 보상은 먹떼 진행 고도와
-        /// 실제 플레이 시간, 이정표는 최고 점수 고도를 서로 분리해 계산한다.
+        /// 정상 게임오버를 runId로 멱등 정산한다. 결과창에 표시되는 한 판 고도를
+        /// 계정 누적 거리에 더하고, 새로 통과한 성장 여정 단계만 먹빛으로 지급한다.
         public static PermanentGrowthSettlement SettleRun(
             string runId,
             int swarmProgressHeight,
@@ -639,54 +724,48 @@ namespace MukJump.Core
         {
             EnsureLoaded();
             if (writeBlocked)
-                return new PermanentGrowthSettlement(0, data.wallet, false);
+                return CreateSettlement(0, false);
             if (string.IsNullOrEmpty(runId))
-                return new PermanentGrowthSettlement(0, data.wallet, false);
+                return CreateSettlement(0, false);
             if (!eligible)
-                return new PermanentGrowthSettlement(0, data.wallet, true);
+                return CreateSettlement(0, true);
             if (HasSettledRunId(runId))
-                return new PermanentGrowthSettlement(0, data.wallet, false);
+                return CreateSettlement(0, false);
 
             MutationSnapshot snapshot = CaptureMutationSnapshot();
             data.lastSettledRunId = runId;
             data.settledRunIds.Add(runId);
             TrimSettledRunHistory();
-            int earned = 0;
-            if (!data.rewardMilestoneWatermarkInitialized)
-            {
-                data.rewardedBestHeight = Mathf.Max(0, previousBest);
-                data.rewardMilestoneWatermarkInitialized = true;
-            }
-            // 표시 기록은 성장 저장보다 먼저 확정될 수 없지만, 오래된 backup을
-            // 복원한 예외 상황에서는 더 앞선 기록이 남을 수 있다. 두 기준의
-            // 최댓값을 권리 watermark로 사용해 같은 이정표를 다시 지급하지 않는다.
-            int rewardedBestBeforeRun = Mathf.Max(
-                data.rewardedBestHeight,
-                Mathf.Max(0, previousBest));
-            data.rewardedBestHeight = rewardedBestBeforeRun;
-            earned = RunRewardCalculator.Calculate(
-                swarmProgressHeight,
-                scoreHeight,
-                rewardedBestBeforeRun,
-                activeGameplaySeconds,
-                !data.tutorialRewardClaimed);
-            data.tutorialRewardClaimed = true;
-            data.rewardedBestHeight = Mathf.Max(
-                data.rewardedBestHeight,
-                Mathf.Max(0, scoreHeight));
+            int runDistanceMeters = Mathf.Max(0, scoreHeight);
+            data.cumulativeDistanceMeters = RunRewardCalculator.SaturatingAdd(
+                data.cumulativeDistanceMeters,
+                runDistanceMeters);
+            int reachedRewardCount = Mathf.Max(
+                data.claimedDistanceRewardCount,
+                RunRewardCalculator.GetRewardCountForDistance(
+                    data.cumulativeDistanceMeters));
+            int crossedRewardCount = Mathf.Max(
+                0,
+                reachedRewardCount - data.claimedDistanceRewardCount);
             int remainingBudget = Mathf.Max(
                 0,
                 PermanentGrowthCatalog.TotalCost -
                 data.ownedNodeIds.Count -
                 data.wallet);
-            earned = Mathf.Min(earned, remainingBudget);
+            int earned = Mathf.Min(crossedRewardCount, remainingBudget);
+            // 먹빛 상한에 걸려도 통과한 거리 단계는 소비된 것으로 기록한다.
+            // 개발용 해금이나 향후 환급 뒤 같은 문턱을 다시 지급하지 않기 위해서다.
+            data.claimedDistanceRewardCount = reachedRewardCount;
             data.wallet += earned;
 
             if (!Save(snapshot))
-                return new PermanentGrowthSettlement(0, data.wallet, false);
-            if (earned > 0)
+                return CreateSettlement(0, false);
+            if (runDistanceMeters > 0 || earned > 0)
                 Changed?.Invoke();
-            return new PermanentGrowthSettlement(earned, data.wallet, true);
+            return CreateSettlement(
+                earned,
+                true,
+                runDistanceMeters);
         }
 
         /// 구 호출부 호환. 새 게임 코드는 진행 고도·실제 시간을 명시하는 오버로드를 쓴다.
@@ -703,6 +782,26 @@ namespace MukJump.Core
                 previousBest,
                 float.PositiveInfinity,
                 eligible);
+        }
+
+        static PermanentGrowthSettlement CreateSettlement(
+            int earned,
+            bool accepted,
+            int runDistanceMeters = 0)
+        {
+            int claimed = Mathf.Clamp(
+                data.claimedDistanceRewardCount,
+                0,
+                RunRewardCalculator.MaxRewardCount);
+            return new PermanentGrowthSettlement(
+                earned,
+                data.wallet,
+                accepted,
+                runDistanceMeters,
+                data.cumulativeDistanceMeters,
+                RunRewardCalculator.GetPreviousRewardDistance(claimed),
+                RunRewardCalculator.GetNextRewardDistance(claimed),
+                claimed >= RunRewardCalculator.MaxRewardCount);
         }
 
         static PermanentGrowthNodeDefinition FindNextNode(PermanentGrowthType type)
@@ -1042,6 +1141,7 @@ namespace MukJump.Core
             data.ranks ??= new List<RankRecord>();
             data.ownedNodeIds ??= new List<string>();
             string before = JsonUtility.ToJson(data);
+            bool needsDistanceJourneyMigration = data.balanceVersion < 7;
             // 단계별로 올려야 v2의 ownedNodeIds를 구 ranks로 오인해 지우지 않는다.
             if (data.balanceVersion < 2)
                 MigrateLegacyBalance();
@@ -1054,6 +1154,10 @@ namespace MukJump.Core
             if (data.balanceVersion < 6)
                 MigrateInkBudgetSemanticsToV6();
             NormalizeLoadedData();
+            // 구 저장의 소유 그래프와 지갑을 먼저 정규화해야 중복·고아 노드를
+            // 이미 받은 거리 단계로 잘못 환산하지 않는다.
+            if (needsDistanceJourneyMigration)
+                MigrateDistanceJourneyToV7();
             return !string.Equals(
                 before,
                 JsonUtility.ToJson(data),
@@ -1108,10 +1212,13 @@ namespace MukJump.Core
                 if (header.balanceVersion >= 2 &&
                     parsed.settledRunIds == null)
                     return false;
-                // v5와 v6는 동일한 노드 ID·부모 그래프를 사용한다. v5도 마이그레이션
-                // 전에 검증해야 손상된 그래프를 정규화한 뒤 정상 저장으로 덮지 않는다.
+                // v5 이상은 같은 노드 ID·부모 그래프를 사용한다. 마이그레이션 전에
+                // 검증해야 손상된 그래프를 정규화한 뒤 정상 저장으로 덮지 않는다.
                 if (header.balanceVersion >= 5 &&
                     !HasValidOwnedGraph(parsed))
+                    return false;
+                if (header.balanceVersion >= 7 &&
+                    !HasValidDistanceJourney(parsed))
                     return false;
                 return true;
             }
@@ -1179,8 +1286,33 @@ namespace MukJump.Core
                         return false;
             }
 
+            if (balanceVersion >= 7)
+            {
+                for (int i = 0;
+                     i < DistanceRewardRequiredPayloadFields.Length;
+                     i++)
+                    if (!HasTopLevelField(
+                            json,
+                            DistanceRewardRequiredPayloadFields[i]))
+                        return false;
+            }
+
             return balanceVersion < 2 ||
                    HasTopLevelField(json, "settledRunIds");
+        }
+
+        static bool HasValidDistanceJourney(SaveData candidate)
+        {
+            if (candidate == null ||
+                candidate.cumulativeDistanceMeters < 0L ||
+                candidate.claimedDistanceRewardCount < 0 ||
+                candidate.claimedDistanceRewardCount >
+                RunRewardCalculator.MaxRewardCount)
+                return false;
+
+            return RunRewardCalculator.GetRewardCountForDistance(
+                       candidate.cumulativeDistanceMeters) ==
+                   candidate.claimedDistanceRewardCount;
         }
 
         static bool HasValidOwnedGraph(SaveData candidate)
@@ -1473,6 +1605,22 @@ namespace MukJump.Core
             data.balanceVersion = 6;
         }
 
+        /// v7은 판당 보상과 최고기록 이정표를 누적 거리 39단계로 교체한다.
+        /// 과거 총 이동 거리는 저장하지 않았으므로 이미 산 노드와 지갑을 같은
+        /// 개수의 거리 단계로 환산해 기존 진행을 잃거나 중복 지급하지 않는다.
+        static void MigrateDistanceJourneyToV7()
+        {
+            int grantedRewardCount = Mathf.Clamp(
+                data.ownedNodeIds.Count + data.wallet,
+                0,
+                RunRewardCalculator.MaxRewardCount);
+            data.claimedDistanceRewardCount = grantedRewardCount;
+            data.cumulativeDistanceMeters =
+                RunRewardCalculator.GetThresholdForRewardCount(
+                    grantedRewardCount);
+            data.balanceVersion = 7;
+        }
+
         static void CompleteGrandfatheredPath(
             HashSet<string> owned,
             string keystoneId,
@@ -1529,6 +1677,13 @@ namespace MukJump.Core
                 0,
                 PermanentGrowthCatalog.TotalCost - data.spent);
             data.rewardedBestHeight = Mathf.Max(0, data.rewardedBestHeight);
+            data.cumulativeDistanceMeters = Math.Max(
+                0L,
+                data.cumulativeDistanceMeters);
+            data.claimedDistanceRewardCount = Mathf.Clamp(
+                data.claimedDistanceRewardCount,
+                0,
+                RunRewardCalculator.MaxRewardCount);
             data.lastSettledRunId ??= string.Empty;
             NormalizeSettledRunHistory();
             data.survivalKeystoneId = NormalizeEquipped(

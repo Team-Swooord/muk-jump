@@ -28,6 +28,10 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.Currency, Is.Zero);
             Assert.That(PermanentGrowthProfile.SpentCurrency, Is.Zero);
             Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.Zero);
+            Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters, Is.Zero);
+            Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount, Is.Zero);
+            Assert.That(PermanentGrowthProfile.NextDistanceRewardMeters,
+                Is.EqualTo(20));
             Assert.That(
                 PermanentGrowthProfile.CreateRunSnapshot().OwnedNodeCount,
                 Is.Zero);
@@ -72,72 +76,92 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(999));
         }
 
-        [TestCase(0, 0f, false, 0)]
-        [TestCase(11, 120f, false, 0)]
-        [TestCase(12, 19.99f, false, 0)]
-        [TestCase(12, 20f, false, 1)]
-        [TestCase(0, 0f, true, 1)]
-        public void BaseRewardUsesFirstRunOrTwelveMetersAndTwentyActiveSeconds(
-            int swarmHeight,
-            float activeSeconds,
-            bool firstEligible,
-            int expected)
+        [TestCase(0, 0)]
+        [TestCase(1, 20)]
+        [TestCase(5, 100)]
+        [TestCase(6, 150)]
+        [TestCase(13, 500)]
+        [TestCase(14, 600)]
+        [TestCase(26, 1800)]
+        [TestCase(27, 1950)]
+        [TestCase(39, 3750)]
+        public void DistanceRewardThresholdsMatchThirtyNineNodeJourney(
+            int rewardCount,
+            long expectedDistance)
         {
             Assert.That(
-                RunRewardCalculator.Calculate(
-                    swarmHeight,
-                    0,
-                    0,
-                    activeSeconds,
-                    firstEligible),
-                Is.EqualTo(expected));
+                RunRewardCalculator.GetThresholdForRewardCount(rewardCount),
+                Is.EqualTo(expectedDistance));
         }
 
-        [TestCase(99, 0, 0)]
-        [TestCase(100, 99, 1)]
-        [TestCase(250, 99, 2)]
-        [TestCase(1000, 0, 5)]
-        [TestCase(1000, 750, 1)]
-        [TestCase(1000, 1000, 0)]
-        public void RewardAddsEveryNewBestMilestone(
-            int scoreHeight,
-            int previousBest,
-            int expectedMilestones)
+        [TestCase(0, 0)]
+        [TestCase(19, 0)]
+        [TestCase(20, 1)]
+        [TestCase(99, 4)]
+        [TestCase(100, 5)]
+        [TestCase(149, 5)]
+        [TestCase(150, 6)]
+        [TestCase(500, 13)]
+        [TestCase(1800, 26)]
+        [TestCase(3749, 38)]
+        [TestCase(3750, 39)]
+        [TestCase(100000, 39)]
+        public void DistanceReturnsEveryCrossedRewardCount(
+            long cumulativeDistance,
+            int expectedRewardCount)
         {
             Assert.That(
-                RunRewardCalculator.Calculate(
-                    0,
-                    scoreHeight,
-                    previousBest,
-                    0f,
-                    false),
-                Is.EqualTo(expectedMilestones));
+                RunRewardCalculator.GetRewardCountForDistance(
+                    cumulativeDistance),
+                Is.EqualTo(expectedRewardCount));
         }
 
         [Test]
-        public void NewerScoreBaselineAdvancesStaleMilestoneWatermark()
+        public void DistanceJourneyExactlyFundsThePermanentTree()
         {
-            string stale = CurrentSaveJson(0).Replace(
-                "\"rewardMilestoneWatermarkInitialized\":false," +
-                "\"rewardedBestHeight\":0",
-                "\"rewardMilestoneWatermarkInitialized\":true," +
-                "\"rewardedBestHeight\":100");
-            store.Json = stale;
-            store.BackupJson = stale;
+            Assert.That(RunRewardCalculator.MaxRewardCount,
+                Is.EqualTo(PermanentGrowthCatalog.TotalCost));
+            Assert.That(
+                RunRewardCalculator.GetThresholdForRewardCount(
+                    RunRewardCalculator.MaxRewardCount),
+                Is.EqualTo(RunRewardCalculator.FinalRewardDistance));
+        }
+
+        [Test]
+        public void DistanceBeyondFinalTierTracksButCannotExceedEconomyCap()
+        {
+            store.Json = CurrentSaveJson(38);
             PermanentGrowthProfile.ResetCacheForTests();
 
             PermanentGrowthSettlement settlement =
                 PermanentGrowthProfile.SettleRun(
-                    "score-ahead-of-stale-watermark",
+                    "finish-distance-journey",
                     0,
-                    500,
-                    500,
+                    1000,
+                    0,
                     0f,
                     true);
 
             Assert.That(settlement.Accepted, Is.True);
-            Assert.That(settlement.Earned, Is.Zero,
-                "표시 최고기록보다 뒤처진 복구 watermark가 이정표를 중복 지급하면 안 됩니다.");
+            Assert.That(settlement.Earned, Is.EqualTo(1));
+            Assert.That(settlement.Balance, Is.EqualTo(39));
+            Assert.That(settlement.DistanceJourneyComplete, Is.True);
+            Assert.That(settlement.CumulativeDistanceMeters, Is.EqualTo(4600));
+        }
+
+        [Test]
+        public void LegacyProgressMigratesToEquivalentDistanceTier()
+        {
+            store.Json = LegacyV6SaveJson(3, "I00", "I-A1");
+            PermanentGrowthProfile.ResetCacheForTests();
+
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(3));
+            Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.EqualTo(2));
+            Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount,
+                Is.EqualTo(5));
+            Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
+                Is.EqualTo(100));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":7"));
         }
 
         [Test]
@@ -152,9 +176,12 @@ namespace MukJump.EditorTests
                 true);
 
             Assert.That(first.Accepted, Is.True);
-            Assert.That(first.Earned, Is.EqualTo(3),
-                "첫 정상 판 1개와 최초 100m·250m 이정표 2개가 합산되어야 합니다.");
-            Assert.That(first.Balance, Is.EqualTo(3));
+            Assert.That(first.Earned, Is.EqualTo(8));
+            Assert.That(first.Balance, Is.EqualTo(8));
+            Assert.That(first.RunDistanceMeters, Is.EqualTo(250));
+            Assert.That(first.CumulativeDistanceMeters, Is.EqualTo(250));
+            Assert.That(first.PreviousRewardDistanceMeters, Is.EqualTo(250));
+            Assert.That(first.NextRewardDistanceMeters, Is.EqualTo(300));
 
             PermanentGrowthProfile.ResetCacheForTests();
             PermanentGrowthSettlement duplicate = PermanentGrowthProfile.SettleRun(
@@ -167,16 +194,17 @@ namespace MukJump.EditorTests
 
             Assert.That(duplicate.Accepted, Is.False);
             Assert.That(duplicate.Earned, Is.Zero);
-            Assert.That(duplicate.Balance, Is.EqualTo(3));
+            Assert.That(duplicate.Balance, Is.EqualTo(8));
+            Assert.That(duplicate.CumulativeDistanceMeters, Is.EqualTo(250));
         }
 
         [Test]
         public void SettlementHistoryRejectsOlderRunAfterAnotherRunSettles()
         {
             PermanentGrowthSettlement first = PermanentGrowthProfile.SettleRun(
-                "run-A", 0, 0, 0, 0f, true);
+                "run-A", 0, 20, 0, 0f, true);
             PermanentGrowthSettlement second = PermanentGrowthProfile.SettleRun(
-                "run-B", 12, 0, 0, 20f, true);
+                "run-B", 12, 30, 20, 20f, true);
 
             PermanentGrowthProfile.ResetCacheForTests();
             PermanentGrowthSettlement repeatedFirst =
@@ -191,7 +219,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void IneligibleRunPaysNothingAndDoesNotConsumeFirstReward()
+        public void IneligibleRunPaysNothingAndDoesNotAdvanceDistance()
         {
             PermanentGrowthSettlement debug = PermanentGrowthProfile.SettleRun(
                 "debug-run",
@@ -203,14 +231,16 @@ namespace MukJump.EditorTests
             PermanentGrowthSettlement firstReal = PermanentGrowthProfile.SettleRun(
                 "real-run",
                 0,
-                0,
+                20,
                 0,
                 0f,
                 true);
 
             Assert.That(debug.Accepted, Is.True);
             Assert.That(debug.Earned, Is.Zero);
+            Assert.That(debug.CumulativeDistanceMeters, Is.Zero);
             Assert.That(firstReal.Earned, Is.EqualTo(1));
+            Assert.That(firstReal.CumulativeDistanceMeters, Is.EqualTo(20));
         }
 
         [Test]
@@ -274,7 +304,7 @@ namespace MukJump.EditorTests
         public void FutureBalanceSaveIsPreservedWithoutDroppingUnknownNodes()
         {
             const string future =
-                "{\"schemaVersion\":1,\"balanceVersion\":7," +
+                "{\"schemaVersion\":1,\"balanceVersion\":8," +
                 "\"wallet\":9,\"ownedNodeIds\":[\"I-D1\"]," +
                 "\"inkHandlingKeystoneId\":\"I-D1\"}";
             store.Json = future;
@@ -293,7 +323,7 @@ namespace MukJump.EditorTests
         public void HeaderOnlyCurrentSaveCannotOverwriteValidBackup()
         {
             const string truncated =
-                "{\"schemaVersion\":1,\"balanceVersion\":6}";
+                "{\"schemaVersion\":1,\"balanceVersion\":7}";
             string backup = CurrentSaveJson(5, "I00");
             store.Json = truncated;
             store.BackupJson = backup;
@@ -310,16 +340,70 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void InvalidCurrentDistanceJourneyCannotOverwriteValidBackup()
+        {
+            string valid = CurrentSaveJson(4, "I00");
+            string backup = CurrentSaveJson(2, "I00");
+            string[] invalidPrimaries =
+            {
+                valid.Replace("\"cumulativeDistanceMeters\":100,", ""),
+                valid.Replace("\"claimedDistanceRewardCount\":5,", ""),
+                valid.Replace(
+                    "\"claimedDistanceRewardCount\":5",
+                    "\"claimedDistanceRewardCount\":4"),
+                valid.Replace(
+                    "\"cumulativeDistanceMeters\":100",
+                    "\"cumulativeDistanceMeters\":-1"),
+                valid.Replace(
+                    "\"claimedDistanceRewardCount\":5",
+                    "\"claimedDistanceRewardCount\":40"),
+            };
+
+            for (int i = 0; i < invalidPrimaries.Length; i++)
+            {
+                store = new MemoryPermanentGrowthStore
+                {
+                    Json = invalidPrimaries[i],
+                    BackupJson = backup,
+                };
+                PermanentGrowthProfile.UseStoreForTests(store);
+
+                Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.True);
+                Assert.That(store.Json, Is.EqualTo(invalidPrimaries[i]));
+                Assert.That(store.BackupJson, Is.EqualTo(backup));
+                Assert.That(store.SaveCount, Is.Zero);
+                Assert.That(store.BackupSaveCount, Is.Zero);
+            }
+        }
+
+        [Test]
         public void VersionFiveInkTreeMigratesToNewBudgetSemanticsWithoutDataLoss()
         {
             store.Json = CurrentSaveJson(3, "I00", "I-A1")
-                .Replace("\"balanceVersion\":6", "\"balanceVersion\":5");
+                .Replace("\"balanceVersion\":7", "\"balanceVersion\":5");
             PermanentGrowthProfile.ResetCacheForTests();
 
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(3));
             Assert.That(PermanentGrowthProfile.IsNodeUnlocked("I00"), Is.True);
             Assert.That(PermanentGrowthProfile.IsNodeUnlocked("I-A1"), Is.True);
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":6"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":7"));
+            Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount,
+                Is.EqualTo(5));
+        }
+
+        [Test]
+        public void VersionSixProgressMigratesToMatchingDistanceThreshold()
+        {
+            store.Json = LegacyV6SaveJson(5, "I00");
+            PermanentGrowthProfile.ResetCacheForTests();
+
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(5));
+            Assert.That(PermanentGrowthProfile.IsNodeUnlocked("I00"), Is.True);
+            Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount,
+                Is.EqualTo(6));
+            Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
+                Is.EqualTo(150));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":7"));
         }
 
         [Test]
@@ -329,9 +413,9 @@ namespace MukJump.EditorTests
             string[] invalidPrimaries =
             {
                 CurrentSaveJson(3, "I-A1")
-                    .Replace("\"balanceVersion\":6", "\"balanceVersion\":5"),
+                    .Replace("\"balanceVersion\":7", "\"balanceVersion\":5"),
                 CurrentSaveJson(3, "I00", "I00")
-                    .Replace("\"balanceVersion\":6", "\"balanceVersion\":5"),
+                    .Replace("\"balanceVersion\":7", "\"balanceVersion\":5"),
             };
 
             for (int i = 0; i < invalidPrimaries.Length; i++)
@@ -350,11 +434,11 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void CurrentV6MissingMilestoneWatermarkCannotBeCanonicalized()
+        public void CurrentV7MissingDistanceJourneyCannotBeCanonicalized()
         {
             string truncated = CurrentSaveJson(4, "I00")
-                .Replace("\"rewardMilestoneWatermarkInitialized\":false,", "")
-                .Replace("\"rewardedBestHeight\":0,", "");
+                .Replace("\"cumulativeDistanceMeters\":100,", "")
+                .Replace("\"claimedDistanceRewardCount\":5,", "");
             string backup = CurrentSaveJson(2, "I00");
             store.Json = truncated;
             store.BackupJson = backup;
@@ -364,7 +448,7 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(2));
             Assert.That(store.Json, Is.EqualTo(truncated));
             Assert.That(store.BackupJson, Is.EqualTo(backup),
-                "v6 필수 payload가 잘린 primary가 정상 backup을 덮으면 안 됩니다.");
+                "v7 필수 거리 payload가 잘린 primary가 정상 backup을 덮으면 안 됩니다.");
             Assert.That(store.SaveCount, Is.Zero);
         }
 
@@ -436,10 +520,13 @@ namespace MukJump.EditorTests
 
             PermanentGrowthSettlement failed =
                 PermanentGrowthProfile.SettleRun(
-                    "interrupted-run", 12, 0, 0, 20f, true);
+                    "interrupted-run", 12, 20, 0, 20f, true);
             Assert.That(failed.Accepted, Is.False);
             Assert.That(PermanentGrowthProfile.Currency, Is.Zero,
                 "primary 실패 직후 메모리 지갑도 이전 값으로 돌아가야 합니다.");
+            Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters, Is.Zero,
+                "primary 실패 직후 누적 거리도 이전 값으로 돌아가야 합니다.");
+            Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount, Is.Zero);
             Assert.That(failingStore.Json, Is.EqualTo(original));
             Assert.That(failingStore.BackupJson, Is.EqualTo(original));
             Assert.That(failingStore.BackupSaveCount, Is.Zero,
@@ -454,10 +541,12 @@ namespace MukJump.EditorTests
 
             PermanentGrowthSettlement retry =
                 PermanentGrowthProfile.SettleRun(
-                    "interrupted-run", 12, 0, 0, 20f, true);
+                    "interrupted-run", 12, 20, 0, 20f, true);
             Assert.That(retry.Accepted, Is.True,
                 "실패한 runId가 메모리에 남아 재시도를 막으면 안 됩니다.");
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(1));
+            Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
+                Is.EqualTo(20));
         }
 
         [Test]
@@ -475,11 +564,13 @@ namespace MukJump.EditorTests
 
             PermanentGrowthSettlement settlement =
                 PermanentGrowthProfile.SettleRun(
-                    "applied-before-error", 12, 0, 0, 20f, true);
+                    "applied-before-error", 12, 20, 0, 20f, true);
 
             Assert.That(settlement.Accepted, Is.True,
                 "primary 값이 이미 반영됐다면 메모리를 되돌리면 안 됩니다.");
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(1));
+            Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
+                Is.EqualTo(20));
             Assert.That(failingStore.BackupJson, Is.EqualTo(failingStore.Json));
             Assert.That(failingStore.BackupSyncPending, Is.False);
         }
@@ -501,7 +592,7 @@ namespace MukJump.EditorTests
 
             PermanentGrowthSettlement failed =
                 PermanentGrowthProfile.SettleRun(
-                    "applied-before-unreadable", 12, 0, 0, 20f, true);
+                    "applied-before-unreadable", 12, 20, 0, 20f, true);
 
             Assert.That(failed.Accepted, Is.False);
             Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.True);
@@ -514,7 +605,7 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(1));
             PermanentGrowthSettlement duplicate =
                 PermanentGrowthProfile.SettleRun(
-                    "applied-before-unreadable", 12, 0, 0, 20f, true);
+                    "applied-before-unreadable", 12, 20, 0, 20f, true);
             Assert.That(duplicate.Accepted, Is.False,
                 "복구한 새 세대의 runId를 다시 지급하면 안 됩니다.");
         }
@@ -536,7 +627,7 @@ namespace MukJump.EditorTests
 
             PermanentGrowthSettlement failed =
                 PermanentGrowthProfile.SettleRun(
-                    "partial-primary", 12, 0, 0, 20f, true);
+                    "partial-primary", 12, 20, 0, 20f, true);
 
             Assert.That(failed.Accepted, Is.False);
             Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.True);
@@ -564,7 +655,7 @@ namespace MukJump.EditorTests
 
             PermanentGrowthSettlement failed =
                 PermanentGrowthProfile.SettleRun(
-                    "double-storage-failure", 12, 0, 0, 20f, true);
+                    "double-storage-failure", 12, 20, 0, 20f, true);
 
             Assert.That(failed.Accepted, Is.False);
             Assert.That(PermanentGrowthProfile.Currency, Is.Zero);
@@ -645,7 +736,7 @@ namespace MukJump.EditorTests
 
             PermanentGrowthSettlement failed =
                 PermanentGrowthProfile.SettleRun(
-                    "invalid-backup-recovery", 12, 0, 0, 20f, true);
+                    "invalid-backup-recovery", 12, 20, 0, 20f, true);
             Assert.That(failed.Accepted, Is.False);
             Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.True);
 
@@ -655,7 +746,7 @@ namespace MukJump.EditorTests
             Assert.That(failingStore.BackupQuarantineJson,
                 Is.EqualTo(futureBackup));
             Assert.That(failingStore.BackupJson,
-                Does.Contain("\"balanceVersion\":6"));
+                Does.Contain("\"balanceVersion\":7"));
         }
 
         [Test]
@@ -695,7 +786,7 @@ namespace MukJump.EditorTests
             failingStore.ThrowOnBackupLoad = false;
             Assert.That(PermanentGrowthProfile.TryRestoreBackup(), Is.True);
             Assert.That(failingStore.QuarantineJson, Is.EqualTo(v2));
-            Assert.That(failingStore.Json, Does.Contain("\"balanceVersion\":6"));
+            Assert.That(failingStore.Json, Does.Contain("\"balanceVersion\":7"));
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(7));
             Assert.That(PermanentGrowthProfile.IsNodeUnlocked("I00"), Is.True);
         }
@@ -744,7 +835,7 @@ namespace MukJump.EditorTests
 
             PermanentGrowthSettlement settlement =
                 PermanentGrowthProfile.SettleRun(
-                    "backup-failure-run", 12, 0, 0, 20f, true);
+                    "backup-failure-run", 12, 20, 0, 20f, true);
 
             Assert.That(settlement.Accepted, Is.True,
                 "primary가 확정됐으면 backup 실패가 게임 정산을 중단하면 안 됩니다.");
@@ -760,7 +851,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void PendingTargetWinsOverStaleBackupAndPreventsMilestoneReplay()
+        public void PendingTargetWinsOverStaleBackupAndPreservesDistanceTier()
         {
             string original = CurrentSaveJson(0);
             var failingStore = new FailingPrimaryGrowthStore
@@ -772,8 +863,9 @@ namespace MukJump.EditorTests
 
             PermanentGrowthSettlement first =
                 PermanentGrowthProfile.SettleRun(
-                    "watermark-500", 0, 500, 0, 0f, true);
+                    "distance-500", 0, 500, 0, 0f, true);
             Assert.That(first.Accepted, Is.True);
+            Assert.That(first.Earned, Is.EqualTo(13));
             string target = failingStore.Json;
             int balanceAfterFirst = PermanentGrowthProfile.Currency;
 
@@ -787,13 +879,17 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.Currency,
                 Is.EqualTo(balanceAfterFirst));
             Assert.That(PermanentGrowthProfile.TryRestoreBackup(), Is.True);
+            Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
+                Is.EqualTo(500));
+            Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount,
+                Is.EqualTo(13));
 
             PermanentGrowthSettlement next =
                 PermanentGrowthProfile.SettleRun(
-                    "watermark-500-again", 0, 500, 500, 0f, true);
-            Assert.That(next.Accepted, Is.True);
-            Assert.That(next.Earned, Is.Zero,
-                "stale backup 때문에 100/250/500m 이정표를 다시 지급하면 안 됩니다.");
+                    "distance-500", 0, 500, 500, 0f, true);
+            Assert.That(next.Accepted, Is.False);
+            Assert.That(next.Earned, Is.Zero);
+            Assert.That(next.CumulativeDistanceMeters, Is.EqualTo(500));
             Assert.That(PermanentGrowthProfile.Currency,
                 Is.EqualTo(balanceAfterFirst));
         }
@@ -847,7 +943,7 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.IsNodeUnlocked("I00"), Is.True);
             PermanentGrowthSettlement settlement =
                 PermanentGrowthProfile.SettleRun(
-                    "after-restore", 12, 0, 0, 20f, true);
+                    "after-restore", 12, 20, 0, 20f, true);
             Assert.That(settlement.Accepted, Is.True);
             Assert.That(settlement.Earned, Is.EqualTo(1));
             PermanentGrowthProfile.ResetCacheForTests();
@@ -1097,7 +1193,7 @@ namespace MukJump.EditorTests
                     "must-not-be-erased", 0, 0, 0, 0f, true);
             Assert.That(retry.Accepted, Is.True);
             Assert.That(retry.Earned, Is.Zero,
-                "복원한 기존 저장은 이미 첫 판 보상을 받은 상태입니다.");
+                "0m 판은 복원한 기존 누적 거리에서 새 문턱을 만들지 않습니다.");
             PermanentGrowthProfile.ResetCacheForTests();
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(2));
         }
@@ -1288,11 +1384,11 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.TryResetAfterLoadFailure(), Is.True);
             Assert.That(store.QuarantineJson, Is.EqualTo(corrupt));
             Assert.That(store.BackupJson, Is.EqualTo(backup));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":6"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":7"));
             Assert.That(PermanentGrowthProfile.Currency, Is.Zero);
             PermanentGrowthSettlement settlement =
                 PermanentGrowthProfile.SettleRun(
-                    "after-reset", 0, 0, 0, 0f, true);
+                    "after-reset", 0, 20, 0, 0f, true);
             Assert.That(settlement.Accepted, Is.True);
             Assert.That(settlement.Earned, Is.EqualTo(1));
             PermanentGrowthProfile.ResetCacheForTests();
@@ -1356,15 +1452,50 @@ namespace MukJump.EditorTests
 
         static string CurrentSaveJson(int wallet, params string[] ownedNodeIds)
         {
+            int ownedCount = ownedNodeIds?.Length ?? 0;
+            int grantedRewardCount = Mathf.Clamp(
+                wallet + ownedCount,
+                0,
+                RunRewardCalculator.MaxRewardCount);
+            long cumulativeDistance =
+                RunRewardCalculator.GetThresholdForRewardCount(
+                    grantedRewardCount);
+            return BuildSaveJson(
+                7,
+                wallet,
+                cumulativeDistance,
+                grantedRewardCount,
+                true,
+                ownedNodeIds);
+        }
+
+        static string LegacyV6SaveJson(
+            int wallet,
+            params string[] ownedNodeIds) =>
+            BuildSaveJson(6, wallet, 0L, 0, false, ownedNodeIds);
+
+        static string BuildSaveJson(
+            int balanceVersion,
+            int wallet,
+            long cumulativeDistance,
+            int claimedRewardCount,
+            bool includeDistanceJourney,
+            params string[] ownedNodeIds)
+        {
             string owned = ownedNodeIds == null || ownedNodeIds.Length == 0
                 ? "[]"
                 : "[\"" + string.Join("\",\"", ownedNodeIds) + "\"]";
+            string distanceJourney = includeDistanceJourney
+                ? $"\"cumulativeDistanceMeters\":{cumulativeDistance}," +
+                  $"\"claimedDistanceRewardCount\":{claimedRewardCount},"
+                : string.Empty;
             return
-                "{\"schemaVersion\":1,\"balanceVersion\":6," +
+                $"{{\"schemaVersion\":1,\"balanceVersion\":{balanceVersion}," +
                 $"\"wallet\":{wallet},\"spent\":{ownedNodeIds?.Length ?? 0}," +
                 "\"tutorialRewardClaimed\":true," +
                 "\"rewardMilestoneWatermarkInitialized\":false," +
                 "\"rewardedBestHeight\":0," +
+                distanceJourney +
                 "\"lastSettledRunId\":\"\",\"settledRunIds\":[]," +
                 "\"ranks\":[]," +
                 $"\"ownedNodeIds\":{owned}," +

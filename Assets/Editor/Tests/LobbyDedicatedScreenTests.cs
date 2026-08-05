@@ -223,7 +223,7 @@ namespace MukJump.EditorTests
             Assert.That(growth.IsRecoveryPromptOpen, Is.False);
             PermanentGrowthSettlement settlement =
                 PermanentGrowthProfile.SettleRun(
-                    "ui-reset-settlement", 0, 0, 0, 0f, true);
+                    "ui-reset-settlement", 0, 20, 0, 0f, true);
             Assert.That(settlement.Accepted, Is.True);
             Assert.That(settlement.Earned, Is.EqualTo(1));
             PermanentGrowthProfile.ResetCacheForTests();

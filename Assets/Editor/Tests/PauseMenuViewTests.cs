@@ -189,12 +189,22 @@ public class PauseMenuViewTests
         var bestValue = content.Find("BestResult/Value")?.GetComponent<Text>();
         var growthReward =
             content.Find("PermanentGrowthReward/Value")?.GetComponent<Text>();
+        var growthJourney = content
+            .Find("PermanentGrowthReward/JourneyProgress")
+            ?.GetComponent<Text>();
+        var growthJourneyTrack = content.Find(
+            "PermanentGrowthReward/JourneyTrack") as RectTransform;
+        var growthJourneyFill = content.Find(
+            "PermanentGrowthReward/JourneyTrack/Fill") as RectTransform;
         var currentCaption = content.Find("CurrentResult/Caption")?.GetComponent<Text>();
         var hint = content.Find("RetryBrush/TouchHint")?.GetComponent<Text>();
         Assert.IsNotNull(title);
         Assert.IsNotNull(currentValue);
         Assert.IsNotNull(bestValue);
         Assert.IsNotNull(growthReward);
+        Assert.IsNotNull(growthJourney);
+        Assert.IsNotNull(growthJourneyTrack);
+        Assert.IsNotNull(growthJourneyFill);
         Assert.IsNotNull(currentCaption);
         Assert.IsNotNull(hint);
         Assert.GreaterOrEqual(title.fontSize, 54);
@@ -208,6 +218,12 @@ public class PauseMenuViewTests
         Assert.Greater(currentValue.fontSize, bestValue.fontSize * 2);
         Assert.Greater(bestValue.fontSize, currentCaption.fontSize);
         Assert.GreaterOrEqual(hint.fontSize, 32);
+        Assert.GreaterOrEqual(growthJourney.fontSize, 26);
+        Assert.IsFalse(growthJourney.resizeTextForBestFit);
+        Assert.GreaterOrEqual(growthJourneyTrack.sizeDelta.y, 9f);
+        Assert.That(growthJourneyFill.anchorMin.x, Is.Zero);
+        Assert.That(growthJourneyFill.anchorMax.x, Is.Zero);
+        Assert.That(growthJourneyFill.pivot.x, Is.Zero);
         var currentResult = content.Find("CurrentResult") as RectTransform;
         var bestResult = content.Find("BestResult") as RectTransform;
         var permanentGrowthResult =
@@ -221,6 +237,28 @@ public class PauseMenuViewTests
             permanentGrowthResult.anchoredPosition.y);
         Assert.Greater(permanentGrowthResult.anchoredPosition.y,
             retry.anchoredPosition.y);
+        RectTransform growthCaption = content.Find(
+            "PermanentGrowthReward/Caption") as RectTransform;
+        RectTransform growthValue = content.Find(
+            "PermanentGrowthReward/Value") as RectTransform;
+        RectTransform growthJourneyRect = growthJourney.rectTransform;
+        Assert.That(growthCaption, Is.Not.Null);
+        Assert.That(growthValue, Is.Not.Null);
+        float journeyTop = growthJourneyRect.anchoredPosition.y +
+                           growthJourneyRect.sizeDelta.y * 0.5f;
+        Assert.GreaterOrEqual(
+            growthCaption.anchoredPosition.y -
+            growthCaption.sizeDelta.y * 0.5f,
+            journeyTop + 1f);
+        Assert.GreaterOrEqual(
+            growthValue.anchoredPosition.y -
+            growthValue.sizeDelta.y * 0.5f,
+            journeyTop + 1f);
+        float growthBottom = permanentGrowthResult.anchoredPosition.y -
+                             permanentGrowthResult.sizeDelta.y * 0.5f;
+        float retryTop = retry.anchoredPosition.y +
+                         retry.sizeDelta.y * 0.5f;
+        Assert.GreaterOrEqual(growthBottom, retryTop + 4f);
         Assert.Greater(bestResult.anchoredPosition.y,
             retry.anchoredPosition.y);
         Assert.GreaterOrEqual(retry.sizeDelta.x, 560f);
@@ -272,14 +310,34 @@ public class PauseMenuViewTests
         Invoke(
             view,
             "BindResult",
-            new GameOverResult(120, 120, true, 14, 32, true));
+            new GameOverResult(
+                120,
+                120,
+                true,
+                14,
+                32,
+                true,
+                true,
+                true,
+                GameOverPersistenceState.Complete,
+                275,
+                250,
+                300));
         Assert.That(view.GrowthRewardLabel, Is.EqualTo("+14 · 보유 32"));
+        Assert.That(view.GrowthJourneyLabel, Is.EqualTo("누적 275 / 300 m"));
+        RectTransform journeyFill = host.transform.Find(
+                "GameOverPopupCanvas/SafeAreaRoot/ScrollResultPopup/" +
+                "ResultContent/PermanentGrowthReward/JourneyTrack/Fill")
+            as RectTransform;
+        Assert.That(journeyFill, Is.Not.Null);
+        Assert.That(journeyFill.sizeDelta.x, Is.EqualTo(260f).Within(0.01f));
 
         Invoke(
             view,
             "BindResult",
             new GameOverResult(120, 120, false, 0, 32, false));
         Assert.That(view.GrowthRewardLabel, Is.EqualTo("디버그 판 · 보상 없음"));
+        Assert.That(view.GrowthJourneyLabel, Is.EqualTo("누적 거리 미반영"));
 
         Invoke(
             view,
@@ -288,6 +346,8 @@ public class PauseMenuViewTests
         Assert.That(
             view.GrowthRewardLabel,
             Is.EqualTo("저장 실패 · 성장 복구 필요"));
+        Assert.That(view.GrowthJourneyLabel,
+            Is.EqualTo("이번 판 누적 거리 미반영"));
         Assert.That(view.TouchHintLabel, Is.EqualTo("로비에서 성장 복구"));
         Text rewardValue = host.transform.Find(
                 "GameOverPopupCanvas/SafeAreaRoot/ScrollResultPopup/" +
@@ -330,7 +390,7 @@ public class PauseMenuViewTests
     }
 
     [Test]
-    public void GrowthSaveFailureDoesNotAdvanceBestOrLoseMilestoneRight()
+    public void GrowthSaveFailureDoesNotAdvanceBestOrDistanceJourney()
     {
         var growthStore = new MemoryPermanentGrowthStore
         {
@@ -353,11 +413,12 @@ public class PauseMenuViewTests
         Assert.That(result.GrowthRewardSaved, Is.False);
         Assert.That(score.Best, Is.Zero);
         Assert.That(scoreStore.Best, Is.Zero,
-            "성장 정산 실패 시 최고 기록을 먼저 확정하면 이정표 권리를 잃습니다.");
+            "성장 정산 실패 시 최고 기록만 먼저 확정하면 거리 보상을 잃습니다.");
+        Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters, Is.Zero);
     }
 
     [Test]
-    public void ScoreSaveFailureCannotDuplicateGrowthMilestoneOrBlockResult()
+    public void ScoreSaveFailurePreservesGrowthDistanceAndDoesNotBlockResult()
     {
         var growthStore = new MemoryPermanentGrowthStore();
         PermanentGrowthProfile.UseStoreForTests(growthStore);
@@ -378,8 +439,8 @@ public class PauseMenuViewTests
         var result = (GameOverResult)Invoke(manager, "SettleGameOverResult");
 
         Assert.That(result.GrowthRewardSaved, Is.True);
-        Assert.That(result.EarnedGrowthCurrency, Is.EqualTo(2),
-            "첫 판 보상 1개와 100m 최초 이정표 1개가 정산돼야 합니다.");
+        Assert.That(result.EarnedGrowthCurrency, Is.EqualTo(5));
+        Assert.That(result.CumulativeGrowthDistanceMeters, Is.EqualTo(100));
         Assert.That(score.Best, Is.Zero,
             "최고 기록 저장 실패는 메모리 Best도 이전 값으로 되돌려야 합니다.");
 
@@ -388,13 +449,14 @@ public class PauseMenuViewTests
         PermanentGrowthSettlement next = PermanentGrowthProfile.SettleRun(
             "after-score-failure",
             0,
-            100,
+            0,
             0,
             0f,
             true);
         Assert.That(next.Accepted, Is.True);
         Assert.That(next.Earned, Is.Zero,
-            "성장 저장의 이정표 watermark가 100m 중복 지급을 막아야 합니다.");
+            "기록 저장 재시도와 무관한 0m 판이 누적 보상을 만들면 안 됩니다.");
+        Assert.That(next.CumulativeDistanceMeters, Is.EqualTo(100));
     }
 
     [Test]
@@ -473,6 +535,9 @@ public class PauseMenuViewTests
         Assert.That(completed.PersistenceState,
             Is.EqualTo(GameOverPersistenceState.Complete));
         Assert.That(scoreStore.Best, Is.EqualTo(100));
+        Assert.That(completed.CumulativeGrowthDistanceMeters, Is.EqualTo(100));
+        Assert.That(completed.PreviousGrowthRewardDistanceMeters, Is.EqualTo(100));
+        Assert.That(completed.NextGrowthRewardDistanceMeters, Is.EqualTo(150));
         Assert.That(growthStore.SaveCount, Is.EqualTo(growthSaveCount),
             "기록 저장 재시도는 이미 확정한 성장 정산을 다시 호출하면 안 됩니다.");
     }

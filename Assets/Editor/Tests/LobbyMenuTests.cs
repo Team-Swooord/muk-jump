@@ -53,6 +53,9 @@ namespace MukJump.EditorTests
                 growthView.CreatedNodeCount,
                 Is.EqualTo(PermanentGrowthCatalog.Nodes.Count));
             Assert.That(growthView.BalanceLabel, Is.EqualTo("0"));
+            Assert.That(
+                growthView.DistanceProgressLabel,
+                Is.EqualTo("누적 0 / 20 m"));
             Transform growthPanel = viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");

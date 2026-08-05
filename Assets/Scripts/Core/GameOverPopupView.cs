@@ -26,6 +26,8 @@ namespace MukJump.Core
         Text heightText;
         Text bestText;
         Text growthRewardText;
+        Text growthJourneyText;
+        Image growthJourneyFill;
         Text touchHint;
         Coroutine showRoutine;
         GameOverResult boundResult;
@@ -67,6 +69,8 @@ namespace MukJump.Core
             growthRewardText != null ? growthRewardText.text : string.Empty;
         public string TouchHintLabel =>
             touchHint != null ? touchHint.text : string.Empty;
+        public string GrowthJourneyLabel =>
+            growthJourneyText != null ? growthJourneyText.text : string.Empty;
 
         public void ShowPendingAbandonConfirmation()
         {
@@ -284,14 +288,14 @@ namespace MukJump.Core
                 "PermanentGrowthReward",
                 contentRect,
                 new Vector2(0f, -174f),
-                new Vector2(610f, 70f));
+                new Vector2(610f, 92f));
             CreateText(
                 "Caption",
                 growthResult,
                 "영구 성장 · 먹빛",
                 27,
-                new Vector2(-182f, 0f),
-                new Vector2(230f, 52f),
+                new Vector2(-182f, 22f),
+                new Vector2(230f, 42f),
                 ReadableMutedColor(),
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
@@ -300,18 +304,48 @@ namespace MukJump.Core
                 growthResult,
                 "+0 · 보유 0",
                 26,
-                new Vector2(112f, 0f),
-                new Vector2(370f, 58f),
+                new Vector2(112f, 22f),
+                new Vector2(370f, 44f),
                 InkPalette.TextDark,
                 FontStyle.Normal,
                 TextAnchor.MiddleRight);
             AddSoftWeight(growthRewardText, InkPalette.Ink, 0.14f);
 
+            growthJourneyText = CreateText(
+                "JourneyProgress",
+                growthResult,
+                "누적 0 / 20 m",
+                26,
+                new Vector2(0f, -16f),
+                new Vector2(540f, 30f),
+                ReadableMutedColor(),
+                FontStyle.Normal,
+                TextAnchor.MiddleCenter);
+            Image journeyTrack = CreateImage(
+                "JourneyTrack",
+                growthResult,
+                null,
+                new Vector2(0f, -39f),
+                new Vector2(520f, 9f),
+                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.13f));
+            growthJourneyFill = CreateImage(
+                "Fill",
+                journeyTrack.transform,
+                null,
+                Vector2.zero,
+                new Vector2(0f, 9f),
+                InkPalette.Red);
+            RectTransform journeyFillRect = growthJourneyFill.rectTransform;
+            journeyFillRect.anchorMin = journeyFillRect.anchorMax =
+                new Vector2(0f, 0.5f);
+            journeyFillRect.pivot = new Vector2(0f, 0.5f);
+            journeyFillRect.anchoredPosition = Vector2.zero;
+
             var retryBrush = CreateImage(
                 "RetryBrush",
                 contentRect,
                 null,
-                new Vector2(0f, -270f),
+                new Vector2(0f, -280f),
                 new Vector2(580f, 104f),
                 InkPalette.Ink);
             touchHint = CreateText(
@@ -375,18 +409,24 @@ namespace MukJump.Core
         {
             heightText.text = FormatHeight(result.Height);
             bestText.text = FormatHeight(result.Best);
+            SetGrowthJourneyVisible(true);
             switch (result.PersistenceState)
             {
                 case GameOverPersistenceState.ScoreBaselinePending:
                     growthRewardText.text = "기록 기준 확인 중 · 자동 재시도";
+                    growthJourneyText.text = "거리 정산 대기";
+                    SetGrowthJourneyProgress(0f);
                     touchHint.text = "이번 판 기록·먹빛 포기";
                     break;
                 case GameOverPersistenceState.GrowthRecoveryRequired:
                     growthRewardText.text = "저장 실패 · 성장 복구 필요";
+                    growthJourneyText.text = "이번 판 누적 거리 미반영";
+                    SetGrowthJourneyProgress(0f);
                     touchHint.text = "로비에서 성장 복구";
                     break;
                 case GameOverPersistenceState.RecordWritePending:
                     growthRewardText.text = "기록 저장 중 · 자동 재시도";
+                    BindGrowthJourney(result);
                     touchHint.text = "재시도 중단하고 로비로";
                     break;
                 default:
@@ -394,10 +434,69 @@ namespace MukJump.Core
                         ? $"+{Mathf.Max(0, result.EarnedGrowthCurrency)} · " +
                           $"보유 {Mathf.Max(0, result.GrowthCurrencyBalance)}"
                         : "디버그 판 · 보상 없음";
+                    if (result.RewardsAllowed)
+                        BindGrowthJourney(result);
+                    else
+                    {
+                        growthJourneyText.text = "누적 거리 미반영";
+                        SetGrowthJourneyProgress(0f);
+                    }
                     touchHint.text = "터치하여 로비로";
                     break;
             }
             newBestSeal.gameObject.SetActive(result.ReachedNewBest);
+        }
+
+        void BindGrowthJourney(GameOverResult result)
+        {
+            long cumulative = System.Math.Max(
+                0L,
+                result.CumulativeGrowthDistanceMeters);
+            if (result.GrowthDistanceJourneyComplete)
+            {
+                growthJourneyText.text = $"완성 · {FormatDistance(cumulative)}";
+                SetGrowthJourneyProgress(1f);
+                return;
+            }
+
+            long previous = System.Math.Max(
+                0L,
+                result.PreviousGrowthRewardDistanceMeters);
+            long configuredNext = result.NextGrowthRewardDistanceMeters;
+            long next = configuredNext > previous
+                ? configuredNext
+                : RunRewardCalculator.GetNextRewardDistance(0);
+            growthJourneyText.text =
+                $"누적 {cumulative:N0} / {next:N0} m";
+            float progress = (float)System.Math.Clamp(
+                (cumulative - previous) / (double)(next - previous),
+                0d,
+                1d);
+            SetGrowthJourneyProgress(progress);
+        }
+
+        void SetGrowthJourneyVisible(bool visible)
+        {
+            if (growthJourneyText != null)
+                growthJourneyText.gameObject.SetActive(visible);
+            if (growthJourneyFill != null && growthJourneyFill.transform.parent != null)
+                growthJourneyFill.transform.parent.gameObject.SetActive(visible);
+        }
+
+        void SetGrowthJourneyProgress(float progress)
+        {
+            if (growthJourneyFill == null) return;
+            growthJourneyFill.rectTransform.sizeDelta = new Vector2(
+                520f * Mathf.Clamp01(progress),
+                9f);
+        }
+
+        static string FormatDistance(long meters)
+        {
+            long safeMeters = System.Math.Max(0L, meters);
+            return safeMeters >= 10000L
+                ? $"{safeMeters / 1000d:0.#} km"
+                : $"{safeMeters:N0} m";
         }
 
         // 기존 EditMode 레이아웃 테스트와 구형 호출 경로를 위한 단순 결과 바인딩.

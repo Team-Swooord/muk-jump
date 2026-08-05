@@ -163,6 +163,10 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.EqualTo(33));
             Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(33));
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(6));
+            Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount,
+                Is.EqualTo(39));
+            Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
+                Is.EqualTo(3750));
             Assert.That(
                 PermanentGrowthCatalog.Nodes.Count(node =>
                     PermanentGrowthProfile.IsNodeUnlocked(node.Id) &&
@@ -186,7 +190,7 @@ namespace MukJump.EditorTests
                 PermanentGrowthProfile.GetActiveKeystoneId(
                     PermanentGrowthBranch.InkHandling),
                 Is.EqualTo("I-KA"));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":6"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":7"));
             Assert.That(store.Json, Does.Contain("\"ranks\":[]"));
         }
 
@@ -213,8 +217,12 @@ namespace MukJump.EditorTests
                 Is.EqualTo("J-KB"));
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(4));
             Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(5));
+            Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount,
+                Is.EqualTo(9));
+            Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
+                Is.EqualTo(300));
             Assert.That(store.Json, Does.Contain("\"lastSettledRunId\":\"kept-run\""));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":6"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":7"));
         }
 
         [Test]
@@ -238,6 +246,10 @@ namespace MukJump.EditorTests
                 "삭제된 A4/A5·B4/B5·C4/C5는 중복을 제외하고 각각 먹빛 하나만 돌려줘야 합니다.");
             Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(5));
             Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.EqualTo(5));
+            Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount,
+                Is.EqualTo(13));
+            Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
+                Is.EqualTo(500));
             foreach (string retiredId in new[]
                      {
                          "J-A4", "J-A5", "J-B4", "J-B5", "J-C4", "J-C5",
@@ -248,7 +260,7 @@ namespace MukJump.EditorTests
                 PermanentGrowthProfile.GetActiveKeystoneId(
                     PermanentGrowthBranch.Leap),
                 Is.EqualTo("J-KB"));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":6"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":7"));
         }
 
         [Test]
@@ -259,6 +271,10 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.EqualTo(2));
             Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(2));
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(37));
+            Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount,
+                Is.EqualTo(39));
+            Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
+                Is.EqualTo(3750));
             Assert.That(PermanentGrowthProfile.IsNodeUnlocked("unknown"), Is.False);
         }
 

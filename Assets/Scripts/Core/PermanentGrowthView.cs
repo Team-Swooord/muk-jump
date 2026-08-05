@@ -79,6 +79,8 @@ namespace MukJump.Core
         RectTransform selectedActionRoot;
         Image selectedActionDimmer;
         Text balanceText;
+        Text distanceProgressText;
+        Image distanceProgressFill;
         Text selectedActionBranchText;
         Text selectedActionNameText;
         Text selectedActionDescriptionText;
@@ -130,6 +132,9 @@ namespace MukJump.Core
         public int CreatedNodeCount => nodes.Count;
         public string BalanceLabel => balanceText != null
             ? balanceText.text
+            : string.Empty;
+        public string DistanceProgressLabel => distanceProgressText != null
+            ? distanceProgressText.text
             : string.Empty;
         public PermanentGrowthType SelectedGrowthType =>
             nodes.Count > 0 && selectedSlot >= 0 && selectedSlot < nodes.Count
@@ -380,14 +385,14 @@ namespace MukJump.Core
             RectTransform balanceHud = CreateRect(
                 "CurrencyHud",
                 panel,
-                new Vector2(370f, 800f),
-                new Vector2(190f, 84f));
+                new Vector2(335f, 790f),
+                new Vector2(300f, 116f));
             Image balanceDrop = CreateImage(
                 "CurrencyDrop",
                 balanceHud,
                 LoadPermanentGrowthSprite("pg_ink_drop") ??
                 InkUiTextureFactory.CreateInkDropSprite(),
-                new Vector2(-50f, 0f),
+                new Vector2(-105f, 26f),
                 new Vector2(54f, 54f),
                 Color.white);
             balanceDrop.preserveAspect = true;
@@ -396,11 +401,39 @@ namespace MukJump.Core
                 balanceHud,
                 "0",
                 44,
-                new Vector2(34f, 0f),
-                new Vector2(112f, 66f),
+                new Vector2(-30f, 26f),
+                new Vector2(140f, 54f),
                 InkPalette.TextDark,
                 FontStyle.Bold);
             balanceText.alignment = TextAnchor.MiddleLeft;
+
+            distanceProgressText = CreateText(
+                "JourneyText",
+                balanceHud,
+                "누적 0 / 20 m",
+                26,
+                new Vector2(0f, -20f),
+                new Vector2(286f, 30f),
+                InkPalette.TextDark,
+                FontStyle.Normal);
+            Image distanceTrack = CreateImage(
+                "JourneyTrack",
+                balanceHud,
+                null,
+                new Vector2(0f, -49f),
+                new Vector2(270f, 9f),
+                WithAlpha(InkPalette.Ink, 0.14f));
+            distanceProgressFill = CreateImage(
+                "Fill",
+                distanceTrack.transform,
+                null,
+                Vector2.zero,
+                new Vector2(0f, 9f),
+                InkPalette.Red);
+            RectTransform fillRect = distanceProgressFill.rectTransform;
+            fillRect.anchorMin = fillRect.anchorMax = new Vector2(0f, 0.5f);
+            fillRect.pivot = new Vector2(0f, 0.5f);
+            fillRect.anchoredPosition = Vector2.zero;
 
             BackButton = CreateBrushButton(
                 "BackButton",
@@ -1330,6 +1363,7 @@ namespace MukJump.Core
         {
             if (balanceText == null) return;
             balanceText.text = PermanentGrowthProfile.Currency.ToString();
+            RefreshDistanceProgress();
 
             for (int i = 0; i < nodes.Count; i++)
             {
@@ -1427,6 +1461,43 @@ namespace MukJump.Core
             UpdateTreeInteraction();
             RefreshSelectedNodePopup();
             RefreshRecoveryPrompt();
+        }
+
+        void RefreshDistanceProgress()
+        {
+            if (distanceProgressText == null || distanceProgressFill == null)
+                return;
+
+            long cumulative = PermanentGrowthProfile.CumulativeDistanceMeters;
+            if (PermanentGrowthProfile.IsDistanceJourneyComplete)
+            {
+                distanceProgressText.text = $"완성 · {FormatDistance(cumulative)}";
+                distanceProgressFill.rectTransform.sizeDelta =
+                    new Vector2(270f, 9f);
+                return;
+            }
+
+            long previous = PermanentGrowthProfile.PreviousDistanceRewardMeters;
+            long next = PermanentGrowthProfile.NextDistanceRewardMeters;
+            distanceProgressText.text =
+                $"누적 {cumulative:N0} / {next:N0} m";
+            float progress = next > previous
+                ? (float)Math.Clamp(
+                    (cumulative - previous) / (double)(next - previous),
+                    0d,
+                    1d)
+                : 0f;
+            distanceProgressFill.rectTransform.sizeDelta = new Vector2(
+                270f * progress,
+                9f);
+        }
+
+        static string FormatDistance(long meters)
+        {
+            long safeMeters = Math.Max(0L, meters);
+            return safeMeters >= 10000L
+                ? $"{safeMeters / 1000d:0.#} km"
+                : $"{safeMeters:N0} m";
         }
 
         static Color ResolveGrowthPathColor(

@@ -305,21 +305,24 @@ kinematic body와 fixed step 이동을 사용한다.
 - `PermanentGrowthCatalog`는 생존·도약·먹 운용 각 13개, 총 39개 stable-ID 노드를
   소유한다. 각 분류는 뿌리 1개 뒤 A/B/C 세 갈래로 나뉘고, 갈래마다 일반 노드
   3개와 비기 1개가 있다. 비용은 모두 먹빛 1개다.
-- `PermanentGrowthProfile`은 `schemaVersion=1`, `balanceVersion=6` 저장에서 먹빛,
-  소유 node ID, 분류별 장착 비기 하나와 정산 run ID를 소유한다. 45노드 저장의
+- `PermanentGrowthProfile`은 `schemaVersion=1`, `balanceVersion=7` 저장에서 먹빛,
+  소유 node ID, 분류별 장착 비기 하나, 누적 거리·수령 단계와 정산 run ID를 소유한다.
+  45노드 저장의
   제거된 도약 4·5단계는 고유 ID당 먹빛 1개를 환급하고 기존 비기 ID는 보존한다.
   정상 저장은 primary를 먼저 확정한 뒤 backup을 갱신한다. primary가 손상됐거나
   지원 범위 밖의 schema/balance이면 원문을 그대로 둔 읽기 전용 복구 상태로
   진입하고 구매·장착·정산을 거부한다. 사용자가 검증된 backup 복원 또는 2회 확인
-  초기화를 선택할 때만 기존 primary를 quarantine에 보존하고 교체한다. v5부터의 고도
-  이정표 watermark는 최고 기록 표시 저장과 분리되어 부분 저장 뒤 중복 지급을 막고,
-  미완료 backup target과 reset/restore marker는 검증 전 자동 삭제하지 않는다.
+  초기화를 선택할 때만 기존 primary를 quarantine에 보존하고 교체한다. v5~v6의 고도
+  이정표 필드는 구 저장 이관에만 유지하고, v7은 누적 거리와 받은 단계 수를 같은
+  primary 트랜잭션에 저장해 중복 지급을 막는다. 미완료 backup target과
+  reset/restore marker는 검증 전 자동 삭제하지 않는다.
 - `PermanentGrowthRunSnapshot`은 플레이 시작 순간의 소유 node ID와 장착 비기를
   복사한 불변 계약이다. 플레이어·자동 점프·드로잉·발판은 프로필을 실시간 조회하지
   않고 이 스냅샷만 읽는다.
-- 정상 게임오버 정산은 run ID로 멱등성을 보장한다. 첫 정상 게임오버는 1개,
-  이후 진행 고도 12m 이상·실제 플레이 20초 이상이면 1개를 지급한다. 최고 기록
-  100/250/500/750/1000m 최초 돌파마다 1개를 더한다. 디버그 판과 중도 복귀는 0개다.
+- 정상 게임오버 정산은 run ID로 멱등성을 보장한다. 결과 고도를 계정 누적 거리에
+  한 번 더하고, 1~5단계는 20m, 6~13은 50m, 14~26은 100m, 27~39는 150m 간격의
+  문턱을 새로 통과할 때마다 먹빛 1개를 지급한다. 마지막 문턱은 3750m다.
+  디버그 판과 중도 복귀는 누적 거리와 먹빛을 바꾸지 않는다.
 - `PermanentGrowthView`는 불투명 한지 전체 화면의 드래그 가능한 먹나무에 39개
   노드를 표시한다. 진한 먹 받침 위에 잠금 봉오리·해금 빨간 열매·선택 먹고리·장착
   금빛 고리를 합성하고, 설명은 고정 `SelectedGrowthAction` 팝업에서만 보여 준다.

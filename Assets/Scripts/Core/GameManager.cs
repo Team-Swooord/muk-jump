@@ -541,10 +541,14 @@ namespace MukJump.Core
                 : new PermanentGrowthSettlement(
                     0,
                     PermanentGrowthProfile.Currency,
-                    growthProfileHealthy && scoreBaselineReady);
-            // 성장 정산이 실패한 판의 최고 기록을 먼저 확정하면, 복구 뒤 최초
-            // 이정표 보상을 다시 계산할 근거가 사라진다. 성장 저장이 성공한 뒤에만
-            // 기록을 저장하고, 기록 저장 예외는 ScoreManager 내부에서 격리한다.
+                    growthProfileHealthy && scoreBaselineReady,
+                    0,
+                    PermanentGrowthProfile.CumulativeDistanceMeters,
+                    PermanentGrowthProfile.PreviousDistanceRewardMeters,
+                    PermanentGrowthProfile.NextDistanceRewardMeters,
+                    PermanentGrowthProfile.IsDistanceJourneyComplete);
+            // 성장 정산이 실패한 판은 누적 거리와 runId가 확정되지 않았다.
+            // 성장 저장 성공 뒤에만 기록을 저장해 결과 재시도 순서를 한 방향으로 둔다.
             bool recordNeedsSave = score != null && score.RecordsAllowed &&
                 height > previousBest;
             bool recordSaved = scoreBaselineReady &&
@@ -567,7 +571,11 @@ namespace MukJump.Core
                 rewardsAllowed,
                 settlement.Accepted,
                 recordSaved,
-                persistenceState);
+                persistenceState,
+                settlement.CumulativeDistanceMeters,
+                settlement.PreviousRewardDistanceMeters,
+                settlement.NextRewardDistanceMeters,
+                settlement.DistanceJourneyComplete);
             return result;
         }
 
@@ -606,7 +614,11 @@ namespace MukJump.Core
                 previous.RewardsAllowed,
                 previous.GrowthRewardSaved,
                 true,
-                GameOverPersistenceState.Complete);
+                GameOverPersistenceState.Complete,
+                previous.CumulativeGrowthDistanceMeters,
+                previous.PreviousGrowthRewardDistanceMeters,
+                previous.NextGrowthRewardDistanceMeters,
+                previous.GrowthDistanceJourneyComplete);
             pendingRestartConfirmationArmed = false;
             gameOverPopupView?.RefreshResult(latestGameOverResult);
         }
