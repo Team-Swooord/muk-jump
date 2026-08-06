@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
-using MukJump.Items;
 using MukJump.Drawing;
+using MukJump.Items;
 using MukJump.Obstacles;
 using MukJump.Player;
 
@@ -32,7 +32,6 @@ namespace MukJump.Core
         [SerializeField] Button goldenBrushButton;
         [SerializeField] Button inkShieldButton;
         [SerializeField] Button inkCloneButton;
-        [SerializeField] Button inkReserveButton;
         [SerializeField] Button mapStartButton;
         [SerializeField] Button mapWindButton;
         [SerializeField] Button mapRainButton;
@@ -94,7 +93,6 @@ namespace MukJump.Core
                 goldenBrushButton?.onClick.AddListener(UseGoldenBrush);
                 inkShieldButton?.onClick.AddListener(UseInkShield);
                 inkCloneButton?.onClick.AddListener(UseInkClone);
-                inkReserveButton?.onClick.AddListener(UseInkReserve);
                 mapStartButton?.onClick.AddListener(MoveToStartHeight);
                 mapWindButton?.onClick.AddListener(MoveToWindHeight);
                 mapRainButton?.onClick.AddListener(MoveToRainHeight);
@@ -122,7 +120,6 @@ namespace MukJump.Core
             goldenBrushButton?.onClick.RemoveListener(UseGoldenBrush);
             inkShieldButton?.onClick.RemoveListener(UseInkShield);
             inkCloneButton?.onClick.RemoveListener(UseInkClone);
-            inkReserveButton?.onClick.RemoveListener(UseInkReserve);
             mapStartButton?.onClick.RemoveListener(MoveToStartHeight);
             mapWindButton?.onClick.RemoveListener(MoveToWindHeight);
             mapRainButton?.onClick.RemoveListener(MoveToRainHeight);
@@ -153,7 +150,6 @@ namespace MukJump.Core
         void UseGoldenBrush() => ApplyDebugItem(ItemType.GoldenBrush);
         void UseInkShield() => ApplyDebugItem(ItemType.InkShield);
         void UseInkClone() => ApplyDebugItem(ItemType.InkClone);
-        void UseInkReserve() => ApplyDebugItem(ItemType.InkReserve);
         void MoveToHeight(int height) => GameManager.Instance?.DebugTeleportToHeight(height);
         void MoveToStartHeight() => MoveToHeight(0);
         void MoveToWindHeight() => MoveToHeight(250);
@@ -262,10 +258,6 @@ namespace MukJump.Core
             ConfigureDebugButton(goldenBrushButton, null, 26);
             ConfigureDebugButton(inkShieldButton, null, 26);
             ConfigureDebugButton(inkCloneButton, null, 26);
-            ConfigureDebugButton(
-                inkReserveButton,
-                $"여유 +{Mathf.RoundToInt(StrokeCapture.InkReserveItemRatio * 100f)}%",
-                26);
             var mapTitle = debugPanel != null
                 ? debugPanel.Find("MapDebugTitle")?.GetComponent<Text>()
                 : null;
@@ -293,7 +285,6 @@ namespace MukJump.Core
                 SetItemIconNativeSize(goldenBrushButton);
                 SetItemIconNativeSize(inkShieldButton);
                 SetItemIconNativeSize(inkCloneButton);
-                SetItemIconNativeSize(inkReserveButton);
             }
         }
 
@@ -537,7 +528,7 @@ namespace MukJump.Core
             Button[] itemButtons =
             {
                 inkDropButton, goldenBrushButton, inkShieldButton,
-                inkCloneButton, inkReserveButton,
+                inkCloneButton,
             };
             for (int i = 0; i < itemButtons.Length; i++)
             {

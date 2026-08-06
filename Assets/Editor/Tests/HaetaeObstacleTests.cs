@@ -68,7 +68,7 @@ public sealed class HaetaeObstacleTests
     }
 
     [Test]
-    public void DragonAndHaetaeShareThirtyPercentLargeAnimalBudget()
+    public void DragonAndHaetaeUseReducedLargeAnimalBudget()
     {
         var spawner = Track(new GameObject("LargeAnimalWeights"))
             .AddComponent<ObstacleSpawner>();
@@ -78,13 +78,12 @@ public sealed class HaetaeObstacleTests
         float dragonChance = (float)GetField(spawner, "dragonChance");
         float haetaeChance = (float)GetField(spawner, "haetaeChance");
 
-        Assert.That(earlyDragonChance, Is.EqualTo(0.28f).Within(0.0001f),
-            "해태가 없는 초·중반의 기존 어린 용 빈도는 유지해야 합니다.");
-        Assert.That(dragonChance, Is.EqualTo(0.18f).Within(0.0001f));
-        Assert.That(haetaeChance, Is.EqualTo(0.12f).Within(0.0001f));
+        Assert.That(earlyDragonChance, Is.EqualTo(0.2f).Within(0.0001f));
+        Assert.That(dragonChance, Is.EqualTo(0.12f).Within(0.0001f));
+        Assert.That(haetaeChance, Is.EqualTo(0.08f).Within(0.0001f));
         Assert.That(dragonChance + haetaeChance,
-            Is.EqualTo(0.30f).Within(0.0001f),
-            "해태를 추가하면서 기존 슬롯의 대형 장애물 총량을 늘리면 안 됩니다.");
+            Is.EqualTo(0.20f).Within(0.0001f),
+            "몬스터 밀도 완화 뒤 큰 동물 슬롯도 전체의 20%를 넘기면 안 됩니다.");
 
         SetField(spawner, "dragonSprite", CreateSprite(300, 100));
         SetField(spawner, "firstDragonPending", false);
@@ -92,7 +91,7 @@ public sealed class HaetaeObstacleTests
         SetField(spawner, "dragonChance", 0f);
         Assert.IsTrue((bool)Invoke(spawner, "ShouldSpawnDragon", 319f));
         Assert.IsFalse((bool)Invoke(spawner, "ShouldSpawnDragon", 320f),
-            "320m 이후에만 용 18%·해태 12%의 합산 예산으로 전환해야 합니다.");
+            "320m 이후에는 용 12%·해태 8%의 합산 예산으로 전환해야 합니다.");
     }
 
     [Test]
@@ -727,11 +726,14 @@ public sealed class HaetaeObstacleTests
             320f,
             serialized.FindProperty("haetaeUnlockHeight")?.floatValue);
         Assert.AreEqual(
-            0.12f,
+            0.08f,
             serialized.FindProperty("haetaeChance")?.floatValue);
         Assert.AreEqual(
-            0.28f,
+            0.2f,
             serialized.FindProperty("dragonChanceBeforeHaetae")?.floatValue);
+        Assert.AreEqual(
+            new Vector2(12f, 16f),
+            serialized.FindProperty("verticalSpacing")?.vector2Value);
         Assert.IsNotNull(
             serialized.FindProperty("windWeatherController")?.objectReferenceValue);
         Assert.IsNotNull(

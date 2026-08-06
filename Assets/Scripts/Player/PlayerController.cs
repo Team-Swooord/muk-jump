@@ -30,8 +30,17 @@ namespace MukJump.Player
         [SerializeField] float groundNormalMinY = 0.4f;
         [Tooltip("화면 하단 추락에서 살아남았을 때 다시 튀어 오르는 목표 높이")]
         [SerializeField] float shieldRecoveryHeight = 35f;
+        [Header("좌우 벽 트램펄린")]
         [Tooltip("화면 좌우 벽에 닿았을 때 안쪽으로 되튀는 최소 수평 속도")]
-        [SerializeField, Min(0f)] float sideWallBounceSpeed = 2.4f;
+        [SerializeField, Min(0f)] float sideWallBounceSpeed = 3.2f;
+        [Tooltip("벽 반동의 최대 수평 속도. 방향은 항상 화면 안쪽이다")]
+        [SerializeField, Min(0f)] float sideWallBounceMaxSpeed = 4.2f;
+        [Tooltip("첫 벽 충돌에서 무작위로 선택하는 작은 수직 반동 범위")]
+        [SerializeField] Vector2 sideWallVerticalBounceRange = new(2.4f, 3.2f);
+        [Tooltip("벽 반동이 반복 점프가 되지 않도록 수직 반동을 다시 허용하기까지의 시간")]
+        [SerializeField, Min(0f)] float sideWallBounceCooldown = 0.45f;
+        [Tooltip("첫 수직 반동을 접촉 유지 보정이 즉시 지우지 않는 시간")]
+        [SerializeField, Min(0f)] float sideWallBounceRiseGrace = 0.12f;
         [Header("벽의 먹발")]
         [Tooltip("벽 비기가 붙은 직후 너무 빨리 떨어지지 않게 보장하는 최소 체류 시간")]
         [SerializeField, Min(0f)] float wallClingMinimumDuration = 0.22f;
@@ -101,6 +110,8 @@ namespace MukJump.Player
         float wallClingExpiresAt;
         float wallRelatchAllowedAt;
         bool wallClingConsumedThisFlight;
+        float nextSideWallBounceAt;
+        float sideWallRiseGraceUntil;
         [SerializeField, HideInInspector] bool isRuntimeClone;
         static DeathInkStainPool deathStainPool;
 
@@ -193,6 +204,9 @@ namespace MukJump.Player
             CurrentHealth = MaxHealth;
             normalGravityScale = rb.gravityScale;
             rb.freezeRotation = true;
+            // 구 Main 씬에 직렬화된 약한 2.4 반동도 현재 트램펄린 밸런스로 승격한다.
+            sideWallBounceSpeed = Mathf.Max(3.2f, sideWallBounceSpeed);
+            sideWallBounceMaxSpeed = Mathf.Max(sideWallBounceSpeed, sideWallBounceMaxSpeed);
             // 정지 상태에서 Rigidbody가 잠들면 충돌 콜백이 멈춰 접지 판정이 풀린다 → 잠들지 않게 유지
             rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
         }
@@ -614,15 +628,16 @@ namespace MukJump.Player
                 MaintainWallCling();
                 return;
             }
-            // 벽과 급경사 먹선 사이에 접촉이 계속 유지되면 OnCollisionEnter가 다시
-            // 오지 않는다. 그 상태에서 다음 자동점프가 준 상승분도 매 물리 틱 제거한다.
-            if (sideWall != null && rb != null && rb.linearVelocity.y > 0f)
+            // 첫 반동의 짧은 상승은 보존하되 이후 접촉이 계속되면 수평으로 떼어 내고,
+            // 급경사 먹선과 벽 사이에서 새 상승분을 반복 축적하지 못하게 한다.
+            if (sideWall != null && rb != null)
             {
                 float inwardDirection = sideWall.IsLeft ? 1f : -1f;
-                rb.linearVelocity = ResolveSideWallBounceVelocity(
+                rb.linearVelocity = ResolveSideWallEscapeVelocity(
                     rb.linearVelocity,
                     inwardDirection,
-                    sideWallBounceSpeed);
+                    sideWallBounceSpeed,
+                    Time.time < sideWallRiseGraceUntil);
             }
 
             var platform = collision.collider.GetComponentInParent<PlatformCollider>();
@@ -735,28 +750,87 @@ namespace MukJump.Player
             if (sideWall == null) return;
 
             float inwardDirection = sideWall.IsLeft ? 1f : -1f;
-            GameFeedbackController.Instance?.PlayWallHit(transform.position, inwardDirection);
             if (TryBeginWallCling(sideWall, inwardDirection))
+            {
+                GameFeedbackController.Instance?.PlayWallHit(transform.position, inwardDirection);
                 return;
+            }
+
+            if (Time.time < nextSideWallBounceAt)
+            {
+                rb.linearVelocity = ResolveSideWallEscapeVelocity(
+                    rb.linearVelocity,
+                    inwardDirection,
+                    sideWallBounceSpeed,
+                    Time.time < sideWallRiseGraceUntil);
+                return;
+            }
+
+            float verticalRoll = GameplayRandom.Value(GameplayRandomStream.Player);
             rb.linearVelocity = ResolveSideWallBounceVelocity(
                 rb.linearVelocity,
                 inwardDirection,
-                sideWallBounceSpeed);
+                sideWallBounceSpeed,
+                sideWallBounceMaxSpeed,
+                sideWallVerticalBounceRange,
+                verticalRoll);
+            nextSideWallBounceAt = Time.time + sideWallBounceCooldown;
+            sideWallRiseGraceUntil = Time.time + sideWallBounceRiseGrace;
+            GameFeedbackController.Instance?.PlayWallHit(transform.position, inwardDirection);
         }
 
-        /// 화면 벽과 급경사 먹선 사이에서 상승 속도가 반복 보존되는 래칫을 끊는다.
-        /// 하강 속도는 유지해 기존 낙하 감각을 바꾸지 않고, 벽 비기는 이 경로 전에 빠진다.
+        /// 벽 충돌 한 번을 화면 안쪽의 짧은 트램펄린 반동으로 바꾼다. 수평 방향은
+        /// 항상 예측 가능하게 안쪽이고, 수직 높이만 좁은 범위에서 달라진다.
         static Vector2 ResolveSideWallBounceVelocity(
             Vector2 currentVelocity,
             float inwardDirection,
-            float minimumBounceSpeed)
+            float minimumBounceSpeed,
+            float maximumBounceSpeed,
+            Vector2 verticalBounceRange,
+            float verticalSample01)
         {
-            float bounceSpeed = Mathf.Max(
-                Mathf.Max(0f, minimumBounceSpeed),
-                Mathf.Abs(currentVelocity.x) * 0.55f);
+            float minimum = Mathf.Max(0f, minimumBounceSpeed);
+            float maximum = Mathf.Max(minimum, maximumBounceSpeed);
+            float bounceSpeed = Mathf.Clamp(
+                Mathf.Max(minimum, Mathf.Abs(currentVelocity.x) * 0.7f),
+                minimum,
+                maximum);
+            float minimumVertical = Mathf.Max(
+                0f,
+                Mathf.Min(verticalBounceRange.x, verticalBounceRange.y));
+            float maximumVertical = Mathf.Max(
+                minimumVertical,
+                Mathf.Max(verticalBounceRange.x, verticalBounceRange.y));
+            float fallTransfer = Mathf.Clamp(
+                Mathf.Max(0f, -currentVelocity.y) * 0.12f,
+                0f,
+                0.8f);
+            float verticalSpeed = Mathf.Min(
+                4f,
+                Mathf.Lerp(
+                    minimumVertical,
+                    maximumVertical,
+                    Mathf.Clamp01(verticalSample01)) + fallTransfer);
             return new Vector2(
                 Mathf.Sign(inwardDirection) * bounceSpeed,
-                Mathf.Min(currentVelocity.y, 0f));
+                verticalSpeed);
+        }
+
+        /// 재접촉 중에는 수직 에너지를 새로 만들지 않고 화면 안쪽 분리만 보장한다.
+        /// 첫 반동 보호 시간이 끝난 뒤의 양수 속도는 0으로 잘라 무한 벽타기를 막는다.
+        static Vector2 ResolveSideWallEscapeVelocity(
+            Vector2 currentVelocity,
+            float inwardDirection,
+            float minimumBounceSpeed,
+            bool preserveRise)
+        {
+            float inward = Mathf.Sign(inwardDirection);
+            float horizontalSpeed = currentVelocity.x * inward >= minimumBounceSpeed
+                ? Mathf.Abs(currentVelocity.x)
+                : Mathf.Max(0f, minimumBounceSpeed);
+            return new Vector2(
+                inward * horizontalSpeed,
+                preserveRise ? currentVelocity.y : Mathf.Min(currentVelocity.y, 0f));
         }
 
         void OnCollisionExit2D(Collision2D collision)
@@ -867,6 +941,8 @@ namespace MukJump.Player
             ClearWallCling(restoreGravity);
             wallClingConsumedThisFlight = false;
             wallRelatchAllowedAt = 0f;
+            nextSideWallBounceAt = 0f;
+            sideWallRiseGraceUntil = 0f;
         }
     }
 }

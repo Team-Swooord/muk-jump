@@ -130,32 +130,57 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void OrdinarySideWallBounceCancelsOnlyUpwardRatchetVelocity()
+        public void SideWallBounceIsBoundedMirroredTrampoline()
         {
             MethodInfo method = typeof(PlayerController).GetMethod(
                 "ResolveSideWallBounceVelocity",
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
 
-            var rising = (Vector2)method.Invoke(null, new object[]
+            var left = (Vector2)method.Invoke(null, new object[]
             {
-                new Vector2(-7f, 5.2f),
+                new Vector2(-7f, -5f),
                 1f,
-                2.4f,
+                3.2f,
+                4.2f,
+                new Vector2(2.4f, 3.2f),
+                0.5f,
             });
-            Assert.That(rising.x, Is.EqualTo(3.85f).Within(0.001f));
-            Assert.That(rising.y, Is.Zero,
-                "최초 충돌과 접촉 유지 모두 급경사 먹선에서 얻은 상승 속도를 보존하면 안 됩니다.");
+            Assert.That(left.x, Is.EqualTo(4.2f).Within(0.001f));
+            Assert.That(left.y, Is.EqualTo(3.4f).Within(0.001f));
 
-            var falling = (Vector2)method.Invoke(null, new object[]
+            var right = (Vector2)method.Invoke(null, new object[]
             {
-                new Vector2(1f, -3.1f),
+                new Vector2(1f, -20f),
                 -1f,
-                2.4f,
+                3.2f,
+                4.2f,
+                new Vector2(2.4f, 3.2f),
+                1f,
             });
-            Assert.That(falling.x, Is.EqualTo(-2.4f).Within(0.001f));
-            Assert.That(falling.y, Is.EqualTo(-3.1f).Within(0.001f),
-                "일반 하강 감각과 벽 비기 진입 조건은 유지해야 합니다.");
+            Assert.That(right.x, Is.EqualTo(-3.2f).Within(0.001f));
+            Assert.That(right.y, Is.EqualTo(4f).Within(0.001f));
+        }
+
+        [Test]
+        public void SideWallStayPreservesGraceThenCancelsRepeatedRise()
+        {
+            MethodInfo method = typeof(PlayerController).GetMethod(
+                "ResolveSideWallEscapeVelocity",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+
+            var grace = (Vector2)method.Invoke(null, new object[]
+            {
+                new Vector2(-1f, 2.8f), 1f, 3.2f, true,
+            });
+            var expired = (Vector2)method.Invoke(null, new object[]
+            {
+                new Vector2(-1f, 2.8f), 1f, 3.2f, false,
+            });
+
+            Assert.That(grace, Is.EqualTo(new Vector2(3.2f, 2.8f)));
+            Assert.That(expired, Is.EqualTo(new Vector2(3.2f, 0f)));
         }
     }
 }

@@ -3,7 +3,7 @@ using MukJump.Drawing;
 
 namespace MukJump.Core
 {
-    /// 화면 하단에 남은 총 먹자리와 붓 여유를 표시하는 경량 HUD.
+    /// 화면 하단에 남은 총 먹자리를 표시하는 경량 HUD.
     public class PrototypeHud : MonoBehaviour
     {
         const float BaseGaugeWidthRatio = 0.33f;
@@ -68,8 +68,7 @@ namespace MukJump.Core
             if (strokeCapture != null)
                 DrawInkGauge(
                     strokeCapture.InkRemaining01,
-                    strokeCapture.InkCapacityRatio,
-                    strokeCapture.InkCapacityBonusRatio);
+                    strokeCapture.InkCapacityRatio);
         }
 
         void EnsureRuntimeReferences()
@@ -94,12 +93,10 @@ namespace MukJump.Core
         /// 먹색 농도로 표시한다. 이미지 미할당 시 단색 막대 폴백.
         void DrawInkGauge(
             float ratio,
-            float capacityRatio,
-            float reserveRatio)
+            float capacityRatio)
         {
             float baseRatio = Mathf.Clamp01(ratio);
             // 기본 1획부터 영구 성장 2.5획까지 트랙 폭으로 구분한다.
-            // 붓 여유가 더 쌓이면 Safe Area 폭에서 자연스럽게 상한에 닿는다.
             bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
             float fillAlpha = ResolveGaugeFillAlpha(baseRatio, golden);
             Rect safeGui = MobileUiLayout.ToGuiSafeArea(
@@ -128,12 +125,10 @@ namespace MukJump.Core
                 Color fillColor = golden ? InkPalette.Gold : InkPalette.Ink;
                 fillColor.a *= fillAlpha;
                 DrawRect(back, fillColor);
-                DrawReserveGauge(back, reserveRatio);
                 return;
             }
 
-            // 기본부터 충분히 길게 보이고, 성장·날씨·붓 여유가 실제 최대 폭에도 반영된다.
-            // 반복 아이템으로 최대치가 커져도 트랙은 화면 밖으로 나가지 않는다.
+            // 기본부터 충분히 길게 보이고, 성장·날씨가 실제 최대 폭에도 반영된다.
             float w = gaugeTrackWidth;
             // 용량 성장은 트랙 길이만 바꾼다. 두께와 붓 크기는 기기 폭을 기준으로
             // 고정해 19.5:9 실기기에서도 시뮬레이터와 같은 시각 비율을 유지한다.
@@ -172,8 +167,6 @@ namespace MukJump.Core
                 if (fillTexture != null)
                     DrawTextureWithAlpha(area, fillTexture, fillAlpha);
             }
-            DrawReserveGauge(area, reserveRatio);
-
             if (inkBrushIcon != null)
             {
                 var iconRect = new Rect(x + w - overlap, centerY - iconSize / 2, iconSize, iconSize);
@@ -212,28 +205,6 @@ namespace MukJump.Core
         static float ResolveGaugeFillAlpha(float ratio, bool golden)
         {
             return golden ? 1f : Mathf.Clamp01(ratio);
-        }
-
-        static void DrawReserveGauge(Rect area, float reserveRatio)
-        {
-            if (reserveRatio <= 0f) return;
-            float blockWidth = Mathf.Max(8f, area.width * 0.085f);
-            float gap = Mathf.Max(2f, area.width * 0.008f);
-            int fullBlocks = Mathf.FloorToInt(
-                reserveRatio / StrokeCapture.InkReserveItemRatio);
-            float partial = Mathf.Repeat(
-                reserveRatio,
-                StrokeCapture.InkReserveItemRatio) /
-                StrokeCapture.InkReserveItemRatio;
-            int visibleBlocks = Mathf.Min(8, fullBlocks + (partial > 0.01f ? 1 : 0));
-            for (int i = 0; i < visibleBlocks; i++)
-            {
-                float fill = i < fullBlocks ? 1f : partial;
-                var block = new Rect(area.x + i * (blockWidth + gap),
-                    area.y - Mathf.Max(4f, area.height * 0.08f), blockWidth * fill,
-                    Mathf.Max(3f, area.height * 0.08f));
-                DrawRect(block, new Color(0.18f, 0.5f, 0.42f, 0.95f));
-            }
         }
 
         static Texture2D CreateColoredSilhouette(Texture2D source, Color color)

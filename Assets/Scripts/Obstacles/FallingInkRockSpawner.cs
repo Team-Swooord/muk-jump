@@ -9,6 +9,7 @@ namespace MukJump.Obstacles
     /// 현재 카메라 상단에 공정한 X 좌표를 선택해 낙묵석을 시간 기반으로 생성한다.
     public class FallingInkRockSpawner : MonoBehaviour
     {
+        public const int CurrentDensityTuningVersion = 1;
         [Header("참조")]
         [SerializeField] Sprite fallingInkRockSprite;
         [SerializeField] Camera worldCamera;
@@ -18,13 +19,13 @@ namespace MukJump.Obstacles
         [Header("출현 조건")]
         [Min(0f), SerializeField] float startHeight = 30f;
         [Min(0f), SerializeField] float initialDelay = 3f;
-        [SerializeField] Vector2 lowHeightInterval = new(5f, 8f);
-        [SerializeField] Vector2 highHeightInterval = new(3.5f, 5f);
+        [SerializeField] Vector2 lowHeightInterval = new(7f, 10f);
+        [SerializeField] Vector2 highHeightInterval = new(5.5f, 7.5f);
         [Min(0.1f), SerializeField] float highDifficultyHeight = 200f;
         [Min(1), SerializeField] int maxActiveRocks = 1;
 
         [Header("배치")]
-        [Range(0f, 0.45f), SerializeField] float viewportSideMargin = 0.13f;
+        [Range(0f, 0.45f), SerializeField] float viewportSideMargin = 0.08f;
         [Min(0f), SerializeField] float playerHorizontalClearance = 0.7f;
         [Min(1), SerializeField] int xSelectionAttempts = 5;
         [Min(0.1f), SerializeField] float rockWorldWidth = 1.35f;
@@ -36,6 +37,7 @@ namespace MukJump.Obstacles
         [Min(0f), SerializeField] float maxFallSpeed = 9f;
         [Min(0f), SerializeField] float fallAcceleration = 8f;
         [Min(0.1f), SerializeField] float maxLifetime = 8f;
+        [SerializeField, HideInInspector] int densityTuningVersion;
 
         readonly List<FallingInkRock> active = new();
         readonly List<PlayerController> livingPlayers =
@@ -65,6 +67,7 @@ namespace MukJump.Obstacles
 
         void Start()
         {
+            UpgradeDensityTuning();
             // 구형 Main 씬의 8m 직렬화 값보다 30m 안전 구간이 항상 우선한다.
             startHeight = Mathf.Max(30f, startHeight);
             if (worldCamera == null) worldCamera = Camera.main;
@@ -368,6 +371,17 @@ namespace MukJump.Obstacles
             warningDuration = Mathf.Max(0.05f, warningDuration);
             maxFallSpeed = Mathf.Max(initialFallSpeed, maxFallSpeed);
             maxLifetime = Mathf.Max(warningDuration + 0.1f, maxLifetime);
+        }
+
+        void UpgradeDensityTuning()
+        {
+            if (densityTuningVersion >= CurrentDensityTuningVersion)
+                return;
+
+            lowHeightInterval = new Vector2(7f, 10f);
+            highHeightInterval = new Vector2(5.5f, 7.5f);
+            viewportSideMargin = 0.08f;
+            densityTuningVersion = CurrentDensityTuningVersion;
         }
     }
 }

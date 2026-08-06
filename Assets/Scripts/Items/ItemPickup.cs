@@ -8,11 +8,12 @@ namespace MukJump.Items
 {
     public enum ItemType
     {
-        InkDrop,
-        GoldenBrush,
-        InkShield,
-        InkClone,
-        InkReserve,
+        InkDrop = 0,
+        GoldenBrush = 1,
+        InkShield = 2,
+        InkClone = 3,
+        // 구형 씬 직렬화 호환용 폐기 번호. 다시 사용하거나 스폰하지 않는다.
+        InkReserve = 4,
     }
 
     /// 실제 픽업과 테스트 버튼이 동일한 아이템 효과를 사용하도록 모아 둔 진입점.
@@ -50,11 +51,7 @@ namespace MukJump.Items
                     if (!manager.TryCreateInkClonesFromItem(player)) return false;
                     break;
                 case ItemType.InkReserve:
-                    var reserveTarget =
-                        UnityEngine.Object.FindFirstObjectByType<StrokeCapture>();
-                    if (reserveTarget == null) return false;
-                    reserveTarget.AddInkReserve(StrokeCapture.InkReserveItemRatio);
-                    break;
+                    return false;
                 default:
                     return false;
             }

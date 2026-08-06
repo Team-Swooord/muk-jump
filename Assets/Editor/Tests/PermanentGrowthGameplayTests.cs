@@ -273,41 +273,25 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void InkReserveStacksAsAdditionalRetainedCapacity()
+        public void RetiredInkReserveKeepsLegacySerializedEnumSlot()
         {
-            var host = Track(new GameObject("PermanentInkReserve"));
-            var stroke = host.AddComponent<StrokeCapture>();
-            SetField(stroke, "inkCapacity", StrokeCapture.DefaultInkCapacity);
-
-            stroke.AddInkReserve(StrokeCapture.InkReserveItemRatio);
-            stroke.AddInkReserve(StrokeCapture.InkReserveItemRatio);
-
-            Assert.That(stroke.EffectiveInkCapacity,
-                Is.EqualTo(4.8f).Within(0.0001f));
-            Assert.That(stroke.InkCapacityBonusRatio,
-                Is.EqualTo(0.5f).Within(0.0001f));
-            Assert.That(stroke.InkCapacityRatio,
-                Is.EqualTo(1.5f).Within(0.0001f),
-                "HUD 최대 먹자리 폭도 붓 여유 누적을 그대로 반영해야 합니다.");
+            Assert.That((int)MukJump.Items.ItemType.InkReserve, Is.EqualTo(4),
+                "폐기 아이템 번호는 구 씬 직렬화 호환을 위해 다시 사용하면 안 됩니다.");
         }
 
         [Test]
-        public void InkReserveAddsOneQuarterOfBaseWithoutGrowthScaling()
+        public void InkCapacityUsesOnlyPermanentGrowthWithoutRunItemBonus()
         {
             SeedGrowth(new[] { "I-KA" });
             CreatePlayingManager(out _);
-            var host = Track(new GameObject("PermanentFixedInkReserve"));
+            var host = Track(new GameObject("PermanentInkCapacity"));
             var stroke = host.AddComponent<StrokeCapture>();
             SetField(stroke, "inkCapacity", StrokeCapture.DefaultInkCapacity);
 
             Assert.That(stroke.BaseEffectiveInkCapacity,
                 Is.EqualTo(8.0f).Within(0.0001f));
-
-            stroke.AddInkReserve(StrokeCapture.InkReserveItemRatio);
-
             Assert.That(stroke.EffectiveInkCapacity,
-                Is.EqualTo(8.8f).Within(0.0001f),
-                "붓 여유는 성장된 총량의 25%가 아니라 기본 3.2m의 25%만 더해야 합니다.");
+                Is.EqualTo(8.0f).Within(0.0001f));
         }
 
         GameManager CreatePlayingManager(out RunGrowthController growth)

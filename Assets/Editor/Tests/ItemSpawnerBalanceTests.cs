@@ -39,6 +39,19 @@ public sealed class ItemSpawnerBalanceTests
     }
 
     [Test]
+    public void RetiredInkReserveNeverAppearsInRandomItemPool()
+    {
+        var spawner = Track(new GameObject("ItemSpawner"))
+            .AddComponent<ItemSpawner>();
+        for (int seed = 0; seed < 256; seed++)
+        {
+            GameplayRandom.ResetSession(seed);
+            var type = (ItemType)Invoke(spawner, "ChooseItemType", 250f, false);
+            Assert.AreNotEqual(ItemType.InkReserve, type, $"seed {seed}");
+        }
+    }
+
+    [Test]
     public void FirstItemWorldPositionUsesScoreOrigin()
     {
         var score = Track(new GameObject("ScoreManager")).AddComponent<ScoreManager>();

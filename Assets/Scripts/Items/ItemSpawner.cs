@@ -17,8 +17,6 @@ namespace MukJump.Items
         [SerializeField] Sprite inkShieldSprite;
         [Tooltip("먹분신 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
         [SerializeField] Sprite inkCloneSprite;
-        [Tooltip("판 한정 총 먹자리 확장 스프라이트. 비어 있으면 placeholderSprite를 사용한다.")]
-        [SerializeField] Sprite inkReserveSprite;
         [SerializeField] Vector2 verticalSpacing = new(10f, 16f);
         [SerializeField] Vector2 horizontalRange = new(-4f, 4f);
         [Tooltip("게임 시작점 기준 첫 아이템 고도. 첫 슬롯은 항상 먹분신이다.")]
@@ -30,6 +28,7 @@ namespace MukJump.Items
         [Range(0f, 1f), SerializeField] float cloneChanceAt250m = 0.5f;
         // 씬에 저장된 예전 직렬화 값과 무관하게 모든 아이템의 크기를 동일하게 유지한다.
         const float ItemWorldWidth = 0.9f;
+        const float CameraSidePadding = 0.25f;
         const int PoolCapacity = 8;
 
         readonly List<ItemPickup> active = new();
@@ -153,19 +152,17 @@ namespace MukJump.Items
                 return ItemType.InkClone;
 
             // 상한에 도달한 뒤에는 먹어도 적용되지 않는 분신 아이템을 만들지 않는다.
-            return GameplayRandom.Range(GameplayRandomStream.Items, 0, 4) switch
+            return GameplayRandom.Range(GameplayRandomStream.Items, 0, 3) switch
             {
                 0 => ItemType.InkDrop,
                 1 => ItemType.GoldenBrush,
-                2 => ItemType.InkShield,
-                _ => ItemType.InkReserve,
+                _ => ItemType.InkShield,
             };
         }
 
         float ChooseSpawnX(bool favorLivingPlayer)
         {
-            float minimum = Mathf.Min(horizontalRange.x, horizontalRange.y);
-            float maximum = Mathf.Max(horizontalRange.x, horizontalRange.y);
+            ResolveHorizontalRange(out float minimum, out float maximum);
             if (favorLivingPlayer && GameManager.Instance != null)
             {
                 var player = GameManager.Instance.HighestLivingPlayer;
@@ -178,6 +175,22 @@ namespace MukJump.Items
                 }
             }
             return GameplayRandom.Range(GameplayRandomStream.Items, minimum, maximum);
+        }
+
+        void ResolveHorizontalRange(out float minimum, out float maximum)
+        {
+            minimum = Mathf.Min(horizontalRange.x, horizontalRange.y);
+            maximum = Mathf.Max(horizontalRange.x, horizontalRange.y);
+            if (cam == null || !cam.orthographic)
+                return;
+
+            float halfWidth = Mathf.Max(0.01f, cam.orthographicSize * cam.aspect);
+            float halfItemWidth = ItemWorldWidth * 0.5f;
+            float center = cam.transform.position.x;
+            minimum = center - halfWidth + CameraSidePadding + halfItemWidth;
+            maximum = center + halfWidth - CameraSidePadding - halfItemWidth;
+            if (maximum < minimum)
+                minimum = maximum = center;
         }
 
         ItemPickup CreatePooledItem()
@@ -302,7 +315,6 @@ namespace MukJump.Items
                 ItemType.GoldenBrush when goldenBrushSprite != null => goldenBrushSprite,
                 ItemType.InkShield when inkShieldSprite != null => inkShieldSprite,
                 ItemType.InkClone when inkCloneSprite != null => inkCloneSprite,
-                ItemType.InkReserve when inkReserveSprite != null => inkReserveSprite,
                 _ => placeholderSprite,
             };
         }
@@ -314,7 +326,6 @@ namespace MukJump.Items
                 ItemType.InkDrop => new Color(0.42f, 0.62f, 0.72f),
                 ItemType.GoldenBrush => new Color(0.95f, 0.72f, 0.2f),
                 ItemType.InkShield => new Color(0.72f, 0.18f, 0.28f),
-                ItemType.InkReserve => new Color(0.2f, 0.58f, 0.48f),
                 _ => new Color(0.2f, 0.18f, 0.16f),
             };
         }

@@ -358,7 +358,6 @@ namespace MukJump.Core
             return type switch
             {
                 ItemType.GoldenBrush => InkPalette.Gold,
-                ItemType.InkReserve => new Color(0.18f, 0.5f, 0.42f),
                 _ => InkPalette.Ink,
             };
         }

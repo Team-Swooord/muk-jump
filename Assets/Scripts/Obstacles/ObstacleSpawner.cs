@@ -11,6 +11,8 @@ namespace MukJump.Obstacles
     /// 높이 올라갈수록 이동 속도가 점진적으로 증가한다.
     public class ObstacleSpawner : MonoBehaviour
     {
+        public const int CurrentDensityTuningVersion = 1;
+        const float CameraSidePadding = 0.25f;
         const string DragonAnimationResourcePath =
             "MukJump/Obstacles/child_ink_dragon_4frame_v3";
         const string DragonAnimationTextureName =
@@ -27,12 +29,12 @@ namespace MukJump.Obstacles
         [SerializeField] Sprite[] dragonFrames;
         [Tooltip("게임 시작점 기준 첫 이동 장애물 고도")]
         [SerializeField] float firstSpawnHeight = 30f;
-        [SerializeField] Vector2 verticalSpacing = new(8f, 12f);
+        [SerializeField] Vector2 verticalSpacing = new(12f, 16f);
         [SerializeField] Vector2 horizontalRange = new(-4.1f, 4.1f);
         [SerializeField] float spawnAhead = 14f;
         [SerializeField] float despawnBelow = 12f;
         [SerializeField] float obstacleWorldWidth = 1.2f;
-        [SerializeField] Vector2 moveAmplitudeRange = new(1.2f, 2.4f);
+        [SerializeField] Vector2 moveAmplitudeRange = new(1f, 2f);
         [Tooltip("0m 부근 장애물의 좌우 이동 속도 범위")]
         [SerializeField] Vector2 baseMoveSpeedRange = new(0.55f, 0.8f);
         [Tooltip("이 높이부터 최고 속도 범위를 사용")]
@@ -42,23 +44,24 @@ namespace MukJump.Obstacles
         [Header("어린 용 변형")]
         [Min(30f), SerializeField] float dragonUnlockHeight = 60f;
         [Tooltip("해태 해금 전 기존 어린 용 출현 확률")]
-        [Range(0f, 1f), SerializeField] float dragonChanceBeforeHaetae = 0.28f;
-        [Range(0f, 1f), SerializeField] float dragonChance = 0.18f;
+        [Range(0f, 1f), SerializeField] float dragonChanceBeforeHaetae = 0.2f;
+        [Range(0f, 1f), SerializeField] float dragonChance = 0.12f;
         [Min(0.1f), SerializeField] float dragonWorldWidth = 3.2f;
         [Min(0.1f), SerializeField] float dragonColliderWorldHeight = 0.52f;
         [Min(0.04f), SerializeField] float dragonFrameSeconds = 0.2f;
-        [SerializeField] Vector2 dragonMoveAmplitudeRange = new(1f, 1.6f);
+        [SerializeField] Vector2 dragonMoveAmplitudeRange = new(0.8f, 1.35f);
         [SerializeField] Vector2 dragonMoveSpeedRange = new(0.45f, 0.7f);
         [Header("먹해태 수문장")]
         [Tooltip("2×2 시트에서 분리한 서기·웅크리기·돌진·착지 프레임")]
         [SerializeField] Sprite haetaeSprite;
         [SerializeField] Sprite[] haetaeFrames;
         [Min(250f), SerializeField] float haetaeUnlockHeight = 320f;
-        [Range(0f, 1f), SerializeField] float haetaeChance = 0.12f;
+        [Range(0f, 1f), SerializeField] float haetaeChance = 0.08f;
         [Min(0.1f), SerializeField] float haetaeWorldWidth = 2.2f;
         [SerializeField] Vector2 haetaeColliderWorldSize = new(1.45f, 0.72f);
         [SerializeField] FallingInkRockSpawner fallingInkRockSpawner;
         [SerializeField] WindWeatherController windWeatherController;
+        [SerializeField, HideInInspector] int densityTuningVersion;
         const int PoolCapacity = 10;
         const int HaetaePoolCapacity = 2;
 
@@ -75,7 +78,6 @@ namespace MukJump.Obstacles
         int scheduledSessionVersion = -1;
         bool firstDragonPending = true;
         bool firstHaetaePending = true;
-        bool openingHaetaePending = true;
         bool activeHaetaeRestoresFirstGuarantee;
         bool haetaePoolPrewarmed;
 
@@ -98,15 +100,10 @@ namespace MukJump.Obstacles
         void Start()
         {
             cam = Camera.main;
+            UpgradeDensityTuning();
             // 구형 Main 씬의 20m 첫 장애물 값을 안전 구간 규칙으로 승격한다.
             firstSpawnHeight = 30f;
             dragonUnlockHeight = Mathf.Max(60f, dragonUnlockHeight);
-            // 구형 씬의 28% 직렬화 값이 남아 있어도 해태 12%와 합친 대형 동물
-            // 예산이 30%를 넘지 않도록 320m 이후 기준만 승격한다.
-            dragonChanceBeforeHaetae = Mathf.Max(
-                0.28f, dragonChanceBeforeHaetae);
-            dragonChance = Mathf.Min(0.18f, dragonChance);
-            haetaeChance = Mathf.Min(0.12f, haetaeChance);
             haetaeUnlockHeight = Mathf.Max(320f, haetaeUnlockHeight);
             if (fallingInkRockSpawner == null)
                 fallingInkRockSpawner = GetComponent<FallingInkRockSpawner>();
@@ -141,7 +138,6 @@ namespace MukJump.Obstacles
                 !GameManager.Instance.IsGameplayTicking) return;
 
             EnsureSessionSchedule();
-            TrySpawnOpeningHaetae();
             float cameraTop = cam.transform.position.y + cam.orthographicSize;
             float cutoff = cam.transform.position.y - cam.orthographicSize - despawnBelow;
             float cameraTopHeight = GameHeightAtWorldY(cameraTop);
@@ -203,8 +199,7 @@ namespace MukJump.Obstacles
             float amplitude = GameplayRandom.Range(GameplayRandomStream.Obstacles,
                 Mathf.Min(amplitudeRange.x, amplitudeRange.y),
                 Mathf.Max(amplitudeRange.x, amplitudeRange.y));
-            float rangeLeft = Mathf.Min(horizontalRange.x, horizontalRange.y);
-            float rangeRight = Mathf.Max(horizontalRange.x, horizontalRange.y);
+            ResolveHorizontalRange(out float rangeLeft, out float rangeRight);
             float halfWorldWidth = worldWidth * 0.5f;
             float maxAmplitude = Mathf.Max(
                 0f, (rangeRight - rangeLeft) * 0.5f - halfWorldWidth - 0.05f);
@@ -277,29 +272,7 @@ namespace MukJump.Obstacles
             active.Add(obstacle);
         }
 
-        /// 첫 플레이 구간에서 벽타기 대응 장애물의 경고 방식을 바로 확인할 수 있도록
-        /// 튜토리얼/일시정지가 끝난 첫 유효 프레임에 해태 경고를 한 번 예약한다.
-        void TrySpawnOpeningHaetae()
-        {
-            if (!openingHaetaePending || HasActiveLargeAnimal())
-                return;
-
-            var target = ResolveHaetaeTarget();
-            if (target == null || target.IsDead ||
-                !HasValidHaetaeFrames(haetaeFrames) ||
-                !CanBeginHaetaeTelegraph())
-                return;
-
-            float courseHeight = Mathf.Max(
-                0f,
-                GameHeightAtWorldY(target.transform.position.y));
-            if (SpawnHaetae(
-                    courseHeight,
-                    false,
-                    beginTelegraphImmediately: true))
-                openingHaetaePending = false;
-        }
-
+        /// 고도와 해금 상태에 따라 일반 먹가시·어린 용·먹해태를 고른다.
         MovingObstacleVariant ChooseVariant(float courseHeight)
         {
             // 해금 직후 첫 유효 슬롯은 반드시 해태다. 다른 큰 위험과 겹친 슬롯에서는
@@ -784,7 +757,6 @@ namespace MukJump.Obstacles
             // 다음 슬롯에서 첫 어린 용을 확실히 볼 수 있어야 한다.
             firstDragonPending = true;
             firstHaetaePending = true;
-            openingHaetaePending = targetHeight <= 0;
             nextSpawnHeight = Mathf.Max(firstSpawnHeight, GameHeightAtWorldY(visibleBottom));
         }
 
@@ -796,7 +768,33 @@ namespace MukJump.Obstacles
             nextSpawnHeight = firstSpawnHeight;
             firstDragonPending = true;
             firstHaetaePending = true;
-            openingHaetaePending = true;
+        }
+
+        void ResolveHorizontalRange(out float minimum, out float maximum)
+        {
+            minimum = Mathf.Min(horizontalRange.x, horizontalRange.y);
+            maximum = Mathf.Max(horizontalRange.x, horizontalRange.y);
+            if (cam == null || !cam.orthographic)
+                return;
+
+            float halfWidth = Mathf.Max(0.01f, cam.orthographicSize * cam.aspect);
+            float center = cam.transform.position.x;
+            minimum = center - halfWidth + CameraSidePadding;
+            maximum = center + halfWidth - CameraSidePadding;
+        }
+
+        void UpgradeDensityTuning()
+        {
+            if (densityTuningVersion >= CurrentDensityTuningVersion)
+                return;
+
+            verticalSpacing = new Vector2(12f, 16f);
+            moveAmplitudeRange = new Vector2(1f, 2f);
+            dragonMoveAmplitudeRange = new Vector2(0.8f, 1.35f);
+            dragonChanceBeforeHaetae = 0.2f;
+            dragonChance = 0.12f;
+            haetaeChance = 0.08f;
+            densityTuningVersion = CurrentDensityTuningVersion;
         }
 
         float GameHeightAtWorldY(float worldY)

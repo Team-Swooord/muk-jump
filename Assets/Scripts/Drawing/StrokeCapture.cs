@@ -12,7 +12,6 @@ namespace MukJump.Drawing
     public class StrokeCapture : MonoBehaviour
     {
         public const float DefaultInkCapacity = 3.2f;
-        public const float InkReserveItemRatio = 0.25f;
         const float LegacyInkCapacityV0 = 12f;
         const float LegacyInkCapacityV1 = 18f;
         const float LegacyInkCapacityV2 = 24f;
@@ -46,7 +45,6 @@ namespace MukJump.Drawing
         Camera cam;
         bool drawing;
         float strokeLength;
-        float inkCapacityBonusRatio;
         LineRenderer preview;
         float unlimitedInkUntil;
         RunGrowthController growthController;
@@ -83,17 +81,14 @@ namespace MukJump.Drawing
                        Mathf.Max(0.001f, EffectiveInkCapacity);
             }
         }
-        /// HUD 트랙의 실제 최대 길이. 영구 성장·날씨·붓 여유를 모두 반영한다.
+        /// HUD 트랙의 실제 최대 길이. 영구 성장과 날씨를 반영한다.
         public float InkCapacityRatio =>
             EffectiveInkCapacity / Mathf.Max(0.001f, inkCapacity);
-        public float InkCapacityBonusRatio => Mathf.Max(0f, inkCapacityBonusRatio);
         public float BaseEffectiveInkCapacity =>
             inkCapacity *
             ActivePermanentGrowth.InkCapacityMultiplier *
             Mathf.Clamp(PlatformCollider.RuntimeInkCapacityMultiplier, 0.35f, 1f);
-        public float EffectiveInkCapacity =>
-            BaseEffectiveInkCapacity +
-            inkCapacity * Mathf.Max(0f, inkCapacityBonusRatio);
+        public float EffectiveInkCapacity => BaseEffectiveInkCapacity;
         public float EffectiveEvictionFadeDuration =>
             evictionFadeDuration /
             Mathf.Max(1f, ActivePermanentGrowth.InkRecoverySpeedMultiplier);
@@ -106,12 +101,6 @@ namespace MukJump.Drawing
             RunGrowthController.Instance != null
                 ? RunGrowthController.Instance.PermanentSnapshot
                 : PermanentGrowthProfile.CreateRunSnapshot();
-
-        public void AddInkReserve(float capacityRatio)
-        {
-            inkCapacityBonusRatio += Mathf.Max(0f, capacityRatio);
-            RefreshInkBudget(true);
-        }
 
         void Awake()
         {
@@ -472,7 +461,6 @@ namespace MukJump.Drawing
         void HandleGrowthRunReset()
         {
             CancelActiveStroke();
-            inkCapacityBonusRatio = 0f;
             unlimitedInkUntil = 0f;
             appliedInkCapacity = EffectiveInkCapacity;
             unlimitedInkWasActive = false;

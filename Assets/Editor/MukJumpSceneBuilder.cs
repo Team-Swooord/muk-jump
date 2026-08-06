@@ -754,9 +754,17 @@ namespace MukJump.EditorTools
                 haetaeFrameProperty.GetArrayElementAtIndex(i).objectReferenceValue =
                     haetaeFrames[i];
             obstacleSo.FindProperty("haetaeUnlockHeight").floatValue = 320f;
-            obstacleSo.FindProperty("haetaeChance").floatValue = 0.12f;
-            obstacleSo.FindProperty("dragonChanceBeforeHaetae").floatValue = 0.28f;
-            obstacleSo.FindProperty("dragonChance").floatValue = 0.18f;
+            obstacleSo.FindProperty("haetaeChance").floatValue = 0.08f;
+            obstacleSo.FindProperty("dragonChanceBeforeHaetae").floatValue = 0.2f;
+            obstacleSo.FindProperty("dragonChance").floatValue = 0.12f;
+            obstacleSo.FindProperty("verticalSpacing").vector2Value =
+                new Vector2(12f, 16f);
+            obstacleSo.FindProperty("moveAmplitudeRange").vector2Value =
+                new Vector2(1f, 2f);
+            obstacleSo.FindProperty("dragonMoveAmplitudeRange").vector2Value =
+                new Vector2(0.8f, 1.35f);
+            obstacleSo.FindProperty("densityTuningVersion").intValue =
+                ObstacleSpawner.CurrentDensityTuningVersion;
             obstacleSo.FindProperty("windWeatherController").objectReferenceValue =
                 windWeatherController;
             obstacleSo.FindProperty("firstSpawnHeight").floatValue = 30f;
@@ -773,6 +781,13 @@ namespace MukJump.EditorTools
             fallingSo.FindProperty("collisionMask").intValue =
                 LayerMask.GetMask("Default", "Platform", "Player");
             fallingSo.FindProperty("startHeight").floatValue = 30f;
+            fallingSo.FindProperty("lowHeightInterval").vector2Value =
+                new Vector2(7f, 10f);
+            fallingSo.FindProperty("highHeightInterval").vector2Value =
+                new Vector2(5.5f, 7.5f);
+            fallingSo.FindProperty("viewportSideMargin").floatValue = 0.08f;
+            fallingSo.FindProperty("densityTuningVersion").intValue =
+                FallingInkRockSpawner.CurrentDensityTuningVersion;
             fallingSo.ApplyModifiedPropertiesWithoutUndo();
 
             obstacleSo.Update();
@@ -792,7 +807,6 @@ namespace MukJump.EditorTools
                 AssetDatabase.LoadAssetAtPath<Sprite>(InkShieldItemPath);
             itemSo.FindProperty("inkCloneSprite").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(InkCloneItemPath);
-            itemSo.FindProperty("inkReserveSprite").objectReferenceValue = null;
             itemSo.FindProperty("verticalSpacing").vector2Value = new Vector2(10f, 16f);
             itemSo.FindProperty("firstSpawnHeight").floatValue = 12f;
             itemSo.FindProperty("cloneChanceAt30m").floatValue = 0.35f;
@@ -1081,12 +1095,8 @@ namespace MukJump.EditorTools
             var inkCloneButton = CreateItemTestButton("InkCloneButton", debugPanel,
                 inkCloneTexture != null ? inkCloneTexture : placeholderTexture,
                 new Vector2(22f, -165f), inkCloneTexture != null ? Color.white : InkPalette.Ink, "분신");
-            var inkReserveButton = CreateItemTestButton("InkReserveButton", debugPanel,
-                placeholderTexture, new Vector2(22f, -320f),
-                new Color(0.2f, 0.58f, 0.48f),
-                $"여유 +{Mathf.RoundToInt(StrokeCapture.InkReserveItemRatio * 100f)}%");
             var haetaeButton = CreateDebugTextButton("HaetaeButton", debugPanel,
-                new Vector2(22f, -438f), new Vector2(145f, 72f), "먹해태");
+                new Vector2(22f, -320f), new Vector2(145f, 72f), "먹해태");
             CreateText("MapDebugTitle", debugPanel, "맵 이동", 30, FontStyle.Bold,
                 new Vector2(0.76f, 0.9f), new Vector2(175f, 55f), InkPalette.Paper);
             var mapStartButton = CreateDebugTextButton("MapStartButton", debugPanel,
@@ -1132,7 +1142,6 @@ namespace MukJump.EditorTools
             so.FindProperty("goldenBrushButton").objectReferenceValue = goldenBrushButton;
             so.FindProperty("inkShieldButton").objectReferenceValue = inkShieldButton;
             so.FindProperty("inkCloneButton").objectReferenceValue = inkCloneButton;
-            so.FindProperty("inkReserveButton").objectReferenceValue = inkReserveButton;
             so.FindProperty("haetaeButton").objectReferenceValue = haetaeButton;
             so.FindProperty("mapStartButton").objectReferenceValue = mapStartButton;
             so.FindProperty("mapWindButton").objectReferenceValue = mapWindButton;
