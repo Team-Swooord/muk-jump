@@ -88,6 +88,8 @@ namespace MukJump.EditorTests
             Assert.That(visual.useWorldSpace, Is.False);
             Assert.That(visual.startWidth, Is.EqualTo(1.9f).Within(0.001f));
             Assert.That(visual.startColor.a, Is.EqualTo(0.16f).Within(0.001f));
+            Assert.That(visual.enabled, Is.False,
+                "무한 상승 차단용 물리 벽은 유지하되 상시 붉은 띠는 해태 경고와 혼동되지 않게 숨겨야 합니다.");
         }
 
         [TestCase(9.6f, 0.5625f)]

@@ -374,7 +374,7 @@ namespace MukJump.Obstacles
             bool fromLeft = GameplayRandom.Value(
                 GameplayRandomStream.Obstacles) < 0.5f;
             float verticalOffset = GameplayRandom.Range(
-                GameplayRandomStream.Obstacles, -1.2f, -0.78f);
+                GameplayRandomStream.Obstacles, -0.18f, 0.18f);
             haetae.Activate(
                 target,
                 WorldYAtGameHeight(courseHeight),
@@ -704,10 +704,19 @@ namespace MukJump.Obstacles
                     new Vector3(fromLeft ? 0f : 1f, 0.5f, cameraDistance)).x +
                     (fromLeft ? 0.52f : -0.52f);
             }
-            Vector2 startPosition = new(
-                edgeX, targetPosition.y - 1.05f);
+            Vector2 startPosition = new(edgeX, targetPosition.y);
+            float oppositeEdgeX = targetPosition.x + (fromLeft ? 5.9f : -5.9f);
+            if (worldCamera != null)
+            {
+                float cameraDistance = Mathf.Abs(
+                    worldCamera.transform.position.z - go.transform.position.z);
+                oppositeEdgeX = worldCamera.ViewportToWorldPoint(
+                    new Vector3(fromLeft ? 1f : 0f, 0.5f, cameraDistance)).x +
+                    (fromLeft ? -0.52f : 0.52f);
+            }
+            Vector2 endPosition = new(oppositeEdgeX, targetPosition.y);
             go.transform.position = startPosition;
-            haetae.Activate(startPosition, targetPosition, fromLeft);
+            haetae.Activate(startPosition, endPosition, fromLeft);
             activeHaetae.Add(haetae);
             activeHaetaeRestoresFirstGuarantee = false;
             return true;

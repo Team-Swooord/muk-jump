@@ -202,8 +202,8 @@ public sealed class HaetaeObstacleTests
             new Vector3(1f, 0.5f, cameraDistance)).x;
         Assert.That(
             lockedStart.y,
-            Is.LessThan(lockedTarget.y - 0.5f),
-            "해태는 위에서 떨어지거나 수평으로 들어오지 않고 아래 측면에서 대각선으로 가로막아야 합니다.");
+            Is.EqualTo(lockedTarget.y).Within(0.001f),
+            "해태는 선택된 화면 벽에서 한 높이의 차선을 가로질러야 합니다.");
         Assert.That(
             lockedStart.x,
             Is.InRange(viewportLeft, viewportRight),
@@ -213,9 +213,13 @@ public sealed class HaetaeObstacleTests
             "왼쪽에서 오른쪽으로 돌진할 때는 왼쪽 얼굴 원본을 뒤집어야 합니다.");
         Assert.AreEqual(4,
             haetae.GetComponentsInChildren<LineRenderer>(true).Length,
-            "경로선 1개와 발자국 3개만 미리 만들어 재사용해야 합니다.");
-        Assert.IsTrue(haetae.IsMaterializeSealVisible,
-            "예고 시작은 화면 가장자리의 붉은 낙관에서 실체화하는 모습이어야 합니다.");
+            "경로선·위험 띠·느낌표 두 획만 미리 만들어 재사용해야 합니다.");
+        Assert.IsTrue(haetae.IsSideWarningVisible);
+        Assert.IsTrue(haetae.IsExclamationVisible,
+            "색만으로 경고하지 않고 진입 측면에 느낌표 형태가 함께 보여야 합니다.");
+        Assert.That(haetae.WarningBandAlpha, Is.InRange(0.08f, 0.22f));
+        Assert.IsFalse(haetae.IsMaterializeSealVisible,
+            "첫 경고 구간에는 느낌표와 붉은 먹빛이 먼저 보이고 해태는 아직 나타나면 안 됩니다.");
         Assert.That(haetae.BodyAlpha, Is.EqualTo(0f).Within(0.001f));
 
         target.transform.position = new Vector3(-3.8f, 8.5f, 0f);
@@ -233,7 +237,7 @@ public sealed class HaetaeObstacleTests
     }
 
     [Test]
-    public void TelegraphCrossfadesFixedMaterializeSealWithoutExtendingWarning()
+    public void TelegraphShowsSideWarningBeforeMaterializingWithoutExtendingWarning()
     {
         var haetae = CreateConfiguredHaetae("MaterializingHaetae");
         haetae.Activate(
@@ -242,36 +246,89 @@ public sealed class HaetaeObstacleTests
             true);
 
         Assert.AreEqual(HaetaeObstacleState.Telegraph, haetae.State);
-        Assert.IsTrue(haetae.IsMaterializeSealVisible);
-        Assert.That(haetae.MaterializeSealAlpha,
-            Is.GreaterThan(0.01f));
+        Assert.IsTrue(haetae.IsSideWarningVisible);
+        Assert.IsTrue(haetae.IsExclamationVisible);
+        Assert.IsFalse(haetae.IsMaterializeSealVisible);
         Assert.That(haetae.BodyAlpha, Is.EqualTo(0f).Within(0.001f));
         Assert.AreEqual(
             1,
             CountNamedSpriteRenderers(haetae, "HaetaeMaterializeSeal"),
             "낙관 SpriteRenderer는 활성화마다 생성하지 말고 고정 자식 하나만 재사용해야 합니다.");
 
-        Invoke(haetae, "AdvanceState", 0.17f);
+        Invoke(haetae, "AdvanceState", 0.5f);
+
+        Assert.AreEqual(HaetaeObstacleState.Telegraph, haetae.State);
+        Assert.IsFalse(haetae.IsMaterializeSealVisible);
+        Assert.That(haetae.BodyAlpha, Is.EqualTo(0f).Within(0.001f),
+            "전체 예고의 앞부분은 경고 전용 구간이어야 합니다.");
+
+        Invoke(haetae, "AdvanceState", 0.26f);
 
         Assert.AreEqual(HaetaeObstacleState.Telegraph, haetae.State);
         Assert.IsTrue(haetae.IsMaterializeSealVisible);
         Assert.That(haetae.MaterializeSealAlpha, Is.InRange(0.01f, 0.99f));
         Assert.That(haetae.BodyAlpha, Is.InRange(0.01f, 0.99f),
-            "낙관과 해태 본체가 교차 페이드되어 순간 팝업처럼 보이지 않아야 합니다.");
+            "붉은 측면 경고 뒤에 해태 본체가 교차 페이드되어야 합니다.");
 
-        Invoke(haetae, "AdvanceState", 0.18f);
-
+        Invoke(haetae, "AdvanceState", 0.2f);
         Assert.AreEqual(HaetaeObstacleState.Telegraph, haetae.State);
         Assert.IsFalse(haetae.IsMaterializeSealVisible);
         Assert.That(haetae.BodyAlpha, Is.EqualTo(1f).Within(0.001f));
 
-        Invoke(haetae, "AdvanceState", 0.84f);
+        Invoke(haetae, "AdvanceState", 0.22f);
         Assert.AreEqual(HaetaeObstacleState.Telegraph, haetae.State,
-            "실체화 0.34초는 기존 1.2초 예고 안에 포함되어야 합니다.");
+            "경고 전용 구간과 실체화는 기존 1.2초 예고 안에 포함되어야 합니다.");
 
-        Invoke(haetae, "AdvanceState", 0.02f);
+        Invoke(haetae, "AdvanceState", 0.03f);
         Assert.AreEqual(HaetaeObstacleState.Pounce, haetae.State);
         Assert.IsTrue(haetae.IsHitboxEnabled);
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void SideWarningMatchesSelectedWallAcrossPortraitViewport(bool fromLeft)
+    {
+        var cameraObject = Track(new GameObject("HaetaePortraitCamera"));
+        var camera = cameraObject.AddComponent<Camera>();
+        camera.orthographic = true;
+        camera.orthographicSize = 6f;
+        camera.aspect = 0.5625f;
+        cameraObject.transform.position = new Vector3(0f, 4f, -10f);
+
+        var target = CreateShieldedPlayer("PortraitTarget");
+        target.transform.position = new Vector3(0.7f, 4.4f, 0f);
+        var haetae = CreateConfiguredHaetae("PortraitHaetae", camera);
+        haetae.Activate(target, 4.4f, fromLeft);
+
+        Assert.IsTrue(haetae.TryBeginTelegraphNow());
+        Assert.That(haetae.LockedStart.y,
+            Is.EqualTo(haetae.LockedTarget.y).Within(0.001f));
+        Assert.That(fromLeft
+                ? haetae.LockedStart.x < haetae.LockedTarget.x
+                : haetae.LockedStart.x > haetae.LockedTarget.x,
+            Is.True);
+        var band = haetae.transform.Find("HaetaeSideDangerBand")
+            ?.GetComponent<LineRenderer>();
+        var stem = haetae.transform.Find("HaetaeExclamationStem")
+            ?.GetComponent<LineRenderer>();
+        Assert.IsNotNull(band);
+        Assert.IsNotNull(stem);
+        Assert.That(band.GetPosition(0).x,
+            Is.EqualTo(haetae.LockedStart.x).Within(0.001f));
+        Assert.That(stem.GetPosition(0).x,
+            fromLeft
+                ? Is.GreaterThan(haetae.LockedStart.x)
+                : Is.LessThan(haetae.LockedStart.x),
+            "느낌표는 선택된 벽 안쪽에 배치되어야 합니다.");
+        Assert.IsTrue(haetae.IsSideWarningVisible);
+        Assert.IsTrue(haetae.IsExclamationVisible);
+        Assert.IsFalse(haetae.IsHitboxEnabled);
+
+        Invoke(haetae, "AdvanceState", 1.21f);
+        Assert.IsFalse(haetae.IsSideWarningVisible);
+        Assert.IsFalse(haetae.IsExclamationVisible);
+        Assert.IsTrue(haetae.IsHitboxEnabled,
+            "경고를 모두 끈 뒤 같은 물리 단계에서만 해태 판정을 켜야 합니다.");
     }
 
     [Test]
@@ -503,12 +560,14 @@ public sealed class HaetaeObstacleTests
         Assert.AreEqual(0, second.CurrentFrameIndex);
         Assert.IsFalse(second.GetComponent<SpriteRenderer>().flipX);
         Assert.IsFalse(second.IsMaterializeSealVisible);
+        Assert.IsFalse(second.IsSideWarningVisible);
+        Assert.IsFalse(second.IsExclamationVisible);
         Assert.That(second.MaterializeSealAlpha, Is.EqualTo(0f).Within(0.001f));
         Assert.That(second.transform.localRotation, Is.EqualTo(Quaternion.identity));
         var warningObjects =
             second.GetComponentsInChildren<LineRenderer>(true);
         Assert.AreEqual(warningObjectCount, warningObjects.Length,
-            "풀 재사용 때 경고선과 발자국을 중복 생성하면 안 됩니다.");
+            "풀 재사용 때 경고선·띠·느낌표를 중복 생성하면 안 됩니다.");
         for (int i = 0; i < warningObjects.Length; i++)
             Assert.IsFalse(warningObjects[i].enabled);
         Assert.AreEqual(

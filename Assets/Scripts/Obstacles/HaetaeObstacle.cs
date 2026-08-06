@@ -18,18 +18,20 @@ namespace MukJump.Obstacles
         SealAway,
     }
 
-    /// 화면 가장자리의 붉은 낙관에서 실체화해 대각선으로 한 번만 덮치는 중반 수문장 장애물.
-    /// 경로와 표적은 예고 시작 순간 고정하며, 플레이어 또는 임시 먹 발판과 처음 닿으면
-    /// 공격을 즉시 소비한다. 낙관·경고선·발자국은 자식 오브젝트를 한 번만 만들어 재사용한다.
+    /// 화면 한쪽의 느낌표와 붉은 먹빛으로 예고한 뒤 가로로 한 번만 달려오는 중반 수문장.
+    /// 공격 높이와 방향은 예고 시작 순간 고정하며, 플레이어 또는 임시 먹 발판과 처음 닿으면
+    /// 공격을 즉시 소비한다. 경고 띠·느낌표·경로선은 자식 오브젝트를 한 번만 만들어 재사용한다.
     [RequireComponent(typeof(SpriteRenderer), typeof(Rigidbody2D), typeof(CapsuleCollider2D))]
     public sealed class HaetaeObstacle : MonoBehaviour, IPoolableEntity
     {
         const int RequiredFrameCount = 4;
-        const int PawMarkerCount = 3;
-        const int PawPointCount = 10;
+        const int SideWarningLayerCount = 3;
+        const int WarningCirclePointCount = 10;
         const float DefaultVisibleTopMargin = 0.5f;
         const float ScreenEdgeInset = 0.52f;
-        const float PounceArcHeight = 0.42f;
+        const float WarningBandHalfHeight = 1.45f;
+        const float WarningBandWidth = 0.82f;
+        const float WarningOnlyFraction = 0.48f;
         const float MaterializeDuration = 0.34f;
         const string MaterializeSealName = "HaetaeMaterializeSeal";
         const int CastHitCapacity = GameManager.MaxLivingPlayers * 2 + 8;
@@ -44,7 +46,9 @@ namespace MukJump.Obstacles
         Func<PlayerController> targetResolver;
         Func<bool> telegraphGate;
 
-        readonly LineRenderer[] pawMarkers = new LineRenderer[PawMarkerCount];
+        // 0: 반투명 위험 띠, 1: 느낌표 줄기, 2: 느낌표 점.
+        readonly LineRenderer[] sideWarningLayers =
+            new LineRenderer[SideWarningLayerCount];
         readonly RaycastHit2D[] castHits = new RaycastHit2D[CastHitCapacity];
         LineRenderer routeGuide;
         SpriteRenderer materializeSeal;
@@ -88,6 +92,15 @@ namespace MukJump.Obstacles
             materializeSeal != null ? materializeSeal.color.a : 0f;
         public float BodyAlpha =>
             spriteRenderer != null ? spriteRenderer.color.a : 0f;
+        public bool IsSideWarningVisible =>
+            sideWarningLayers[0] != null && sideWarningLayers[0].enabled;
+        public bool IsExclamationVisible =>
+            sideWarningLayers[1] != null && sideWarningLayers[1].enabled &&
+            sideWarningLayers[2] != null && sideWarningLayers[2].enabled;
+        public float WarningBandAlpha =>
+            sideWarningLayers[0] != null
+                ? sideWarningLayers[0].startColor.a
+                : 0f;
 
         void Awake()
         {
@@ -187,9 +200,11 @@ namespace MukJump.Obstacles
                 return false;
             }
 
-            Vector2 targetPosition = target.transform.position;
-            Vector2 startPosition = ResolveScreenEdgeStart(targetPosition);
-            LockPathAndBeginTelegraph(startPosition, targetPosition);
+            ResolveSideChargePath(
+                target.transform.position,
+                out Vector2 startPosition,
+                out Vector2 endPosition);
+            LockPathAndBeginTelegraph(startPosition, endPosition);
             deferredTarget = null;
             return true;
         }
@@ -231,13 +246,27 @@ namespace MukJump.Obstacles
         {
             stateElapsed += deltaTime;
             float normalized = Mathf.Clamp01(stateElapsed / telegraphDuration);
-            SetFrame(normalized < 0.28f ? 0 : 1);
-            bool materializing = AdvanceMaterializeVisual(stateElapsed);
+            float materializeStart = telegraphDuration * WarningOnlyFraction;
+            float materializeElapsed = stateElapsed - materializeStart;
+            bool materializing = false;
+            if (materializeElapsed < 0f)
+            {
+                Color hiddenColor = baseColor;
+                hiddenColor.a = 0f;
+                spriteRenderer.color = hiddenColor;
+                SetMaterializeSealVisible(false);
+                SetFrame(0);
+            }
+            else
+            {
+                SetFrame(1);
+                materializing = AdvanceMaterializeVisual(materializeElapsed);
+            }
             float pulse = 0.5f + 0.5f * Mathf.Sin(normalized * Mathf.PI * 6f);
             transform.localScale = materializing
                 ? baseScale
                 : baseScale * Mathf.Lerp(0.97f, 1.035f, pulse);
-            UpdateWarningAlpha(Mathf.Lerp(0.34f, 0.72f, pulse));
+            UpdateWarningPulse(pulse);
 
             if (stateElapsed < telegraphDuration) return;
 
@@ -441,6 +470,9 @@ namespace MukJump.Obstacles
 
         void LockPathAndBeginTelegraph(Vector2 startPosition, Vector2 targetPosition)
         {
+            // 벽에서 달려오는 위험은 한 높이의 수평 차선으로 고정한다.
+            // 예고가 끝난 뒤 플레이어를 따라 꺾이지 않아 보고 피하거나 먹선으로 막을 수 있다.
+            targetPosition.y = startPosition.y;
             lockedStart = startPosition;
             lockedTarget = targetPosition;
             hasLockedPath = true;
@@ -471,7 +503,8 @@ namespace MukJump.Obstacles
             SyncWarningSorting();
             LayoutLockedWarningPath();
             SetWarningVisible(true);
-            UpdateMaterializeSeal(1f, 0.62f);
+            SetMaterializeSealVisible(false);
+            UpdateWarningPulse(0.5f);
         }
 
         static float SmoothRange(float minimum, float maximum, float value)
@@ -482,23 +515,41 @@ namespace MukJump.Obstacles
                 Mathf.InverseLerp(minimum, maximum, value));
         }
 
-        Vector2 ResolveScreenEdgeStart(Vector2 targetPosition)
+        void ResolveSideChargePath(
+            Vector2 targetPosition,
+            out Vector2 startPosition,
+            out Vector2 endPosition)
         {
             if (worldCamera == null)
             {
-                float fallbackX = targetPosition.x +
-                    (enterFromLeft ? -5.8f : 5.8f);
-                return new Vector2(fallbackX, targetPosition.y + deferredVerticalOffset);
+                float fallbackLeft = targetPosition.x - 5.8f;
+                float fallbackRight = targetPosition.x + 5.8f;
+                float fallbackLaneY = targetPosition.y + deferredVerticalOffset;
+                startPosition = new Vector2(
+                    enterFromLeft ? fallbackLeft : fallbackRight,
+                    fallbackLaneY);
+                endPosition = new Vector2(
+                    enterFromLeft ? fallbackRight : fallbackLeft,
+                    fallbackLaneY);
+                return;
             }
 
             float cameraDistance = Mathf.Abs(
                 worldCamera.transform.position.z - transform.position.z);
-            float viewportX = enterFromLeft ? 0f : 1f;
-            float edgeX = worldCamera.ViewportToWorldPoint(
-                new Vector3(viewportX, 0.5f, cameraDistance)).x;
-            float startX = edgeX +
-                (enterFromLeft ? ScreenEdgeInset : -ScreenEdgeInset);
-            return new Vector2(startX, targetPosition.y + deferredVerticalOffset);
+            Vector3 bottomLeft = worldCamera.ViewportToWorldPoint(
+                new Vector3(0f, 0f, cameraDistance));
+            Vector3 topRight = worldCamera.ViewportToWorldPoint(
+                new Vector3(1f, 1f, cameraDistance));
+            float left = bottomLeft.x + ScreenEdgeInset;
+            float right = topRight.x - ScreenEdgeInset;
+            float minimumLaneY = bottomLeft.y + WarningBandHalfHeight;
+            float maximumLaneY = topRight.y - WarningBandHalfHeight;
+            float laneY = targetPosition.y + deferredVerticalOffset;
+            laneY = maximumLaneY >= minimumLaneY
+                ? Mathf.Clamp(laneY, minimumLaneY, maximumLaneY)
+                : (bottomLeft.y + topRight.y) * 0.5f;
+            startPosition = new Vector2(enterFromLeft ? left : right, laneY);
+            endPosition = new Vector2(enterFromLeft ? right : left, laneY);
         }
 
         bool IsActivationHeightVisible()
@@ -513,10 +564,7 @@ namespace MukJump.Obstacles
 
         Vector2 EvaluatePouncePosition(float normalized)
         {
-            Vector2 position = Vector2.LerpUnclamped(
-                lockedStart, lockedTarget, normalized);
-            position.y += 4f * PounceArcHeight * normalized * (1f - normalized);
-            return position;
+            return Vector2.LerpUnclamped(lockedStart, lockedTarget, normalized);
         }
 
         void LayoutLockedWarningPath()
@@ -528,34 +576,39 @@ namespace MukJump.Obstacles
             routeGuide.SetPosition(2, EvaluatePouncePosition(0.66f));
             routeGuide.SetPosition(3, EvaluatePouncePosition(1f));
 
-            Vector2 direction = lockedTarget - lockedStart;
-            if (direction.sqrMagnitude < 0.0001f)
-                direction = Vector2.right;
-            direction.Normalize();
-            Vector2 side = new(-direction.y, direction.x);
-            for (int markerIndex = 0; markerIndex < pawMarkers.Length; markerIndex++)
-            {
-                float pathT = 0.3f + markerIndex * 0.22f;
-                Vector2 center = EvaluatePouncePosition(pathT) +
-                    side * (markerIndex % 2 == 0 ? 0.055f : -0.055f);
-                LayoutPawMarker(pawMarkers[markerIndex], center, direction, side);
-            }
+            float warningX = lockedStart.x;
+            sideWarningLayers[0].positionCount = 2;
+            sideWarningLayers[0].SetPosition(
+                0, new Vector3(warningX, lockedStart.y - WarningBandHalfHeight));
+            sideWarningLayers[0].SetPosition(
+                1, new Vector3(warningX, lockedStart.y + WarningBandHalfHeight));
+
+            float inward = enterFromLeft ? 1f : -1f;
+            float iconX = warningX + inward * 0.16f;
+            sideWarningLayers[1].positionCount = 2;
+            sideWarningLayers[1].SetPosition(
+                0, new Vector3(iconX, lockedStart.y + 0.18f));
+            sideWarningLayers[1].SetPosition(
+                1, new Vector3(iconX, lockedStart.y + 0.78f));
+            LayoutWarningDot(
+                sideWarningLayers[2],
+                new Vector2(iconX, lockedStart.y - 0.16f));
         }
 
-        static void LayoutPawMarker(
+        static void LayoutWarningDot(
             LineRenderer marker,
-            Vector2 center,
-            Vector2 forward,
-            Vector2 side)
+            Vector2 center)
         {
-            for (int pointIndex = 0; pointIndex < PawPointCount; pointIndex++)
+            for (int pointIndex = 0;
+                 pointIndex < WarningCirclePointCount;
+                 pointIndex++)
             {
-                float angle = pointIndex * Mathf.PI * 2f / PawPointCount;
-                float toeBump = pointIndex >= 2 && pointIndex <= 4 ? 1.18f : 1f;
-                float forwardRadius = Mathf.Cos(angle) * 0.13f * toeBump;
-                float sideRadius = Mathf.Sin(angle) * 0.095f;
+                float angle = pointIndex * Mathf.PI * 2f /
+                              WarningCirclePointCount;
                 marker.SetPosition(pointIndex,
-                    center + forward * forwardRadius + side * sideRadius);
+                    center + new Vector2(
+                        Mathf.Cos(angle) * 0.09f,
+                        Mathf.Sin(angle) * 0.09f));
             }
         }
 
@@ -565,12 +618,16 @@ namespace MukJump.Obstacles
             if (routeGuide == null)
                 routeGuide = CreateWarningLine(
                     "HaetaeLockedRoute", false, 4, 0.035f, -1);
-            for (int i = 0; i < pawMarkers.Length; i++)
-            {
-                if (pawMarkers[i] == null)
-                    pawMarkers[i] = CreateWarningLine(
-                        $"HaetaePawMarker{i + 1}", true, PawPointCount, 0.024f, 0);
-            }
+            if (sideWarningLayers[0] == null)
+                sideWarningLayers[0] = CreateWarningLine(
+                    "HaetaeSideDangerBand", false, 2, WarningBandWidth, -2);
+            if (sideWarningLayers[1] == null)
+                sideWarningLayers[1] = CreateWarningLine(
+                    "HaetaeExclamationStem", false, 2, 0.13f, 1);
+            if (sideWarningLayers[2] == null)
+                sideWarningLayers[2] = CreateWarningLine(
+                    "HaetaeExclamationDot", true,
+                    WarningCirclePointCount, 0.08f, 1);
             SetWarningVisible(false);
         }
 
@@ -637,15 +694,23 @@ namespace MukJump.Obstacles
             return line;
         }
 
-        void UpdateWarningAlpha(float alpha)
+        void UpdateWarningPulse(float pulse)
         {
             Color warningRed = InkPalette.Red;
-            warningRed.a = alpha;
+            warningRed.a = Mathf.Lerp(0.22f, 0.5f, pulse);
             routeGuide.startColor = routeGuide.endColor = warningRed;
-            Color pawInk = warningRed;
-            pawInk.a = Mathf.Min(0.82f, alpha + 0.12f);
-            for (int i = 0; i < pawMarkers.Length; i++)
-                pawMarkers[i].startColor = pawMarkers[i].endColor = pawInk;
+
+            Color band = InkPalette.Red;
+            band.a = Mathf.Lerp(0.08f, 0.22f, pulse);
+            sideWarningLayers[0].startColor =
+                sideWarningLayers[0].endColor = band;
+
+            Color exclamation = InkPalette.Paper;
+            exclamation.a = Mathf.Lerp(0.62f, 1f, pulse);
+            sideWarningLayers[1].startColor =
+                sideWarningLayers[1].endColor = exclamation;
+            sideWarningLayers[2].startColor =
+                sideWarningLayers[2].endColor = exclamation;
         }
 
         void SyncWarningSorting()
@@ -657,11 +722,12 @@ namespace MukJump.Obstacles
                 routeGuide.sortingOrder = spriteRenderer.sortingOrder - 1;
             }
             SyncMaterializeSealSorting();
-            for (int i = 0; i < pawMarkers.Length; i++)
+            for (int i = 0; i < sideWarningLayers.Length; i++)
             {
-                if (pawMarkers[i] == null) continue;
-                pawMarkers[i].sortingLayerID = spriteRenderer.sortingLayerID;
-                pawMarkers[i].sortingOrder = spriteRenderer.sortingOrder;
+                if (sideWarningLayers[i] == null) continue;
+                sideWarningLayers[i].sortingLayerID = spriteRenderer.sortingLayerID;
+                sideWarningLayers[i].sortingOrder = spriteRenderer.sortingOrder +
+                    (i == 0 ? -2 : 1);
             }
         }
 
@@ -700,9 +766,9 @@ namespace MukJump.Obstacles
         void SetWarningVisible(bool visible)
         {
             if (routeGuide != null) routeGuide.enabled = visible;
-            for (int i = 0; i < pawMarkers.Length; i++)
-                if (pawMarkers[i] != null)
-                    pawMarkers[i].enabled = visible;
+            for (int i = 0; i < sideWarningLayers.Length; i++)
+                if (sideWarningLayers[i] != null)
+                    sideWarningLayers[i].enabled = visible;
         }
 
         void SetFrame(int frameIndex)

@@ -4,7 +4,8 @@ using MukJump.Core;
 
 namespace MukJump.Player
 {
-    /// 카메라 좌우 가장자리에 함께 이동하는 충돌 벽과 먹선 금지 띠를 만든다.
+    /// 카메라 좌우 가장자리에 함께 이동하는 보이지 않는 충돌 벽과 먹선 금지 띠를 만든다.
+    /// 붉은 위험 표시는 상시 벽 대신 간헐적인 먹해태 측면 습격에만 사용한다.
     [RequireComponent(typeof(Camera))]
     public class ScreenSideWalls : MonoBehaviour
     {
@@ -14,6 +15,8 @@ namespace MukJump.Player
         [SerializeField, Min(0.45f)] float drawExclusionMargin = 0.95f;
         [Tooltip("플레이 중 화면 가장자리에 보이는 붉은 먹벽의 투명도")]
         [SerializeField, Range(0f, 0.5f)] float wallVisualAlpha = 0.16f;
+        [Tooltip("레거시 진단용 상시 먹벽 표시. 실제 게임은 해태 경고와 혼동하지 않게 끕니다.")]
+        [SerializeField] bool showPersistentWallVisuals;
 
         Camera worldCamera;
         [SerializeField, HideInInspector] Rigidbody2D leftWall;
@@ -137,9 +140,10 @@ namespace MukJump.Player
             if (line != null) line.enabled = visible;
         }
 
-        static bool ShouldShowWallVisuals()
+        bool ShouldShowWallVisuals()
         {
-            return Application.isPlaying &&
+            return showPersistentWallVisuals &&
+                   Application.isPlaying &&
                    GameManager.Instance != null &&
                    GameManager.Instance.State != GameState.Lobby;
         }

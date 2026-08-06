@@ -70,7 +70,7 @@ asmdef로 강제되지는 않는다. `Core` 안의 UI가 일부 Gameplay 타입�
 |---|---|---:|---|
 | `ItemSpawner` | `ItemPickup` | 8 | 획득, 화면 아래 이탈, 비플레이 상태 |
 | `ObstacleSpawner` | `Obstacle` | 10 | 화면 아래 이탈, 비플레이 상태 |
-| `ObstacleSpawner` | `HaetaeObstacle` | 2(선행 준비) | 단일 돌진·낙관 소멸 종료, 화면 이탈, 비플레이 상태 |
+| `ObstacleSpawner` | `HaetaeObstacle` | 2(선행 준비) | 단일 측면 돌진·낙관 소멸 종료, 화면 이탈, 비플레이 상태 |
 | `FallingInkRockSpawner` | `FallingInkRock` | 2 | 충돌, 소멸, 비플레이 상태 |
 | `GameFeedbackController` | 선·방울 피드백 | 하드 상한 선 8 / 방울 16 | 각 짧은 연출 종료 |
 | `InkDropJumpVfxPool` | 모든 분신의 먹물점프 합성 VFX | 게임 전체 하드 상한 3 | 3.55초 시퀀스 종료 또는 중단 |
@@ -108,9 +108,9 @@ asmdef로 강제되지는 않는다. `Core` 안의 UI가 일부 Gameplay 타입�
    않는다. 한 화면의 용은 최대 한 마리다.
 10. 먹해태도 새 고도 슬롯을 만들지 않고 기존 이동 장애물 슬롯을 대체하지만,
     상태·경고·판정이 다른 `HaetaeObstacle` 전용 풀 2개로 격리한다. 카메라 진입
-    전 `Hidden`, 낙관 실체화와 경로 고정을 포함한 `Telegraph`, 단발 `Pounce`,
-    `Land`, 제자리 낙관 소멸 `SealAway` 상태만 가진다. 경고선 1개·발자국 3개·
-    낙관 SpriteRenderer 1개는 풀 인스턴스의 자식으로 선행 생성해 재사용하고,
+    전 `Hidden`, 좌·우 느낌표·반투명 붉은 띠·수평 경로와 낙관 실체화를 포함한
+    `Telegraph`, 단발 `Pounce`, `Land`, 제자리 낙관 소멸 `SealAway` 상태만 가진다.
+    경고선·띠·느낌표 두 획과 낙관 SpriteRenderer는 풀 인스턴스의 자식으로 선행 생성해 재사용하고,
     본체는 공용 `ObstaclePaperRed` 재질을 공유해 런타임 Material 인스턴스를 늘리지 않는다.
     어린 용과 해태의 활성 합계는 1이다. 해태 첫 320m 보장은 낙묵석·강풍과 겹치면
     소비하지 않으며, 예약 뒤 새 위험이 시작된 경우에도 `HazardConcurrencyGate`가
@@ -279,8 +279,8 @@ Player↔Obstacle, Player↔Item 충돌은 유지한다. 분신이 늘 때마다
 카메라의 수직 이동을 캐릭터에 전달하지 않으며, 직렬화된 소유자 marker로 domain reload
 뒤 기존 벽을 다시 찾아 중복 collider 생성을 막는다. 일반 벽의 최초 충돌과 접촉 유지
 모두 x를 안쪽으로 반사하고 양수 y를 0으로 만들어 급경사 먹선과의 상승 래칫을 차단하며, 음수 y와
-하강 중 `벽의 먹발` 진입은 유지한다. 각 벽의 `LineRenderer`는 충돌 면을 중심으로
-0.95m만 화면 안에 들어오는 옅은 붉은 먹띠를 그린다. `StrokeCapture`는 현재 카메라
+하강 중 `벽의 먹발` 진입은 유지한다. 각 벽의 `LineRenderer`는 레거시 진단용으로만
+남기고 실제 플레이에서는 숨겨 붉은 위험색을 해태 측면 경고에 집중한다. `StrokeCapture`는 현재 카메라
 줌·비율로 계산한 같은 0.95m 띠와 캐릭터 외곽을 단일 무할당 패스로 잘라, 최종 유효
 구간만 `PlatformCollider`와 먹자리 ledger에 넘긴다. 좌우 이동 장애물도 같은 원칙으로
 kinematic body와 fixed step 이동을 사용한다.
