@@ -304,7 +304,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void BranchArtwork_RemainsFixedWhileOnlyFruitShowsUnlockState()
+        public void RootBranchArtwork_RemainsFixedWhileFruitShowsUnlockState()
         {
             var view = viewHost.AddComponent<PermanentGrowthView>();
             view.BuildForTests();
@@ -335,6 +335,77 @@ namespace MukJump.EditorTests
                 view.TreeCanvas.Find($"GrowthNode_{child}/Fruit")
                     .GetComponent<Image>().color.a,
                 Is.GreaterThan(0.9f));
+        }
+
+        [Test]
+        public void SelectedPathLeavesOtherTwoWrappedInNonBlockingThorns()
+        {
+            var view = viewHost.AddComponent<PermanentGrowthView>();
+            view.BuildForTests();
+
+            Transform pathA =
+                view.TreeCanvas.Find("InactivePath_Survival_A");
+            Transform pathB =
+                view.TreeCanvas.Find("InactivePath_Survival_B");
+            Transform pathC =
+                view.TreeCanvas.Find("InactivePath_Survival_C");
+            Assert.That(pathA, Is.Not.Null);
+            Assert.That(pathB, Is.Not.Null);
+            Assert.That(pathC, Is.Not.Null);
+            Assert.That(pathA.GetComponent<CanvasGroup>().alpha, Is.Zero);
+            Assert.That(pathB.GetComponent<CanvasGroup>().alpha, Is.Zero);
+            Assert.That(pathC.GetComponent<CanvasGroup>().alpha, Is.Zero,
+                "첫 갈래를 고르기 전에는 어느 줄기도 가시로 막혀 보이면 안 됩니다.");
+
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("S00"), Is.True);
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("S-A1"), Is.True);
+
+            Assert.That(pathA.GetComponent<CanvasGroup>().alpha, Is.Zero);
+            Assert.That(
+                pathB.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(0.72f).Within(0.001f));
+            Assert.That(
+                pathC.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(0.72f).Within(0.001f));
+            Assert.That(pathB.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
+            Assert.That(pathB.GetComponent<CanvasGroup>().interactable, Is.False);
+
+            Transform thornVine = pathB.Find(
+                "InactiveThornVine_S_B1_From_S00");
+            Assert.That(thornVine, Is.Not.Null);
+            foreach (Image image in
+                     thornVine.GetComponentsInChildren<Image>(true))
+                Assert.That(image.raycastTarget, Is.False, image.name);
+
+            Image selectedBranch = view.TreeCanvas
+                .Find("TreeBranchArt_S_A1_From_S00")
+                .GetComponent<Image>();
+            Image inactiveBranch = view.TreeCanvas
+                .Find("TreeBranchArt_S_B1_From_S00")
+                .GetComponent<Image>();
+            Assert.That(selectedBranch.color.a, Is.EqualTo(1f).Within(0.001f));
+            Assert.That(inactiveBranch.color.a,
+                Is.EqualTo(0.46f).Within(0.001f));
+            Assert.That(
+                inactiveBranch.transform.GetSiblingIndex(),
+                Is.LessThan(pathB.GetSiblingIndex()));
+            Assert.That(
+                pathB.GetSiblingIndex(),
+                Is.LessThan(
+                    view.TreeCanvas.Find("GrowthNode_S_B1")
+                        .GetSiblingIndex()));
+
+            Assert.That(PermanentGrowthProfile.TryPurchaseNode("S-B1"), Is.True);
+            Assert.That(
+                pathA.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(0.72f).Within(0.001f));
+            Assert.That(pathB.GetComponent<CanvasGroup>().alpha, Is.Zero);
+            Assert.That(
+                pathC.GetComponent<CanvasGroup>().alpha,
+                Is.EqualTo(0.72f).Within(0.001f));
+            Assert.That(selectedBranch.color.a,
+                Is.EqualTo(0.46f).Within(0.001f));
+            Assert.That(inactiveBranch.color.a, Is.EqualTo(1f).Within(0.001f));
         }
 
         [Test]

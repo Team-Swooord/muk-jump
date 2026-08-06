@@ -19,6 +19,8 @@ namespace MukJump.Core
         const float TreeCanvasZoom = 0.60f;
         const float TreeBackgroundOpacity = 0.42f;
         const float TreeBranchOpacity = 1f;
+        const float InactiveBranchOpacity = 0.46f;
+        const float InactiveThornOpacity = 0.72f;
         const float BranchVisibleEndpointOverlap = 18f;
         const float LeapBranchHorizontalOffset = 350f;
         const float FruitionVerticalGap = 310f;
@@ -70,7 +72,15 @@ namespace MukJump.Core
             public Button Button;
         }
 
+        sealed class InactivePathOverlayView
+        {
+            public PermanentGrowthBranch Branch;
+            public PermanentGrowthPath Path;
+            public CanvasGroup Group;
+        }
+
         readonly List<GrowthNodeView> nodes = new();
+        readonly List<InactivePathOverlayView> inactivePathOverlays = new();
         readonly List<RectTransform> branchHeaders = new();
         readonly Dictionary<string, Sprite> spriteCache = new();
         readonly HashSet<string> missingSpritePaths = new();
@@ -689,6 +699,10 @@ namespace MukJump.Core
                 }
             }
 
+            // 실제 가지와 진행선 위, 열매 노드 아래에 비활성 갈래용
+            // 가시덩굴을 둔다. 계보별 선택이 생기기 전에는 모두 숨긴다.
+            BuildInactivePathOverlays(panel);
+
             for (int i = 0; i < PermanentGrowthCatalog.Nodes.Count; i++)
             {
                 int slot = i;
@@ -714,6 +728,147 @@ namespace MukJump.Core
                         panel,
                         branch,
                         BranchHeaderPosition(branch.Branch)));
+            }
+        }
+
+        void BuildInactivePathOverlays(Transform panel)
+        {
+            PermanentGrowthPath[] paths =
+            {
+                PermanentGrowthPath.A,
+                PermanentGrowthPath.B,
+                PermanentGrowthPath.C,
+            };
+
+            foreach (PermanentGrowthBranchMetadata branch
+                     in PermanentGrowthCatalog.Branches)
+            {
+                for (int pathIndex = 0; pathIndex < paths.Length; pathIndex++)
+                {
+                    PermanentGrowthPath path = paths[pathIndex];
+                    RectTransform groupRoot = CreateRect(
+                        $"InactivePath_{branch.Branch}_{path}",
+                        panel,
+                        Vector2.zero,
+                        TreeCanvasSize);
+                    CanvasGroup group =
+                        groupRoot.gameObject.AddComponent<CanvasGroup>();
+                    group.alpha = 0f;
+                    group.interactable = false;
+                    group.blocksRaycasts = false;
+
+                    for (int nodeIndex = 0;
+                         nodeIndex < PermanentGrowthCatalog.Nodes.Count;
+                         nodeIndex++)
+                    {
+                        PermanentGrowthNodeDefinition definition =
+                            PermanentGrowthCatalog.Nodes[nodeIndex];
+                        if (definition.Branch != branch.Branch ||
+                            PermanentGrowthCatalog.GetPath(definition) != path)
+                            continue;
+
+                        string childName = SanitizeNodeId(definition.Id);
+                        Vector2 end = NodePosition(definition);
+                        for (int parentIndex = 0;
+                             parentIndex < definition.ParentIds.Count;
+                             parentIndex++)
+                        {
+                            string parentId = definition.ParentIds[parentIndex];
+                            PermanentGrowthNodeDefinition parentDefinition =
+                                PermanentGrowthCatalog.GetNode(parentId);
+                            if (parentDefinition == null)
+                                continue;
+
+                            string parentName = SanitizeNodeId(parentId);
+                            CreateInactiveThornVine(
+                                groupRoot,
+                                $"InactiveThornVine_{childName}_From_{parentName}",
+                                NodePosition(parentDefinition),
+                                end,
+                                $"{parentId}->{definition.Id}");
+                        }
+                    }
+
+                    inactivePathOverlays.Add(new InactivePathOverlayView
+                    {
+                        Branch = branch.Branch,
+                        Path = path,
+                        Group = group,
+                    });
+                }
+            }
+        }
+
+        void CreateInactiveThornVine(
+            Transform parent,
+            string objectName,
+            Vector2 start,
+            Vector2 end,
+            string stableEdgeId)
+        {
+            Vector2 delta = end - start;
+            float length = delta.magnitude;
+            if (length <= 0.01f)
+                return;
+
+            RectTransform edgeRoot = CreateRect(
+                objectName,
+                parent,
+                (start + end) * 0.5f,
+                new Vector2(length, 92f));
+            edgeRoot.localEulerAngles = new Vector3(
+                0f,
+                0f,
+                Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+
+            float windingDirection = (StableHash(stableEdgeId) & 1) == 0
+                ? 1f
+                : -1f;
+            float halfLength = length * 0.5f;
+            Vector2[] vinePoints =
+            {
+                new(-halfLength * 0.84f, 0f),
+                new(-halfLength * 0.28f, 15f * windingDirection),
+                new(halfLength * 0.28f, -15f * windingDirection),
+                new(halfLength * 0.84f, 0f),
+            };
+            Color vineColor = WithAlpha(
+                Color.Lerp(InkPalette.Ink, InkPalette.Paper2, 0.12f),
+                0.88f);
+            for (int segment = 0; segment < vinePoints.Length - 1; segment++)
+            {
+                Image vine = CreateInkLine(
+                    $"VineSegment_{segment + 1}",
+                    edgeRoot,
+                    vinePoints[segment],
+                    vinePoints[segment + 1]);
+                vine.rectTransform.sizeDelta = new Vector2(
+                    vine.rectTransform.sizeDelta.x,
+                    8f);
+                vine.color = vineColor;
+            }
+
+            float thornLength = Mathf.Clamp(length * 0.11f, 34f, 48f);
+            float[] thornPositions = { -0.24f, 0f, 0.24f };
+            for (int thornIndex = 0;
+                 thornIndex < thornPositions.Length;
+                 thornIndex++)
+            {
+                float side = ((thornIndex & 1) == 0 ? 1f : -1f) *
+                             windingDirection;
+                Image thorn = CreateImage(
+                    $"Thorn_{thornIndex + 1}",
+                    edgeRoot,
+                    InkUiTextureFactory.CreateBrushSprite(),
+                    new Vector2(
+                        halfLength * thornPositions[thornIndex] * 2f,
+                        side * 6f),
+                    new Vector2(thornLength, 8f),
+                    vineColor);
+                thorn.rectTransform.localEulerAngles = new Vector3(
+                    0f,
+                    0f,
+                    side * 56f);
             }
         }
 
@@ -1408,6 +1563,13 @@ namespace MukJump.Core
             RefreshDistanceProgress();
             RefreshGrowthSummary();
 
+            PermanentGrowthPath survivalPath = ResolveSelectedPath(
+                PermanentGrowthBranch.Survival);
+            PermanentGrowthPath leapPath = ResolveSelectedPath(
+                PermanentGrowthBranch.Leap);
+            PermanentGrowthPath inkPath = ResolveSelectedPath(
+                PermanentGrowthBranch.InkHandling);
+
             for (int i = 0; i < nodes.Count; i++)
             {
                 GrowthNodeView node = nodes[i];
@@ -1421,22 +1583,27 @@ namespace MukJump.Core
                     PermanentGrowthProfile.MeetsNodeRequirements(definition);
                 bool selected = i == selectedSlot;
                 Color pathColor = ResolveGrowthPathColor(definition);
+                PermanentGrowthPath nodePath =
+                    PermanentGrowthCatalog.GetPath(definition);
+                PermanentGrowthPath selectedPath = definition.Branch switch
+                {
+                    PermanentGrowthBranch.Survival => survivalPath,
+                    PermanentGrowthBranch.Leap => leapPath,
+                    _ => inkPath,
+                };
+                bool inactivePath =
+                    nodePath != PermanentGrowthPath.None &&
+                    selectedPath != PermanentGrowthPath.None &&
+                    nodePath != selectedPath;
+                float iconAlpha = inactivePath
+                    ? unlocked ? 0.76f : requirementsMet ? 0.54f : 0.44f
+                    : requirementsMet ? 1f : 0.6f;
 
                 node.Icon.sprite = LoadIcon(definition);
                 ApplyIconVariation(node.Icon, definition);
                 node.Icon.color = node.Icon.sprite != null
-                    ? new Color(
-                        1f,
-                        1f,
-                        1f,
-                        unlocked && !pathActive
-                            ? 0.50f
-                            : requirementsMet ? 1f : 0.6f)
-                    : WithAlpha(
-                        InkPalette.Ink,
-                        unlocked && !pathActive
-                            ? 0.46f
-                            : requirementsMet ? 1f : 0.58f);
+                    ? new Color(1f, 1f, 1f, iconAlpha)
+                    : WithAlpha(InkPalette.Ink, iconAlpha);
                 if (node.Contrast != null)
                 {
                     Color contrastColor = definition.Branch ==
@@ -1444,17 +1611,28 @@ namespace MukJump.Core
                                           definition.Id != "J00"
                         ? Color.Lerp(InkPalette.Ink, pathColor, 0.48f)
                         : InkPalette.Ink;
-                    node.Contrast.color = WithAlpha(contrastColor, 0.98f);
+                    node.Contrast.color = WithAlpha(
+                        contrastColor,
+                        inactivePath ? 0.70f : 0.98f);
                 }
                 node.Surface.color = unlocked
                     ? TransparentColor(InkPalette.Paper2)
                     : requirementsMet
-                        ? WithAlpha(InkPalette.Paper2, 1f)
-                        : WithAlpha(InkPalette.Paper2, 0.62f);
+                        ? WithAlpha(
+                            InkPalette.Paper2,
+                            inactivePath ? 0.72f : 1f)
+                        : WithAlpha(
+                            InkPalette.Paper2,
+                            inactivePath ? 0.44f : 0.62f);
                 node.Fruit.color = unlocked
                     ? pathActive
                         ? WithAlpha(InkPalette.Red, 1f)
-                        : WithAlpha(InkPalette.Ink, 0.48f)
+                        : WithAlpha(
+                            Color.Lerp(
+                                InkPalette.Ink,
+                                InkPalette.Paper2,
+                                0.18f),
+                            inactivePath ? 0.80f : 0.58f)
                     : TransparentColor(InkPalette.Red);
                 node.FruitGlow.color = unlocked
                     ? WithAlpha(
@@ -1463,13 +1641,15 @@ namespace MukJump.Core
                             ? selected
                                 ? definition.IsKeystone ? 0.42f : 0.28f
                                 : definition.IsKeystone ? 0.30f : 0.18f
-                            : 0.10f)
+                            : inactivePath ? 0.12f : 0.10f)
                     : TransparentColor(InkPalette.Red);
                 if (node.FruitionHalo != null)
                 {
                     node.FruitionHalo.color = WithAlpha(
                         InkPalette.Gold,
-                        unlocked && pathActive
+                        inactivePath
+                            ? 0.18f
+                            : unlocked && pathActive
                             ? 0.88f
                             : requirementsMet ? 0.42f : 0.18f);
                 }
@@ -1484,7 +1664,9 @@ namespace MukJump.Core
                     : unlocked && pathActive ? InkPalette.Gold : InkPalette.Ink;
                 Color lineColor = WithAlpha(
                     lineBase,
-                    unlocked
+                    inactivePath
+                        ? 0.20f
+                        : unlocked
                         ? pathActive
                             ? isColoredLeapPath ? 0.72f : 0.38f
                             : 0.11f
@@ -1497,10 +1679,14 @@ namespace MukJump.Core
                     if (node.IncomingLines[lineIndex] != null)
                         node.IncomingLines[lineIndex].color = lineColor;
 
-                // 가지는 진행 상태가 아니라 나무 자체다. 해금 상태 표현은
-                // 열매와 얇은 상태선에만 맡겨 한 그루의 실루엣을 유지한다.
                 Color branchColor =
-                    new(1f, 1f, 1f, TreeBranchOpacity);
+                    new(
+                        1f,
+                        1f,
+                        1f,
+                        inactivePath
+                            ? InactiveBranchOpacity
+                            : TreeBranchOpacity);
                 for (int artIndex = 0;
                      artIndex < node.BranchArts.Count;
                      artIndex++)
@@ -1511,6 +1697,8 @@ namespace MukJump.Core
                 node.Button.interactable = !purchaseUiLocked;
             }
 
+            RefreshInactivePathOverlays(survivalPath, leapPath, inkPath);
+
             if (BackButton != null)
                 BackButton.interactable = !purchaseUiLocked;
             if (NodeResetButton != null)
@@ -1520,6 +1708,42 @@ namespace MukJump.Core
             UpdateTreeInteraction();
             RefreshSelectedNodePopup();
             RefreshRecoveryPrompt();
+        }
+
+        static PermanentGrowthPath ResolveSelectedPath(
+            PermanentGrowthBranch branch)
+        {
+            string activeId =
+                PermanentGrowthProfile.GetActiveKeystoneId(branch);
+            PermanentGrowthNodeDefinition activeNode =
+                PermanentGrowthCatalog.GetNode(activeId);
+            if (activeNode == null ||
+                !activeNode.IsKeystone ||
+                activeNode.Branch != branch)
+                return PermanentGrowthPath.None;
+            return PermanentGrowthCatalog.GetPath(activeNode);
+        }
+
+        void RefreshInactivePathOverlays(
+            PermanentGrowthPath survivalPath,
+            PermanentGrowthPath leapPath,
+            PermanentGrowthPath inkPath)
+        {
+            for (int i = 0; i < inactivePathOverlays.Count; i++)
+            {
+                InactivePathOverlayView overlay = inactivePathOverlays[i];
+                PermanentGrowthPath selectedPath = overlay.Branch switch
+                {
+                    PermanentGrowthBranch.Survival => survivalPath,
+                    PermanentGrowthBranch.Leap => leapPath,
+                    _ => inkPath,
+                };
+                overlay.Group.alpha =
+                    selectedPath != PermanentGrowthPath.None &&
+                    selectedPath != overlay.Path
+                        ? InactiveThornOpacity
+                        : 0f;
+            }
         }
 
         void RefreshDistanceProgress()
