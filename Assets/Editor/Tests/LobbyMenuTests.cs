@@ -217,6 +217,9 @@ namespace MukJump.EditorTests
             Assert.That(growthDim.raycastTarget, Is.True);
             Assert.That(growthDim.color.a,
                 Is.EqualTo(InkUiStyle.PopupDimAlpha).Within(0.001f));
+            Assert.That(growthDim.color.a,
+                Is.GreaterThanOrEqualTo(0.78f),
+                "팝업 뒤 화면은 정보 계층이 분명하도록 충분히 어두워야 합니다.");
             Assert.That(growthDim.rectTransform.anchorMin,
                 Is.EqualTo(Vector2.zero));
             Assert.That(growthDim.rectTransform.anchorMax,
@@ -247,9 +250,13 @@ namespace MukJump.EditorTests
             Assert.That(
                 selectedAction.Find("CloseButton")?.GetComponent<Button>(),
                 Is.Not.Null);
-            Assert.That(growthView.DebugMenuButton, Is.Not.Null);
-            Assert.That(growthView.DebugResetButton, Is.Not.Null);
-            Assert.That(growthView.DebugCurrencyButton, Is.Not.Null);
+            Assert.That(
+                growthPanel.Find("GrowthDebugMenuButton"),
+                Is.Null);
+            Assert.That(
+                growthPanel.Find("GrowthDebugMenu"),
+                Is.Null,
+                "성장 화면에는 개발용 재화·초기화 UI를 노출하지 않습니다.");
 
             growthView.NodePopupCloseButton.onClick.Invoke();
             Assert.That(growthView.IsNodePopupOpen, Is.False);
@@ -395,55 +402,25 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void GrowthDebugMenuRefills999AndResetsUnlockedFruit()
+        public void GrowthScreenOmitsDevelopmentDebugControls()
         {
-            managerHost = new GameObject("GrowthDebugMenuManager");
+            managerHost = new GameObject("GrowthNoDebugManager");
             var manager = managerHost.AddComponent<GameManager>();
             Invoke(manager, "OnEnable");
-            viewHost = new GameObject("GrowthDebugMenuHost");
+            viewHost = new GameObject("GrowthNoDebugHost");
             var view = viewHost.AddComponent<PermanentGrowthView>();
             view.BuildForTests();
 
-            RectTransform debugPanel = view.ScreenRoot.Find(
-                    "SafeAreaRoot/PermanentGrowthScreen/GrowthDebugMenu")
-                ?.GetComponent<RectTransform>();
-            Assert.That(debugPanel, Is.Not.Null);
-            Assert.That(debugPanel.gameObject.activeSelf, Is.False);
             Assert.That(
-                view.DebugResetButton.GetComponentInChildren<Text>(true).text,
-                Is.EqualTo("노드 초기화"));
-
-            view.DebugMenuButton.onClick.Invoke();
-            Assert.That(debugPanel.gameObject.activeSelf, Is.True);
-            view.DebugCurrencyButton.onClick.Invoke();
-            Assert.That(view.BalanceLabel, Is.EqualTo("999"));
-
-            PermanentGrowthNodeDefinition root =
-                PermanentGrowthCatalog.GetNode(
-                    PermanentGrowthType.InkCapacity,
-                    1);
+                view.ScreenRoot.Find(
+                    "SafeAreaRoot/PermanentGrowthScreen/" +
+                    "GrowthDebugMenuButton"),
+                Is.Null);
             Assert.That(
-                PermanentGrowthProfile.TryPurchaseNode(root),
-                Is.True);
-            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(
-                999 - root.Cost));
-            RectTransform rootNode = FindGrowthNode(
-                view.TreeCanvas,
-                root.Type,
-                root.Rank);
-            Image rootFruit = rootNode.Find("Fruit").GetComponent<Image>();
-            Assert.That(rootFruit.color.a, Is.EqualTo(1f).Within(0.001f));
-            view.SelectGrowthForTests(0);
-            Assert.That(view.IsNodePopupOpen, Is.True);
-
-            view.DebugResetButton.onClick.Invoke();
-
-            Assert.That(view.IsNodePopupOpen, Is.False);
-            Assert.That(view.BalanceLabel, Is.EqualTo("999"));
-            Assert.That(
-                PermanentGrowthProfile.GetLevel(root.Type),
-                Is.Zero);
-            Assert.That(rootFruit.color.a, Is.Zero.Within(0.001f));
+                view.ScreenRoot.Find(
+                    "SafeAreaRoot/PermanentGrowthScreen/" +
+                    "GrowthDebugMenu"),
+                Is.Null);
         }
 
         static RectTransform FindGrowthNode(

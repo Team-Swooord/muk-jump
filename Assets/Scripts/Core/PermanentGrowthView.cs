@@ -111,10 +111,6 @@ namespace MukJump.Core
         string pendingKeystoneId = string.Empty;
         int selectedSlot;
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        RectTransform debugMenuPanel;
-#endif
-
         public bool IsOpen =>
             rootGroup != null && rootGroup.blocksRaycasts;
         public Button BackButton { get; private set; }
@@ -149,12 +145,6 @@ namespace MukJump.Core
             nodes.Count > 0 && selectedSlot >= 0 && selectedSlot < nodes.Count
                 ? nodes[selectedSlot].NodeDefinition.Id
                 : string.Empty;
-
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        public Button DebugMenuButton { get; private set; }
-        public Button DebugResetButton { get; private set; }
-        public Button DebugCurrencyButton { get; private set; }
-#endif
 
         void OnEnable()
         {
@@ -447,9 +437,6 @@ namespace MukJump.Core
                 32);
             BackButton.onClick.AddListener(HandleBackRequested);
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            BuildDebugMenu(panel);
-#endif
         }
 
         void BuildFullScreenInkWash(Transform parent)
@@ -1175,62 +1162,6 @@ namespace MukJump.Core
             recoveryPromptRoot.SetAsLastSibling();
         }
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        void BuildDebugMenu(Transform parent)
-        {
-            DebugMenuButton = CreateBrushButton(
-                "GrowthDebugMenuButton",
-                parent,
-                "DEBUG",
-                new Vector2(-405f, 672f),
-                new Vector2(150f, 82f),
-                25);
-
-            Image panelImage = CreateImage(
-                "GrowthDebugMenu",
-                parent,
-                LoadPermanentGrowthSprite("pg_hanji_card") ??
-                InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(-245f, 525f),
-                new Vector2(470f, 238f),
-                Color.white);
-            panelImage.raycastTarget = true;
-            if (panelImage.sprite != null &&
-                panelImage.sprite.border != Vector4.zero)
-                panelImage.type = Image.Type.Sliced;
-            debugMenuPanel = panelImage.rectTransform;
-
-            CreateText(
-                "DebugTitle",
-                debugMenuPanel,
-                "성장 DEBUG",
-                28,
-                new Vector2(0f, 66f),
-                new Vector2(360f, 48f),
-                InkPalette.TextDark,
-                FontStyle.Bold);
-            DebugResetButton = CreateBrushButton(
-                "DebugResetButton",
-                debugMenuPanel,
-                "노드 초기화",
-                new Vector2(-112f, -30f),
-                new Vector2(202f, 92f),
-                25);
-            DebugCurrencyButton = CreateBrushButton(
-                "DebugCurrencyButton",
-                debugMenuPanel,
-                "먹빛 999",
-                new Vector2(112f, -30f),
-                new Vector2(202f, 92f),
-                27);
-
-            DebugMenuButton.onClick.AddListener(ToggleDebugMenu);
-            DebugResetButton.onClick.AddListener(HandleDebugReset);
-            DebugCurrencyButton.onClick.AddListener(HandleDebugRefill);
-            debugMenuPanel.gameObject.SetActive(false);
-        }
-#endif
-
         void SelectInitialNode()
         {
             int firstAvailable = -1;
@@ -1473,14 +1404,6 @@ namespace MukJump.Core
 
             if (BackButton != null)
                 BackButton.interactable = !purchaseUiLocked;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (DebugMenuButton != null)
-                DebugMenuButton.interactable = !purchaseUiLocked;
-            if (DebugResetButton != null)
-                DebugResetButton.interactable = !purchaseUiLocked;
-            if (DebugCurrencyButton != null)
-                DebugCurrencyButton.interactable = !purchaseUiLocked;
-#endif
             UpdateTreeInteraction();
             RefreshSelectedNodePopup();
             RefreshRecoveryPrompt();
@@ -1662,36 +1585,6 @@ namespace MukJump.Core
             SetNodePopupVisible(false);
             Refresh();
         }
-
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        void ToggleDebugMenu()
-        {
-            if (debugMenuPanel == null || purchaseUiLocked)
-                return;
-            bool visible = !debugMenuPanel.gameObject.activeSelf;
-            debugMenuPanel.gameObject.SetActive(visible);
-            if (visible)
-                debugMenuPanel.SetAsLastSibling();
-        }
-
-        void HandleDebugReset()
-        {
-            if (purchaseUiLocked)
-                return;
-            CloseNodePopup();
-            PermanentGrowthProfile.DebugResetProgress();
-            SelectInitialNode();
-            Refresh();
-        }
-
-        void HandleDebugRefill()
-        {
-            if (purchaseUiLocked)
-                return;
-            PermanentGrowthProfile.DebugRefillCurrency();
-            Refresh();
-        }
-#endif
 
         static Vector2 NodePosition(
             PermanentGrowthNodeDefinition definition)
@@ -2166,10 +2059,6 @@ namespace MukJump.Core
                 purchaseUiLocked = false;
                 purchaseLockedUntil = 0f;
                 CloseNodePopup();
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-                if (debugMenuPanel != null)
-                    debugMenuPanel.gameObject.SetActive(false);
-#endif
                 InkUiFeedbackController.CancelGrowthPresentation();
             }
             if (visible)
