@@ -375,6 +375,22 @@ namespace MukJump.Core
 
         void BuildHeader(Transform panel)
         {
+            // 노드 상세창의 진회색 먹 패널을 상단 정보에도 그대로 사용한다.
+            // 재화·누적 거리·세 성장 요약은 기존 직계 계층을 유지하고 이 판보다
+            // 나중에 그려, 모바일에서도 나무 그림과 섞이지 않게 한다.
+            Image headerInfoPanel = CreateImage(
+                "HeaderInfoPanel",
+                panel,
+                LoadPermanentGrowthSprite("pg_hanji_card") ??
+                InkUiTextureFactory.CreateBlobSprite(),
+                new Vector2(0f, 690f),
+                new Vector2(1040f, 410f),
+                WithAlpha(InkPalette.Ink, 0.94f));
+            headerInfoPanel.raycastTarget = false;
+            if (headerInfoPanel.sprite != null &&
+                headerInfoPanel.sprite.border != Vector4.zero)
+                headerInfoPanel.type = Image.Type.Sliced;
+
             RectTransform balanceHud = CreateRect(
                 "CurrencyHud",
                 panel,
@@ -396,7 +412,7 @@ namespace MukJump.Core
                 44,
                 new Vector2(36f, 26f),
                 new Vector2(120f, 54f),
-                InkPalette.TextDark,
+                InkPalette.TextLight,
                 FontStyle.Normal);
             balanceText.alignment = TextAnchor.MiddleCenter;
 
@@ -407,7 +423,7 @@ namespace MukJump.Core
                 30,
                 new Vector2(0f, -20f),
                 new Vector2(286f, 30f),
-                InkPalette.TextDark,
+                InkPalette.TextLight,
                 FontStyle.Normal);
             Image distanceTrack = CreateImage(
                 "JourneyTrack",
@@ -415,7 +431,7 @@ namespace MukJump.Core
                 null,
                 new Vector2(0f, -49f),
                 new Vector2(270f, 9f),
-                WithAlpha(InkPalette.Ink, 0.14f));
+                WithAlpha(InkPalette.Paper, 0.26f));
             distanceProgressFill = CreateImage(
                 "Fill",
                 distanceTrack.transform,
@@ -432,7 +448,7 @@ namespace MukJump.Core
                 "BackButton",
                 panel,
                 "로비",
-                new Vector2(-405f, 800f),
+                new Vector2(-405f, -800f),
                 new Vector2(150f, 120f),
                 32);
             BackButton.onClick.AddListener(HandleBackRequested);
@@ -466,7 +482,7 @@ namespace MukJump.Core
                 34,
                 position,
                 new Vector2(320f, 196f),
-                InkPalette.TextDark,
+                InkPalette.TextLight,
                 FontStyle.Normal,
                 TextAnchor.UpperCenter);
             text.supportRichText = true;
@@ -1399,9 +1415,12 @@ namespace MukJump.Core
 
             PermanentGrowthRunSnapshot snapshot =
                 PermanentGrowthProfile.CreateRunSnapshot();
-            string survivalColor = ColorUtility.ToHtmlStringRGB(InkPalette.Red);
-            string leapColor = ColorUtility.ToHtmlStringRGB(InkPalette.WindPlatform);
-            string inkColor = ColorUtility.ToHtmlStringRGB(InkPalette.Gold);
+            string survivalColor = ColorUtility.ToHtmlStringRGB(
+                InkPalette.ObstaclePaperRed);
+            string leapColor = ColorUtility.ToHtmlStringRGB(
+                InkPalette.WindAccent);
+            string inkColor = ColorUtility.ToHtmlStringRGB(
+                Color.Lerp(InkPalette.Gold, InkPalette.Paper, 0.35f));
 
             int maxHealth = Mathf.Clamp(
                 Player.PlayerController.DefaultMaxHealth + snapshot.MaxHealthBonus,

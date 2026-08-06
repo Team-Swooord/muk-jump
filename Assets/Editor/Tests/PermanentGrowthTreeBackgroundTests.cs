@@ -188,6 +188,14 @@ namespace MukJump.EditorTests
             Assert.That(panel.Find("Title"), Is.Null);
             Assert.That(panel.Find("Subtitle"), Is.Null);
             Assert.That(panel.Find("CurrencyBrush"), Is.Null);
+            var headerInfoPanel = panel.Find("HeaderInfoPanel")
+                ?.GetComponent<Image>();
+            Assert.That(headerInfoPanel, Is.Not.Null);
+            Assert.That(
+                headerInfoPanel.color.a,
+                Is.GreaterThanOrEqualTo(0.9f),
+                "재화와 성장 요약은 상세창과 같은 진한 먹 패널 위에 있어야 합니다.");
+            Assert.That(headerInfoPanel.raycastTarget, Is.False);
             Assert.That(panel.Find("CurrencyHud/CurrencyDrop"), Is.Not.Null);
             Assert.That(panel.Find("CurrencyHud/Balance"), Is.Not.Null);
             var currencyHud = panel.Find("CurrencyHud") as RectTransform;
@@ -207,10 +215,12 @@ namespace MukJump.EditorTests
                 "재화 HUD는 성장 화면의 정확한 수평 중앙에 있어야 합니다.");
             Assert.That(balanceLabel.fontStyle, Is.EqualTo(FontStyle.Normal));
             Assert.That(balanceLabel.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+            Assert.That(balanceLabel.color, Is.EqualTo(InkPalette.TextLight));
             Assert.That(balanceLabel.GetComponent<Outline>().enabled, Is.False);
             Assert.That(journeyText.resizeTextForBestFit, Is.False);
             Assert.That(journeyText.fontSize, Is.GreaterThanOrEqualTo(30));
             Assert.That(journeyText.fontStyle, Is.EqualTo(FontStyle.Normal));
+            Assert.That(journeyText.color, Is.EqualTo(InkPalette.TextLight));
             Assert.That(journeyTrack.sizeDelta.y, Is.GreaterThanOrEqualTo(9f));
             Assert.That(journeyFill.anchorMin.x, Is.Zero);
             Assert.That(journeyFill.anchorMax.x, Is.Zero);
@@ -230,9 +240,18 @@ namespace MukJump.EditorTests
                 Assert.That(summary, Is.Not.Null);
                 Assert.That(summary.fontSize, Is.GreaterThanOrEqualTo(34));
                 Assert.That(summary.fontStyle, Is.EqualTo(FontStyle.Normal));
+                Assert.That(summary.color, Is.EqualTo(InkPalette.TextLight));
                 Assert.That(summary.GetComponent<Outline>().enabled, Is.False);
                 Assert.That(summary.text, Does.Not.Contain("<b>"));
+                Assert.That(
+                    headerInfoPanel.transform.GetSiblingIndex(),
+                    Is.LessThan(summary.transform.GetSiblingIndex()));
             }
+
+            RectTransform backButton =
+                view.BackButton.GetComponent<RectTransform>();
+            Assert.That(backButton.anchoredPosition.x, Is.LessThan(0f));
+            Assert.That(backButton.anchoredPosition.y, Is.LessThan(0f));
 
             foreach (PermanentGrowthNodeDefinition definition
                      in PermanentGrowthCatalog.Nodes)
