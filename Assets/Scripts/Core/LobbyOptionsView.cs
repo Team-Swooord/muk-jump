@@ -328,11 +328,11 @@ namespace MukJump.Core
 
         void BuildTutorialPage(Transform panel)
         {
-            var close = CreatePaperButton(
+            var close = CreateBrushButton(
                 "TutorialClose", panel, "옵션으로",
                 new Vector2(-250f, 640f),
-                new Vector2(200f, InkUiStyle.MinimumTapHeight),
-                InkUiStyle.CaptionSize);
+                new Vector2(280f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.ActionButtonLabelSize);
             close.onClick.AddListener(ShowOptionsPage);
 
             tutorialPage = CreateReadableText(
@@ -369,17 +369,17 @@ namespace MukJump.Core
                 TextAnchor.MiddleLeft);
             tutorialDescription.lineSpacing = 1.2f;
 
-            tutorialPreviousButton = CreatePaperButton(
+            tutorialPreviousButton = CreateBrushButton(
                 "PreviousButton", panel, "이전",
                 new Vector2(-190f, -520f),
-                new Vector2(240f, InkUiStyle.MinimumTapHeight),
-                InkUiStyle.BodySize);
+                new Vector2(300f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.ActionButtonLabelSize);
             tutorialPreviousButton.onClick.AddListener(PreviousTutorialPage);
             var next = CreateBrushButton(
                 "NextButton", panel, "다음",
                 new Vector2(190f, -520f),
-                new Vector2(320f, InkUiStyle.MinimumTapHeight),
-                InkUiStyle.BodySize);
+                new Vector2(300f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.ActionButtonLabelSize);
             tutorialNextLabel = next.transform
                 .Find("Label")?.GetComponent<Text>();
             next.onClick.AddListener(NextTutorialPage);

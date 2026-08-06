@@ -349,11 +349,14 @@ kinematic body와 fixed step 이동을 사용한다.
   금빛 고리를 합성하고, 설명은 고정 `SelectedGrowthAction` 팝업에서만 보여 준다.
   UI 트리는 최초 진입 때 한 번 만들고 이후 리소스와 표현 객체를 재사용한다.
 - `GameplayTutorialCatalog`는 먹 그리기·발판·장애물·날씨·맵 5장 문구와 아이콘을
-  첫 플레이와 옵션 다시 보기에 공통 제공한다. `FirstRunTutorialController`는 성장
-  저장 복구와 화면 전환 검사를 통과한 첫 `시작`에서만 예약되고, `Playing` 진입 뒤
+  첫 플레이와 옵션 다시 보기에 공통 제공한다. `FirstRunTutorialController`는 최초
+  접속에서 성장 저장 복구와 화면 전환 검사를 통과하면 로비를 자동으로 건너뛰며,
+  `Playing` 진입 뒤
   `GameplayPauseReason.FirstRunTutorial` 소유권으로 `timeScale=0`·오디오 정지를 건다.
   Safe Area 중앙의 5장 한지 팝업을 이전·다음으로 읽고 마지막 `시작하기` 또는 확인된
-  건너뛰기 뒤에만 재개한다. 전체 화면 dim과 CanvasGroup이 아래 HUD·월드 먹선을 모두
+  건너뛰기 뒤에만 재개한다. 완료 기록은 버전 상승과 무관하게 설치 프로필당 한 번만
+  적용한다. 첫 안내와 옵션 다시 보기의 이동 버튼은 공용 붓획 실루엣을 쓴다.
+  전체 화면 dim과 CanvasGroup이 아래 HUD·월드 먹선을 모두
   차단하고, 사용자 일시정지 메뉴는 튜토리얼의 정지 소유권을 해제할 수 없다.
 - 모달 장막은 `InkUiStyle.ConfigurePopupDim()`으로 78% 먹색과 Raycast를 함께 설정한다.
   옵션·일시정지·게임오버·성장 노드 상세·저장 복구·첫 튜토리얼이 같은 계약을 쓰며,

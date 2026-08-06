@@ -113,7 +113,8 @@ namespace MukJump.Core
             }
         }
 
-        /// 이전 안내를 본 사용자도 규칙이 바뀐 최신 인터랙티브 안내는 한 번 경험한다.
+        /// 게임플레이 튜토리얼은 설치 프로필 기준으로 최초 한 번만 실행한다.
+        /// 안내 문구 버전이 바뀌어도 완료 사용자를 다시 게임으로 강제 진입시키지 않는다.
         public static bool NeedsGameplayTutorial
         {
             get
@@ -121,8 +122,7 @@ namespace MukJump.Core
                 try
                 {
                     EnsureLoaded();
-                    return gameplayTutorialVersion <
-                           CurrentGameplayTutorialVersion;
+                    return gameplayTutorialVersion <= 0;
                 }
                 catch (Exception exception)
                 {
@@ -134,6 +134,10 @@ namespace MukJump.Core
                 }
             }
         }
+
+        /// 최초 접속에서만 로비를 건너뛰고 게임 화면의 정지형 안내로 바로 진입한다.
+        public static bool ShouldAutoStartGameplayTutorial =>
+            NeedsGameplayTutorial;
 
         public static string PlayerUid
         {
@@ -199,8 +203,7 @@ namespace MukJump.Core
             try
             {
                 EnsureLoaded();
-                bool changed = gameplayTutorialVersion <
-                               CurrentGameplayTutorialVersion ||
+                bool changed = gameplayTutorialVersion <= 0 ||
                                !tutorialSeen;
                 gameplayTutorialVersion = CurrentGameplayTutorialVersion;
                 tutorialSeen = true;

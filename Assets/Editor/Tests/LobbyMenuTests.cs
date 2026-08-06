@@ -629,8 +629,8 @@ namespace MukJump.EditorTests
                     ?.blocksRaycasts,
                 Is.True);
             Transform tutorialPage = page.parent.Find("TutorialPage");
-            AssertOptionButton(tutorialPage, "TutorialClose", usesActionBrush: false);
-            AssertOptionButton(tutorialPage, "PreviousButton", usesActionBrush: false);
+            AssertOptionButton(tutorialPage, "TutorialClose", usesActionBrush: true);
+            AssertOptionButton(tutorialPage, "PreviousButton", usesActionBrush: true);
             AssertOptionButton(tutorialPage, "NextButton", usesActionBrush: true);
             AssertQuietOptionText(
                 tutorialPage.Find("TutorialDescription")?.GetComponent<Text>());

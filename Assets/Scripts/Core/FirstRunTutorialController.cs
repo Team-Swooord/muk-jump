@@ -33,11 +33,14 @@ namespace MukJump.Core
         int currentStep = -1;
         float skipArmedUntil;
         bool pendingFirstRun;
+        bool autoStartFirstVisit;
+        bool autoStartAttempted;
         bool active;
         bool skipArmed;
         bool ownsTutorialPause;
         int lastScreenWidth;
         int lastScreenHeight;
+        int autoStartEarliestFrame;
         Rect lastSafeArea;
 
         public bool IsActive => active;
@@ -58,6 +61,9 @@ namespace MukJump.Core
             Instance = this;
             BuildIfNeeded();
             BindRuntimeSignals();
+            autoStartFirstVisit =
+                LobbySettingsProfile.ShouldAutoStartGameplayTutorial;
+            autoStartEarliestFrame = Time.frameCount + 1;
         }
 
         void OnDisable()
@@ -77,7 +83,10 @@ namespace MukJump.Core
             RefreshResponsiveLayoutIfNeeded();
 
             if (!active)
+            {
+                TryAutoStartFirstVisit();
                 return;
+            }
             if (manager == null || manager.State != GameState.Playing)
             {
                 EndWithoutCompletion();
@@ -93,6 +102,32 @@ namespace MukJump.Core
 
             if (skipArmed && Time.unscaledTime > skipArmedUntil)
                 ResetSkipConfirmation();
+        }
+
+        /// 최초 설치 프로필만 로비를 한 프레임 보여 준 뒤 자동으로 게임에 진입한다.
+        /// 실제 팝업은 Playing 전환 뒤에 열려 로비가 아니라 게임 월드 위에 표시된다.
+        void TryAutoStartFirstVisit()
+        {
+            if (!autoStartFirstVisit || autoStartAttempted ||
+                pendingFirstRun || Time.frameCount < autoStartEarliestFrame)
+                return;
+
+            manager ??= GameManager.Instance;
+            if (manager == null || manager.State != GameState.Lobby ||
+                manager.IsTransitioning ||
+                PermanentGrowthProfile.RequiresRecovery)
+                return;
+
+            LobbyScreenNavigator navigator =
+                LobbyScreenNavigator.Instance != null
+                    ? LobbyScreenNavigator.Instance
+                    : FindFirstObjectByType<LobbyScreenNavigator>();
+            if (navigator != null && !navigator.CanStartGame)
+                return;
+
+            autoStartAttempted = true;
+            autoStartFirstVisit = false;
+            manager.StartGameFromMenu();
         }
 
         /// 실제 시작 진입점이 복구 검사를 통과한 뒤 호출한다.
@@ -421,13 +456,13 @@ namespace MukJump.Core
                 TextAnchor.MiddleCenter,
                 false);
 
-            previousButton = CreatePaperButton(
+            previousButton = CreateBrushButton(
                 "PreviousButton",
                 panel,
                 "이전",
                 new Vector2(-190f, -380f),
-                new Vector2(240f, InkUiStyle.MinimumTapHeight),
-                InkUiStyle.StandardButtonLabelSize);
+                new Vector2(300f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.ActionButtonLabelSize);
             previousButton.onClick.AddListener(PreviousStep);
             nextButton = CreateBrushButton(
                 "NextButton",
@@ -440,15 +475,15 @@ namespace MukJump.Core
                 .Find("Label")?.GetComponent<Text>();
             nextButton.onClick.AddListener(HandleNextPressed);
 
-            Button skipButton = CreatePaperButton(
+            Button skipButton = CreateBrushButton(
                 "SkipButton",
                 panel,
                 "건너뛰기",
                 new Vector2(0f, -520f),
                 new Vector2(300f, InkUiStyle.MinimumTapHeight),
-                InkUiStyle.StandardButtonLabelSize);
+                InkUiStyle.ActionButtonLabelSize);
             skipLabel = skipButton.transform
-                .Find("Paper/Label")?.GetComponent<Text>();
+                .Find("Label")?.GetComponent<Text>();
             skipButton.onClick.AddListener(HandleSkipPressed);
 
             ApplySafeAreaAndScale();
@@ -558,40 +593,6 @@ namespace MukJump.Core
             var image = rect.gameObject.AddComponent<Image>();
             image.color = color;
             return image;
-        }
-
-        static Button CreatePaperButton(
-            string objectName,
-            Transform parent,
-            string label,
-            Vector2 position,
-            Vector2 size,
-            int fontSize)
-        {
-            Image outline = CreateImage(
-                objectName,
-                parent,
-                position,
-                size,
-                InkPalette.Ink);
-            Image paper = CreateImage(
-                "Paper",
-                outline.transform,
-                Vector2.zero,
-                size - new Vector2(4f, 4f),
-                InkPalette.Paper2);
-            var button = outline.gameObject.AddComponent<Button>();
-            CreateText(
-                "Label",
-                paper.transform,
-                label,
-                fontSize,
-                Vector2.zero,
-                size - new Vector2(28f, 16f),
-                TextAnchor.MiddleCenter,
-                true);
-            InkUiStyle.ConfigureButton(button, paper);
-            return button;
         }
 
         static Button CreateBrushButton(
