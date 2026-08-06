@@ -93,9 +93,12 @@ namespace MukJump.Drawing
         public float EffectiveEvictionFadeDuration =>
             evictionFadeDuration /
             Mathf.Max(1f, ActivePermanentGrowth.InkRecoverySpeedMultiplier);
-        /// 선명 유지시간은 같고, 회복 성장만 번짐 구간을 단축해 게이지 반환을 빠르게 한다.
-        public float EffectiveNaturalInkLifetime =>
+        public float EffectiveNaturalHoldDuration =>
             naturalHoldDuration +
+            ActivePermanentGrowth.NaturalInkHoldBonusSeconds;
+        /// 일반 회복 성장은 번짐 구간만 단축하고, 넓은 벼루 결실만 선명 유지시간을 늘린다.
+        public float EffectiveNaturalInkLifetime =>
+            EffectiveNaturalHoldDuration +
             EffectiveEvictionFadeDuration;
 
         PermanentGrowthRunSnapshot ActivePermanentGrowth =>
@@ -379,7 +382,7 @@ namespace MukJump.Drawing
                 budgetCost,
                 evictionFadeSeconds: EffectiveEvictionFadeDuration,
                 evictionDelaySeconds: 0f,
-                naturalHoldSeconds: naturalHoldDuration);
+                naturalHoldSeconds: EffectiveNaturalHoldDuration);
             if (!HasUnlimitedInk)
                 PlatformCollider.ReconcileActiveInkBudget(EffectiveInkCapacity);
             ValidStrokeCreated?.Invoke(platform, validLength, budgetCost);

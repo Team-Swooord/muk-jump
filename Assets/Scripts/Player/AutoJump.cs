@@ -173,10 +173,14 @@ namespace MukJump.Player
 
             float t = Mathf.InverseLerp(platformLengthRange.x, platformLengthRange.y, platform.Length);
             float minimum = ActivePermanentGrowth.MinimumPlatformPowerMultiplier;
-            return Mathf.Lerp(
+            float lengthMultiplier = Mathf.Lerp(
                 Mathf.Max(powerMultiplierRange.x, minimum),
                 powerMultiplierRange.y,
                 t);
+            float drawnPlatformMultiplier = platform.IsTemporaryDrawnPlatform
+                ? ActivePermanentGrowth.DrawnPlatformLeapMultiplier
+                : 1f;
+            return lengthMultiplier * drawnPlatformMultiplier;
         }
 
         /// 실제 착지는 다음 공중 사이클의 2단점프 소모 상태를 정리한다.

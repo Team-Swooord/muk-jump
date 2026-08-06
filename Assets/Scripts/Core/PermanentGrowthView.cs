@@ -20,7 +20,7 @@ namespace MukJump.Core
         const float TreeBackgroundOpacity = 0.42f;
         const float TreeBranchOpacity = 1f;
         const float BranchVisibleEndpointOverlap = 18f;
-        const float LeapBranchHorizontalOffset = 300f;
+        const float LeapBranchHorizontalOffset = 350f;
         const float LeapLeftKeystoneExtraOffset = 140f;
         const float NodePopupHeight = 1020f;
         const float NodeActionButtonY = -404f;
@@ -58,6 +58,7 @@ namespace MukJump.Core
             public List<Image> IncomingLines = new();
             public List<Image> BranchArts = new();
             public Image Contrast;
+            public Image FruitionHalo;
             public Image Surface;
             public Image FruitGlow;
             public Image Fruit;
@@ -717,10 +718,13 @@ namespace MukJump.Core
             List<Image> branchArts)
         {
             bool rootNode = definition.NodeKind == PermanentGrowthNodeKind.Root;
+            bool fruitionNode = definition.IsKeystone;
             Vector2 position = NodePosition(definition);
             Vector2 touchSize = rootNode
                 ? new Vector2(216f, 240f)
-                : new Vector2(200f, 224f);
+                : fruitionNode
+                    ? new Vector2(260f, 280f)
+                    : new Vector2(200f, 224f);
             RectTransform root = CreateRect(
                 $"GrowthNode_{SanitizeNodeId(definition.Id)}",
                 parent,
@@ -733,7 +737,7 @@ namespace MukJump.Core
             InkUiStyle.ConfigureButton(button, hit, addInkFeedback: false);
 
             float nodeCenterY = 30f;
-            float surfaceSize = rootNode ? 144f : 124f;
+            float surfaceSize = rootNode ? 144f : fruitionNode ? 160f : 124f;
             Image nodeContrast = CreateImage(
                 "NodeContrast",
                 root,
@@ -744,14 +748,30 @@ namespace MukJump.Core
             nodeContrast.preserveAspect = true;
             nodeContrast.raycastTarget = false;
 
+            Image fruitionHalo = null;
+            if (fruitionNode)
+            {
+                fruitionHalo = CreateImage(
+                    "FruitionHalo",
+                    root,
+                    LoadPermanentGrowthSprite("pg_selected_ring"),
+                    new Vector2(0f, nodeCenterY),
+                    new Vector2(226f, 226f),
+                    WithAlpha(InkPalette.Gold, 0.34f));
+                fruitionHalo.preserveAspect = true;
+                fruitionHalo.raycastTarget = false;
+                fruitionHalo.rectTransform.localEulerAngles =
+                    new Vector3(0f, 0f, -8f);
+            }
+
             Image ring = CreateImage(
                 "SelectionRing",
                 root,
                 LoadPermanentGrowthSprite("pg_selected_ring"),
                 new Vector2(0f, nodeCenterY),
                 new Vector2(
-                    rootNode ? 184f : 166f,
-                    rootNode ? 184f : 166f),
+                    rootNode ? 184f : fruitionNode ? 210f : 166f,
+                    rootNode ? 184f : fruitionNode ? 210f : 166f),
                 TransparentColor(InkPalette.Gold));
             ring.preserveAspect = true;
 
@@ -764,8 +784,8 @@ namespace MukJump.Core
                 fruitSprite,
                 new Vector2(0f, nodeCenterY),
                 new Vector2(
-                    rootNode ? 208f : 188f,
-                    rootNode ? 208f : 188f),
+                    rootNode ? 208f : fruitionNode ? 236f : 188f,
+                    rootNode ? 208f : fruitionNode ? 236f : 188f),
                 TransparentColor(InkPalette.Red));
             fruitGlow.preserveAspect = true;
 
@@ -794,8 +814,8 @@ namespace MukJump.Core
                 LoadIcon(definition),
                 new Vector2(0f, nodeCenterY),
                 new Vector2(
-                    rootNode ? 82f : 72f,
-                    rootNode ? 82f : 72f),
+                    rootNode ? 82f : fruitionNode ? 88f : 72f,
+                    rootNode ? 82f : fruitionNode ? 88f : 72f),
                 Color.white);
             icon.preserveAspect = true;
             ApplyIconVariation(icon, definition);
@@ -807,6 +827,7 @@ namespace MukJump.Core
                 IncomingLines = incomingLines,
                 BranchArts = branchArts,
                 Contrast = nodeContrast,
+                FruitionHalo = fruitionHalo,
                 Surface = surface,
                 FruitGlow = fruitGlow,
                 Fruit = fruit,
@@ -1332,8 +1353,16 @@ namespace MukJump.Core
                 node.FruitGlow.color = unlocked
                     ? WithAlpha(
                         InkPalette.Red,
-                        selected ? 0.28f : 0.18f)
+                        selected
+                            ? definition.IsKeystone ? 0.42f : 0.28f
+                            : definition.IsKeystone ? 0.30f : 0.18f)
                     : TransparentColor(InkPalette.Red);
+                if (node.FruitionHalo != null)
+                {
+                    node.FruitionHalo.color = WithAlpha(
+                        InkPalette.Gold,
+                        unlocked ? 0.88f : requirementsMet ? 0.54f : 0.22f);
+                }
                 node.Ring.color = selected && IsNodePopupOpen
                     ? WithAlpha(InkPalette.Ink, 0.76f)
                     : TransparentColor(InkPalette.Ink);
@@ -1631,15 +1660,15 @@ namespace MukJump.Core
                     "J-A1" => new Vector2(520f, -750f),
                     "J-A2" => new Vector2(400f, -360f),
                     "J-A3" => new Vector2(480f, 30f),
-                    "J-KA" => new Vector2(330f, 450f),
+                    "J-KA" => new Vector2(330f, 900f),
                     "J-B1" => new Vector2(780f, -730f),
                     "J-B2" => new Vector2(830f, -340f),
                     "J-B3" => new Vector2(750f, 50f),
-                    "J-KB" => new Vector2(830f, 500f),
+                    "J-KB" => new Vector2(830f, 1120f),
                     "J-C1" => new Vector2(1060f, -760f),
                     "J-C2" => new Vector2(1190f, -380f),
                     "J-C3" => new Vector2(1110f, 10f),
-                    "J-KC" => new Vector2(1280f, 460f),
+                    "J-KC" => new Vector2(1280f, 900f),
                     _ => fallback,
                 };
             }
@@ -1653,19 +1682,19 @@ namespace MukJump.Core
                     "J-A3" => new Vector2(470f, -180f),
                     "J-A4" => new Vector2(350f, 120f),
                     "J-A5" => new Vector2(460f, 430f),
-                    "J-KA" => new Vector2(330f, 780f),
+                    "J-KA" => new Vector2(330f, 900f),
                     "J-B1" => new Vector2(780f, -790f),
                     "J-B2" => new Vector2(830f, -470f),
                     "J-B3" => new Vector2(750f, -150f),
                     "J-B4" => new Vector2(850f, 160f),
                     "J-B5" => new Vector2(780f, 460f),
-                    "J-KB" => new Vector2(830f, 830f),
+                    "J-KB" => new Vector2(830f, 1120f),
                     "J-C1" => new Vector2(1060f, -820f),
                     "J-C2" => new Vector2(1190f, -520f),
                     "J-C3" => new Vector2(1110f, -210f),
                     "J-C4" => new Vector2(1240f, 90f),
                     "J-C5" => new Vector2(1150f, 410f),
-                    "J-KC" => new Vector2(1280f, 770f),
+                    "J-KC" => new Vector2(1280f, 900f),
                     _ => fallback,
                 };
             }
@@ -1718,8 +1747,7 @@ namespace MukJump.Core
                 PermanentGrowthNodeKind.Root => "뿌리",
                 PermanentGrowthNodeKind.Stat => "성장",
                 PermanentGrowthNodeKind.Mechanic => "특성",
-                // 마지막 stable ID도 별도 비기가 아니라 같은 수치의 4단계다.
-                PermanentGrowthNodeKind.Keystone => "성장",
+                PermanentGrowthNodeKind.Keystone => "결실",
                 _ => "열매",
             };
         }

@@ -491,7 +491,7 @@ namespace MukJump.EditorTests
             Assert.That(clone.MaxHealth,
                 Is.EqualTo(PlayerController.MaximumRuntimeCloneHealth));
             Assert.That(clone.CurrentHealth, Is.EqualTo(2),
-                "먹피 IV를 열면 새 먹분신은 정확히 2/2로 생성되어야 합니다.");
+                "먹피 결실을 열면 새 먹분신은 정확히 2/2로 생성되어야 합니다.");
 
             ExpireDamageGrace(clone);
             Assert.That(clone.TakeHit(), Is.True);

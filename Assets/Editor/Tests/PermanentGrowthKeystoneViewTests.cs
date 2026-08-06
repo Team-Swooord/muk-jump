@@ -60,7 +60,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void UnlockedLineEndUsesSamePermanentFruitAsOtherStages()
+        public void UnlockedFruitionUsesLargerFruitAndPermanentGoldHalo()
         {
             SeedV2(new[] { "S-KA" });
             PermanentGrowthView view = BuildView();
@@ -69,17 +69,42 @@ namespace MukJump.EditorTests
             Image fruit = node.Find("Fruit").GetComponent<Image>();
             Image selectionRing =
                 node.Find("SelectionRing").GetComponent<Image>();
+            Image fruitionHalo =
+                node.Find("FruitionHalo").GetComponent<Image>();
 
             AssertColorRgb(fruit.color, InkPalette.Red);
             Assert.That(fruit.color.a, Is.GreaterThan(0.99f));
             Assert.That(selectionRing.color.a, Is.EqualTo(0f).Within(0.001f));
+            AssertColorRgb(fruitionHalo.color, InkPalette.Gold);
+            Assert.That(fruitionHalo.color.a, Is.GreaterThan(0.8f));
             Assert.That(node.Find("EquippedRing"), Is.Null);
             Assert.That(node.Find("CompletionMark"), Is.Null);
             Assert.That(
-                node.Find("NodeSurface").GetComponent<RectTransform>().sizeDelta,
-                Is.EqualTo(
+                node.Find("NodeSurface").GetComponent<RectTransform>()
+                    .sizeDelta.x,
+                Is.GreaterThan(
                     FindNode(view, "S-A3").Find("NodeSurface")
-                        .GetComponent<RectTransform>().sizeDelta));
+                        .GetComponent<RectTransform>().sizeDelta.x));
+            Assert.That(
+                node.GetComponent<RectTransform>().anchoredPosition.y,
+                Is.GreaterThan(800f),
+                "결실은 나무 꼭대기 영역에서 일반 성장과 구분되어야 합니다.");
+
+            foreach (PermanentGrowthNodeDefinition definition in
+                     PermanentGrowthCatalog.Nodes)
+            {
+                if (!definition.IsKeystone)
+                    continue;
+
+                Transform fruition = FindNode(view, definition.Id);
+                RectTransform hit = fruition.GetComponent<RectTransform>();
+                Assert.That(fruition.Find("FruitionHalo"), Is.Not.Null,
+                    $"{definition.Id} 결실에 금빛 후광이 없습니다.");
+                Assert.That(hit.sizeDelta.x, Is.EqualTo(260f).Within(0.01f),
+                    $"{definition.Id} 결실의 터치 폭이 일반 열매와 구분되지 않습니다.");
+                Assert.That(hit.anchoredPosition.y, Is.GreaterThan(800f),
+                    $"{definition.Id} 결실이 나무 꼭대기 영역에 없습니다.");
+            }
         }
 
         [Test]

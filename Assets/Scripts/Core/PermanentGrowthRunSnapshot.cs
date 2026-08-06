@@ -43,19 +43,21 @@ namespace MukJump.Core
         /// 자연 소멸의 대기시간이 아니라 실제 페이드 속도만 빠르게 한다.
         public float InkRecoverySpeedMultiplier =>
             1f + EffectTotal(PermanentGrowthType.InkRecovery);
+        /// 넓은 벼루 결실은 총량을 늘리는 데서 끝나지 않고, 용량을 넘기지 않은
+        /// 먹선이 선명하게 남는 시간을 조금 늘린다. 총량 초과 FIFO 제거는 지연하지 않는다.
+        public float NaturalInkHoldBonusSeconds => HasNode("I-KA") ? 0.6f : 0f;
         // 이전 성장 저장·도구 호환용. 새 단일 능력치 트리에서는 사용하지 않는다.
         public float InkEvictionFadeBonusSeconds => 0f;
         public float InkEvictionDelaySeconds => 0f;
-        public float ShortStrokeBudgetCostMultiplier => Mathf.Max(
-            0.55f,
-            1f - EffectTotal(PermanentGrowthType.ShortStrokeEfficiency));
+        /// 가는 붓끝 결실은 1.5m 이하의 짧고 정확한 획에 추가 절약을 준다.
+        public float ShortStrokeBudgetCostMultiplier => HasNode("I-KB") ? 0.90f : 1f;
         public float JumpChargeMultiplier =>
             Mathf.Max(0.5f, 1f - EffectTotal(PermanentGrowthType.JumpCharge));
         public int MaxHealthBonus => Mathf.Clamp(
             Mathf.RoundToInt(EffectTotal(PermanentGrowthType.Vitality)),
             0,
             PlayerController.MaximumHealth - PlayerController.DefaultMaxHealth);
-        /// 먹피 IV는 본체의 마지막 체력 1칸과 함께 모든 런타임 분신의
+        /// 먹피 결실은 본체의 마지막 체력 1칸과 함께 모든 런타임 분신의
         /// 최대 체력을 기본 1칸에서 2칸으로 올린다.
         public int InkCloneMaxHealthBonus => HasNode("S-KA") ? 1 : 0;
         public float DamageGraceBonusSeconds =>
@@ -73,7 +75,8 @@ namespace MukJump.Core
             1f + EffectTotal(PermanentGrowthType.JumpHeight);
         public float JumpVerticalSpeedMultiplier =>
             Mathf.Sqrt(Mathf.Max(1f, JumpHeightMultiplier));
-        public float DrawnPlatformLeapMultiplier => 1f;
+        /// 돋는 먹발 결실은 플레이어가 직접 그린 먹선에서만 점프 힘을 더한다.
+        public float DrawnPlatformLeapMultiplier => HasNode("J-KB") ? 1.06f : 1f;
         public float HitHorizontalRetention => Mathf.Clamp(
             0.82f - EffectTotal(PermanentGrowthType.HitHorizontalStability),
             0.64f,
@@ -88,7 +91,7 @@ namespace MukJump.Core
         public float DoubleJumpVerticalSpeedRatio => HasDoubleJump
             ? EffectTotal(PermanentGrowthType.DoubleJump)
             : 0f;
-        public bool HasShortStrokeDiscount => false;
+        public bool HasShortStrokeDiscount => HasNode("I-KB");
         public bool HasDrawnChargeRhythm => false;
         public bool HasApexHang => false;
         public bool HasLastBreath => false;
@@ -99,7 +102,9 @@ namespace MukJump.Core
         // v3 코드 호환용. 도약 v4에서는 세 효과를 새 구조 패시브로 교체했다.
         public bool HasConsecutiveLandingRhythm => false;
         public bool HasShortPlatformKeystone => false;
-        public bool HasLastFallBrake => false;
+        /// 높은 먹발 결실은 마지막 생존자가 화면 하단에 몰릴 때 18초마다 한 번,
+        /// 위로 밀어 올리지 않고 현재 낙하 속도만 35% 줄인다.
+        public bool HasLastFallBrake => HasNode("J-KC");
 
         public bool HasNode(string nodeId) =>
             !string.IsNullOrEmpty(nodeId) && ownedNodeIds.Contains(nodeId);

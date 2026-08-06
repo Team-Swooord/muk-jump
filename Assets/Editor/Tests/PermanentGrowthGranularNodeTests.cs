@@ -74,14 +74,16 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.InkBudgetCostMultiplier,
                 Is.EqualTo(0.90f).Within(0.0001f));
             Assert.That(snapshot.ShortStrokeBudgetCostMultiplier,
-                Is.EqualTo(1f).Within(0.0001f));
+                Is.EqualTo(0.90f).Within(0.0001f));
             Assert.That(snapshot.InkRecoverySpeedMultiplier,
                 Is.EqualTo(1.40f).Within(0.0001f));
             Assert.That(snapshot.InkEvictionFadeBonusSeconds,
                 Is.Zero.Within(0.0001f));
             Assert.That(snapshot.InkEvictionDelaySeconds,
                 Is.Zero.Within(0.0001f));
-            Assert.That(snapshot.HasShortStrokeDiscount, Is.False);
+            Assert.That(snapshot.NaturalInkHoldBonusSeconds,
+                Is.EqualTo(0.6f).Within(0.0001f));
+            Assert.That(snapshot.HasShortStrokeDiscount, Is.True);
             Assert.That(snapshot.DamageGraceBonusSeconds,
                 Is.EqualTo(0.16f).Within(0.0001f));
             Assert.That(snapshot.HasPostHitShield, Is.True);
@@ -99,7 +101,8 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.JumpVerticalSpeedMultiplier,
                 Is.EqualTo(Mathf.Sqrt(1.0625f)).Within(0.0001f));
             Assert.That(snapshot.DrawnPlatformLeapMultiplier,
-                Is.EqualTo(1f).Within(0.0001f));
+                Is.EqualTo(1.06f).Within(0.0001f));
+            Assert.That(snapshot.HasLastFallBrake, Is.True);
             Assert.That(snapshot.MinimumPlatformPowerMultiplier,
                 Is.EqualTo(0.85f).Within(0.0001f));
             Assert.That(snapshot.MaximumFallSpeedMultiplier,
@@ -212,6 +215,8 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.HasPostHitShield, Is.True);
             Assert.That(snapshot.JumpPowerMultiplier,
                 Is.EqualTo(1.01f).Within(0.0001f));
+            Assert.That(snapshot.DrawnPlatformLeapMultiplier,
+                Is.EqualTo(1.06f).Within(0.0001f));
             Assert.That(snapshot.InkRecoverySpeedMultiplier,
                 Is.EqualTo(1.10f).Within(0.0001f));
             Assert.That(snapshot.HasLastBreath, Is.False);
@@ -242,7 +247,7 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.InkCloneItemExtraCount,
                 Is.EqualTo(expectedExtraCount));
             Assert.That(snapshot.InkCloneMaxHealthBonus, Is.Zero,
-                "먹떼 결실은 생성 수만 늘리고 분신 체력은 먹피 IV가 소유해야 합니다.");
+                "먹떼 결실은 생성 수만 늘리고 분신 체력은 먹피 결실이 소유해야 합니다.");
             Assert.That(1 + snapshot.InkCloneItemExtraCount,
                 Is.EqualTo(unlockedCount < 4 ? 1 : 2));
         }

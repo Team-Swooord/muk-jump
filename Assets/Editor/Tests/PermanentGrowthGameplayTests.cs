@@ -212,8 +212,8 @@ namespace MukJump.EditorTests
             Invoke(autoJump, "Jump");
 
             Assert.That(player.Body.linearVelocity.y,
-                Is.EqualTo(expected * 0.85f).Within(0.001f),
-                "도약 v4는 그린 발판에 별도 힘을 중복하지 않습니다.");
+                Is.EqualTo(expected * 0.85f * 1.06f).Within(0.001f),
+                "돋는 먹발 결실은 직접 그린 먹선 도약에만 6%를 더해야 합니다.");
         }
 
         [Test]
@@ -341,6 +341,10 @@ namespace MukJump.EditorTests
                 Is.EqualTo(8.0f).Within(0.0001f));
             Assert.That(stroke.EffectiveInkCapacity,
                 Is.EqualTo(8.0f).Within(0.0001f));
+            Assert.That(stroke.EffectiveNaturalHoldDuration,
+                Is.EqualTo(
+                    PlatformCollider.DefaultNaturalHoldDuration + 0.6f)
+                    .Within(0.0001f));
         }
 
         GameManager CreatePlayingManager(out RunGrowthController growth)
