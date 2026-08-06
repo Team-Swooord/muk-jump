@@ -182,6 +182,27 @@ public sealed class ItemSpawnerBalanceTests
     }
 
     [Test]
+    public void InkGaugeUsesOpacityForRemainingInk()
+    {
+        MethodInfo method = typeof(PrototypeHud).GetMethod(
+            "ResolveGaugeFillAlpha",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.That(method, Is.Not.Null);
+
+        float empty = (float)method.Invoke(null, new object[] { 0f, false });
+        float half = (float)method.Invoke(null, new object[] { 0.5f, false });
+        float full = (float)method.Invoke(null, new object[] { 1f, false });
+        float clamped = (float)method.Invoke(null, new object[] { 2f, false });
+        float golden = (float)method.Invoke(null, new object[] { 0f, true });
+
+        Assert.That(empty, Is.EqualTo(0f).Within(0.001f));
+        Assert.That(half, Is.EqualTo(0.5f).Within(0.001f));
+        Assert.That(full, Is.EqualTo(1f).Within(0.001f));
+        Assert.That(clamped, Is.EqualTo(1f).Within(0.001f));
+        Assert.That(golden, Is.EqualTo(1f).Within(0.001f));
+    }
+
+    [Test]
     public void SwarmProgressUsesLowerMedianInsteadOfSingleOutlier()
     {
         var players = new List<PlayerController>();

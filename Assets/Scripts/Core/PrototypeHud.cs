@@ -90,8 +90,8 @@ namespace MukJump.Core
             return goldenGaugeFill;
         }
 
-        /// 붓 획 모양 먹 게이지: 트랙 위에 fill을 왼쪽부터 잔량만큼 잘라 그리고,
-        /// 오른쪽 끝에 붓 아이콘을 붙인다. 이미지 미할당 시 단색 막대 폴백.
+        /// 붓 획 모양 먹 게이지: 전체 붓자국은 유지하고 남은 먹의 양을
+        /// 먹색 농도로 표시한다. 이미지 미할당 시 단색 막대 폴백.
         void DrawInkGauge(
             float ratio,
             float capacityRatio,
@@ -101,7 +101,7 @@ namespace MukJump.Core
             // 기본 1획부터 영구 성장 2.5획까지 트랙 폭으로 구분한다.
             // 붓 여유가 더 쌓이면 Safe Area 폭에서 자연스럽게 상한에 닿는다.
             bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
-            float visibleRatio = golden ? 1f : baseRatio;
+            float fillAlpha = ResolveGaugeFillAlpha(baseRatio, golden);
             Rect safeGui = MobileUiLayout.ToGuiSafeArea(
                 Screen.safeArea,
                 Screen.width,
@@ -125,9 +125,9 @@ namespace MukJump.Core
                     bw,
                     bh);
                 DrawRect(back, InkPalette.Paper2);
-                var fillRect = back;
-                fillRect.width = bw * visibleRatio;
-                DrawRect(fillRect, golden ? InkPalette.Gold : InkPalette.Ink);
+                Color fillColor = golden ? InkPalette.Gold : InkPalette.Ink;
+                fillColor.a *= fillAlpha;
+                DrawRect(back, fillColor);
                 DrawReserveGauge(back, reserveRatio);
                 return;
             }
@@ -162,18 +162,15 @@ namespace MukJump.Core
             var area = new Rect(x, y, w, h);
             GUI.DrawTexture(area, inkGaugeTrack, ScaleMode.StretchToFill);
 
-            if (visibleRatio > 0f)
+            if (fillAlpha > 0f)
             {
-                // 먹이 돌아오는 순간부터 두꺼운 붓자국 쪽에 색이 나타나도록 오른쪽부터 채운다.
-                // Rect와 UV를 같은 비율로 잘라 회복 중에도 원본 붓결을 늘이지 않는다.
-                float fillX = x + w * (1f - visibleRatio);
-                var clipped = new Rect(fillX, y, w * visibleRatio, h);
+                // 폭을 잘라 내지 않고 전체 붓자국의 먹 농도만 바꾼다. 먹을 계속
+                // 쓰는 중에도 게이지 형태가 사라지지 않고 회복량을 바로 읽을 수 있다.
                 Texture2D fillTexture = golden
                     ? EnsureGoldenGaugeFill()
                     : inkGaugeFill;
                 if (fillTexture != null)
-                    GUI.DrawTextureWithTexCoords(clipped, fillTexture,
-                        new Rect(1f - visibleRatio, 0f, visibleRatio, 1f));
+                    DrawTextureWithAlpha(area, fillTexture, fillAlpha);
             }
             DrawReserveGauge(area, reserveRatio);
 
@@ -210,6 +207,11 @@ namespace MukJump.Core
         static float CalculateFallbackGaugeHeight(float safeWidth)
         {
             return Mathf.Max(1f, safeWidth) * FallbackGaugeHeightRatio;
+        }
+
+        static float ResolveGaugeFillAlpha(float ratio, bool golden)
+        {
+            return golden ? 1f : Mathf.Clamp01(ratio);
         }
 
         static void DrawReserveGauge(Rect area, float reserveRatio)
@@ -262,6 +264,22 @@ namespace MukJump.Core
             GUI.color = color;
             GUI.DrawTexture(rect, Texture2D.whiteTexture);
             GUI.color = prev;
+        }
+
+        static void DrawTextureWithAlpha(
+            Rect rect,
+            Texture2D texture,
+            float alpha)
+        {
+            if (texture == null) return;
+            Color previous = GUI.color;
+            GUI.color = new Color(
+                previous.r,
+                previous.g,
+                previous.b,
+                previous.a * Mathf.Clamp01(alpha));
+            GUI.DrawTexture(rect, texture, ScaleMode.StretchToFill);
+            GUI.color = previous;
         }
 
     }
