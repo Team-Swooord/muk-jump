@@ -51,7 +51,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void SnapshotComposesNineSingleStatTracksWithoutLegacyBonuses()
+        public void SnapshotComposesGrowthTracksAndSingleCloneCapstone()
         {
             var snapshot = new PermanentGrowthRunSnapshot(
                 new[]
@@ -84,7 +84,9 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.DamageGraceBonusSeconds,
                 Is.EqualTo(0.20f).Within(0.0001f));
             Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(4));
-            Assert.That(snapshot.InkCloneItemExtraCount, Is.EqualTo(4));
+            Assert.That(snapshot.HitHorizontalRetention,
+                Is.EqualTo(0.64f).Within(0.0001f));
+            Assert.That(snapshot.InkCloneItemExtraCount, Is.EqualTo(1));
             Assert.That(snapshot.JumpChargeMultiplier,
                 Is.EqualTo(0.94f).Within(0.0001f));
             Assert.That(snapshot.JumpPowerMultiplier,
@@ -209,13 +211,14 @@ namespace MukJump.EditorTests
                 Is.EqualTo("S-KB"));
         }
 
-        [TestCase(0, 0)]
-        [TestCase(1, 1)]
-        [TestCase(2, 2)]
-        [TestCase(3, 3)]
-        [TestCase(4, 4)]
-        public void CloneItemLineAddsOneExtraClonePerOwnedNode(
+        [TestCase(0, 0.82f, 0)]
+        [TestCase(1, 0.76f, 0)]
+        [TestCase(2, 0.70f, 0)]
+        [TestCase(3, 0.64f, 0)]
+        [TestCase(4, 0.64f, 1)]
+        public void SurvivalStabilityLineEndsWithOneCloneCapstone(
             int unlockedCount,
+            float expectedRetention,
             int expectedExtraCount)
         {
             string[] path = { "S-C1", "S-C2", "S-C3", "S-KC" };
@@ -224,10 +227,12 @@ namespace MukJump.EditorTests
                 owned.Add(path[i]);
             var snapshot = new PermanentGrowthRunSnapshot(owned, null);
 
+            Assert.That(snapshot.HitHorizontalRetention,
+                Is.EqualTo(expectedRetention).Within(0.0001f));
             Assert.That(snapshot.InkCloneItemExtraCount,
                 Is.EqualTo(expectedExtraCount));
             Assert.That(1 + snapshot.InkCloneItemExtraCount,
-                Is.EqualTo(1 + unlockedCount));
+                Is.EqualTo(unlockedCount < 4 ? 1 : 2));
         }
 
         [Test]

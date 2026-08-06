@@ -1415,8 +1415,9 @@ namespace MukJump.Core
                     "+" + snapshot.DamageGraceBonusSeconds.ToString("0.00") + "초",
                     survivalColor) + "\n" +
                 SummaryLine(
-                    "먹분신 1회",
-                    "1 → " + (1 + snapshot.InkCloneItemExtraCount),
+                    "밀림·분신",
+                    $"82→{snapshot.HitHorizontalRetention * 100f:0}% · " +
+                    "1→" + (1 + snapshot.InkCloneItemExtraCount),
                     survivalColor);
 
             float jumpChargeReduction =

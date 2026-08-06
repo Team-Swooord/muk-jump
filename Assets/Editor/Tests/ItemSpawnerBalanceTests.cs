@@ -374,11 +374,12 @@ public sealed class ItemSpawnerBalanceTests
     }
 
     [TestCase(0, 24, 1)]
-    [TestCase(4, 24, 5)]
+    [TestCase(1, 24, 2)]
+    [TestCase(4, 24, 2)]
     [TestCase(4, 1, 1)]
     [TestCase(4, 0, 0)]
-    [TestCase(99, 24, 5)]
-    public void ClonePickupGrowthAddsUpToFiveWithinLivingCap(
+    [TestCase(99, 24, 2)]
+    public void ClonePickupGrowthAddsAtMostOneBonusWithinLivingCap(
         int growthExtraCount,
         int availableSlots,
         int expectedCount)

@@ -250,7 +250,7 @@ namespace MukJump.Core
             new(
                 PermanentGrowthBranch.Survival,
                 "생존",
-                "최대 체력·피격 여유·먹분신 생성 수",
+                "최대 체력·피격 여유·피격 안정·먹떼 결실",
                 0),
             new(
                 PermanentGrowthBranch.InkHandling,
@@ -463,7 +463,8 @@ namespace MukJump.Core
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
                 P("I-C3"), 4, "ink", 500f, 280f);
 
-            // 생존 — 최대 체력·피격 여유·먹분신 아이템 생성 수 세 줄만 사용한다.
+            // 생존 — 최대 체력·피격 여유·피격 안정 세 줄을 사용한다.
+            // 피격 안정 줄의 마지막 열매만 먹분신 아이템 생성 상한 +1 패시브다.
             // 공용 뿌리 S00은 가운데 피격 여유 줄의 첫 단계다.
             Add(nodes, "S00", "숨 고르기의 씨", "피격 직후 다시 맞지 않는 시간을 늘립니다.",
                 "피격 뒤 무적 +0.04초", "survival.grace.seed",
@@ -521,26 +522,26 @@ namespace MukJump.Core
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,
                 P("S-B3"), 4, "survival", -1000f, 360f);
 
-            Add(nodes, "S-C1", "먹떼 I", "먹분신 아이템을 먹을 때 분신 한 마리를 더 만듭니다.",
-                "먹분신 아이템 생성 수 +1", "survival.clone.first",
-                PermanentGrowthType.InkCloneItemExtraCount, 1f, "먹분신 생성 수",
-                PermanentGrowthValueKind.Flat, false,
+            Add(nodes, "S-C1", "먹발 버팀 I", "피격 뒤 수평으로 밀려나는 힘을 줄입니다.",
+                "피격 수평 밀림 -6%", "survival.stability.first",
+                PermanentGrowthType.HitHorizontalStability, 0.06f, "피격 수평 밀림",
+                PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
-                P("S00"), 0, "", -650f, -720f);
-            Add(nodes, "S-C2", "먹떼 II", "먹분신 아이템을 먹을 때 분신 한 마리를 더 만듭니다.",
-                "먹분신 아이템 생성 수 +1", "survival.clone.source",
-                PermanentGrowthType.InkCloneItemExtraCount, 1f, "먹분신 생성 수",
-                PermanentGrowthValueKind.Flat, false,
+                P("S00"), 0, "", -650f, -720f, 1);
+            Add(nodes, "S-C2", "먹발 버팀 II", "피격 뒤 수평으로 밀려나는 힘을 줄입니다.",
+                "피격 수평 밀림 -6%", "survival.stability.second",
+                PermanentGrowthType.HitHorizontalStability, 0.06f, "피격 수평 밀림",
+                PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
-                P("S-C1"), 0, "", -560f, -400f);
-            Add(nodes, "S-C3", "먹떼 III", "먹분신 아이템을 먹을 때 분신 한 마리를 더 만듭니다.",
-                "먹분신 아이템 생성 수 +1", "survival.clone.heal",
-                PermanentGrowthType.InkCloneItemExtraCount, 1f, "먹분신 생성 수",
-                PermanentGrowthValueKind.Flat, false,
+                P("S-C1"), 0, "", -560f, -400f, 2);
+            Add(nodes, "S-C3", "먹발 버팀 III", "피격 뒤 수평으로 밀려나는 힘을 줄입니다.",
+                "피격 수평 밀림 -6%", "survival.stability.third",
+                PermanentGrowthType.HitHorizontalStability, 0.06f, "피격 수평 밀림",
+                PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
-                P("S-C2"), 0, "", -650f, -70f);
-            Add(nodes, "S-KC", "먹떼 IV", "먹분신 아이템을 먹을 때 분신 한 마리를 더 만듭니다.",
-                "먹분신 아이템 생성 수 +1", "survival.clone.keystone",
+                P("S-C2"), 0, "", -650f, -70f, 3);
+            Add(nodes, "S-KC", "먹떼 결실", "먹분신 아이템을 먹을 때 분신 한 마리를 더 만듭니다.",
+                "먹분신 아이템 최대 생성 수 +1", "survival.clone.keystone",
                 PermanentGrowthType.InkCloneItemExtraCount, 1f, "먹분신 생성 수",
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,

@@ -741,7 +741,7 @@ namespace MukJump.Core
             int growthExtraCount,
             int availableLivingSlots)
         {
-            int requestedCount = 1 + Mathf.Clamp(growthExtraCount, 0, 4);
+            int requestedCount = 1 + Mathf.Clamp(growthExtraCount, 0, 1);
             return Mathf.Min(requestedCount, Mathf.Max(0, availableLivingSlots));
         }
 

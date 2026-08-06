@@ -117,6 +117,25 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void HitStabilityLineReducesHorizontalKnockbackToSixtyFourPercent()
+        {
+            SeedGrowth(new[] { "S-C3" });
+            CreatePlayingManager(out _);
+            var player = CreatePlayer("PermanentHitHorizontalStability");
+            player.GrantShield();
+            player.Body.linearVelocity = new Vector2(10f, -5f);
+
+            ExpireDamageGrace(player);
+            Assert.That(player.TakeHit(), Is.True);
+
+            Assert.That(player.Body.linearVelocity.x,
+                Is.EqualTo(6.4f).Within(0.001f));
+            Assert.That(player.Body.linearVelocity.y,
+                Is.EqualTo(1.6f).Within(0.001f));
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+        }
+
+        [Test]
         public void RemovedLastBreathNeverActivates()
         {
             SeedGrowth(new[] { "S-KA" }, survivalKeystone: "S-KA");

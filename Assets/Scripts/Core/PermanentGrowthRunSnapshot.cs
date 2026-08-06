@@ -60,7 +60,7 @@ namespace MukJump.Core
         public int InkCloneItemExtraCount => Mathf.Clamp(
             Mathf.RoundToInt(EffectTotal(PermanentGrowthType.InkCloneItemExtraCount)),
             0,
-            4);
+            1);
         public float JumpPowerMultiplier =>
             1f + EffectTotal(PermanentGrowthType.JumpPower);
         /// 노드 수치는 정점 높이 기준이므로 실제 이륙 속도에는 제곱근으로 적용한다.
@@ -69,7 +69,10 @@ namespace MukJump.Core
         public float JumpVerticalSpeedMultiplier =>
             Mathf.Sqrt(Mathf.Max(1f, JumpHeightMultiplier));
         public float DrawnPlatformLeapMultiplier => 1f;
-        public float HitHorizontalRetention => 0.82f;
+        public float HitHorizontalRetention => Mathf.Clamp(
+            0.82f - EffectTotal(PermanentGrowthType.HitHorizontalStability),
+            0.64f,
+            0.82f);
         public float MinimumHitRebound => 1.6f;
         public float MinimumPlatformPowerMultiplier => 0.85f;
         public float WindInfluenceMultiplier => 1f;
