@@ -493,8 +493,8 @@ namespace MukJump.Core
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
                 P("S-A2"), 0, "", -1320f, -60f);
-            Add(nodes, "S-KA", "먹피 IV", "본체 먹방울이의 최대 체력을 한 칸 늘립니다. 분신 체력은 1로 유지됩니다.",
-                "본체 최대 체력 +1", "survival.guard.keystone",
+            Add(nodes, "S-KA", "먹피 IV", "본체 최대 체력을 한 칸 늘리고 모든 먹분신의 최대 체력도 한 칸 늘립니다.",
+                "본체 최대 체력 +1 · 분신 체력 +1", "survival.guard.keystone",
                 PermanentGrowthType.Vitality, 1f, "본체 최대 체력",
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,
@@ -543,8 +543,8 @@ namespace MukJump.Core
                 PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
                 P("S-C2"), 0, "", -740f, -70f, 3);
-            Add(nodes, "S-KC", "먹떼 결실", "먹분신 아이템을 먹을 때 분신 한 마리를 더 만듭니다.",
-                "먹분신 아이템 최대 생성 수 +1", "survival.clone.keystone",
+            Add(nodes, "S-KC", "먹떼 결실", "먹분신 아이템을 먹을 때 생성할 수 있는 분신을 한 마리 늘립니다.",
+                "먹분신 아이템 생성 최대 +1", "survival.clone.keystone",
                 PermanentGrowthType.InkCloneItemExtraCount, 1f, "먹분신 생성 수",
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,

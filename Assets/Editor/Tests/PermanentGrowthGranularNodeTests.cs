@@ -86,6 +86,7 @@ namespace MukJump.EditorTests
                 Is.EqualTo(0.16f).Within(0.0001f));
             Assert.That(snapshot.HasPostHitShield, Is.True);
             Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(4));
+            Assert.That(snapshot.InkCloneMaxHealthBonus, Is.EqualTo(1));
             Assert.That(snapshot.HitHorizontalRetention,
                 Is.EqualTo(0.64f).Within(0.0001f));
             Assert.That(snapshot.InkCloneItemExtraCount, Is.EqualTo(1));
@@ -127,6 +128,12 @@ namespace MukJump.EditorTests
             Assert.That(
                 PlayerController.DefaultMaxHealth + snapshot.MaxHealthBonus,
                 Is.EqualTo(unlockedCount + 1));
+            Assert.That(snapshot.InkCloneMaxHealthBonus,
+                Is.EqualTo(unlockedCount < 4 ? 0 : 1));
+            Assert.That(
+                PlayerController.RuntimeCloneMaxHealth +
+                snapshot.InkCloneMaxHealthBonus,
+                Is.EqualTo(unlockedCount < 4 ? 1 : 2));
         }
 
         [TestCase(0, 1.0f, 3.20f)]
@@ -234,6 +241,8 @@ namespace MukJump.EditorTests
                 Is.EqualTo(expectedRetention).Within(0.0001f));
             Assert.That(snapshot.InkCloneItemExtraCount,
                 Is.EqualTo(expectedExtraCount));
+            Assert.That(snapshot.InkCloneMaxHealthBonus, Is.Zero,
+                "먹떼 결실은 생성 수만 늘리고 분신 체력은 먹피 IV가 소유해야 합니다.");
             Assert.That(1 + snapshot.InkCloneItemExtraCount,
                 Is.EqualTo(unlockedCount < 4 ? 1 : 2));
         }

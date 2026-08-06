@@ -463,7 +463,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void OriginalAndCloneOwnIndependentSingleHealthRenderers()
+        public void OriginalAndCloneOwnIndependentGrowthHealthRenderers()
         {
             ConfigureFiveHealthGrowth();
             PlayerController original = CreatePlayer("HealthBarOriginal");
@@ -489,9 +489,19 @@ namespace MukJump.EditorTests
             Assert.That(original.MaxHealth, Is.EqualTo(5));
             Assert.That(clone.CurrentHealth, Is.EqualTo(clone.MaxHealth));
             Assert.That(clone.MaxHealth,
-                Is.EqualTo(PlayerController.RuntimeCloneMaxHealth));
-            Assert.That(clone.CurrentHealth, Is.EqualTo(1),
-                "영구 성장 체력이 5여도 먹분신은 항상 1/1로 생성되어야 합니다.");
+                Is.EqualTo(PlayerController.MaximumRuntimeCloneHealth));
+            Assert.That(clone.CurrentHealth, Is.EqualTo(2),
+                "먹피 IV를 열면 새 먹분신은 정확히 2/2로 생성되어야 합니다.");
+
+            ExpireDamageGrace(clone);
+            Assert.That(clone.TakeHit(), Is.True);
+            Assert.That(clone.CurrentHealth, Is.EqualTo(1));
+            Assert.That(clone.IsDead, Is.False);
+
+            ExpireDamageGrace(clone);
+            Assert.That(clone.TakeHit(), Is.True);
+            Assert.That(clone.CurrentHealth, Is.Zero);
+            Assert.That(clone.IsDead, Is.True);
         }
 
         PlayerController CreatePlayer(string objectName)
@@ -512,7 +522,7 @@ namespace MukJump.EditorTests
             Assert.That(growth, Is.Not.Null);
             SetAutoProperty(growth, "PermanentSnapshot",
                 new PermanentGrowthRunSnapshot(
-                    new[] { "S00", "S-A1", "S-A2", "S-A3" },
+                    new[] { "S00", "S-A1", "S-A2", "S-A3", "S-KA" },
                     null));
         }
 

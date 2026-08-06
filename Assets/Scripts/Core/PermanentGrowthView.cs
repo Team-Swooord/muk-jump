@@ -1437,7 +1437,10 @@ namespace MukJump.Core
                 SummaryLine(
                     "밀림·분신",
                     $"82→{snapshot.HitHorizontalRetention * 100f:0}% · " +
-                    "체력 1 · 생성 1→" + (1 + snapshot.InkCloneItemExtraCount),
+                    "체력 1→" +
+                    (Player.PlayerController.RuntimeCloneMaxHealth +
+                     snapshot.InkCloneMaxHealthBonus) +
+                    " · 생성 1→" + (1 + snapshot.InkCloneItemExtraCount),
                     survivalColor);
 
             float jumpChargeReduction =

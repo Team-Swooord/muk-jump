@@ -69,6 +69,7 @@ namespace MukJump.Player
         public const int DefaultMaxHealth = 1;
         public const int MaximumHealth = 5;
         public const int RuntimeCloneMaxHealth = 1;
+        public const int MaximumRuntimeCloneHealth = 2;
 
         public bool IsGrounded { get; private set; }
         public bool IsDead { get; private set; }
@@ -81,10 +82,13 @@ namespace MukJump.Player
         public bool IsWallClinging { get; private set; }
         public bool CanAutomaticJumpFromCurrentSurface =>
             !IsWallClinging || Time.time >= wallClingReleaseAllowedAt;
-        /// 영구 성장 체력은 본체만 받는다. 먹분신은 수가 누적되는 대신 언제나
-        /// 한 번의 실제 피해로 사라지는 1/1 체력 개체다.
+        /// 일반 먹피 성장은 본체에만 적용한다. 다만 마지막 먹피 IV를 열면
+        /// 모든 런타임 분신도 기본 1칸에서 2칸으로 한 번 성장한다.
         public int MaxHealth => isRuntimeClone
-            ? RuntimeCloneMaxHealth
+            ? Mathf.Clamp(
+                RuntimeCloneMaxHealth + ActivePermanentGrowth.InkCloneMaxHealthBonus,
+                RuntimeCloneMaxHealth,
+                MaximumRuntimeCloneHealth)
             : Mathf.Clamp(
                 DefaultMaxHealth + ActivePermanentGrowth.MaxHealthBonus,
                 DefaultMaxHealth,

@@ -55,6 +55,9 @@ namespace MukJump.Core
             Mathf.RoundToInt(EffectTotal(PermanentGrowthType.Vitality)),
             0,
             PlayerController.MaximumHealth - PlayerController.DefaultMaxHealth);
+        /// 먹피 IV는 본체의 마지막 체력 1칸과 함께 모든 런타임 분신의
+        /// 최대 체력을 기본 1칸에서 2칸으로 올린다.
+        public int InkCloneMaxHealthBonus => HasNode("S-KA") ? 1 : 0;
         public float DamageGraceBonusSeconds =>
             EffectTotal(PermanentGrowthType.DamageGrace);
         public bool HasPostHitShield =>
