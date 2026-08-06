@@ -13,7 +13,7 @@ namespace MukJump.Core
         const float FallbackGaugeHeightRatio = 0.05f;
         const float EmptyGaugeGuideAlpha = 0.12f;
         const float GaugeConsumeFadeSeconds = 0.24f;
-        const float GaugeRecoverFadeSeconds = 0.32f;
+        const float GaugeRecoverFadeSeconds = 0.75f;
 
         [Header("먹 게이지 이미지 (붓 획 모양) — 미할당 시 단색 막대로 폴백")]
         [Tooltip("붓 획 실루엣, 채워진 상태 (왼쪽 가늘게 → 오른쪽 두껍게)")]
