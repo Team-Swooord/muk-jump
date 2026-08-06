@@ -464,6 +464,8 @@ namespace MukJump.Core
         public static int MaxHealthBonus => CreateRunSnapshot().MaxHealthBonus;
         public static float DamageGraceBonusSeconds =>
             CreateRunSnapshot().DamageGraceBonusSeconds;
+        public static bool HasPostHitShield =>
+            CreateRunSnapshot().HasPostHitShield;
         public static int InkCloneItemExtraCount =>
             CreateRunSnapshot().InkCloneItemExtraCount;
         public static bool HasLastBreath => CreateRunSnapshot().HasLastBreath;

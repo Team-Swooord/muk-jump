@@ -1411,8 +1411,9 @@ namespace MukJump.Core
                 SummaryTitle("생존", survivalColor) + "\n" +
                 SummaryLine("체력", "1 → " + maxHealth, survivalColor) + "\n" +
                 SummaryLine(
-                    "피격 무적",
-                    "+" + snapshot.DamageGraceBonusSeconds.ToString("0.00") + "초",
+                    "무적·방어막",
+                    "+" + snapshot.DamageGraceBonusSeconds.ToString("0.00") +
+                    "초 · " + (snapshot.HasPostHitShield ? "1회" : "-"),
                     survivalColor) + "\n" +
                 SummaryLine(
                     "밀림·분신",
@@ -1948,7 +1949,8 @@ namespace MukJump.Core
                 PermanentGrowthType.CloneSourceGrace or
                 PermanentGrowthType.CloneDeathHeal or
                 PermanentGrowthType.CloneBond or
-                PermanentGrowthType.InkCloneItemExtraCount => string.Empty,
+                PermanentGrowthType.InkCloneItemExtraCount or
+                PermanentGrowthType.PostHitShield => string.Empty,
                 PermanentGrowthType.LastBreath => "pg_root_emblem",
                 PermanentGrowthType.DrawnPlatformLeap => "pg_icon_platform",
                 _ => string.Empty,
@@ -1992,6 +1994,7 @@ namespace MukJump.Core
                 PermanentGrowthType.CloneDeathHeal or
                 PermanentGrowthType.CloneBond or
                 PermanentGrowthType.InkCloneItemExtraCount or
+                PermanentGrowthType.PostHitShield or
                 PermanentGrowthType.StrokeGuard =>
                     "MukJump/UI/Growth/growth_guard",
                 PermanentGrowthType.DrawnPlatformLeap or

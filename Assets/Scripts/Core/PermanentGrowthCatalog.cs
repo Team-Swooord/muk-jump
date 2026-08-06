@@ -49,6 +49,8 @@ namespace MukJump.Core
         InkEvictionDelay = 37,
         // 단일 수치 성장 재정렬. 기존 enum 값은 저장 호환을 위해 그대로 둔다.
         InkCloneItemExtraCount = 38,
+        // 숨 고르기 최종 열매. 기존 enum 값은 저장 호환을 위해 재사용하지 않는다.
+        PostHitShield = 39,
     }
 
     public enum PermanentGrowthBranch
@@ -250,7 +252,7 @@ namespace MukJump.Core
             new(
                 PermanentGrowthBranch.Survival,
                 "생존",
-                "최대 체력·피격 여유·피격 안정·먹떼 결실",
+                "최대 체력·피격 여유·1회 방어막·피격 안정·먹떼 결실",
                 0),
             new(
                 PermanentGrowthBranch.InkHandling,
@@ -464,7 +466,8 @@ namespace MukJump.Core
                 P("I-C3"), 4, "ink", 500f, 280f);
 
             // 생존 — 최대 체력·피격 여유·피격 안정 세 줄을 사용한다.
-            // 피격 안정 줄의 마지막 열매만 먹분신 아이템 생성 상한 +1 패시브다.
+            // 피격 여유의 마지막 열매는 피격 생존 방어막, 피격 안정의 마지막
+            // 열매는 먹분신 아이템 생성 상한 +1 패시브다.
             // 공용 뿌리 S00은 가운데 피격 여유 줄의 첫 단계다.
             Add(nodes, "S00", "숨 고르기의 씨", "피격 직후 다시 맞지 않는 시간을 늘립니다.",
                 "피격 뒤 무적 +0.04초", "survival.grace.seed",
@@ -515,10 +518,10 @@ namespace MukJump.Core
                 PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
                 P("S-B2"), 0, "", -950f, 0f);
-            Add(nodes, "S-KB", "숨 고르기 IV", "피격 직후 다시 맞지 않는 시간을 늘립니다.",
-                "피격 뒤 무적 +0.04초", "survival.grace.keystone",
-                PermanentGrowthType.DamageGrace, 0.04f, "피격 뒤 무적",
-                PermanentGrowthValueKind.Seconds, false,
+            Add(nodes, "S-KB", "숨 고르기 결실", "장애물에 맞아 체력이 한 칸 줄고 살아남으면 다음 피격을 한 번 막는 방어막을 만듭니다.",
+                "장애물 피격 생존 시 1회 방어막", "survival.post_hit_shield.keystone",
+                PermanentGrowthType.PostHitShield, 1f, "1회 방어막",
+                PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,
                 P("S-B3"), 4, "survival", -1000f, 360f);
 

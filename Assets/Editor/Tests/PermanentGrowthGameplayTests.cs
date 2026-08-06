@@ -117,6 +117,36 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void PostHitShieldProtectsOnlyTheNextHitAfterRealHealthLoss()
+        {
+            SeedGrowth(new[] { "S-A1", "S-KB" });
+            CreatePlayingManager(out _);
+            var player = CreatePlayer("PermanentPostHitShield");
+
+            Assert.That(player.MaxHealth, Is.EqualTo(2));
+            Assert.That(player.HasShield, Is.False);
+
+            ExpireDamageGrace(player);
+            Assert.That(player.TakeHit(), Is.True);
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.HasShield, Is.True,
+                "실제 체력 피해 뒤 살아남은 개체에게 1회 방어막이 생겨야 합니다.");
+
+            ExpireDamageGrace(player);
+            Assert.That(player.TakeHit(), Is.True);
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.HasShield, Is.False,
+                "방어막으로 막은 피격이 새 방어막을 다시 만들면 안 됩니다.");
+
+            ExpireDamageGrace(player);
+            Assert.That(player.TakeHit(), Is.True);
+            Assert.That(player.CurrentHealth, Is.Zero);
+            Assert.That(player.IsDead, Is.True);
+            Assert.That(player.HasShield, Is.False,
+                "치명 피해로 사망한 개체에게 방어막을 만들면 안 됩니다.");
+        }
+
+        [Test]
         public void HitStabilityLineReducesHorizontalKnockbackToSixtyFourPercent()
         {
             SeedGrowth(new[] { "S-C3" });

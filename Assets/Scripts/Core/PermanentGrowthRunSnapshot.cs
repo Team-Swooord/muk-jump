@@ -57,6 +57,8 @@ namespace MukJump.Core
             PlayerController.MaximumHealth - PlayerController.DefaultMaxHealth);
         public float DamageGraceBonusSeconds =>
             EffectTotal(PermanentGrowthType.DamageGrace);
+        public bool HasPostHitShield =>
+            EffectTotal(PermanentGrowthType.PostHitShield) >= 1f;
         public int InkCloneItemExtraCount => Mathf.Clamp(
             Mathf.RoundToInt(EffectTotal(PermanentGrowthType.InkCloneItemExtraCount)),
             0,

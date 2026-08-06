@@ -131,7 +131,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void CoreBalanceValuesMatchGrowthTracksAndCloneCapstone()
+        public void CoreBalanceValuesMatchGrowthTracksAndSurvivalCapstones()
         {
             AssertEffect("I00", PermanentGrowthType.InkBudgetEfficiency, 0.02f);
             for (int rank = 1; rank <= 3; rank++)
@@ -152,7 +152,7 @@ namespace MukJump.EditorTests
                 AssertEffect($"S-C{rank}", PermanentGrowthType.HitHorizontalStability, 0.06f);
             }
             AssertEffect("S-KA", PermanentGrowthType.Vitality, 1f);
-            AssertEffect("S-KB", PermanentGrowthType.DamageGrace, 0.04f);
+            AssertEffect("S-KB", PermanentGrowthType.PostHitShield, 1f);
             AssertEffect("S-KC", PermanentGrowthType.InkCloneItemExtraCount, 1f);
 
             AssertEffect("J00", PermanentGrowthType.JumpPower, 0.01f);
@@ -175,7 +175,9 @@ namespace MukJump.EditorTests
             Assert.That(EffectTotal(PermanentGrowthType.Vitality),
                 Is.EqualTo(4f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.DamageGrace),
-                Is.EqualTo(0.20f).Within(0.000001f));
+                Is.EqualTo(0.16f).Within(0.000001f));
+            Assert.That(EffectTotal(PermanentGrowthType.PostHitShield),
+                Is.EqualTo(1f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.HitHorizontalStability),
                 Is.EqualTo(0.18f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.InkCloneItemExtraCount),

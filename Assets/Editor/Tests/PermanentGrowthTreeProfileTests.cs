@@ -98,7 +98,8 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.True);
             Assert.That(PermanentGrowthProfile.HasLastBreath, Is.False);
             Assert.That(PermanentGrowthProfile.DamageGraceBonusSeconds,
-                Is.EqualTo(0.20f).Within(0.0001f));
+                Is.EqualTo(0.16f).Within(0.0001f));
+            Assert.That(PermanentGrowthProfile.HasPostHitShield, Is.True);
 
             Assert.That(
                 PermanentGrowthProfile.ClearActiveKeystone(
@@ -139,11 +140,15 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(4));
             Assert.That(snapshot.DamageGraceBonusSeconds,
                 Is.EqualTo(0.04f).Within(0.0001f));
+            Assert.That(snapshot.HasPostHitShield, Is.False);
             Assert.That(snapshot.GetActiveKeystoneId(PermanentGrowthBranch.Survival),
                 Is.EqualTo("S-KA"));
             Assert.That(
                 PermanentGrowthProfile.CreateRunSnapshot().DamageGraceBonusSeconds,
-                Is.EqualTo(0.20f).Within(0.0001f));
+                Is.EqualTo(0.16f).Within(0.0001f));
+            Assert.That(
+                PermanentGrowthProfile.CreateRunSnapshot().HasPostHitShield,
+                Is.True);
         }
 
         [Test]

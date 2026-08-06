@@ -67,7 +67,7 @@ namespace MukJump.Core
             return true;
         }
 
-        /// 장착 비기 S-KB의 공용 12초 사용권. true면 피해 뒤 물리를 바꾸지 않는다.
+        /// 제거된 구 피격 보존 비기의 호환 경로. 현재 성장 스냅샷에서는 활성화되지 않는다.
         public bool TryPreserveHitMotion()
         {
             if (!PermanentSnapshot.HasStableHit ||

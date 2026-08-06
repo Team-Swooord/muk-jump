@@ -365,6 +365,11 @@ namespace MukJump.Player
                     EffectiveDamageHitGraceDuration,
                     true,
                     preserveMotion);
+                // 숨 고르기 결실은 체력이 실제로 줄고 살아남은 개체에게만
+                // 다음 피격 1회용 방어막을 준다. 방어막으로 막은 피격은 위에서
+                // 반환되므로 방어막을 무한 재생성하지 않는다.
+                if (ActivePermanentGrowth.HasPostHitShield)
+                    TryGrantShield();
             }
             return true;
         }

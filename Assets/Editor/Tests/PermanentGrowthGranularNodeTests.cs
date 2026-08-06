@@ -48,10 +48,11 @@ namespace MukJump.EditorTests
             Assert.That((int)PermanentGrowthType.InkEvictionFade, Is.EqualTo(36));
             Assert.That((int)PermanentGrowthType.InkEvictionDelay, Is.EqualTo(37));
             Assert.That((int)PermanentGrowthType.InkCloneItemExtraCount, Is.EqualTo(38));
+            Assert.That((int)PermanentGrowthType.PostHitShield, Is.EqualTo(39));
         }
 
         [Test]
-        public void SnapshotComposesGrowthTracksAndSingleCloneCapstone()
+        public void SnapshotComposesGrowthTracksAndSurvivalCapstones()
         {
             var snapshot = new PermanentGrowthRunSnapshot(
                 new[]
@@ -82,7 +83,8 @@ namespace MukJump.EditorTests
                 Is.Zero.Within(0.0001f));
             Assert.That(snapshot.HasShortStrokeDiscount, Is.False);
             Assert.That(snapshot.DamageGraceBonusSeconds,
-                Is.EqualTo(0.20f).Within(0.0001f));
+                Is.EqualTo(0.16f).Within(0.0001f));
+            Assert.That(snapshot.HasPostHitShield, Is.True);
             Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(4));
             Assert.That(snapshot.HitHorizontalRetention,
                 Is.EqualTo(0.64f).Within(0.0001f));
@@ -186,7 +188,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void OwnedLineEndNodesApplyAsStatsWithoutSpecialPassives()
+        public void OwnedLineEndNodesApplyImmediatelyWithoutLoadoutSwitching()
         {
             var owned = new[] { "S-KA", "S-KB", "J-KB", "I-KC" };
             var active = new Dictionary<PermanentGrowthBranch, string>
@@ -199,7 +201,8 @@ namespace MukJump.EditorTests
 
             Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(1));
             Assert.That(snapshot.DamageGraceBonusSeconds,
-                Is.EqualTo(0.04f).Within(0.0001f));
+                Is.Zero.Within(0.0001f));
+            Assert.That(snapshot.HasPostHitShield, Is.True);
             Assert.That(snapshot.JumpPowerMultiplier,
                 Is.EqualTo(1.01f).Within(0.0001f));
             Assert.That(snapshot.InkRecoverySpeedMultiplier,
