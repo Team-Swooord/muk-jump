@@ -348,7 +348,9 @@ namespace MukJump.Obstacles
             float difficulty = Mathf.InverseLerp(
                 haetaeUnlockHeight, 750f, courseHeight);
             float telegraphSeconds = Mathf.Lerp(1.2f, 1.1f, difficulty);
-            float pounceSeconds = Mathf.Lerp(0.75f, 0.65f, difficulty);
+            // 화면 전체를 0.7초 안팎에 훑던 속도는 실기기에서 회피 정보를 읽기
+            // 어려웠다. 후반에도 최소 1.25초는 보장해 위협은 유지하되 대응 가능하게 한다.
+            float pounceSeconds = Mathf.Lerp(1.45f, 1.25f, difficulty);
             Vector2 localColliderSize = haetaeColliderWorldSize /
                                         Mathf.Max(0.0001f, scale);
             haetaeReleaseHandler ??= ReleaseHaetae;
@@ -679,7 +681,7 @@ namespace MukJump.Obstacles
                 LayerMask.GetMask("Player"),
                 haetaeReleaseHandler,
                 1.2f,
-                0.72f,
+                1.35f,
                 0.14f,
                 0.35f,
                 localColliderSize,

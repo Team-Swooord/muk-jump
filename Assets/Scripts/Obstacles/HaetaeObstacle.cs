@@ -52,7 +52,7 @@ namespace MukJump.Obstacles
         LineRenderer routeGuide;
         SpriteRenderer materializeSeal;
         float telegraphDuration = 1.2f;
-        float pounceDuration = 0.72f;
+        float pounceDuration = 1.35f;
         float landDuration = 0.14f;
         float sealAwayDuration = 0.35f;
         float stateElapsed;
@@ -115,7 +115,7 @@ namespace MukJump.Obstacles
             LayerMask hitMask,
             Action<HaetaeObstacle> onRelease,
             float telegraphSeconds = 1.2f,
-            float pounceSeconds = 0.72f,
+            float pounceSeconds = 1.35f,
             float landSeconds = 0.14f,
             float sealAwaySeconds = 0.35f,
             Vector2? colliderSize = null,
