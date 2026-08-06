@@ -11,6 +11,13 @@ namespace MukJump.Player
     [RequireComponent(typeof(Rigidbody2D))]
     public class PlayerController : MonoBehaviour
     {
+        const float StrongSideWallBounceSpeed = 7.5f;
+        const float StrongSideWallBounceMaxSpeed = 9f;
+        const float StrongSideWallBounceMinVertical = 4.8f;
+        const float StrongSideWallBounceMaxVertical = 6.2f;
+        const float StrongSideWallRiseGrace = 0.28f;
+        const float SideWallSeparationDistance = 0.18f;
+
         [Tooltip("캐릭터가 카메라 하단 가장자리보다 이만큼 내려가면 추락 피해 처리")]
         [SerializeField] float deathEdgeMargin = 0.3f;
         [Header("사망 먹 번짐 연출")]
@@ -32,15 +39,16 @@ namespace MukJump.Player
         [SerializeField] float shieldRecoveryHeight = 35f;
         [Header("좌우 벽 트램펄린")]
         [Tooltip("화면 좌우 벽에 닿았을 때 안쪽으로 되튀는 최소 수평 속도")]
-        [SerializeField, Min(0f)] float sideWallBounceSpeed = 3.2f;
+        [SerializeField, Min(0f)] float sideWallBounceSpeed = StrongSideWallBounceSpeed;
         [Tooltip("벽 반동의 최대 수평 속도. 방향은 항상 화면 안쪽이다")]
-        [SerializeField, Min(0f)] float sideWallBounceMaxSpeed = 4.2f;
-        [Tooltip("첫 벽 충돌에서 무작위로 선택하는 작은 수직 반동 범위")]
-        [SerializeField] Vector2 sideWallVerticalBounceRange = new(2.4f, 3.2f);
+        [SerializeField, Min(0f)] float sideWallBounceMaxSpeed = StrongSideWallBounceMaxSpeed;
+        [Tooltip("첫 벽 충돌에서 무작위로 선택하는 강한 수직 반동 범위")]
+        [SerializeField] Vector2 sideWallVerticalBounceRange =
+            new(StrongSideWallBounceMinVertical, StrongSideWallBounceMaxVertical);
         [Tooltip("벽 반동이 반복 점프가 되지 않도록 수직 반동을 다시 허용하기까지의 시간")]
         [SerializeField, Min(0f)] float sideWallBounceCooldown = 0.45f;
         [Tooltip("첫 수직 반동을 접촉 유지 보정이 즉시 지우지 않는 시간")]
-        [SerializeField, Min(0f)] float sideWallBounceRiseGrace = 0.12f;
+        [SerializeField, Min(0f)] float sideWallBounceRiseGrace = StrongSideWallRiseGrace;
         [Header("벽의 먹발")]
         [Tooltip("벽 비기가 붙은 직후 너무 빨리 떨어지지 않게 보장하는 최소 체류 시간")]
         [SerializeField, Min(0f)] float wallClingMinimumDuration = 0.22f;
@@ -205,8 +213,26 @@ namespace MukJump.Player
             normalGravityScale = rb.gravityScale;
             rb.freezeRotation = true;
             // 구 Main 씬에 직렬화된 약한 2.4 반동도 현재 트램펄린 밸런스로 승격한다.
-            sideWallBounceSpeed = Mathf.Max(3.2f, sideWallBounceSpeed);
-            sideWallBounceMaxSpeed = Mathf.Max(sideWallBounceSpeed, sideWallBounceMaxSpeed);
+            sideWallBounceSpeed = Mathf.Max(
+                StrongSideWallBounceSpeed,
+                sideWallBounceSpeed);
+            sideWallBounceMaxSpeed = Mathf.Max(
+                Mathf.Max(StrongSideWallBounceMaxSpeed, sideWallBounceSpeed),
+                sideWallBounceMaxSpeed);
+            sideWallVerticalBounceRange = new Vector2(
+                Mathf.Max(
+                    StrongSideWallBounceMinVertical,
+                    Mathf.Min(
+                        sideWallVerticalBounceRange.x,
+                        sideWallVerticalBounceRange.y)),
+                Mathf.Max(
+                    StrongSideWallBounceMaxVertical,
+                    Mathf.Max(
+                        sideWallVerticalBounceRange.x,
+                        sideWallVerticalBounceRange.y)));
+            sideWallBounceRiseGrace = Mathf.Max(
+                StrongSideWallRiseGrace,
+                sideWallBounceRiseGrace);
             // 정지 상태에서 Rigidbody가 잠들면 충돌 콜백이 멈춰 접지 판정이 풀린다 → 잠들지 않게 유지
             rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
         }
@@ -763,6 +789,7 @@ namespace MukJump.Player
 
             if (Time.time < nextSideWallBounceAt)
             {
+                SeparateFromSideWall(inwardDirection);
                 rb.linearVelocity = ResolveSideWallEscapeVelocity(
                     rb.linearVelocity,
                     inwardDirection,
@@ -772,6 +799,7 @@ namespace MukJump.Player
             }
 
             float verticalRoll = GameplayRandom.Value(GameplayRandomStream.Player);
+            SeparateFromSideWall(inwardDirection);
             rb.linearVelocity = ResolveSideWallBounceVelocity(
                 rb.linearVelocity,
                 inwardDirection,
@@ -782,6 +810,14 @@ namespace MukJump.Player
             nextSideWallBounceAt = Time.time + sideWallBounceCooldown;
             sideWallRiseGraceUntil = Time.time + sideWallBounceRiseGrace;
             GameFeedbackController.Instance?.PlayWallHit(transform.position, inwardDirection);
+        }
+
+        void SeparateFromSideWall(float inwardDirection)
+        {
+            if (rb == null) return;
+            rb.position += Vector2.right *
+                           (Mathf.Sign(inwardDirection) * SideWallSeparationDistance);
+            rb.WakeUp();
         }
 
         /// 벽 충돌 한 번을 화면 안쪽의 짧은 트램펄린 반동으로 바꾼다. 수평 방향은
@@ -811,7 +847,7 @@ namespace MukJump.Player
                 0f,
                 0.8f);
             float verticalSpeed = Mathf.Min(
-                4f,
+                maximumVertical + 0.8f,
                 Mathf.Lerp(
                     minimumVertical,
                     maximumVertical,

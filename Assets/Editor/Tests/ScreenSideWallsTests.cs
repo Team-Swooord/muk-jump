@@ -141,25 +141,25 @@ namespace MukJump.EditorTests
             {
                 new Vector2(-7f, -5f),
                 1f,
-                3.2f,
-                4.2f,
-                new Vector2(2.4f, 3.2f),
+                7.5f,
+                9f,
+                new Vector2(4.8f, 6.2f),
                 0.5f,
             });
-            Assert.That(left.x, Is.EqualTo(4.2f).Within(0.001f));
-            Assert.That(left.y, Is.EqualTo(3.4f).Within(0.001f));
+            Assert.That(left.x, Is.EqualTo(7.5f).Within(0.001f));
+            Assert.That(left.y, Is.EqualTo(6.1f).Within(0.001f));
 
             var right = (Vector2)method.Invoke(null, new object[]
             {
                 new Vector2(1f, -20f),
                 -1f,
-                3.2f,
-                4.2f,
-                new Vector2(2.4f, 3.2f),
+                7.5f,
+                9f,
+                new Vector2(4.8f, 6.2f),
                 1f,
             });
-            Assert.That(right.x, Is.EqualTo(-3.2f).Within(0.001f));
-            Assert.That(right.y, Is.EqualTo(4f).Within(0.001f));
+            Assert.That(right.x, Is.EqualTo(-7.5f).Within(0.001f));
+            Assert.That(right.y, Is.EqualTo(7f).Within(0.001f));
         }
 
         [Test]
@@ -172,15 +172,15 @@ namespace MukJump.EditorTests
 
             var grace = (Vector2)method.Invoke(null, new object[]
             {
-                new Vector2(-1f, 2.8f), 1f, 3.2f, true,
+                new Vector2(-1f, 5.6f), 1f, 7.5f, true,
             });
             var expired = (Vector2)method.Invoke(null, new object[]
             {
-                new Vector2(-1f, 2.8f), 1f, 3.2f, false,
+                new Vector2(-1f, 5.6f), 1f, 7.5f, false,
             });
 
-            Assert.That(grace, Is.EqualTo(new Vector2(3.2f, 2.8f)));
-            Assert.That(expired, Is.EqualTo(new Vector2(3.2f, 0f)));
+            Assert.That(grace, Is.EqualTo(new Vector2(7.5f, 5.6f)));
+            Assert.That(expired, Is.EqualTo(new Vector2(7.5f, 0f)));
         }
     }
 }

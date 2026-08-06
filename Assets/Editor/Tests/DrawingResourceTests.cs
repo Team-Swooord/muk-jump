@@ -114,9 +114,9 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void VisibleInkGaugeRecoversContinuouslyWithTheDryingStroke()
+        public void InkGaugeRecoversWhenTheStrokeBudgetIsReleased()
         {
-            var captureObject = new GameObject("VisibleInkGaugeCapture");
+            var captureObject = new GameObject("UsableInkGaugeCapture");
             created.Add(captureObject);
             var capture = captureObject.AddComponent<StrokeCapture>();
             float visibleBefore = PlatformCollider.ActiveVisibleInkCost;
@@ -129,13 +129,21 @@ namespace MukJump.EditorTests
                 naturalHoldSeconds: PlatformCollider.DefaultNaturalHoldDuration);
             created.Add(platform.gameObject);
 
+            float remainingBeforeRelease = capture.CurrentInkRemaining;
+            float ratioBeforeRelease = capture.InkRemaining01;
+            Assert.That(remainingBeforeRelease, Is.Zero.Within(0.0001f));
+
             Invoke(platform, "UpdateRuntimeDrawnPlatform",
                 PlatformCollider.DefaultNaturalHoldDuration,
                 PlatformCollider.DefaultNaturalHoldDuration);
-            float remainingBeforeFade = capture.CurrentInkRemaining;
-            float ratioBeforeFade = capture.InkRemaining01;
+            float remainingAfterRelease = capture.CurrentInkRemaining;
+            float ratioAfterRelease = capture.InkRemaining01;
             Assert.That(platform.VisibleInkCost,
                 Is.EqualTo(StrokeCapture.DefaultInkCapacity).Within(0.0001f));
+            Assert.That(remainingAfterRelease, Is.GreaterThan(remainingBeforeRelease),
+                "소멸이 시작되어 먹 예산이 반환되면 하단 게이지도 회복되어야 합니다.");
+            Assert.That(ratioAfterRelease, Is.GreaterThan(ratioBeforeRelease),
+                "PrototypeHud가 읽는 정규화 잔량은 실제 사용 가능한 먹을 따라야 합니다.");
 
             Invoke(platform, "UpdateRuntimeDrawnPlatform", 0.55f,
                 PlatformCollider.DefaultNaturalHoldDuration + 0.55f);
@@ -146,18 +154,19 @@ namespace MukJump.EditorTests
             Assert.That(PlatformCollider.ActiveVisibleInkCost,
                 Is.EqualTo(visibleBefore + StrokeCapture.DefaultInkCapacity * 0.5f)
                     .Within(0.02f));
-            Assert.That(remainingHalfway, Is.GreaterThan(remainingBeforeFade),
-                "먹선이 마르는 진행도만큼 하단 게이지도 같은 프레임에 다시 차야 합니다.");
-            Assert.That(ratioHalfway, Is.GreaterThan(ratioBeforeFade),
-                "PrototypeHud가 읽는 정규화 잔량도 소멸 중 단조 증가해야 합니다.");
+            Assert.That(remainingHalfway,
+                Is.EqualTo(remainingAfterRelease).Within(0.0001f));
+            Assert.That(ratioHalfway,
+                Is.EqualTo(ratioAfterRelease).Within(0.0001f));
 
             Invoke(platform, "UpdateRuntimeDrawnPlatform", 0.55f,
                 PlatformCollider.DefaultNaturalHoldDuration + 1.1f);
             Assert.That(platform.VisibleInkCost, Is.Zero.Within(0.0001f));
             Assert.That(capture.CurrentInkRemaining,
-                Is.GreaterThan(remainingHalfway),
-                "먹선 소멸이 끝나면 게이지가 실제 최대 먹 용량까지 회복되어야 합니다.");
-            Assert.That(capture.InkRemaining01, Is.GreaterThan(ratioHalfway));
+                Is.EqualTo(remainingHalfway).Within(0.0001f),
+                "화면에 남은 페이드 잔상이 실제로 그릴 수 있는 먹을 다시 빼앗으면 안 됩니다.");
+            Assert.That(capture.InkRemaining01,
+                Is.EqualTo(ratioHalfway).Within(0.0001f));
         }
 
         [Test]

@@ -12,8 +12,8 @@ namespace MukJump.Core
         const float BrushOverlapRatio = 0.32f;
         const float FallbackGaugeHeightRatio = 0.05f;
         const float EmptyGaugeGuideAlpha = 0.12f;
-        const float GaugeConsumeFadeSeconds = 0.42f;
-        const float GaugeRecoverFadeSeconds = 0.22f;
+        const float GaugeConsumeFadeSeconds = 0.24f;
+        const float GaugeRecoverFadeSeconds = 0.32f;
 
         [Header("먹 게이지 이미지 (붓 획 모양) — 미할당 시 단색 막대로 폴백")]
         [Tooltip("붓 획 실루엣, 채워진 상태 (왼쪽 가늘게 → 오른쪽 두껍게)")]
@@ -120,10 +120,13 @@ namespace MukJump.Core
 
         Texture2D EnsureGoldenGaugeFill()
         {
-            if (goldenGaugeFill == null && inkGaugeFill != null)
+            Texture2D silhouette = inkGaugeFill != null
+                ? inkGaugeFill
+                : inkGaugeTrack;
+            if (goldenGaugeFill == null && silhouette != null)
             {
                 goldenGaugeFill = CreateColoredSilhouette(
-                    inkGaugeFill,
+                    silhouette,
                     InkPalette.Gold);
                 ownsGoldenGaugeFill = goldenGaugeFill != null;
             }
@@ -152,7 +155,10 @@ namespace MukJump.Core
                 safeGui.width,
                 horizontalMargin,
                 capacityRatio);
-            if (inkGaugeFill == null || inkGaugeTrack == null)
+            Texture2D gaugeSilhouette = inkGaugeFill != null
+                ? inkGaugeFill
+                : inkGaugeTrack;
+            if (gaugeSilhouette == null)
             {
                 float bw = gaugeTrackWidth;
                 float bh = CalculateFallbackGaugeHeight(safeGui.width);
@@ -200,11 +206,11 @@ namespace MukJump.Core
             float y = centerY - h / 2;
 
             var area = new Rect(x, y, w, h);
-            // 트랙도 채움과 같은 먹색으로 고정한다. 전체 용량 실루엣은 항상 같은
-            // 폭으로 남고, 실제 잔량만 0~100% 불투명도로 겹쳐진다.
+            // 빈 상태도 채움과 완전히 같은 실루엣을 쓴다. 별도 트랙
+            // 이미지를 깔면 실기기에서 먹색이 바뀌는 것처럼 보일 수 있다.
             DrawTextureWithTint(
                 area,
-                inkGaugeTrack,
+                gaugeSilhouette,
                 InkPalette.Ink,
                 EmptyGaugeGuideAlpha);
 
@@ -214,7 +220,7 @@ namespace MukJump.Core
                 // 쓰는 중에도 게이지 형태가 사라지지 않고 회복량을 바로 읽을 수 있다.
                 Texture2D fillTexture = golden
                     ? EnsureGoldenGaugeFill()
-                    : inkGaugeFill;
+                    : gaugeSilhouette;
                 if (fillTexture != null)
                     DrawTextureWithTint(area, fillTexture, Color.white, fillAlpha);
             }

@@ -331,11 +331,11 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ActiveStrokeImmediatelyConsumesTheVisibleInkGauge()
+        public void ActiveStrokeImmediatelyConsumesTheUsableInkGauge()
         {
             strokeObject = new GameObject("StrokeCaptureLiveGaugeTest");
             var capture = strokeObject.AddComponent<StrokeCapture>();
-            float activeBefore = PlatformCollider.ActiveVisibleInkCost;
+            float activeBefore = PlatformCollider.ActiveInkCost;
             Vector2 start = new(10000f, 10000f);
 
             GetMethod("BeginStrokeAtWorld").Invoke(capture, new object[] { start });
