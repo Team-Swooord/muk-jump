@@ -488,7 +488,10 @@ namespace MukJump.EditorTests
                 Is.Not.SameAs(originalBillboard.HealthRenderer));
             Assert.That(original.MaxHealth, Is.EqualTo(5));
             Assert.That(clone.CurrentHealth, Is.EqualTo(clone.MaxHealth));
-            Assert.That(clone.CurrentHealth, Is.EqualTo(5));
+            Assert.That(clone.MaxHealth,
+                Is.EqualTo(PlayerController.RuntimeCloneMaxHealth));
+            Assert.That(clone.CurrentHealth, Is.EqualTo(1),
+                "영구 성장 체력이 5여도 먹분신은 항상 1/1로 생성되어야 합니다.");
         }
 
         PlayerController CreatePlayer(string objectName)

@@ -252,7 +252,7 @@ namespace MukJump.Core
             new(
                 PermanentGrowthBranch.Survival,
                 "생존",
-                "최대 체력·피격 여유·1회 방어막·피격 안정·먹떼 결실",
+                "본체 최대 체력·피격 여유·1회 방어막·피격 안정·먹떼 결실",
                 0),
             new(
                 PermanentGrowthBranch.InkHandling,
@@ -465,7 +465,7 @@ namespace MukJump.Core
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
                 P("I-C3"), 4, "ink", 500f, 280f);
 
-            // 생존 — 최대 체력·피격 여유·피격 안정 세 줄을 사용한다.
+            // 생존 — 본체 최대 체력·피격 여유·피격 안정 세 줄을 사용한다.
             // 피격 여유의 마지막 열매는 피격 생존 방어막, 피격 안정의 마지막
             // 열매는 먹분신 아이템 생성 상한 +1 패시브다.
             // 공용 뿌리 S00은 가운데 피격 여유 줄의 첫 단계다.
@@ -475,27 +475,27 @@ namespace MukJump.Core
                 PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Root,
                 null, 0, "", -700f, -980f, 1);
-            Add(nodes, "S-A1", "먹피 I", "모든 현재·미래 먹방울이의 최대 체력을 한 칸 늘립니다.",
-                "모든 먹방울이 최대 체력 +1", "survival.guard.thin",
-                PermanentGrowthType.Vitality, 1f, "최대 체력",
+            Add(nodes, "S-A1", "먹피 I", "본체 먹방울이의 최대 체력을 한 칸 늘립니다. 분신 체력은 1로 유지됩니다.",
+                "본체 최대 체력 +1", "survival.guard.thin",
+                PermanentGrowthType.Vitality, 1f, "본체 최대 체력",
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
                 P("S00"), 0, "", -1320f, -720f, 2);
-            Add(nodes, "S-A2", "먹피 II", "모든 현재·미래 먹방울이의 최대 체력을 한 칸 늘립니다.",
-                "모든 먹방울이 최대 체력 +1", "survival.guard.layered",
-                PermanentGrowthType.Vitality, 1f, "최대 체력",
+            Add(nodes, "S-A2", "먹피 II", "본체 먹방울이의 최대 체력을 한 칸 늘립니다. 분신 체력은 1로 유지됩니다.",
+                "본체 최대 체력 +1", "survival.guard.layered",
+                PermanentGrowthType.Vitality, 1f, "본체 최대 체력",
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
                 P("S-A1"), 0, "", -1420f, -390f, 3);
-            Add(nodes, "S-A3", "먹피 III", "모든 현재·미래 먹방울이의 최대 체력을 한 칸 늘립니다.",
-                "모든 먹방울이 최대 체력 +1", "survival.guard.heart",
-                PermanentGrowthType.Vitality, 1f, "최대 체력",
+            Add(nodes, "S-A3", "먹피 III", "본체 먹방울이의 최대 체력을 한 칸 늘립니다. 분신 체력은 1로 유지됩니다.",
+                "본체 최대 체력 +1", "survival.guard.heart",
+                PermanentGrowthType.Vitality, 1f, "본체 최대 체력",
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
                 P("S-A2"), 0, "", -1320f, -60f);
-            Add(nodes, "S-KA", "먹피 IV", "모든 현재·미래 먹방울이의 최대 체력을 한 칸 늘립니다.",
-                "모든 먹방울이 최대 체력 +1", "survival.guard.keystone",
-                PermanentGrowthType.Vitality, 1f, "최대 체력",
+            Add(nodes, "S-KA", "먹피 IV", "본체 먹방울이의 최대 체력을 한 칸 늘립니다. 분신 체력은 1로 유지됩니다.",
+                "본체 최대 체력 +1", "survival.guard.keystone",
+                PermanentGrowthType.Vitality, 1f, "본체 최대 체력",
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,
                 P("S-A3"), 4, "survival", -1480f, 300f);
@@ -518,8 +518,8 @@ namespace MukJump.Core
                 PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
                 P("S-B2"), 0, "", -950f, 0f);
-            Add(nodes, "S-KB", "숨 고르기 결실", "장애물에 맞아 체력이 한 칸 줄고 살아남으면 다음 피격을 한 번 막는 방어막을 만듭니다.",
-                "장애물 피격 생존 시 1회 방어막", "survival.post_hit_shield.keystone",
+            Add(nodes, "S-KB", "숨 고르기 결실", "본체가 장애물에 맞아 체력이 한 칸 줄고 살아남으면 다음 피격을 한 번 막는 방어막을 만듭니다.",
+                "본체 피격 생존 시 1회 방어막", "survival.post_hit_shield.keystone",
                 PermanentGrowthType.PostHitShield, 1f, "1회 방어막",
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,

@@ -1409,7 +1409,7 @@ namespace MukJump.Core
                 Player.PlayerController.MaximumHealth);
             survivalSummaryText.text =
                 SummaryTitle("생존", survivalColor) + "\n" +
-                SummaryLine("체력", "1 → " + maxHealth, survivalColor) + "\n" +
+                SummaryLine("본체 체력", "1 → " + maxHealth, survivalColor) + "\n" +
                 SummaryLine(
                     "무적·방어막",
                     "+" + snapshot.DamageGraceBonusSeconds.ToString("0.00") +
@@ -1418,7 +1418,7 @@ namespace MukJump.Core
                 SummaryLine(
                     "밀림·분신",
                     $"82→{snapshot.HitHorizontalRetention * 100f:0}% · " +
-                    "1→" + (1 + snapshot.InkCloneItemExtraCount),
+                    "체력 1 · 생성 1→" + (1 + snapshot.InkCloneItemExtraCount),
                     survivalColor);
 
             float jumpChargeReduction =
