@@ -96,7 +96,7 @@ namespace MukJump.Core
                 : currentZone switch
                 {
                     Zone.WindPass => ("바람 고개", "산등성이의 바람이 조금 거세집니다"),
-                    Zone.InkRain => ("먹비 골짜기", "먹비가 번져 남길 수 있는 먹자리가 줄어듭니다"),
+                    Zone.InkRain => ("먹비 골짜기", "먹비가 번져 최대 먹 용량이 줄어듭니다"),
                     Zone.RockGorge => ("낙묵 협곡", "낙묵석이 더 자주 떨어집니다"),
                     _ => ("고요한 산길", "잠시 숨을 고르세요"),
                 };

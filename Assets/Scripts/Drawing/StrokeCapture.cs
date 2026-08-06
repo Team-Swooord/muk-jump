@@ -29,10 +29,10 @@ namespace MukJump.Drawing
         [Tooltip("캐릭터에서 이 거리 안의 획 부분만 잘라낸다 (물리 밀어내기 악용 방지)")]
         [SerializeField] float playerClearance = 0.55f;
 
-        [Header("먹자리 — 화면에 유지되는 총 먹선 길이")]
+        [Header("최대 먹 용량 — 화면에 유지되는 총 먹선 길이")]
         [Tooltip("동시에 유지할 수 있는 먹선의 기본 월드 길이")]
         [SerializeField] float inkCapacity = DefaultInkCapacity;
-        [Tooltip("총 먹자리를 넘긴 오래된 획이 시작점부터 지워지는 시간")]
+        [Tooltip("최대 먹 용량을 넘긴 오래된 획이 시작점부터 지워지는 시간")]
         [SerializeField] float evictionFadeDuration = 1.1f;
         [Tooltip("유효 먹선이 선명하게 유지된 뒤 자연 소멸을 시작하는 시간")]
         [SerializeField] float naturalHoldDuration =

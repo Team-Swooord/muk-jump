@@ -3,7 +3,7 @@ using MukJump.Drawing;
 
 namespace MukJump.Core
 {
-    /// 화면 하단에 남은 총 먹자리를 표시하는 경량 HUD.
+    /// 화면 하단에 남은 먹 용량을 표시하는 경량 HUD.
     public class PrototypeHud : MonoBehaviour
     {
         const float BaseGaugeWidthRatio = 0.33f;
@@ -94,7 +94,7 @@ namespace MukJump.Core
                 return;
             }
 
-            // 화면 하단 먹 게이지: 화면에 더 남길 수 있는 먹자리
+            // 화면 하단 먹 게이지: 화면에 더 남길 수 있는 먹 용량
             if (strokeCapture != null)
                 DrawInkGauge(
                     displayedInkAlphaInitialized

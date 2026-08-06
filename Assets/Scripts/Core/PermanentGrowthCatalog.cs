@@ -43,7 +43,7 @@ namespace MukJump.Core
         SafetyPlatform = 32,
         DoubleJump = 33,
         WallCling = 34,
-        // 먹자리 v6. 기존 enum 값은 저장 호환 때문에 재사용하지 않고 뒤에 추가한다.
+        // 최대 먹 용량 v6. 기존 enum 값은 저장 호환 때문에 재사용하지 않고 뒤에 추가한다.
         InkBudgetEfficiency = 35,
         InkEvictionFade = 36,
         InkEvictionDelay = 37,
@@ -255,7 +255,7 @@ namespace MukJump.Core
             new(
                 PermanentGrowthBranch.InkHandling,
                 "먹 운용",
-                "총 먹자리·먹자리 점유·게이지 회복",
+                "최대 먹 용량·획당 먹 소모·게이지 회복",
                 1),
             new(
                 PermanentGrowthBranch.Leap,
@@ -385,55 +385,55 @@ namespace MukJump.Core
 
             // 먹 운용 — 한 줄은 하나의 수치만 반복 강화한다.
             // 공용 뿌리 I00은 가운데 절약 줄의 첫 단계이며, 좌우로 총량·회복 줄이 갈라진다.
-            Add(nodes, "I00", "아끼는 먹의 씨", "같은 길이를 조금 더 적은 먹자리로 그립니다.",
-                "획 먹자리 소모 -2%", "ink.budget.seed",
+            Add(nodes, "I00", "아끼는 먹의 씨", "같은 길이를 조금 더 적은 먹으로 그립니다.",
+                "획당 먹 소모 -2%", "ink.budget.seed",
                 PermanentGrowthType.InkBudgetEfficiency,
-                0.02f, "획 먹자리 소모", PermanentGrowthValueKind.Percent, true,
+                0.02f, "먹 소모량", PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Root,
                 null, 0, "", 0f, -1040f, 1);
             Add(nodes, "I-A1", "넓은 벼루 I", "한 화면에 남겨 둘 수 있는 먹선의 총량을 늘립니다.",
-                "총 먹자리 +37.5%", "ink.capacity.wide", PermanentGrowthType.InkCapacity,
-                0.375f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
+                "최대 먹 용량 +37.5%", "ink.capacity.wide", PermanentGrowthType.InkCapacity,
+                0.375f, "최대 먹 용량", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I00"), 0, "", -300f, -770f, 2);
             Add(nodes, "I-A2", "넓은 벼루 II", "한 화면에 남겨 둘 수 있는 먹선의 총량을 늘립니다.",
-                "총 먹자리 +37.5%", "ink.capacity.deep", PermanentGrowthType.InkCapacity,
-                0.375f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
+                "최대 먹 용량 +37.5%", "ink.capacity.deep", PermanentGrowthType.InkCapacity,
+                0.375f, "최대 먹 용량", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-A1"), 0, "", -360f, -430f);
             Add(nodes, "I-A3", "넓은 벼루 III", "한 화면에 남겨 둘 수 있는 먹선의 총량을 늘립니다.",
-                "총 먹자리 +37.5%", "ink.capacity.great", PermanentGrowthType.InkCapacity,
-                0.375f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
+                "최대 먹 용량 +37.5%", "ink.capacity.great", PermanentGrowthType.InkCapacity,
+                0.375f, "최대 먹 용량", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-A2"), 0, "", -300f, -80f);
             Add(nodes, "I-KA", "넓은 벼루 IV", "한 화면에 남겨 둘 수 있는 먹선의 총량을 늘립니다.",
-                "총 먹자리 +37.5%", "ink.capacity.keystone",
-                PermanentGrowthType.InkCapacity, 0.375f, "총 먹자리",
+                "최대 먹 용량 +37.5%", "ink.capacity.keystone",
+                PermanentGrowthType.InkCapacity, 0.375f, "최대 먹 용량",
                 PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
                 P("I-A3"), 4, "ink", -400f, 300f);
 
-            Add(nodes, "I-B1", "가는 붓끝 I", "같은 길이를 조금 더 적은 먹자리로 그립니다.",
-                "획 먹자리 소모 -2%", "ink.budget.fine",
+            Add(nodes, "I-B1", "가는 붓끝 I", "같은 길이를 조금 더 적은 먹으로 그립니다.",
+                "획당 먹 소모 -2%", "ink.budget.fine",
                 PermanentGrowthType.InkBudgetEfficiency,
-                0.02f, "획 먹자리 소모", PermanentGrowthValueKind.Percent, true,
+                0.02f, "먹 소모량", PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I00"), 0, "", 0f, -710f, 1);
-            Add(nodes, "I-B2", "가는 붓끝 II", "같은 길이를 조금 더 적은 먹자리로 그립니다.",
-                "획 먹자리 소모 -2%", "ink.budget.even",
+            Add(nodes, "I-B2", "가는 붓끝 II", "같은 길이를 조금 더 적은 먹으로 그립니다.",
+                "획당 먹 소모 -2%", "ink.budget.even",
                 PermanentGrowthType.InkBudgetEfficiency,
-                0.02f, "획 먹자리 소모", PermanentGrowthValueKind.Percent, true,
+                0.02f, "먹 소모량", PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-B1"), 0, "", 70f, -370f, 2);
-            Add(nodes, "I-B3", "가는 붓끝 III", "같은 길이를 조금 더 적은 먹자리로 그립니다.",
-                "획 먹자리 소모 -2%", "ink.budget.short",
-                PermanentGrowthType.InkBudgetEfficiency, 0.02f, "획 먹자리 소모",
+            Add(nodes, "I-B3", "가는 붓끝 III", "같은 길이를 조금 더 적은 먹으로 그립니다.",
+                "획당 먹 소모 -2%", "ink.budget.short",
+                PermanentGrowthType.InkBudgetEfficiency, 0.02f, "먹 소모량",
                 PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-B2"), 0, "", 0f, -20f);
-            Add(nodes, "I-KB", "가는 붓끝 IV", "같은 길이를 조금 더 적은 먹자리로 그립니다.",
-                "획 먹자리 소모 -2%", "ink.budget.keystone",
-                PermanentGrowthType.InkBudgetEfficiency, 0.02f, "획 먹자리 소모",
+            Add(nodes, "I-KB", "가는 붓끝 IV", "같은 길이를 조금 더 적은 먹으로 그립니다.",
+                "획당 먹 소모 -2%", "ink.budget.keystone",
+                PermanentGrowthType.InkBudgetEfficiency, 0.02f, "먹 소모량",
                 PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
                 P("I-B3"), 4, "ink", 0f, 360f);

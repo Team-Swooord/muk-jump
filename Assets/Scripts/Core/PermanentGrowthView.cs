@@ -1440,7 +1440,7 @@ namespace MukJump.Core
             inkSummaryText.text =
                 SummaryTitle("먹 운용", inkColor) + "\n" +
                 SummaryLine(
-                    "먹자리",
+                    "최대 먹 용량",
                     $"{baseInkCapacity:0.#} → {currentInkCapacity:0.#}m",
                     inkColor) + "\n" +
                 SummaryLine("획 소모", FormatDeltaPercent(inkSaving, "-"), inkColor) + "\n" +

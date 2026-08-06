@@ -99,7 +99,7 @@ namespace MukJump.EditorTests
 
             Invoke(platform, "UpdateRuntimeDrawnPlatform", 0.02f, 3.41f);
             Assert.That(platform.RetainedInkCost, Is.Zero,
-                "자연 소멸을 시작한 획은 총 먹자리 ledger를 한 번만 반환해야 합니다.");
+                "자연 소멸을 시작한 획은 최대 먹 용량 ledger를 한 번만 반환해야 합니다.");
             Assert.That(PlatformCollider.ActiveInkCost,
                 Is.EqualTo(activeBefore).Within(0.0001f));
             Assert.That(GetField<float>(platform, "evictionTargetFraction"), Is.EqualTo(1f));
@@ -156,7 +156,7 @@ namespace MukJump.EditorTests
             Assert.That(platform.VisibleInkCost, Is.Zero.Within(0.0001f));
             Assert.That(capture.CurrentInkRemaining,
                 Is.GreaterThan(remainingHalfway),
-                "먹선 소멸이 끝나면 게이지가 실제 최대 먹자리까지 회복되어야 합니다.");
+                "먹선 소멸이 끝나면 게이지가 실제 최대 먹 용량까지 회복되어야 합니다.");
             Assert.That(capture.InkRemaining01, Is.GreaterThan(ratioHalfway));
         }
 

@@ -6,7 +6,7 @@ using MukJump.Core;
 namespace MukJump.Drawing
 {
     /// 스트로크 점열 하나 = 발판 하나. LineRenderer(붓선 비주얼) + EdgeCollider2D(물리).
-    /// 플레이어가 그린 먹선은 일정 시간 뒤 마르고, 총 먹자리 예산을 넘겨도
+    /// 플레이어가 그린 먹선은 일정 시간 뒤 마르고, 최대 먹 용량을 넘겨도
     /// 가장 오래된 획의 시작점부터 시각·물리가 함께 지워진다.
     [RequireComponent(typeof(LineRenderer), typeof(EdgeCollider2D))]
     public class PlatformCollider : MonoBehaviour
@@ -174,7 +174,7 @@ namespace MukJump.Drawing
             return platform;
         }
 
-        /// 현재 총 먹자리를 넘긴 길이만큼 가장 오래된 획부터 FIFO로 비운다.
+        /// 현재 최대 먹 용량을 넘긴 길이만큼 가장 오래된 획부터 FIFO로 비운다.
         /// 비용은 즉시 ledger에서 빠지지만 비주얼과 콜라이더는 설정된 시간 동안
         /// 획의 시작점부터 같이 줄어들어 갑작스럽게 발판 전체가 꺼지지 않는다.
         public static void ReconcileActiveInkBudget(float capacity)

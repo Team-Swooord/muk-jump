@@ -57,7 +57,7 @@ public sealed class SpecialPlatformTests
             var edge = platforms[i].GetComponent<EdgeCollider2D>();
             Assert.IsNotNull(edge);
             Assert.IsTrue(edge.enabled,
-                "총 먹자리 안에서는 발판 개수와 무관하게 충돌이 유지되어야 합니다.");
+                "최대 먹 용량 안에서는 발판 개수와 무관하게 충돌이 유지되어야 합니다.");
         }
 
         PlatformCollider.ReconcileActiveInkBudget(4f);

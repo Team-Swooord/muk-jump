@@ -1577,7 +1577,7 @@ namespace MukJump.Core
         }
 
         /// v6는 구매 그래프와 저장 payload를 바꾸지 않고 먹 계열 노드의 의미만
-        /// 회복형 자원에서 총 먹자리 예산으로 교체한다. stable node ID는 그대로 승계한다.
+        /// 회복형 자원에서 최대 먹 용량 예산으로 교체한다. stable node ID는 그대로 승계한다.
         static void MigrateInkBudgetSemanticsToV6()
         {
             data.balanceVersion = 6;
