@@ -195,24 +195,43 @@ public sealed class ItemSpawnerBalanceTests
     }
 
     [Test]
-    public void InkGaugeUsesOpacityForRemainingInk()
+    public void InkGaugeFillShrinksFromLeftAndStaysAttachedToBrush()
     {
-        MethodInfo method = typeof(PrototypeHud).GetMethod(
-            "ResolveGaugeFillAlpha",
+        MethodInfo rectMethod = typeof(PrototypeHud).GetMethod(
+            "CalculateGaugeFillRect",
             BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.That(method, Is.Not.Null);
+        MethodInfo uvMethod = typeof(PrototypeHud).GetMethod(
+            "CalculateGaugeFillUv",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.That(rectMethod, Is.Not.Null);
+        Assert.That(uvMethod, Is.Not.Null);
 
-        float empty = (float)method.Invoke(null, new object[] { 0f, false });
-        float half = (float)method.Invoke(null, new object[] { 0.5f, false });
-        float full = (float)method.Invoke(null, new object[] { 1f, false });
-        float clamped = (float)method.Invoke(null, new object[] { 2f, false });
-        float golden = (float)method.Invoke(null, new object[] { 0f, true });
+        var area = new Rect(100f, 50f, 400f, 80f);
+        Rect empty = (Rect)rectMethod.Invoke(
+            null, new object[] { area, 0f, false });
+        Rect quarter = (Rect)rectMethod.Invoke(
+            null, new object[] { area, 0.25f, false });
+        Rect half = (Rect)rectMethod.Invoke(
+            null, new object[] { area, 0.5f, false });
+        Rect full = (Rect)rectMethod.Invoke(
+            null, new object[] { area, 1f, false });
+        Rect golden = (Rect)rectMethod.Invoke(
+            null, new object[] { area, 0f, true });
+        Rect quarterUv = (Rect)uvMethod.Invoke(
+            null, new object[] { 0.25f, false });
 
-        Assert.That(empty, Is.EqualTo(0f).Within(0.001f));
-        Assert.That(half, Is.EqualTo(0.5f).Within(0.001f));
-        Assert.That(full, Is.EqualTo(1f).Within(0.001f));
-        Assert.That(clamped, Is.EqualTo(1f).Within(0.001f));
-        Assert.That(golden, Is.EqualTo(1f).Within(0.001f));
+        Assert.That(empty.x, Is.EqualTo(500f).Within(0.001f));
+        Assert.That(empty.width, Is.Zero.Within(0.001f));
+        Assert.That(quarter.x, Is.EqualTo(400f).Within(0.001f));
+        Assert.That(quarter.width, Is.EqualTo(100f).Within(0.001f));
+        Assert.That(half.x, Is.EqualTo(300f).Within(0.001f));
+        Assert.That(half.width, Is.EqualTo(200f).Within(0.001f));
+        Assert.That(full, Is.EqualTo(area));
+        Assert.That(golden, Is.EqualTo(area));
+        Assert.That(quarter.xMax, Is.EqualTo(area.xMax).Within(0.001f));
+        Assert.That(half.xMax, Is.EqualTo(area.xMax).Within(0.001f));
+        Assert.That(quarterUv.x, Is.EqualTo(0.75f).Within(0.001f));
+        Assert.That(quarterUv.width, Is.EqualTo(0.25f).Within(0.001f));
     }
 
     [Test]

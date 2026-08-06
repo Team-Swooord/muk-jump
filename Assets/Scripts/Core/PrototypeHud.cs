@@ -26,8 +26,8 @@ namespace MukJump.Core
         StrokeCapture strokeCapture;
         Texture2D goldenGaugeFill;
         bool ownsGoldenGaugeFill;
-        float displayedInkAlpha = 1f;
-        bool displayedInkAlphaInitialized;
+        float displayedInkRatio = 1f;
+        bool displayedInkRatioInitialized;
 
         void OnEnable()
         {
@@ -37,7 +37,7 @@ namespace MukJump.Core
         void Start()
         {
             EnsureRuntimeReferences();
-            InitializeDisplayedInkAlpha();
+            InitializeDisplayedInkRatio();
         }
 
         void Update()
@@ -48,18 +48,18 @@ namespace MukJump.Core
                 return;
 
             float target = Mathf.Clamp01(strokeCapture.InkRemaining01);
-            if (!displayedInkAlphaInitialized)
+            if (!displayedInkRatioInitialized)
             {
-                displayedInkAlpha = target;
-                displayedInkAlphaInitialized = true;
+                displayedInkRatio = target;
+                displayedInkRatioInitialized = true;
                 return;
             }
 
-            float seconds = target < displayedInkAlpha
+            float seconds = target < displayedInkRatio
                 ? GaugeConsumeFadeSeconds
                 : GaugeRecoverFadeSeconds;
-            displayedInkAlpha = Mathf.MoveTowards(
-                displayedInkAlpha,
+            displayedInkRatio = Mathf.MoveTowards(
+                displayedInkRatio,
                 target,
                 Time.unscaledDeltaTime / Mathf.Max(0.01f, seconds));
         }
@@ -97,8 +97,8 @@ namespace MukJump.Core
             // 화면 하단 먹 게이지: 화면에 더 남길 수 있는 먹 용량
             if (strokeCapture != null)
                 DrawInkGauge(
-                    displayedInkAlphaInitialized
-                        ? displayedInkAlpha
+                    displayedInkRatioInitialized
+                        ? displayedInkRatio
                         : strokeCapture.InkRemaining01,
                     strokeCapture.InkCapacityRatio);
         }
@@ -109,13 +109,13 @@ namespace MukJump.Core
                 strokeCapture = FindFirstObjectByType<StrokeCapture>();
         }
 
-        void InitializeDisplayedInkAlpha()
+        void InitializeDisplayedInkRatio()
         {
             if (strokeCapture == null)
                 return;
 
-            displayedInkAlpha = Mathf.Clamp01(strokeCapture.InkRemaining01);
-            displayedInkAlphaInitialized = true;
+            displayedInkRatio = Mathf.Clamp01(strokeCapture.InkRemaining01);
+            displayedInkRatioInitialized = true;
         }
 
         Texture2D EnsureGoldenGaugeFill()
@@ -133,8 +133,8 @@ namespace MukJump.Core
             return goldenGaugeFill;
         }
 
-        /// 붓 획 모양 먹 게이지: 전체 붓자국은 유지하고 남은 먹의 양을
-        /// 먹색 농도로 표시한다. 이미지 미할당 시 단색 막대 폴백.
+        /// 붓 획 모양 먹 게이지: 옅은 전체 용량 안내 위에서 남은 먹의 양만큼
+        /// 불투명 채움 폭을 붓 쪽에 붙여 표시한다. 이미지 미할당 시 단색 막대 폴백.
         void DrawInkGauge(
             float ratio,
             float capacityRatio)
@@ -142,7 +142,6 @@ namespace MukJump.Core
             float baseRatio = Mathf.Clamp01(ratio);
             // 기본 1획부터 영구 성장 2.5획까지 트랙 폭으로 구분한다.
             bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
-            float fillAlpha = ResolveGaugeFillAlpha(baseRatio, golden);
             Rect safeGui = MobileUiLayout.ToGuiSafeArea(
                 Screen.safeArea,
                 Screen.width,
@@ -174,8 +173,12 @@ namespace MukJump.Core
                 guideColor.a = EmptyGaugeGuideAlpha;
                 DrawRect(back, guideColor);
                 Color fillColor = golden ? InkPalette.Gold : InkPalette.Ink;
-                fillColor.a *= fillAlpha;
-                DrawRect(back, fillColor);
+                Rect fillRect = CalculateGaugeFillRect(
+                    back,
+                    baseRatio,
+                    golden);
+                if (fillRect.width > 0f)
+                    DrawRect(fillRect, fillColor);
                 return;
             }
 
@@ -214,15 +217,23 @@ namespace MukJump.Core
                 InkPalette.Ink,
                 EmptyGaugeGuideAlpha);
 
-            if (fillAlpha > 0f)
+            Rect gaugeFillRect = CalculateGaugeFillRect(
+                area,
+                baseRatio,
+                golden);
+            if (gaugeFillRect.width > 0f)
             {
-                // 폭을 잘라 내지 않고 전체 붓자국의 먹 농도만 바꾼다. 먹을 계속
-                // 쓰는 중에도 게이지 형태가 사라지지 않고 회복량을 바로 읽을 수 있다.
+                // 붓에 붙은 오른쪽 끝은 고정하고 왼쪽부터 실제 사용량만큼 비운다.
+                // UV도 같은 비율로 잘라 부분 이미지가 눌려 보이지 않게 한다.
                 Texture2D fillTexture = golden
                     ? EnsureGoldenGaugeFill()
                     : gaugeSilhouette;
                 if (fillTexture != null)
-                    DrawTextureWithTint(area, fillTexture, Color.white, fillAlpha);
+                    DrawTextureWithTintCropped(
+                        gaugeFillRect,
+                        fillTexture,
+                        Color.white,
+                        CalculateGaugeFillUv(baseRatio, golden));
             }
             if (inkBrushIcon != null)
             {
@@ -259,9 +270,29 @@ namespace MukJump.Core
             return Mathf.Max(1f, safeWidth) * FallbackGaugeHeightRatio;
         }
 
-        static float ResolveGaugeFillAlpha(float ratio, bool golden)
+        static float ResolveGaugeFillRatio(float ratio, bool golden)
         {
             return golden ? 1f : Mathf.Clamp01(ratio);
+        }
+
+        static Rect CalculateGaugeFillRect(
+            Rect area,
+            float ratio,
+            bool golden)
+        {
+            float fillRatio = ResolveGaugeFillRatio(ratio, golden);
+            float fillWidth = area.width * fillRatio;
+            return new Rect(
+                area.xMax - fillWidth,
+                area.y,
+                fillWidth,
+                area.height);
+        }
+
+        static Rect CalculateGaugeFillUv(float ratio, bool golden)
+        {
+            float fillRatio = ResolveGaugeFillRatio(ratio, golden);
+            return new Rect(1f - fillRatio, 0f, fillRatio, 1f);
         }
 
         static Texture2D CreateColoredSilhouette(Texture2D source, Color color)
@@ -308,6 +339,20 @@ namespace MukJump.Core
                 tint.b,
                 tint.a * Mathf.Clamp01(alpha));
             GUI.DrawTexture(rect, texture, ScaleMode.StretchToFill);
+            GUI.color = previous;
+        }
+
+        static void DrawTextureWithTintCropped(
+            Rect rect,
+            Texture2D texture,
+            Color tint,
+            Rect uv)
+        {
+            if (texture == null || rect.width <= 0f || rect.height <= 0f)
+                return;
+            Color previous = GUI.color;
+            GUI.color = tint;
+            GUI.DrawTextureWithTexCoords(rect, texture, uv, true);
             GUI.color = previous;
         }
 
