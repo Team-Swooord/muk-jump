@@ -2,7 +2,6 @@ using UnityEngine;
 using MukJump.AI;
 using MukJump.Core;
 using MukJump.Player;
-using MukJump.Drawing;
 
 namespace MukJump.Items
 {
@@ -17,7 +16,6 @@ namespace MukJump.Items
         [SerializeField] float ringRadius = 0.78f;
         [SerializeField] float wobble = 0.055f;
         [SerializeField] Sprite effectDroplet;
-        [SerializeField] AudioClip goldenBrushFullClip;
         [SerializeField] AudioClip shieldAnticipationClip;
         [SerializeField] AudioClip shieldImpactClip;
         [SerializeField] AudioClip shieldTailClip;
@@ -112,13 +110,6 @@ namespace MukJump.Items
             Color color = InkPalette.Ink;
             color.a = (1f - progress) * 0.75f;
             shieldPulse.startColor = shieldPulse.endColor = color;
-        }
-
-        public void RequestSharedGoldenBrush(StrokeCapture capture)
-        {
-            if (capture == null) return;
-            GoldenBrushEffectView.Request(capture, effectDroplet, goldenBrushFullClip,
-                ringSegments, ringRadius, wobble);
         }
 
         /// 체력을 잃었을 때 캐시된 실루엣 하나를 앞면 종이빛 플래시와 뒤쪽 붉은

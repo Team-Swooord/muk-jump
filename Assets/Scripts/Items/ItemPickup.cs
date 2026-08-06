@@ -41,8 +41,6 @@ namespace MukJump.Items
                         UnityEngine.Object.FindFirstObjectByType<StrokeCapture>();
                     if (strokeCapture == null) return false;
                     strokeCapture.ActivateUnlimitedInk(8f);
-                    player.GetComponent<ItemEffectView>()?
-                        .RequestSharedGoldenBrush(strokeCapture);
                     break;
                 case ItemType.InkShield:
                     if (!player.TryGrantShield())

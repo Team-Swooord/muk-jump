@@ -554,8 +554,6 @@ namespace MukJump.EditorTools
             var itemEffectSo = new SerializedObject(itemEffectView);
             itemEffectSo.FindProperty("effectDroplet").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Sprite>(InkDropVfxTextureRoot + "T_VFX_InkDrop_128.png");
-            itemEffectSo.FindProperty("goldenBrushFullClip").objectReferenceValue =
-                LoadVfxAudio("SFX_InkDropJump_Full.wav");
             itemEffectSo.FindProperty("shieldAnticipationClip").objectReferenceValue =
                 LoadVfxAudio("SFX_InkDropJump_Anticipation_Stem.wav");
             itemEffectSo.FindProperty("shieldImpactClip").objectReferenceValue =
@@ -816,8 +814,6 @@ namespace MukJump.EditorTools
                 configureUiImporters);
             AssignHudTexture(so, "inkBrushIcon", "Assets/Art/UI/muk_brush_icon.png",
                 configureUiImporters);
-            so.FindProperty("goldenBrushItemIcon").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<Texture2D>(GoldenBrushItemPath);
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 

@@ -10,14 +10,12 @@ public sealed class ItemEffectCloneTests
     GameObject player;
     GameObject clone;
     GameObject detachedVisual;
-    GameObject sharedEffectObject;
 
     [TearDown]
     public void TearDown()
     {
         if (clone != null) Object.DestroyImmediate(clone);
         if (detachedVisual != null) Object.DestroyImmediate(detachedVisual);
-        if (sharedEffectObject != null) Object.DestroyImmediate(sharedEffectObject);
         if (player != null) Object.DestroyImmediate(player);
     }
 
@@ -47,27 +45,6 @@ public sealed class ItemEffectCloneTests
 
         lifecycle.RestoreAfterRuntimeClone();
         Assert.AreSame(player.transform, detachedVisual.transform.parent);
-    }
-
-    [Test]
-    public void SharedGoldenVisualReconfigureKeepsOneFixedComposite()
-    {
-        sharedEffectObject = new GameObject("SharedGoldenBrushEffectTest");
-        var view = sharedEffectObject.AddComponent<GoldenBrushEffectView>();
-
-        Invoke(view, "Configure", null, null, null, 48, 0.78f, 0.055f);
-        var root = sharedEffectObject.transform.Find("GoldenBrushSharedVisual");
-
-        Assert.IsNotNull(root);
-        Assert.AreEqual(24, root.childCount,
-            "황금 붓 표현은 분신 수와 무관하게 선 4개와 모트 20개 한 묶음이어야 합니다.");
-        Assert.AreEqual(24, root.GetComponentsInChildren<Renderer>(true).Length);
-
-        Invoke(view, "Configure", null, null, null, 48, 0.78f, 0.055f);
-
-        Assert.AreSame(root, sharedEffectObject.transform.Find("GoldenBrushSharedVisual"));
-        Assert.AreEqual(24, root.childCount);
-        Assert.AreEqual(24, root.GetComponentsInChildren<Renderer>(true).Length);
     }
 
     [Test]

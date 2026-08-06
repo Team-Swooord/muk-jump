@@ -36,20 +36,20 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void FallbackGoldenBrushTextureIsReleasedWithHud()
+        public void RuntimeGoldenGaugeTextureIsReleasedWithHud()
         {
             var source = new Texture2D(8, 8);
             try
             {
                 root = new GameObject("PrototypeHudResourceTests");
                 var hud = root.AddComponent<PrototypeHud>();
-                SetField(hud, "inkBrushIcon", source);
-                Invoke(hud, "Start");
-                var generated = (Texture2D)GetField(hud, "goldenBrushIcon");
+                SetField(hud, "inkGaugeFill", source);
+                Invoke(hud, "EnsureGoldenGaugeFill");
+                var generated = (Texture2D)GetField(hud, "goldenGaugeFill");
 
                 Assert.That(generated, Is.Not.Null);
                 Assert.AreNotSame(source, generated);
-                Assert.That((bool)GetField(hud, "ownsGoldenBrushIcon"), Is.True);
+                Assert.That((bool)GetField(hud, "ownsGoldenGaugeFill"), Is.True);
                 // EditMode에서는 런타임 생명주기 콜백이 자동 호출되지 않을 수 있으므로
                 // Unity가 Play 중 보장하는 OnDestroy 경로를 직접 검증한다.
                 Invoke(hud, "OnDestroy");
@@ -57,7 +57,7 @@ namespace MukJump.EditorTests
                 root = null;
 
                 Assert.That(generated == null, Is.True,
-                    "HUD가 만든 황금 붓 폴백 Texture2D는 소유자와 함께 해제되어야 합니다.");
+                    "HUD가 만든 황금 게이지 Texture2D는 소유자와 함께 해제되어야 합니다.");
                 Assert.That(source != null, Is.True,
                     "직렬화된 원본 텍스처의 소유권은 HUD에 없습니다.");
             }

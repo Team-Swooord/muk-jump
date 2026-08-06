@@ -15,12 +15,10 @@ namespace MukJump.Core
         [SerializeField] Texture2D inkGaugeTrack;
         [Tooltip("게이지 오른쪽 끝의 붓 아이콘")]
         [SerializeField] Texture2D inkBrushIcon;
-        [Tooltip("황금 붓 아이템 활성 중 게이지 끝에 표시할 실제 아이템 이미지")]
-        [SerializeField] Texture2D goldenBrushItemIcon;
 
         StrokeCapture strokeCapture;
-        Texture2D goldenBrushIcon;
-        bool ownsGoldenBrushIcon;
+        Texture2D goldenGaugeFill;
+        bool ownsGoldenGaugeFill;
 
         void OnEnable()
         {
@@ -34,15 +32,15 @@ namespace MukJump.Core
 
         void OnDestroy()
         {
-            if (ownsGoldenBrushIcon)
+            if (ownsGoldenGaugeFill)
             {
                 if (Application.isPlaying)
-                    Destroy(goldenBrushIcon);
+                    Destroy(goldenGaugeFill);
                 else
-                    DestroyImmediate(goldenBrushIcon);
+                    DestroyImmediate(goldenGaugeFill);
             }
-            goldenBrushIcon = null;
-            ownsGoldenBrushIcon = false;
+            goldenGaugeFill = null;
+            ownsGoldenGaugeFill = false;
         }
 
         void OnGUI()
@@ -74,16 +72,18 @@ namespace MukJump.Core
         {
             if (strokeCapture == null)
                 strokeCapture = FindFirstObjectByType<StrokeCapture>();
-            if (goldenBrushIcon != null)
-                return;
+        }
 
-            goldenBrushIcon = goldenBrushItemIcon != null
-                ? goldenBrushItemIcon
-                : CreateColoredSilhouette(
-                    inkBrushIcon,
-                    new Color(1f, 0.68f, 0.08f));
-            ownsGoldenBrushIcon =
-                goldenBrushItemIcon == null && goldenBrushIcon != null;
+        Texture2D EnsureGoldenGaugeFill()
+        {
+            if (goldenGaugeFill == null && inkGaugeFill != null)
+            {
+                goldenGaugeFill = CreateColoredSilhouette(
+                    inkGaugeFill,
+                    InkPalette.Gold);
+                ownsGoldenGaugeFill = goldenGaugeFill != null;
+            }
+            return goldenGaugeFill;
         }
 
         /// 붓 획 모양 먹 게이지: 트랙 위에 fill을 왼쪽부터 잔량만큼 잘라 그리고,
@@ -97,6 +97,7 @@ namespace MukJump.Core
             // 기본 1획부터 영구 성장 2.5획까지 트랙 폭으로 구분한다.
             // 붓 여유가 더 쌓이면 Safe Area 폭에서 자연스럽게 상한에 닿는다.
             bool golden = strokeCapture != null && strokeCapture.HasUnlimitedInk;
+            float visibleRatio = golden ? 1f : baseRatio;
             Rect safeGui = MobileUiLayout.ToGuiSafeArea(
                 Screen.safeArea,
                 Screen.width,
@@ -121,8 +122,8 @@ namespace MukJump.Core
                     bh);
                 DrawRect(back, InkPalette.Paper2);
                 var fillRect = back;
-                fillRect.width = bw * baseRatio;
-                DrawRect(fillRect, InkPalette.Ink);
+                fillRect.width = bw * visibleRatio;
+                DrawRect(fillRect, golden ? InkPalette.Gold : InkPalette.Ink);
                 DrawReserveGauge(back, reserveRatio);
                 return;
             }
@@ -153,39 +154,25 @@ namespace MukJump.Core
             var area = new Rect(x, y, w, h);
             GUI.DrawTexture(area, inkGaugeTrack, ScaleMode.StretchToFill);
 
-            if (baseRatio > 0f)
+            if (visibleRatio > 0f)
             {
                 // 먹이 돌아오는 순간부터 두꺼운 붓자국 쪽에 색이 나타나도록 오른쪽부터 채운다.
                 // Rect와 UV를 같은 비율로 잘라 회복 중에도 원본 붓결을 늘이지 않는다.
-                float fillX = x + w * (1f - baseRatio);
-                var clipped = new Rect(fillX, y, w * baseRatio, h);
-                GUI.DrawTextureWithTexCoords(clipped, inkGaugeFill,
-                    new Rect(1f - baseRatio, 0f, baseRatio, 1f));
+                float fillX = x + w * (1f - visibleRatio);
+                var clipped = new Rect(fillX, y, w * visibleRatio, h);
+                Texture2D fillTexture = golden
+                    ? EnsureGoldenGaugeFill()
+                    : inkGaugeFill;
+                if (fillTexture != null)
+                    GUI.DrawTextureWithTexCoords(clipped, fillTexture,
+                        new Rect(1f - visibleRatio, 0f, visibleRatio, 1f));
             }
             DrawReserveGauge(area, reserveRatio);
-
-            if (golden)
-                DrawGoldenGaugeEffect(area);
 
             if (inkBrushIcon != null)
             {
                 var iconRect = new Rect(x + w - overlap, centerY - iconSize / 2, iconSize, iconSize);
-                Color previousColor = GUI.color;
-                if (golden)
-                {
-                    float pulse = 1f + 0.055f * Mathf.Sin(Time.unscaledTime * 6f);
-                    iconRect = ScaleAroundCenter(iconRect, pulse);
-                    iconRect = new Rect(iconRect.center.x - iconRect.width * 0.78f,
-                        iconRect.center.y - iconRect.height * 0.53f,
-                        iconRect.width * 1.56f, iconRect.height * 1.06f);
-                    DrawGoldenIconHalo(iconRect);
-                    // golden_brush 원본 색이 보이도록 별도의 Tint를 곱하지 않는다.
-                    GUI.color = Color.white;
-                }
-                GUI.DrawTexture(iconRect, golden && goldenBrushIcon != null
-                    ? goldenBrushIcon : inkBrushIcon, ScaleMode.ScaleToFit);
-                if (golden) DrawGoldenIconSparkles(iconRect);
-                GUI.color = previousColor;
+                GUI.DrawTexture(iconRect, inkBrushIcon, ScaleMode.ScaleToFit);
             }
         }
 
@@ -222,99 +209,6 @@ namespace MukJump.Core
                     Mathf.Max(3f, area.height * 0.08f));
                 DrawRect(block, new Color(0.18f, 0.5f, 0.42f, 0.95f));
             }
-        }
-
-        static void DrawGoldenGaugeEffect(Rect area)
-        {
-            float time = Time.unscaledTime;
-            Color previous = GUI.color;
-
-            // 먹 게이지 위를 흐르는 얇은 금빛 세 줄. 이미지가 아니라 GUI 벡터 면으로 그린다.
-            for (int i = 0; i < 3; i++)
-            {
-                float phase = Mathf.Repeat(time * (0.32f + i * 0.035f) + i * 0.31f, 1f);
-                float streakX = Mathf.Lerp(area.x - area.width * 0.08f,
-                    area.xMax + area.width * 0.08f, phase);
-                float alpha = Mathf.Sin(phase * Mathf.PI) * (0.18f + i * 0.055f);
-                var streak = new Rect(streakX, area.y + area.height * (0.2f + i * 0.22f),
-                    Mathf.Max(2f, area.height * 0.055f), area.height * 0.7f);
-                DrawRotatedRect(streak, -18f, new Color(1f, 0.78f, 0.22f, alpha));
-            }
-
-            // 게이지 윗선을 따라 떠오르는 작은 금가루.
-            for (int i = 0; i < 9; i++)
-            {
-                float phase = time * (0.65f + i % 3 * 0.11f) + i * 1.73f;
-                float px = area.x + area.width * (i + 0.5f) / 9f + Mathf.Sin(phase) * area.height * 0.15f;
-                float py = area.y - area.height * (0.05f + 0.18f * (0.5f + 0.5f * Mathf.Sin(phase * 0.7f)));
-                float size = area.height * (0.035f + (i % 3) * 0.014f);
-                GUI.color = new Color(1f, 0.82f, 0.3f,
-                    0.35f + 0.4f * (0.5f + 0.5f * Mathf.Sin(phase * 1.4f)));
-                GUI.DrawTexture(new Rect(px - size * 0.5f, py - size * 0.5f, size, size),
-                    Texture2D.whiteTexture);
-            }
-            GUI.color = previous;
-        }
-
-        static void DrawGoldenIconHalo(Rect iconRect)
-        {
-            Color previous = GUI.color;
-            float time = Time.unscaledTime;
-            Vector2 center = iconRect.center;
-            float radius = Mathf.Max(iconRect.width, iconRect.height) * 0.42f;
-            for (int i = 0; i < 14; i++)
-            {
-                float angle = time * 1.35f + i * Mathf.PI * 2f / 14f;
-                float size = iconRect.height * (0.025f + (i % 3) * 0.008f);
-                Vector2 point = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
-                GUI.color = new Color(1f, 0.78f, 0.2f,
-                    0.3f + 0.38f * (0.5f + 0.5f * Mathf.Sin(time * 4f + i)));
-                GUI.DrawTexture(new Rect(point.x - size * 0.5f, point.y - size * 0.5f, size, size),
-                    Texture2D.whiteTexture);
-            }
-            GUI.color = previous;
-        }
-
-        static void DrawGoldenIconSparkles(Rect iconRect)
-        {
-            float time = Time.unscaledTime;
-            Vector2 center = iconRect.center;
-            Color previous = GUI.color;
-            for (int i = 0; i < 4; i++)
-            {
-                float angle = time * -1.1f + i * Mathf.PI * 0.5f;
-                float pulse = 0.55f + 0.45f * Mathf.Sin(time * 6.5f + i * 1.7f);
-                Vector2 point = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) *
-                    iconRect.height * 0.46f;
-                float longSize = iconRect.height * (0.07f + pulse * 0.065f);
-                float thin = Mathf.Max(1.5f, iconRect.height * 0.012f);
-                GUI.color = new Color(1f, 0.9f, 0.48f, 0.45f + pulse * 0.5f);
-                GUI.DrawTexture(new Rect(point.x - longSize * 0.5f, point.y - thin * 0.5f,
-                    longSize, thin), Texture2D.whiteTexture);
-                GUI.DrawTexture(new Rect(point.x - thin * 0.5f, point.y - longSize * 0.5f,
-                    thin, longSize), Texture2D.whiteTexture);
-            }
-            GUI.color = previous;
-        }
-
-        static void DrawRotatedRect(Rect rect, float angle, Color color)
-        {
-            Matrix4x4 previousMatrix = GUI.matrix;
-            Color previousColor = GUI.color;
-            GUIUtility.RotateAroundPivot(angle, rect.center);
-            GUI.color = color;
-            GUI.DrawTexture(rect, Texture2D.whiteTexture);
-            GUI.matrix = previousMatrix;
-            GUI.color = previousColor;
-        }
-
-        static Rect ScaleAroundCenter(Rect rect, float scale)
-        {
-            Vector2 center = rect.center;
-            rect.width *= scale;
-            rect.height *= scale;
-            rect.center = center;
-            return rect;
         }
 
         static Texture2D CreateColoredSilhouette(Texture2D source, Color color)
