@@ -61,7 +61,7 @@ namespace MukJump.Drawing
         /// 실제 유효 발판 생성만 관찰하는 계약이다.
         public event Action<PlatformCollider, float, float> ValidStrokeCreated;
 
-        /// HUD 먹 게이지용. 확정 획과 현재 그리고 있는 획을 모두 포함한다.
+        /// HUD 먹 게이지용. 화면에 보이는 확정 획과 현재 그리고 있는 획을 모두 포함한다.
         public bool HasUnlimitedInk => Time.time < unlimitedInkUntil;
         public float PendingStrokeBudgetCost => drawing
             ? StrokeBudgetCost(
@@ -70,7 +70,9 @@ namespace MukJump.Drawing
                 ActivePermanentGrowth.ShortStrokeBudgetCostMultiplier)
             : 0f;
         public float CurrentInkUsage =>
-            Mathf.Max(0f, PlatformCollider.ActiveInkCost + PendingStrokeBudgetCost);
+            Mathf.Max(
+                0f,
+                PlatformCollider.ActiveVisibleInkCost + PendingStrokeBudgetCost);
         public float CurrentInkRemaining =>
             Mathf.Max(0f, EffectiveInkCapacity - CurrentInkUsage);
         public float InkRemaining01

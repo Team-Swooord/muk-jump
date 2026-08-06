@@ -114,6 +114,53 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void VisibleInkGaugeRecoversContinuouslyWithTheDryingStroke()
+        {
+            var captureObject = new GameObject("VisibleInkGaugeCapture");
+            created.Add(captureObject);
+            var capture = captureObject.AddComponent<StrokeCapture>();
+            float visibleBefore = PlatformCollider.ActiveVisibleInkCost;
+
+            PlatformCollider platform = PlatformCollider.Spawn(
+                CreateDetailedStrokePoints(),
+                StrokeCapture.DefaultInkCapacity,
+                evictionFadeSeconds: 1.1f,
+                evictionDelaySeconds: 0f,
+                naturalHoldSeconds: PlatformCollider.DefaultNaturalHoldDuration);
+            created.Add(platform.gameObject);
+
+            Invoke(platform, "UpdateRuntimeDrawnPlatform",
+                PlatformCollider.DefaultNaturalHoldDuration,
+                PlatformCollider.DefaultNaturalHoldDuration);
+            float remainingBeforeFade = capture.CurrentInkRemaining;
+            float ratioBeforeFade = capture.InkRemaining01;
+            Assert.That(platform.VisibleInkCost,
+                Is.EqualTo(StrokeCapture.DefaultInkCapacity).Within(0.0001f));
+
+            Invoke(platform, "UpdateRuntimeDrawnPlatform", 0.55f,
+                PlatformCollider.DefaultNaturalHoldDuration + 0.55f);
+            float remainingHalfway = capture.CurrentInkRemaining;
+            float ratioHalfway = capture.InkRemaining01;
+            Assert.That(platform.VisibleInkCost,
+                Is.EqualTo(StrokeCapture.DefaultInkCapacity * 0.5f).Within(0.02f));
+            Assert.That(PlatformCollider.ActiveVisibleInkCost,
+                Is.EqualTo(visibleBefore + StrokeCapture.DefaultInkCapacity * 0.5f)
+                    .Within(0.02f));
+            Assert.That(remainingHalfway, Is.GreaterThan(remainingBeforeFade),
+                "먹선이 마르는 진행도만큼 하단 게이지도 같은 프레임에 다시 차야 합니다.");
+            Assert.That(ratioHalfway, Is.GreaterThan(ratioBeforeFade),
+                "PrototypeHud가 읽는 정규화 잔량도 소멸 중 단조 증가해야 합니다.");
+
+            Invoke(platform, "UpdateRuntimeDrawnPlatform", 0.55f,
+                PlatformCollider.DefaultNaturalHoldDuration + 1.1f);
+            Assert.That(platform.VisibleInkCost, Is.Zero.Within(0.0001f));
+            Assert.That(capture.CurrentInkRemaining,
+                Is.GreaterThan(remainingHalfway),
+                "먹선 소멸이 끝나면 게이지가 실제 최대 먹자리까지 회복되어야 합니다.");
+            Assert.That(capture.InkRemaining01, Is.GreaterThan(ratioHalfway));
+        }
+
+        [Test]
         public void NaturalExpiryNeverRestoresAPartiallyBudgetEvictedCollider()
         {
             PlatformCollider platform = PlatformCollider.Spawn(

@@ -45,6 +45,15 @@ namespace MukJump.Drawing
             (runtimeDrawnPlatform || lifetime > 0f) &&
             !windCurrentPlatform && !growthSafetyPlatform && !removalRequested;
         public float RetainedInkCost => retainedInkCost;
+        /// HUD가 실제 화면에 남은 먹 길이를 표시할 때 사용하는 값이다.
+        /// 예산 장부는 새 획을 위해 즉시 반환할 수 있지만, 화면의 먹선은
+        /// evictionFadeDuration 동안 마르므로 시각 진행도만큼 천천히 줄인다.
+        public float VisibleInkCost =>
+            runtimeDrawnPlatform && !removalRequested
+                ? Mathf.Max(
+                    0f,
+                    initialInkCost * (1f - Mathf.Clamp01(evictionVisualFraction)))
+                : 0f;
         public static float ActiveInkCost
         {
             get
@@ -59,6 +68,26 @@ namespace MukJump.Drawing
                         continue;
                     }
                     total += Mathf.Max(0f, platform.retainedInkCost);
+                }
+                return total;
+            }
+        }
+        /// 현재 화면에 실제로 남아 있는 플레이어 먹선의 총 비용.
+        /// HUD 전용이며 FIFO 예산 판정에는 ActiveInkCost를 계속 사용한다.
+        public static float ActiveVisibleInkCost
+        {
+            get
+            {
+                float total = 0f;
+                for (int i = runtimeDrawn.Count - 1; i >= 0; i--)
+                {
+                    PlatformCollider platform = runtimeDrawn[i];
+                    if (platform == null)
+                    {
+                        runtimeDrawn.RemoveAt(i);
+                        continue;
+                    }
+                    total += platform.VisibleInkCost;
                 }
                 return total;
             }

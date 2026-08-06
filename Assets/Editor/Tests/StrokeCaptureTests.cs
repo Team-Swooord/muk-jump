@@ -335,7 +335,7 @@ namespace MukJump.EditorTests
         {
             strokeObject = new GameObject("StrokeCaptureLiveGaugeTest");
             var capture = strokeObject.AddComponent<StrokeCapture>();
-            float activeBefore = PlatformCollider.ActiveInkCost;
+            float activeBefore = PlatformCollider.ActiveVisibleInkCost;
             Vector2 start = new(10000f, 10000f);
 
             GetMethod("BeginStrokeAtWorld").Invoke(capture, new object[] { start });
