@@ -190,7 +190,9 @@ namespace MukJump.EditorTests
             Assert.That(panel.Find("CurrencyBrush"), Is.Null);
             Assert.That(panel.Find("CurrencyHud/CurrencyDrop"), Is.Not.Null);
             Assert.That(panel.Find("CurrencyHud/Balance"), Is.Not.Null);
+            var currencyHud = panel.Find("CurrencyHud") as RectTransform;
             var balance = panel.Find("CurrencyHud/Balance") as RectTransform;
+            var balanceLabel = balance?.GetComponent<Text>();
             var journeyText = panel.Find("CurrencyHud/JourneyText")
                 ?.GetComponent<Text>();
             var journeyTrack = panel.Find("CurrencyHud/JourneyTrack")
@@ -200,8 +202,15 @@ namespace MukJump.EditorTests
             Assert.That(journeyText, Is.Not.Null);
             Assert.That(journeyTrack, Is.Not.Null);
             Assert.That(journeyFill, Is.Not.Null);
+            Assert.That(currencyHud, Is.Not.Null);
+            Assert.That(currencyHud.anchoredPosition.x, Is.Zero.Within(0.001f),
+                "재화 HUD는 성장 화면의 정확한 수평 중앙에 있어야 합니다.");
+            Assert.That(balanceLabel.fontStyle, Is.EqualTo(FontStyle.Normal));
+            Assert.That(balanceLabel.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+            Assert.That(balanceLabel.GetComponent<Outline>().enabled, Is.False);
             Assert.That(journeyText.resizeTextForBestFit, Is.False);
-            Assert.That(journeyText.fontSize, Is.GreaterThanOrEqualTo(26));
+            Assert.That(journeyText.fontSize, Is.GreaterThanOrEqualTo(30));
+            Assert.That(journeyText.fontStyle, Is.EqualTo(FontStyle.Normal));
             Assert.That(journeyTrack.sizeDelta.y, Is.GreaterThanOrEqualTo(9f));
             Assert.That(journeyFill.anchorMin.x, Is.Zero);
             Assert.That(journeyFill.anchorMax.x, Is.Zero);
@@ -211,6 +220,19 @@ namespace MukJump.EditorTests
             float journeyTop = journeyText.rectTransform.anchoredPosition.y +
                                journeyText.rectTransform.sizeDelta.y * 0.5f;
             Assert.That(balanceBottom, Is.GreaterThanOrEqualTo(journeyTop + 1f));
+
+            foreach (string summaryName in new[]
+                     {
+                         "SurvivalSummary", "LeapSummary", "InkSummary",
+                     })
+            {
+                Text summary = panel.Find(summaryName)?.GetComponent<Text>();
+                Assert.That(summary, Is.Not.Null);
+                Assert.That(summary.fontSize, Is.GreaterThanOrEqualTo(34));
+                Assert.That(summary.fontStyle, Is.EqualTo(FontStyle.Normal));
+                Assert.That(summary.GetComponent<Outline>().enabled, Is.False);
+                Assert.That(summary.text, Does.Not.Contain("<b>"));
+            }
 
             foreach (PermanentGrowthNodeDefinition definition
                      in PermanentGrowthCatalog.Nodes)

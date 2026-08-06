@@ -38,13 +38,18 @@ namespace MukJump.Core
             if (outline == null)
                 outline = text.gameObject.AddComponent<Outline>();
 
-            // 성장 상세창은 모든 정보의 굵기를 Normal로 통일한다. 작은 합성
+            // 성장 상세창과 상단 정보는 모든 글자를 Normal로 통일한다. 작은 합성
             // 외곽선도 서예 폰트의 획을 뭉쳐 Bold처럼 보이므로 전부 끈다.
             if (elementName is "ActionName" or
                 "ActionBranch" or
                 "ActionEffectSummary" or
                 "ActionDescription" or
-                "ActionCost")
+                "ActionCost" or
+                "Balance" or
+                "JourneyText" or
+                "SurvivalSummary" or
+                "LeapSummary" or
+                "InkSummary")
             {
                 outline.enabled = false;
                 return;

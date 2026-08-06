@@ -378,14 +378,14 @@ namespace MukJump.Core
             RectTransform balanceHud = CreateRect(
                 "CurrencyHud",
                 panel,
-                new Vector2(335f, 790f),
-                new Vector2(300f, 116f));
+                new Vector2(0f, 790f),
+                new Vector2(340f, 116f));
             Image balanceDrop = CreateImage(
                 "CurrencyDrop",
                 balanceHud,
                 LoadPermanentGrowthSprite("pg_ink_drop") ??
                 InkUiTextureFactory.CreateInkDropSprite(),
-                new Vector2(-105f, 26f),
+                new Vector2(-48f, 26f),
                 new Vector2(54f, 54f),
                 Color.white);
             balanceDrop.preserveAspect = true;
@@ -394,17 +394,17 @@ namespace MukJump.Core
                 balanceHud,
                 "0",
                 44,
-                new Vector2(-30f, 26f),
-                new Vector2(140f, 54f),
+                new Vector2(36f, 26f),
+                new Vector2(120f, 54f),
                 InkPalette.TextDark,
-                FontStyle.Bold);
-            balanceText.alignment = TextAnchor.MiddleLeft;
+                FontStyle.Normal);
+            balanceText.alignment = TextAnchor.MiddleCenter;
 
             distanceProgressText = CreateText(
                 "JourneyText",
                 balanceHud,
                 "누적 0 / 20 m",
-                26,
+                30,
                 new Vector2(0f, -20f),
                 new Vector2(286f, 30f),
                 InkPalette.TextDark,
@@ -442,15 +442,15 @@ namespace MukJump.Core
             survivalSummaryText = CreateGrowthSummaryColumn(
                 "SurvivalSummary",
                 panel,
-                new Vector2(-345f, 650f));
+                new Vector2(-345f, 630f));
             leapSummaryText = CreateGrowthSummaryColumn(
                 "LeapSummary",
                 panel,
-                new Vector2(0f, 650f));
+                new Vector2(0f, 630f));
             inkSummaryText = CreateGrowthSummaryColumn(
                 "InkSummary",
                 panel,
-                new Vector2(345f, 650f));
+                new Vector2(345f, 630f));
 
         }
 
@@ -463,14 +463,14 @@ namespace MukJump.Core
                 objectName,
                 parent,
                 string.Empty,
-                27,
+                34,
                 position,
-                new Vector2(310f, 164f),
+                new Vector2(320f, 196f),
                 InkPalette.TextDark,
                 FontStyle.Normal,
                 TextAnchor.UpperCenter);
             text.supportRichText = true;
-            text.lineSpacing = 0.88f;
+            text.lineSpacing = 0.94f;
             return text;
         }
 
@@ -1447,13 +1447,13 @@ namespace MukJump.Core
         }
 
         static string SummaryTitle(string title, string htmlColor) =>
-            $"<color=#{htmlColor}><b>{title}</b></color>";
+            $"<color=#{htmlColor}>{title}</color>";
 
         static string SummaryLine(
             string label,
             string value,
             string htmlColor) =>
-            $"{label}  <color=#{htmlColor}><b>{value}</b></color>";
+            $"{label}  <color=#{htmlColor}>{value}</color>";
 
         static string FormatPercent(float value) =>
             value < 0.005f ? "0%" : value.ToString("0.#") + "%";
