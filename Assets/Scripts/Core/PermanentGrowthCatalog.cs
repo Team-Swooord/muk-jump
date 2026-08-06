@@ -395,23 +395,23 @@ namespace MukJump.Core
                 "총 먹자리 +37.5%", "ink.capacity.wide", PermanentGrowthType.InkCapacity,
                 0.375f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
-                P("I00"), 0, "", -350f, -770f, 2);
+                P("I00"), 0, "", -300f, -770f, 2);
             Add(nodes, "I-A2", "넓은 벼루 II", "한 화면에 남겨 둘 수 있는 먹선의 총량을 늘립니다.",
                 "총 먹자리 +37.5%", "ink.capacity.deep", PermanentGrowthType.InkCapacity,
                 0.375f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
-                P("I-A1"), 0, "", -430f, -430f);
+                P("I-A1"), 0, "", -360f, -430f);
             Add(nodes, "I-A3", "넓은 벼루 III", "한 화면에 남겨 둘 수 있는 먹선의 총량을 늘립니다.",
                 "총 먹자리 +37.5%", "ink.capacity.great", PermanentGrowthType.InkCapacity,
                 0.375f, "총 먹자리", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
-                P("I-A2"), 0, "", -350f, -80f);
+                P("I-A2"), 0, "", -300f, -80f);
             Add(nodes, "I-KA", "넓은 벼루 IV", "한 화면에 남겨 둘 수 있는 먹선의 총량을 늘립니다.",
                 "총 먹자리 +37.5%", "ink.capacity.keystone",
                 PermanentGrowthType.InkCapacity, 0.375f, "총 먹자리",
                 PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
-                P("I-A3"), 4, "ink", -500f, 300f);
+                P("I-A3"), 4, "ink", -400f, 300f);
 
             Add(nodes, "I-B1", "가는 붓끝 I", "같은 길이를 조금 더 적은 먹자리로 그립니다.",
                 "획 먹자리 소모 -2%", "ink.budget.fine",
@@ -527,25 +527,25 @@ namespace MukJump.Core
                 PermanentGrowthType.HitHorizontalStability, 0.06f, "피격 수평 밀림",
                 PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
-                P("S00"), 0, "", -650f, -720f, 1);
+                P("S00"), 0, "", -720f, -720f, 1);
             Add(nodes, "S-C2", "먹발 버팀 II", "피격 뒤 수평으로 밀려나는 힘을 줄입니다.",
                 "피격 수평 밀림 -6%", "survival.stability.second",
                 PermanentGrowthType.HitHorizontalStability, 0.06f, "피격 수평 밀림",
                 PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
-                P("S-C1"), 0, "", -560f, -400f, 2);
+                P("S-C1"), 0, "", -680f, -400f, 2);
             Add(nodes, "S-C3", "먹발 버팀 III", "피격 뒤 수평으로 밀려나는 힘을 줄입니다.",
                 "피격 수평 밀림 -6%", "survival.stability.third",
                 PermanentGrowthType.HitHorizontalStability, 0.06f, "피격 수평 밀림",
                 PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
-                P("S-C2"), 0, "", -650f, -70f, 3);
+                P("S-C2"), 0, "", -740f, -70f, 3);
             Add(nodes, "S-KC", "먹떼 결실", "먹분신 아이템을 먹을 때 분신 한 마리를 더 만듭니다.",
                 "먹분신 아이템 최대 생성 수 +1", "survival.clone.keystone",
                 PermanentGrowthType.InkCloneItemExtraCount, 1f, "먹분신 생성 수",
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,
-                P("S-C3"), 4, "survival", -520f, 290f);
+                P("S-C3"), 4, "survival", -680f, 290f);
 
             // 도약 — 준비시간·점프 힘·점프 높이 세 줄만 반복 강화한다.
             // 공용 뿌리 J00은 가운데 점프 힘 줄의 첫 단계다.

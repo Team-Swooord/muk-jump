@@ -207,6 +207,29 @@ namespace MukJump.EditorTests
             Assert.That(leap.Min(node => node.LayoutX), Is.GreaterThanOrEqualTo(500f));
         }
 
+        [Test]
+        public void SurvivalCloneAndInkCapacityPathsRemainVisuallySeparate()
+        {
+            string[] survivalPath = { "S-C1", "S-C2", "S-C3", "S-KC" };
+            string[] inkCapacityPath = { "I-A1", "I-A2", "I-A3", "I-KA" };
+
+            for (int i = 0; i < survivalPath.Length; i++)
+            {
+                PermanentGrowthNodeDefinition survival =
+                    PermanentGrowthCatalog.GetNode(survivalPath[i]);
+                PermanentGrowthNodeDefinition ink =
+                    PermanentGrowthCatalog.GetNode(inkCapacityPath[i]);
+
+                Assert.That(survival.Branch,
+                    Is.EqualTo(PermanentGrowthBranch.Survival));
+                Assert.That(ink.Branch,
+                    Is.EqualTo(PermanentGrowthBranch.InkHandling));
+                Assert.That(ink.LayoutX - survival.LayoutX,
+                    Is.GreaterThanOrEqualTo(280f),
+                    $"{survival.Id}와 {ink.Id}의 열매·가지가 다시 붙으면 안 됩니다.");
+            }
+        }
+
         static void AssertBranch(
             PermanentGrowthBranch branch,
             IReadOnlyCollection<string> expectedIds)
