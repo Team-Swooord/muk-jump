@@ -245,7 +245,13 @@ namespace MukJump.EditorTests
             Assert.That(popup.Find("ActionStatus"), Is.Null);
             Assert.That(popup.Find("ActionCostIcon"), Is.Not.Null);
             Assert.That(popup.Find("EnhanceButton"), Is.Not.Null);
-            Assert.That(popup.Find("CloseButton"), Is.Not.Null);
+            Assert.That(popup.Find("CloseButton"), Is.Null);
+            Assert.That(
+                view.ScreenRoot.Find(
+                        "GrowthNodePopupOverlay/GrowthNodePopupDimmer")
+                    ?.GetComponent<Button>(),
+                Is.Not.Null,
+                "상세창 닫기는 카드 밖 DIM 터치가 소유해야 합니다.");
         }
 
         [Test]

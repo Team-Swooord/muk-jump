@@ -54,7 +54,7 @@ Normal 방울은 최대 10개로 제한해 `Important` 전용 2개를 남긴다.
 - 강등 후 30초 동안 재강등하지 않는다.
 - 로비, 일시정지, 게임오버, 앱 복귀 직후의 프레임은 표본에서 제외한다.
 - `Application.lowMemory`를 받으면 즉시 Low로 낮춘다.
-- DEBUG에서 수동 단계를 선택하면 자동 강등을 잠시 끄고 육안 비교가 가능하다.
+- 수동 품질 단계 검증은 사용자 HUD가 아니라 내부 모니터 회귀 테스트에서 수행한다.
 
 ## 4. 풀링과 프레임 비용
 
@@ -88,8 +88,7 @@ Normal 방울은 최대 10개로 제한해 `Important` 전용 2개를 남긴다.
 
 ## 6. 개발 진단
 
-- 플레이 중 왼쪽 `DEBUG` 패널:
-  `VFX Auto/Low/Medium/High`, FPS, 공용 피드백 선·방울, 먹물점프 합성, 피크, 생략 수
+- 제출 HUD에는 개발용 DEBUG 창을 표시하지 않는다.
 - Unity Editor:
   `MukJump > Diagnostics > Audit Mobile VFX`
 - 감사 메뉴 보고 항목:

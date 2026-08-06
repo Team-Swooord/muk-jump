@@ -22,6 +22,8 @@ namespace MukJump.Core
         const float BranchVisibleEndpointOverlap = 18f;
         const float LeapBranchHorizontalOffset = 300f;
         const float LeapLeftKeystoneExtraOffset = 140f;
+        const float NodePopupHeight = 1020f;
+        const float NodeActionButtonY = -404f;
         static readonly Vector2 TreeCanvasSize = new(3600f, 3200f);
         static readonly Vector2 TreeBackgroundSize = new(2200f, 3060f);
         static readonly Vector2 TreeBackgroundPosition = Vector2.zero;
@@ -115,7 +117,7 @@ namespace MukJump.Core
             rootGroup != null && rootGroup.blocksRaycasts;
         public Button BackButton { get; private set; }
         public Button PurchaseButton { get; private set; }
-        public Button NodePopupCloseButton { get; private set; }
+        public Button NodePopupDimmerButton { get; private set; }
         public Button RestoreBackupButton { get; private set; }
         public Button ResetGrowthSaveButton { get; private set; }
         public RectTransform ScreenRoot { get; private set; }
@@ -808,10 +810,10 @@ namespace MukJump.Core
                 selectedActionOverlayRoot,
                 InkUiStyle.PopupDimColor);
             InkUiStyle.ConfigurePopupDim(selectedActionDimmer);
-            Button dimmerButton =
+            NodePopupDimmerButton =
                 selectedActionDimmer.gameObject.AddComponent<Button>();
-            dimmerButton.transition = Selectable.Transition.None;
-            dimmerButton.onClick.AddListener(CloseNodePopup);
+            NodePopupDimmerButton.transition = Selectable.Transition.None;
+            NodePopupDimmerButton.onClick.AddListener(CloseNodePopup);
 
             selectedActionSafeAreaRoot = CreateStretchRect(
                 "SafeAreaRoot",
@@ -826,7 +828,7 @@ namespace MukJump.Core
                 "SelectedGrowthAction",
                 selectedActionContentPanel,
                 new Vector2(0f, -8f),
-                new Vector2(820f, 820f));
+                new Vector2(820f, NodePopupHeight));
             Image popupPaper =
                 selectedActionRoot.gameObject.AddComponent<Image>();
             popupPaper.sprite =
@@ -966,21 +968,12 @@ namespace MukJump.Core
                 "EnhanceButton",
                 selectedActionRoot,
                 "강화하기",
-                new Vector2(0f, -304f),
+                new Vector2(0f, NodeActionButtonY),
                 new Vector2(344f, InkUiStyle.MinimumTapHeight),
                 36);
             purchaseButtonText =
                 PurchaseButton.GetComponentInChildren<Text>(true);
             PurchaseButton.onClick.AddListener(HandleSelectedPurchase);
-
-            NodePopupCloseButton = CreateBrushButton(
-                "CloseButton",
-                selectedActionRoot,
-                "닫기",
-                new Vector2(300f, 286f),
-                new Vector2(150f, InkUiStyle.MinimumTapHeight),
-                26);
-            NodePopupCloseButton.onClick.AddListener(CloseNodePopup);
 
             ApplyRegularPopupTypography(selectedActionRoot);
 
@@ -1534,7 +1527,7 @@ namespace MukJump.Core
             selectedActionCostText.gameObject.SetActive(showCost);
             selectedActionCostText.text = cost.ToString();
             PurchaseButton.GetComponent<RectTransform>().anchoredPosition =
-                new Vector2(0f, -304f);
+                new Vector2(0f, NodeActionButtonY);
 
             if (purchaseButtonText != null)
             {
@@ -1559,7 +1552,6 @@ namespace MukJump.Core
                 (unlocked
                     ? definition.IsKeystone
                     : requirementsMet && hasEnoughCurrency);
-            NodePopupCloseButton.interactable = !purchaseUiLocked;
         }
 
         void SetNodePopupVisible(bool visible)

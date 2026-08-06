@@ -193,8 +193,8 @@ namespace MukJump.EditorTests
                 Is.GreaterThanOrEqualTo(800f));
             Assert.That(
                 selectedAction.sizeDelta.y,
-                Is.InRange(780f, 850f),
-                "상세창은 필요한 정보만 담은 짧은 카드여야 합니다.");
+                Is.InRange(1000f, 1040f),
+                "하단 행동을 내린 뒤에도 한지 카드 안에서 잘리지 않아야 합니다.");
             Assert.That(selectedAction.gameObject.activeSelf, Is.False);
 
             growthView.SelectGrowthForTests(0);
@@ -248,8 +248,9 @@ namespace MukJump.EditorTests
                 selectedAction.Find("EnhanceButton")?.GetComponent<Button>(),
                 Is.Not.Null);
             Assert.That(
-                selectedAction.Find("CloseButton")?.GetComponent<Button>(),
-                Is.Not.Null);
+                selectedAction.Find("CloseButton"),
+                Is.Null,
+                "상세창은 별도 닫기 버튼 대신 전체 화면 DIM으로 닫습니다.");
             Assert.That(
                 growthPanel.Find("GrowthDebugMenuButton"),
                 Is.Null);
@@ -258,7 +259,7 @@ namespace MukJump.EditorTests
                 Is.Null,
                 "성장 화면에는 개발용 재화·초기화 UI를 노출하지 않습니다.");
 
-            growthView.NodePopupCloseButton.onClick.Invoke();
+            growthView.NodePopupDimmerButton.onClick.Invoke();
             Assert.That(growthView.IsNodePopupOpen, Is.False);
 
             growthView.Close();
@@ -395,7 +396,7 @@ namespace MukJump.EditorTests
                     effectSummary.text,
                     Is.EqualTo(definition.EffectSummary));
                 Assert.That(view.TreeScrollRect.enabled, Is.False);
-                view.NodePopupCloseButton.onClick.Invoke();
+                view.NodePopupDimmerButton.onClick.Invoke();
                 Assert.That(view.IsNodePopupOpen, Is.False);
                 Assert.That(view.TreeScrollRect.enabled, Is.True);
             }

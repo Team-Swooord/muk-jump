@@ -161,7 +161,7 @@ namespace MukJump.EditorTests
             view.PurchaseButton.onClick.Invoke();
             Assert.That(PurchaseLabel(view), Is.EqualTo("교체 확인"));
 
-            view.NodePopupCloseButton.onClick.Invoke();
+            view.NodePopupDimmerButton.onClick.Invoke();
             SetField(
                 view,
                 "purchaseLockedUntil",
@@ -261,12 +261,16 @@ namespace MukJump.EditorTests
                 "이름은 검은 정보판 상단 안쪽에 있어야 합니다.");
 
             RectTransform popupRect = popup.GetComponent<RectTransform>();
+            Assert.That(
+                popupRect.sizeDelta.y,
+                Is.EqualTo(1020f).Within(0.01f),
+                "100px 내려간 행동 버튼의 기존 하단 여백을 보존해야 합니다.");
             foreach (string elementName in new[]
                      {
                          "ActionInfoPanel", "ActionIconPlate", "ActionIcon",
                          "ActionName", "ActionDivider", "ActionEffectSummary",
                          "ActionDescription", "ActionCostPlate", "ActionCostIcon",
-                         "ActionCost", "EnhanceButton", "CloseButton",
+                         "ActionCost", "EnhanceButton",
                      })
             {
                 RectTransform child = popup.Find(elementName)
@@ -282,23 +286,18 @@ namespace MukJump.EditorTests
                     $"{elementName}이 팝업 상하로 삐져나옵니다.");
             }
 
-            RectTransform closeButton = popup.Find("CloseButton")
-                .GetComponent<RectTransform>();
             RectTransform enhanceButton = popup.Find("EnhanceButton")
                 .GetComponent<RectTransform>();
             Assert.That(
                 enhanceButton.sizeDelta.y,
                 Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight),
                 "강화 버튼의 실제 터치 높이는 공통 모바일 최소치를 지켜야 합니다.");
+            Assert.That(popup.Find("CloseButton"), Is.Null,
+                "상세 팝업은 DIM 터치로 닫고 별도 닫기 붓획을 두지 않습니다.");
             Assert.That(
-                closeButton.sizeDelta.y,
-                Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight),
-                "닫기 버튼의 실제 터치 높이는 공통 모바일 최소치를 지켜야 합니다.");
-            Assert.That(
-                closeButton.anchoredPosition.y +
-                closeButton.sizeDelta.y * 0.5f,
-                Is.LessThanOrEqualTo(popupRect.sizeDelta.y * 0.5f - 64f),
-                "닫기 붓획은 한지 카드 상단 테두리 안쪽에 있어야 합니다.");
+                enhanceButton.anchoredPosition.y,
+                Is.EqualTo(-404f).Within(0.01f),
+                "강화·적용 상태 버튼은 이전 배치보다 정확히 100px 아래에 둡니다.");
 
             RectTransform branchBrush = popup.Find("ActionBranchBrush")
                 .GetComponent<RectTransform>();

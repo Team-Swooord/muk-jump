@@ -71,7 +71,9 @@ namespace MukJump.Core
             if (Application.isPlaying && GameManager.DebugToolsAvailable)
                 EnsureVfxDebugControls();
             ApplyCrispTextSettings();
-            SetDebugToolsAvailable(GameManager.DebugToolsAvailable);
+            // 제출 화면에는 개발용 서랍을 노출하지 않는다. 내부 디버그 API는
+            // 회귀 테스트에서만 사용하고 HUD 계층은 항상 닫아 둔다.
+            SetDebugToolsAvailable(false);
             if (!Application.isPlaying) return;
             if (windIndicator == null)
                 windIndicator = GetComponentInChildren<WindIndicatorView>(true);
@@ -199,11 +201,11 @@ namespace MukJump.Core
                 ScoreManager.Instance?.InvalidateCurrentRunForRecords();
         }
 
-        void SetDebugToolsAvailable(bool available)
+        void SetDebugToolsAvailable(bool _)
         {
             if (itemTestControls != null)
-                itemTestControls.gameObject.SetActive(available);
-            if (!available && debugPanel != null)
+                itemTestControls.gameObject.SetActive(false);
+            if (debugPanel != null)
                 debugPanel.gameObject.SetActive(false);
         }
 

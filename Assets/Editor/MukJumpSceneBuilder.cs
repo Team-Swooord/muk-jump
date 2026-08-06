@@ -1057,6 +1057,8 @@ namespace MukJump.EditorTools
                 new Vector2(0f, 0.5f), new Vector2(410f, 1320f));
             testControls.pivot = new Vector2(0f, 0.5f);
             testControls.anchoredPosition = Vector2.zero;
+            // 개발 기능은 코드 회귀 검증용으로만 남기고 제출 UI에는 노출하지 않는다.
+            testControls.gameObject.SetActive(false);
 
             var debugToggleButton = CreateDebugTextButton("DebugToggleButton", testControls,
                 new Vector2(8f, 580f), new Vector2(194f, 64f), "DEBUG");

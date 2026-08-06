@@ -49,4 +49,48 @@ public class GameplayHudViewTests
             Object.DestroyImmediate(host);
         }
     }
+
+    [Test]
+    public void DevelopmentDebugDrawerRemainsHidden()
+    {
+        var host = new GameObject(
+            "GameplayHudNoDebug",
+            typeof(Canvas),
+            typeof(GameplayHudView));
+        var controls = new GameObject(
+            "ItemTestControls",
+            typeof(RectTransform));
+        var panel = new GameObject(
+            "DebugPanel",
+            typeof(RectTransform));
+        try
+        {
+            controls.transform.SetParent(host.transform, false);
+            panel.transform.SetParent(controls.transform, false);
+            var view = host.GetComponent<GameplayHudView>();
+            typeof(GameplayHudView).GetField(
+                    "itemTestControls",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.SetValue(view, controls.GetComponent<RectTransform>());
+            typeof(GameplayHudView).GetField(
+                    "debugPanel",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.SetValue(view, panel.GetComponent<RectTransform>());
+
+            controls.SetActive(true);
+            panel.SetActive(true);
+            typeof(GameplayHudView).GetMethod(
+                    "SetDebugToolsAvailable",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.Invoke(view, new object[] { true });
+
+            Assert.IsFalse(controls.activeSelf,
+                "Editor/Development Build에서도 DEBUG 창을 사용자 화면에 노출하지 않습니다.");
+            Assert.IsFalse(panel.activeSelf);
+        }
+        finally
+        {
+            Object.DestroyImmediate(host);
+        }
+    }
 }
