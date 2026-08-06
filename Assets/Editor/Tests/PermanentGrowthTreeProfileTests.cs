@@ -74,7 +74,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void FirstKeystoneAutoEquipsButLaterPurchaseDoesNotReplaceIt()
+        public void UnlockedLineEndsStayAppliedWithoutEquipmentSwitching()
         {
             SeedV2(13);
             Buy("S00", "S-A1", "S-A2", "S-A3", "S-KA");
@@ -83,28 +83,31 @@ namespace MukJump.EditorTests
                 PermanentGrowthProfile.GetActiveKeystoneId(
                     PermanentGrowthBranch.Survival),
                 Is.EqualTo("S-KA"));
-            Assert.That(PermanentGrowthProfile.HasLastBreath, Is.True);
+            Assert.That(PermanentGrowthProfile.HasLastBreath, Is.False);
+            Assert.That(PermanentGrowthProfile.MaxHealthBonus, Is.EqualTo(4));
 
             Buy("S-B1", "S-B2", "S-B3", "S-KB");
             Assert.That(
                 PermanentGrowthProfile.GetActiveKeystoneId(
                     PermanentGrowthBranch.Survival),
                 Is.EqualTo("S-KA"),
-                "두 번째 비기 해금이 사용자의 현재 장착을 몰래 바꾸면 안 됩니다.");
+                "구 장착 필드는 저장 호환용 첫 ID를 유지합니다.");
 
             Assert.That(PermanentGrowthProfile.TryEquipKeystone("S-KB"), Is.True);
             Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KB"), Is.True);
-            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.False);
+            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.True);
             Assert.That(PermanentGrowthProfile.HasLastBreath, Is.False);
+            Assert.That(PermanentGrowthProfile.DamageGraceBonusSeconds,
+                Is.EqualTo(0.20f).Within(0.0001f));
 
             Assert.That(
                 PermanentGrowthProfile.ClearActiveKeystone(
                     PermanentGrowthBranch.Survival),
-                Is.True);
+                Is.False);
             Assert.That(
                 PermanentGrowthProfile.GetActiveKeystoneId(
                     PermanentGrowthBranch.Survival),
-                Is.Empty);
+                Is.EqualTo("S-KA"));
         }
 
         [Test]
@@ -130,13 +133,17 @@ namespace MukJump.EditorTests
             Buy("S-B1", "S-B2", "S-B3", "S-KB");
             Assert.That(PermanentGrowthProfile.TryEquipKeystone("S-KB"), Is.True);
 
-            Assert.That(snapshot.HasLastBreath, Is.True);
+            Assert.That(snapshot.HasLastBreath, Is.False);
             Assert.That(snapshot.HasStableHit, Is.False);
             Assert.That(snapshot.HasNode("S-KB"), Is.False);
+            Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(4));
+            Assert.That(snapshot.DamageGraceBonusSeconds,
+                Is.EqualTo(0.04f).Within(0.0001f));
             Assert.That(snapshot.GetActiveKeystoneId(PermanentGrowthBranch.Survival),
                 Is.EqualTo("S-KA"));
-            Assert.That(PermanentGrowthProfile.CreateRunSnapshot().HasStableHit,
-                Is.True);
+            Assert.That(
+                PermanentGrowthProfile.CreateRunSnapshot().DamageGraceBonusSeconds,
+                Is.EqualTo(0.20f).Within(0.0001f));
         }
 
         [Test]

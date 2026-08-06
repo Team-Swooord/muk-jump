@@ -169,9 +169,7 @@ namespace MukJump.Player
             CurrentPlatform = null;
             GroundNormal = Vector2.up;
             damageInvulnerableUntil = Time.time +
-                                      Mathf.Max(1f, cloneSpawnGraceDuration) +
-                                      ActivePermanentGrowth
-                                          .CloneSpawnGraceBonusSeconds;
+                                      Mathf.Max(1f, cloneSpawnGraceDuration);
             rb.WakeUp();
         }
 
@@ -547,7 +545,6 @@ namespace MukJump.Player
             foreach (var col in GetComponents<Collider2D>())
                 col.enabled = false;
 
-            RunGrowthController.Instance?.NotifyPlayerDied(this);
             bool isLastPlayer = GameManager.Instance == null ||
                                 GameManager.Instance.NotifyPlayerDied(this);
             GameFeedbackController.Instance?.PlayDeath(

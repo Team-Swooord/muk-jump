@@ -33,9 +33,6 @@ namespace MukJump.Core
         public const float CloneSpawnHorizontalGap = 0.1f;
         /// 화면 경계와 새 분신 외곽 사이에 남기는 최소 월드 간격.
         public const float CloneSpawnScreenEdgePadding = 0.05f;
-        /// 카메라 상단 안전선은 먹떼의 상위 75% 지점을 본다. 소수의 단독
-        /// 급상승에는 끌려가지 않으면서, 실제 상위 무리는 화면 안에 남긴다.
-        public const float SwarmCameraUpperPercentile = 0.75f;
 
         public static GameManager Instance { get; private set; }
 
@@ -350,9 +347,8 @@ namespace MukJump.Core
                 : float.NegativeInfinity;
         }
 
-        /// 카메라 전용 먹떼 프레임을 반환한다. 중앙 대표는 기존 진행 기준과 같은
-        /// 하위 중앙값으로 안정적으로 따라가고, 별도의 상위 75% 안전점이 빠른 상위
-        /// 무리를 화면 밖으로 놓치지 않게 한다. 사망한 본체/분신은 호출 전에 제외된다.
+        /// 카메라 전용 먹떼 프레임을 반환한다. 본체 여부와 상관없이 현재 가장 높은
+        /// 생존자를 대표로 삼아 선두 분신을 놓치지 않는다. 사망한 개체는 제외된다.
         public bool TryGetSwarmCameraFrame(
             out PlayerController representative,
             out float clusterY,
@@ -366,9 +362,8 @@ namespace MukJump.Core
                 out upperGuardY);
         }
 
-        /// 정렬된 먹떼의 하위 중앙값과 상위 75% 지점을 한 번의 정렬로 계산한다.
-        /// 1~3마리는 가장 높은 생존자까지 보호하고, 4마리부터는 단독 이상치가
-        /// 카메라를 끌어올리지 않는다.
+        /// 정렬된 먹떼의 가장 높은 생존자를 카메라 기준으로 반환한다. 카메라는 Y축만
+        /// 추적하므로 선두가 바뀌어도 좌우 흔들림 없이 현재 최고 진행만 이어받는다.
         public static bool ResolveSwarmCameraFrame(
             List<PlayerController> living,
             out PlayerController representative,
@@ -388,14 +383,10 @@ namespace MukJump.Core
                 return false;
 
             living.Sort(ComparePlayerHeight);
-            int clusterIndex = (living.Count - 1) / 2;
-            int upperIndex = Mathf.Clamp(
-                Mathf.CeilToInt(living.Count * SwarmCameraUpperPercentile) - 1,
-                clusterIndex,
-                living.Count - 1);
-            representative = living[clusterIndex];
+            int highestIndex = living.Count - 1;
+            representative = living[highestIndex];
             clusterY = representative.transform.position.y;
-            upperGuardY = living[upperIndex].transform.position.y;
+            upperGuardY = clusterY;
             return true;
         }
 
@@ -661,7 +652,8 @@ namespace MukJump.Core
             gameOverTime = Time.unscaledTime;
         }
 
-        /// 먹분신 아이템 하나당 한 마리를 즉시 추가한다.
+        /// 먹분신 한 마리를 즉시 추가한다. 아이템의 묶음 생성은
+        /// TryCreateInkClonesFromItem에서 성장 수치만큼 이 원자 동작을 반복한다.
         public bool TryCreateInkClone(PlayerController source)
         {
             if (!CanCreateInkClone || source == null || source.IsDead)
@@ -674,7 +666,8 @@ namespace MukJump.Core
 
             var sourceBody = source.GetComponent<Rigidbody2D>();
             int cloneIndex = Mathf.Max(1, LivingPlayerCount);
-            Vector3 spawnPosition = FindCloneSpawnPosition(source, cloneIndex);
+            if (!TryFindCloneSpawnPosition(source, cloneIndex, out Vector3 spawnPosition))
+                return false;
 
             // 구체적인 아이템·VFX 타입을 모른 채 복제 생명주기 계약만 호출한다.
             // 각 기능은 동기 Instantiate 동안 게임 상태가 아닌 캐시 자식을 스스로 분리한다.
@@ -714,14 +707,46 @@ namespace MukJump.Core
                 cloneBody.linearVelocity = sourceBody.linearVelocity;
 
             RegisterPlayer(clone);
-            RunGrowthController.Instance?.NotifyCloneCreated(source, clone);
             clone.GetComponent<InkCloneArrivalView>()?.Play();
             GameFeedbackController.Instance?.PlayCloneArrival(clone.transform.position);
             return true;
         }
 
+        /// 먹분신 아이템 한 개로 기본 한 마리와 성장 보너스만큼을 함께 만든다.
+        /// 최대 먹떼 수에 가까우면 들어갈 수 있는 수만 만들고, 한 마리라도 만들어졌을 때만
+        /// 아이템을 소비한다.
+        public bool TryCreateInkClonesFromItem(PlayerController source)
+        {
+            if (!CanCreateInkClone || source == null || source.IsDead)
+                return false;
+
+            int extraCount = RunGrowthController.Instance != null
+                ? RunGrowthController.Instance.PermanentSnapshot.InkCloneItemExtraCount
+                : 0;
+            int availableCount = Mathf.Max(0, MaxLivingPlayers - LivingPlayerCount);
+            int spawnCount = ResolveInkCloneItemSpawnCount(
+                extraCount,
+                availableCount);
+            int createdCount = 0;
+            for (int i = 0; i < spawnCount; i++)
+            {
+                if (!TryCreateInkClone(source))
+                    break;
+                createdCount++;
+            }
+            return createdCount > 0;
+        }
+
+        public static int ResolveInkCloneItemSpawnCount(
+            int growthExtraCount,
+            int availableLivingSlots)
+        {
+            int requestedCount = 1 + Mathf.Clamp(growthExtraCount, 0, 4);
+            return Mathf.Min(requestedCount, Mathf.Max(0, availableLivingSlots));
+        }
+
         /// 먹물방울은 한 마리만 화면 밖으로 이탈하지 않도록 현재 먹떼 전체에 같은
-        /// 상승 속도를 적용한다. 카메라는 기존 하위 중앙값을 유지해 남은 무리를 버리지 않는다.
+        /// 상승 속도를 적용한다. 카메라는 상승 후 가장 높은 생존자를 이어서 추적한다.
         public bool LaunchSwarmInkDrop(PlayerController collector, float height)
         {
             if (!IsGameplayTicking || collector == null || collector.IsDead)
@@ -747,7 +772,18 @@ namespace MukJump.Core
         /// 대량 분산보다 획득한 순간 두 캐릭터가 한 쌍으로 읽히는 것이 우선이다.
         Vector3 FindCloneSpawnPosition(PlayerController source, int cloneIndex)
         {
+            return TryFindCloneSpawnPosition(source, cloneIndex, out Vector3 position)
+                ? position
+                : source.transform.position;
+        }
+
+        bool TryFindCloneSpawnPosition(
+            PlayerController source,
+            int cloneIndex,
+            out Vector3 position)
+        {
             Vector3 sourcePosition = source.transform.position;
+            position = sourcePosition;
             Physics2D.SyncTransforms();
 
             Collider2D sourceCollider = source.PrimaryCollider;
@@ -789,10 +825,29 @@ namespace MukJump.Core
             var worldCamera = Camera.main;
             if (worldCamera == null)
             {
-                float fallbackDirection = ResolveOppositeCloneSide(
+                float directionWithoutCamera = ResolveOppositeCloneSide(
                     sourcePosition.x, 0f, cloneIndex);
-                return sourcePosition +
-                       Vector3.right * (fallbackDirection * adjacentDistance);
+                int maxRingWithoutCamera = Mathf.Max(1, LivingPlayerCount + 1);
+                for (int ring = 1; ring <= maxRingWithoutCamera; ring++)
+                for (int side = 0; side < 2; side++)
+                {
+                    float sideDirection = side == 0
+                        ? directionWithoutCamera
+                        : -directionWithoutCamera;
+                    float candidateX = sourcePosition.x +
+                                       sideDirection * adjacentDistance * ring;
+                    if (!IsCloneHorizontalSlotFree(
+                            candidateX,
+                            sourcePosition.y,
+                            footprintWidth))
+                        continue;
+                    position = new Vector3(
+                        candidateX,
+                        sourcePosition.y,
+                        sourcePosition.z);
+                    return true;
+                }
+                return false;
             }
 
             float halfWidth = worldCamera.orthographicSize * worldCamera.aspect;
@@ -806,24 +861,100 @@ namespace MukJump.Core
             float maxRootX = cameraRight - CloneSpawnScreenEdgePadding -
                              footprintMaxOffset;
 
-            float preferredX = Mathf.Clamp(
-                sourcePosition.x + direction * adjacentDistance,
-                minRootX,
-                maxRootX);
-            float alternateX = Mathf.Clamp(
-                sourcePosition.x - direction * adjacentDistance,
-                minRootX,
-                maxRootX);
+            float preferredX = sourcePosition.x;
+            bool foundFreeSlot = false;
+            int maxRing = Mathf.Max(1, LivingPlayerCount + 1);
+            for (int ring = 1; ring <= maxRing && !foundFreeSlot; ring++)
+            {
+                for (int side = 0; side < 2; side++)
+                {
+                    float sideDirection = side == 0 ? direction : -direction;
+                    float unclampedX = sourcePosition.x +
+                                       sideDirection * adjacentDistance * ring;
+                    float candidateX = Mathf.Clamp(unclampedX, minRootX, maxRootX);
+                    // 경계 clamp로 본체 쪽에 눌린 슬롯은 사용하지 않는다.
+                    if (Mathf.Abs(candidateX - sourcePosition.x) + 0.001f <
+                        adjacentDistance)
+                        continue;
+                    if (!IsCloneHorizontalSlotFree(
+                            candidateX,
+                            sourcePosition.y,
+                            footprintWidth))
+                        continue;
+                    preferredX = candidateX;
+                    foundFreeSlot = true;
+                    break;
+                }
+            }
 
-            // 화면 끝에서 선호 방향의 간격이 눌리면 반대쪽의 온전한 인접 위치를 쓴다.
-            if (Mathf.Abs(preferredX - sourcePosition.x) <
-                Mathf.Abs(alternateX - sourcePosition.x))
-                preferredX = alternateX;
+            if (!foundFreeSlot)
+                return false;
 
-            return new Vector3(
+            position = new Vector3(
                 preferredX,
                 sourcePosition.y,
                 sourcePosition.z);
+            return true;
+        }
+
+        bool IsCloneHorizontalSlotFree(
+            float candidateX,
+            float candidateY,
+            float candidateWidth)
+        {
+            CleanupPlayers();
+            for (int i = 0; i < players.Count; i++)
+            {
+                PlayerController other = players[i];
+                if (other == null || other.IsDead)
+                    continue;
+
+                float otherWidth = ResolveVisibleFootprintWidth(
+                    other,
+                    candidateWidth);
+                float verticalTolerance = Mathf.Max(candidateWidth, otherWidth);
+                if (Mathf.Abs(other.transform.position.y - candidateY) >
+                    verticalTolerance)
+                    continue;
+
+                float requiredDistance =
+                    (candidateWidth + otherWidth) * 0.5f + CloneSpawnHorizontalGap;
+                if (Mathf.Abs(other.transform.position.x - candidateX) + 0.001f <
+                    requiredDistance)
+                    return false;
+            }
+            return true;
+        }
+
+        static float ResolveVisibleFootprintWidth(
+            PlayerController player,
+            float fallbackWidth)
+        {
+            if (player == null)
+                return fallbackWidth;
+
+            bool hasBounds = false;
+            Bounds bounds = default;
+            Collider2D collider = player.PrimaryCollider;
+            if (collider != null && collider.bounds.size.x > 0.01f)
+            {
+                bounds = collider.bounds;
+                hasBounds = true;
+            }
+
+            var renderer = player.GetComponent<SpriteRenderer>();
+            if (renderer != null && renderer.sprite != null &&
+                renderer.bounds.size.x > 0.01f)
+            {
+                if (hasBounds)
+                    bounds.Encapsulate(renderer.bounds);
+                else
+                {
+                    bounds = renderer.bounds;
+                    hasBounds = true;
+                }
+            }
+            return hasBounds ? bounds.size.x : fallbackWidth;
         }
 
         static float ResolveOppositeCloneSide(

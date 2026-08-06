@@ -68,7 +68,6 @@ namespace MukJump.Obstacles
         ComponentPool<HaetaeObstacle> haetaePool;
         Action<Obstacle> obstacleReleaseHandler;
         Action<HaetaeObstacle> haetaeReleaseHandler;
-        Func<PlayerController> haetaeTargetResolver;
         Func<bool> haetaeTelegraphGate;
         GameManager subscribedManager;
         Camera cam;
@@ -76,6 +75,7 @@ namespace MukJump.Obstacles
         int scheduledSessionVersion = -1;
         bool firstDragonPending = true;
         bool firstHaetaePending = true;
+        bool openingHaetaePending = true;
         bool activeHaetaeRestoresFirstGuarantee;
         bool haetaePoolPrewarmed;
 
@@ -141,6 +141,7 @@ namespace MukJump.Obstacles
                 !GameManager.Instance.IsGameplayTicking) return;
 
             EnsureSessionSchedule();
+            TrySpawnOpeningHaetae();
             float cameraTop = cam.transform.position.y + cam.orthographicSize;
             float cutoff = cam.transform.position.y - cam.orthographicSize - despawnBelow;
             float cameraTopHeight = GameHeightAtWorldY(cameraTop);
@@ -276,6 +277,29 @@ namespace MukJump.Obstacles
             active.Add(obstacle);
         }
 
+        /// 첫 플레이 구간에서 벽타기 대응 장애물의 경고 방식을 바로 확인할 수 있도록
+        /// 튜토리얼/일시정지가 끝난 첫 유효 프레임에 해태 경고를 한 번 예약한다.
+        void TrySpawnOpeningHaetae()
+        {
+            if (!openingHaetaePending || HasActiveLargeAnimal())
+                return;
+
+            var target = ResolveHaetaeTarget();
+            if (target == null || target.IsDead ||
+                !HasValidHaetaeFrames(haetaeFrames) ||
+                !CanBeginHaetaeTelegraph())
+                return;
+
+            float courseHeight = Mathf.Max(
+                0f,
+                GameHeightAtWorldY(target.transform.position.y));
+            if (SpawnHaetae(
+                    courseHeight,
+                    false,
+                    beginTelegraphImmediately: true))
+                openingHaetaePending = false;
+        }
+
         MovingObstacleVariant ChooseVariant(float courseHeight)
         {
             // 해금 직후 첫 유효 슬롯은 반드시 해태다. 다른 큰 위험과 겹친 슬롯에서는
@@ -323,10 +347,10 @@ namespace MukJump.Obstacles
 
         bool SpawnHaetae(
             float courseHeight,
-            bool restoreFirstGuaranteeIfSkipped)
+            bool restoreFirstGuaranteeIfSkipped,
+            bool beginTelegraphImmediately = false)
         {
-            var target = ResolveHaetaeTarget();
-            if (target == null || target.IsDead || !HasValidHaetaeFrames(haetaeFrames))
+            if (!HasValidHaetaeFrames(haetaeFrames))
                 return false;
 
             EnsureHaetaePool();
@@ -355,12 +379,11 @@ namespace MukJump.Obstacles
             Vector2 localColliderSize = haetaeColliderWorldSize /
                                         Mathf.Max(0.0001f, scale);
             haetaeReleaseHandler ??= ReleaseHaetae;
-            haetaeTargetResolver ??= ResolveHaetaeTarget;
             haetaeTelegraphGate ??= CanBeginHaetaeTelegraph;
             haetae.Configure(
                 haetaeFrames,
                 cam,
-                LayerMask.GetMask("Player", "Platform"),
+                LayerMask.GetMask("Player"),
                 haetaeReleaseHandler,
                 telegraphSeconds,
                 pounceSeconds,
@@ -368,21 +391,21 @@ namespace MukJump.Obstacles
                 0.35f,
                 localColliderSize,
                 new Vector2(0f, -0.03f / Mathf.Max(0.0001f, scale)),
-                haetaeTargetResolver,
                 haetaeTelegraphGate);
 
             bool fromLeft = GameplayRandom.Value(
                 GameplayRandomStream.Obstacles) < 0.5f;
-            float verticalOffset = GameplayRandom.Range(
-                GameplayRandomStream.Obstacles, -0.18f, 0.18f);
             haetae.Activate(
-                target,
                 WorldYAtGameHeight(courseHeight),
-                fromLeft,
-                verticalOffset);
+                fromLeft);
             activeHaetae.Add(haetae);
             activeHaetaeRestoresFirstGuarantee =
                 restoreFirstGuaranteeIfSkipped;
+            if (beginTelegraphImmediately && !haetae.TryBeginTelegraphNow())
+            {
+                haetae.ForceRelease();
+                return false;
+            }
             return true;
         }
 
@@ -461,10 +484,8 @@ namespace MukJump.Obstacles
         PlayerController ResolveHaetaeTarget()
         {
             var manager = GameManager.Instance;
-            if (manager != null &&
-                manager.TryGetSwarmAnchor(
-                    out PlayerController representative, out _))
-                return representative;
+            if (manager != null && manager.HighestLivingPlayer != null)
+                return manager.HighestLivingPlayer;
             return FindFirstObjectByType<PlayerController>();
         }
 
@@ -682,7 +703,7 @@ namespace MukJump.Obstacles
             haetae.Configure(
                 haetaeFrames,
                 cam != null ? cam : Camera.main,
-                LayerMask.GetMask("Player", "Platform"),
+                LayerMask.GetMask("Player"),
                 haetaeReleaseHandler,
                 1.2f,
                 0.72f,
@@ -691,35 +712,15 @@ namespace MukJump.Obstacles
                 localColliderSize,
                 new Vector2(0f, -0.03f / Mathf.Max(0.0001f, scale)));
 
-            Camera worldCamera = cam != null ? cam : Camera.main;
             bool fromLeft = GameplayRandom.Value(
                 GameplayRandomStream.Obstacles) < 0.5f;
-            Vector2 targetPosition = target.transform.position;
-            float edgeX = targetPosition.x + (fromLeft ? -5.9f : 5.9f);
-            if (worldCamera != null)
-            {
-                float cameraDistance = Mathf.Abs(
-                    worldCamera.transform.position.z - go.transform.position.z);
-                edgeX = worldCamera.ViewportToWorldPoint(
-                    new Vector3(fromLeft ? 0f : 1f, 0.5f, cameraDistance)).x +
-                    (fromLeft ? 0.52f : -0.52f);
-            }
-            Vector2 startPosition = new(edgeX, targetPosition.y);
-            float oppositeEdgeX = targetPosition.x + (fromLeft ? 5.9f : -5.9f);
-            if (worldCamera != null)
-            {
-                float cameraDistance = Mathf.Abs(
-                    worldCamera.transform.position.z - go.transform.position.z);
-                oppositeEdgeX = worldCamera.ViewportToWorldPoint(
-                    new Vector3(fromLeft ? 1f : 0f, 0.5f, cameraDistance)).x +
-                    (fromLeft ? -0.52f : 0.52f);
-            }
-            Vector2 endPosition = new(oppositeEdgeX, targetPosition.y);
-            go.transform.position = startPosition;
-            haetae.Activate(startPosition, endPosition, fromLeft);
+            haetae.Activate(target.transform.position.y, fromLeft);
             activeHaetae.Add(haetae);
             activeHaetaeRestoresFirstGuarantee = false;
-            return true;
+            if (haetae.TryBeginTelegraphNow())
+                return true;
+            haetae.ForceRelease();
+            return false;
         }
 
         void ReleaseLargeAnimalsForDebug()
@@ -783,6 +784,7 @@ namespace MukJump.Obstacles
             // 다음 슬롯에서 첫 어린 용을 확실히 볼 수 있어야 한다.
             firstDragonPending = true;
             firstHaetaePending = true;
+            openingHaetaePending = targetHeight <= 0;
             nextSpawnHeight = Mathf.Max(firstSpawnHeight, GameHeightAtWorldY(visibleBottom));
         }
 
@@ -794,6 +796,7 @@ namespace MukJump.Obstacles
             nextSpawnHeight = firstSpawnHeight;
             firstDragonPending = true;
             firstHaetaePending = true;
+            openingHaetaePending = true;
         }
 
         float GameHeightAtWorldY(float worldY)

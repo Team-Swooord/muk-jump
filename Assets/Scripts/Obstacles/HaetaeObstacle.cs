@@ -18,9 +18,9 @@ namespace MukJump.Obstacles
         SealAway,
     }
 
-    /// 화면 한쪽의 느낌표와 붉은 먹빛으로 예고한 뒤 가로로 한 번만 달려오는 중반 수문장.
-    /// 공격 높이와 방향은 예고 시작 순간 고정하며, 플레이어 또는 임시 먹 발판과 처음 닿으면
-    /// 공격을 즉시 소비한다. 경고 띠·느낌표·경로선은 자식 오브젝트를 한 번만 만들어 재사용한다.
+    /// 왼쪽·오른쪽 벽 중 한쪽을 붉은 먹빛으로 예고한 뒤 위에서 아래로 한 번 내려오는 수문장.
+    /// 선택된 벽의 수직 경로는 예고 시작 순간 고정하며 플레이어를 추적하지 않는다.
+    /// 경고 띠·느낌표·경로선은 자식 오브젝트를 한 번만 만들어 재사용한다.
     [RequireComponent(typeof(SpriteRenderer), typeof(Rigidbody2D), typeof(CapsuleCollider2D))]
     public sealed class HaetaeObstacle : MonoBehaviour, IPoolableEntity
     {
@@ -29,7 +29,7 @@ namespace MukJump.Obstacles
         const int WarningCirclePointCount = 10;
         const float DefaultVisibleTopMargin = 0.5f;
         const float ScreenEdgeInset = 0.52f;
-        const float WarningBandHalfHeight = 1.45f;
+        const float OffscreenExitPadding = 2.4f;
         const float WarningBandWidth = 0.82f;
         const float WarningOnlyFraction = 0.48f;
         const float MaterializeDuration = 0.34f;
@@ -43,7 +43,6 @@ namespace MukJump.Obstacles
         Camera worldCamera;
         LayerMask interactionMask = Physics2D.DefaultRaycastLayers;
         Action<HaetaeObstacle> releaseHandler;
-        Func<PlayerController> targetResolver;
         Func<bool> telegraphGate;
 
         // 0: 반투명 위험 띠, 1: 느낌표 줄기, 2: 느낌표 점.
@@ -52,15 +51,12 @@ namespace MukJump.Obstacles
         readonly RaycastHit2D[] castHits = new RaycastHit2D[CastHitCapacity];
         LineRenderer routeGuide;
         SpriteRenderer materializeSeal;
-        PlayerController deferredTarget;
-
         float telegraphDuration = 1.2f;
         float pounceDuration = 0.72f;
         float landDuration = 0.14f;
         float sealAwayDuration = 0.35f;
         float stateElapsed;
         float activationWorldY;
-        float deferredVerticalOffset;
         float visibleTopMargin = DefaultVisibleTopMargin;
         bool enterFromLeft;
         bool attackConsumed;
@@ -124,7 +120,6 @@ namespace MukJump.Obstacles
             float sealAwaySeconds = 0.35f,
             Vector2? colliderSize = null,
             Vector2? colliderOffset = null,
-            Func<PlayerController> currentTargetResolver = null,
             Func<bool> canBeginTelegraph = null)
         {
             EnsureComponents();
@@ -135,7 +130,6 @@ namespace MukJump.Obstacles
             worldCamera = camera;
             interactionMask = hitMask;
             releaseHandler = onRelease;
-            targetResolver = currentTargetResolver;
             telegraphGate = canBeginTelegraph;
             telegraphDuration = Mathf.Max(0.2f, telegraphSeconds);
             pounceDuration = Mathf.Max(0.2f, pounceSeconds);
@@ -148,12 +142,10 @@ namespace MukJump.Obstacles
         }
 
         /// 예약된 코스 높이가 카메라 안으로 들어올 때까지 완전히 숨겨 둔다.
-        /// 실제 예고 시작 순간 살아 있는 표적 위치를 딱 한 번 읽고 이후에는 추적하지 않는다.
+        /// 예고가 시작되면 무작위로 선택된 한쪽 벽의 위→아래 직선 경로만 사용한다.
         public void Activate(
-            PlayerController target,
             float courseWorldY,
             bool fromLeft,
-            float verticalOffset = -0.9f,
             float topMargin = DefaultVisibleTopMargin)
         {
             EnsureComponents();
@@ -161,10 +153,8 @@ namespace MukJump.Obstacles
             baseColor = spriteRenderer.color;
             ResetRuntimeState();
             RegisterHazardReservation();
-            deferredTarget = target;
             activationWorldY = courseWorldY;
             enterFromLeft = fromLeft;
-            deferredVerticalOffset = Mathf.Clamp(verticalOffset, -1.5f, 1.5f);
             visibleTopMargin = Mathf.Max(0f, topMargin);
             body.position = new Vector2(body.position.x, courseWorldY);
         }
@@ -183,7 +173,7 @@ namespace MukJump.Obstacles
         }
 
         /// 디버그 소환 또는 카메라 진입 직후의 명시적 예고 시작에 사용한다.
-        /// 이미 경로가 고정됐거나 표적이 사라졌다면 아무것도 시작하지 않는다.
+        /// 이미 경로가 고정됐거나 다른 큰 위험이 진행 중이면 아무것도 시작하지 않는다.
         public bool TryBeginTelegraphNow()
         {
             if (State != HaetaeObstacleState.Hidden || hasLockedPath)
@@ -191,21 +181,10 @@ namespace MukJump.Obstacles
             if (telegraphGate != null && !telegraphGate())
                 return false;
 
-            PlayerController target = targetResolver?.Invoke();
-            if (target == null || target.IsDead)
-                target = deferredTarget;
-            if (target == null || target.IsDead)
-            {
-                ForceRelease();
-                return false;
-            }
-
-            ResolveSideChargePath(
-                target.transform.position,
+            ResolveWallDescentPath(
                 out Vector2 startPosition,
                 out Vector2 endPosition);
             LockPathAndBeginTelegraph(startPosition, endPosition);
-            deferredTarget = null;
             return true;
         }
 
@@ -295,10 +274,13 @@ namespace MukJump.Obstacles
 
             if (normalized >= 1f)
             {
-                // MovePosition 예약 직후 simulated를 끄면 마지막 좌표가 적용되지 않을 수 있어
-                // 착지 프레임만은 고정된 종점에 즉시 맞춘다.
+                // 선택된 벽 아래 화면 밖 종점까지 통과한 뒤 풀로 돌아간다.
                 body.position = nextPosition;
-                BeginLand(false);
+                transform.position = new Vector3(
+                    nextPosition.x,
+                    nextPosition.y,
+                    transform.position.z);
+                ForceRelease();
             }
             else
                 body.MovePosition(nextPosition);
@@ -392,8 +374,12 @@ namespace MukJump.Obstacles
                 nearestValidCollider = candidate;
                 nearestDistance = castHits[i].distance;
             }
-            return nearestValidCollider != null &&
-                   ResolveContact(nearestValidCollider);
+            if (nearestValidCollider == null)
+                return false;
+            ResolveContact(nearestValidCollider);
+            // 먹선에 막혀 착지 상태가 된 경우만 이동을 멈춘다. 플레이어 한 명을
+            // 처리한 뒤에는 판정만 끄고 같은 벽을 따라 화면 아래까지 통과한다.
+            return State != HaetaeObstacleState.Pounce;
         }
 
         void OnTriggerEnter2D(Collider2D other)
@@ -414,21 +400,14 @@ namespace MukJump.Obstacles
                 // 방어막·먹물방울·디버그 무적이어도 뒤의 분신까지 연속으로 쓸지 않는다.
                 attackConsumed = true;
                 GameFeedbackController.Instance?.PlayHazardImpact(transform.position);
-                BeginLand(false);
+                hitbox.enabled = false;
                 player.TakeHit();
                 return true;
             }
 
-            var platform = other.GetComponentInParent<PlatformCollider>();
-            if (platform == null || !platform.IsTemporaryDrawnPlatform)
-                return false;
-
-            // 선은 파괴하지 않는다. 플레이어가 가로질러 그은 임시 먹 발판만 방패가 된다.
-            attackConsumed = true;
-            wasBlockedByPlatform = true;
-            GameFeedbackController.Instance?.PlayHazardImpact(transform.position);
-            BeginLand(true);
-            return true;
+            // 벽타기 방지 장애물이므로 먹선·일반 발판·풍맥에는 막히지 않는다.
+            // 선택된 벽의 위에서 아래까지 한 번에 통과하는 경로를 유지한다.
+            return false;
         }
 
         static bool IsResolvableContact(Collider2D other)
@@ -437,8 +416,7 @@ namespace MukJump.Obstacles
             var player = other.GetComponentInParent<PlayerController>();
             if (player != null)
                 return !player.IsDead;
-            var platform = other.GetComponentInParent<PlatformCollider>();
-            return platform != null && platform.IsTemporaryDrawnPlatform;
+            return false;
         }
 
         void BeginLand(bool blocked)
@@ -470,9 +448,8 @@ namespace MukJump.Obstacles
 
         void LockPathAndBeginTelegraph(Vector2 startPosition, Vector2 targetPosition)
         {
-            // 벽에서 달려오는 위험은 한 높이의 수평 차선으로 고정한다.
-            // 예고가 끝난 뒤 플레이어를 따라 꺾이지 않아 보고 피하거나 먹선으로 막을 수 있다.
-            targetPosition.y = startPosition.y;
+            // 선택된 벽의 위→아래 수직 차선으로 고정한다. 플레이어를 향해 꺾지 않는다.
+            targetPosition.x = startPosition.x;
             lockedStart = startPosition;
             lockedTarget = targetPosition;
             hasLockedPath = true;
@@ -491,14 +468,11 @@ namespace MukJump.Obstacles
             Color hiddenColor = baseColor;
             hiddenColor.a = 0f;
             spriteRenderer.color = hiddenColor;
-            Vector2 direction = lockedTarget - lockedStart;
-            if (direction.sqrMagnitude > 0.0001f)
-                enterFromLeft = direction.x >= 0f;
-            // 원본 해태의 머리는 왼쪽을 향한다. 왼쪽에서 오른쪽으로 덮칠 때만
-            // 좌우 반전해 항상 진행 방향을 바라보게 한다.
-            spriteRenderer.flipX = enterFromLeft;
+            // 원본 해태의 머리는 왼쪽을 향하므로 90도 회전하면 아래를 바라본다.
+            // 어느 벽이 선택돼도 회전·유도 없이 같은 방향으로 곧게 내려온다.
+            spriteRenderer.flipX = false;
             transform.localScale = baseScale;
-            transform.localRotation = Quaternion.identity;
+            transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             SetFrame(0);
             SyncWarningSorting();
             LayoutLockedWarningPath();
@@ -515,22 +489,21 @@ namespace MukJump.Obstacles
                 Mathf.InverseLerp(minimum, maximum, value));
         }
 
-        void ResolveSideChargePath(
-            Vector2 targetPosition,
+        void ResolveWallDescentPath(
             out Vector2 startPosition,
             out Vector2 endPosition)
         {
             if (worldCamera == null)
             {
-                float fallbackLeft = targetPosition.x - 5.8f;
-                float fallbackRight = targetPosition.x + 5.8f;
-                float fallbackLaneY = targetPosition.y + deferredVerticalOffset;
+                float centerX = transform.position.x;
+                float centerY = activationWorldY;
+                float fallbackWallX = centerX + (enterFromLeft ? -5.28f : 5.28f);
                 startPosition = new Vector2(
-                    enterFromLeft ? fallbackLeft : fallbackRight,
-                    fallbackLaneY);
+                    fallbackWallX,
+                    centerY + 7.4f + OffscreenExitPadding);
                 endPosition = new Vector2(
-                    enterFromLeft ? fallbackRight : fallbackLeft,
-                    fallbackLaneY);
+                    fallbackWallX,
+                    centerY - 7.4f - OffscreenExitPadding);
                 return;
             }
 
@@ -540,16 +513,15 @@ namespace MukJump.Obstacles
                 new Vector3(0f, 0f, cameraDistance));
             Vector3 topRight = worldCamera.ViewportToWorldPoint(
                 new Vector3(1f, 1f, cameraDistance));
-            float left = bottomLeft.x + ScreenEdgeInset;
-            float right = topRight.x - ScreenEdgeInset;
-            float minimumLaneY = bottomLeft.y + WarningBandHalfHeight;
-            float maximumLaneY = topRight.y - WarningBandHalfHeight;
-            float laneY = targetPosition.y + deferredVerticalOffset;
-            laneY = maximumLaneY >= minimumLaneY
-                ? Mathf.Clamp(laneY, minimumLaneY, maximumLaneY)
-                : (bottomLeft.y + topRight.y) * 0.5f;
-            startPosition = new Vector2(enterFromLeft ? left : right, laneY);
-            endPosition = new Vector2(enterFromLeft ? right : left, laneY);
+            float wallX = enterFromLeft
+                ? bottomLeft.x + ScreenEdgeInset
+                : topRight.x - ScreenEdgeInset;
+            startPosition = new Vector2(
+                wallX,
+                topRight.y + OffscreenExitPadding);
+            endPosition = new Vector2(
+                wallX,
+                bottomLeft.y - OffscreenExitPadding);
         }
 
         bool IsActivationHeightVisible()
@@ -579,20 +551,28 @@ namespace MukJump.Obstacles
             float warningX = lockedStart.x;
             sideWarningLayers[0].positionCount = 2;
             sideWarningLayers[0].SetPosition(
-                0, new Vector3(warningX, lockedStart.y - WarningBandHalfHeight));
+                0, new Vector3(warningX, lockedStart.y));
             sideWarningLayers[0].SetPosition(
-                1, new Vector3(warningX, lockedStart.y + WarningBandHalfHeight));
+                1, new Vector3(warningX, lockedTarget.y));
 
             float inward = enterFromLeft ? 1f : -1f;
             float iconX = warningX + inward * 0.16f;
+            float iconY = Mathf.Lerp(lockedStart.y, lockedTarget.y, 0.18f);
+            if (worldCamera != null)
+            {
+                float cameraDistance = Mathf.Abs(
+                    worldCamera.transform.position.z - transform.position.z);
+                iconY = worldCamera.ViewportToWorldPoint(
+                    new Vector3(0.5f, 0.82f, cameraDistance)).y;
+            }
             sideWarningLayers[1].positionCount = 2;
             sideWarningLayers[1].SetPosition(
-                0, new Vector3(iconX, lockedStart.y + 0.18f));
+                0, new Vector3(iconX, iconY - 0.18f));
             sideWarningLayers[1].SetPosition(
-                1, new Vector3(iconX, lockedStart.y + 0.78f));
+                1, new Vector3(iconX, iconY + 0.42f));
             LayoutWarningDot(
                 sideWarningLayers[2],
-                new Vector2(iconX, lockedStart.y - 0.16f));
+                new Vector2(iconX, iconY - 0.52f));
         }
 
         static void LayoutWarningDot(
@@ -827,9 +807,7 @@ namespace MukJump.Obstacles
             State = HaetaeObstacleState.Hidden;
             stateElapsed = 0f;
             activationWorldY = 0f;
-            deferredVerticalOffset = 0f;
             visibleTopMargin = DefaultVisibleTopMargin;
-            deferredTarget = null;
             attackConsumed = false;
             wasBlockedByPlatform = false;
             hasLockedPath = false;

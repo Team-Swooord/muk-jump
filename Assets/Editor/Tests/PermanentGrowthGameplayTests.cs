@@ -37,7 +37,7 @@ namespace MukJump.EditorTests
         public void SurvivalVitalityPathRaisesHealthFromOneToFive()
         {
             SeedGrowth(
-                new[] { "S00", "S-A1", "S-A2", "S-A3" });
+                new[] { "S-KA" });
             CreatePlayingManager(out _);
             var player = CreatePlayer("PermanentSurvivalStats");
 
@@ -53,8 +53,8 @@ namespace MukJump.EditorTests
             float invulnerableUntil =
                 GetField<float>(player, "damageInvulnerableUntil");
             Assert.That(invulnerableUntil - hitTime,
-                Is.EqualTo(0.55f).Within(0.03f),
-                "체력 경로는 최대 체력만 늘리고 피격 무적시간을 함께 올리면 안 됩니다.");
+                Is.EqualTo(0.59f).Within(0.03f),
+                "공용 생존 뿌리의 +0.04초만 더해져야 합니다.");
 
             for (int expected = 3; expected >= 0; expected--)
             {
@@ -69,7 +69,7 @@ namespace MukJump.EditorTests
         [Test]
         public void FiveHealthFallRecoversFourTimesThenFinalFallKills()
         {
-            SeedGrowth(new[] { "S00", "S-A1", "S-A2", "S-A3" });
+            SeedGrowth(new[] { "S-KA" });
             CreatePlayingManager(out _);
             var player = CreatePlayer("PermanentFallVitality");
             var cameraObject = Track(new GameObject("PermanentFallCamera"));
@@ -96,7 +96,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void HitStabilityGeneralFruitsReduceButNeverReverseKnockback()
+        public void DamageGraceLineDoesNotChangeDefaultKnockbackMotion()
         {
             SeedGrowth(new[] { "S-B1", "S-B2" });
             CreatePlayingManager(out _);
@@ -107,34 +107,25 @@ namespace MukJump.EditorTests
             Assert.That(player.TakeHit(), Is.True);
 
             Assert.That(player.Body.linearVelocity.x,
-                Is.EqualTo(9f).Within(0.001f));
+                Is.EqualTo(8.2f).Within(0.001f));
             Assert.That(player.Body.linearVelocity.y,
-                Is.EqualTo(1.3f).Within(0.001f),
-                "피격은 위로 과도하게 솟지 않되 장애물에서 빠질 최소 상승은 남겨야 합니다.");
+                Is.EqualTo(1.6f).Within(0.001f));
+            float invulnerableUntil =
+                GetField<float>(player, "damageInvulnerableUntil");
+            Assert.That(invulnerableUntil - Time.time,
+                Is.EqualTo(0.67f).Within(0.04f));
         }
 
         [Test]
-        public void LastBreathOnlyWorksForExactlyOneLivingPlayerAndResetsPerRun()
+        public void RemovedLastBreathNeverActivates()
         {
             SeedGrowth(new[] { "S-KA" }, survivalKeystone: "S-KA");
             var manager = CreatePlayingManager(out var growth);
-            var first = CreatePlayer("PermanentLastBreathA");
-            var second = CreatePlayer("PermanentLastBreathB");
-            manager.RegisterPlayer(first);
-            manager.RegisterPlayer(second);
+            var player = CreatePlayer("PermanentNoLastBreath");
+            manager.RegisterPlayer(player);
 
-            Assert.That(growth.LastBreathAvailable, Is.True);
-            Assert.That(growth.TrySurviveLethalObstacleHit(first), Is.False,
-                "다른 분신이 살아 있으면 마지막 먹숨을 먼저 소비하면 안 됩니다.");
-
-            SetProperty(first, "IsDead", true);
-            Assert.That(manager.LivingPlayerCount, Is.EqualTo(1));
-            Assert.That(growth.TrySurviveLethalObstacleHit(second), Is.True);
             Assert.That(growth.LastBreathAvailable, Is.False);
-            Assert.That(growth.TrySurviveLethalObstacleHit(second), Is.False);
-
-            Invoke(growth, "ResetRun");
-            Assert.That(growth.LastBreathAvailable, Is.True);
+            Assert.That(growth.TrySurviveLethalObstacleHit(player), Is.False);
         }
 
         [Test]
@@ -143,8 +134,7 @@ namespace MukJump.EditorTests
             SeedGrowth(
                 new[]
                 {
-                    "J-B1", "J-B2", "J-B3",
-                    "J-C1", "J-C2", "J-C3",
+                    "J-KB", "J-KC",
                 });
             CreatePlayingManager(out _);
 
@@ -178,7 +168,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void InkEvictionKeystoneExtendsFadeWithoutBlockingHazards()
+        public void InkRecoveryLineSpeedsGaugeReturnWithoutBlockingHazards()
         {
             SeedGrowth(
                 new[] { "I-KC" },
@@ -186,27 +176,26 @@ namespace MukJump.EditorTests
             CreatePlayingManager(out var growth);
             PlatformCollider platform = SpawnPlatform("SharedPermanentStrokeGuard");
 
-            Assert.That(growth.PermanentSnapshot.InkEvictionFadeBonusSeconds,
-                Is.EqualTo(0.65f).Within(0.0001f));
+            Assert.That(growth.PermanentSnapshot.InkRecoverySpeedMultiplier,
+                Is.EqualTo(1.40f).Within(0.0001f));
             Assert.That(platform.BreakFromHazard(), Is.True);
             Assert.That(GetField<bool>(platform, "removalRequested"), Is.True,
-                "먹 운용 비기는 오래된 획의 소멸만 늦추며 낙묵석은 막지 않습니다.");
+                "먹 회복 성장은 게이지 반환만 빠르게 하며 낙묵석은 막지 않습니다.");
         }
 
         [Test]
-        public void StableHitKeystoneUsesSharedTwelveSecondCooldown()
+        public void RemovedStableHitNeverActivates()
         {
             SeedGrowth(
                 new[] { "S-KB" },
                 survivalKeystone: "S-KB");
             CreatePlayingManager(out var growth);
 
-            Assert.That(growth.TryPreserveHitMotion(), Is.True);
             Assert.That(growth.TryPreserveHitMotion(), Is.False);
         }
 
         [Test]
-        public void FifthRepresentativeJumpCreatesOneWaySafetyPlatform()
+        public void RemovedSafetyPlatformNeverSpawns()
         {
             SeedGrowth(new[] { "J-KB" }, leapKeystone: "J-KB");
             var manager = CreatePlayingManager(out var growth);
@@ -217,57 +206,15 @@ namespace MukJump.EditorTests
             leadingPlayer.transform.position = Vector3.up * 5f;
             manager.RegisterPlayer(leadingPlayer);
 
-            Assert.That(
-                growth.NotifyPrimaryAutomaticJump(
-                    leadingPlayer,
-                    new Vector2(1f, 10f)),
-                Is.False,
-                "카메라보다 앞선 한 마리가 먹떼 공용 카운터를 독점하면 안 됩니다.");
-
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 10; i++)
                 Assert.That(
                     growth.NotifyPrimaryAutomaticJump(player, new Vector2(1f, 10f)),
                     Is.False);
-            Assert.That(growth.SafetyJumpProgress, Is.EqualTo(4));
-            Assert.That(
-                growth.NotifyPrimaryAutomaticJump(player, new Vector2(1f, 10f)),
-                Is.True);
             Assert.That(growth.SafetyJumpProgress, Is.Zero);
-
-            PlatformCollider safety =
-                GetField<PlatformCollider>(growth, "activeSafetyPlatform");
-            Assert.That(safety, Is.Not.Null);
-            Track(safety.gameObject);
-            Assert.That(safety.IsGrowthSafetyPlatform, Is.True);
-            Assert.That(safety.IsOneWayPlatform, Is.True);
-            Assert.That(safety.IsTemporaryDrawnPlatform, Is.False);
-            Assert.That(safety.GetComponent<EdgeCollider2D>().usedByEffector, Is.True);
-            Assert.That(safety.GetComponent<PlatformEffector2D>().useOneWay, Is.True);
-            Assert.That(safety.BreakFromHazard(), Is.False);
-
-            Invoke(safety, "FadeVisual", 1f);
-            LineRenderer outline = safety.transform
-                .Find("BrushOutline")
-                .GetComponent<LineRenderer>();
-            Assert.That(outline.colorGradient.Evaluate(0.5f).a,
-                Is.LessThan(0.01f),
-                "안전 발판의 안쪽 획과 외곽선은 같은 진행도로 사라져야 합니다.");
-
-            for (int i = 0; i < 5; i++)
-                Assert.That(
-                    growth.NotifyPrimaryAutomaticJump(
-                        player,
-                        new Vector2(1f, 10f)),
-                    Is.False);
-            Assert.That(
-                GetField<PlatformCollider>(growth, "activeSafetyPlatform"),
-                Is.SameAs(safety),
-                "다음 5회를 채워도 기존 안전 발판의 6초 수명을 끊으면 안 됩니다.");
-            Assert.That(growth.SafetyJumpProgress, Is.EqualTo(5));
         }
 
         [Test]
-        public void DoubleJumpUsesFortyPercentOnceAndSharedCooldownBlocksRepeat()
+        public void RemovedDoubleJumpCannotReserveOrPerform()
         {
             SeedGrowth(new[] { "J-KC" }, leapKeystone: "J-KC");
             var manager = CreatePlayingManager(out var growth);
@@ -279,21 +226,12 @@ namespace MukJump.EditorTests
             SetField(autoJump, "primaryJumpVerticalSpeed", 10f);
             SetField(autoJump, "doubleJumpArmed", true);
             SetField(autoJump, "doubleJumpUsed", false);
-            Assert.That(growth.TryReserveDoubleJump(player), Is.True);
-
-            Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(true));
-            Assert.That(player.Body.linearVelocity.y,
-                Is.EqualTo(4f).Within(0.001f));
+            Assert.That(growth.TryReserveDoubleJump(player), Is.False);
             Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(false));
-
-            SetField(autoJump, "doubleJumpArmed", true);
-            SetField(autoJump, "doubleJumpUsed", false);
-            Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(false),
-                "같은 먹떼는 12초 공용 재사용 시간을 공유해야 합니다.");
         }
 
         [Test]
-        public void SpecialLaunchImmediatelyReleasesSharedDoubleJumpReservation()
+        public void SpecialLaunchKeepsRemovedDoubleJumpUnarmed()
         {
             SeedGrowth(new[] { "J-KC" }, leapKeystone: "J-KC");
             var manager = CreatePlayingManager(out var growth);
@@ -302,7 +240,7 @@ namespace MukJump.EditorTests
             var autoJump = player.gameObject.AddComponent<AutoJump>();
             Invoke(autoJump, "Awake");
             SetField(autoJump, "doubleJumpArmed", true);
-            Assert.That(growth.TryReserveDoubleJump(player), Is.True);
+            Assert.That(growth.TryReserveDoubleJump(player), Is.False);
 
             player.LaunchToHeight(10f);
 
@@ -314,7 +252,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void WallKeystoneClingsOnDescendingAutomaticFlightThenReleasesForJump()
+        public void RemovedWallClingNeverStarts()
         {
             SeedGrowth(new[] { "J-KA" }, leapKeystone: "J-KA");
             var manager = CreatePlayingManager(out _);
@@ -329,12 +267,7 @@ namespace MukJump.EditorTests
             wall.Initialize(null, true);
             Assert.That(
                 Invoke(player, "TryBeginWallCling", wall, 1f),
-                Is.EqualTo(true));
-            Assert.That(player.IsWallClinging, Is.True);
-            Assert.That(player.IsGrounded, Is.True);
-            Assert.That(player.Body.gravityScale, Is.Zero);
-
-            player.ReleaseWallClingForAutomaticJump();
+                Is.EqualTo(false));
             Assert.That(player.IsWallClinging, Is.False);
             Assert.That(player.Body.gravityScale, Is.EqualTo(1f));
         }
@@ -361,19 +294,19 @@ namespace MukJump.EditorTests
         [Test]
         public void InkReserveAddsOneQuarterOfBaseWithoutGrowthScaling()
         {
-            SeedGrowth(new[] { "I00", "I-A1", "I-A2", "I-A3" });
+            SeedGrowth(new[] { "I-KA" });
             CreatePlayingManager(out _);
             var host = Track(new GameObject("PermanentFixedInkReserve"));
             var stroke = host.AddComponent<StrokeCapture>();
             SetField(stroke, "inkCapacity", StrokeCapture.DefaultInkCapacity);
 
             Assert.That(stroke.BaseEffectiveInkCapacity,
-                Is.EqualTo(7.04f).Within(0.0001f));
+                Is.EqualTo(8.0f).Within(0.0001f));
 
             stroke.AddInkReserve(StrokeCapture.InkReserveItemRatio);
 
             Assert.That(stroke.EffectiveInkCapacity,
-                Is.EqualTo(7.84f).Within(0.0001f),
+                Is.EqualTo(8.8f).Within(0.0001f),
                 "붓 여유는 성장된 총량의 25%가 아니라 기본 3.2m의 25%만 더해야 합니다.");
         }
 

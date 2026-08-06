@@ -60,7 +60,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void UnlockedUnequippedKeystone_ShowsOnlyRedFruitStateMarker()
+        public void UnlockedLineEndUsesSamePermanentFruitAsOtherStages()
         {
             SeedV2(new[] { "S-KA" });
             PermanentGrowthView view = BuildView();
@@ -69,20 +69,21 @@ namespace MukJump.EditorTests
             Image fruit = node.Find("Fruit").GetComponent<Image>();
             Image selectionRing =
                 node.Find("SelectionRing").GetComponent<Image>();
-            Image equippedRing =
-                node.Find("EquippedRing").GetComponent<Image>();
-            Image completionMark =
-                node.Find("CompletionMark").GetComponent<Image>();
 
             AssertColorRgb(fruit.color, InkPalette.Red);
             Assert.That(fruit.color.a, Is.GreaterThan(0.99f));
             Assert.That(selectionRing.color.a, Is.EqualTo(0f).Within(0.001f));
-            Assert.That(equippedRing.color.a, Is.EqualTo(0f).Within(0.001f));
-            Assert.That(completionMark.color.a, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(node.Find("EquippedRing"), Is.Null);
+            Assert.That(node.Find("CompletionMark"), Is.Null);
+            Assert.That(
+                node.Find("NodeSurface").GetComponent<RectTransform>().sizeDelta,
+                Is.EqualTo(
+                    FindNode(view, "S-A3").Find("NodeSurface")
+                        .GetComponent<RectTransform>().sizeDelta));
         }
 
         [Test]
-        public void EquippedSelectedKeystone_ShowsGoldEquipAndInkSelectionRingsTogether()
+        public void SelectedLineEndShowsOnlyInkSelectionRing()
         {
             SeedV2(new[] { "S-KA" }, survivalKeystoneId: "S-KA");
             PermanentGrowthView view = BuildView();
@@ -90,20 +91,17 @@ namespace MukJump.EditorTests
             SelectNode(view, "S-KA");
 
             Transform node = FindNode(view, "S-KA");
-            Color equippedColor =
-                node.Find("EquippedRing").GetComponent<Image>().color;
             Color selectionColor =
                 node.Find("SelectionRing").GetComponent<Image>().color;
 
             Assert.That(view.IsNodePopupOpen, Is.True);
-            AssertColorRgb(equippedColor, InkPalette.Gold);
-            Assert.That(equippedColor.a, Is.GreaterThan(0.9f));
+            Assert.That(node.Find("EquippedRing"), Is.Null);
             AssertColorRgb(selectionColor, InkPalette.Ink);
             Assert.That(selectionColor.a, Is.GreaterThan(0.7f));
         }
 
         [Test]
-        public void ReplacingBranchKeystone_RequiresSecondConfirmationClick()
+        public void OwnedLineEndsAreAllAppliedAndCannotBeSwitched()
         {
             SeedV2(
                 new[] { "S-KA", "S-KB" },
@@ -112,45 +110,23 @@ namespace MukJump.EditorTests
 
             SelectNode(view, "S-KB");
 
-            Assert.That(PurchaseLabel(view), Is.EqualTo("교체하기"));
-            Assert.That(view.PurchaseButton.interactable, Is.True);
+            Assert.That(PurchaseLabel(view), Is.EqualTo("적용 중"));
+            Assert.That(view.PurchaseButton.interactable, Is.False);
             Assert.That(ActiveSurvivalKeystone(), Is.EqualTo("S-KA"));
-
-            view.PurchaseButton.onClick.Invoke();
-
-            Assert.That(
-                ActiveSurvivalKeystone(),
-                Is.EqualTo("S-KA"),
-                "첫 클릭은 교체 의사만 확인하고 기존 비기를 유지해야 합니다.");
-            Assert.That(PurchaseLabel(view), Is.EqualTo("교체 확인"));
-            Assert.That(view.PurchaseButton.interactable, Is.False,
-                "빠른 두 번 탭으로 교체 확인을 건너뛰면 안 됩니다.");
-
-            SetField(
-                view,
-                "purchaseLockedUntil",
-                Time.unscaledTime - 0.01f);
-            Invoke(view, "Update");
-            Assert.That(view.PurchaseButton.interactable, Is.True);
-
-            view.PurchaseButton.onClick.Invoke();
-
-            Assert.That(ActiveSurvivalKeystone(), Is.EqualTo("S-KB"));
-            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.False);
+            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.True);
             Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KB"), Is.True);
-            Assert.That(PurchaseLabel(view), Is.EqualTo("장착 해제"));
-            Assert.That(
-                FindNode(view, "S-KA").Find("EquippedRing")
-                    .GetComponent<Image>().color.a,
-                Is.Zero.Within(0.001f));
-            Assert.That(
-                FindNode(view, "S-KB").Find("EquippedRing")
-                    .GetComponent<Image>().color.a,
-                Is.GreaterThan(0.9f));
+            AssertColorRgb(
+                FindNode(view, "S-KA").Find("Fruit")
+                    .GetComponent<Image>().color,
+                InkPalette.Red);
+            AssertColorRgb(
+                FindNode(view, "S-KB").Find("Fruit")
+                    .GetComponent<Image>().color,
+                InkPalette.Red);
         }
 
         [Test]
-        public void PendingKeystoneReplacement_ClearsWhenPopupCloses()
+        public void AppliedLineEndPopupOnlyClosesThroughDimmer()
         {
             SeedV2(
                 new[] { "S-KA", "S-KB" },
@@ -158,18 +134,13 @@ namespace MukJump.EditorTests
             PermanentGrowthView view = BuildView();
 
             SelectNode(view, "S-KB");
-            view.PurchaseButton.onClick.Invoke();
-            Assert.That(PurchaseLabel(view), Is.EqualTo("교체 확인"));
+            Assert.That(PurchaseLabel(view), Is.EqualTo("적용 중"));
+            Assert.That(view.PurchaseButton.interactable, Is.False);
 
             view.NodePopupDimmerButton.onClick.Invoke();
-            SetField(
-                view,
-                "purchaseLockedUntil",
-                Time.unscaledTime - 0.01f);
-            Invoke(view, "Update");
-            SelectNode(view, "S-KB");
-
-            Assert.That(PurchaseLabel(view), Is.EqualTo("교체하기"));
+            Assert.That(view.IsNodePopupOpen, Is.False);
+            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.True);
+            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KB"), Is.True);
             Assert.That(ActiveSurvivalKeystone(), Is.EqualTo("S-KA"));
         }
 
@@ -245,7 +216,7 @@ namespace MukJump.EditorTests
             }
             Assert.That(icon.anchoredPosition.x,
                 Is.LessThan(name.rectTransform.anchoredPosition.x));
-            Assert.That(effect.text, Is.EqualTo("점프 준비시간 -1.5%"));
+            Assert.That(effect.text, Is.EqualTo("기본 점프 힘 +1%"));
 
             RectTransform infoRect = infoPanel.rectTransform;
             float readableInfoTop = infoRect.anchoredPosition.y +

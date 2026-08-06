@@ -175,7 +175,7 @@ public sealed class HaetaeObstacleTests
     }
 
     [Test]
-    public void TelegraphLocksTargetAndKeepsHitboxDisabledUntilPounce()
+    public void TelegraphLocksSelectedWallFromTopToBottomWithoutPlayerTargeting()
     {
         var cameraObject = Track(new GameObject("HaetaeTestCamera"));
         var camera = cameraObject.AddComponent<Camera>();
@@ -186,7 +186,7 @@ public sealed class HaetaeObstacleTests
         var target = CreateShieldedPlayer("LockedTarget");
         target.transform.position = new Vector3(1.1f, 2.4f, 0f);
         var haetae = CreateConfiguredHaetae("LockingHaetae", camera);
-        haetae.Activate(target, 2.4f, true);
+        haetae.Activate(2.4f, true);
 
         Assert.IsTrue(haetae.TryBeginTelegraphNow());
         Vector2 lockedStart = haetae.LockedStart;
@@ -196,21 +196,26 @@ public sealed class HaetaeObstacleTests
         Assert.IsFalse(haetae.IsHitboxEnabled);
         float cameraDistance = Mathf.Abs(
             camera.transform.position.z - haetae.transform.position.z);
-        float viewportLeft = camera.ViewportToWorldPoint(
-            new Vector3(0f, 0.5f, cameraDistance)).x;
-        float viewportRight = camera.ViewportToWorldPoint(
-            new Vector3(1f, 0.5f, cameraDistance)).x;
-        Assert.That(
-            lockedStart.y,
-            Is.EqualTo(lockedTarget.y).Within(0.001f),
-            "해태는 선택된 화면 벽에서 한 높이의 차선을 가로질러야 합니다.");
+        Vector3 viewportBottomLeft = camera.ViewportToWorldPoint(
+            new Vector3(0f, 0f, cameraDistance));
+        Vector3 viewportTopRight = camera.ViewportToWorldPoint(
+            new Vector3(1f, 1f, cameraDistance));
         Assert.That(
             lockedStart.x,
-            Is.InRange(viewportLeft, viewportRight),
-            "낙관과 해태가 화면 밖에서 갑자기 튀어나오지 않도록 시작점은 뷰포트 안쪽이어야 합니다.");
-        Assert.That(lockedStart.x, Is.LessThan(lockedTarget.x));
-        Assert.IsTrue(haetae.GetComponent<SpriteRenderer>().flipX,
-            "왼쪽에서 오른쪽으로 돌진할 때는 왼쪽 얼굴 원본을 뒤집어야 합니다.");
+            Is.EqualTo(lockedTarget.x).Within(0.001f),
+            "해태는 선택된 벽에서 수직으로만 내려와야 합니다.");
+        Assert.That(
+            lockedStart.x,
+            Is.InRange(viewportBottomLeft.x, viewportTopRight.x));
+        Assert.That(lockedStart.y, Is.GreaterThan(viewportTopRight.y),
+            "해태는 화면 위 바깥에서 진입해야 합니다.");
+        Assert.That(lockedTarget.y, Is.LessThan(viewportBottomLeft.y),
+            "해태는 화면 아래 바깥까지 완전히 통과해야 합니다.");
+        Assert.IsFalse(haetae.GetComponent<SpriteRenderer>().flipX);
+        Assert.That(
+            Mathf.DeltaAngle(haetae.transform.eulerAngles.z, 90f),
+            Is.EqualTo(0f).Within(0.01f),
+            "왼쪽을 보는 원본은 아래를 향하도록 한 번만 고정 회전해야 합니다.");
         Assert.AreEqual(4,
             haetae.GetComponentsInChildren<LineRenderer>(true).Length,
             "경로선·위험 띠·느낌표 두 획만 미리 만들어 재사용해야 합니다.");
@@ -227,7 +232,7 @@ public sealed class HaetaeObstacleTests
 
         Assert.That(haetae.LockedStart, Is.EqualTo(lockedStart));
         Assert.That(haetae.LockedTarget, Is.EqualTo(lockedTarget),
-            "예고를 본 뒤 플레이어가 움직여도 해태가 유도탄처럼 경로를 바꾸면 안 됩니다.");
+            "예고를 본 뒤 플레이어가 움직여도 벽의 수직 경로가 바뀌면 안 됩니다.");
         Assert.IsFalse(haetae.IsHitboxEnabled);
 
         Invoke(haetae, "AdvanceState", 0.61f);
@@ -241,8 +246,8 @@ public sealed class HaetaeObstacleTests
     {
         var haetae = CreateConfiguredHaetae("MaterializingHaetae");
         haetae.Activate(
-            new Vector2(-4.2f, 0.5f),
-            new Vector2(1.1f, 1.8f),
+            new Vector2(-4.2f, 6f),
+            new Vector2(-4.2f, -6f),
             true);
 
         Assert.AreEqual(HaetaeObstacleState.Telegraph, haetae.State);
@@ -298,15 +303,13 @@ public sealed class HaetaeObstacleTests
         var target = CreateShieldedPlayer("PortraitTarget");
         target.transform.position = new Vector3(0.7f, 4.4f, 0f);
         var haetae = CreateConfiguredHaetae("PortraitHaetae", camera);
-        haetae.Activate(target, 4.4f, fromLeft);
+        haetae.Activate(4.4f, fromLeft);
 
         Assert.IsTrue(haetae.TryBeginTelegraphNow());
+        Assert.That(haetae.LockedStart.x,
+            Is.EqualTo(haetae.LockedTarget.x).Within(0.001f));
         Assert.That(haetae.LockedStart.y,
-            Is.EqualTo(haetae.LockedTarget.y).Within(0.001f));
-        Assert.That(fromLeft
-                ? haetae.LockedStart.x < haetae.LockedTarget.x
-                : haetae.LockedStart.x > haetae.LockedTarget.x,
-            Is.True);
+            Is.GreaterThan(haetae.LockedTarget.y));
         var band = haetae.transform.Find("HaetaeSideDangerBand")
             ?.GetComponent<LineRenderer>();
         var stem = haetae.transform.Find("HaetaeExclamationStem")
@@ -369,7 +372,7 @@ public sealed class HaetaeObstacleTests
     }
 
     [Test]
-    public void TelegraphWaitsForHazardGateAndResolvesCurrentTargetAtStart()
+    public void TelegraphWaitsForHazardGateAndNeverTargetsPlayers()
     {
         var reservedTarget = CreateShieldedPlayer("ReservedTarget");
         reservedTarget.transform.position = new Vector3(0f, 8f, 0f);
@@ -384,10 +387,9 @@ public sealed class HaetaeObstacleTests
             null,
             Physics2D.DefaultRaycastLayers,
             null,
-            currentTargetResolver: () => currentTarget,
             canBeginTelegraph: () => canBegin);
         haetae.OnPoolAcquire();
-        haetae.Activate(reservedTarget, 2f, true);
+        haetae.Activate(2f, true);
 
         Assert.IsTrue(HazardConcurrencyGate.HasHaetaeReservation);
         Assert.IsFalse(haetae.TryBeginTelegraphNow());
@@ -396,9 +398,10 @@ public sealed class HaetaeObstacleTests
 
         canBegin = true;
         Assert.IsTrue(haetae.TryBeginTelegraphNow());
-        Assert.That(haetae.LockedTarget,
-            Is.EqualTo((Vector2)currentTarget.transform.position),
-            "예약 당시 선두가 아니라 예고 순간의 현재 먹떼 대표를 겨냥해야 합니다.");
+        Assert.That(haetae.LockedStart.x,
+            Is.EqualTo(haetae.LockedTarget.x).Within(0.001f));
+        Assert.That(haetae.LockedStart.y, Is.GreaterThan(haetae.LockedTarget.y),
+            "현재 먹떼 대표와 무관하게 선택된 벽을 위에서 아래로 내려와야 합니다.");
 
         haetae.ForceRelease();
         Assert.IsFalse(HazardConcurrencyGate.HasHaetaeReservation);
@@ -416,8 +419,8 @@ public sealed class HaetaeObstacleTests
         var rockSpawner = Track(new GameObject("DeferredRock"))
             .AddComponent<FallingInkRockSpawner>();
         haetae.Activate(
-            new Vector2(-4f, 1f),
-            new Vector2(1f, 1f),
+            new Vector2(-4f, 6f),
+            new Vector2(-4f, -6f),
             true);
         Assert.IsTrue((bool)Invoke(
             rockSpawner, "IsSpawnBlockedByConcurrentHazard"));
@@ -444,7 +447,8 @@ public sealed class HaetaeObstacleTests
         Assert.IsFalse(haetae.IsHitboxEnabled);
         Assert.IsFalse(first.HasShield,
             "첫 번째 생존자 한 명에게는 공격 결과가 적용되어야 합니다.");
-        Assert.AreEqual(HaetaeObstacleState.Land, haetae.State);
+        Assert.AreEqual(HaetaeObstacleState.Pounce, haetae.State,
+            "한 명을 맞힌 뒤에도 해태는 같은 벽의 화면 아래까지 계속 달려야 합니다.");
 
         Assert.IsFalse((bool)Invoke(
             haetae, "ResolveContact", second.GetComponent<Collider2D>()));
@@ -453,21 +457,22 @@ public sealed class HaetaeObstacleTests
     }
 
     [Test]
-    public void TemporaryDrawnLineBlocksButWindCurrentDoesNot()
+    public void EveryPlatformTypeLetsWallHaetaePassStraightThrough()
     {
         var temporary = CreatePlatform(
             "TemporaryDrawnLine", lifetime: 4.5f, windCurrent: false);
         Assert.IsTrue(temporary.IsTemporaryDrawnPlatform);
 
         var blockedHaetae = CreatePouncingHaetae("BlockedHaetae");
-        Assert.IsTrue((bool)Invoke(
+        Assert.IsFalse((bool)Invoke(
             blockedHaetae,
             "ResolveContact",
             temporary.GetComponent<EdgeCollider2D>()));
-        Assert.IsTrue(blockedHaetae.WasBlockedByPlatform);
-        Assert.IsTrue(blockedHaetae.AttackConsumed);
+        Assert.IsFalse(blockedHaetae.WasBlockedByPlatform);
+        Assert.IsFalse(blockedHaetae.AttackConsumed);
+        Assert.AreEqual(HaetaeObstacleState.Pounce, blockedHaetae.State);
         Assert.IsTrue(temporary.gameObject.activeSelf,
-            "해태를 막은 선은 낙묵석처럼 파괴하지 않고 플레이어의 길로 남겨야 합니다.");
+            "해태는 먹선을 파괴하지도, 먹선에 막히지도 않아야 합니다.");
 
         var windCurrent = CreatePlatform(
             "WindCurrent", lifetime: 0f, windCurrent: true);
@@ -507,9 +512,9 @@ public sealed class HaetaeObstacleTests
         for (int i = 0; i < castHits.Length; i++)
             if (castHits[i].collider != null)
                 hitNames.Add(castHits[i].collider.name);
-        Assert.IsTrue(
+        Assert.IsFalse(
             resolved,
-            $"origin={origin}, hits=[{string.Join(", ", hitNames)}]");
+            $"플레이어를 맞혀도 벽 하강 자체는 멈추면 안 됩니다. origin={origin}, hits=[{string.Join(", ", hitNames)}]");
         Assert.IsTrue(haetae.AttackConsumed);
         Assert.IsFalse(player.HasShield,
             "무시해야 하는 영구 발판 뒤의 유효 플레이어까지 캐스트 결과를 순회해야 합니다.");
@@ -534,12 +539,14 @@ public sealed class HaetaeObstacleTests
         }, 2);
 
         var first = pool.Acquire();
-        first.Activate(new Vector2(4f, 2f), new Vector2(-1f, 1.4f), false);
+        first.Activate(new Vector2(4f, 6f), new Vector2(4f, -6f), false);
         Invoke(first, "AdvanceState", 1.21f);
         Assert.AreEqual(HaetaeObstacleState.Pounce, first.State);
         Assert.AreEqual(2, first.CurrentFrameIndex);
-        Assert.IsFalse(first.GetComponent<SpriteRenderer>().flipX,
-            "오른쪽에서 왼쪽으로 돌진할 때는 왼쪽을 보는 원본 방향을 유지해야 합니다.");
+        Assert.IsFalse(first.GetComponent<SpriteRenderer>().flipX);
+        Assert.That(
+            Mathf.DeltaAngle(first.transform.eulerAngles.z, 90f),
+            Is.EqualTo(0f).Within(0.01f));
         int warningObjectCount =
             first.GetComponentsInChildren<LineRenderer>(true).Length;
         Assert.AreEqual(
@@ -802,8 +809,8 @@ public sealed class HaetaeObstacleTests
     {
         var haetae = CreateConfiguredHaetae(objectName);
         haetae.Activate(
-            new Vector2(-4f, 1.8f),
-            new Vector2(1.2f, 1.35f),
+            new Vector2(-4f, 6f),
+            new Vector2(-4f, -6f),
             true);
         Invoke(haetae, "AdvanceState", 1.21f);
         Assert.AreEqual(HaetaeObstacleState.Pounce, haetae.State);

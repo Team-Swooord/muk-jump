@@ -47,7 +47,7 @@ namespace MukJump.Items
                         return false;
                     break;
                 case ItemType.InkClone:
-                    if (!manager.TryCreateInkClone(player)) return false;
+                    if (!manager.TryCreateInkClonesFromItem(player)) return false;
                     break;
                 case ItemType.InkReserve:
                     var reserveTarget =

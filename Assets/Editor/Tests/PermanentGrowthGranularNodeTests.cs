@@ -47,40 +47,44 @@ namespace MukJump.EditorTests
             Assert.That((int)PermanentGrowthType.InkBudgetEfficiency, Is.EqualTo(35));
             Assert.That((int)PermanentGrowthType.InkEvictionFade, Is.EqualTo(36));
             Assert.That((int)PermanentGrowthType.InkEvictionDelay, Is.EqualTo(37));
+            Assert.That((int)PermanentGrowthType.InkCloneItemExtraCount, Is.EqualTo(38));
         }
 
         [Test]
-        public void SnapshotComposesThreeStepLeapStatsWithoutLegacyBonuses()
+        public void SnapshotComposesNineSingleStatTracksWithoutLegacyBonuses()
         {
             var snapshot = new PermanentGrowthRunSnapshot(
                 new[]
                 {
-                    "I00", "I-A1", "I-A2", "I-A3",
-                    "I-B1", "I-B2", "I-B3",
-                    "I-C1", "I-C2", "I-C3",
-                    "S00", "S-A1", "S-A2", "S-A3", "S-C1",
-                    "J00", "J-A1", "J-A2", "J-A3",
-                    "J-B1", "J-B2", "J-B3",
-                    "J-C1", "J-C2", "J-C3",
+                    "I00", "I-A1", "I-A2", "I-A3", "I-KA",
+                    "I-B1", "I-B2", "I-B3", "I-KB",
+                    "I-C1", "I-C2", "I-C3", "I-KC",
+                    "S00", "S-A1", "S-A2", "S-A3", "S-KA",
+                    "S-B1", "S-B2", "S-B3", "S-KB",
+                    "S-C1", "S-C2", "S-C3", "S-KC",
+                    "J00", "J-A1", "J-A2", "J-A3", "J-KA",
+                    "J-B1", "J-B2", "J-B3", "J-KB",
+                    "J-C1", "J-C2", "J-C3", "J-KC",
                 },
                 null);
 
             Assert.That(snapshot.InkCapacityMultiplier,
-                Is.EqualTo(2.20f).Within(0.0001f));
+                Is.EqualTo(2.50f).Within(0.0001f));
             Assert.That(snapshot.InkBudgetCostMultiplier,
-                Is.EqualTo(0.97f).Within(0.0001f));
+                Is.EqualTo(0.90f).Within(0.0001f));
             Assert.That(snapshot.ShortStrokeBudgetCostMultiplier,
-                Is.EqualTo(0.94f).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(snapshot.InkRecoverySpeedMultiplier,
+                Is.EqualTo(1.40f).Within(0.0001f));
             Assert.That(snapshot.InkEvictionFadeBonusSeconds,
-                Is.EqualTo(0.20f).Within(0.0001f));
-            Assert.That(snapshot.InkEvictionDelaySeconds,
-                Is.EqualTo(0.10f).Within(0.0001f));
-            Assert.That(snapshot.HasShortStrokeDiscount, Is.True);
-            Assert.That(snapshot.DamageGraceBonusSeconds,
                 Is.Zero.Within(0.0001f));
+            Assert.That(snapshot.InkEvictionDelaySeconds,
+                Is.Zero.Within(0.0001f));
+            Assert.That(snapshot.HasShortStrokeDiscount, Is.False);
+            Assert.That(snapshot.DamageGraceBonusSeconds,
+                Is.EqualTo(0.20f).Within(0.0001f));
             Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(4));
-            Assert.That(snapshot.CloneSpawnGraceBonusSeconds,
-                Is.EqualTo(0.15f).Within(0.0001f));
+            Assert.That(snapshot.InkCloneItemExtraCount, Is.EqualTo(4));
             Assert.That(snapshot.JumpChargeMultiplier,
                 Is.EqualTo(0.94f).Within(0.0001f));
             Assert.That(snapshot.JumpPowerMultiplier,
@@ -108,7 +112,7 @@ namespace MukJump.EditorTests
             int unlockedCount,
             int expectedBonus)
         {
-            string[] path = { "S00", "S-A1", "S-A2", "S-A3" };
+            string[] path = { "S-A1", "S-A2", "S-A3", "S-KA" };
             var owned = new List<string>(unlockedCount);
             for (int i = 0; i < unlockedCount; i++)
                 owned.Add(path[i]);
@@ -122,17 +126,16 @@ namespace MukJump.EditorTests
         }
 
         [TestCase(0, 1.0f, 3.20f)]
-        [TestCase(1, 1.3f, 4.16f)]
-        [TestCase(2, 1.6f, 5.12f)]
-        [TestCase(3, 1.9f, 6.08f)]
-        [TestCase(4, 2.2f, 7.04f)]
-        [TestCase(5, 2.5f, 8.00f)]
+        [TestCase(1, 1.375f, 4.40f)]
+        [TestCase(2, 1.75f, 5.60f)]
+        [TestCase(3, 2.125f, 6.80f)]
+        [TestCase(4, 2.5f, 8.00f)]
         public void InkCapacityPathGrowsOnePracticalStrokeToTwoPointFive(
             int unlockedCount,
             float expectedMultiplier,
             float expectedCapacity)
         {
-            string[] path = { "I00", "I-A1", "I-A2", "I-A3", "I-KA" };
+            string[] path = { "I-A1", "I-A2", "I-A3", "I-KA" };
             var owned = new List<string>(unlockedCount);
             for (int i = 0; i < unlockedCount; i++)
                 owned.Add(path[i]);
@@ -156,7 +159,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void InkEvictionPathExtendsNaturalLifetimeFromFourPointFiveToFivePointTwoFive()
+        public void InkRecoveryPathShortensFadeWithoutExtendingNaturalHold()
         {
             var regular = new PermanentGrowthRunSnapshot(
                 new[] { "I00", "I-C1", "I-C2", "I-C3" },
@@ -168,23 +171,20 @@ namespace MukJump.EditorTests
                     [PermanentGrowthBranch.InkHandling] = "I-KC",
                 });
 
-            const float baseLifetime =
-                PlatformCollider.DefaultNaturalHoldDuration + 1.1f;
-            Assert.That(baseLifetime, Is.EqualTo(4.5f).Within(0.0001f));
-            Assert.That(
-                baseLifetime +
-                regular.InkEvictionDelaySeconds +
-                regular.InkEvictionFadeBonusSeconds,
-                Is.EqualTo(4.8f).Within(0.0001f));
-            Assert.That(
-                baseLifetime +
-                keystone.InkEvictionDelaySeconds +
-                keystone.InkEvictionFadeBonusSeconds,
-                Is.EqualTo(5.25f).Within(0.0001f));
+            Assert.That(regular.InkRecoverySpeedMultiplier,
+                Is.EqualTo(1.30f).Within(0.0001f));
+            Assert.That(keystone.InkRecoverySpeedMultiplier,
+                Is.EqualTo(1.40f).Within(0.0001f));
+            Assert.That(1.1f / regular.InkRecoverySpeedMultiplier,
+                Is.EqualTo(0.8461538f).Within(0.0001f));
+            Assert.That(1.1f / keystone.InkRecoverySpeedMultiplier,
+                Is.EqualTo(0.7857143f).Within(0.0001f));
+            Assert.That(PlatformCollider.DefaultNaturalHoldDuration,
+                Is.EqualTo(3.4f).Within(0.0001f));
         }
 
         [Test]
-        public void OwnedKeystoneOnlyAffectsRunWhenEquippedInItsBranchSlot()
+        public void OwnedLineEndNodesApplyAsStatsWithoutSpecialPassives()
         {
             var owned = new[] { "S-KA", "S-KB", "J-KB", "I-KC" };
             var active = new Dictionary<PermanentGrowthBranch, string>
@@ -195,38 +195,39 @@ namespace MukJump.EditorTests
             };
             var snapshot = new PermanentGrowthRunSnapshot(owned, active);
 
+            Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(1));
+            Assert.That(snapshot.DamageGraceBonusSeconds,
+                Is.EqualTo(0.04f).Within(0.0001f));
+            Assert.That(snapshot.JumpPowerMultiplier,
+                Is.EqualTo(1.01f).Within(0.0001f));
+            Assert.That(snapshot.InkRecoverySpeedMultiplier,
+                Is.EqualTo(1.10f).Within(0.0001f));
             Assert.That(snapshot.HasLastBreath, Is.False);
-            Assert.That(snapshot.HasStableHit, Is.True);
-            Assert.That(snapshot.HasSafetyPlatform, Is.True);
-            Assert.That(snapshot.HasShortPlatformKeystone, Is.False);
-            Assert.That(snapshot.InkEvictionFadeBonusSeconds,
-                Is.EqualTo(0.45f).Within(0.0001f));
+            Assert.That(snapshot.HasStableHit, Is.False);
+            Assert.That(snapshot.HasSafetyPlatform, Is.False);
             Assert.That(snapshot.GetActiveKeystoneId(PermanentGrowthBranch.Survival),
                 Is.EqualTo("S-KB"));
         }
 
-        [Test]
-        public void CloneSpawnGraceAppliesToActualCloneProtectionWindow()
+        [TestCase(0, 0)]
+        [TestCase(1, 1)]
+        [TestCase(2, 2)]
+        [TestCase(3, 3)]
+        [TestCase(4, 4)]
+        public void CloneItemLineAddsOneExtraClonePerOwnedNode(
+            int unlockedCount,
+            int expectedExtraCount)
         {
-            SeedV2("S-C1");
-            Assert.That(PermanentGrowthProfile.CloneSpawnGraceBonusSeconds,
-                Is.EqualTo(0.15f).Within(0.0001f));
+            string[] path = { "S-C1", "S-C2", "S-C3", "S-KC" };
+            var owned = new List<string>();
+            for (int i = 0; i < unlockedCount; i++)
+                owned.Add(path[i]);
+            var snapshot = new PermanentGrowthRunSnapshot(owned, null);
 
-            var playerObject = Track(new GameObject("PermanentCloneGraceTest"));
-            playerObject.AddComponent<Rigidbody2D>().gravityScale = 1f;
-            playerObject.AddComponent<CircleCollider2D>();
-            var player = playerObject.AddComponent<PlayerController>();
-            Invoke(player, "Awake");
-            SetField(player, "cloneSpawnGraceDuration", 1.2f);
-
-            float configuredAt = Time.time;
-            player.ConfigureAsClone(1f);
-            float invulnerableUntil =
-                GetField<float>(player, "damageInvulnerableUntil");
-
-            Assert.That(player.IsRuntimeClone, Is.True);
-            Assert.That(invulnerableUntil - configuredAt,
-                Is.EqualTo(1.35f).Within(0.03f));
+            Assert.That(snapshot.InkCloneItemExtraCount,
+                Is.EqualTo(expectedExtraCount));
+            Assert.That(1 + snapshot.InkCloneItemExtraCount,
+                Is.EqualTo(1 + unlockedCount));
         }
 
         [Test]

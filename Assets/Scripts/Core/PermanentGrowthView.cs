@@ -62,9 +62,7 @@ namespace MukJump.Core
             public Image FruitGlow;
             public Image Fruit;
             public Image Ring;
-            public Image EquippedRing;
             public Image Icon;
-            public Image CompletionMark;
             public Button Button;
         }
 
@@ -113,7 +111,6 @@ namespace MukJump.Core
         bool purchaseInProgress;
         bool purchaseUiLocked;
         bool nodePopupOpen;
-        string pendingKeystoneId = string.Empty;
         int selectedSlot;
 
         public bool IsOpen =>
@@ -186,7 +183,6 @@ namespace MukJump.Core
         public void Open()
         {
             BuildIfNeeded();
-            pendingKeystoneId = string.Empty;
             BindManager();
             if (manager == null || manager.State != GameState.Lobby)
             {
@@ -236,7 +232,6 @@ namespace MukJump.Core
 
         void HandleProfileChanged()
         {
-            pendingKeystoneId = string.Empty;
             Refresh();
         }
 
@@ -705,14 +700,11 @@ namespace MukJump.Core
             List<Image> incomingLines,
             List<Image> branchArts)
         {
-            bool capstone = definition.IsKeystone;
             bool rootNode = definition.NodeKind == PermanentGrowthNodeKind.Root;
             Vector2 position = NodePosition(definition);
-            Vector2 touchSize = capstone
-                ? new Vector2(252f, 276f)
-                : rootNode
-                    ? new Vector2(216f, 240f)
-                    : new Vector2(200f, 224f);
+            Vector2 touchSize = rootNode
+                ? new Vector2(216f, 240f)
+                : new Vector2(200f, 224f);
             RectTransform root = CreateRect(
                 $"GrowthNode_{SanitizeNodeId(definition.Id)}",
                 parent,
@@ -725,11 +717,7 @@ namespace MukJump.Core
             InkUiStyle.ConfigureButton(button, hit, addInkFeedback: false);
 
             float nodeCenterY = 30f;
-            float surfaceSize = capstone
-                ? 164f
-                : rootNode
-                    ? 144f
-                    : 124f;
+            float surfaceSize = rootNode ? 144f : 124f;
             Image nodeContrast = CreateImage(
                 "NodeContrast",
                 root,
@@ -746,21 +734,10 @@ namespace MukJump.Core
                 LoadPermanentGrowthSprite("pg_selected_ring"),
                 new Vector2(0f, nodeCenterY),
                 new Vector2(
-                    capstone ? 210f : 166f,
-                    capstone ? 210f : 166f),
+                    rootNode ? 184f : 166f,
+                    rootNode ? 184f : 166f),
                 TransparentColor(InkPalette.Gold));
             ring.preserveAspect = true;
-
-            Image equippedRing = CreateImage(
-                "EquippedRing",
-                root,
-                LoadPermanentGrowthSprite("pg_selected_ring"),
-                new Vector2(0f, nodeCenterY),
-                new Vector2(
-                    capstone ? 232f : 184f,
-                    capstone ? 232f : 184f),
-                TransparentColor(InkPalette.Gold));
-            equippedRing.preserveAspect = true;
 
             Sprite fruitSprite =
                 LoadPermanentGrowthSprite("pg_node_bloom_mask") ??
@@ -771,8 +748,8 @@ namespace MukJump.Core
                 fruitSprite,
                 new Vector2(0f, nodeCenterY),
                 new Vector2(
-                    capstone ? 232f : 188f,
-                    capstone ? 232f : 188f),
+                    rootNode ? 208f : 188f,
+                    rootNode ? 208f : 188f),
                 TransparentColor(InkPalette.Red));
             fruitGlow.preserveAspect = true;
 
@@ -801,24 +778,11 @@ namespace MukJump.Core
                 LoadIcon(definition),
                 new Vector2(0f, nodeCenterY),
                 new Vector2(
-                    capstone ? 94f : 72f,
-                    capstone ? 94f : 72f),
+                    rootNode ? 82f : 72f,
+                    rootNode ? 82f : 72f),
                 Color.white);
             icon.preserveAspect = true;
             ApplyIconVariation(icon, definition);
-
-            Image completion = CreateImage(
-                "CompletionMark",
-                root,
-                LoadPermanentGrowthSprite("pg_node_bloom_mask"),
-                new Vector2(
-                    capstone ? 72f : 56f,
-                    capstone ? 92f : 78f),
-                new Vector2(
-                    capstone ? 42f : 36f,
-                    capstone ? 42f : 36f),
-                TransparentColor(InkPalette.Gold));
-            completion.preserveAspect = true;
 
             return new GrowthNodeView
             {
@@ -831,9 +795,7 @@ namespace MukJump.Core
                 FruitGlow = fruitGlow,
                 Fruit = fruit,
                 Ring = ring,
-                EquippedRing = equippedRing,
                 Icon = icon,
-                CompletionMark = completion,
                 Button = button,
             };
         }
@@ -1218,8 +1180,6 @@ namespace MukJump.Core
                 purchaseUiLocked ||
                 Time.unscaledTime < purchaseLockedUntil)
                 return;
-            if (selectedSlot != slot)
-                pendingKeystoneId = string.Empty;
             selectedSlot = slot;
             SetNodePopupVisible(true);
             Refresh();
@@ -1238,18 +1198,11 @@ namespace MukJump.Core
             if (PermanentGrowthProfile.IsNodeUnlocked(definition))
             {
                 // 구매한 열매는 전부 영구 적용된다. 선택 팝업에서 교체·해제하지 않는다.
-                pendingKeystoneId = string.Empty;
                 Refresh();
                 return;
             }
 
             HandlePurchase(selectedSlot);
-        }
-
-        void LockKeystoneInput()
-        {
-            purchaseUiLocked = true;
-            purchaseLockedUntil = Time.unscaledTime + 0.25f;
         }
 
 #if UNITY_EDITOR
@@ -1336,8 +1289,6 @@ namespace MukJump.Core
                 bool requirementsMet =
                     PermanentGrowthProfile.MeetsNodeRequirements(definition);
                 bool selected = i == selectedSlot;
-                bool activeKeystone = definition.IsKeystone &&
-                    PermanentGrowthProfile.IsKeystoneActive(definition.Id);
                 Color pathColor = ResolveGrowthPathColor(definition);
 
                 node.Icon.sprite = LoadIcon(definition);
@@ -1370,12 +1321,6 @@ namespace MukJump.Core
                 node.Ring.color = selected && IsNodePopupOpen
                     ? WithAlpha(InkPalette.Ink, 0.76f)
                     : TransparentColor(InkPalette.Ink);
-                node.EquippedRing.color = activeKeystone
-                    ? WithAlpha(InkPalette.Gold, 0.98f)
-                    : TransparentColor(InkPalette.Gold);
-                node.CompletionMark.color = activeKeystone
-                    ? InkPalette.Gold
-                    : TransparentColor(InkPalette.Gold);
                 bool isColoredLeapPath = definition.Branch ==
                                          PermanentGrowthBranch.Leap &&
                                          definition.Id != "J00";
@@ -1462,17 +1407,17 @@ namespace MukJump.Core
                 Player.PlayerController.DefaultMaxHealth + snapshot.MaxHealthBonus,
                 Player.PlayerController.DefaultMaxHealth,
                 Player.PlayerController.MaximumHealth);
-            int stabilityNodes = CountUnlocked(
-                snapshot,
-                "S-B1", "S-B2", "S-B3");
-            int cloneNodes = CountUnlocked(
-                snapshot,
-                "S-C1", "S-C2", "S-C3");
             survivalSummaryText.text =
                 SummaryTitle("생존", survivalColor) + "\n" +
                 SummaryLine("체력", "1 → " + maxHealth, survivalColor) + "\n" +
-                SummaryLine("피격 안정", stabilityNodes + " / 3", survivalColor) + "\n" +
-                SummaryLine("분신 유대", cloneNodes + " / 3", survivalColor);
+                SummaryLine(
+                    "피격 무적",
+                    "+" + snapshot.DamageGraceBonusSeconds.ToString("0.00") + "초",
+                    survivalColor) + "\n" +
+                SummaryLine(
+                    "먹분신 1회",
+                    "1 → " + (1 + snapshot.InkCloneItemExtraCount),
+                    survivalColor);
 
             float jumpChargeReduction =
                 (1f - snapshot.JumpChargeMultiplier) * 100f;
@@ -1489,34 +1434,16 @@ namespace MukJump.Core
             const float baseInkCapacity = Drawing.StrokeCapture.DefaultInkCapacity;
             float currentInkCapacity = baseInkCapacity * snapshot.InkCapacityMultiplier;
             float inkSaving = (1f - snapshot.InkBudgetCostMultiplier) * 100f;
-            float baseInkLifetime =
-                Drawing.PlatformCollider.DefaultNaturalHoldDuration + 1.1f;
-            float currentInkLifetime =
-                baseInkLifetime +
-                snapshot.InkEvictionFadeBonusSeconds +
-                snapshot.InkEvictionDelaySeconds;
+            float inkRecovery =
+                (snapshot.InkRecoverySpeedMultiplier - 1f) * 100f;
             inkSummaryText.text =
                 SummaryTitle("먹 운용", inkColor) + "\n" +
                 SummaryLine(
                     "먹자리",
                     $"{baseInkCapacity:0.#} → {currentInkCapacity:0.#}m",
                     inkColor) + "\n" +
-                SummaryLine("절약", FormatDeltaPercent(inkSaving, "+"), inkColor) + "\n" +
-                SummaryLine(
-                    "지속",
-                    $"{baseInkLifetime:0.#} → {currentInkLifetime:0.#}초",
-                    inkColor);
-        }
-
-        static int CountUnlocked(
-            PermanentGrowthRunSnapshot snapshot,
-            params string[] nodeIds)
-        {
-            int count = 0;
-            for (int i = 0; i < nodeIds.Length; i++)
-                if (snapshot.HasNode(nodeIds[i]))
-                    count++;
-            return count;
+                SummaryLine("획 소모", FormatDeltaPercent(inkSaving, "-"), inkColor) + "\n" +
+                SummaryLine("회복", FormatDeltaPercent(inkRecovery, "+"), inkColor);
         }
 
         static string SummaryTitle(string title, string htmlColor) =>
@@ -1592,8 +1519,6 @@ namespace MukJump.Core
                 node.NodeDefinition;
             bool unlocked =
                 PermanentGrowthProfile.IsNodeUnlocked(definition);
-            bool activeKeystone = definition.IsKeystone &&
-                PermanentGrowthProfile.IsKeystoneActive(definition.Id);
             bool requirementsMet =
                 PermanentGrowthProfile.MeetsNodeRequirements(definition);
             int cost = definition.Cost;
@@ -1638,8 +1563,6 @@ namespace MukJump.Core
         void SetNodePopupVisible(bool visible)
         {
             nodePopupOpen = visible && selectedActionRoot != null;
-            if (!nodePopupOpen)
-                pendingKeystoneId = string.Empty;
             if (selectedActionOverlayRoot != null)
             {
                 selectedActionOverlayRoot.gameObject.SetActive(nodePopupOpen);
@@ -1771,7 +1694,8 @@ namespace MukJump.Core
                 PermanentGrowthNodeKind.Root => "뿌리",
                 PermanentGrowthNodeKind.Stat => "성장",
                 PermanentGrowthNodeKind.Mechanic => "특성",
-                PermanentGrowthNodeKind.Keystone => "비기",
+                // 마지막 stable ID도 별도 비기가 아니라 같은 수치의 4단계다.
+                PermanentGrowthNodeKind.Keystone => "성장",
                 _ => "열매",
             };
         }
@@ -1816,8 +1740,8 @@ namespace MukJump.Core
             float naturalHeight = width / Mathf.Max(1f, spriteAspect);
             float thickness = Mathf.Clamp(
                 naturalHeight,
-                definition.IsKeystone ? 176f : 140f,
-                definition.IsKeystone ? 220f : 190f);
+                140f,
+                190f);
             Vector2 direction = delta.sqrMagnitude > 0.001f
                 ? delta.normalized
                 : Vector2.right;
@@ -2022,7 +1946,8 @@ namespace MukJump.Core
                 PermanentGrowthType.CloneSpawnGrace or
                 PermanentGrowthType.CloneSourceGrace or
                 PermanentGrowthType.CloneDeathHeal or
-                PermanentGrowthType.CloneBond => string.Empty,
+                PermanentGrowthType.CloneBond or
+                PermanentGrowthType.InkCloneItemExtraCount => string.Empty,
                 PermanentGrowthType.LastBreath => "pg_root_emblem",
                 PermanentGrowthType.DrawnPlatformLeap => "pg_icon_platform",
                 _ => string.Empty,
@@ -2065,6 +1990,7 @@ namespace MukJump.Core
                 PermanentGrowthType.CloneSourceGrace or
                 PermanentGrowthType.CloneDeathHeal or
                 PermanentGrowthType.CloneBond or
+                PermanentGrowthType.InkCloneItemExtraCount or
                 PermanentGrowthType.StrokeGuard =>
                     "MukJump/UI/Growth/growth_guard",
                 PermanentGrowthType.DrawnPlatformLeap or

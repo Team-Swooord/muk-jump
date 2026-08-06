@@ -149,7 +149,7 @@ public sealed class ItemSpawnerBalanceTests
     }
 
     [Test]
-    public void SwarmCameraUsesLowerMedianInsteadOfSingleOutlier()
+    public void SwarmProgressUsesLowerMedianInsteadOfSingleOutlier()
     {
         var players = new List<PlayerController>();
         float[] heights = { 100f, 12f, 11f, 10f, 9f };
@@ -170,7 +170,7 @@ public sealed class ItemSpawnerBalanceTests
     }
 
     [Test]
-    public void TwoPlayerSwarmFollowsLowerPlayerDuringLeaderBoost()
+    public void TwoPlayerProgressUsesLowerPlayerDuringLeaderBoost()
     {
         var players = new List<PlayerController>();
         foreach (float height in new[] { 50f, 10f })
@@ -189,14 +189,11 @@ public sealed class ItemSpawnerBalanceTests
         Assert.AreEqual(10f, representative.transform.position.y, 0.001f);
     }
 
-    [TestCase(1, 0, 0)]
-    [TestCase(2, 0, 1)]
-    [TestCase(5, 2, 3)]
-    [TestCase(24, 11, 17)]
-    public void SwarmCameraFrameUsesStableClusterAndUpperQuartile(
-        int playerCount,
-        int expectedClusterIndex,
-        int expectedUpperIndex)
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(5)]
+    [TestCase(24)]
+    public void SwarmCameraFrameUsesHighestLivingPlayer(int playerCount)
     {
         var players = new List<PlayerController>(playerCount);
         for (int i = playerCount - 1; i >= 0; i--)
@@ -216,12 +213,15 @@ public sealed class ItemSpawnerBalanceTests
 
         Assert.That(resolved, Is.True);
         Assert.That(representative, Is.Not.Null);
-        Assert.That(clusterY, Is.EqualTo(expectedClusterIndex).Within(0.001f));
-        Assert.That(upperGuardY, Is.EqualTo(expectedUpperIndex).Within(0.001f));
+        float expectedHighest = playerCount - 1;
+        Assert.That(clusterY, Is.EqualTo(expectedHighest).Within(0.001f));
+        Assert.That(upperGuardY, Is.EqualTo(expectedHighest).Within(0.001f));
+        Assert.That(representative.transform.position.y,
+            Is.EqualTo(expectedHighest).Within(0.001f));
     }
 
     [Test]
-    public void SwarmCameraUpperGuardIgnoresOneExtremeOutlier()
+    public void SwarmCameraTracksHighestLivingOutlier()
     {
         var players = new List<PlayerController>();
         foreach (float height in new[] { 100f, 12f, 11f, 10f, 9f })
@@ -239,10 +239,10 @@ public sealed class ItemSpawnerBalanceTests
             out float clusterY,
             out float upperGuardY), Is.True);
         Assert.That(representative.transform.position.y,
-            Is.EqualTo(11f).Within(0.001f));
-        Assert.That(clusterY, Is.EqualTo(11f).Within(0.001f));
-        Assert.That(upperGuardY, Is.EqualTo(12f).Within(0.001f),
-            "한 마리의 과도한 상승보다 실제 상위 먹떼를 화면 안전선으로 써야 합니다.");
+            Is.EqualTo(100f).Within(0.001f));
+        Assert.That(clusterY, Is.EqualTo(100f).Within(0.001f));
+        Assert.That(upperGuardY, Is.EqualTo(100f).Within(0.001f),
+            "본체 여부와 무관하게 가장 높은 생존 먹방울을 놓치면 안 됩니다.");
     }
 
     [Test]
@@ -262,7 +262,7 @@ public sealed class ItemSpawnerBalanceTests
                 BindingFlags.Instance | BindingFlags.Public |
                 BindingFlags.NonPublic)
             ?.SetValue(players[0], true);
-        PlayerController expectedRepresentative = players[1];
+        PlayerController expectedRepresentative = players[2];
 
         Assert.That(GameManager.ResolveSwarmCameraFrame(
             players,
@@ -270,13 +270,13 @@ public sealed class ItemSpawnerBalanceTests
             out float clusterY,
             out float upperGuardY), Is.True);
         Assert.That(representative, Is.SameAs(expectedRepresentative),
-            "사망 원본을 제거한 뒤 정렬된 첫 생존 분신이 2마리 먹떼의 대표여야 합니다.");
-        Assert.That(clusterY, Is.EqualTo(8f).Within(0.001f));
+            "사망 원본을 제거한 뒤 가장 높은 생존 분신이 카메라 대표여야 합니다.");
+        Assert.That(clusterY, Is.EqualTo(12f).Within(0.001f));
         Assert.That(upperGuardY, Is.EqualTo(12f).Within(0.001f));
     }
 
     [Test]
-    public void ClonePickupAddsExactlyOnePlayer()
+    public void ClonePickupWithoutGrowthAddsExactlyOnePlayer()
     {
         var manager = Track(new GameObject("GameManager")).AddComponent<GameManager>();
         Invoke(manager, "OnEnable");
@@ -292,7 +292,7 @@ public sealed class ItemSpawnerBalanceTests
         Assert.AreEqual(1, manager.LivingPlayerCount);
         Assert.IsTrue(ItemEffect.Apply(ItemType.InkClone, source));
         Assert.AreEqual(2, manager.LivingPlayerCount,
-            "먹분신 아이템 한 번은 정확히 한 마리만 늘려야 합니다.");
+            "성장이 없으면 먹분신 아이템 한 번은 기본 한 마리만 늘려야 합니다.");
 
         var living = new List<PlayerController>();
         manager.GetLivingPlayersNonAlloc(living);
@@ -304,6 +304,23 @@ public sealed class ItemSpawnerBalanceTests
                     "생성 직후 분신을 옆으로 밀어 원본과 다시 벌리면 안 됩니다.");
                 Track(living[i].gameObject);
             }
+    }
+
+    [TestCase(0, 24, 1)]
+    [TestCase(4, 24, 5)]
+    [TestCase(4, 1, 1)]
+    [TestCase(4, 0, 0)]
+    [TestCase(99, 24, 5)]
+    public void ClonePickupGrowthAddsUpToFiveWithinLivingCap(
+        int growthExtraCount,
+        int availableSlots,
+        int expectedCount)
+    {
+        Assert.AreEqual(
+            expectedCount,
+            GameManager.ResolveInkCloneItemSpawnCount(
+                growthExtraCount,
+                availableSlots));
     }
 
     [Test]

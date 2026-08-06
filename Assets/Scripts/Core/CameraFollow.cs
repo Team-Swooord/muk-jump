@@ -2,8 +2,7 @@ using UnityEngine;
 
 namespace MukJump.Core
 {
-    /// 클라이밍 게임 카메라: 먹떼 중앙을 균형 추적선에 두고 상위 무리도
-    /// 별도 안전선으로 보호하면서 위로만 올라간다.
+    /// 클라이밍 게임 카메라: 가장 높은 생존 먹방울을 추적선에 두고 위로만 올라간다.
     [RequireComponent(typeof(Camera))]
     public class CameraFollow : MonoBehaviour
     {
@@ -166,8 +165,8 @@ namespace MukJump.Core
                     pos.y, highestFollowTargetY, smoothSpeed * Time.deltaTime);
             }
 
-            // 먹물방울·엇갈린 분신 점프처럼 보간보다 빠른 상위 무리를 화면 상단
-            // 안전선으로 붙잡는다. 다수 먹떼에서는 단독 이상치를 제외한 상위 75%를 쓴다.
+            // 먹물방울·엇갈린 분신 점프처럼 보간보다 빠른 최고 생존자를 화면 상단
+            // 안전선으로 붙잡는다.
             // 점프 줌으로 순간 변경되는 orthographicSize가 아닌 기본 반높이를 사용해야
             // 같은 점프 안에서 추적선이 흔들리며 카메라가 조금씩 올라가는 현상이 없다.
             pos.y = ResolveHardCeilingCameraY(

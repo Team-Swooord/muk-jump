@@ -21,9 +21,7 @@ namespace MukJump.Core
         public event Action RunReset;
 
         GameManager manager;
-        readonly List<PlayerController> livingPlayers = new(GameManager.MaxLivingPlayers);
         float stableHitReadyAt;
-        float cloneDeathHealReadyAt;
         float lastFallBrakeReadyAt;
         float doubleJumpReadyAt;
         PlayerController doubleJumpReservedPlayer;
@@ -77,35 +75,6 @@ namespace MukJump.Core
                 return false;
             stableHitReadyAt = Time.time + 12f;
             return true;
-        }
-
-        public void NotifyCloneCreated(
-            PlayerController source,
-            PlayerController clone)
-        {
-            if (source == null || clone == null)
-                return;
-            if (PermanentSnapshot.HasCloneSourceGrace)
-                source.GrantObstacleProtection(0.25f);
-            if (!PermanentSnapshot.HasCloneBond)
-                return;
-
-            RestoreLowestHealth(1);
-            manager?.GetLivingPlayersNonAlloc(livingPlayers);
-            for (int i = 0; i < livingPlayers.Count; i++)
-                livingPlayers[i]?.GrantObstacleProtection(0.35f);
-        }
-
-        public void NotifyPlayerDied(PlayerController player)
-        {
-            if (player == null ||
-                !player.IsRuntimeClone ||
-                !PermanentSnapshot.HasCloneDeathHeal ||
-                Time.time < cloneDeathHealReadyAt)
-                return;
-            if (!RestoreLowestHealth(1))
-                return;
-            cloneDeathHealReadyAt = Time.time + 30f;
         }
 
         /// 먹떼 대표의 일반 1차 자동점프만 센다. 분신마다 세면 한 프레임에 최대
@@ -249,23 +218,6 @@ namespace MukJump.Core
             return true;
         }
 
-        bool RestoreLowestHealth(int amount)
-        {
-            if (manager == null || amount <= 0)
-                return false;
-            manager.GetLivingPlayersNonAlloc(livingPlayers);
-            PlayerController target = null;
-            for (int i = 0; i < livingPlayers.Count; i++)
-            {
-                PlayerController candidate = livingPlayers[i];
-                if (candidate == null || candidate.CurrentHealth >= candidate.MaxHealth)
-                    continue;
-                if (target == null || candidate.CurrentHealth < target.CurrentHealth)
-                    target = candidate;
-            }
-            return target != null && target.RestoreHealth(amount);
-        }
-
         void BindManager()
         {
             var nextManager = GetComponent<GameManager>();
@@ -301,7 +253,6 @@ namespace MukJump.Core
             PermanentSnapshot = PermanentGrowthProfile.CreateRunSnapshot();
             LastBreathAvailable = PermanentSnapshot.HasLastBreath;
             stableHitReadyAt = float.NegativeInfinity;
-            cloneDeathHealReadyAt = float.NegativeInfinity;
             lastFallBrakeReadyAt = float.NegativeInfinity;
             doubleJumpReadyAt = float.NegativeInfinity;
             doubleJumpReservedPlayer = null;

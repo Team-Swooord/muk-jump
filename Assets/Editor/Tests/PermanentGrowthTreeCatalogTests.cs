@@ -131,52 +131,62 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void CoreBalanceValuesMatchThreeStepLeapContract()
+        public void CoreBalanceValuesMatchNineSingleStatTracks()
         {
-            AssertEffect("I00", PermanentGrowthType.InkCapacity, 0.30f);
-            AssertEffect("I-A1", PermanentGrowthType.InkCapacity, 0.30f);
-            AssertEffect("I-A2", PermanentGrowthType.InkCapacity, 0.30f);
-            AssertEffect("I-A3", PermanentGrowthType.InkCapacity, 0.30f);
-            AssertEffect("I-KA", PermanentGrowthType.InkCapacity, 0.30f);
-            AssertEffect("I-B1", PermanentGrowthType.InkBudgetEfficiency, 0.015f);
-            AssertEffect("I-B2", PermanentGrowthType.InkBudgetEfficiency, 0.015f);
-            AssertEffect("I-B3", PermanentGrowthType.ShortStrokeEfficiency, 0.06f);
-            AssertEffect("I-KB", PermanentGrowthType.InkBudgetEfficiency, 0.05f);
-            AssertEffect("I-C1", PermanentGrowthType.InkEvictionFade, 0.10f);
-            AssertEffect("I-C2", PermanentGrowthType.InkEvictionFade, 0.10f);
-            AssertEffect("I-C3", PermanentGrowthType.InkEvictionDelay, 0.10f);
-            AssertEffect("I-KC", PermanentGrowthType.InkEvictionFade, 0.45f);
+            AssertEffect("I00", PermanentGrowthType.InkBudgetEfficiency, 0.02f);
+            for (int rank = 1; rank <= 3; rank++)
+            {
+                AssertEffect($"I-A{rank}", PermanentGrowthType.InkCapacity, 0.375f);
+                AssertEffect($"I-B{rank}", PermanentGrowthType.InkBudgetEfficiency, 0.02f);
+                AssertEffect($"I-C{rank}", PermanentGrowthType.InkRecovery, 0.10f);
+            }
+            AssertEffect("I-KA", PermanentGrowthType.InkCapacity, 0.375f);
+            AssertEffect("I-KB", PermanentGrowthType.InkBudgetEfficiency, 0.02f);
+            AssertEffect("I-KC", PermanentGrowthType.InkRecovery, 0.10f);
 
-            AssertEffect("S00", PermanentGrowthType.Vitality, 1f);
-            AssertEffect("S-A1", PermanentGrowthType.Vitality, 1f);
-            AssertEffect("S-A2", PermanentGrowthType.Vitality, 1f);
-            AssertEffect("S-A3", PermanentGrowthType.Vitality, 1f);
-            AssertEffect("S-B3", PermanentGrowthType.DamageGrace, 0.08f);
-            AssertEffect("S-C1", PermanentGrowthType.CloneSpawnGrace, 0.15f);
+            AssertEffect("S00", PermanentGrowthType.DamageGrace, 0.04f);
+            for (int rank = 1; rank <= 3; rank++)
+            {
+                AssertEffect($"S-A{rank}", PermanentGrowthType.Vitality, 1f);
+                AssertEffect($"S-B{rank}", PermanentGrowthType.DamageGrace, 0.04f);
+                AssertEffect($"S-C{rank}", PermanentGrowthType.InkCloneItemExtraCount, 1f);
+            }
+            AssertEffect("S-KA", PermanentGrowthType.Vitality, 1f);
+            AssertEffect("S-KB", PermanentGrowthType.DamageGrace, 0.04f);
+            AssertEffect("S-KC", PermanentGrowthType.InkCloneItemExtraCount, 1f);
 
-            AssertEffect("J00", PermanentGrowthType.JumpCharge, 0.015f);
+            AssertEffect("J00", PermanentGrowthType.JumpPower, 0.01f);
             for (int rank = 1; rank <= 3; rank++)
             {
                 AssertEffect($"J-A{rank}", PermanentGrowthType.JumpCharge, 0.015f);
-                AssertEffect($"J-B{rank}", PermanentGrowthType.JumpPower, 0.05f / 3f);
-                AssertEffect($"J-C{rank}", PermanentGrowthType.JumpHeight, 0.0625f / 3f);
+                AssertEffect($"J-B{rank}", PermanentGrowthType.JumpPower, 0.01f);
+                AssertEffect($"J-C{rank}", PermanentGrowthType.JumpHeight, 0.0625f / 4f);
             }
+            AssertEffect("J-KA", PermanentGrowthType.JumpCharge, 0.015f);
+            AssertEffect("J-KB", PermanentGrowthType.JumpPower, 0.01f);
+            AssertEffect("J-KC", PermanentGrowthType.JumpHeight, 0.0625f / 4f);
+
+            Assert.That(EffectTotal(PermanentGrowthType.InkCapacity),
+                Is.EqualTo(1.50f).Within(0.000001f));
+            Assert.That(EffectTotal(PermanentGrowthType.InkBudgetEfficiency),
+                Is.EqualTo(0.10f).Within(0.000001f));
+            Assert.That(EffectTotal(PermanentGrowthType.InkRecovery),
+                Is.EqualTo(0.40f).Within(0.000001f));
+            Assert.That(EffectTotal(PermanentGrowthType.Vitality),
+                Is.EqualTo(4f).Within(0.000001f));
+            Assert.That(EffectTotal(PermanentGrowthType.DamageGrace),
+                Is.EqualTo(0.20f).Within(0.000001f));
+            Assert.That(EffectTotal(PermanentGrowthType.InkCloneItemExtraCount),
+                Is.EqualTo(4f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.JumpCharge),
                 Is.EqualTo(0.06f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.JumpPower),
                 Is.EqualTo(0.05f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.JumpHeight),
                 Is.EqualTo(0.0625f).Within(0.000001f));
-            AssertEffect("J-KA", PermanentGrowthType.WallCling, 1.2f);
-            AssertEffect("J-KB", PermanentGrowthType.SafetyPlatform, 5f);
-            AssertEffect("J-KC", PermanentGrowthType.DoubleJump, 0.40f);
 
-            Assert.That(PermanentGrowthCatalog.GetNode("S-KA").EffectSummary,
-                Does.Contain("0.8초"));
-            Assert.That(PermanentGrowthCatalog.GetNode("J-KC").EffectSummary,
-                Does.Contain("12초"));
-            Assert.That(PermanentGrowthCatalog.GetNode("I-KC").EffectSummary,
-                Does.Contain("0.45초"));
+            Assert.That(PermanentGrowthCatalog.Nodes.Any(node =>
+                node.DisplayName == "낮은 흔들림"), Is.False);
         }
 
         [Test]
@@ -225,7 +235,7 @@ namespace MukJump.EditorTests
 
         static float EffectTotal(PermanentGrowthType effectId) =>
             PermanentGrowthCatalog.Nodes
-                .Where(node => node.EffectId == effectId && !node.IsKeystone)
+                .Where(node => node.EffectId == effectId)
                 .Sum(node => node.EffectValue);
 
         static bool VisitWithoutCycle(

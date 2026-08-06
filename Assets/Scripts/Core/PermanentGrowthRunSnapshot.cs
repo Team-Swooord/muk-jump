@@ -39,10 +39,13 @@ namespace MukJump.Core
         public float InkBudgetCostMultiplier => Mathf.Max(
             0.55f,
             1f - EffectTotal(PermanentGrowthType.InkBudgetEfficiency));
-        public float InkEvictionFadeBonusSeconds =>
-            EffectTotal(PermanentGrowthType.InkEvictionFade);
-        public float InkEvictionDelaySeconds =>
-            EffectTotal(PermanentGrowthType.InkEvictionDelay);
+        /// 먹 게이지는 오래된 획이 사라진 길이만큼 돌아온다. 회복 성장은
+        /// 자연 소멸의 대기시간이 아니라 실제 페이드 속도만 빠르게 한다.
+        public float InkRecoverySpeedMultiplier =>
+            1f + EffectTotal(PermanentGrowthType.InkRecovery);
+        // 이전 성장 저장·도구 호환용. 새 단일 능력치 트리에서는 사용하지 않는다.
+        public float InkEvictionFadeBonusSeconds => 0f;
+        public float InkEvictionDelaySeconds => 0f;
         public float ShortStrokeBudgetCostMultiplier => Mathf.Max(
             0.55f,
             1f - EffectTotal(PermanentGrowthType.ShortStrokeEfficiency));
@@ -54,8 +57,10 @@ namespace MukJump.Core
             PlayerController.MaximumHealth - PlayerController.DefaultMaxHealth);
         public float DamageGraceBonusSeconds =>
             EffectTotal(PermanentGrowthType.DamageGrace);
-        public float CloneSpawnGraceBonusSeconds =>
-            HasNode("S-C1") ? 0.15f : 0f;
+        public int InkCloneItemExtraCount => Mathf.Clamp(
+            Mathf.RoundToInt(EffectTotal(PermanentGrowthType.InkCloneItemExtraCount)),
+            0,
+            4);
         public float JumpPowerMultiplier =>
             1f + EffectTotal(PermanentGrowthType.JumpPower);
         /// 노드 수치는 정점 높이 기준이므로 실제 이륙 속도에는 제곱근으로 적용한다.
@@ -64,8 +69,8 @@ namespace MukJump.Core
         public float JumpVerticalSpeedMultiplier =>
             Mathf.Sqrt(Mathf.Max(1f, JumpHeightMultiplier));
         public float DrawnPlatformLeapMultiplier => 1f;
-        public float HitHorizontalRetention => HasNode("S-B1") ? 0.90f : 0.82f;
-        public float MinimumHitRebound => HasNode("S-B2") ? 1.3f : 1.6f;
+        public float HitHorizontalRetention => 0.82f;
+        public float MinimumHitRebound => 1.6f;
         public float MinimumPlatformPowerMultiplier => 0.85f;
         public float WindInfluenceMultiplier => 1f;
         public float MaximumFallSpeedMultiplier => 1f;
@@ -75,17 +80,14 @@ namespace MukJump.Core
         public float DoubleJumpVerticalSpeedRatio => HasDoubleJump
             ? EffectTotal(PermanentGrowthType.DoubleJump)
             : 0f;
-        public bool HasShortStrokeDiscount => ShortStrokeBudgetCostMultiplier < 0.9999f;
+        public bool HasShortStrokeDiscount => false;
         public bool HasDrawnChargeRhythm => false;
         public bool HasApexHang => false;
-        public bool HasCloneSourceGrace => HasNode("S-C2");
-        public bool HasCloneDeathHeal => HasNode("S-C3");
-        public bool HasLastBreath => IsKeystoneActive("S-KA");
-        public bool HasStableHit => IsKeystoneActive("S-KB");
-        public bool HasCloneBond => IsKeystoneActive("S-KC");
-        public bool HasWallCling => IsKeystoneActive("J-KA");
-        public bool HasSafetyPlatform => IsKeystoneActive("J-KB");
-        public bool HasDoubleJump => IsKeystoneActive("J-KC");
+        public bool HasLastBreath => false;
+        public bool HasStableHit => false;
+        public bool HasWallCling => false;
+        public bool HasSafetyPlatform => false;
+        public bool HasDoubleJump => false;
         // v3 코드 호환용. 도약 v4에서는 세 효과를 새 구조 패시브로 교체했다.
         public bool HasConsecutiveLandingRhythm => false;
         public bool HasShortPlatformKeystone => false;

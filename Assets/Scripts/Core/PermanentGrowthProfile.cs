@@ -453,6 +453,8 @@ namespace MukJump.Core
             CreateRunSnapshot().InkCapacityMultiplier;
         public static float InkBudgetCostMultiplier =>
             CreateRunSnapshot().InkBudgetCostMultiplier;
+        public static float InkRecoverySpeedMultiplier =>
+            CreateRunSnapshot().InkRecoverySpeedMultiplier;
         public static float InkEvictionFadeBonusSeconds =>
             CreateRunSnapshot().InkEvictionFadeBonusSeconds;
         public static float InkEvictionDelaySeconds =>
@@ -462,8 +464,8 @@ namespace MukJump.Core
         public static int MaxHealthBonus => CreateRunSnapshot().MaxHealthBonus;
         public static float DamageGraceBonusSeconds =>
             CreateRunSnapshot().DamageGraceBonusSeconds;
-        public static float CloneSpawnGraceBonusSeconds =>
-            CreateRunSnapshot().CloneSpawnGraceBonusSeconds;
+        public static int InkCloneItemExtraCount =>
+            CreateRunSnapshot().InkCloneItemExtraCount;
         public static bool HasLastBreath => CreateRunSnapshot().HasLastBreath;
         public static float JumpPowerMultiplier =>
             CreateRunSnapshot().JumpPowerMultiplier;
