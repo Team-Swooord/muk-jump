@@ -524,7 +524,7 @@ namespace MukJump.Drawing
                 // 자연 소멸 원인을 덮어써 환급을 지우지 않도록 즉시 목록에서 뺀다.
                 removalRequested = true;
                 active.Remove(this);
-                Destroy(gameObject);
+                DestroyPlatformObject();
             }
         }
 
@@ -547,7 +547,10 @@ namespace MukJump.Drawing
             if (windCurrentPlatform || growthSafetyPlatform) return false;
             if (removalRequested) return false;
             if (!TryBeginHazardRemoval()) return false;
-            Destroy(gameObject);
+            // 런타임에서는 물리 콜백 안전을 위해 프레임 끝에 제거한다.
+            // EditMode 검증에서 호출될 때는 지연 Destroy가 허용되지 않으므로
+            // 즉시 제거해 동일한 공개 계약을 에디터 도구에서도 유지한다.
+            DestroyPlatformObject();
             return true;
         }
 
@@ -585,7 +588,7 @@ namespace MukJump.Drawing
                 Line.enabled = false;
             if (specialOutline != null)
                 specialOutline.enabled = false;
-            Destroy(gameObject);
+            DestroyPlatformObject();
         }
 
         float RequestBudgetEviction(float requestedInk)
@@ -674,7 +677,17 @@ namespace MukJump.Drawing
                 removalCause = RemovalCause.BudgetEviction;
             if (edge != null)
                 edge.enabled = false;
-            Destroy(gameObject);
+            DestroyPlatformObject();
+        }
+
+        /// 런타임 물리 콜백에서는 프레임 끝에, EditMode 도구·검증에서는 즉시 제거한다.
+        /// 모든 소멸 경로가 같은 방식으로 registry와 먹 ledger를 정리하게 한다.
+        void DestroyPlatformObject()
+        {
+            if (Application.isPlaying)
+                Destroy(gameObject);
+            else
+                DestroyImmediate(gameObject);
         }
 
         /// 처음 붓을 댄 쪽(t=0 지점)부터 투명해지는 알파 스윕 — 선의 길이·두께는 그대로,

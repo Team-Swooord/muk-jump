@@ -280,6 +280,7 @@ namespace MukJump.EditorTests
             viewHost = new GameObject("GrowthPanTestHost");
             var view = viewHost.AddComponent<PermanentGrowthView>();
             view.BuildForTests();
+            view.Open();
 
             RectTransform viewport = view.TreeViewport;
             RectTransform treeCanvas = view.TreeCanvas;
@@ -298,6 +299,13 @@ namespace MukJump.EditorTests
             Assert.That(selectedNode, Is.Not.Null);
             Assert.That(selectedAction.IsChildOf(treeCanvas), Is.False);
             Assert.That(selectedAction.gameObject.activeSelf, Is.False);
+
+            // -nographics EditMode에서는 Overlay Canvas의 실제 화면 Rect가 0이라
+            // ScrollRect가 이동 가능한 영역을 계산하지 못한다. 모바일 기준
+            // viewport를 명시해 실제 화면과 같은 팬 동작을 검증한다.
+            viewport.anchorMin = viewport.anchorMax = new Vector2(0.5f, 0.5f);
+            viewport.sizeDelta = new Vector2(1080f, 1920f);
+            scrollRect.Rebuild(CanvasUpdate.PostLayout);
 
             Vector2 actionPosition = selectedAction.anchoredPosition;
             Vector3 actionWorldPosition = selectedAction.position;

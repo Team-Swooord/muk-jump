@@ -353,6 +353,8 @@ namespace MukJump.Core
 
             // 구버전 Main/Play 백업에 직렬화된 75% 과보정 값을 즉시 새 균형값으로 바꾼다.
             upperFollowViewportY = BalancedFollowViewportY;
+            survivorReframeViewportY = SurvivorReframeViewportY;
+            survivorReframeDuration = SurvivorReframeSeconds;
             followTuningVersion = CurrentFollowTuningVersion;
         }
 

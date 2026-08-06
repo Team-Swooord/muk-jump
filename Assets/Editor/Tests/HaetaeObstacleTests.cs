@@ -494,9 +494,9 @@ public sealed class HaetaeObstacleTests
         var haetae = CreatePouncingHaetae("NonAllocCastHaetae");
         var permanent = CreatePlatform(
             "PermanentPlatform", lifetime: 0f, windCurrent: false);
-        permanent.transform.position = new Vector3(-1.5f, 1.58f, 0f);
+        permanent.transform.position = new Vector3(-4f, 3.5f, 0f);
         var player = CreateShieldedPlayer("PlayerBehindPermanentPlatform");
-        player.transform.position = new Vector3(0.8f, 1.35f, 0f);
+        player.transform.position = new Vector3(-4f, 1.35f, 0f);
         Physics2D.SyncTransforms();
 
         Vector2 origin = haetae.GetComponent<Rigidbody2D>().position;
@@ -504,7 +504,7 @@ public sealed class HaetaeObstacleTests
             haetae,
             "TryResolveCastContact",
             origin,
-            new Vector2(5.2f, -0.45f));
+            new Vector2(0f, -5.2f));
 
         var castHits = (RaycastHit2D[])GetField(haetae, "castHits");
         var hitNames = new List<string>();

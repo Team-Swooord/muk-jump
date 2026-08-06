@@ -96,7 +96,7 @@ namespace MukJump.EditorTests
                 {
                     StringAssert.EndsWith("결실", keystone.DisplayName,
                         $"{keystone.Id}는 화면에서 결실 단계임을 바로 읽을 수 있어야 합니다.");
-                    Assert.That(keystone.ParentIds, Has.Count.EqualTo(1), keystone.Id);
+                    Assert.That(keystone.ParentIds.Count, Is.EqualTo(1), keystone.Id);
                     Assert.That(keystone.RequiredOwnedCountInBranch,
                         Is.EqualTo(4), keystone.Id);
                     Assert.That(keystone.KeystoneGroup, Is.Not.Empty, keystone.Id);

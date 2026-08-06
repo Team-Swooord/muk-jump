@@ -63,6 +63,7 @@ namespace MukJump.EditorTests
             created.Add(platform.gameObject);
             var edge = platform.GetComponent<EdgeCollider2D>();
             int originalPointCount = edge.pointCount;
+            float originalFirstX = edge.points[0].x;
 
             PlatformCollider.ReconcileActiveInkBudget(5f);
             Invoke(platform, "FadeVisual", 0.5f);
@@ -70,7 +71,7 @@ namespace MukJump.EditorTests
 
             Assert.That(edge.enabled, Is.True);
             Assert.That(edge.pointCount, Is.LessThan(originalPointCount));
-            Assert.That(edge.points[0].x, Is.GreaterThan(0f),
+            Assert.That(edge.points[0].x, Is.GreaterThan(originalFirstX),
                 "오래된 획은 처음 그린 쪽부터 충돌 영역이 줄어야 합니다.");
             Assert.That(platform.Line.colorGradient.alphaKeys[0].alpha,
                 Is.EqualTo(0f).Within(0.0001f),
@@ -161,7 +162,10 @@ namespace MukJump.EditorTests
 
             Invoke(platform, "UpdateRuntimeDrawnPlatform", 0.55f,
                 PlatformCollider.DefaultNaturalHoldDuration + 1.1f);
-            Assert.That(platform.VisibleInkCost, Is.Zero.Within(0.0001f));
+            Assert.That(platform == null, Is.True,
+                "소멸이 끝난 먹선은 EditMode에서도 즉시 정리되어야 합니다.");
+            Assert.That(PlatformCollider.ActiveVisibleInkCost,
+                Is.EqualTo(visibleBefore).Within(0.0001f));
             Assert.That(capture.CurrentInkRemaining,
                 Is.EqualTo(remainingHalfway).Within(0.0001f),
                 "화면에 남은 페이드 잔상이 실제로 그릴 수 있는 먹을 다시 빼앗으면 안 됩니다.");
@@ -221,21 +225,13 @@ namespace MukJump.EditorTests
             Invoke(platform, "UpdateRuntimeDrawnPlatform", 1.1f,
                 PlatformCollider.DefaultNaturalHoldDuration + 1.1f);
 
-            Assert.That(GetField<float>(platform, "evictionVisualFraction"), Is.EqualTo(1f));
-            Assert.That(GetField<bool>(platform, "removalRequested"), Is.True);
-            Assert.That(platform.BreakFromHazard(), Is.False,
-                "완료된 자연 소멸에 위험물 제거가 다시 진입하면 안 됩니다.");
-
-            // Destroy는 프레임 끝에 실행됩니다. 실제 콜백 전후로 같은 정리 루틴이
-            // 반복되어도 정적 ledger/registry가 정확히 한 번만 줄어드는지 고정합니다.
-            Invoke(platform, "OnDestroy");
-            Invoke(platform, "OnDestroy");
+            Assert.That(platform == null, Is.True,
+                "완료된 자연 소멸은 EditMode에서도 즉시 오브젝트를 제거해야 합니다.");
             Assert.That(PlatformCollider.ActiveDrawnPlatformCount, Is.EqualTo(countBefore));
             Assert.That(PlatformCollider.ActiveInkCost, Is.EqualTo(inkBefore).Within(0.0001f));
 
             yield return null;
 
-            Assert.That(platform == null, Is.True);
             Assert.That(PlatformCollider.ActiveDrawnPlatformCount, Is.EqualTo(countBefore));
             Assert.That(PlatformCollider.ActiveInkCost, Is.EqualTo(inkBefore).Within(0.0001f));
         }

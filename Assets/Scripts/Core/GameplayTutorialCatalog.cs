@@ -49,7 +49,7 @@ namespace MukJump.Core
             new(
                 GameplayTutorialTopic.Obstacles,
                 "붉은 먹은 위험해요",
-                "붉은 장애물과 해태에 닿으면 체력 한 칸을 잃어요.\n본체는 먹피 성장으로 강해지고, 마지막 먹피는 분신도 두 칸으로 만들어요.\n떨어져도 체력 한 칸을 쓰고 다시 올라와요.\n모든 먹방울이 쓰러지면 끝나요.",
+                "붉은 장애물에 닿으면 체력 한 칸을 잃어요.\n느낌표 뒤 해태가 한쪽 벽 위에서 내려와요.\n떨어져도 체력 한 칸을 쓰고 다시 올라와요.\n모든 먹방울이 쓰러지면 끝나요.",
                 "MukJump/UI/Growth/growth_guard"),
             new(
                 GameplayTutorialTopic.Weather,

@@ -310,9 +310,7 @@ namespace MukJump.EditorTests
             view.BuildForTests();
 
             PermanentGrowthNodeDefinition first =
-                PermanentGrowthCatalog.GetNode(
-                    PermanentGrowthType.InkCapacity,
-                    1);
+                PermanentGrowthCatalog.GetNode("I00");
             string child = Sanitize(first.Id);
             Image branch = view.TreeCanvas
                 .Find($"TreeRootBranchArt_{child}")
@@ -327,7 +325,7 @@ namespace MukJump.EditorTests
                 Is.GreaterThanOrEqualTo(140f));
             Assert.That(line.rectTransform.sizeDelta.y, Is.EqualTo(7f));
 
-            view.SelectGrowthForTests(0);
+            view.SelectGrowthForTests("I00");
             view.PurchaseButton.onClick.Invoke();
 
             Assert.That(branch.color.a, Is.EqualTo(1f).Within(0.001f));
@@ -359,6 +357,12 @@ namespace MukJump.EditorTests
 
             Assert.That(PermanentGrowthProfile.TryPurchaseNode("S00"), Is.True);
             Assert.That(PermanentGrowthProfile.TryPurchaseNode("S-A1"), Is.True);
+            Assert.That(
+                PermanentGrowthProfile.GetActiveKeystoneId(
+                    PermanentGrowthBranch.Survival),
+                Is.EqualTo("S-KA"),
+                "첫 일반 열매를 해금하면 해당 줄기가 즉시 선택되어야 합니다.");
+            view.BuildForTests();
 
             Assert.That(pathA.GetComponent<CanvasGroup>().alpha, Is.Zero);
             Assert.That(
@@ -396,6 +400,7 @@ namespace MukJump.EditorTests
                         .GetSiblingIndex()));
 
             Assert.That(PermanentGrowthProfile.TryPurchaseNode("S-B1"), Is.True);
+            view.BuildForTests();
             Assert.That(
                 pathA.GetComponent<CanvasGroup>().alpha,
                 Is.EqualTo(0.72f).Within(0.001f));

@@ -285,14 +285,14 @@ namespace MukJump.EditorTests
 
             Assert.That(
                 PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkCapacity),
+                    PermanentGrowthType.InkBudgetEfficiency),
                 Is.EqualTo(1));
             GrowthUnlockPresentation presentation =
                 managerHost.GetComponent<GrowthUnlockPresentation>();
             Assert.That(presentation, Is.Not.Null);
             Assert.That(presentation.IsPlaying, Is.True);
             Assert.That(presentation.Title, Is.EqualTo("성장 해금"));
-            Assert.That(presentation.Subtitle, Does.Contain("먹그릇"));
+            Assert.That(presentation.Subtitle, Does.Contain("아끼는 먹의 씨"));
             Assert.That(presentation.HasNodeFeedback, Is.True);
             Assert.That(
                 presentation.NodeFruitSprite?.name,
@@ -305,7 +305,7 @@ namespace MukJump.EditorTests
             growthView.PurchaseButton.onClick.Invoke();
             Assert.That(
                 PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkCapacity),
+                    PermanentGrowthType.InkBudgetEfficiency),
                 Is.EqualTo(1),
                 "전체 화면 해금 연출 중에는 연속 구매가 겹치면 안 됩니다.");
             float lockedUntil = (float)typeof(PermanentGrowthView)
@@ -337,13 +337,13 @@ namespace MukJump.EditorTests
             Assert.That(
                 PermanentGrowthProfile.GetLevel(
                     PermanentGrowthType.InkCapacity),
-                Is.EqualTo(2));
+                Is.EqualTo(1));
             Assert.That(
                 presentation.IsPlaying,
                 Is.True,
                 "2단계도 별도 열매이므로 전체 해금 연출을 재생해야 합니다.");
             Assert.That(presentation.Title, Is.EqualTo("성장 해금"));
-            Assert.That(presentation.Subtitle, Does.Contain("먹그릇"));
+            Assert.That(presentation.Subtitle, Does.Contain("넓은 벼루 I"));
             Assert.That(
                 presentation.HasNodeFeedback,
                 Is.True,
@@ -374,17 +374,17 @@ namespace MukJump.EditorTests
                     "Update",
                     BindingFlags.Instance | BindingFlags.NonPublic)
                 ?.Invoke(growthView, null);
-            growthView.SelectGrowthForTests("I-B1");
+            growthView.SelectGrowthForTests("I-A2");
             growthView.PurchaseButton.onClick.Invoke();
 
             Assert.That(
                 PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkBudgetEfficiency),
-                Is.EqualTo(1));
+                    PermanentGrowthType.InkCapacity),
+                Is.EqualTo(2));
             Assert.That(
                 presentation.IsPlaying,
                 Is.True,
-                "다른 계보도 0→1일 때는 각자 전체 화면 해금 연출을 사용해야 합니다.");
+                "같은 선택 갈래의 다음 열매도 전체 화면 해금 연출을 사용해야 합니다.");
             Assert.That(presentation.HasNodeFeedback, Is.True);
 
             Assert.That(

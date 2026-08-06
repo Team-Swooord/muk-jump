@@ -688,6 +688,9 @@ namespace MukJump.Core
         public void BeginForTests()
         {
             BuildIfNeeded();
+            // EditMode에서는 MonoBehaviour.OnEnable 호출 순서가 런타임과 다를 수 있다.
+            // 전체 화면 입력 차단의 정적 진입점도 실제 실행과 동일하게 연결한다.
+            Instance = this;
             pendingFirstRun = true;
             BeginTutorial();
         }

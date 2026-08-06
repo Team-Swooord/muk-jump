@@ -260,15 +260,15 @@ namespace MukJump.EditorTests
             var view = viewHost.AddComponent<PermanentGrowthView>();
             view.BuildForTests();
 
-            view.SelectGrowthForTests(0);
+            view.SelectGrowthForTests("I00");
 
             Assert.That(
                 view.SelectedGrowthType,
-                Is.EqualTo(PermanentGrowthType.InkCapacity));
+                Is.EqualTo(PermanentGrowthType.InkBudgetEfficiency));
             Assert.That(view.IsNodePopupOpen, Is.True);
             Assert.That(
                 PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkCapacity),
+                    PermanentGrowthType.InkBudgetEfficiency),
                 Is.Zero);
             Assert.That(view.PurchaseButton.interactable, Is.True);
 
@@ -276,7 +276,7 @@ namespace MukJump.EditorTests
 
             Assert.That(
                 PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkCapacity),
+                    PermanentGrowthType.InkBudgetEfficiency),
                 Is.EqualTo(1));
             Transform panel = viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +

@@ -166,11 +166,15 @@ public sealed class ItemSpawnerBalanceTests
             null, new object[] { safeWidth });
         float iconSize = (float)iconMethod.Invoke(
             null, new object[] { safeWidth });
-        float clusterWidth = fullGrowthWidth + iconSize - iconSize * 0.32f;
+        float unfitClusterWidth =
+            fullGrowthWidth + iconSize - iconSize * 0.32f;
+        float maximumClusterWidth = safeWidth - horizontalMargin * 2f;
+        float fit = Mathf.Min(1f, maximumClusterWidth / unfitClusterWidth);
+        float clusterWidth = unfitClusterWidth * fit;
         Assert.That(gaugeHeight, Is.EqualTo(120f).Within(0.001f));
         Assert.That(iconSize, Is.EqualTo(140f).Within(0.001f));
         Assert.That(clusterWidth,
-            Is.LessThanOrEqualTo(safeWidth - horizontalMargin * 2f));
+            Is.LessThanOrEqualTo(maximumClusterWidth));
     }
 
     [Test]

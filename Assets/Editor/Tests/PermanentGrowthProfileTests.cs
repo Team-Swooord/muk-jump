@@ -258,7 +258,9 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.IsNodeUnlocked("I00"), Is.True);
             Assert.That(PermanentGrowthProfile.IsNodeUnlocked("S00"), Is.False);
             Assert.That(PermanentGrowthProfile.InkCapacityMultiplier,
-                Is.EqualTo(1.30f).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(PermanentGrowthProfile.InkBudgetCostMultiplier,
+                Is.EqualTo(0.98f).Within(0.0001f));
             Assert.That(changedCount, Is.EqualTo(1));
         }
 

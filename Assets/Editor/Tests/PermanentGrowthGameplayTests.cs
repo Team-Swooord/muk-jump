@@ -98,7 +98,9 @@ namespace MukJump.EditorTests
         [Test]
         public void DamageGraceLineDoesNotChangeDefaultKnockbackMotion()
         {
-            SeedGrowth(new[] { "S-B1", "S-B2" });
+            SeedGrowth(
+                new[] { "S-KB" },
+                survivalKeystone: "S-KB");
             CreatePlayingManager(out _);
             var player = CreatePlayer("PermanentHitStability");
             player.Body.linearVelocity = new Vector2(10f, -5f);
@@ -113,7 +115,9 @@ namespace MukJump.EditorTests
             float invulnerableUntil =
                 GetField<float>(player, "damageInvulnerableUntil");
             Assert.That(invulnerableUntil - Time.time,
-                Is.EqualTo(0.67f).Within(0.04f));
+                Is.EqualTo(0.71f).Within(0.04f));
+            Assert.That(player.HasShield, Is.True,
+                "숨 고르기 결실은 살아남은 첫 피격 뒤 1회 방어막을 줍니다.");
         }
 
         [Test]

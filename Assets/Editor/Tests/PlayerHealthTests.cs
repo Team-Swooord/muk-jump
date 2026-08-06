@@ -158,6 +158,7 @@ namespace MukJump.EditorTests
         {
             var player = CreatePlayer("HitInkPuffPlayer");
             var view = player.gameObject.AddComponent<ItemEffectView>();
+            Invoke(view, "Awake");
             var renderer = player.GetComponent<SpriteRenderer>();
             renderer.sprite = CreateTestSprite();
             Vector3 rootScale = player.transform.localScale;

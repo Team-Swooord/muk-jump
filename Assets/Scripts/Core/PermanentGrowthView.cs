@@ -342,6 +342,10 @@ namespace MukJump.Core
             BuildRecoveryPrompt(ScreenRoot);
 
             ApplySafeArea();
+            // Safe Area가 화면 크기·노치에 맞춰 viewport를 바꾼 뒤 최종 위치를
+            // 다시 계산해야 첫 열매가 초기 마스크 밖으로 밀리지 않는다.
+            Canvas.ForceUpdateCanvases();
+            ResetTreeViewportToRoot();
             SelectInitialNode();
             Refresh();
         }
@@ -393,7 +397,9 @@ namespace MukJump.Core
             treeScrollRect.StopMovement();
             // 좌(-700)·중앙(0)·우(+1000) 세 계보 뿌리가 첫 화면에 함께
             // 들어오도록 중앙보다 아주 조금 오른쪽을 기준으로 연다.
-            treeScrollRect.horizontalNormalizedPosition = 0.56f;
+            // 20:9에서도 생존 씨앗의 터치 영역이 왼쪽 마스크에 닿지 않게
+            // 기존 중심에서 5px가량 왼쪽 계보 쪽으로 여유를 둔다.
+            treeScrollRect.horizontalNormalizedPosition = 0.553f;
             treeScrollRect.verticalNormalizedPosition = 0f;
         }
 
@@ -445,7 +451,7 @@ namespace MukJump.Core
                 balanceHud,
                 "누적 0 / 20 m",
                 30,
-                new Vector2(0f, 2f),
+                new Vector2(0f, -4f),
                 new Vector2(JourneyTrackWidth, 32f),
                 InkPalette.TextLight,
                 FontStyle.Normal);
@@ -1613,7 +1619,7 @@ namespace MukJump.Core
                         : InkPalette.Ink;
                     node.Contrast.color = WithAlpha(
                         contrastColor,
-                        inactivePath ? 0.70f : 0.98f);
+                        inactivePath ? 0.70f : 1f);
                 }
                 node.Surface.color = unlocked
                     ? TransparentColor(InkPalette.Paper2)
@@ -1659,7 +1665,7 @@ namespace MukJump.Core
                 bool isColoredLeapPath = definition.Branch ==
                                          PermanentGrowthBranch.Leap &&
                                          definition.Id != "J00";
-                Color lineBase = isColoredLeapPath && pathActive
+                Color lineBase = isColoredLeapPath
                     ? pathColor
                     : unlocked && pathActive ? InkPalette.Gold : InkPalette.Ink;
                 Color lineColor = WithAlpha(
