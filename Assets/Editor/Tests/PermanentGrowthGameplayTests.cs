@@ -178,14 +178,12 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void AutoJumpComposesPowerAndSqrtHeightWithinBalanceCap()
+        public void AutoJumpUsesOnlySelectedPowerPathAndDrawnPlatformBonus()
         {
             SeedGrowth(
-                new[]
-                {
-                    "J-KB", "J-KC",
-                });
-            CreatePlayingManager(out _);
+                new[] { "J-KB", "J-KC" },
+                leapKeystone: "J-KB");
+            CreatePlayingManager(out var growth);
 
             var player = CreatePlayer("PermanentJumpPlayer");
             var autoJump = player.gameObject.AddComponent<AutoJump>();
@@ -201,10 +199,14 @@ namespace MukJump.EditorTests
 
             SetProperty(player, "CurrentPlatform", null);
             Invoke(autoJump, "Jump");
-            float expected = 10f * 1.05f * Mathf.Sqrt(1.0625f);
+            float expected = 10f * 1.05f;
             Assert.That(player.Body.linearVelocity.y,
                 Is.EqualTo(expected).Within(0.001f));
             Assert.That(expected / 10f, Is.LessThan(1.30f));
+            Assert.That(
+                growth.PermanentSnapshot.JumpHeightMultiplier,
+                Is.EqualTo(1f).Within(0.001f),
+                "선택하지 않은 높은 먹발 갈래가 점프 높이에 섞이면 안 됩니다.");
 
             PlatformCollider platform = SpawnPlatform("PermanentShortPlatform");
             SetProperty(player, "CurrentPlatform", platform);
@@ -212,8 +214,8 @@ namespace MukJump.EditorTests
             Invoke(autoJump, "Jump");
 
             Assert.That(player.Body.linearVelocity.y,
-                Is.EqualTo(expected * 0.85f * 1.06f).Within(0.001f),
-                "돋는 먹발 결실은 직접 그린 먹선 도약에만 6%를 더해야 합니다.");
+                Is.EqualTo(expected * 0.85f * 1.10f).Within(0.001f),
+                "돋는 먹발 결실은 직접 그린 먹선 도약에만 10%를 더해야 합니다.");
         }
 
         [Test]
@@ -343,7 +345,7 @@ namespace MukJump.EditorTests
                 Is.EqualTo(8.0f).Within(0.0001f));
             Assert.That(stroke.EffectiveNaturalHoldDuration,
                 Is.EqualTo(
-                    PlatformCollider.DefaultNaturalHoldDuration + 0.6f)
+                    PlatformCollider.DefaultNaturalHoldDuration + 1f)
                     .Within(0.0001f));
         }
 

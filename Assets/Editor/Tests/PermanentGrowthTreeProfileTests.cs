@@ -74,7 +74,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void UnlockedLineEndsStayAppliedWithoutEquipmentSwitching()
+        public void EachBranchAppliesOnlyItsSelectedPath()
         {
             SeedV2(13);
             Buy("S00", "S-A1", "S-A2", "S-A3", "S-KA");
@@ -90,16 +90,20 @@ namespace MukJump.EditorTests
             Assert.That(
                 PermanentGrowthProfile.GetActiveKeystoneId(
                     PermanentGrowthBranch.Survival),
-                Is.EqualTo("S-KA"),
-                "구 장착 필드는 저장 호환용 첫 ID를 유지합니다.");
+                Is.EqualTo("S-KB"));
 
-            Assert.That(PermanentGrowthProfile.TryEquipKeystone("S-KB"), Is.True);
+            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.False);
             Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KB"), Is.True);
-            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.True);
             Assert.That(PermanentGrowthProfile.HasLastBreath, Is.False);
             Assert.That(PermanentGrowthProfile.DamageGraceBonusSeconds,
                 Is.EqualTo(0.16f).Within(0.0001f));
             Assert.That(PermanentGrowthProfile.HasPostHitShield, Is.True);
+            Assert.That(PermanentGrowthProfile.MaxHealthBonus, Is.EqualTo(1));
+
+            Assert.That(PermanentGrowthProfile.TryEquipKeystone("S-KA"), Is.True);
+            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.True);
+            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KB"), Is.False);
+            Assert.That(PermanentGrowthProfile.MaxHealthBonus, Is.EqualTo(4));
 
             Assert.That(
                 PermanentGrowthProfile.ClearActiveKeystone(
@@ -109,6 +113,26 @@ namespace MukJump.EditorTests
                 PermanentGrowthProfile.GetActiveKeystoneId(
                     PermanentGrowthBranch.Survival),
                 Is.EqualTo("S-KA"));
+        }
+
+        [Test]
+        public void ResetPurchasedNodesRefundsFruitsAndKeepsJourney()
+        {
+            SeedV2(4);
+            Buy("S00", "S-A1", "S-A2");
+            long journeyBefore = PermanentGrowthProfile.CumulativeDistanceMeters;
+
+            Assert.That(PermanentGrowthProfile.TryResetPurchasedNodes(), Is.True);
+
+            Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.Zero);
+            Assert.That(PermanentGrowthProfile.SpentCurrency, Is.Zero);
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(4));
+            Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
+                Is.EqualTo(journeyBefore));
+            Assert.That(
+                PermanentGrowthProfile.GetActiveKeystoneId(
+                    PermanentGrowthBranch.Survival),
+                Is.Empty);
         }
 
         [Test]

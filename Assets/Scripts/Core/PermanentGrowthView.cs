@@ -21,7 +21,10 @@ namespace MukJump.Core
         const float TreeBranchOpacity = 1f;
         const float BranchVisibleEndpointOverlap = 18f;
         const float LeapBranchHorizontalOffset = 350f;
-        const float LeapLeftKeystoneExtraOffset = 140f;
+        const float FruitionVerticalGap = 310f;
+        const float JourneyTrackWidth = 520f;
+        const float NodeResetConfirmationGuard = 0.35f;
+        const float NodeResetConfirmationWindow = 3f;
         const float NodePopupHeight = 1020f;
         const float NodeActionButtonY = -404f;
         static readonly Vector2 TreeCanvasSize = new(3600f, 3200f);
@@ -84,7 +87,9 @@ namespace MukJump.Core
         Image selectedActionDimmer;
         Text balanceText;
         Text distanceProgressText;
+        Text distanceProgressPercentText;
         Image distanceProgressFill;
+        Text nodeResetButtonText;
         Text survivalSummaryText;
         Text leapSummaryText;
         Text inkSummaryText;
@@ -104,6 +109,8 @@ namespace MukJump.Core
         Text recoveryResetButtonText;
         bool recoveryResetArmed;
         float recoveryResetArmedAt;
+        bool nodeResetArmed;
+        float nodeResetArmedAt;
         GameManager manager;
         Rect lastSafeArea;
         int lastScreenWidth;
@@ -121,6 +128,7 @@ namespace MukJump.Core
         public Button NodePopupDimmerButton { get; private set; }
         public Button RestoreBackupButton { get; private set; }
         public Button ResetGrowthSaveButton { get; private set; }
+        public Button NodeResetButton { get; private set; }
         public RectTransform ScreenRoot { get; private set; }
         public RectTransform TreeViewport { get; private set; }
         public RectTransform TreeCanvas { get; private set; }
@@ -175,6 +183,10 @@ namespace MukJump.Core
                 purchaseUiLocked = false;
                 Refresh();
             }
+            if (nodeResetArmed &&
+                Time.unscaledTime - nodeResetArmedAt >
+                NodeResetConfirmationWindow)
+                ResetNodeResetConfirmation();
             if (Screen.width != lastScreenWidth ||
                 Screen.height != lastScreenHeight ||
                 Screen.safeArea != lastSafeArea)
@@ -198,6 +210,7 @@ namespace MukJump.Core
         public void Close()
         {
             CloseNodePopup();
+            ResetNodeResetConfirmation();
             SetVisible(false);
         }
 
@@ -395,14 +408,14 @@ namespace MukJump.Core
             RectTransform balanceHud = CreateRect(
                 "CurrencyHud",
                 panel,
-                new Vector2(0f, 790f),
-                new Vector2(340f, 116f));
+                new Vector2(0f, 800f),
+                new Vector2(680f, 154f));
             Image balanceDrop = CreateImage(
                 "CurrencyDrop",
                 balanceHud,
                 LoadPermanentGrowthSprite("pg_ink_drop") ??
                 InkUiTextureFactory.CreateInkDropSprite(),
-                new Vector2(-48f, 26f),
+                new Vector2(-58f, 42f),
                 new Vector2(54f, 54f),
                 Color.white);
             balanceDrop.preserveAspect = true;
@@ -411,7 +424,7 @@ namespace MukJump.Core
                 balanceHud,
                 "0",
                 44,
-                new Vector2(36f, 26f),
+                new Vector2(32f, 42f),
                 new Vector2(120f, 54f),
                 InkPalette.TextLight,
                 FontStyle.Normal);
@@ -422,28 +435,50 @@ namespace MukJump.Core
                 balanceHud,
                 "누적 0 / 20 m",
                 30,
-                new Vector2(0f, -20f),
-                new Vector2(286f, 30f),
+                new Vector2(0f, 2f),
+                new Vector2(JourneyTrackWidth, 32f),
                 InkPalette.TextLight,
                 FontStyle.Normal);
             Image distanceTrack = CreateImage(
                 "JourneyTrack",
                 balanceHud,
                 null,
-                new Vector2(0f, -49f),
-                new Vector2(270f, 9f),
-                WithAlpha(InkPalette.Paper, 0.26f));
+                new Vector2(0f, -42f),
+                new Vector2(JourneyTrackWidth, 32f),
+                WithAlpha(InkPalette.Paper, 0.30f));
             distanceProgressFill = CreateImage(
                 "Fill",
                 distanceTrack.transform,
                 null,
                 Vector2.zero,
-                new Vector2(0f, 9f),
+                new Vector2(0f, 32f),
                 InkPalette.Red);
             RectTransform fillRect = distanceProgressFill.rectTransform;
             fillRect.anchorMin = fillRect.anchorMax = new Vector2(0f, 0.5f);
             fillRect.pivot = new Vector2(0f, 0.5f);
             fillRect.anchoredPosition = Vector2.zero;
+            distanceProgressPercentText = CreateText(
+                "JourneyPercentText",
+                distanceTrack.transform,
+                "0 / 100%",
+                25,
+                Vector2.zero,
+                new Vector2(JourneyTrackWidth - 20f, 32f),
+                InkPalette.TextLight,
+                FontStyle.Normal);
+            distanceProgressPercentText.alignment = TextAnchor.MiddleCenter;
+            distanceProgressPercentText.raycastTarget = false;
+
+            NodeResetButton = CreateBrushButton(
+                "NodeResetButton",
+                panel,
+                "노드 초기화",
+                new Vector2(-425f, 810f),
+                new Vector2(180f, 120f),
+                28);
+            nodeResetButtonText =
+                NodeResetButton.GetComponentInChildren<Text>();
+            NodeResetButton.onClick.AddListener(HandleNodeResetRequested);
 
             BackButton = CreateBrushButton(
                 "BackButton",
@@ -723,7 +758,7 @@ namespace MukJump.Core
             Vector2 touchSize = rootNode
                 ? new Vector2(216f, 240f)
                 : fruitionNode
-                    ? new Vector2(260f, 280f)
+                    ? new Vector2(216f, 240f)
                     : new Vector2(200f, 224f);
             RectTransform root = CreateRect(
                 $"GrowthNode_{SanitizeNodeId(definition.Id)}",
@@ -737,7 +772,7 @@ namespace MukJump.Core
             InkUiStyle.ConfigureButton(button, hit, addInkFeedback: false);
 
             float nodeCenterY = 30f;
-            float surfaceSize = rootNode ? 144f : fruitionNode ? 160f : 124f;
+            float surfaceSize = rootNode ? 144f : fruitionNode ? 140f : 124f;
             Image nodeContrast = CreateImage(
                 "NodeContrast",
                 root,
@@ -756,7 +791,7 @@ namespace MukJump.Core
                     root,
                     LoadPermanentGrowthSprite("pg_selected_ring"),
                     new Vector2(0f, nodeCenterY),
-                    new Vector2(226f, 226f),
+                    new Vector2(194f, 194f),
                     WithAlpha(InkPalette.Gold, 0.34f));
                 fruitionHalo.preserveAspect = true;
                 fruitionHalo.raycastTarget = false;
@@ -770,8 +805,8 @@ namespace MukJump.Core
                 LoadPermanentGrowthSprite("pg_selected_ring"),
                 new Vector2(0f, nodeCenterY),
                 new Vector2(
-                    rootNode ? 184f : fruitionNode ? 210f : 166f,
-                    rootNode ? 184f : fruitionNode ? 210f : 166f),
+                    rootNode ? 184f : fruitionNode ? 182f : 166f,
+                    rootNode ? 184f : fruitionNode ? 182f : 166f),
                 TransparentColor(InkPalette.Gold));
             ring.preserveAspect = true;
 
@@ -784,8 +819,8 @@ namespace MukJump.Core
                 fruitSprite,
                 new Vector2(0f, nodeCenterY),
                 new Vector2(
-                    rootNode ? 208f : fruitionNode ? 236f : 188f,
-                    rootNode ? 208f : fruitionNode ? 236f : 188f),
+                    rootNode ? 208f : fruitionNode ? 204f : 188f,
+                    rootNode ? 208f : fruitionNode ? 204f : 188f),
                 TransparentColor(InkPalette.Red));
             fruitGlow.preserveAspect = true;
 
@@ -814,8 +849,8 @@ namespace MukJump.Core
                 LoadIcon(definition),
                 new Vector2(0f, nodeCenterY),
                 new Vector2(
-                    rootNode ? 82f : fruitionNode ? 88f : 72f,
-                    rootNode ? 82f : fruitionNode ? 88f : 72f),
+                    rootNode ? 82f : fruitionNode ? 78f : 72f,
+                    rootNode ? 82f : fruitionNode ? 78f : 72f),
                 Color.white);
             icon.preserveAspect = true;
             ApplyIconVariation(icon, definition);
@@ -1234,12 +1269,69 @@ namespace MukJump.Core
                 nodes[selectedSlot].NodeDefinition;
             if (PermanentGrowthProfile.IsNodeUnlocked(definition))
             {
-                // 구매한 열매는 전부 영구 적용된다. 선택 팝업에서 교체·해제하지 않는다.
+                if (!PermanentGrowthProfile.IsNodePathActive(definition))
+                {
+                    string keystoneId = PermanentGrowthCatalog.GetKeystoneId(
+                        definition.Branch,
+                        PermanentGrowthCatalog.GetPath(definition));
+                    if (PermanentGrowthProfile.TryEquipKeystone(keystoneId))
+                    {
+                        SetNodePopupVisible(false);
+                        Refresh();
+                        return;
+                    }
+                    // 저장 장애가 복구 상태로 전환됐으면 같은 프레임에
+                    // 복구 안내를 띄워 조용한 입력 실패로 보이지 않게 한다.
+                    Refresh();
+                    return;
+                }
                 Refresh();
                 return;
             }
 
             HandlePurchase(selectedSlot);
+        }
+
+        void HandleNodeResetRequested()
+        {
+            if (purchaseUiLocked || PermanentGrowthProfile.OwnedNodeCount <= 0)
+                return;
+            float now = Time.unscaledTime;
+            if (!nodeResetArmed)
+            {
+                nodeResetArmed = true;
+                nodeResetArmedAt = now;
+                if (nodeResetButtonText != null)
+                    nodeResetButtonText.text = "한 번 더";
+                return;
+            }
+            if (now - nodeResetArmedAt < NodeResetConfirmationGuard)
+                return;
+            if (now - nodeResetArmedAt > NodeResetConfirmationWindow)
+            {
+                ResetNodeResetConfirmation();
+                return;
+            }
+
+            if (!PermanentGrowthProfile.TryResetPurchasedNodes())
+            {
+                ResetNodeResetConfirmation();
+                Refresh();
+                return;
+            }
+            selectedSlot = 0;
+            SetNodePopupVisible(false);
+            ResetNodeResetConfirmation();
+            ResetTreeViewportToRoot();
+            Refresh();
+        }
+
+        void ResetNodeResetConfirmation()
+        {
+            nodeResetArmed = false;
+            nodeResetArmedAt = 0f;
+            if (nodeResetButtonText != null)
+                nodeResetButtonText.text = "노드 초기화";
         }
 
 #if UNITY_EDITOR
@@ -1323,6 +1415,8 @@ namespace MukJump.Core
                     node.NodeDefinition;
                 bool unlocked =
                     PermanentGrowthProfile.IsNodeUnlocked(definition);
+                bool pathActive =
+                    PermanentGrowthProfile.IsNodePathActive(definition);
                 bool requirementsMet =
                     PermanentGrowthProfile.MeetsNodeRequirements(definition);
                 bool selected = i == selectedSlot;
@@ -1331,8 +1425,18 @@ namespace MukJump.Core
                 node.Icon.sprite = LoadIcon(definition);
                 ApplyIconVariation(node.Icon, definition);
                 node.Icon.color = node.Icon.sprite != null
-                    ? new Color(1f, 1f, 1f, requirementsMet ? 1f : 0.6f)
-                    : WithAlpha(InkPalette.Ink, requirementsMet ? 1f : 0.58f);
+                    ? new Color(
+                        1f,
+                        1f,
+                        1f,
+                        unlocked && !pathActive
+                            ? 0.50f
+                            : requirementsMet ? 1f : 0.6f)
+                    : WithAlpha(
+                        InkPalette.Ink,
+                        unlocked && !pathActive
+                            ? 0.46f
+                            : requirementsMet ? 1f : 0.58f);
                 if (node.Contrast != null)
                 {
                     Color contrastColor = definition.Branch ==
@@ -1348,20 +1452,26 @@ namespace MukJump.Core
                         ? WithAlpha(InkPalette.Paper2, 1f)
                         : WithAlpha(InkPalette.Paper2, 0.62f);
                 node.Fruit.color = unlocked
-                    ? WithAlpha(InkPalette.Red, 1f)
+                    ? pathActive
+                        ? WithAlpha(InkPalette.Red, 1f)
+                        : WithAlpha(InkPalette.Ink, 0.48f)
                     : TransparentColor(InkPalette.Red);
                 node.FruitGlow.color = unlocked
                     ? WithAlpha(
-                        InkPalette.Red,
-                        selected
-                            ? definition.IsKeystone ? 0.42f : 0.28f
-                            : definition.IsKeystone ? 0.30f : 0.18f)
+                        pathActive ? InkPalette.Red : InkPalette.Ink,
+                        pathActive
+                            ? selected
+                                ? definition.IsKeystone ? 0.42f : 0.28f
+                                : definition.IsKeystone ? 0.30f : 0.18f
+                            : 0.10f)
                     : TransparentColor(InkPalette.Red);
                 if (node.FruitionHalo != null)
                 {
                     node.FruitionHalo.color = WithAlpha(
                         InkPalette.Gold,
-                        unlocked ? 0.88f : requirementsMet ? 0.54f : 0.22f);
+                        unlocked && pathActive
+                            ? 0.88f
+                            : requirementsMet ? 0.42f : 0.18f);
                 }
                 node.Ring.color = selected && IsNodePopupOpen
                     ? WithAlpha(InkPalette.Ink, 0.76f)
@@ -1369,13 +1479,15 @@ namespace MukJump.Core
                 bool isColoredLeapPath = definition.Branch ==
                                          PermanentGrowthBranch.Leap &&
                                          definition.Id != "J00";
-                Color lineBase = isColoredLeapPath
+                Color lineBase = isColoredLeapPath && pathActive
                     ? pathColor
-                    : unlocked ? InkPalette.Gold : InkPalette.Ink;
+                    : unlocked && pathActive ? InkPalette.Gold : InkPalette.Ink;
                 Color lineColor = WithAlpha(
                     lineBase,
                     unlocked
-                        ? isColoredLeapPath ? 0.72f : 0.38f
+                        ? pathActive
+                            ? isColoredLeapPath ? 0.72f : 0.38f
+                            : 0.11f
                         : requirementsMet
                             ? isColoredLeapPath ? 0.34f : 0.11f
                             : isColoredLeapPath ? 0.13f : 0.045f);
@@ -1401,6 +1513,10 @@ namespace MukJump.Core
 
             if (BackButton != null)
                 BackButton.interactable = !purchaseUiLocked;
+            if (NodeResetButton != null)
+                NodeResetButton.interactable =
+                    !purchaseUiLocked &&
+                    PermanentGrowthProfile.OwnedNodeCount > 0;
             UpdateTreeInteraction();
             RefreshSelectedNodePopup();
             RefreshRecoveryPrompt();
@@ -1408,7 +1524,9 @@ namespace MukJump.Core
 
         void RefreshDistanceProgress()
         {
-            if (distanceProgressText == null || distanceProgressFill == null)
+            if (distanceProgressText == null ||
+                distanceProgressPercentText == null ||
+                distanceProgressFill == null)
                 return;
 
             long cumulative = PermanentGrowthProfile.CumulativeDistanceMeters;
@@ -1416,7 +1534,8 @@ namespace MukJump.Core
             {
                 distanceProgressText.text = $"완성 · {FormatDistance(cumulative)}";
                 distanceProgressFill.rectTransform.sizeDelta =
-                    new Vector2(270f, 9f);
+                    new Vector2(JourneyTrackWidth, 32f);
+                distanceProgressPercentText.text = "100 / 100%";
                 return;
             }
 
@@ -1431,8 +1550,10 @@ namespace MukJump.Core
                     1d)
                 : 0f;
             distanceProgressFill.rectTransform.sizeDelta = new Vector2(
-                270f * progress,
-                9f);
+                JourneyTrackWidth * progress,
+                32f);
+            distanceProgressPercentText.text =
+                $"{Mathf.RoundToInt(progress * 100f)} / 100%";
         }
 
         void RefreshGrowthSummary()
@@ -1572,6 +1693,8 @@ namespace MukJump.Core
                 node.NodeDefinition;
             bool unlocked =
                 PermanentGrowthProfile.IsNodeUnlocked(definition);
+            bool pathActive =
+                PermanentGrowthProfile.IsNodePathActive(definition);
             bool requirementsMet =
                 PermanentGrowthProfile.MeetsNodeRequirements(definition);
             int cost = definition.Cost;
@@ -1601,7 +1724,9 @@ namespace MukJump.Core
             if (purchaseButtonText != null)
             {
                 purchaseButtonText.text = unlocked
-                    ? "적용 중"
+                    ? pathActive
+                        ? "적용 중"
+                        : "이 줄기 적용"
                     : requirementsMet
                         ? hasEnoughCurrency
                             ? "강화하기"
@@ -1610,7 +1735,8 @@ namespace MukJump.Core
             }
             PurchaseButton.interactable =
                 !purchaseUiLocked &&
-                !unlocked && requirementsMet && hasEnoughCurrency;
+                ((unlocked && !pathActive) ||
+                 (!unlocked && requirementsMet && hasEnoughCurrency));
         }
 
         void SetNodePopupVisible(bool visible)
@@ -1640,6 +1766,17 @@ namespace MukJump.Core
         {
             if (definition == null)
                 return Vector2.zero;
+
+            // 결실은 마지막 일반 열매 바로 위에만 조금 더 크게 맺힌다.
+            // 헤더 뒤로 숨지 않게 고정 절대 좌표 대신 부모 위치를 기준으로 둔다.
+            if (definition.IsKeystone && definition.ParentIds.Count > 0)
+            {
+                PermanentGrowthNodeDefinition parent =
+                    PermanentGrowthCatalog.GetNode(definition.ParentIds[0]);
+                if (parent != null)
+                    return NodePosition(parent) +
+                           new Vector2(0f, FruitionVerticalGap);
+            }
 
             Vector2 fallback =
                 new(definition.LayoutX, definition.LayoutY);
@@ -1699,11 +1836,8 @@ namespace MukJump.Core
                 };
             }
 
-            float extraOffset = definition.Id == "J-KA"
-                ? LeapLeftKeystoneExtraOffset
-                : 0f;
             return resolved +
-                new Vector2(LeapBranchHorizontalOffset + extraOffset, 0f);
+                new Vector2(LeapBranchHorizontalOffset, 0f);
         }
 
         static float CalculateTreeZoom(float screenWidth, float screenHeight)
@@ -2149,6 +2283,7 @@ namespace MukJump.Core
 
         void CloseImmediate()
         {
+            ResetNodeResetConfirmation();
             SetVisible(false);
         }
 

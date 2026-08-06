@@ -87,8 +87,10 @@ namespace MukJump.EditorTests
                         .GetComponent<RectTransform>().sizeDelta.x));
             Assert.That(
                 node.GetComponent<RectTransform>().anchoredPosition.y,
-                Is.GreaterThan(800f),
-                "결실은 나무 꼭대기 영역에서 일반 성장과 구분되어야 합니다.");
+                Is.EqualTo(
+                    FindNode(view, "S-A3").GetComponent<RectTransform>()
+                        .anchoredPosition.y + 310f).Within(0.01f),
+                "결실은 마지막 일반 열매 바로 위에 맺어야 합니다.");
 
             foreach (PermanentGrowthNodeDefinition definition in
                      PermanentGrowthCatalog.Nodes)
@@ -100,10 +102,17 @@ namespace MukJump.EditorTests
                 RectTransform hit = fruition.GetComponent<RectTransform>();
                 Assert.That(fruition.Find("FruitionHalo"), Is.Not.Null,
                     $"{definition.Id} 결실에 금빛 후광이 없습니다.");
-                Assert.That(hit.sizeDelta.x, Is.EqualTo(260f).Within(0.01f),
-                    $"{definition.Id} 결실의 터치 폭이 일반 열매와 구분되지 않습니다.");
-                Assert.That(hit.anchoredPosition.y, Is.GreaterThan(800f),
-                    $"{definition.Id} 결실이 나무 꼭대기 영역에 없습니다.");
+                Assert.That(hit.sizeDelta.x, Is.EqualTo(216f).Within(0.01f),
+                    $"{definition.Id} 결실의 터치 폭이 모바일 규격과 다릅니다.");
+                PermanentGrowthNodeDefinition parentDefinition =
+                    PermanentGrowthCatalog.GetNode(definition.ParentIds[0]);
+                float parentY = FindNode(view, parentDefinition.Id)
+                    .GetComponent<RectTransform>().anchoredPosition.y;
+                Assert.That(hit.anchoredPosition.y - parentY,
+                    Is.EqualTo(310f).Within(0.01f), definition.Id);
+                Assert.That(hit.anchoredPosition.y + hit.sizeDelta.y * 0.5f,
+                    Is.LessThanOrEqualTo(480f),
+                    $"{definition.Id} 결실이 헤더 뒤로 숨어 클릭할 수 없습니다.");
             }
         }
 
@@ -126,7 +135,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void OwnedLineEndsAreAllAppliedAndCannotBeSwitched()
+        public void OwnedInactivePathCanBeSelectedAndOtherPathTurnsOff()
         {
             SeedV2(
                 new[] { "S-KA", "S-KB" },
@@ -135,15 +144,17 @@ namespace MukJump.EditorTests
 
             SelectNode(view, "S-KB");
 
-            Assert.That(PurchaseLabel(view), Is.EqualTo("적용 중"));
-            Assert.That(view.PurchaseButton.interactable, Is.False);
+            Assert.That(PurchaseLabel(view), Is.EqualTo("이 줄기 적용"));
+            Assert.That(view.PurchaseButton.interactable, Is.True);
             Assert.That(ActiveSurvivalKeystone(), Is.EqualTo("S-KA"));
             Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.True);
+            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KB"), Is.False);
+
+            view.PurchaseButton.onClick.Invoke();
+
+            Assert.That(ActiveSurvivalKeystone(), Is.EqualTo("S-KB"));
+            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.False);
             Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KB"), Is.True);
-            AssertColorRgb(
-                FindNode(view, "S-KA").Find("Fruit")
-                    .GetComponent<Image>().color,
-                InkPalette.Red);
             AssertColorRgb(
                 FindNode(view, "S-KB").Find("Fruit")
                     .GetComponent<Image>().color,
@@ -158,14 +169,14 @@ namespace MukJump.EditorTests
                 survivalKeystoneId: "S-KA");
             PermanentGrowthView view = BuildView();
 
-            SelectNode(view, "S-KB");
+            SelectNode(view, "S-KA");
             Assert.That(PurchaseLabel(view), Is.EqualTo("적용 중"));
             Assert.That(view.PurchaseButton.interactable, Is.False);
 
             view.NodePopupDimmerButton.onClick.Invoke();
             Assert.That(view.IsNodePopupOpen, Is.False);
             Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.True);
-            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KB"), Is.True);
+            Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KB"), Is.False);
             Assert.That(ActiveSurvivalKeystone(), Is.EqualTo("S-KA"));
         }
 

@@ -52,7 +52,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void SnapshotComposesGrowthTracksAndSurvivalCapstones()
+        public void SnapshotAppliesOneSelectedPathPerBranch()
         {
             var snapshot = new PermanentGrowthRunSnapshot(
                 new[]
@@ -67,42 +67,47 @@ namespace MukJump.EditorTests
                     "J-B1", "J-B2", "J-B3", "J-KB",
                     "J-C1", "J-C2", "J-C3", "J-KC",
                 },
-                null);
+                new Dictionary<PermanentGrowthBranch, string>
+                {
+                    [PermanentGrowthBranch.InkHandling] = "I-KA",
+                    [PermanentGrowthBranch.Survival] = "S-KA",
+                    [PermanentGrowthBranch.Leap] = "J-KB",
+                });
 
             Assert.That(snapshot.InkCapacityMultiplier,
                 Is.EqualTo(2.50f).Within(0.0001f));
             Assert.That(snapshot.InkBudgetCostMultiplier,
-                Is.EqualTo(0.90f).Within(0.0001f));
+                Is.EqualTo(0.98f).Within(0.0001f));
             Assert.That(snapshot.ShortStrokeBudgetCostMultiplier,
-                Is.EqualTo(0.90f).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.InkRecoverySpeedMultiplier,
-                Is.EqualTo(1.40f).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.InkEvictionFadeBonusSeconds,
                 Is.Zero.Within(0.0001f));
             Assert.That(snapshot.InkEvictionDelaySeconds,
                 Is.Zero.Within(0.0001f));
             Assert.That(snapshot.NaturalInkHoldBonusSeconds,
-                Is.EqualTo(0.6f).Within(0.0001f));
-            Assert.That(snapshot.HasShortStrokeDiscount, Is.True);
+                Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(snapshot.HasShortStrokeDiscount, Is.False);
             Assert.That(snapshot.DamageGraceBonusSeconds,
-                Is.EqualTo(0.16f).Within(0.0001f));
-            Assert.That(snapshot.HasPostHitShield, Is.True);
+                Is.EqualTo(0.04f).Within(0.0001f));
+            Assert.That(snapshot.HasPostHitShield, Is.False);
             Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(4));
             Assert.That(snapshot.InkCloneMaxHealthBonus, Is.EqualTo(1));
             Assert.That(snapshot.HitHorizontalRetention,
-                Is.EqualTo(0.64f).Within(0.0001f));
-            Assert.That(snapshot.InkCloneItemExtraCount, Is.EqualTo(1));
+                Is.EqualTo(0.82f).Within(0.0001f));
+            Assert.That(snapshot.InkCloneItemExtraCount, Is.Zero);
             Assert.That(snapshot.JumpChargeMultiplier,
-                Is.EqualTo(0.94f).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.JumpPowerMultiplier,
                 Is.EqualTo(1.05f).Within(0.0001f));
             Assert.That(snapshot.JumpHeightMultiplier,
-                Is.EqualTo(1.0625f).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.JumpVerticalSpeedMultiplier,
-                Is.EqualTo(Mathf.Sqrt(1.0625f)).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.DrawnPlatformLeapMultiplier,
-                Is.EqualTo(1.06f).Within(0.0001f));
-            Assert.That(snapshot.HasLastFallBrake, Is.True);
+                Is.EqualTo(1.10f).Within(0.0001f));
+            Assert.That(snapshot.HasLastFallBrake, Is.False);
             Assert.That(snapshot.MinimumPlatformPowerMultiplier,
                 Is.EqualTo(0.85f).Within(0.0001f));
             Assert.That(snapshot.MaximumFallSpeedMultiplier,
@@ -173,7 +178,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void InkRecoveryPathShortensFadeWithoutExtendingNaturalHold()
+        public void InkRecoveryFruitionStartsNaturalDryingEarlier()
         {
             var regular = new PermanentGrowthRunSnapshot(
                 new[] { "I00", "I-C1", "I-C2", "I-C3" },
@@ -195,10 +200,18 @@ namespace MukJump.EditorTests
                 Is.EqualTo(0.7857143f).Within(0.0001f));
             Assert.That(PlatformCollider.DefaultNaturalHoldDuration,
                 Is.EqualTo(3.4f).Within(0.0001f));
+            Assert.That(regular.NaturalInkHoldBonusSeconds,
+                Is.Zero.Within(0.0001f));
+            Assert.That(keystone.NaturalInkHoldBonusSeconds,
+                Is.EqualTo(-0.8f).Within(0.0001f));
+            Assert.That(
+                PlatformCollider.DefaultNaturalHoldDuration +
+                keystone.NaturalInkHoldBonusSeconds,
+                Is.EqualTo(2.6f).Within(0.0001f));
         }
 
         [Test]
-        public void OwnedLineEndNodesApplyImmediatelyWithoutLoadoutSwitching()
+        public void OwnedLineEndsApplyOnlyForSelectedPath()
         {
             var owned = new[] { "S-KA", "S-KB", "J-KB", "I-KC" };
             var active = new Dictionary<PermanentGrowthBranch, string>
@@ -216,7 +229,7 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.JumpPowerMultiplier,
                 Is.EqualTo(1.01f).Within(0.0001f));
             Assert.That(snapshot.DrawnPlatformLeapMultiplier,
-                Is.EqualTo(1.06f).Within(0.0001f));
+                Is.EqualTo(1.10f).Within(0.0001f));
             Assert.That(snapshot.InkRecoverySpeedMultiplier,
                 Is.EqualTo(1.10f).Within(0.0001f));
             Assert.That(snapshot.HasLastBreath, Is.False);

@@ -207,9 +207,13 @@ namespace MukJump.EditorTests
                 as RectTransform;
             var journeyFill = panel.Find("CurrencyHud/JourneyTrack/Fill")
                 as RectTransform;
+            var journeyPercent = panel.Find(
+                    "CurrencyHud/JourneyTrack/JourneyPercentText")
+                ?.GetComponent<Text>();
             Assert.That(journeyText, Is.Not.Null);
             Assert.That(journeyTrack, Is.Not.Null);
             Assert.That(journeyFill, Is.Not.Null);
+            Assert.That(journeyPercent, Is.Not.Null);
             Assert.That(currencyHud, Is.Not.Null);
             Assert.That(currencyHud.anchoredPosition.x, Is.Zero.Within(0.001f),
                 "재화 HUD는 성장 화면의 정확한 수평 중앙에 있어야 합니다.");
@@ -221,7 +225,14 @@ namespace MukJump.EditorTests
             Assert.That(journeyText.fontSize, Is.GreaterThanOrEqualTo(30));
             Assert.That(journeyText.fontStyle, Is.EqualTo(FontStyle.Normal));
             Assert.That(journeyText.color, Is.EqualTo(InkPalette.TextLight));
-            Assert.That(journeyTrack.sizeDelta.y, Is.GreaterThanOrEqualTo(9f));
+            Assert.That(journeyTrack.sizeDelta.x,
+                Is.EqualTo(520f).Within(0.01f));
+            Assert.That(journeyTrack.sizeDelta.y,
+                Is.EqualTo(32f).Within(0.01f));
+            Assert.That(journeyPercent.text, Does.Match(@"^\d+ / 100%$"));
+            Assert.That(journeyPercent.alignment,
+                Is.EqualTo(TextAnchor.MiddleCenter));
+            Assert.That(panel.Find("NodeResetButton"), Is.Not.Null);
             Assert.That(journeyFill.anchorMin.x, Is.Zero);
             Assert.That(journeyFill.anchorMax.x, Is.Zero);
             Assert.That(journeyFill.pivot.x, Is.Zero);

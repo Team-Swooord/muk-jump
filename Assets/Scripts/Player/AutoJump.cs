@@ -254,7 +254,12 @@ namespace MukJump.Player
             Mathf.Max(
                 MinJumpInterval,
                 SanitizedJumpInterval *
-                ActivePermanentGrowth.JumpChargeMultiplier);
+                ActivePermanentGrowth.JumpChargeMultiplier *
+                (player != null &&
+                 player.CurrentPlatform != null &&
+                 player.CurrentPlatform.IsTemporaryDrawnPlatform
+                    ? ActivePermanentGrowth.DrawnPlatformChargeMultiplier
+                    : 1f));
 
         PermanentGrowthRunSnapshot ActivePermanentGrowth =>
             RunGrowthController.Instance != null

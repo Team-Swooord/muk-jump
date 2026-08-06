@@ -510,9 +510,9 @@ namespace MukJump.Player
             if (velocity.y < 0f && growth != null &&
                 growth.TryUseLastFallBrake(this))
             {
-                velocity.y *= 0.65f;
+                velocity.y *= 0.5f;
                 fallBrakeVelocityFloor = velocity.y;
-                fallBrakeUntil = Time.time + 0.45f;
+                fallBrakeUntil = Time.time + 0.65f;
             }
             else if (Time.time < fallBrakeUntil && velocity.y < fallBrakeVelocityFloor)
             {

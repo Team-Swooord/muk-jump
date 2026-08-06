@@ -214,7 +214,7 @@ namespace MukJump.Core
                 worldCamera.WorldToViewportPoint(player.transform.position).y > 0.25f)
                 return false;
 
-            lastFallBrakeReadyAt = Time.time + 18f;
+            lastFallBrakeReadyAt = Time.time + 14f;
             return true;
         }
 

@@ -5,8 +5,8 @@ using MukJump.Player;
 
 namespace MukJump.Core
 {
-    /// 판 시작 순간의 영구 성장 소유 상태. 구 장착 ID는 저장 호환용으로만 받으며,
-    /// 해금한 일반 노드와 비기를 모두 같은 판 스냅샷에서 적용한다.
+    /// 판 시작 순간의 영구 성장 스냅샷. 해금 기록은 모두 보존하되,
+    /// 각 계보에서 선택한 A·B·C 한 줄기와 공용 뿌리만 한 판에 적용한다.
     public sealed class PermanentGrowthRunSnapshot
     {
         readonly HashSet<string> ownedNodeIds;
@@ -23,15 +23,49 @@ namespace MukJump.Core
                 ownedNodeIds ?? Array.Empty<string>(),
                 StringComparer.Ordinal);
             this.activeKeystones = new Dictionary<PermanentGrowthBranch, string>();
-            if (activeKeystones == null)
-                return;
-
-            foreach (KeyValuePair<PermanentGrowthBranch, string> pair
-                     in activeKeystones)
+            if (activeKeystones != null)
             {
-                if (!string.IsNullOrEmpty(pair.Value))
-                    this.activeKeystones[pair.Key] = pair.Value;
+                foreach (KeyValuePair<PermanentGrowthBranch, string> pair
+                         in activeKeystones)
+                {
+                    if (!string.IsNullOrEmpty(pair.Value))
+                        this.activeKeystones[pair.Key] = pair.Value;
+                }
             }
+
+            InferMissingActivePath(PermanentGrowthBranch.Survival);
+            InferMissingActivePath(PermanentGrowthBranch.Leap);
+            InferMissingActivePath(PermanentGrowthBranch.InkHandling);
+        }
+
+        void InferMissingActivePath(PermanentGrowthBranch branch)
+        {
+            if (activeKeystones.ContainsKey(branch))
+                return;
+            PermanentGrowthPath selectedPath = PermanentGrowthPath.None;
+            int selectedCount = 0;
+            for (PermanentGrowthPath path = PermanentGrowthPath.A;
+                 path <= PermanentGrowthPath.C;
+                 path++)
+            {
+                int count = 0;
+                foreach (string nodeId in ownedNodeIds)
+                {
+                    PermanentGrowthNodeDefinition node =
+                        PermanentGrowthCatalog.GetNode(nodeId);
+                    if (node != null && node.Branch == branch &&
+                        PermanentGrowthCatalog.GetPath(node) == path)
+                        count++;
+                }
+                if (count <= selectedCount)
+                    continue;
+                selectedCount = count;
+                selectedPath = path;
+            }
+            string keystoneId =
+                PermanentGrowthCatalog.GetKeystoneId(branch, selectedPath);
+            if (!string.IsNullOrEmpty(keystoneId))
+                activeKeystones[branch] = keystoneId;
         }
 
         public int OwnedNodeCount => ownedNodeIds.Count;
@@ -45,21 +79,25 @@ namespace MukJump.Core
             1f + EffectTotal(PermanentGrowthType.InkRecovery);
         /// 넓은 벼루 결실은 총량을 늘리는 데서 끝나지 않고, 용량을 넘기지 않은
         /// 먹선이 선명하게 남는 시간을 조금 늘린다. 총량 초과 FIFO 제거는 지연하지 않는다.
-        public float NaturalInkHoldBonusSeconds => HasNode("I-KA") ? 0.6f : 0f;
+        public float NaturalInkHoldBonusSeconds =>
+            (IsNodeApplied("I-KA") ? 1f : 0f) -
+            (IsNodeApplied("I-KC") ? 0.8f : 0f);
         // 이전 성장 저장·도구 호환용. 새 단일 능력치 트리에서는 사용하지 않는다.
         public float InkEvictionFadeBonusSeconds => 0f;
         public float InkEvictionDelaySeconds => 0f;
         /// 가는 붓끝 결실은 1.5m 이하의 짧고 정확한 획에 추가 절약을 준다.
-        public float ShortStrokeBudgetCostMultiplier => HasNode("I-KB") ? 0.90f : 1f;
+        public float ShortStrokeBudgetCostMultiplier =>
+            IsNodeApplied("I-KB") ? 0.85f : 1f;
         public float JumpChargeMultiplier =>
             Mathf.Max(0.5f, 1f - EffectTotal(PermanentGrowthType.JumpCharge));
         public int MaxHealthBonus => Mathf.Clamp(
-            Mathf.RoundToInt(EffectTotal(PermanentGrowthType.Vitality)),
+            Mathf.RoundToInt(EffectTotal(PermanentGrowthType.Vitality)) +
+            (IsNodeApplied("S-KB") ? 1 : 0),
             0,
             PlayerController.MaximumHealth - PlayerController.DefaultMaxHealth);
         /// 먹피 결실은 본체의 마지막 체력 1칸과 함께 모든 런타임 분신의
         /// 최대 체력을 기본 1칸에서 2칸으로 올린다.
-        public int InkCloneMaxHealthBonus => HasNode("S-KA") ? 1 : 0;
+        public int InkCloneMaxHealthBonus => IsNodeApplied("S-KA") ? 1 : 0;
         public float DamageGraceBonusSeconds =>
             EffectTotal(PermanentGrowthType.DamageGrace);
         public bool HasPostHitShield =>
@@ -76,7 +114,11 @@ namespace MukJump.Core
         public float JumpVerticalSpeedMultiplier =>
             Mathf.Sqrt(Mathf.Max(1f, JumpHeightMultiplier));
         /// 돋는 먹발 결실은 플레이어가 직접 그린 먹선에서만 점프 힘을 더한다.
-        public float DrawnPlatformLeapMultiplier => HasNode("J-KB") ? 1.06f : 1f;
+        public float DrawnPlatformLeapMultiplier =>
+            IsNodeApplied("J-KB") ? 1.10f : 1f;
+        /// 고른 박자 결실은 직접 그린 먹선에서만 다음 점프 준비를 더 짧게 한다.
+        public float DrawnPlatformChargeMultiplier =>
+            IsNodeApplied("J-KA") ? 0.75f : 1f;
         public float HitHorizontalRetention => Mathf.Clamp(
             0.82f - EffectTotal(PermanentGrowthType.HitHorizontalStability),
             0.64f,
@@ -91,8 +133,8 @@ namespace MukJump.Core
         public float DoubleJumpVerticalSpeedRatio => HasDoubleJump
             ? EffectTotal(PermanentGrowthType.DoubleJump)
             : 0f;
-        public bool HasShortStrokeDiscount => HasNode("I-KB");
-        public bool HasDrawnChargeRhythm => false;
+        public bool HasShortStrokeDiscount => IsNodeApplied("I-KB");
+        public bool HasDrawnChargeRhythm => IsNodeApplied("J-KA");
         public bool HasApexHang => false;
         public bool HasLastBreath => false;
         public bool HasStableHit => false;
@@ -102,20 +144,35 @@ namespace MukJump.Core
         // v3 코드 호환용. 도약 v4에서는 세 효과를 새 구조 패시브로 교체했다.
         public bool HasConsecutiveLandingRhythm => false;
         public bool HasShortPlatformKeystone => false;
-        /// 높은 먹발 결실은 마지막 생존자가 화면 하단에 몰릴 때 18초마다 한 번,
-        /// 위로 밀어 올리지 않고 현재 낙하 속도만 35% 줄인다.
-        public bool HasLastFallBrake => HasNode("J-KC");
+        /// 높은 먹발 결실은 마지막 생존자가 화면 하단에 몰릴 때 14초마다 한 번,
+        /// 위로 밀어 올리지 않고 현재 낙하 속도를 절반으로 줄인다.
+        public bool HasLastFallBrake => IsNodeApplied("J-KC");
 
         public bool HasNode(string nodeId) =>
             !string.IsNullOrEmpty(nodeId) && ownedNodeIds.Contains(nodeId);
+
+        public bool IsNodeApplied(string nodeId)
+        {
+            if (!HasNode(nodeId))
+                return false;
+            PermanentGrowthNodeDefinition node =
+                PermanentGrowthCatalog.GetNode(nodeId);
+            if (node == null)
+                return false;
+            PermanentGrowthPath path = PermanentGrowthCatalog.GetPath(node);
+            if (path == PermanentGrowthPath.None)
+                return true;
+            return string.Equals(
+                GetActiveKeystoneId(node.Branch),
+                PermanentGrowthCatalog.GetKeystoneId(node.Branch, path),
+                StringComparison.Ordinal);
+        }
 
         public bool IsKeystoneActive(string nodeId)
         {
             PermanentGrowthNodeDefinition node =
                 PermanentGrowthCatalog.GetNode(nodeId);
-            // 비기는 장비가 아니라 영구 성장의 마지막 열매다. 한 번 해금하면
-            // 다른 비기와 교체하지 않고 소유한 모든 비기가 판마다 함께 적용된다.
-            return node != null && node.IsKeystone && HasNode(node.Id);
+            return node != null && node.IsKeystone && IsNodeApplied(node.Id);
         }
 
         public string GetActiveKeystoneId(PermanentGrowthBranch branch) =>
@@ -131,7 +188,7 @@ namespace MukJump.Core
             for (int i = 0; i < nodes.Count; i++)
             {
                 PermanentGrowthNodeDefinition node = nodes[i];
-                if (node.EffectId != effectId || !HasNode(node.Id))
+                if (node.EffectId != effectId || !IsNodeApplied(node.Id))
                     continue;
                 total += node.EffectValue;
             }

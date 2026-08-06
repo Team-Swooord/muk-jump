@@ -598,9 +598,16 @@ namespace MukJump.Core
             data.wallet -= catalogNode.Cost;
             data.spent = data.ownedNodeIds.Count;
 
-            if (catalogNode.IsKeystone &&
-                string.IsNullOrEmpty(GetActiveKeystoneId(catalogNode.Branch)))
-                SetActiveKeystoneId(catalogNode.Branch, catalogNode.Id);
+            PermanentGrowthPath purchasedPath =
+                PermanentGrowthCatalog.GetPath(catalogNode);
+            if (purchasedPath != PermanentGrowthPath.None)
+            {
+                SetActiveKeystoneId(
+                    catalogNode.Branch,
+                    PermanentGrowthCatalog.GetKeystoneId(
+                        catalogNode.Branch,
+                        purchasedPath));
+            }
 
             if (!Save(snapshot))
                 return false;
@@ -618,8 +625,26 @@ namespace MukJump.Core
         {
             PermanentGrowthNodeDefinition node =
                 PermanentGrowthCatalog.GetNode(nodeId);
-            return node != null && node.IsKeystone && IsNodeUnlocked(node);
+            return node != null && node.IsKeystone &&
+                   IsNodeUnlocked(node) && IsNodePathActive(node);
         }
+
+        public static bool IsNodePathActive(
+            PermanentGrowthNodeDefinition node)
+        {
+            if (node == null)
+                return false;
+            PermanentGrowthPath path = PermanentGrowthCatalog.GetPath(node);
+            if (path == PermanentGrowthPath.None)
+                return true;
+            return string.Equals(
+                GetActiveKeystoneId(node.Branch),
+                PermanentGrowthCatalog.GetKeystoneId(node.Branch, path),
+                StringComparison.Ordinal);
+        }
+
+        public static bool IsNodePathActive(string nodeId) =>
+            IsNodePathActive(PermanentGrowthCatalog.GetNode(nodeId));
 
         public static string GetActiveKeystoneId(PermanentGrowthBranch branch)
         {
@@ -632,7 +657,8 @@ namespace MukJump.Core
             } ?? string.Empty;
         }
 
-        /// 구 저장·UI 호환용. 현재 규칙에서는 해금한 비기가 모두 자동 적용된다.
+        /// 선택한 비기 ID는 해당 계보에서 실제 적용할 A·B·C 줄기를 뜻한다.
+        /// 결실을 아직 사지 않았어도 그 줄기의 일반 노드를 하나 이상 소유하면 선택할 수 있다.
         public static bool TryEquipKeystone(string nodeId)
         {
             EnsureLoaded();
@@ -640,13 +666,62 @@ namespace MukJump.Core
                 return false;
             PermanentGrowthNodeDefinition node =
                 PermanentGrowthCatalog.GetNode(nodeId);
-            return node != null && node.IsKeystone && IsNodeUnlocked(node);
+            if (node == null || !node.IsKeystone ||
+                !OwnsAnyNodeInPath(
+                    node.Branch,
+                    PermanentGrowthCatalog.GetPath(node)))
+                return false;
+            if (string.Equals(
+                    GetActiveKeystoneId(node.Branch),
+                    node.Id,
+                    StringComparison.Ordinal))
+                return true;
+
+            MutationSnapshot snapshot = CaptureMutationSnapshot();
+            SetActiveKeystoneId(node.Branch, node.Id);
+            if (!Save(snapshot))
+                return false;
+            Changed?.Invoke();
+            return true;
         }
 
         public static bool ClearActiveKeystone(PermanentGrowthBranch branch)
         {
-            // 해금된 영구 패시브는 해제하거나 교체하지 않는다.
+            // 계보는 항상 한 줄기를 적용한다. 비활성 상태로 비우는 대신
+            // 다른 소유 줄기를 선택하거나 전체 노드 초기화를 사용한다.
             return false;
+        }
+
+        /// 해금 재화·누적 거리·보상 이력은 보존하고, 구매한 성장 노드만 환불한다.
+        /// 새 빌드를 고르는 명시적 사용자 동작에서만 호출한다.
+        public static bool TryResetPurchasedNodes()
+        {
+            EnsureLoaded();
+            if (writeBlocked)
+                return false;
+            int refund = data.ownedNodeIds?.Count ?? 0;
+            if (refund <= 0)
+                return true;
+
+            MutationSnapshot snapshot = CaptureMutationSnapshot();
+            data.ranks.Clear();
+            data.ownedNodeIds.Clear();
+            data.wallet = Mathf.Clamp(
+                data.wallet + refund,
+                0,
+                PermanentGrowthCatalog.TotalCost);
+            data.spent = 0;
+            data.survivalKeystoneId = string.Empty;
+            data.leapKeystoneId = string.Empty;
+            data.inkHandlingKeystoneId = string.Empty;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (debugCurrencyOverride >= 0)
+                debugCurrencyOverride += refund;
+#endif
+            if (!Save(snapshot))
+                return false;
+            Changed?.Invoke();
+            return true;
         }
 
         public static string GetNodeLockReason(PermanentGrowthNodeDefinition node)
@@ -1362,8 +1437,19 @@ namespace MukJump.Core
                 return true;
             PermanentGrowthNodeDefinition node =
                 PermanentGrowthCatalog.GetNode(nodeId);
-            return node != null && node.IsKeystone && node.Branch == branch &&
-                   owned.Contains(nodeId);
+            if (node == null || !node.IsKeystone || node.Branch != branch)
+                return false;
+            PermanentGrowthPath path = PermanentGrowthCatalog.GetPath(node);
+            foreach (string ownedId in owned)
+            {
+                PermanentGrowthNodeDefinition ownedNode =
+                    PermanentGrowthCatalog.GetNode(ownedId);
+                if (ownedNode != null &&
+                    ownedNode.Branch == branch &&
+                    PermanentGrowthCatalog.GetPath(ownedNode) == path)
+                    return true;
+            }
+            return false;
         }
 
         static bool HasTopLevelField(string json, string fieldName)
@@ -1745,25 +1831,59 @@ namespace MukJump.Core
             return node != null &&
                    node.IsKeystone &&
                    node.Branch == branch &&
-                   IsNodeUnlocked(node)
+                   OwnsAnyNodeInPath(
+                       branch,
+                       PermanentGrowthCatalog.GetPath(node))
                 ? node.Id
-                : string.Empty;
+                : InferOwnedPathKeystone(branch);
+        }
+
+        static string InferOwnedPathKeystone(PermanentGrowthBranch branch)
+        {
+            PermanentGrowthPath selectedPath = PermanentGrowthPath.None;
+            int selectedCount = 0;
+            for (PermanentGrowthPath path = PermanentGrowthPath.A;
+                 path <= PermanentGrowthPath.C;
+                 path++)
+            {
+                int count = CountOwnedNodesInPath(branch, path);
+                if (count <= selectedCount)
+                    continue;
+                selectedCount = count;
+                selectedPath = path;
+            }
+            return PermanentGrowthCatalog.GetKeystoneId(branch, selectedPath);
         }
 
         static void AutoEquipFirstOwnedKeystone(PermanentGrowthBranch branch)
         {
             if (!string.IsNullOrEmpty(GetActiveKeystoneId(branch)))
                 return;
-            IReadOnlyList<PermanentGrowthNodeDefinition> nodes =
-                PermanentGrowthCatalog.Nodes;
-            for (int i = 0; i < nodes.Count; i++)
+            SetActiveKeystoneId(branch, InferOwnedPathKeystone(branch));
+        }
+
+        static bool OwnsAnyNodeInPath(
+            PermanentGrowthBranch branch,
+            PermanentGrowthPath path) =>
+            CountOwnedNodesInPath(branch, path) > 0;
+
+        static int CountOwnedNodesInPath(
+            PermanentGrowthBranch branch,
+            PermanentGrowthPath path)
+        {
+            if (path == PermanentGrowthPath.None || data?.ownedNodeIds == null)
+                return 0;
+            int count = 0;
+            for (int i = 0; i < data.ownedNodeIds.Count; i++)
             {
-                PermanentGrowthNodeDefinition node = nodes[i];
-                if (node.Branch != branch || !node.IsKeystone || !IsNodeUnlocked(node))
-                    continue;
-                SetActiveKeystoneId(branch, node.Id);
-                return;
+                PermanentGrowthNodeDefinition ownedNode =
+                    PermanentGrowthCatalog.GetNode(data.ownedNodeIds[i]);
+                if (ownedNode != null &&
+                    ownedNode.Branch == branch &&
+                    PermanentGrowthCatalog.GetPath(ownedNode) == path)
+                    count++;
             }
+            return count;
         }
 
         static MutationSnapshot CaptureMutationSnapshot()
