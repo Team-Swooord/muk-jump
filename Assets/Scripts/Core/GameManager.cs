@@ -929,9 +929,13 @@ namespace MukJump.Core
             currentRunId = Guid.NewGuid().ToString("N");
             activeGameplaySeconds = 0f;
             lastActiveTimeSampleFrame = -1;
-            var player = HighestLivingPlayer;
             SetState(GameState.Playing);
-            player?.BeginFromLobby();
+            // 성장 스냅샷이 확정된 뒤 등록된 모든 개체의 체력을 새 최대치로 맞춘다.
+            // 정상 로비에는 본체 한 마리뿐이지만 재컴파일·호환 씬의 잔존 분신도 빠뜨리지 않는다.
+            GetLivingPlayersNonAlloc(swarmScratch);
+            for (int i = 0; i < swarmScratch.Count; i++)
+                swarmScratch[i]?.BeginFromLobby();
+            var player = HighestLivingPlayer;
             if (player != null)
                 ScoreManager.Instance?.ResetOrigin(player.transform.position.y);
             PointerInput.SuppressUntilRelease();

@@ -130,7 +130,9 @@ namespace MukJump.Drawing
         {
             // Play 중 스크립트 재컴파일 뒤에도 열린 씬의 구형 12m 값이 즉시 갱신된다.
             UpgradeInkCapacityTuning();
+            PermanentGrowthProfile.Changed -= HandlePermanentGrowthChanged;
             PermanentGrowthProfile.Changed += HandlePermanentGrowthChanged;
+            RecoverRuntimeReferences();
             TryBindGrowthController();
         }
 
@@ -214,6 +216,7 @@ namespace MukJump.Drawing
 
         void Update()
         {
+            RecoverRuntimeReferences();
             if (cam == null) return;
             TryBindGrowthController();
 
@@ -421,15 +424,24 @@ namespace MukJump.Drawing
         void TryBindGrowthController()
         {
             var next = RunGrowthController.Instance;
-            if (growthController == next) return;
-
-            UnbindGrowthController();
+            if (growthController != null && growthController != next)
+                growthController.RunReset -= HandleGrowthRunReset;
             growthController = next;
             if (growthController == null) return;
 
+            // 같은 컴포넌트 참조가 복원돼도 이벤트 구독은 사라질 수 있다.
+            growthController.RunReset -= HandleGrowthRunReset;
             growthController.RunReset += HandleGrowthRunReset;
             if (appliedInkCapacity <= 0f)
                 appliedInkCapacity = EffectiveInkCapacity;
+        }
+
+        void RecoverRuntimeReferences()
+        {
+            if (cam == null)
+                cam = Camera.main;
+            if (screenSideWalls == null && cam != null)
+                screenSideWalls = cam.GetComponent<Player.ScreenSideWalls>();
         }
 
         void UnbindGrowthController()

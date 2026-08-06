@@ -39,6 +39,12 @@ namespace MukJump.Core
         {
             Instance = this;
             BindManager();
+
+            // Play 중 스크립트 재컴파일 뒤에는 StateChanged 델리게이트와
+            // 비직렬화 스냅샷이 사라질 수 있다. 이미 진행 중인 판이라면
+            // 저장된 성장값만 다시 붙이고 공용 쿨다운은 리셋하지 않는다.
+            if (manager != null && manager.State == GameState.Playing)
+                PermanentSnapshot = PermanentGrowthProfile.CreateRunSnapshot();
         }
 
         void OnDisable()
@@ -265,13 +271,16 @@ namespace MukJump.Core
             var nextManager = GetComponent<GameManager>();
             if (nextManager == null)
                 nextManager = GameManager.Instance;
-            if (manager == nextManager)
-                return;
 
-            UnbindManager();
+            if (manager != null && manager != nextManager)
+                manager.StateChanged -= HandleStateChanged;
             manager = nextManager;
             if (manager != null)
+            {
+                // 같은 참조여도 도메인 리로드 뒤 델리게이트만 유실될 수 있다.
+                manager.StateChanged -= HandleStateChanged;
                 manager.StateChanged += HandleStateChanged;
+            }
         }
 
         void UnbindManager()

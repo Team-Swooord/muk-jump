@@ -113,23 +113,23 @@ namespace MukJump.Drawing
         readonly GradientAlphaKey[] outlineFadeAlphaKeys =
             new GradientAlphaKey[4];
         LineRenderer specialOutline;
-        Vector2[] originalPoints;
-        float age;
-        float lastEffectiveLifetime;
-        bool removalRequested;
-        bool runtimeDrawnPlatform;
-        float initialInkCost;
-        float retainedInkCost;
-        float evictionVisualFraction;
-        float evictionTargetFraction;
-        float evictionFadeDuration = 1.1f;
-        float evictionDelay;
-        float evictionRequestedAt = float.PositiveInfinity;
-        float naturalHoldDuration = DefaultNaturalHoldDuration;
-        float naturalAge;
-        bool naturalExpiryRequested;
-        RemovalCause removalCause;
-        int lastColliderCutoff = -1;
+        [SerializeField, HideInInspector] Vector2[] originalPoints;
+        [SerializeField, HideInInspector] float age;
+        [SerializeField, HideInInspector] float lastEffectiveLifetime;
+        [SerializeField, HideInInspector] bool removalRequested;
+        [SerializeField, HideInInspector] bool runtimeDrawnPlatform;
+        [SerializeField, HideInInspector] float initialInkCost;
+        [SerializeField, HideInInspector] float retainedInkCost;
+        [SerializeField, HideInInspector] float evictionVisualFraction;
+        [SerializeField, HideInInspector] float evictionTargetFraction;
+        [SerializeField, HideInInspector] float evictionFadeDuration = 1.1f;
+        [SerializeField, HideInInspector] float evictionDelay;
+        [SerializeField, HideInInspector] float evictionRequestedAt = float.PositiveInfinity;
+        [SerializeField, HideInInspector] float naturalHoldDuration = DefaultNaturalHoldDuration;
+        [SerializeField, HideInInspector] float naturalAge;
+        [SerializeField, HideInInspector] bool naturalExpiryRequested;
+        [SerializeField, HideInInspector] RemovalCause removalCause;
+        [SerializeField, HideInInspector] int lastColliderCutoff = -1;
 
         /// 스무딩 완료된 월드 좌표 점열로 발판을 생성한다 (런타임 드로잉 경로)
         public static PlatformCollider Spawn(
@@ -251,12 +251,96 @@ namespace MukJump.Drawing
 
         void Awake()
         {
-            Line = GetComponent<LineRenderer>();
-            edge = GetComponent<EdgeCollider2D>();
+            RecoverRuntimeComponents();
+        }
+
+        void OnEnable()
+        {
+            RecoverRuntimeComponents();
+            if (!Application.isPlaying || !runtimeDrawnPlatform || removalRequested)
+                return;
+
+            RegisterRuntimeDrawnPlatform(this);
+        }
+
+        void OnDisable()
+        {
+            active.Remove(this);
+            runtimeDrawn.Remove(this);
+        }
+
+        void RecoverRuntimeComponents()
+        {
+            Line ??= GetComponent<LineRenderer>();
+            edge ??= GetComponent<EdgeCollider2D>();
             fadeColorKeys[0] = new GradientColorKey(InkPalette.Ink, 0f);
             fadeColorKeys[1] = new GradientColorKey(InkPalette.Ink, 1f);
             outlineFadeColorKeys[0] = new GradientColorKey(InkPalette.Ink, 0f);
             outlineFadeColorKeys[1] = new GradientColorKey(InkPalette.Ink, 1f);
+
+            // 이 변경이 처음 적용되는 Play 세션은 이전 어셈블리에서 런타임 필드를
+            // 보존하지 못했을 수 있다. 전용 오브젝트 이름으로 기존 먹선을 한 번 복구한다.
+            if (Application.isPlaying && !runtimeDrawnPlatform &&
+                name == "InkPlatform" && lifetime <= 0f &&
+                !windCurrentPlatform && !growthSafetyPlatform)
+            {
+                runtimeDrawnPlatform = true;
+                naturalHoldDuration = DefaultNaturalHoldDuration;
+                evictionFadeDuration = Mathf.Max(0.15f, evictionFadeDuration);
+                evictionRequestedAt = float.PositiveInfinity;
+            }
+
+            if (runtimeDrawnPlatform &&
+                (originalPoints == null || originalPoints.Length < 2) &&
+                Line != null && Line.positionCount >= 2)
+            {
+                var positions = new Vector3[Line.positionCount];
+                Line.GetPositions(positions);
+                originalPoints = new Vector2[positions.Length];
+                for (int i = 0; i < positions.Length; i++)
+                    originalPoints[i] = positions[i];
+            }
+
+            if (runtimeDrawnPlatform && originalPoints != null &&
+                originalPoints.Length >= 2)
+            {
+                if (Length <= 0f)
+                    Length = BezierSmoother.PolylineLength(
+                        new List<Vector2>(originalPoints));
+                if (initialInkCost <= 0.0001f)
+                    initialInkCost = Mathf.Max(0.001f, Length);
+                if (retainedInkCost <= 0.0001f &&
+                    !naturalExpiryRequested && !removalRequested)
+                    retainedInkCost = initialInkCost;
+            }
+        }
+
+        static void RegisterRuntimeDrawnPlatform(PlatformCollider platform)
+        {
+            if (platform == null || platform.removalRequested)
+                return;
+            if (!runtimeDrawn.Contains(platform))
+                runtimeDrawn.Add(platform);
+            if (platform.retainedInkCost > 0.0001f && !active.Contains(platform))
+                active.Add(platform);
+
+            // 도메인 리로드 뒤 OnEnable 순서는 생성 순서와 다를 수 있다.
+            // 더 오래 화면에 있던 획부터 비워지도록 자연 경과 시간을 기준으로 복구한다.
+            runtimeDrawn.Sort(CompareOldestRuntimeStroke);
+            active.Sort(CompareOldestRuntimeStroke);
+        }
+
+        static int CompareOldestRuntimeStroke(
+            PlatformCollider left,
+            PlatformCollider right)
+        {
+            if (ReferenceEquals(left, right)) return 0;
+            if (left == null) return 1;
+            if (right == null) return -1;
+            int ageOrder = right.naturalAge.CompareTo(left.naturalAge);
+            return ageOrder != 0
+                ? ageOrder
+                : left.GetInstanceID().CompareTo(right.GetInstanceID());
         }
 
         void Start()

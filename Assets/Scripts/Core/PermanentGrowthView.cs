@@ -86,6 +86,9 @@ namespace MukJump.Core
         Text balanceText;
         Text distanceProgressText;
         Image distanceProgressFill;
+        Text survivalSummaryText;
+        Text leapSummaryText;
+        Text inkSummaryText;
         Text selectedActionBranchText;
         Text selectedActionNameText;
         Text selectedActionDescriptionText;
@@ -439,6 +442,41 @@ namespace MukJump.Core
                 32);
             BackButton.onClick.AddListener(HandleBackRequested);
 
+            // 세 큰 계보가 각각 세 갈래로 나뉜다는 구조를 화면 진입 즉시 읽도록
+            // 상단에 총 9개 성장 결과를 기본값→현재값 중심으로 고정 표시한다.
+            survivalSummaryText = CreateGrowthSummaryColumn(
+                "SurvivalSummary",
+                panel,
+                new Vector2(-345f, 650f));
+            leapSummaryText = CreateGrowthSummaryColumn(
+                "LeapSummary",
+                panel,
+                new Vector2(0f, 650f));
+            inkSummaryText = CreateGrowthSummaryColumn(
+                "InkSummary",
+                panel,
+                new Vector2(345f, 650f));
+
+        }
+
+        static Text CreateGrowthSummaryColumn(
+            string objectName,
+            Transform parent,
+            Vector2 position)
+        {
+            Text text = CreateText(
+                objectName,
+                parent,
+                string.Empty,
+                27,
+                position,
+                new Vector2(310f, 164f),
+                InkPalette.TextDark,
+                FontStyle.Normal,
+                TextAnchor.UpperCenter);
+            text.supportRichText = true;
+            text.lineSpacing = 0.88f;
+            return text;
         }
 
         void BuildFullScreenInkWash(Transform parent)
@@ -1197,35 +1235,10 @@ namespace MukJump.Core
 
             PermanentGrowthNodeDefinition definition =
                 nodes[selectedSlot].NodeDefinition;
-            if (definition.IsKeystone &&
-                PermanentGrowthProfile.IsNodeUnlocked(definition))
+            if (PermanentGrowthProfile.IsNodeUnlocked(definition))
             {
-                if (PermanentGrowthProfile.IsKeystoneActive(definition.Id))
-                {
-                    pendingKeystoneId = string.Empty;
-                    PermanentGrowthProfile.ClearActiveKeystone(definition.Branch);
-                    LockKeystoneInput();
-                }
-                else
-                {
-                    string activeId = PermanentGrowthProfile.GetActiveKeystoneId(
-                        definition.Branch);
-                    if (!string.IsNullOrEmpty(activeId) &&
-                        !string.Equals(
-                            pendingKeystoneId,
-                            definition.Id,
-                            StringComparison.Ordinal))
-                    {
-                        pendingKeystoneId = definition.Id;
-                        LockKeystoneInput();
-                        Refresh();
-                        return;
-                    }
-
-                    pendingKeystoneId = string.Empty;
-                    PermanentGrowthProfile.TryEquipKeystone(definition.Id);
-                    LockKeystoneInput();
-                }
+                // 구매한 열매는 전부 영구 적용된다. 선택 팝업에서 교체·해제하지 않는다.
+                pendingKeystoneId = string.Empty;
                 Refresh();
                 return;
             }
@@ -1311,6 +1324,7 @@ namespace MukJump.Core
             if (balanceText == null) return;
             balanceText.text = PermanentGrowthProfile.Currency.ToString();
             RefreshDistanceProgress();
+            RefreshGrowthSummary();
 
             for (int i = 0; i < nodes.Count; i++)
             {
@@ -1431,6 +1445,95 @@ namespace MukJump.Core
                 9f);
         }
 
+        void RefreshGrowthSummary()
+        {
+            if (survivalSummaryText == null ||
+                leapSummaryText == null ||
+                inkSummaryText == null)
+                return;
+
+            PermanentGrowthRunSnapshot snapshot =
+                PermanentGrowthProfile.CreateRunSnapshot();
+            string survivalColor = ColorUtility.ToHtmlStringRGB(InkPalette.Red);
+            string leapColor = ColorUtility.ToHtmlStringRGB(InkPalette.WindPlatform);
+            string inkColor = ColorUtility.ToHtmlStringRGB(InkPalette.Gold);
+
+            int maxHealth = Mathf.Clamp(
+                Player.PlayerController.DefaultMaxHealth + snapshot.MaxHealthBonus,
+                Player.PlayerController.DefaultMaxHealth,
+                Player.PlayerController.MaximumHealth);
+            int stabilityNodes = CountUnlocked(
+                snapshot,
+                "S-B1", "S-B2", "S-B3");
+            int cloneNodes = CountUnlocked(
+                snapshot,
+                "S-C1", "S-C2", "S-C3");
+            survivalSummaryText.text =
+                SummaryTitle("생존", survivalColor) + "\n" +
+                SummaryLine("체력", "1 → " + maxHealth, survivalColor) + "\n" +
+                SummaryLine("피격 안정", stabilityNodes + " / 3", survivalColor) + "\n" +
+                SummaryLine("분신 유대", cloneNodes + " / 3", survivalColor);
+
+            float jumpChargeReduction =
+                (1f - snapshot.JumpChargeMultiplier) * 100f;
+            float jumpPowerIncrease =
+                (snapshot.JumpPowerMultiplier - 1f) * 100f;
+            float jumpHeightIncrease =
+                (snapshot.JumpHeightMultiplier - 1f) * 100f;
+            leapSummaryText.text =
+                SummaryTitle("도약", leapColor) + "\n" +
+                SummaryLine("준비", FormatDeltaPercent(jumpChargeReduction, "-"), leapColor) + "\n" +
+                SummaryLine("점프력", FormatDeltaPercent(jumpPowerIncrease, "+"), leapColor) + "\n" +
+                SummaryLine("높이", FormatDeltaPercent(jumpHeightIncrease, "+"), leapColor);
+
+            const float baseInkCapacity = Drawing.StrokeCapture.DefaultInkCapacity;
+            float currentInkCapacity = baseInkCapacity * snapshot.InkCapacityMultiplier;
+            float inkSaving = (1f - snapshot.InkBudgetCostMultiplier) * 100f;
+            float baseInkLifetime =
+                Drawing.PlatformCollider.DefaultNaturalHoldDuration + 1.1f;
+            float currentInkLifetime =
+                baseInkLifetime +
+                snapshot.InkEvictionFadeBonusSeconds +
+                snapshot.InkEvictionDelaySeconds;
+            inkSummaryText.text =
+                SummaryTitle("먹 운용", inkColor) + "\n" +
+                SummaryLine(
+                    "먹자리",
+                    $"{baseInkCapacity:0.#} → {currentInkCapacity:0.#}m",
+                    inkColor) + "\n" +
+                SummaryLine("절약", FormatDeltaPercent(inkSaving, "+"), inkColor) + "\n" +
+                SummaryLine(
+                    "지속",
+                    $"{baseInkLifetime:0.#} → {currentInkLifetime:0.#}초",
+                    inkColor);
+        }
+
+        static int CountUnlocked(
+            PermanentGrowthRunSnapshot snapshot,
+            params string[] nodeIds)
+        {
+            int count = 0;
+            for (int i = 0; i < nodeIds.Length; i++)
+                if (snapshot.HasNode(nodeIds[i]))
+                    count++;
+            return count;
+        }
+
+        static string SummaryTitle(string title, string htmlColor) =>
+            $"<color=#{htmlColor}><b>{title}</b></color>";
+
+        static string SummaryLine(
+            string label,
+            string value,
+            string htmlColor) =>
+            $"{label}  <color=#{htmlColor}><b>{value}</b></color>";
+
+        static string FormatPercent(float value) =>
+            value < 0.005f ? "0%" : value.ToString("0.#") + "%";
+
+        static string FormatDeltaPercent(float value, string prefix) =>
+            value < 0.005f ? "0%" : prefix + FormatPercent(value);
+
         static string FormatDistance(long meters)
         {
             long safeMeters = Math.Max(0L, meters);
@@ -1491,18 +1594,6 @@ namespace MukJump.Core
                 PermanentGrowthProfile.IsNodeUnlocked(definition);
             bool activeKeystone = definition.IsKeystone &&
                 PermanentGrowthProfile.IsKeystoneActive(definition.Id);
-            string activeKeystoneId = definition.IsKeystone
-                ? PermanentGrowthProfile.GetActiveKeystoneId(definition.Branch)
-                : string.Empty;
-            bool replacingKeystone = definition.IsKeystone &&
-                unlocked &&
-                !activeKeystone &&
-                !string.IsNullOrEmpty(activeKeystoneId);
-            bool replacementPending = replacingKeystone &&
-                string.Equals(
-                    pendingKeystoneId,
-                    definition.Id,
-                    StringComparison.Ordinal);
             bool requirementsMet =
                 PermanentGrowthProfile.MeetsNodeRequirements(definition);
             int cost = definition.Cost;
@@ -1532,15 +1623,7 @@ namespace MukJump.Core
             if (purchaseButtonText != null)
             {
                 purchaseButtonText.text = unlocked
-                    ? definition.IsKeystone
-                        ? activeKeystone
-                            ? "장착 해제"
-                            : replacementPending
-                                ? "교체 확인"
-                                : replacingKeystone
-                                    ? "교체하기"
-                                    : "장착하기"
-                        : "적용 중"
+                    ? "적용 중"
                     : requirementsMet
                         ? hasEnoughCurrency
                             ? "강화하기"
@@ -1549,9 +1632,7 @@ namespace MukJump.Core
             }
             PurchaseButton.interactable =
                 !purchaseUiLocked &&
-                (unlocked
-                    ? definition.IsKeystone
-                    : requirementsMet && hasEnoughCurrency);
+                !unlocked && requirementsMet && hasEnoughCurrency;
         }
 
         void SetNodePopupVisible(bool visible)

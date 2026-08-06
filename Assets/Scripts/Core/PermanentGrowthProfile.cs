@@ -612,12 +612,7 @@ namespace MukJump.Core
         {
             PermanentGrowthNodeDefinition node =
                 PermanentGrowthCatalog.GetNode(nodeId);
-            return node != null &&
-                   node.IsKeystone &&
-                   string.Equals(
-                       GetActiveKeystoneId(node.Branch),
-                       node.Id,
-                       StringComparison.Ordinal);
+            return node != null && node.IsKeystone && IsNodeUnlocked(node);
         }
 
         public static string GetActiveKeystoneId(PermanentGrowthBranch branch)
@@ -631,7 +626,7 @@ namespace MukJump.Core
             } ?? string.Empty;
         }
 
-        /// 로비에서만 쓰는 무료 비기 장착. 한 계보에는 최대 하나만 저장한다.
+        /// 구 저장·UI 호환용. 현재 규칙에서는 해금한 비기가 모두 자동 적용된다.
         public static bool TryEquipKeystone(string nodeId)
         {
             EnsureLoaded();
@@ -639,32 +634,13 @@ namespace MukJump.Core
                 return false;
             PermanentGrowthNodeDefinition node =
                 PermanentGrowthCatalog.GetNode(nodeId);
-            if (node == null || !node.IsKeystone || !IsNodeUnlocked(node))
-                return false;
-            if (IsKeystoneActive(node.Id))
-                return true;
-
-            MutationSnapshot snapshot = CaptureMutationSnapshot();
-            SetActiveKeystoneId(node.Branch, node.Id);
-            if (!Save(snapshot))
-                return false;
-            Changed?.Invoke();
-            return true;
+            return node != null && node.IsKeystone && IsNodeUnlocked(node);
         }
 
         public static bool ClearActiveKeystone(PermanentGrowthBranch branch)
         {
-            EnsureLoaded();
-            if (writeBlocked)
-                return false;
-            if (string.IsNullOrEmpty(GetActiveKeystoneId(branch)))
-                return false;
-            MutationSnapshot snapshot = CaptureMutationSnapshot();
-            SetActiveKeystoneId(branch, string.Empty);
-            if (!Save(snapshot))
-                return false;
-            Changed?.Invoke();
-            return true;
+            // 해금된 영구 패시브는 해제하거나 교체하지 않는다.
+            return false;
         }
 
         public static string GetNodeLockReason(PermanentGrowthNodeDefinition node)

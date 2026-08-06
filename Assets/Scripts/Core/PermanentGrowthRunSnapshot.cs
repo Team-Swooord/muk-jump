@@ -5,8 +5,8 @@ using MukJump.Player;
 
 namespace MukJump.Core
 {
-    /// 판 시작 순간의 영구 성장 소유·비기 장착 상태.
-    /// 로비에서 장착을 바꿔도 이미 시작한 판의 규칙은 변하지 않는다.
+    /// 판 시작 순간의 영구 성장 소유 상태. 구 장착 ID는 저장 호환용으로만 받으며,
+    /// 해금한 일반 노드와 비기를 모두 같은 판 스냅샷에서 적용한다.
     public sealed class PermanentGrowthRunSnapshot
     {
         readonly HashSet<string> ownedNodeIds;
@@ -98,10 +98,9 @@ namespace MukJump.Core
         {
             PermanentGrowthNodeDefinition node =
                 PermanentGrowthCatalog.GetNode(nodeId);
-            return node != null &&
-                   node.IsKeystone &&
-                   activeKeystones.TryGetValue(node.Branch, out string active) &&
-                   string.Equals(active, node.Id, StringComparison.Ordinal);
+            // 비기는 장비가 아니라 영구 성장의 마지막 열매다. 한 번 해금하면
+            // 다른 비기와 교체하지 않고 소유한 모든 비기가 판마다 함께 적용된다.
+            return node != null && node.IsKeystone && HasNode(node.Id);
         }
 
         public string GetActiveKeystoneId(PermanentGrowthBranch branch) =>
@@ -118,8 +117,6 @@ namespace MukJump.Core
             {
                 PermanentGrowthNodeDefinition node = nodes[i];
                 if (node.EffectId != effectId || !HasNode(node.Id))
-                    continue;
-                if (node.IsKeystone && !IsKeystoneActive(node.Id))
                     continue;
                 total += node.EffectValue;
             }

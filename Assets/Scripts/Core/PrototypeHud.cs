@@ -132,7 +132,7 @@ namespace MukJump.Core
             float w = gaugeTrackWidth;
             float h = w * (inkGaugeFill.height / (float)inkGaugeFill.width);
             float iconSize = inkBrushIcon != null ? h * 1.0f : 0f;
-            float overlap = iconSize * 0.65f;     // 붓이 획의 끝을 그리고 있는 것처럼 깊게 겹침
+            float overlap = iconSize * 0.08f;     // 회복 직후의 짧은 먹색도 붓 뒤에 가려지지 않게 한다
             float totalW = w + iconSize - overlap;
             if (totalW > maximumGaugeWidth)
             {
@@ -155,10 +155,10 @@ namespace MukJump.Core
 
             if (baseRatio > 0f)
             {
-                // 왼쪽부터 잔량 비율만큼만 가로로 잘라 그린다 (UV도 같은 비율로 잘라 왜곡 방지)
-                // 먹이 줄어들 때 왼쪽부터 비워지고 붓이 있는 오른쪽 방향으로 잔량이 남는다.
-                float remainingX = x + w * (1f - baseRatio);
-                var clipped = new Rect(remainingX, y, w * baseRatio, h);
+                // 먹이 돌아오는 순간부터 두꺼운 붓자국 쪽에 색이 나타나도록 오른쪽부터 채운다.
+                // Rect와 UV를 같은 비율로 잘라 회복 중에도 원본 붓결을 늘이지 않는다.
+                float fillX = x + w * (1f - baseRatio);
+                var clipped = new Rect(fillX, y, w * baseRatio, h);
                 GUI.DrawTextureWithTexCoords(clipped, inkGaugeFill,
                     new Rect(1f - baseRatio, 0f, baseRatio, 1f));
             }
