@@ -11,6 +11,9 @@ namespace MukJump.Core
         const float BrushIconSizeRatio = 0.14f;
         const float BrushOverlapRatio = 0.32f;
         const float FallbackGaugeHeightRatio = 0.05f;
+        const float EmptyGaugeGuideAlpha = 0.12f;
+        const float GaugeConsumeFadeSeconds = 0.42f;
+        const float GaugeRecoverFadeSeconds = 0.22f;
 
         [Header("먹 게이지 이미지 (붓 획 모양) — 미할당 시 단색 막대로 폴백")]
         [Tooltip("붓 획 실루엣, 채워진 상태 (왼쪽 가늘게 → 오른쪽 두껍게)")]
@@ -23,6 +26,8 @@ namespace MukJump.Core
         StrokeCapture strokeCapture;
         Texture2D goldenGaugeFill;
         bool ownsGoldenGaugeFill;
+        float displayedInkAlpha = 1f;
+        bool displayedInkAlphaInitialized;
 
         void OnEnable()
         {
@@ -32,6 +37,31 @@ namespace MukJump.Core
         void Start()
         {
             EnsureRuntimeReferences();
+            InitializeDisplayedInkAlpha();
+        }
+
+        void Update()
+        {
+            if (strokeCapture == null)
+                EnsureRuntimeReferences();
+            if (strokeCapture == null)
+                return;
+
+            float target = Mathf.Clamp01(strokeCapture.InkRemaining01);
+            if (!displayedInkAlphaInitialized)
+            {
+                displayedInkAlpha = target;
+                displayedInkAlphaInitialized = true;
+                return;
+            }
+
+            float seconds = target < displayedInkAlpha
+                ? GaugeConsumeFadeSeconds
+                : GaugeRecoverFadeSeconds;
+            displayedInkAlpha = Mathf.MoveTowards(
+                displayedInkAlpha,
+                target,
+                Time.unscaledDeltaTime / Mathf.Max(0.01f, seconds));
         }
 
         void OnDestroy()
@@ -67,7 +97,9 @@ namespace MukJump.Core
             // 화면 하단 먹 게이지: 화면에 더 남길 수 있는 먹자리
             if (strokeCapture != null)
                 DrawInkGauge(
-                    strokeCapture.InkRemaining01,
+                    displayedInkAlphaInitialized
+                        ? displayedInkAlpha
+                        : strokeCapture.InkRemaining01,
                     strokeCapture.InkCapacityRatio);
         }
 
@@ -75,6 +107,15 @@ namespace MukJump.Core
         {
             if (strokeCapture == null)
                 strokeCapture = FindFirstObjectByType<StrokeCapture>();
+        }
+
+        void InitializeDisplayedInkAlpha()
+        {
+            if (strokeCapture == null)
+                return;
+
+            displayedInkAlpha = Mathf.Clamp01(strokeCapture.InkRemaining01);
+            displayedInkAlphaInitialized = true;
         }
 
         Texture2D EnsureGoldenGaugeFill()
@@ -121,7 +162,11 @@ namespace MukJump.Core
                     by,
                     bw,
                     bh);
-                DrawRect(back, InkPalette.Paper2);
+                // 비어 있어도 총 용량의 위치만 옅은 먹색으로 남긴다. 한지색 트랙을
+                // 깔면 먹을 쓸수록 검정→흰색으로 바뀌어 농도 UI로 읽히지 않는다.
+                Color guideColor = InkPalette.Ink;
+                guideColor.a = EmptyGaugeGuideAlpha;
+                DrawRect(back, guideColor);
                 Color fillColor = golden ? InkPalette.Gold : InkPalette.Ink;
                 fillColor.a *= fillAlpha;
                 DrawRect(back, fillColor);
@@ -155,7 +200,13 @@ namespace MukJump.Core
             float y = centerY - h / 2;
 
             var area = new Rect(x, y, w, h);
-            GUI.DrawTexture(area, inkGaugeTrack, ScaleMode.StretchToFill);
+            // 트랙도 채움과 같은 먹색으로 고정한다. 전체 용량 실루엣은 항상 같은
+            // 폭으로 남고, 실제 잔량만 0~100% 불투명도로 겹쳐진다.
+            DrawTextureWithTint(
+                area,
+                inkGaugeTrack,
+                InkPalette.Ink,
+                EmptyGaugeGuideAlpha);
 
             if (fillAlpha > 0f)
             {
@@ -165,7 +216,7 @@ namespace MukJump.Core
                     ? EnsureGoldenGaugeFill()
                     : inkGaugeFill;
                 if (fillTexture != null)
-                    DrawTextureWithAlpha(area, fillTexture, fillAlpha);
+                    DrawTextureWithTint(area, fillTexture, Color.white, fillAlpha);
             }
             if (inkBrushIcon != null)
             {
@@ -237,18 +288,19 @@ namespace MukJump.Core
             GUI.color = prev;
         }
 
-        static void DrawTextureWithAlpha(
+        static void DrawTextureWithTint(
             Rect rect,
             Texture2D texture,
+            Color tint,
             float alpha)
         {
             if (texture == null) return;
             Color previous = GUI.color;
             GUI.color = new Color(
-                previous.r,
-                previous.g,
-                previous.b,
-                previous.a * Mathf.Clamp01(alpha));
+                tint.r,
+                tint.g,
+                tint.b,
+                tint.a * Mathf.Clamp01(alpha));
             GUI.DrawTexture(rect, texture, ScaleMode.StretchToFill);
             GUI.color = previous;
         }
