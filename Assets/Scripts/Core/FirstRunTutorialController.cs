@@ -242,7 +242,7 @@ namespace MukJump.Core
                 skipArmed = true;
                 skipArmedUntil = Time.unscaledTime +
                                  SkipConfirmationSeconds;
-                skipLabel.text = "한 번 더 눌러 건너뛰기";
+                skipLabel.text = "다시 눌러 확인";
                 return;
             }
 
@@ -389,31 +389,21 @@ namespace MukJump.Core
             paper.type = Image.Type.Simple;
             paper.raycastTarget = true;
 
-            CreateText(
-                "Header",
-                panel,
-                "첫 여정 안내",
-                InkUiStyle.CaptionSize,
-                new Vector2(-235f, 515f),
-                new Vector2(280f, 58f),
-                TextAnchor.MiddleLeft,
-                false);
             progressText = CreateText(
                 "Progress",
                 panel,
                 "1 / 5",
                 InkUiStyle.CaptionSize,
-                new Vector2(275f, 515f),
-                new Vector2(170f, 58f),
-                TextAnchor.MiddleRight,
+                new Vector2(0f, 440f),
+                new Vector2(180f, 58f),
+                TextAnchor.MiddleCenter,
                 false);
-            CreateDivider(panel, "HeaderDivider", 465f, 680f);
 
             Image iconPaper = CreateImage(
                 "TopicIconPaper",
                 panel,
-                new Vector2(0f, 300f),
-                new Vector2(320f, 300f),
+                new Vector2(0f, 265f),
+                new Vector2(280f, 260f),
                 new Color(
                     InkPalette.Paper2.r,
                     InkPalette.Paper2.g,
@@ -423,8 +413,8 @@ namespace MukJump.Core
             topicIcon = CreateImage(
                 "TopicIcon",
                 panel,
-                new Vector2(0f, 300f),
-                new Vector2(230f, 230f),
+                new Vector2(0f, 265f),
+                new Vector2(200f, 200f),
                 Color.white);
             topicIcon.preserveAspect = true;
             titleText = CreateText(
@@ -432,8 +422,8 @@ namespace MukJump.Core
                 panel,
                 string.Empty,
                 InkUiStyle.CardTitleSize,
-                new Vector2(0f, 100f),
-                new Vector2(680f, 80f),
+                new Vector2(0f, 95f),
+                new Vector2(700f, 72f),
                 TextAnchor.MiddleCenter,
                 true);
             descriptionText = CreateText(
@@ -441,18 +431,18 @@ namespace MukJump.Core
                 panel,
                 string.Empty,
                 InkUiStyle.BodySize,
-                new Vector2(0f, -100f),
-                new Vector2(680f, 280f),
-                TextAnchor.MiddleLeft,
+                new Vector2(0f, -65f),
+                new Vector2(700f, 230f),
+                TextAnchor.MiddleCenter,
                 false);
-            descriptionText.lineSpacing = 1.18f;
+            descriptionText.lineSpacing = 1.12f;
             CreateText(
                 "PauseHint",
                 panel,
-                "안내를 마치면 먹방울과 월드가 움직이기 시작해요",
+                "안내 후 게임이 시작돼요",
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, -275f),
-                new Vector2(680f, 54f),
+                new Vector2(0f, -220f),
+                new Vector2(700f, 46f),
                 TextAnchor.MiddleCenter,
                 false);
 
@@ -460,7 +450,7 @@ namespace MukJump.Core
                 "PreviousButton",
                 panel,
                 "이전",
-                new Vector2(-190f, -380f),
+                new Vector2(-190f, -305f),
                 new Vector2(300f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.ActionButtonLabelSize);
             previousButton.onClick.AddListener(PreviousStep);
@@ -468,7 +458,7 @@ namespace MukJump.Core
                 "NextButton",
                 panel,
                 "다음",
-                new Vector2(190f, -380f),
+                new Vector2(190f, -305f),
                 new Vector2(320f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.ActionButtonLabelSize);
             nextLabel = nextButton.transform
@@ -479,8 +469,8 @@ namespace MukJump.Core
                 "SkipButton",
                 panel,
                 "건너뛰기",
-                new Vector2(0f, -520f),
-                new Vector2(300f, InkUiStyle.MinimumTapHeight),
+                new Vector2(0f, -425f),
+                new Vector2(340f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.ActionButtonLabelSize);
             skipLabel = skipButton.transform
                 .Find("Label")?.GetComponent<Text>();

@@ -634,6 +634,9 @@ namespace MukJump.EditorTests
             AssertOptionButton(tutorialPage, "NextButton", usesActionBrush: true);
             AssertQuietOptionText(
                 tutorialPage.Find("TutorialDescription")?.GetComponent<Text>());
+            Assert.That(
+                tutorialPage.Find("TutorialDescription")?.GetComponent<Text>()?.alignment,
+                Is.EqualTo(TextAnchor.MiddleCenter));
             RectTransform tutorialDescription = tutorialPage
                 .Find("TutorialDescription") as RectTransform;
             Assert.That(tutorialDescription, Is.Not.Null);

@@ -139,13 +139,46 @@ public sealed class ItemSpawnerBalanceTests
         Assert.That(fullGrowthWidth / baseWidth,
             Is.EqualTo(2.5f).Within(0.001f));
 
-        // 실제 1024×256 게이지와 붓 아이콘의 겹침까지 포함해도 4% 여백 안에 들어가
-        // DrawInkGauge의 후속 fit 단계가 2.5배 폭을 다시 줄이지 않아야 합니다.
-        float gaugeHeight = fullGrowthWidth * 0.25f;
-        float iconSize = gaugeHeight;
-        float clusterWidth = fullGrowthWidth + iconSize - iconSize * 0.65f;
+        // 용량은 길이만 바꾸고, 두께와 붓은 기기 폭에 고정한다. 최대 성장에서도
+        // 붓 겹침을 포함한 전체가 좌우 4% 여백 안에 들어가야 합니다.
+        MethodInfo heightMethod = typeof(PrototypeHud).GetMethod(
+            "CalculateGaugeVisualHeight",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        MethodInfo iconMethod = typeof(PrototypeHud).GetMethod(
+            "CalculateBrushIconSize",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.That(heightMethod, Is.Not.Null);
+        Assert.That(iconMethod, Is.Not.Null);
+        float gaugeHeight = (float)heightMethod.Invoke(
+            null, new object[] { safeWidth });
+        float iconSize = (float)iconMethod.Invoke(
+            null, new object[] { safeWidth });
+        float clusterWidth = fullGrowthWidth + iconSize - iconSize * 0.32f;
+        Assert.That(gaugeHeight, Is.EqualTo(120f).Within(0.001f));
+        Assert.That(iconSize, Is.EqualTo(140f).Within(0.001f));
         Assert.That(clusterWidth,
             Is.LessThanOrEqualTo(safeWidth - horizontalMargin * 2f));
+    }
+
+    [Test]
+    public void InkGaugeBrushKeepsReadableRealDeviceSize()
+    {
+        MethodInfo heightMethod = typeof(PrototypeHud).GetMethod(
+            "CalculateGaugeVisualHeight",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        MethodInfo iconMethod = typeof(PrototypeHud).GetMethod(
+            "CalculateBrushIconSize",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        const float iphoneWidth = 1179f;
+        float gaugeHeight = (float)heightMethod.Invoke(
+            null, new object[] { iphoneWidth });
+        float iconSize = (float)iconMethod.Invoke(
+            null, new object[] { iphoneWidth });
+
+        Assert.That(gaugeHeight, Is.EqualTo(141.48f).Within(0.01f));
+        Assert.That(iconSize, Is.EqualTo(165.06f).Within(0.01f));
+        Assert.That(iconSize, Is.GreaterThan(gaugeHeight));
     }
 
     [Test]

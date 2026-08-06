@@ -41,8 +41,8 @@ namespace MukJump.EditorTests
                 Assert.That(page.Description, Is.Not.Empty);
                 Assert.That(
                     page.Description.Split('\n').Length,
-                    Is.GreaterThanOrEqualTo(4),
-                    $"{page.Topic} 설명은 핵심 규칙을 충분히 담아야 합니다.");
+                    Is.InRange(3, 4),
+                    $"{page.Topic} 설명은 3~4개의 짧은 문장이어야 합니다.");
                 Assert.That(page.SpriteResourcePath, Is.Not.Empty);
             }
 
@@ -51,11 +51,11 @@ namespace MukJump.EditorTests
                 Assert.That(topics, Does.Contain(topic));
 
             GameplayTutorialPage drawingPage = GameplayTutorialCatalog.Get(0);
-            Assert.That(drawingPage.Description, Does.Contain("곧 마르고"));
-            Assert.That(drawingPage.Description, Does.Contain("오래된 선부터"));
+            Assert.That(drawingPage.Description, Does.Contain("시간이 지나면"));
+            Assert.That(drawingPage.Description, Does.Contain("오래된 것부터"));
             GameplayTutorialPage obstaclePage = GameplayTutorialCatalog.Get(2);
-            Assert.That(obstaclePage.Description, Does.Contain("기본 체력은 1칸"));
-            Assert.That(obstaclePage.Description, Does.Contain("최대 5칸"));
+            Assert.That(obstaclePage.Description, Does.Contain("체력 한 칸"));
+            Assert.That(obstaclePage.Description, Does.Contain("위에서 내려와요"));
             Assert.That(LobbySettingsProfile.CurrentGameplayTutorialVersion,
                 Is.EqualTo(5));
         }
@@ -123,8 +123,15 @@ namespace MukJump.EditorTests
             Assert.That(title.resizeTextForBestFit, Is.False);
             Assert.That(description.resizeTextForBestFit, Is.False);
             Assert.That(description.fontStyle, Is.EqualTo(FontStyle.Normal));
+            Assert.That(description.alignment,
+                Is.EqualTo(TextAnchor.MiddleCenter));
             Assert.That(description.rectTransform.sizeDelta,
-                Is.EqualTo(new Vector2(680f, 280f)));
+                Is.EqualTo(new Vector2(700f, 230f)));
+            Canvas.ForceUpdateCanvases();
+            Assert.That(description.preferredHeight,
+                Is.LessThanOrEqualTo(
+                    description.rectTransform.rect.height + 0.01f),
+                "설명은 자동 축소 없이 정해진 영역 안에 모두 보여야 합니다.");
             Assert.That(skip, Is.Not.Null);
             Assert.That(previous, Is.Not.Null);
             Assert.That(next, Is.Not.Null);
@@ -133,11 +140,12 @@ namespace MukJump.EditorTests
                 Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight));
             var panelChildren = new[]
             {
-                panel.Find("Header") as RectTransform,
+                panel.Find("Progress") as RectTransform,
+                panel.Find("TopicIconPaper") as RectTransform,
                 panel.Find("TopicIcon") as RectTransform,
                 panel.Find("Title") as RectTransform,
                 panel.Find("Description") as RectTransform,
-                panel.Find("Progress") as RectTransform,
+                panel.Find("PauseHint") as RectTransform,
                 panel.Find("PreviousButton") as RectTransform,
                 panel.Find("NextButton") as RectTransform,
                 skip,
@@ -147,6 +155,24 @@ namespace MukJump.EditorTests
                     IsInsidePanel(panelChildren[i]),
                     Is.True,
                     $"튜토리얼 카드 요소 {i}가 패널 경계를 벗어났습니다.");
+            for (int i = 0; i < panelChildren.Length; i++)
+                Assert.That(
+                    IsInsideVisualPanel(panelChildren[i]),
+                    Is.True,
+                    $"튜토리얼 카드 요소 {i}가 장식 테두리와 겹쳤습니다.");
+
+            Text progress = panel.Find("Progress")?.GetComponent<Text>();
+            Assert.That(progress, Is.Not.Null);
+            Assert.That(progress.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+            Assert.That(progress.rectTransform.anchoredPosition.x,
+                Is.Zero.Within(0.001f));
+
+            skip.GetComponent<Button>().onClick.Invoke();
+            Text skipLabel = skip.Find("Label")?.GetComponent<Text>();
+            Canvas.ForceUpdateCanvases();
+            Assert.That(skipLabel?.text, Is.EqualTo("다시 눌러 확인"));
+            Assert.That(skipLabel?.preferredWidth,
+                Is.LessThanOrEqualTo(skipLabel.rectTransform.rect.width + 0.01f));
 
             Assert.That(
                 FirstRunTutorialController.IsPointerOverControls(
@@ -225,6 +251,26 @@ namespace MukJump.EditorTests
             {
                 Vector2 local = parent.InverseTransformPoint(childCorners[i]);
                 if (!parent.rect.Contains(local))
+                    return false;
+            }
+            return true;
+        }
+
+        static bool IsInsideVisualPanel(RectTransform child)
+        {
+            if (child == null || child.parent is not RectTransform parent)
+                return false;
+            Rect inner = parent.rect;
+            inner.xMin += 48f;
+            inner.xMax -= 48f;
+            inner.yMin += 100f;
+            inner.yMax -= 110f;
+            Vector3[] childCorners = new Vector3[4];
+            child.GetWorldCorners(childCorners);
+            for (int i = 0; i < childCorners.Length; i++)
+            {
+                Vector2 local = parent.InverseTransformPoint(childCorners[i]);
+                if (!inner.Contains(local))
                     return false;
             }
             return true;

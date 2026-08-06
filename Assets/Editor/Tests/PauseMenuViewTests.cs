@@ -209,6 +209,7 @@ public class PauseMenuViewTests
         var title = content.Find("Title")?.GetComponent<Text>();
         var currentValue = content.Find("CurrentResult/Value")?.GetComponent<Text>();
         var bestValue = content.Find("BestResult/Value")?.GetComponent<Text>();
+        var bestCaption = content.Find("BestResult/Caption")?.GetComponent<Text>();
         var growthReward =
             content.Find("PermanentGrowthReward/Value")?.GetComponent<Text>();
         var growthJourney = content
@@ -223,6 +224,7 @@ public class PauseMenuViewTests
         Assert.IsNotNull(title);
         Assert.IsNotNull(currentValue);
         Assert.IsNotNull(bestValue);
+        Assert.IsNotNull(bestCaption);
         Assert.IsNotNull(growthReward);
         Assert.IsNotNull(growthJourney);
         Assert.IsNotNull(growthJourneyTrack);
@@ -237,6 +239,12 @@ public class PauseMenuViewTests
         Assert.That(
             currentValue.alignment,
             Is.EqualTo(TextAnchor.MiddleLeft));
+        Assert.That(
+            bestCaption.alignment,
+            Is.EqualTo(TextAnchor.MiddleLeft));
+        Assert.That(
+            bestValue.alignment,
+            Is.EqualTo(TextAnchor.MiddleRight));
         Assert.Greater(currentValue.fontSize, bestValue.fontSize * 2);
         Assert.Greater(bestValue.fontSize, currentCaption.fontSize);
         Assert.GreaterOrEqual(hint.fontSize, 32);
@@ -266,6 +274,24 @@ public class PauseMenuViewTests
         RectTransform growthJourneyRect = growthJourney.rectTransform;
         Assert.That(growthCaption, Is.Not.Null);
         Assert.That(growthValue, Is.Not.Null);
+        Assert.That(
+            LeftEdge(title.rectTransform),
+            Is.EqualTo(LeftEdge(currentCaption.rectTransform)).Within(0.001f));
+        Assert.That(
+            LeftEdge(title.rectTransform),
+            Is.EqualTo(LeftEdge(currentValue.rectTransform)).Within(0.001f));
+        Assert.That(
+            LeftEdge(title.rectTransform),
+            Is.EqualTo(LeftEdge(bestCaption.rectTransform)).Within(0.001f));
+        Assert.That(
+            RightEdge(title.rectTransform),
+            Is.EqualTo(RightEdge(bestValue.rectTransform)).Within(0.001f));
+        Assert.That(
+            LeftEdge(title.rectTransform),
+            Is.EqualTo(LeftEdge(growthCaption)).Within(0.001f));
+        Assert.That(
+            RightEdge(title.rectTransform),
+            Is.EqualTo(RightEdge(growthValue)).Within(0.001f));
         float journeyTop = growthJourneyRect.anchoredPosition.y +
                            growthJourneyRect.sizeDelta.y * 0.5f;
         Assert.GreaterOrEqual(
@@ -791,6 +817,16 @@ public class PauseMenuViewTests
     {
         return (T)target.GetType().GetField(fieldName,
             BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(target);
+    }
+
+    static float LeftEdge(RectTransform rect)
+    {
+        return rect.anchoredPosition.x - rect.sizeDelta.x * 0.5f;
+    }
+
+    static float RightEdge(RectTransform rect)
+    {
+        return rect.anchoredPosition.x + rect.sizeDelta.x * 0.5f;
     }
 
     static int CountDirectChildren(Transform parent, string childName)

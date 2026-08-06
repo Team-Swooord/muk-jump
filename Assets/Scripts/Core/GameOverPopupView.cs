@@ -228,8 +228,8 @@ namespace MukJump.Core
                 contentRect,
                 "도전 끝",
                 58,
-                new Vector2(-30f, 270f),
-                new Vector2(520f, 78f),
+                new Vector2(0f, 270f),
+                new Vector2(560f, 78f),
                 InkPalette.TextDark,
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
@@ -245,8 +245,8 @@ namespace MukJump.Core
                 currentResult,
                 "이번 고도",
                 32,
-                new Vector2(-95f, 80f),
-                new Vector2(420f, 52f),
+                new Vector2(0f, 80f),
+                new Vector2(560f, 52f),
                 ReadableMutedColor(),
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
@@ -255,8 +255,8 @@ namespace MukJump.Core
                 currentResult,
                 "0 m",
                 112,
-                new Vector2(20f, -15f),
-                new Vector2(600f, 150f),
+                new Vector2(0f, -15f),
+                new Vector2(560f, 150f),
                 InkPalette.TextDark,
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
@@ -280,19 +280,21 @@ namespace MukJump.Core
                 bestResult,
                 "최고 고도",
                 30,
-                new Vector2(-150f, 0f),
+                new Vector2(-155f, 0f),
                 new Vector2(250f, 58f),
                 ReadableMutedColor(),
-                FontStyle.Normal);
+                FontStyle.Normal,
+                TextAnchor.MiddleLeft);
             bestText = CreateText(
                 "Value",
                 bestResult,
                 "0 m",
                 48,
-                new Vector2(125f, 0f),
+                new Vector2(115f, 0f),
                 new Vector2(330f, 72f),
                 InkPalette.TextDark,
-                FontStyle.Normal);
+                FontStyle.Normal,
+                TextAnchor.MiddleRight);
             AddSoftWeight(bestText, InkPalette.Ink, 0.16f);
 
             BuildNewBestSeal(contentRect, blob);
@@ -307,7 +309,7 @@ namespace MukJump.Core
                 growthResult,
                 "영구 성장 · 먹빛",
                 27,
-                new Vector2(-182f, 22f),
+                new Vector2(-165f, 22f),
                 new Vector2(230f, 42f),
                 ReadableMutedColor(),
                 FontStyle.Normal,
@@ -317,7 +319,7 @@ namespace MukJump.Core
                 growthResult,
                 "+0 · 보유 0",
                 26,
-                new Vector2(112f, 22f),
+                new Vector2(95f, 22f),
                 new Vector2(370f, 44f),
                 InkPalette.TextDark,
                 FontStyle.Normal,

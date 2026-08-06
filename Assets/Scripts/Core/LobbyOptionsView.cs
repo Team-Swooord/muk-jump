@@ -366,7 +366,7 @@ namespace MukJump.Core
                 InkUiStyle.BodySize,
                 new Vector2(0f, -200f), new Vector2(680f, 300f),
                 InkPalette.TextDark,
-                TextAnchor.MiddleLeft);
+                TextAnchor.MiddleCenter);
             tutorialDescription.lineSpacing = 1.2f;
 
             tutorialPreviousButton = CreateBrushButton(

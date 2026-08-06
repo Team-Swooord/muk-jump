@@ -7,6 +7,10 @@ namespace MukJump.Core
     public class PrototypeHud : MonoBehaviour
     {
         const float BaseGaugeWidthRatio = 0.33f;
+        const float GaugeVisualHeightRatio = 0.12f;
+        const float BrushIconSizeRatio = 0.14f;
+        const float BrushOverlapRatio = 0.32f;
+        const float FallbackGaugeHeightRatio = 0.05f;
 
         [Header("먹 게이지 이미지 (붓 획 모양) — 미할당 시 단색 막대로 폴백")]
         [Tooltip("붓 획 실루엣, 채워진 상태 (왼쪽 가늘게 → 오른쪽 두껍게)")]
@@ -113,7 +117,7 @@ namespace MukJump.Core
             if (inkGaugeFill == null || inkGaugeTrack == null)
             {
                 float bw = gaugeTrackWidth;
-                float bh = Screen.height * 0.014f;
+                float bh = CalculateFallbackGaugeHeight(safeGui.width);
                 float by = safeGui.yMax - bottomMargin - bh;
                 var back = new Rect(
                     safeGui.center.x - bw * 0.5f,
@@ -131,9 +135,13 @@ namespace MukJump.Core
             // 기본부터 충분히 길게 보이고, 성장·날씨·붓 여유가 실제 최대 폭에도 반영된다.
             // 반복 아이템으로 최대치가 커져도 트랙은 화면 밖으로 나가지 않는다.
             float w = gaugeTrackWidth;
-            float h = w * (inkGaugeFill.height / (float)inkGaugeFill.width);
-            float iconSize = inkBrushIcon != null ? h * 1.0f : 0f;
-            float overlap = iconSize * 0.08f;     // 회복 직후의 짧은 먹색도 붓 뒤에 가려지지 않게 한다
+            // 용량 성장은 트랙 길이만 바꾼다. 두께와 붓 크기는 기기 폭을 기준으로
+            // 고정해 19.5:9 실기기에서도 시뮬레이터와 같은 시각 비율을 유지한다.
+            float h = CalculateGaugeVisualHeight(safeGui.width);
+            float iconSize = inkBrushIcon != null
+                ? CalculateBrushIconSize(safeGui.width)
+                : 0f;
+            float overlap = iconSize * BrushOverlapRatio;
             float totalW = w + iconSize - overlap;
             if (totalW > maximumGaugeWidth)
             {
@@ -187,6 +195,21 @@ namespace MukJump.Core
             return Mathf.Min(
                 maximumWidth,
                 width * BaseGaugeWidthRatio * representedCapacity);
+        }
+
+        static float CalculateGaugeVisualHeight(float safeWidth)
+        {
+            return Mathf.Max(1f, safeWidth) * GaugeVisualHeightRatio;
+        }
+
+        static float CalculateBrushIconSize(float safeWidth)
+        {
+            return Mathf.Max(1f, safeWidth) * BrushIconSizeRatio;
+        }
+
+        static float CalculateFallbackGaugeHeight(float safeWidth)
+        {
+            return Mathf.Max(1f, safeWidth) * FallbackGaugeHeightRatio;
         }
 
         static void DrawReserveGauge(Rect area, float reserveRatio)
