@@ -12,6 +12,8 @@ namespace MukJump.EditorTests
     /// 영구 성장 스냅샷이 실제 피해·자동 점프·발판 방어 규칙까지 이어지는지 검증한다.
     public sealed class PermanentGrowthGameplayTests
     {
+        const float ExpectedLastBreathReviveHeight = 50f;
+
         readonly List<Object> cleanup = new();
         MemoryPermanentGrowthStore store;
 
@@ -116,6 +118,17 @@ namespace MukJump.EditorTests
             Assert.That(invulnerableUntil - Time.time,
                 Is.EqualTo(0.8f).Within(0.04f));
             Assert.That(player.HasShield, Is.False);
+            Assert.That(player.IsInkDropBoosted, Is.True);
+            float expectedReviveSpeed = Mathf.Sqrt(
+                2f * Mathf.Abs(Physics2D.gravity.y * player.Body.gravityScale) *
+                ExpectedLastBreathReviveHeight);
+            Assert.That(player.Body.linearVelocity.y,
+                Is.EqualTo(expectedReviveSpeed).Within(0.001f));
+
+            SetField(player, "inkDropHasRisen", true);
+            player.Body.linearVelocity = Vector2.zero;
+            Invoke(player, "FixedUpdate");
+            Assert.That(player.IsInkDropBoosted, Is.False);
 
             ExpireDamageGrace(player);
             Assert.That(player.TakeHit(), Is.True);
@@ -177,10 +190,25 @@ namespace MukJump.EditorTests
             SeedGrowth(new[] { "S-KB" }, survivalKeystone: "S-KB");
             CreatePlayingManager(out _);
             var player = CreatePlayer("PermanentLastBreathFall");
+            var cameraObject = Track(new GameObject("PermanentLastBreathCamera"));
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.transform.position = new Vector3(0f, 10f, -10f);
+            camera.orthographicSize = 5f;
+            SetField(player, "cam", camera);
+            SetField(player, "camHalfHeight", camera.orthographicSize);
+            player.Body.position = new Vector2(1.25f, -20f);
 
             Invoke(player, "HandleFallBelowView");
             Assert.That(player.IsDead, Is.False);
             Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.Body.position.y,
+                Is.EqualTo(5.8f).Within(0.001f));
+            Assert.That(player.IsInkDropBoosted, Is.True);
+            float expectedReviveSpeed = Mathf.Sqrt(
+                2f * Mathf.Abs(Physics2D.gravity.y * player.Body.gravityScale) *
+                ExpectedLastBreathReviveHeight);
+            Assert.That(player.Body.linearVelocity.y,
+                Is.EqualTo(expectedReviveSpeed).Within(0.001f));
 
             Invoke(player, "HandleFallBelowView");
             Assert.That(player.IsDead, Is.True,

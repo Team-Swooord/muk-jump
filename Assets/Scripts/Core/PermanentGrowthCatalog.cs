@@ -266,7 +266,7 @@ namespace MukJump.Core
             new(
                 PermanentGrowthBranch.Survival,
                 "생존",
-                "본체 체력·피격 여유·피격 안정·분신 성장·본체 부활·먹떼 결실",
+                "본체 체력·피격 여유·피격 안정·분신 성장·본체 부활과 50m 상승·먹떼 결실",
                 0),
             new(
                 PermanentGrowthBranch.InkHandling,
@@ -517,7 +517,7 @@ namespace MukJump.Core
                 P("I-C3"), 4, "ink", 350f, 200f);
 
             // 생존 — 본체 최대 체력·피격 여유·피격 안정 세 줄을 사용한다.
-            // 각 결실은 분신 체력, 본체 1회 부활, 분신 아이템 생성 수를 맡는다.
+            // 각 결실은 분신 체력, 본체 1회 부활과 50m 상승, 분신 아이템 생성 수를 맡는다.
             // 공용 뿌리 S00은 가운데 피격 여유 줄의 첫 단계다.
             Add(nodes, "S00", "숨 고르기의 씨", "피격 직후 다시 맞지 않는 시간을 늘립니다.",
                 "피격 뒤 무적 +0.04초", "survival.grace.seed",
@@ -568,8 +568,8 @@ namespace MukJump.Core
                 PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
                 P("S-B2"), 0, "", -950f, 0f);
-            Add(nodes, "S-KB", "숨 고르기 결실", "본체 먹방울이가 쓰러질 때 한 판에 한 번 체력 1칸으로 부활합니다.",
-                "본체 1회 부활 · 체력 1", "survival.last_breath.keystone",
+            Add(nodes, "S-KB", "숨 고르기 결실", "본체 먹방울이가 쓰러질 때 한 판에 한 번 체력 1칸으로 부활해 먹물 연출과 함께 50m를 솟습니다.",
+                "본체 1회 부활 · 체력 1 · 50m 상승", "survival.last_breath.keystone",
                 PermanentGrowthType.LastBreath, 1f, "판당 부활",
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,

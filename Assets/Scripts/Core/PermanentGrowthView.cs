@@ -1869,7 +1869,7 @@ namespace MukJump.Core
             return keystoneId switch
             {
                 "S-KA" => "분신 체력 +1",
-                "S-KB" => "본체 1회 부활",
+                "S-KB" => "부활 + 50m 상승",
                 "S-KC" => "분신 생성 +1",
                 "J-KA" => "점프 종료 방어막",
                 "J-KB" => "벽 매달림",

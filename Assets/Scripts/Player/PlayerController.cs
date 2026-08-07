@@ -17,6 +17,8 @@ namespace MukJump.Player
         const float StrongSideWallBounceMaxVertical = 6.2f;
         const float StrongSideWallRiseGrace = 0.28f;
         const float SideWallSeparationDistance = 0.18f;
+        public const float LastBreathReviveHeight = 50f;
+        const float LastBreathInvulnerabilityDuration = 0.8f;
 
         [Tooltip("캐릭터가 카메라 하단 가장자리보다 이만큼 내려가면 추락 피해 처리")]
         [SerializeField] float deathEdgeMargin = 0.3f;
@@ -314,7 +316,8 @@ namespace MukJump.Player
 
         /// 화면 아래 추락은 개체별 피해로 처리한다. 방어막과 개발용 무적은 체력을
         /// 보존하며, 체력이 남은 먹방울은 안전선으로 옮긴 뒤 즉시 다시 튀어 오른다.
-        /// 숨 고르기 결실을 장착한 본체는 추락에서도 판당 한 번 체력 1로 부활한다.
+        /// 숨 고르기 결실을 장착한 본체는 추락에서도 판당 한 번 체력 1로 부활해
+        /// 화면 안쪽에서 먹물 연출과 함께 50m를 솟는다.
         void HandleFallBelowView()
         {
             var manager = GameManager.Instance;
@@ -338,14 +341,7 @@ namespace MukJump.Player
                 if (RunGrowthController.Instance != null &&
                     RunGrowthController.Instance.TryReviveOriginalPlayer(this))
                 {
-                    CurrentHealth = 1;
-                    HealthChanged?.Invoke(CurrentHealth, MaxHealth);
-                    damageInvulnerableUntil = Mathf.Max(
-                        damageInvulnerableUntil,
-                        Time.time + 0.8f);
-                    GetComponent<ItemEffectView>()?.PlayVitalityHit();
-                    RecoverFromFall();
-                    GameFeedbackController.Instance?.PlayDamageHit(transform.position);
+                    ApplyLastBreathRevive(recoverFromFall: true);
                     return;
                 }
                 Kill();
@@ -402,9 +398,7 @@ namespace MukJump.Player
                 RunGrowthController.Instance != null &&
                 RunGrowthController.Instance.TryReviveOriginalPlayer(this))
             {
-                CurrentHealth = 1;
-                HealthChanged?.Invoke(CurrentHealth, MaxHealth);
-                ApplyObstacleHitRecovery(0.8f, true, false);
+                ApplyLastBreathRevive(recoverFromFall: false);
                 return true;
             }
 
@@ -595,6 +589,28 @@ namespace MukJump.Player
             ShieldConsumed?.Invoke();
             GameFeedbackController.Instance?.PlayShieldBreak(transform.position);
             return true;
+        }
+
+        /// 숨 고르기 결실의 장애물·추락 공용 부활 처리. 추락은 먼저 화면 안쪽
+        /// 안전선으로 옮기고, 점프 아이템과 같은 검증된 50m 물리 상승과 공유 VFX 풀을
+        /// 재사용한다. 점프 아이템 결실 방어막은 예약하지 않는다.
+        void ApplyLastBreathRevive(bool recoverFromFall)
+        {
+            CurrentHealth = 1;
+            HealthChanged?.Invoke(CurrentHealth, MaxHealth);
+            damageInvulnerableUntil = Mathf.Max(
+                damageInvulnerableUntil,
+                Time.time + LastBreathInvulnerabilityDuration);
+
+            if (recoverFromFall && cam != null && EnsureBody())
+            {
+                float safeY = cam.transform.position.y - camHalfHeight + 0.8f;
+                rb.position = new Vector2(rb.position.x, safeY);
+            }
+
+            inkDropEndShieldArmed = false;
+            LaunchInkDrop(LastBreathReviveHeight);
+            GetComponent<InkDropJumpVfx>()?.Play();
         }
 
         void RecoverFromFall()
