@@ -182,6 +182,9 @@ namespace MukJump.Core
                 gameObject.AddComponent<PauseMenuView>();
             if (GetComponent<RunGrowthController>() == null)
                 gameObject.AddComponent<RunGrowthController>();
+            if (DebugToolsAvailable &&
+                GetComponent<DebugShowcaseScenarioController>() == null)
+                gameObject.AddComponent<DebugShowcaseScenarioController>();
             if (GetComponent<PermanentGrowthView>() == null)
                 gameObject.AddComponent<PermanentGrowthView>();
             if (GetComponent<LobbyOptionsView>() == null)
@@ -1061,6 +1064,10 @@ namespace MukJump.Core
             activeGameplaySeconds = 0f;
             lastActiveTimeSampleFrame = -1;
             SetState(GameState.Playing);
+            var debugScenario = DebugToolsAvailable
+                ? GetComponent<DebugShowcaseScenarioController>()
+                : null;
+            debugScenario?.PrepareSelectedRun(this);
             // 성장 스냅샷이 확정된 뒤 등록된 모든 개체의 체력을 새 최대치로 맞춘다.
             // 정상 로비에는 본체 한 마리뿐이지만 재컴파일·호환 씬의 잔존 분신도 빠뜨리지 않는다.
             GetLivingPlayersNonAlloc(swarmScratch);
@@ -1069,6 +1076,7 @@ namespace MukJump.Core
             var player = HighestLivingPlayer;
             if (player != null)
                 ScoreManager.Instance?.ResetOrigin(player.transform.position.y);
+            debugScenario?.BeginPreparedRun();
             PointerInput.SuppressUntilRelease();
         }
 

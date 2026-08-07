@@ -208,9 +208,32 @@ namespace MukJump.Core
                 ResetRun();
         }
 
+        /// 옵션의 개발용 연출 시나리오가 사용자 저장을 수정하지 않고 이 판의
+        /// 성장 빌드만 교체할 때 사용한다. 정상 출시 빌드에서는 항상 거부한다.
+        public bool DebugApplyPermanentSnapshot(
+            PermanentGrowthRunSnapshot snapshot)
+        {
+            if (!GameManager.DebugToolsAvailable ||
+                snapshot == null ||
+                manager == null ||
+                manager.State != GameState.Playing)
+                return false;
+
+            PermanentSnapshot = snapshot;
+            ResetSharedRunState();
+            RunReset?.Invoke();
+            return true;
+        }
+
         void ResetRun()
         {
             PermanentSnapshot = PermanentGrowthProfile.CreateRunSnapshot();
+            ResetSharedRunState();
+            RunReset?.Invoke();
+        }
+
+        void ResetSharedRunState()
+        {
             LastBreathAvailable = PermanentSnapshot.HasLastBreath;
             stableHitReadyAt = float.NegativeInfinity;
             lastFallBrakeReadyAt = float.NegativeInfinity;
@@ -218,7 +241,6 @@ namespace MukJump.Core
             if (activeSafetyPlatform != null)
                 Destroy(activeSafetyPlatform.gameObject);
             activeSafetyPlatform = null;
-            RunReset?.Invoke();
         }
     }
 }

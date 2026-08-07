@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,6 +17,7 @@ namespace MukJump.Core
         CanvasGroup rootGroup;
         CanvasGroup optionsGroup;
         CanvasGroup tutorialGroup;
+        CanvasGroup debugScenarioGroup;
         RectTransform safeAreaRoot;
         RectTransform optionsPanel;
         Slider bgmSlider;
@@ -26,12 +28,15 @@ namespace MukJump.Core
         Text sfxToggleLabel;
         Text uidText;
         Text connectionStatus;
+        Text debugScenarioStatus;
+        Text debugScenarioSummary;
         Image tutorialImage;
         Text tutorialTitle;
         Text tutorialDescription;
         Text tutorialPage;
         Text tutorialNextLabel;
         Button tutorialPreviousButton;
+        readonly Button[] debugScenarioButtons = new Button[4];
         GameManager manager;
         Rect lastSafeArea;
         int lastScreenWidth;
@@ -43,6 +48,9 @@ namespace MukJump.Core
             rootGroup != null && rootGroup.blocksRaycasts;
         public bool IsTutorialOpen =>
             IsOpen && tutorialGroup != null && tutorialGroup.blocksRaycasts;
+        public bool IsDebugScenarioOpen =>
+            IsOpen && debugScenarioGroup != null &&
+            debugScenarioGroup.blocksRaycasts;
         public int TutorialPageCount => GameplayTutorialCatalog.Count;
         public int CurrentTutorialPage => currentTutorialPage;
         public string PlayerUidLabel => uidText != null ? uidText.text : string.Empty;
@@ -58,11 +66,13 @@ namespace MukJump.Core
             BuildIfNeeded();
             BindManager();
             LobbySettingsProfile.Changed += RefreshSettings;
+            DebugShowcaseScenarioProfile.Changed += RefreshDebugScenario;
         }
 
         void OnDisable()
         {
             LobbySettingsProfile.Changed -= RefreshSettings;
+            DebugShowcaseScenarioProfile.Changed -= RefreshDebugScenario;
             LobbySettingsProfile.Flush();
             UnbindManager();
             CloseImmediate();
@@ -200,6 +210,13 @@ namespace MukJump.Core
             BuildOptionsPage(optionsGroup.transform);
             tutorialGroup = CreatePageGroup("TutorialPage", optionsPanel);
             BuildTutorialPage(tutorialGroup.transform);
+            if (GameManager.DebugToolsAvailable)
+            {
+                debugScenarioGroup = CreatePageGroup(
+                    "DebugScenarioPage",
+                    optionsPanel);
+                BuildDebugScenarioPage(debugScenarioGroup.transform);
+            }
 
             ApplySafeArea();
             RefreshSettings();
@@ -305,16 +322,31 @@ namespace MukJump.Core
                 new Vector2(180f, -205f));
             guide.onClick.AddListener(() => ShowTutorialPage(0));
 
+            bool showDebugScenario = GameManager.DebugToolsAvailable;
+            if (showDebugScenario)
+            {
+                var debugScenario = CreateWideUtilityButton(
+                    "DebugScenarioButton",
+                    panel,
+                    "DEBUG · 연출 시나리오",
+                    "일반 플레이",
+                    new Vector2(0f, -335f),
+                    out debugScenarioStatus);
+                debugScenario.onClick.AddListener(ShowDebugScenarioPage);
+            }
+
             connectionStatus = CreateReadableText(
                 "ConnectionStatus", panel,
                 "설정은 이 기기에 저장됩니다",
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, -325f), new Vector2(700f, 56f),
+                new Vector2(0f, showDebugScenario ? -438f : -325f),
+                new Vector2(700f, 56f),
                 InkPalette.TextMuted);
 
             var close = CreateBrushButton(
                 "CloseButton", panel, "닫기",
-                new Vector2(0f, -450f), new Vector2(390f, 120f),
+                new Vector2(0f, showDebugScenario ? -550f : -450f),
+                new Vector2(390f, 120f),
                 InkUiStyle.CardTitleSize);
             close.onClick.AddListener(Close);
 
@@ -322,8 +354,90 @@ namespace MukJump.Core
                 "PrivacyCaption", panel,
                 "로컬 저장  ·  개인정보 수집 없음",
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, -555f), new Vector2(700f, 44f),
+                new Vector2(0f, showDebugScenario ? -655f : -555f),
+                new Vector2(700f, 44f),
                 InkPalette.TextMuted);
+        }
+
+        void BuildDebugScenarioPage(Transform panel)
+        {
+            var back = CreateBrushButton(
+                "DebugScenarioBack",
+                panel,
+                "옵션으로",
+                new Vector2(-250f, 640f),
+                new Vector2(280f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.ActionButtonLabelSize);
+            back.onClick.AddListener(ShowOptionsPage);
+
+            CreateReadableText(
+                "DebugScenarioTitle",
+                panel,
+                "연출 시나리오",
+                InkUiStyle.ScreenTitleSize,
+                new Vector2(0f, 535f),
+                new Vector2(520f, 82f),
+                InkPalette.TextDark,
+                TextAnchor.MiddleCenter,
+                strong: true);
+            CreateReadableText(
+                "DebugScenarioCaption",
+                panel,
+                "선택한 상황은 시작 버튼을 누른 다음 판부터 적용됩니다",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, 460f),
+                new Vector2(680f, 52f),
+                InkPalette.TextMuted,
+                TextAnchor.MiddleCenter);
+
+            debugScenarioSummary = CreateReadableText(
+                "DebugScenarioSummary",
+                panel,
+                string.Empty,
+                InkUiStyle.BodySize,
+                new Vector2(0f, 392f),
+                new Vector2(680f, 62f),
+                InkPalette.TextDark,
+                TextAnchor.MiddleCenter);
+
+            IReadOnlyList<DebugShowcaseScenarioDefinition> definitions =
+                DebugShowcaseScenarioProfile.Definitions;
+            float[] yPositions = { 275f, 110f, -55f, -220f };
+            for (int i = 0;
+                 i < definitions.Count && i < debugScenarioButtons.Length;
+                 i++)
+            {
+                DebugShowcaseScenarioDefinition definition = definitions[i];
+                Button button = CreateDebugScenarioCard(
+                    panel,
+                    definition,
+                    new Vector2(0f, yPositions[i]));
+                DebugShowcaseScenarioId selectedId = definition.Id;
+                button.onClick.AddListener(
+                    () => DebugShowcaseScenarioProfile.Select(selectedId));
+                debugScenarioButtons[i] = button;
+            }
+
+            var normal = CreatePaperButton(
+                "DebugScenarioNormal",
+                panel,
+                "일반 플레이로 초기화",
+                new Vector2(0f, -405f),
+                new Vector2(700f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.BodySize);
+            normal.onClick.AddListener(
+                () => DebugShowcaseScenarioProfile.Select(
+                    DebugShowcaseScenarioId.Normal));
+
+            var done = CreateBrushButton(
+                "DebugScenarioDone",
+                panel,
+                "선택 완료",
+                new Vector2(0f, -565f),
+                new Vector2(390f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.CardTitleSize);
+            done.onClick.AddListener(ShowOptionsPage);
+            RefreshDebugScenario();
         }
 
         void BuildTutorialPage(Transform panel)
@@ -473,6 +587,46 @@ namespace MukJump.Core
             suppressSliderCallbacks = false;
             uidText.text = LobbySettingsProfile.PlayerUid;
             RefreshAudioLabels();
+            RefreshDebugScenario();
+        }
+
+        void RefreshDebugScenario()
+        {
+            if (!GameManager.DebugToolsAvailable)
+                return;
+
+            DebugShowcaseScenarioDefinition selected =
+                DebugShowcaseScenarioProfile.SelectedDefinition;
+            string status = selected != null
+                ? selected.Title.Replace(" · ", " ")
+                : "일반 플레이";
+            if (debugScenarioStatus != null)
+                debugScenarioStatus.text = status;
+            if (debugScenarioSummary != null)
+            {
+                debugScenarioSummary.text = selected != null
+                    ? $"선택됨 · {selected.Summary}"
+                    : "선택됨 · 저장된 성장으로 0m부터 시작";
+            }
+
+            IReadOnlyList<DebugShowcaseScenarioDefinition> definitions =
+                DebugShowcaseScenarioProfile.Definitions;
+            for (int i = 0; i < debugScenarioButtons.Length; i++)
+            {
+                Button button = debugScenarioButtons[i];
+                if (button == null || i >= definitions.Count)
+                    continue;
+                bool isSelected = definitions[i].Id ==
+                                  DebugShowcaseScenarioProfile.SelectedId;
+                Image outline = button.GetComponent<Image>();
+                Image paper = button.transform.Find("Paper")?.GetComponent<Image>();
+                if (outline != null)
+                    outline.color = isSelected ? InkPalette.Red : InkPalette.Ink;
+                if (paper != null)
+                    paper.color = isSelected
+                        ? Color.Lerp(InkPalette.Paper2, InkPalette.Red, 0.10f)
+                        : InkPalette.Paper2;
+            }
         }
 
         void RefreshAudioLabels()
@@ -515,6 +669,18 @@ namespace MukJump.Core
         {
             SetPageVisible(optionsGroup, true);
             SetPageVisible(tutorialGroup, false);
+            SetPageVisible(debugScenarioGroup, false);
+            RefreshDebugScenario();
+        }
+
+        void ShowDebugScenarioPage()
+        {
+            if (!GameManager.DebugToolsAvailable || debugScenarioGroup == null)
+                return;
+            SetPageVisible(optionsGroup, false);
+            SetPageVisible(tutorialGroup, false);
+            SetPageVisible(debugScenarioGroup, true);
+            RefreshDebugScenario();
         }
 
         void ShowTutorialPage(int page)
@@ -528,6 +694,7 @@ namespace MukJump.Core
                 GameplayTutorialCatalog.Get(currentTutorialPage);
             SetPageVisible(optionsGroup, false);
             SetPageVisible(tutorialGroup, true);
+            SetPageVisible(debugScenarioGroup, false);
             tutorialTitle.text = pageData.Title;
             tutorialDescription.text = pageData.Description;
             tutorialImage.sprite = Resources.Load<Sprite>(
@@ -719,6 +886,81 @@ namespace MukJump.Core
                 "Status", paper, status, InkUiStyle.CaptionSize,
                 new Vector2(98f, 0f), new Vector2(130f, 72f),
                 InkPalette.TextMuted, TextAnchor.MiddleRight);
+            return button;
+        }
+
+        static Button CreateWideUtilityButton(
+            string objectName,
+            Transform parent,
+            string title,
+            string status,
+            Vector2 position,
+            out Text statusText)
+        {
+            var button = CreatePaperButton(
+                objectName,
+                parent,
+                string.Empty,
+                position,
+                new Vector2(700f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.BodySize);
+            Transform paper = button.transform.Find("Paper");
+            CreateReadableText(
+                "Title",
+                paper,
+                title,
+                InkUiStyle.BodySize,
+                new Vector2(-155f, 0f),
+                new Vector2(350f, 74f),
+                InkPalette.TextDark,
+                TextAnchor.MiddleLeft,
+                strong: true);
+            statusText = CreateReadableText(
+                "Status",
+                paper,
+                status,
+                InkUiStyle.CaptionSize,
+                new Vector2(210f, 0f),
+                new Vector2(240f, 74f),
+                InkPalette.TextMuted,
+                TextAnchor.MiddleRight);
+            return button;
+        }
+
+        static Button CreateDebugScenarioCard(
+            Transform parent,
+            DebugShowcaseScenarioDefinition definition,
+            Vector2 position)
+        {
+            var button = CreatePaperButton(
+                $"DebugScenario{(int)definition.Id}",
+                parent,
+                string.Empty,
+                position,
+                new Vector2(700f, 136f),
+                InkUiStyle.BodySize);
+            Transform paper = button.transform.Find("Paper");
+            CreateReadableText(
+                "Title",
+                paper,
+                definition.Title,
+                InkUiStyle.BodySize,
+                new Vector2(0f, 27f),
+                new Vector2(650f, 50f),
+                InkPalette.TextDark,
+                TextAnchor.MiddleCenter,
+                strong: true,
+                wrap: false);
+            CreateReadableText(
+                "Summary",
+                paper,
+                definition.Summary,
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, -29f),
+                new Vector2(650f, 42f),
+                InkPalette.TextMuted,
+                TextAnchor.MiddleCenter,
+                wrap: false);
             return button;
         }
 
