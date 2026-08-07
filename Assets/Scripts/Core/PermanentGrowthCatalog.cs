@@ -51,6 +51,11 @@ namespace MukJump.Core
         InkCloneItemExtraCount = 38,
         // 숨 고르기 최종 열매. 기존 enum 값은 저장 호환을 위해 재사용하지 않는다.
         PostHitShield = 39,
+        // 결실 v5. 기존 번호는 구 저장·테스트 호환을 위해 그대로 두고 새 효과만 붙인다.
+        InkCapacityDouble = 40,
+        GoldenBrushShield = 41,
+        InkDropEndShield = 42,
+        CloneMaxHealth = 43,
     }
 
     public enum PermanentGrowthBranch
@@ -261,7 +266,7 @@ namespace MukJump.Core
             new(
                 PermanentGrowthBranch.Survival,
                 "생존",
-                "본체 최대 체력·피격 여유·1회 방어막·피격 안정·먹떼 결실",
+                "본체 체력·피격 여유·피격 안정·분신 성장·본체 부활·먹떼 결실",
                 0),
             new(
                 PermanentGrowthBranch.InkHandling,
@@ -454,10 +459,10 @@ namespace MukJump.Core
                 0.375f, "최대 먹 용량", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-A2"), 0, "", -300f, -80f);
-            Add(nodes, "I-KA", "넓은 벼루 결실", "최대 먹 용량을 늘리고, 용량 안의 먹선이 선명하게 남는 시간을 1초 늘립니다.",
-                "최대 먹 +37.5% · 선명 유지 +1초", "ink.capacity.keystone",
-                PermanentGrowthType.InkCapacity, 0.375f, "최대 먹 용량",
-                PermanentGrowthValueKind.Percent, false,
+            Add(nodes, "I-KA", "넓은 벼루 결실", "현재까지 키운 최대 먹 게이지 용량을 두 배로 늘립니다.",
+                "최대 먹 게이지 용량 ×2", "ink.capacity.keystone",
+                PermanentGrowthType.InkCapacityDouble, 2f, "최대 먹 용량",
+                PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
                 P("I-A3"), 4, "ink", -300f, 230f);
 
@@ -479,10 +484,10 @@ namespace MukJump.Core
                 PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-B2"), 0, "", 0f, -20f);
-            Add(nodes, "I-KB", "가는 붓끝 결실", "획당 먹 소모를 줄이고, 1.5m 이하의 짧은 획은 먹을 15% 더 아껴 그립니다.",
-                "획당 먹 -2% · 짧은 획 추가 -15%", "ink.budget.keystone",
-                PermanentGrowthType.InkBudgetEfficiency, 0.02f, "먹 소모량",
-                PermanentGrowthValueKind.Percent, true,
+            Add(nodes, "I-KB", "가는 붓끝 결실", "황금 붓 아이템을 먹을 때 획득한 먹방울에게 1회용 방어막을 줍니다.",
+                "황금 붓 획득 시 방어막 1회", "ink.budget.keystone",
+                PermanentGrowthType.GoldenBrushShield, 1f, "1회 방어막",
+                PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
                 P("I-B3"), 4, "ink", 0f, 290f);
 
@@ -504,16 +509,15 @@ namespace MukJump.Core
                 PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Stat,
                 P("I-C2"), 0, "", 350f, -110f);
-            Add(nodes, "I-KC", "마르는 먹 결실", "먹선이 0.8초 일찍 마르기 시작해 먹 게이지를 더 빠르게 되돌립니다.",
-                "회복 +10% · 마름 시작 -0.8초", "ink.recovery.keystone",
+            Add(nodes, "I-KC", "마르는 먹 결실", "오래된 먹선이 사라질 때 먹 게이지가 더 빠르게 돌아옵니다.",
+                "먹 게이지 회복 속도 +10%", "ink.recovery.keystone",
                 PermanentGrowthType.InkRecovery, 0.10f, "회복 속도",
                 PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.InkHandling, PermanentGrowthNodeKind.Keystone,
                 P("I-C3"), 4, "ink", 350f, 200f);
 
             // 생존 — 본체 최대 체력·피격 여유·피격 안정 세 줄을 사용한다.
-            // 피격 여유의 마지막 열매는 피격 생존 방어막, 피격 안정의 마지막
-            // 열매는 먹분신 아이템 생성 상한 +1 패시브다.
+            // 각 결실은 분신 체력, 본체 1회 부활, 분신 아이템 생성 수를 맡는다.
             // 공용 뿌리 S00은 가운데 피격 여유 줄의 첫 단계다.
             Add(nodes, "S00", "숨 고르기의 씨", "피격 직후 다시 맞지 않는 시간을 늘립니다.",
                 "피격 뒤 무적 +0.04초", "survival.grace.seed",
@@ -539,9 +543,9 @@ namespace MukJump.Core
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
                 P("S-A2"), 0, "", -1320f, -60f);
-            Add(nodes, "S-KA", "먹피 결실", "본체 최대 체력을 한 칸 늘리고 모든 먹분신의 최대 체력도 한 칸 늘립니다.",
-                "본체 최대 체력 +1 · 분신 체력 +1", "survival.guard.keystone",
-                PermanentGrowthType.Vitality, 1f, "본체 최대 체력",
+            Add(nodes, "S-KA", "먹피 결실", "모든 먹분신의 최대 체력을 기본 1칸에서 2칸으로 늘립니다.",
+                "먹분신 최대 체력 +1", "survival.guard.keystone",
+                PermanentGrowthType.CloneMaxHealth, 1f, "먹분신 최대 체력",
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,
                 P("S-A3"), 4, "survival", -1320f, 250f);
@@ -564,9 +568,9 @@ namespace MukJump.Core
                 PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Stat,
                 P("S-B2"), 0, "", -950f, 0f);
-            Add(nodes, "S-KB", "숨 고르기 결실", "본체 최대 체력을 한 칸 늘리고, 장애물 피격 뒤 살아남으면 다음 피격을 한 번 막는 방어막을 만듭니다.",
-                "본체 체력 +1 · 피격 생존 시 방어막", "survival.post_hit_shield.keystone",
-                PermanentGrowthType.PostHitShield, 1f, "1회 방어막",
+            Add(nodes, "S-KB", "숨 고르기 결실", "본체 먹방울이가 쓰러질 때 한 판에 한 번 체력 1칸으로 부활합니다.",
+                "본체 1회 부활 · 체력 1", "survival.last_breath.keystone",
+                PermanentGrowthType.LastBreath, 1f, "판당 부활",
                 PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Survival, PermanentGrowthNodeKind.Keystone,
                 P("S-B3"), 4, "survival", -950f, 310f);
@@ -619,10 +623,10 @@ namespace MukJump.Core
                 0.015f, "준비시간", PermanentGrowthValueKind.Percent, true,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
                 P("J-A2"), 0, "", 600f, -200f, 4);
-            Add(nodes, "J-KA", "고른 박자 결실", "점프 준비를 줄이고, 직접 그린 먹선에서는 다음 도약을 25% 더 빨리 준비합니다.",
-                "준비 -1.5% · 그린 먹선 추가 -25%", "leap.rhythm.keystone",
-                PermanentGrowthType.JumpCharge, 0.015f, "준비시간",
-                PermanentGrowthValueKind.Percent, true,
+            Add(nodes, "J-KA", "고른 박자 결실", "점프 아이템의 상승이 끝나면 아이템을 먹은 먹방울에게 1회용 방어막을 줍니다.",
+                "점프 아이템 종료 시 방어막 1회", "leap.rhythm.keystone",
+                PermanentGrowthType.InkDropEndShield, 1f, "1회 방어막",
+                PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Keystone,
                 P("J-A3"), 4, "leap", 520f, 110f);
 
@@ -641,10 +645,10 @@ namespace MukJump.Core
                 0.01f, "점프 힘", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
                 P("J-B2"), 0, "", 770f, -180f, 3);
-            Add(nodes, "J-KB", "돋는 먹발 결실", "기본 점프 힘을 키우고, 직접 그린 먹선에서 뛰면 점프 힘을 10% 더 얻습니다.",
-                "점프 힘 +1% · 그린 먹선 추가 +10%", "leap.power.keystone",
-                PermanentGrowthType.JumpPower, 0.01f, "점프 힘",
-                PermanentGrowthValueKind.Percent, false,
+            Add(nodes, "J-KB", "돋는 먹발 결실", "하강 중 좌우 벽에 닿으면 잠시 붙고, 벽에서 안쪽으로 다시 점프할 수 있습니다.",
+                "벽 매달림 · 최대 1.2초", "leap.power.keystone",
+                PermanentGrowthType.WallCling, 1.2f, "벽 매달림",
+                PermanentGrowthValueKind.Seconds, false,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Keystone,
                 P("J-B3"), 4, "leap", 850f, 130f);
 
@@ -663,9 +667,9 @@ namespace MukJump.Core
                 0.0625f / 4f, "점프 높이", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
                 P("J-C2"), 0, "", 1040f, -200f, 3);
-            Add(nodes, "J-KC", "높은 먹발 결실", "점프 높이를 늘리고, 마지막 먹방울이 화면 하단에 몰리면 14초마다 한 번 낙하를 절반으로 늦춥니다.",
-                "점프 높이 +1.56% · 하단 낙하 1회 완화", "leap.height.keystone",
-                PermanentGrowthType.JumpHeight, 0.0625f / 4f, "점프 높이",
+            Add(nodes, "J-KC", "높은 먹발 결실", "일반 자동 점프의 정점에서 한 번 더 도약합니다. 먹떼가 12초 쿨다운을 함께 사용합니다.",
+                "2단점프 · 힘 40% · 공용 12초", "leap.height.keystone",
+                PermanentGrowthType.DoubleJump, 0.40f, "2단점프 힘",
                 PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Keystone,
                 P("J-C3"), 4, "leap", 1140f, 110f);

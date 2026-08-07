@@ -116,6 +116,7 @@ namespace MukJump.Player
         Camera cam;
         float camHalfHeight;
         bool inkDropHasRisen;
+        bool inkDropEndShieldArmed;
         float normalGravityScale;
         float damageInvulnerableUntil;
         float apexGravityUntil;
@@ -293,7 +294,14 @@ namespace MukJump.Player
                 if (rb.linearVelocity.y > 0.1f)
                     inkDropHasRisen = true;
                 else if (inkDropHasRisen)
+                {
                     IsInkDropBoosted = false;
+                    if (inkDropEndShieldArmed)
+                    {
+                        inkDropEndShieldArmed = false;
+                        TryGrantShield();
+                    }
+                }
             }
 
             if (cam != null && GameManager.Instance != null &&
@@ -306,7 +314,7 @@ namespace MukJump.Player
 
         /// 화면 아래 추락은 개체별 피해로 처리한다. 방어막과 개발용 무적은 체력을
         /// 보존하며, 체력이 남은 먹방울은 안전선으로 옮긴 뒤 즉시 다시 튀어 오른다.
-        /// 장애물 전용 마지막 생존 비기는 추락에는 적용하지 않는다.
+        /// 숨 고르기 결실을 장착한 본체는 추락에서도 판당 한 번 체력 1로 부활한다.
         void HandleFallBelowView()
         {
             var manager = GameManager.Instance;
@@ -327,6 +335,19 @@ namespace MukJump.Player
             HealthChanged?.Invoke(CurrentHealth, MaxHealth);
             if (CurrentHealth <= 0)
             {
+                if (RunGrowthController.Instance != null &&
+                    RunGrowthController.Instance.TryReviveOriginalPlayer(this))
+                {
+                    CurrentHealth = 1;
+                    HealthChanged?.Invoke(CurrentHealth, MaxHealth);
+                    damageInvulnerableUntil = Mathf.Max(
+                        damageInvulnerableUntil,
+                        Time.time + 0.8f);
+                    GetComponent<ItemEffectView>()?.PlayVitalityHit();
+                    RecoverFromFall();
+                    GameFeedbackController.Instance?.PlayDamageHit(transform.position);
+                    return;
+                }
                 Kill();
                 return;
             }
@@ -379,7 +400,7 @@ namespace MukJump.Player
             }
             if (CurrentHealth <= 1 &&
                 RunGrowthController.Instance != null &&
-                RunGrowthController.Instance.TrySurviveLethalObstacleHit(this))
+                RunGrowthController.Instance.TryReviveOriginalPlayer(this))
             {
                 CurrentHealth = 1;
                 HealthChanged?.Invoke(CurrentHealth, MaxHealth);
@@ -400,11 +421,6 @@ namespace MukJump.Player
                     EffectiveDamageHitGraceDuration,
                     true,
                     preserveMotion);
-                // 숨 고르기 결실은 체력이 실제로 줄고 살아남은 개체에게만
-                // 다음 피격 1회용 방어막을 준다. 방어막으로 막은 피격은 위에서
-                // 반환되므로 방어막을 무한 재생성하지 않는다.
-                if (ActivePermanentGrowth.HasPostHitShield)
-                    TryGrantShield();
             }
             return true;
         }
@@ -548,6 +564,15 @@ namespace MukJump.Player
                         Mathf.InverseLerp(25f, 50f, height)));
         }
 
+        /// 고른 박자 결실을 선택한 먹방울만 현재 점프 아이템 상승 종료 보상을 예약한다.
+        /// 풍맥처럼 같은 LaunchInkDrop 배관을 쓰는 다른 상승은 이 메서드를 호출하지 않는다.
+        public void ArmInkDropEndShield()
+        {
+            if (!IsDead && IsInkDropBoosted &&
+                ActivePermanentGrowth.HasInkDropEndShield)
+                inkDropEndShieldArmed = true;
+        }
+
         /// AutoJump가 만든 상승만 정점·낙하 영구 성장의 대상으로 표시한다.
         public void BeginAutomaticJumpFlight()
         {
@@ -557,6 +582,7 @@ namespace MukJump.Player
 
         void ResetHealth()
         {
+            inkDropEndShieldArmed = false;
             CurrentHealth = MaxHealth;
             HealthChanged?.Invoke(CurrentHealth, MaxHealth);
         }
@@ -593,6 +619,7 @@ namespace MukJump.Player
             IsDead = true;
             ClearWallCling(false);
             IsInkDropBoosted = false;
+            inkDropEndShieldArmed = false;
             IsGrounded = false;
             CurrentPlatform = null;
 

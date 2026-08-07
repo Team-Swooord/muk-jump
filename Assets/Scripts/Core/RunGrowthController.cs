@@ -52,20 +52,24 @@ namespace MukJump.Core
                 Instance = null;
         }
 
-        /// 체력이 소진될 장애물 피해를 한 판에 한 번 1체력으로 버틴다.
-        /// 추락은 PlayerController.Kill 경로에서 직접 처리하므로 이 패시브를 소비하지 않는다.
-        public bool TrySurviveLethalObstacleHit(PlayerController player)
+        /// 숨 고르기 결실. 본체 먹방울이만 한 판에 한 번 체력 1로 부활한다.
+        /// 장애물과 화면 하단 추락이 같은 사용권을 공유하며 분신은 소비할 수 없다.
+        public bool TryReviveOriginalPlayer(PlayerController player)
         {
             if (player == null || player.IsDead ||
+                player.IsRuntimeClone ||
                 !LastBreathAvailable ||
                 manager == null ||
-                manager.State != GameState.Playing ||
-                manager.LivingPlayerCount != 1)
+                manager.State != GameState.Playing)
                 return false;
 
             LastBreathAvailable = false;
             return true;
         }
+
+        /// 구 호출부 호환. 새 의미는 마지막 생존자가 아니라 본체 전용 1회 부활이다.
+        public bool TrySurviveLethalObstacleHit(PlayerController player) =>
+            TryReviveOriginalPlayer(player);
 
         /// 제거된 구 피격 보존 비기의 호환 경로. 현재 성장 스냅샷에서는 활성화되지 않는다.
         public bool TryPreserveHitMotion()

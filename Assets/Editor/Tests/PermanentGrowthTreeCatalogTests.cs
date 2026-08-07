@@ -142,8 +142,8 @@ namespace MukJump.EditorTests
                 AssertEffect($"I-B{rank}", PermanentGrowthType.InkBudgetEfficiency, 0.02f);
                 AssertEffect($"I-C{rank}", PermanentGrowthType.InkRecovery, 0.10f);
             }
-            AssertEffect("I-KA", PermanentGrowthType.InkCapacity, 0.375f);
-            AssertEffect("I-KB", PermanentGrowthType.InkBudgetEfficiency, 0.02f);
+            AssertEffect("I-KA", PermanentGrowthType.InkCapacityDouble, 2f);
+            AssertEffect("I-KB", PermanentGrowthType.GoldenBrushShield, 1f);
             AssertEffect("I-KC", PermanentGrowthType.InkRecovery, 0.10f);
 
             AssertEffect("S00", PermanentGrowthType.DamageGrace, 0.04f);
@@ -153,8 +153,8 @@ namespace MukJump.EditorTests
                 AssertEffect($"S-B{rank}", PermanentGrowthType.DamageGrace, 0.04f);
                 AssertEffect($"S-C{rank}", PermanentGrowthType.HitHorizontalStability, 0.06f);
             }
-            AssertEffect("S-KA", PermanentGrowthType.Vitality, 1f);
-            AssertEffect("S-KB", PermanentGrowthType.PostHitShield, 1f);
+            AssertEffect("S-KA", PermanentGrowthType.CloneMaxHealth, 1f);
+            AssertEffect("S-KB", PermanentGrowthType.LastBreath, 1f);
             AssertEffect("S-KC", PermanentGrowthType.InkCloneItemExtraCount, 1f);
 
             AssertEffect("J00", PermanentGrowthType.JumpPower, 0.01f);
@@ -164,32 +164,44 @@ namespace MukJump.EditorTests
                 AssertEffect($"J-B{rank}", PermanentGrowthType.JumpPower, 0.01f);
                 AssertEffect($"J-C{rank}", PermanentGrowthType.JumpHeight, 0.0625f / 4f);
             }
-            AssertEffect("J-KA", PermanentGrowthType.JumpCharge, 0.015f);
-            AssertEffect("J-KB", PermanentGrowthType.JumpPower, 0.01f);
-            AssertEffect("J-KC", PermanentGrowthType.JumpHeight, 0.0625f / 4f);
+            AssertEffect("J-KA", PermanentGrowthType.InkDropEndShield, 1f);
+            AssertEffect("J-KB", PermanentGrowthType.WallCling, 1.2f);
+            AssertEffect("J-KC", PermanentGrowthType.DoubleJump, 0.40f);
 
             Assert.That(EffectTotal(PermanentGrowthType.InkCapacity),
-                Is.EqualTo(1.50f).Within(0.000001f));
+                Is.EqualTo(1.125f).Within(0.000001f));
+            Assert.That(EffectTotal(PermanentGrowthType.InkCapacityDouble),
+                Is.EqualTo(2f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.InkBudgetEfficiency),
-                Is.EqualTo(0.10f).Within(0.000001f));
+                Is.EqualTo(0.08f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.InkRecovery),
                 Is.EqualTo(0.40f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.Vitality),
-                Is.EqualTo(4f).Within(0.000001f));
+                Is.EqualTo(3f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.DamageGrace),
                 Is.EqualTo(0.16f).Within(0.000001f));
-            Assert.That(EffectTotal(PermanentGrowthType.PostHitShield),
+            Assert.That(EffectTotal(PermanentGrowthType.LastBreath),
+                Is.EqualTo(1f).Within(0.000001f));
+            Assert.That(EffectTotal(PermanentGrowthType.CloneMaxHealth),
+                Is.EqualTo(1f).Within(0.000001f));
+            Assert.That(EffectTotal(PermanentGrowthType.GoldenBrushShield),
+                Is.EqualTo(1f).Within(0.000001f));
+            Assert.That(EffectTotal(PermanentGrowthType.InkDropEndShield),
                 Is.EqualTo(1f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.HitHorizontalStability),
                 Is.EqualTo(0.18f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.InkCloneItemExtraCount),
                 Is.EqualTo(1f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.JumpCharge),
-                Is.EqualTo(0.06f).Within(0.000001f));
+                Is.EqualTo(0.045f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.JumpPower),
-                Is.EqualTo(0.05f).Within(0.000001f));
+                Is.EqualTo(0.04f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.JumpHeight),
-                Is.EqualTo(0.0625f).Within(0.000001f));
+                Is.EqualTo(0.046875f).Within(0.000001f));
+            Assert.That(EffectTotal(PermanentGrowthType.WallCling),
+                Is.EqualTo(1.2f).Within(0.000001f));
+            Assert.That(EffectTotal(PermanentGrowthType.DoubleJump),
+                Is.EqualTo(0.40f).Within(0.000001f));
 
             Assert.That(PermanentGrowthCatalog.Nodes.Any(node =>
                 node.DisplayName == "낮은 흔들림"), Is.False);

@@ -211,7 +211,7 @@ namespace MukJump.EditorTests
         [Test]
         public void CharacterAnimatorUsesMatchingDamagePoseWithoutScalingRoot()
         {
-            ConfigureFiveHealthGrowth();
+            ConfigureFourHealthGrowth();
             var player = CreatePlayer("DamageAnimatorTarget");
             var animator = player.gameObject.AddComponent<CharacterAnimator>();
             var baseFrames = CreateFrames("base");
@@ -226,12 +226,12 @@ namespace MukJump.EditorTests
             float colliderRadius = player.GetComponent<CircleCollider2D>().radius;
             var renderer = player.GetComponent<SpriteRenderer>();
 
-            SetAutoProperty(player, "CurrentHealth", 4);
+            SetAutoProperty(player, "CurrentHealth", 3);
             Invoke(animator, "LateUpdate");
             Assert.That(renderer.sprite, Is.SameAs(firstHitFrames[4]),
                 "정점 상태는 피격 1단계 시트의 같은 apex 프레임을 사용해야 합니다.");
 
-            SetAutoProperty(player, "CurrentHealth", 3);
+            SetAutoProperty(player, "CurrentHealth", 2);
             Invoke(animator, "LateUpdate");
             Assert.That(renderer.sprite, Is.SameAs(secondHitFrames[4]),
                 "정점 상태는 피격 2단계 시트의 같은 apex 프레임을 사용해야 합니다.");
@@ -242,13 +242,13 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void FiveHealthPathAddsFourthVisibleGrowthStage()
+        public void FourHealthPathAddsThirdVisibleGrowthStage()
         {
-            ConfigureFiveHealthGrowth();
-            var player = CreatePlayer("FiveHealthDamageAnimatorTarget");
+            ConfigureFourHealthGrowth();
+            var player = CreatePlayer("FourHealthDamageAnimatorTarget");
             SetAutoProperty(player, "CurrentHealth", 1);
-            Assert.That(player.MaxHealth, Is.EqualTo(5));
-            Assert.That(player.DamageStage, Is.EqualTo(4));
+            Assert.That(player.MaxHealth, Is.EqualTo(4));
+            Assert.That(player.DamageStage, Is.EqualTo(3));
 
             var animator = player.gameObject.AddComponent<CharacterAnimator>();
             var baseFrames = CreateFrames("base-four-health");
@@ -466,7 +466,7 @@ namespace MukJump.EditorTests
         [Test]
         public void OriginalAndCloneOwnIndependentGrowthHealthRenderers()
         {
-            ConfigureFiveHealthGrowth();
+            ConfigureFourHealthGrowth();
             PlayerController original = CreatePlayer("HealthBarOriginal");
             original.GetComponent<SpriteRenderer>().sprite = CreateTestSprite();
             var originalBillboard =
@@ -487,7 +487,7 @@ namespace MukJump.EditorTests
                 clone.transform, "PlayerHealthBillboard"), Is.EqualTo(1));
             Assert.That(cloneBillboard.HealthRenderer,
                 Is.Not.SameAs(originalBillboard.HealthRenderer));
-            Assert.That(original.MaxHealth, Is.EqualTo(5));
+            Assert.That(original.MaxHealth, Is.EqualTo(4));
             Assert.That(clone.CurrentHealth, Is.EqualTo(clone.MaxHealth));
             Assert.That(clone.MaxHealth,
                 Is.EqualTo(PlayerController.MaximumRuntimeCloneHealth));
@@ -518,7 +518,7 @@ namespace MukJump.EditorTests
             return player;
         }
 
-        void ConfigureFiveHealthGrowth()
+        void ConfigureFourHealthGrowth()
         {
             Assert.That(growth, Is.Not.Null);
             SetAutoProperty(growth, "PermanentSnapshot",

@@ -1808,19 +1808,20 @@ namespace MukJump.Core
                 Player.PlayerController.MaximumHealth);
             survivalSummaryText.text =
                 SummaryTitle("생존", survivalColor) + "\n" +
-                SummaryLine("본체 체력", "1 → " + maxHealth, survivalColor) + "\n" +
                 SummaryLine(
-                    "무적·방어막",
-                    "+" + snapshot.DamageGraceBonusSeconds.ToString("0.00") +
-                    "초 · " + (snapshot.HasPostHitShield ? "1회" : "-"),
+                    "본체·분신 체력",
+                    "1→" + maxHealth + " · 1→" +
+                    (Player.PlayerController.RuntimeCloneMaxHealth +
+                     snapshot.InkCloneMaxHealthBonus),
                     survivalColor) + "\n" +
                 SummaryLine(
-                    "밀림·분신",
-                    $"82→{snapshot.HitHorizontalRetention * 100f:0}% · " +
-                    "체력 1→" +
-                    (Player.PlayerController.RuntimeCloneMaxHealth +
-                     snapshot.InkCloneMaxHealthBonus) +
-                    " · 생성 1→" + (1 + snapshot.InkCloneItemExtraCount),
+                    "무적·밀림",
+                    "+" + snapshot.DamageGraceBonusSeconds.ToString("0.00") +
+                    $"초 · 82→{snapshot.HitHorizontalRetention * 100f:0}%",
+                    survivalColor) + "\n" +
+                SummaryLine(
+                    "결실",
+                    ResolveFruitionSummary(snapshot, PermanentGrowthBranch.Survival),
                     survivalColor);
 
             float jumpChargeReduction =
@@ -1833,7 +1834,11 @@ namespace MukJump.Core
                 SummaryTitle("도약", leapColor) + "\n" +
                 SummaryLine("준비", FormatDeltaPercent(jumpChargeReduction, "-"), leapColor) + "\n" +
                 SummaryLine("점프력", FormatDeltaPercent(jumpPowerIncrease, "+"), leapColor) + "\n" +
-                SummaryLine("높이", FormatDeltaPercent(jumpHeightIncrease, "+"), leapColor);
+                SummaryLine(
+                    "높이·결실",
+                    FormatDeltaPercent(jumpHeightIncrease, "+") + " · " +
+                    ResolveFruitionSummary(snapshot, PermanentGrowthBranch.Leap),
+                    leapColor);
 
             const float baseInkCapacity = Drawing.StrokeCapture.DefaultInkCapacity;
             float currentInkCapacity = baseInkCapacity * snapshot.InkCapacityMultiplier;
@@ -1847,7 +1852,33 @@ namespace MukJump.Core
                     $"{baseInkCapacity:0.#} → {currentInkCapacity:0.#}m",
                     inkColor) + "\n" +
                 SummaryLine("획 소모", FormatDeltaPercent(inkSaving, "-"), inkColor) + "\n" +
-                SummaryLine("회복", FormatDeltaPercent(inkRecovery, "+"), inkColor);
+                SummaryLine(
+                    "회복·결실",
+                    FormatDeltaPercent(inkRecovery, "+") + " · " +
+                    ResolveFruitionSummary(snapshot, PermanentGrowthBranch.InkHandling),
+                    inkColor);
+        }
+
+        static string ResolveFruitionSummary(
+            PermanentGrowthRunSnapshot snapshot,
+            PermanentGrowthBranch branch)
+        {
+            string keystoneId = snapshot.GetActiveKeystoneId(branch);
+            if (!snapshot.IsKeystoneActive(keystoneId))
+                return "미해금";
+            return keystoneId switch
+            {
+                "S-KA" => "분신 체력 +1",
+                "S-KB" => "본체 1회 부활",
+                "S-KC" => "분신 생성 +1",
+                "J-KA" => "점프 종료 방어막",
+                "J-KB" => "벽 매달림",
+                "J-KC" => "2단점프",
+                "I-KA" => "최대 용량 ×2",
+                "I-KB" => "황금 붓 방어막",
+                "I-KC" => "회복 +10%",
+                _ => "미해금",
+            };
         }
 
         static string SummaryTitle(string title, string htmlColor) =>
@@ -2334,6 +2365,7 @@ namespace MukJump.Core
             string permanentPath = type switch
             {
                 PermanentGrowthType.InkCapacity or
+                PermanentGrowthType.InkCapacityDouble or
                 PermanentGrowthType.InkBudgetEfficiency => "pg_icon_capacity",
                 PermanentGrowthType.InkRecovery => "pg_icon_recovery",
                 PermanentGrowthType.PlatformLifetime or
@@ -2348,6 +2380,7 @@ namespace MukJump.Core
                 PermanentGrowthType.SafetyPlatform or
                 PermanentGrowthType.DoubleJump or
                 PermanentGrowthType.WallCling or
+                PermanentGrowthType.InkDropEndShield or
                 PermanentGrowthType.DrawnChargeRhythm or
                 PermanentGrowthType.ConsecutiveLandingRhythm or
                 PermanentGrowthType.ShortPlatformControl or
@@ -2364,7 +2397,9 @@ namespace MukJump.Core
                 PermanentGrowthType.CloneDeathHeal or
                 PermanentGrowthType.CloneBond or
                 PermanentGrowthType.InkCloneItemExtraCount or
+                PermanentGrowthType.CloneMaxHealth or
                 PermanentGrowthType.PostHitShield => string.Empty,
+                PermanentGrowthType.GoldenBrushShield => "pg_icon_capacity",
                 PermanentGrowthType.LastBreath => "pg_root_emblem",
                 PermanentGrowthType.DrawnPlatformLeap => "pg_icon_platform",
                 _ => string.Empty,
@@ -2377,6 +2412,7 @@ namespace MukJump.Core
             string fallbackPath = type switch
             {
                 PermanentGrowthType.InkCapacity or
+                PermanentGrowthType.InkCapacityDouble or
                 PermanentGrowthType.InkBudgetEfficiency =>
                     "MukJump/UI/Growth/growth_ink_capacity",
                 PermanentGrowthType.InkRecovery =>
@@ -2389,6 +2425,7 @@ namespace MukJump.Core
                 PermanentGrowthType.SafetyPlatform or
                 PermanentGrowthType.DoubleJump or
                 PermanentGrowthType.WallCling or
+                PermanentGrowthType.InkDropEndShield or
                 PermanentGrowthType.DrawnChargeRhythm or
                 PermanentGrowthType.ConsecutiveLandingRhythm or
                 PermanentGrowthType.ShortPlatformControl or
@@ -2408,7 +2445,9 @@ namespace MukJump.Core
                 PermanentGrowthType.CloneDeathHeal or
                 PermanentGrowthType.CloneBond or
                 PermanentGrowthType.InkCloneItemExtraCount or
+                PermanentGrowthType.CloneMaxHealth or
                 PermanentGrowthType.PostHitShield or
+                PermanentGrowthType.GoldenBrushShield or
                 PermanentGrowthType.StrokeGuard =>
                     "MukJump/UI/Growth/growth_guard",
                 PermanentGrowthType.DrawnPlatformLeap or

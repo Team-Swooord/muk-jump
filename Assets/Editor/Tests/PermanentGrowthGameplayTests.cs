@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using MukJump.Core;
 using MukJump.Drawing;
+using MukJump.Items;
 using MukJump.Player;
 using NUnit.Framework;
 using UnityEngine;
@@ -34,21 +35,21 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void SurvivalVitalityPathRaisesHealthFromOneToFive()
+        public void SurvivalVitalityPathRaisesBodyToFourAndCloneToTwo()
         {
             SeedGrowth(
                 new[] { "S-KA" });
             CreatePlayingManager(out _);
             var player = CreatePlayer("PermanentSurvivalStats");
 
-            Assert.That(player.MaxHealth, Is.EqualTo(5));
-            Assert.That(player.CurrentHealth, Is.EqualTo(5));
+            Assert.That(player.MaxHealth, Is.EqualTo(4));
+            Assert.That(player.CurrentHealth, Is.EqualTo(4));
 
             ExpireDamageGrace(player);
             float hitTime = Time.time;
             Assert.That(player.TakeHit(), Is.True);
 
-            Assert.That(player.CurrentHealth, Is.EqualTo(4));
+            Assert.That(player.CurrentHealth, Is.EqualTo(3));
             Assert.That(player.DamageStage, Is.EqualTo(1));
             float invulnerableUntil =
                 GetField<float>(player, "damageInvulnerableUntil");
@@ -56,18 +57,18 @@ namespace MukJump.EditorTests
                 Is.EqualTo(0.59f).Within(0.03f),
                 "공용 생존 뿌리의 +0.04초만 더해져야 합니다.");
 
-            for (int expected = 3; expected >= 0; expected--)
+            for (int expected = 2; expected >= 0; expected--)
             {
                 ExpireDamageGrace(player);
                 Assert.That(player.TakeHit(), Is.True);
                 Assert.That(player.CurrentHealth, Is.EqualTo(expected));
-                Assert.That(player.DamageStage, Is.EqualTo(5 - expected));
+                Assert.That(player.DamageStage, Is.EqualTo(4 - expected));
                 Assert.That(player.IsDead, Is.EqualTo(expected == 0));
             }
         }
 
         [Test]
-        public void FiveHealthFallRecoversFourTimesThenFinalFallKills()
+        public void FourHealthFallRecoversThreeTimesThenFinalFallKills()
         {
             SeedGrowth(new[] { "S-KA" });
             CreatePlayingManager(out _);
@@ -79,7 +80,7 @@ namespace MukJump.EditorTests
             SetField(player, "cam", camera);
             SetField(player, "camHalfHeight", camera.orthographicSize);
 
-            for (int expected = 4; expected >= 0; expected--)
+            for (int expected = 3; expected >= 0; expected--)
             {
                 player.Body.position = new Vector2(1.25f, -20f);
                 Invoke(player, "HandleFallBelowView");
@@ -96,7 +97,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void DamageGraceLineDoesNotChangeDefaultKnockbackMotion()
+        public void LastBreathRevivesOriginalOnce()
         {
             SeedGrowth(
                 new[] { "S-KB" },
@@ -108,46 +109,82 @@ namespace MukJump.EditorTests
             ExpireDamageGrace(player);
             Assert.That(player.TakeHit(), Is.True);
 
-            Assert.That(player.Body.linearVelocity.x,
-                Is.EqualTo(8.2f).Within(0.001f));
-            Assert.That(player.Body.linearVelocity.y,
-                Is.EqualTo(1.6f).Within(0.001f));
+            Assert.That(player.IsDead, Is.False);
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
             float invulnerableUntil =
                 GetField<float>(player, "damageInvulnerableUntil");
             Assert.That(invulnerableUntil - Time.time,
-                Is.EqualTo(0.71f).Within(0.04f));
-            Assert.That(player.HasShield, Is.True,
-                "숨 고르기 결실은 살아남은 첫 피격 뒤 1회 방어막을 줍니다.");
-        }
-
-        [Test]
-        public void PostHitShieldProtectsOnlyTheNextHitAfterRealHealthLoss()
-        {
-            SeedGrowth(new[] { "S-A1", "S-KB" });
-            CreatePlayingManager(out _);
-            var player = CreatePlayer("PermanentPostHitShield");
-
-            Assert.That(player.MaxHealth, Is.EqualTo(2));
+                Is.EqualTo(0.8f).Within(0.04f));
             Assert.That(player.HasShield, Is.False);
 
             ExpireDamageGrace(player);
             Assert.That(player.TakeHit(), Is.True);
-            Assert.That(player.CurrentHealth, Is.EqualTo(1));
-            Assert.That(player.HasShield, Is.True,
-                "실제 체력 피해 뒤 살아남은 개체에게 1회 방어막이 생겨야 합니다.");
+            Assert.That(player.IsDead, Is.True,
+                "숨 고르기 결실은 본체를 한 판에 정확히 한 번만 부활시켜야 합니다.");
+        }
 
-            ExpireDamageGrace(player);
-            Assert.That(player.TakeHit(), Is.True);
-            Assert.That(player.CurrentHealth, Is.EqualTo(1));
-            Assert.That(player.HasShield, Is.False,
-                "방어막으로 막은 피격이 새 방어막을 다시 만들면 안 됩니다.");
+        [Test]
+        public void FruitionItemShieldsAreIsolatedBySelectedPath()
+        {
+            var golden = new PermanentGrowthRunSnapshot(
+                new[] { "I-KB", "J-KA" },
+                new Dictionary<PermanentGrowthBranch, string>
+                {
+                    [PermanentGrowthBranch.InkHandling] = "I-KB",
+                    [PermanentGrowthBranch.Leap] = "J-KC",
+                });
+            Assert.That(golden.HasGoldenBrushShield, Is.True);
+            Assert.That(golden.HasInkDropEndShield, Is.False);
+        }
 
-            ExpireDamageGrace(player);
-            Assert.That(player.TakeHit(), Is.True);
-            Assert.That(player.CurrentHealth, Is.Zero);
-            Assert.That(player.IsDead, Is.True);
+        [Test]
+        public void GoldenBrushFruitionGrantsCollectorShieldImmediately()
+        {
+            SeedGrowth(new[] { "I-KB" }, inkKeystone: "I-KB");
+            var manager = CreatePlayingManager(out _);
+            var player = CreatePlayer("PermanentGoldenBrushShield");
+            manager.RegisterPlayer(player);
+            Track(new GameObject("PermanentGoldenBrushStroke"))
+                .AddComponent<StrokeCapture>();
+
+            Assert.That(ItemEffect.Apply(ItemType.GoldenBrush, player), Is.True);
+            Assert.That(player.HasShield, Is.True);
+        }
+
+        [Test]
+        public void InkDropFruitionGrantsCollectorShieldWhenRiseEnds()
+        {
+            SeedGrowth(new[] { "J-KA" }, leapKeystone: "J-KA");
+            var manager = CreatePlayingManager(out _);
+            var player = CreatePlayer("PermanentInkDropEndShield");
+            manager.RegisterPlayer(player);
+
+            Assert.That(ItemEffect.Apply(ItemType.InkDrop, player), Is.True);
             Assert.That(player.HasShield, Is.False,
-                "치명 피해로 사망한 개체에게 방어막을 만들면 안 됩니다.");
+                "상승 중이 아니라 상승이 끝난 뒤 방어막을 받아야 합니다.");
+
+            SetField(player, "inkDropHasRisen", true);
+            player.Body.linearVelocity = Vector2.zero;
+            Invoke(player, "FixedUpdate");
+
+            Assert.That(player.HasShield, Is.True);
+            Assert.That(player.IsInkDropBoosted, Is.False);
+        }
+
+        [Test]
+        public void LastBreathAlsoRevivesOriginalFromOneFall()
+        {
+            SeedGrowth(new[] { "S-KB" }, survivalKeystone: "S-KB");
+            CreatePlayingManager(out _);
+            var player = CreatePlayer("PermanentLastBreathFall");
+
+            Invoke(player, "HandleFallBelowView");
+            Assert.That(player.IsDead, Is.False);
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+
+            Invoke(player, "HandleFallBelowView");
+            Assert.That(player.IsDead, Is.True,
+                "숨 고르기 결실은 추락에서도 한 판에 한 번만 부활해야 합니다.");
         }
 
         [Test]
@@ -170,19 +207,21 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void RemovedLastBreathNeverActivates()
+        public void LastBreathDoesNotActivateForRuntimeClone()
         {
-            SeedGrowth(new[] { "S-KA" }, survivalKeystone: "S-KA");
+            SeedGrowth(new[] { "S-KB" }, survivalKeystone: "S-KB");
             var manager = CreatePlayingManager(out var growth);
-            var player = CreatePlayer("PermanentNoLastBreath");
+            var player = CreatePlayer("PermanentCloneNoLastBreath");
+            player.ConfigureAsClone(1f);
             manager.RegisterPlayer(player);
 
-            Assert.That(growth.LastBreathAvailable, Is.False);
+            Assert.That(growth.LastBreathAvailable, Is.True);
             Assert.That(growth.TrySurviveLethalObstacleHit(player), Is.False);
+            Assert.That(growth.LastBreathAvailable, Is.True);
         }
 
         [Test]
-        public void AutoJumpUsesOnlySelectedPowerPathAndDrawnPlatformBonus()
+        public void AutoJumpUsesOnlySelectedPowerPathWithoutHiddenDrawnBonus()
         {
             SeedGrowth(
                 new[] { "J-KB", "J-KC" },
@@ -203,7 +242,7 @@ namespace MukJump.EditorTests
 
             SetProperty(player, "CurrentPlatform", null);
             Invoke(autoJump, "Jump");
-            float expected = 10f * 1.05f;
+            float expected = 10f * 1.04f;
             Assert.That(player.Body.linearVelocity.y,
                 Is.EqualTo(expected).Within(0.001f));
             Assert.That(expected / 10f, Is.LessThan(1.30f));
@@ -218,8 +257,8 @@ namespace MukJump.EditorTests
             Invoke(autoJump, "Jump");
 
             Assert.That(player.Body.linearVelocity.y,
-                Is.EqualTo(expected * 0.85f * 1.10f).Within(0.001f),
-                "돋는 먹발 결실은 직접 그린 먹선 도약에만 10%를 더해야 합니다.");
+                Is.EqualTo(expected * 0.85f).Within(0.001f),
+                "돋는 먹발 결실은 벽 매달림만 제공하고 숨은 도약 보너스를 더하면 안 됩니다.");
         }
 
         [Test]
@@ -269,7 +308,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void RemovedDoubleJumpCannotReserveOrPerform()
+        public void HighInkFootReservesAndPerformsOneDoubleJump()
         {
             SeedGrowth(new[] { "J-KC" }, leapKeystone: "J-KC");
             var manager = CreatePlayingManager(out var growth);
@@ -281,12 +320,13 @@ namespace MukJump.EditorTests
             SetField(autoJump, "primaryJumpVerticalSpeed", 10f);
             SetField(autoJump, "doubleJumpArmed", true);
             SetField(autoJump, "doubleJumpUsed", false);
-            Assert.That(growth.TryReserveDoubleJump(player), Is.False);
-            Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(false));
+            Assert.That(growth.TryReserveDoubleJump(player), Is.True);
+            Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(true));
+            Assert.That(player.Body.linearVelocity.y, Is.EqualTo(4f).Within(0.001f));
         }
 
         [Test]
-        public void SpecialLaunchKeepsRemovedDoubleJumpUnarmed()
+        public void SpecialLaunchCancelsReservedDoubleJump()
         {
             SeedGrowth(new[] { "J-KC" }, leapKeystone: "J-KC");
             var manager = CreatePlayingManager(out var growth);
@@ -295,7 +335,8 @@ namespace MukJump.EditorTests
             var autoJump = player.gameObject.AddComponent<AutoJump>();
             Invoke(autoJump, "Awake");
             SetField(autoJump, "doubleJumpArmed", true);
-            Assert.That(growth.TryReserveDoubleJump(player), Is.False);
+            player.BeginAutomaticJumpFlight();
+            Assert.That(growth.TryReserveDoubleJump(player), Is.True);
 
             player.LaunchToHeight(10f);
 
@@ -307,9 +348,9 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void RemovedWallClingNeverStarts()
+        public void SproutingInkFootClingsToWallWhileDescending()
         {
-            SeedGrowth(new[] { "J-KA" }, leapKeystone: "J-KA");
+            SeedGrowth(new[] { "J-KB" }, leapKeystone: "J-KB");
             var manager = CreatePlayingManager(out _);
             var player = CreatePlayer("PermanentWallCling");
             manager.RegisterPlayer(player);
@@ -322,9 +363,9 @@ namespace MukJump.EditorTests
             wall.Initialize(null, true);
             Assert.That(
                 Invoke(player, "TryBeginWallCling", wall, 1f),
-                Is.EqualTo(false));
-            Assert.That(player.IsWallClinging, Is.False);
-            Assert.That(player.Body.gravityScale, Is.EqualTo(1f));
+                Is.EqualTo(true));
+            Assert.That(player.IsWallClinging, Is.True);
+            Assert.That(player.Body.gravityScale, Is.Zero);
         }
 
         [Test]
@@ -344,12 +385,11 @@ namespace MukJump.EditorTests
             SetField(stroke, "inkCapacity", StrokeCapture.DefaultInkCapacity);
 
             Assert.That(stroke.BaseEffectiveInkCapacity,
-                Is.EqualTo(12.0f).Within(0.0001f));
+                Is.EqualTo(20.4f).Within(0.0001f));
             Assert.That(stroke.EffectiveInkCapacity,
-                Is.EqualTo(12.0f).Within(0.0001f));
+                Is.EqualTo(20.4f).Within(0.0001f));
             Assert.That(stroke.EffectiveNaturalHoldDuration,
-                Is.EqualTo(
-                    PlatformCollider.DefaultNaturalHoldDuration + 1f)
+                Is.EqualTo(PlatformCollider.DefaultNaturalHoldDuration)
                     .Within(0.0001f));
         }
 

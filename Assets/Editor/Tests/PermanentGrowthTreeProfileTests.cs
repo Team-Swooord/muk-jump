@@ -84,7 +84,8 @@ namespace MukJump.EditorTests
                     PermanentGrowthBranch.Survival),
                 Is.EqualTo("S-KA"));
             Assert.That(PermanentGrowthProfile.HasLastBreath, Is.False);
-            Assert.That(PermanentGrowthProfile.MaxHealthBonus, Is.EqualTo(4));
+            Assert.That(PermanentGrowthProfile.MaxHealthBonus, Is.EqualTo(3));
+            Assert.That(PermanentGrowthProfile.InkCloneMaxHealthBonus, Is.EqualTo(1));
 
             Buy("S-B1", "S-B2", "S-B3", "S-KB");
             Assert.That(
@@ -94,16 +95,16 @@ namespace MukJump.EditorTests
 
             Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.False);
             Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KB"), Is.True);
-            Assert.That(PermanentGrowthProfile.HasLastBreath, Is.False);
+            Assert.That(PermanentGrowthProfile.HasLastBreath, Is.True);
             Assert.That(PermanentGrowthProfile.DamageGraceBonusSeconds,
                 Is.EqualTo(0.16f).Within(0.0001f));
-            Assert.That(PermanentGrowthProfile.HasPostHitShield, Is.True);
-            Assert.That(PermanentGrowthProfile.MaxHealthBonus, Is.EqualTo(1));
+            Assert.That(PermanentGrowthProfile.HasPostHitShield, Is.False);
+            Assert.That(PermanentGrowthProfile.MaxHealthBonus, Is.Zero);
 
             Assert.That(PermanentGrowthProfile.TryEquipKeystone("S-KA"), Is.True);
             Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KA"), Is.True);
             Assert.That(PermanentGrowthProfile.IsKeystoneActive("S-KB"), Is.False);
-            Assert.That(PermanentGrowthProfile.MaxHealthBonus, Is.EqualTo(4));
+            Assert.That(PermanentGrowthProfile.MaxHealthBonus, Is.EqualTo(3));
 
             Assert.That(
                 PermanentGrowthProfile.ClearActiveKeystone(
@@ -161,7 +162,8 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.HasLastBreath, Is.False);
             Assert.That(snapshot.HasStableHit, Is.False);
             Assert.That(snapshot.HasNode("S-KB"), Is.False);
-            Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(4));
+            Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(3));
+            Assert.That(snapshot.InkCloneMaxHealthBonus, Is.EqualTo(1));
             Assert.That(snapshot.DamageGraceBonusSeconds,
                 Is.EqualTo(0.04f).Within(0.0001f));
             Assert.That(snapshot.HasPostHitShield, Is.False);
@@ -171,7 +173,7 @@ namespace MukJump.EditorTests
                 PermanentGrowthProfile.CreateRunSnapshot().DamageGraceBonusSeconds,
                 Is.EqualTo(0.16f).Within(0.0001f));
             Assert.That(
-                PermanentGrowthProfile.CreateRunSnapshot().HasPostHitShield,
+                PermanentGrowthProfile.CreateRunSnapshot().HasLastBreath,
                 Is.True);
         }
 

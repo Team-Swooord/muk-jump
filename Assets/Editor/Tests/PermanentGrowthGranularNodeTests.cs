@@ -49,6 +49,10 @@ namespace MukJump.EditorTests
             Assert.That((int)PermanentGrowthType.InkEvictionDelay, Is.EqualTo(37));
             Assert.That((int)PermanentGrowthType.InkCloneItemExtraCount, Is.EqualTo(38));
             Assert.That((int)PermanentGrowthType.PostHitShield, Is.EqualTo(39));
+            Assert.That((int)PermanentGrowthType.InkCapacityDouble, Is.EqualTo(40));
+            Assert.That((int)PermanentGrowthType.GoldenBrushShield, Is.EqualTo(41));
+            Assert.That((int)PermanentGrowthType.InkDropEndShield, Is.EqualTo(42));
+            Assert.That((int)PermanentGrowthType.CloneMaxHealth, Is.EqualTo(43));
         }
 
         [Test]
@@ -75,7 +79,7 @@ namespace MukJump.EditorTests
                 });
 
             Assert.That(snapshot.InkCapacityMultiplier,
-                Is.EqualTo(2.50f).Within(0.0001f));
+                Is.EqualTo(4.25f).Within(0.0001f));
             Assert.That(snapshot.InkBudgetCostMultiplier,
                 Is.EqualTo(0.98f).Within(0.0001f));
             Assert.That(snapshot.ShortStrokeBudgetCostMultiplier,
@@ -87,12 +91,12 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.InkEvictionDelaySeconds,
                 Is.Zero.Within(0.0001f));
             Assert.That(snapshot.NaturalInkHoldBonusSeconds,
-                Is.EqualTo(1f).Within(0.0001f));
+                Is.Zero.Within(0.0001f));
             Assert.That(snapshot.HasShortStrokeDiscount, Is.False);
             Assert.That(snapshot.DamageGraceBonusSeconds,
                 Is.EqualTo(0.04f).Within(0.0001f));
             Assert.That(snapshot.HasPostHitShield, Is.False);
-            Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(4));
+            Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(3));
             Assert.That(snapshot.InkCloneMaxHealthBonus, Is.EqualTo(1));
             Assert.That(snapshot.HitHorizontalRetention,
                 Is.EqualTo(0.82f).Within(0.0001f));
@@ -100,13 +104,14 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.JumpChargeMultiplier,
                 Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.JumpPowerMultiplier,
-                Is.EqualTo(1.05f).Within(0.0001f));
+                Is.EqualTo(1.04f).Within(0.0001f));
             Assert.That(snapshot.JumpHeightMultiplier,
                 Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.JumpVerticalSpeedMultiplier,
                 Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.DrawnPlatformLeapMultiplier,
-                Is.EqualTo(1.10f).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(snapshot.HasWallCling, Is.True);
             Assert.That(snapshot.HasLastFallBrake, Is.False);
             Assert.That(snapshot.MinimumPlatformPowerMultiplier,
                 Is.EqualTo(0.85f).Within(0.0001f));
@@ -120,8 +125,8 @@ namespace MukJump.EditorTests
         [TestCase(1, 1)]
         [TestCase(2, 2)]
         [TestCase(3, 3)]
-        [TestCase(4, 4)]
-        public void SurvivalVitalityPathAddsExactlyOneHealthPerOwnedNode(
+        [TestCase(4, 3)]
+        public void SurvivalVitalityPathEndsWithCloneHealthFruition(
             int unlockedCount,
             int expectedBonus)
         {
@@ -135,7 +140,7 @@ namespace MukJump.EditorTests
             Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(expectedBonus));
             Assert.That(
                 PlayerController.DefaultMaxHealth + snapshot.MaxHealthBonus,
-                Is.EqualTo(unlockedCount + 1));
+                Is.EqualTo(expectedBonus + 1));
             Assert.That(snapshot.InkCloneMaxHealthBonus,
                 Is.EqualTo(unlockedCount < 4 ? 0 : 1));
             Assert.That(
@@ -148,8 +153,8 @@ namespace MukJump.EditorTests
         [TestCase(1, 1.375f, 6.60f)]
         [TestCase(2, 1.75f, 8.40f)]
         [TestCase(3, 2.125f, 10.20f)]
-        [TestCase(4, 2.5f, 12.00f)]
-        public void InkCapacityPathKeepsFiftyPercentRaisedProgression(
+        [TestCase(4, 4.25f, 20.40f)]
+        public void InkCapacityFruitionDoublesTheRaisedCapacity(
             int unlockedCount,
             float expectedMultiplier,
             float expectedCapacity)
@@ -178,7 +183,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void InkRecoveryFruitionStartsNaturalDryingEarlier()
+        public void InkRecoveryFruitionOnlyIncreasesRecoverySpeed()
         {
             var regular = new PermanentGrowthRunSnapshot(
                 new[] { "I00", "I-C1", "I-C2", "I-C3" },
@@ -203,11 +208,11 @@ namespace MukJump.EditorTests
             Assert.That(regular.NaturalInkHoldBonusSeconds,
                 Is.Zero.Within(0.0001f));
             Assert.That(keystone.NaturalInkHoldBonusSeconds,
-                Is.EqualTo(-0.8f).Within(0.0001f));
+                Is.Zero.Within(0.0001f));
             Assert.That(
                 PlatformCollider.DefaultNaturalHoldDuration +
                 keystone.NaturalInkHoldBonusSeconds,
-                Is.EqualTo(2.6f).Within(0.0001f));
+                Is.EqualTo(3.4f).Within(0.0001f));
         }
 
         [Test]
@@ -222,17 +227,18 @@ namespace MukJump.EditorTests
             };
             var snapshot = new PermanentGrowthRunSnapshot(owned, active);
 
-            Assert.That(snapshot.MaxHealthBonus, Is.EqualTo(1));
+            Assert.That(snapshot.MaxHealthBonus, Is.Zero);
             Assert.That(snapshot.DamageGraceBonusSeconds,
                 Is.Zero.Within(0.0001f));
-            Assert.That(snapshot.HasPostHitShield, Is.True);
+            Assert.That(snapshot.HasLastBreath, Is.True);
             Assert.That(snapshot.JumpPowerMultiplier,
-                Is.EqualTo(1.01f).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
             Assert.That(snapshot.DrawnPlatformLeapMultiplier,
-                Is.EqualTo(1.10f).Within(0.0001f));
+                Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(snapshot.HasWallCling, Is.True);
             Assert.That(snapshot.InkRecoverySpeedMultiplier,
                 Is.EqualTo(1.10f).Within(0.0001f));
-            Assert.That(snapshot.HasLastBreath, Is.False);
+            Assert.That(snapshot.HasPostHitShield, Is.False);
             Assert.That(snapshot.HasStableHit, Is.False);
             Assert.That(snapshot.HasSafetyPlatform, Is.False);
             Assert.That(snapshot.GetActiveKeystoneId(PermanentGrowthBranch.Survival),

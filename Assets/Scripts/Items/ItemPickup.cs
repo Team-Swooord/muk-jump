@@ -35,6 +35,7 @@ namespace MukJump.Items
                 case ItemType.InkDrop:
                     if (!manager.LaunchSwarmInkDrop(player, 50f))
                         return false;
+                    player.ArmInkDropEndShield();
                     player.GetComponent<InkDropJumpVfx>()?.Play();
                     break;
                 case ItemType.GoldenBrush:
@@ -42,6 +43,12 @@ namespace MukJump.Items
                         UnityEngine.Object.FindFirstObjectByType<StrokeCapture>();
                     if (strokeCapture == null) return false;
                     strokeCapture.ActivateUnlimitedInk(8f);
+                    PermanentGrowthRunSnapshot snapshot =
+                        RunGrowthController.Instance != null
+                            ? RunGrowthController.Instance.PermanentSnapshot
+                            : PermanentGrowthProfile.CreateRunSnapshot();
+                    if (snapshot.HasGoldenBrushShield)
+                        player.TryGrantShield();
                     break;
                 case ItemType.InkShield:
                     if (!player.TryGrantShield())

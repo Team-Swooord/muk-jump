@@ -468,9 +468,15 @@ namespace MukJump.Core
             CreateRunSnapshot().DamageGraceBonusSeconds;
         public static bool HasPostHitShield =>
             CreateRunSnapshot().HasPostHitShield;
+        public static bool HasGoldenBrushShield =>
+            CreateRunSnapshot().HasGoldenBrushShield;
+        public static bool HasInkDropEndShield =>
+            CreateRunSnapshot().HasInkDropEndShield;
         public static int InkCloneItemExtraCount =>
             CreateRunSnapshot().InkCloneItemExtraCount;
         public static bool HasLastBreath => CreateRunSnapshot().HasLastBreath;
+        public static bool HasWallCling => CreateRunSnapshot().HasWallCling;
+        public static bool HasDoubleJump => CreateRunSnapshot().HasDoubleJump;
         public static float JumpPowerMultiplier =>
             CreateRunSnapshot().JumpPowerMultiplier;
         public static float DrawnPlatformLeapMultiplier =>
