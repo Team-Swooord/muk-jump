@@ -1,0 +1,3 @@
+# 제출 PDF와 스크린샷은 텍스트 diff 대신 바이너리로 취급한다.
+output/pdf/*.pdf binary
+docs/submission/assets/*.png binary
