@@ -165,7 +165,7 @@ namespace MukJump.EditorTests
                 AssertEffect($"J-C{rank}", PermanentGrowthType.JumpHeight, 0.0625f / 4f);
             }
             AssertEffect("J-KA", PermanentGrowthType.InkDropEndShield, 1f);
-            AssertEffect("J-KB", PermanentGrowthType.WallCling, 1.2f);
+            AssertEffect("J-KB", PermanentGrowthType.WallCling, 1f);
             AssertEffect("J-KC", PermanentGrowthType.DoubleJump, 0.40f);
 
             Assert.That(EffectTotal(PermanentGrowthType.InkCapacity),
@@ -199,7 +199,7 @@ namespace MukJump.EditorTests
             Assert.That(EffectTotal(PermanentGrowthType.JumpHeight),
                 Is.EqualTo(0.046875f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.WallCling),
-                Is.EqualTo(1.2f).Within(0.000001f));
+                Is.EqualTo(1f).Within(0.000001f));
             Assert.That(EffectTotal(PermanentGrowthType.DoubleJump),
                 Is.EqualTo(0.40f).Within(0.000001f));
 

@@ -127,9 +127,7 @@ namespace MukJump.Player
         bool automaticJumpInFlight;
         ScreenSideWall clingingWall;
         float wallClingReleaseAllowedAt;
-        float wallClingExpiresAt;
         float wallRelatchAllowedAt;
-        bool wallClingConsumedThisFlight;
         float nextSideWallBounceAt;
         float sideWallRiseGraceUntil;
         [SerializeField, HideInInspector] bool isRuntimeClone;
@@ -819,7 +817,6 @@ namespace MukJump.Player
                 if (IsWallClinging)
                     ClearWallCling(true);
                 automaticJumpInFlight = false;
-                wallClingConsumedThisFlight = false;
                 GameFeedbackController.Instance?.PlayLanding(transform.position,
                     Mathf.Abs(collision.relativeVelocity.y));
                 bool drawnPlatform = platform != null &&
@@ -943,30 +940,23 @@ namespace MukJump.Player
             GameManager game = GameManager.Instance;
             if (wall == null || IsDead || IsWallClinging ||
                 !ActivePermanentGrowth.HasWallCling ||
-                IsInkDropBoosted || !automaticJumpInFlight ||
-                rb.linearVelocity.y > -0.1f ||
                 Time.time < wallRelatchAllowedAt ||
-                wallClingConsumedThisFlight ||
-                game == null || game.State != GameState.Playing ||
-                !game.TryGetSwarmAnchor(
-                    out PlayerController representative,
-                    out _) ||
-                representative != this)
+                game == null || game.State != GameState.Playing)
                 return false;
 
             IsWallClinging = true;
             clingingWall = wall;
-            wallClingConsumedThisFlight = true;
             wallClingReleaseAllowedAt = Time.time + wallClingMinimumDuration;
-            wallClingExpiresAt = Time.time + Mathf.Max(
-                wallClingMinimumDuration,
-                ActivePermanentGrowth.WallClingDuration);
             GroundNormal = new Vector2(inwardDirection, 0f);
             CurrentPlatform = null;
             IsGrounded = true;
+            automaticJumpInFlight = false;
             rb.linearVelocity = Vector2.zero;
             rb.gravityScale = 0f;
             rb.WakeUp();
+            // 좌우 벽을 일반 발판과 같은 새 착지로 취급한다. 정점 예약과
+            // 이전 비행 상태를 정리한 뒤 AutoJump의 평소 충전·점프 흐름을 쓴다.
+            GetComponent<AutoJump>()?.NotifyLanding(false);
             return true;
         }
 
@@ -974,15 +964,9 @@ namespace MukJump.Player
         {
             if (!IsWallClinging || rb == null)
                 return;
-            if (IsDead || !ActivePermanentGrowth.HasWallCling ||
-                Time.time >= wallClingExpiresAt)
+            if (IsDead || !ActivePermanentGrowth.HasWallCling)
             {
-                float inward = GroundNormal.x >= 0f ? 1f : -1f;
                 ClearWallCling(true);
-                if (!IsDead)
-                    rb.linearVelocity = new Vector2(
-                        inward * sideWallBounceSpeed,
-                        rb.linearVelocity.y);
                 return;
             }
 
@@ -1015,7 +999,6 @@ namespace MukJump.Player
             IsWallClinging = false;
             clingingWall = null;
             wallClingReleaseAllowedAt = 0f;
-            wallClingExpiresAt = 0f;
             if (wasClinging)
             {
                 IsGrounded = false;
@@ -1032,7 +1015,6 @@ namespace MukJump.Player
         void ResetWallTraversalState(bool restoreGravity)
         {
             ClearWallCling(restoreGravity);
-            wallClingConsumedThisFlight = false;
             wallRelatchAllowedAt = 0f;
             nextSideWallBounceAt = 0f;
             sideWallRiseGraceUntil = 0f;

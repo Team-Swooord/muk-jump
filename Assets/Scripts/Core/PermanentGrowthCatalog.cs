@@ -645,10 +645,10 @@ namespace MukJump.Core
                 0.01f, "점프 힘", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
                 P("J-B2"), 0, "", 770f, -180f, 3);
-            Add(nodes, "J-KB", "돋는 먹발 결실", "하강 중 좌우 벽에 닿으면 잠시 붙고, 벽에서 안쪽으로 다시 점프할 수 있습니다.",
-                "벽 매달림 · 최대 1.2초", "leap.power.keystone",
-                PermanentGrowthType.WallCling, 1.2f, "벽 매달림",
-                PermanentGrowthValueKind.Seconds, false,
+            Add(nodes, "J-KB", "돋는 먹발 결실", "본체와 분신이 좌우 벽에 닿으면 상시 붙고, 일반 발판과 같은 자동 점프로 화면 안쪽을 향해 다시 뜁니다.",
+                "좌우 벽 상시 발판", "leap.power.keystone",
+                PermanentGrowthType.WallCling, 1f, "벽 자동 점프",
+                PermanentGrowthValueKind.Flat, false,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Keystone,
                 P("J-B3"), 4, "leap", 850f, 130f);
 

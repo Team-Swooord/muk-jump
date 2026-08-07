@@ -127,9 +127,6 @@ namespace MukJump.Core
         public float MinimumPlatformPowerMultiplier => 0.85f;
         public float WindInfluenceMultiplier => 1f;
         public float MaximumFallSpeedMultiplier => 1f;
-        public float WallClingDuration => HasWallCling
-            ? EffectTotal(PermanentGrowthType.WallCling)
-            : 0f;
         public float DoubleJumpVerticalSpeedRatio => HasDoubleJump
             ? EffectTotal(PermanentGrowthType.DoubleJump)
             : 0f;

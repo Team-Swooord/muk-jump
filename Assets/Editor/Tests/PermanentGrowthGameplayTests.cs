@@ -286,7 +286,7 @@ namespace MukJump.EditorTests
 
             Assert.That(player.Body.linearVelocity.y,
                 Is.EqualTo(expected * 0.85f).Within(0.001f),
-                "돋는 먹발 결실은 벽 매달림만 제공하고 숨은 도약 보너스를 더하면 안 됩니다.");
+                "돋는 먹발 결실은 벽 자동점프만 제공하고 숨은 도약 보너스를 더하면 안 됩니다.");
         }
 
         [Test]
@@ -432,15 +432,24 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void SproutingInkFootClingsToWallWhileDescending()
+        public void SproutingInkFootMakesWallAStandingAutomaticJumpSurface()
         {
             SeedGrowth(new[] { "J-KB" }, leapKeystone: "J-KB");
             var manager = CreatePlayingManager(out _);
+            var leader = CreatePlayer("PermanentWallClingLeader");
+            leader.transform.position = new Vector3(0f, 10f, 0f);
+            manager.RegisterPlayer(leader);
             var player = CreatePlayer("PermanentWallCling");
+            player.ConfigureAsClone(1f);
             manager.RegisterPlayer(player);
             SetField(player, "wallClingMinimumDuration", 0f);
-            player.BeginAutomaticJumpFlight();
-            player.Body.linearVelocity = new Vector2(-2f, -2f);
+            player.Body.linearVelocity = new Vector2(-2f, 3f);
+            var autoJump = player.gameObject.AddComponent<AutoJump>();
+            Invoke(autoJump, "Awake");
+            SetField(autoJump, "baseJumpSpeed", 10f);
+            SetField(autoJump, "jumpStrengthMultiplier", 1f);
+            SetField(autoJump, "horizontalMomentumRetention", 0f);
+            SetField(autoJump, "flatPlatformWanderSpeed", 0f);
 
             var wallObject = Track(new GameObject("TestLeftWall"));
             var wall = wallObject.AddComponent<ScreenSideWall>();
@@ -450,6 +459,13 @@ namespace MukJump.EditorTests
                 Is.EqualTo(true));
             Assert.That(player.IsWallClinging, Is.True);
             Assert.That(player.Body.gravityScale, Is.Zero);
+            Assert.That(player.GroundNormal, Is.EqualTo(Vector2.right));
+
+            Invoke(autoJump, "Jump");
+
+            Assert.That(player.IsWallClinging, Is.False);
+            Assert.That(player.Body.linearVelocity.x, Is.GreaterThan(0f));
+            Assert.That(player.Body.linearVelocity.y, Is.GreaterThan(0f));
         }
 
         [Test]
