@@ -1172,7 +1172,7 @@ namespace MukJump.Core
                 "ActionCostPlate",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(-40f, -184f),
+                new Vector2(-48f, -184f),
                 new Vector2(54f, 54f),
                 WithAlpha(InkPalette.Paper2, 0.92f));
             selectedActionCostPlate.preserveAspect = true;
@@ -1182,20 +1182,25 @@ namespace MukJump.Core
                 selectedActionRoot,
                 LoadPermanentGrowthSprite("pg_ink_drop") ??
                 InkUiTextureFactory.CreateInkDropSprite(),
-                new Vector2(-40f, -184f),
-                new Vector2(34f, 34f),
-                Color.white);
+                new Vector2(-48f, -184f),
+                new Vector2(38f, 38f),
+                InkPalette.Ink);
             selectedActionCostIcon.preserveAspect = true;
             selectedActionCostText = CreateText(
                 "ActionCost",
                 selectedActionRoot,
                 "0",
-                34,
-                new Vector2(22f, -184f),
-                new Vector2(88f, 54f),
+                38,
+                new Vector2(32f, -184f),
+                new Vector2(72f, 54f),
                 InkPalette.Paper,
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
+            // 해금 상태를 계산하기 전 한 프레임 동안 비용 조각이 번쩍이는 것을 막는다.
+            // 실제 미해금 노드를 열 때 RefreshSelectedNodePopup에서 세 요소를 함께 켠다.
+            selectedActionCostPlate.gameObject.SetActive(false);
+            selectedActionCostIcon.gameObject.SetActive(false);
+            selectedActionCostText.gameObject.SetActive(false);
 
             PurchaseButton = CreateBrushButton(
                 "EnhanceButton",
