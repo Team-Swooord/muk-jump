@@ -498,6 +498,22 @@ namespace MukJump.Core
         public static PermanentGrowthRunSnapshot CreateRunSnapshot()
         {
             EnsureLoaded();
+#if UNITY_EDITOR
+            // 현재 밸런스·상호작용 확인용 임시 Editor Play override.
+            // 저장 데이터는 바꾸지 않고 모든 성장 경로와 결실을 동시에 적용한다.
+            if (Application.isPlaying)
+            {
+                IReadOnlyList<PermanentGrowthNodeDefinition> nodes =
+                    PermanentGrowthCatalog.Nodes;
+                var allNodeIds = new string[nodes.Count];
+                for (int i = 0; i < nodes.Count; i++)
+                    allNodeIds[i] = nodes[i].Id;
+                return new PermanentGrowthRunSnapshot(
+                    allNodeIds,
+                    null,
+                    applyAllOwnedPaths: true);
+            }
+#endif
             var equipped = new Dictionary<PermanentGrowthBranch, string>(3)
             {
                 [PermanentGrowthBranch.Survival] = data.survivalKeystoneId,

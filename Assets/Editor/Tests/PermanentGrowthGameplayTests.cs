@@ -322,16 +322,39 @@ namespace MukJump.EditorTests
             SetProperty(player, "GroundNormal", Vector2.up);
 
             Invoke(autoJump, "Jump");
-            Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(true));
-            Assert.That(player.Body.linearVelocity.y, Is.EqualTo(4f).Within(0.001f));
+            float primarySpeed = GetField<float>(
+                autoJump,
+                "primaryJumpVerticalSpeed");
+            float triggerSpeed = primarySpeed * 0.15f;
+            player.Body.linearVelocity = new Vector2(0f, triggerSpeed + 0.1f);
+            Invoke(autoJump, "FixedUpdate");
+            Assert.That(
+                player.Body.linearVelocity.y,
+                Is.EqualTo(triggerSpeed + 0.1f).Within(0.001f),
+                "첫 상승 속도가 15%보다 많이 남았을 때는 아직 2단점프하면 안 됩니다.");
+            player.Body.linearVelocity = new Vector2(0f, triggerSpeed);
+            Invoke(autoJump, "FixedUpdate");
+            float doubleJumpSpeed = primarySpeed * 0.4f;
+            Assert.That(
+                player.Body.linearVelocity.y,
+                Is.EqualTo(doubleJumpSpeed).Within(0.001f));
+            Invoke(autoJump, "FixedUpdate");
+            Assert.That(
+                player.Body.linearVelocity.y,
+                Is.EqualTo(doubleJumpSpeed).Within(0.001f),
+                "같은 비행에서 2단점프가 두 번 발동하면 안 됩니다.");
 
             autoJump.NotifyLanding(false);
             SetField(player, "automaticJumpInFlight", false);
             player.Body.linearVelocity = Vector2.zero;
             Invoke(autoJump, "Jump");
-            Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(true),
+            primarySpeed = GetField<float>(autoJump, "primaryJumpVerticalSpeed");
+            player.Body.linearVelocity = new Vector2(0f, -0.2f);
+            Invoke(autoJump, "FixedUpdate");
+            Assert.That(
+                player.Body.linearVelocity.y,
+                Is.EqualTo(primarySpeed * 0.4f).Within(0.001f),
                 "높은 먹발 결실은 12초 대기 없이 다음 일반 자동점프에도 발동해야 합니다.");
-            Assert.That(player.Body.linearVelocity.y, Is.EqualTo(4f).Within(0.001f));
         }
 
         [Test]

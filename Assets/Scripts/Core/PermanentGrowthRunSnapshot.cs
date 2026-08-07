@@ -11,14 +11,17 @@ namespace MukJump.Core
     {
         readonly HashSet<string> ownedNodeIds;
         readonly Dictionary<PermanentGrowthBranch, string> activeKeystones;
+        readonly bool applyAllOwnedPaths;
 
         public static PermanentGrowthRunSnapshot Empty { get; } =
             new(Array.Empty<string>(), null);
 
         public PermanentGrowthRunSnapshot(
             IEnumerable<string> ownedNodeIds,
-            IReadOnlyDictionary<PermanentGrowthBranch, string> activeKeystones)
+            IReadOnlyDictionary<PermanentGrowthBranch, string> activeKeystones,
+            bool applyAllOwnedPaths = false)
         {
+            this.applyAllOwnedPaths = applyAllOwnedPaths;
             this.ownedNodeIds = new HashSet<string>(
                 ownedNodeIds ?? Array.Empty<string>(),
                 StringComparer.Ordinal);
@@ -153,6 +156,8 @@ namespace MukJump.Core
         {
             if (!HasNode(nodeId))
                 return false;
+            if (applyAllOwnedPaths)
+                return true;
             PermanentGrowthNodeDefinition node =
                 PermanentGrowthCatalog.GetNode(nodeId);
             if (node == null)

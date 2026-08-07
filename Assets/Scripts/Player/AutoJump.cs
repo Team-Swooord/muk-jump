@@ -9,6 +9,9 @@ namespace MukJump.Player
     public class AutoJump : MonoBehaviour
     {
         const float MinJumpInterval = 0.05f;
+        // 실제 정점까지 기다리면 캐릭터가 잠깐 멈춘 뒤 다시 뛰는 것처럼 보인다.
+        // 첫 상승 속도가 15% 남았을 때 이어서 솟아 흐름을 끊지 않는다.
+        const float DoubleJumpTriggerSpeedRatio = 0.15f;
 
         [Header("점프 주기")]
         [Tooltip("점프 정점부터 다음 자동 점프까지 충전되는 시간")]
@@ -93,7 +96,7 @@ namespace MukJump.Player
             }
             else if (wasRising)
             {
-                // 높은 먹발 결실은 모든 일반 자동점프의 첫 정점에서 한 번 더 솟는다.
+                // FixedUpdate가 정점 직전 발동을 놓친 저프레임에서는 여기서 보정한다.
                 // 먹물방울·풍맥은 automaticJumpInFlight가 아니므로 이 경로에 들어오지 않는다.
                 wasRising = false;
                 if (TryPerformDoubleJump())
@@ -115,6 +118,23 @@ namespace MukJump.Player
             if (chargeStarted && player.IsGrounded && chargeTimer >= chargeDuration &&
                 player.CanAutomaticJumpFromCurrentSurface)
                 Jump();
+        }
+
+        void FixedUpdate()
+        {
+            if (GameManager.Instance == null ||
+                GameManager.Instance.State != GameState.Playing ||
+                !GameManager.Instance.IsGameplayTicking ||
+                player == null || player.IsDead ||
+                !doubleJumpArmed || doubleJumpUsed ||
+                primaryJumpVerticalSpeed <= 0f)
+                return;
+
+            // 모바일 저프레임에서 한 틱에 정점을 지나 음수가 되어도 발동하도록
+            // 하한은 두지 않는다. TryPerformDoubleJump가 일반 자동점프 여부를 검증한다.
+            if (rb.linearVelocity.y <=
+                primaryJumpVerticalSpeed * DoubleJumpTriggerSpeedRatio)
+                TryPerformDoubleJump();
         }
 
         void Jump()

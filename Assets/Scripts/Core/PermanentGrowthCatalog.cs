@@ -667,7 +667,7 @@ namespace MukJump.Core
                 0.0625f / 4f, "점프 높이", PermanentGrowthValueKind.Percent, false,
                 PermanentGrowthBranch.Leap, PermanentGrowthNodeKind.Stat,
                 P("J-C2"), 0, "", 1040f, -200f, 3);
-            Add(nodes, "J-KC", "높은 먹발 결실", "모든 일반 자동 점프의 정점에서 한 번 더 도약합니다.",
+            Add(nodes, "J-KC", "높은 먹발 결실", "모든 일반 자동 점프의 상승이 잦아드는 정점 직전에 한 번 더 도약합니다.",
                 "매 자동점프 2단도약 · 힘 40%", "leap.height.keystone",
                 PermanentGrowthType.DoubleJump, 0.40f, "2단점프 힘",
                 PermanentGrowthValueKind.Percent, false,
