@@ -12,6 +12,9 @@ namespace MukJump.Player
         // 실제 정점까지 기다리면 캐릭터가 잠깐 멈춘 뒤 다시 뛰는 것처럼 보인다.
         // 첫 상승 속도가 15% 남았을 때 이어서 솟아 흐름을 끊지 않는다.
         const float DoubleJumpTriggerSpeedRatio = 0.15f;
+        // Rigidbody2D 왕복 과정의 미세한 부동소수점 오차로 정확한 경계에서
+        // 결실이 한 틱 늦거나 아예 소모되지 않는 일을 막는다.
+        const float DoubleJumpTriggerSpeedTolerance = 0.01f;
 
         [Header("점프 주기")]
         [Tooltip("점프 정점부터 다음 자동 점프까지 충전되는 시간")]
@@ -133,7 +136,8 @@ namespace MukJump.Player
             // 모바일 저프레임에서 한 틱에 정점을 지나 음수가 되어도 발동하도록
             // 하한은 두지 않는다. TryPerformDoubleJump가 일반 자동점프 여부를 검증한다.
             if (rb.linearVelocity.y <=
-                primaryJumpVerticalSpeed * DoubleJumpTriggerSpeedRatio)
+                primaryJumpVerticalSpeed * DoubleJumpTriggerSpeedRatio +
+                DoubleJumpTriggerSpeedTolerance)
                 TryPerformDoubleJump();
         }
 
