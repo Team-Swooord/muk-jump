@@ -1,5 +1,9 @@
 # 먹점프 (MukJump)
 
+## [▶ Android APK 다운로드 (Google Drive)](https://drive.google.com/file/d/1x1XJDoTfnAFfUsOmoe_OKhn5vFJ8xQNw/view?usp=sharing)
+
+> NHN NAN 2026 심사용 플레이어블 빌드
+
 > **선 하나가 발판이 되고, 발판 하나가 그림이 된다.**
 
 먹점프는 자동으로 뛰는 작은 먹방울을 위해 직접 발판을 그리는 **세로형 수묵 드로잉 클라이밍 게임**입니다.
