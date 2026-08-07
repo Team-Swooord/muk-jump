@@ -390,11 +390,46 @@ public sealed class ItemSpawnerBalanceTests
         for (int i = 0; i < living.Count; i++)
             if (living[i] != source)
             {
-                Assert.That(living[i].Body.linearVelocity,
-                    Is.EqualTo(sourceBody.linearVelocity),
-                    "생성 직후 분신을 옆으로 밀어 원본과 다시 벌리면 안 됩니다.");
+                Vector2 cloneVelocity = living[i].Body.linearVelocity;
+                Assert.That(cloneVelocity.x,
+                    Is.GreaterThan(sourceBody.linearVelocity.x),
+                    "오른쪽에 생긴 분신은 원본과 같은 줄에 멈추지 않고 바깥으로 퍼져야 합니다.");
+                Assert.That(cloneVelocity.y,
+                    Is.GreaterThan(sourceBody.linearVelocity.y + 1f),
+                    "새 분신은 팝콘처럼 눈에 보이는 상향 속도로 튀어야 합니다.");
+                Assert.That(living[i].MaxHealth,
+                    Is.EqualTo(PlayerController.RuntimeCloneMaxHealth));
+                Assert.That(living[i].CurrentHealth, Is.EqualTo(2));
                 Track(living[i].gameObject);
             }
+    }
+
+    [Test]
+    public void ClonePopVelocityAlternatesAndKeepsEverySpawnDistinct()
+    {
+        Vector2 sourceVelocity = new(8f, -4f);
+        Vector2 right = GameManager.ResolveClonePopVelocity(
+            sourceVelocity, 1f, 1);
+        Vector2 left = GameManager.ResolveClonePopVelocity(
+            sourceVelocity, -1f, 2);
+
+        Assert.That(right.x, Is.GreaterThan(0f));
+        Assert.That(left.x, Is.LessThan(0f));
+        Assert.That(right.y, Is.GreaterThan(GameManager.ClonePopVerticalSpeed));
+        Assert.That(left.y, Is.EqualTo(GameManager.ClonePopVerticalSpeed)
+            .Within(0.001f));
+        Assert.That(right, Is.Not.EqualTo(left));
+
+        Vector2 specialRise = GameManager.ResolveClonePopVelocity(
+            new Vector2(0f, 42f), 1f, 3, preserveSpecialRise: true);
+        Assert.That(specialRise.y, Is.EqualTo(42f).Within(0.001f),
+            "먹물방울·부활 상승은 속도를 더하지 않아 분신이 카메라를 끌고 가면 안 됩니다.");
+
+        Vector2 repeatedNormalRise = GameManager.ResolveClonePopVelocity(
+            new Vector2(0f, 17.5f), -1f, 4);
+        Assert.That(repeatedNormalRise.y,
+            Is.EqualTo(GameManager.ClonePopMaximumVerticalSpeed).Within(0.001f),
+            "연쇄 복제에서도 일반 상승 속도는 상한을 넘어 누적되면 안 됩니다.");
     }
 
     [TestCase(0, 24, 1)]

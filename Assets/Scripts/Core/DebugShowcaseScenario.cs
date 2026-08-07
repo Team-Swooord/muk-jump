@@ -327,11 +327,9 @@ namespace MukJump.Core
 
             if (scenario.RunInkSwarmCascade)
             {
-                // 천하수 배경의 1초 교차 전환을 먼저 보여준 뒤 연쇄를 시작한다.
+                // 순간이동 직후 추락하기 전에 첫 상승을 시작한다. 천하수 배경은
+                // 먹떼가 오르는 동안 1초 교차 전환으로 함께 드러난다.
                 ProtectLivingPlayers(2f);
-                yield return new WaitForSeconds(0.92f);
-                if (manager == null || !manager.IsGameplayTicking)
-                    yield break;
                 yield return RunInkSwarmCascade();
                 effectsRoutine = null;
                 yield break;

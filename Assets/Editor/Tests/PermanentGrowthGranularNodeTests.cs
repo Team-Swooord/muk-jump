@@ -146,7 +146,7 @@ namespace MukJump.EditorTests
             Assert.That(
                 PlayerController.RuntimeCloneMaxHealth +
                 snapshot.InkCloneMaxHealthBonus,
-                Is.EqualTo(unlockedCount < 4 ? 1 : 2));
+                Is.EqualTo(unlockedCount < 4 ? 2 : 3));
         }
 
         [TestCase(0, 1.0f, 4.80f)]

@@ -33,6 +33,10 @@ namespace MukJump.Core
         public const float CloneSpawnHorizontalGap = 0.1f;
         /// 화면 경계와 새 분신 외곽 사이에 남기는 최소 월드 간격.
         public const float CloneSpawnScreenEdgePadding = 0.05f;
+        public const float ClonePopHorizontalSpeed = 2.6f;
+        public const float ClonePopVerticalSpeed = 4.8f;
+        public const float ClonePopRisingBoost = 1.2f;
+        public const float ClonePopMaximumVerticalSpeed = 18f;
 
         public static GameManager Instance { get; private set; }
 
@@ -707,12 +711,54 @@ namespace MukJump.Core
             var cloneBody = clone.GetComponent<Rigidbody2D>();
             clone.ConfigureAsClone(source.NormalGravityScale);
             if (sourceBody != null && cloneBody != null)
-                cloneBody.linearVelocity = sourceBody.linearVelocity;
+            {
+                float outwardDirection = Mathf.Sign(
+                    spawnPosition.x - source.transform.position.x);
+                bool preserveSpecialRise = source.IsInkDropBoosted ||
+                    (!source.IsAutomaticJumpInFlight &&
+                     sourceBody.linearVelocity.y > 8f);
+                cloneBody.linearVelocity = ResolveClonePopVelocity(
+                    sourceBody.linearVelocity,
+                    outwardDirection,
+                    cloneIndex,
+                    preserveSpecialRise);
+            }
 
             RegisterPlayer(clone);
             clone.GetComponent<InkCloneArrivalView>()?.Play();
             GameFeedbackController.Instance?.PlayCloneArrival(clone.transform.position);
             return true;
+        }
+
+        /// 먹분신이 원본 옆에 딱딱하게 서지 않고 팝콘처럼 좌우로 퍼져 오르게 한다.
+        /// 난수 대신 인덱스 변주를 사용해 촬영과 테스트에서 같은 궤적을 재현한다.
+        public static Vector2 ResolveClonePopVelocity(
+            Vector2 sourceVelocity,
+            float outwardDirection,
+            int cloneIndex,
+            bool preserveSpecialRise = false)
+        {
+            float side = Mathf.Abs(outwardDirection) > 0.01f
+                ? Mathf.Sign(outwardDirection)
+                : (cloneIndex % 2 == 0 ? -1f : 1f);
+            float horizontalVariation = (Mathf.Abs(cloneIndex) % 3) * 0.35f;
+            float verticalVariation = (Mathf.Abs(cloneIndex) % 2) * 0.9f;
+            float inheritedHorizontal = Mathf.Clamp(
+                sourceVelocity.x * 0.45f,
+                -2f,
+                2f);
+            float verticalSpeed = preserveSpecialRise
+                ? sourceVelocity.y
+                : Mathf.Clamp(
+                    Mathf.Max(
+                        ClonePopVerticalSpeed + verticalVariation,
+                        Mathf.Max(0f, sourceVelocity.y) + ClonePopRisingBoost),
+                    ClonePopVerticalSpeed,
+                    ClonePopMaximumVerticalSpeed);
+            return new Vector2(
+                inheritedHorizontal + side *
+                (ClonePopHorizontalSpeed + horizontalVariation),
+                verticalSpeed);
         }
 
         /// 먹분신 아이템 한 개로 기본 한 마리와 성장 보너스만큼을 함께 만든다.

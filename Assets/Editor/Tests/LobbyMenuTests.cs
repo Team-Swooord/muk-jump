@@ -60,6 +60,11 @@ namespace MukJump.EditorTests
                 "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
                 "PermanentGrowthScreen");
             Assert.That(growthPanel, Is.Not.Null);
+            Text survivalSummary = growthPanel.Find("SurvivalSummary")
+                ?.GetComponent<Text>();
+            Assert.That(survivalSummary, Is.Not.Null);
+            StringAssert.Contains("2→2", survivalSummary.text,
+                "성장 미선택 분신은 화면에서도 기본 2/2로 안내해야 합니다.");
             var viewport = (RectTransform)viewHost.transform.Find(
                 "PermanentGrowthCanvas/ScreenRoot/TreeLayerRoot/" +
                 "TreeViewport");

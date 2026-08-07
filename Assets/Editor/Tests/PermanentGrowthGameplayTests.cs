@@ -37,7 +37,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void SurvivalVitalityPathRaisesBodyToFourAndCloneToTwo()
+        public void SurvivalVitalityPathRaisesBodyToFourAndCloneToThree()
         {
             SeedGrowth(
                 new[] { "S-KA" });
@@ -46,6 +46,11 @@ namespace MukJump.EditorTests
 
             Assert.That(player.MaxHealth, Is.EqualTo(4));
             Assert.That(player.CurrentHealth, Is.EqualTo(4));
+
+            var clone = CreatePlayer("PermanentSurvivalClone");
+            clone.ConfigureAsClone(1f);
+            Assert.That(clone.MaxHealth, Is.EqualTo(3));
+            Assert.That(clone.CurrentHealth, Is.EqualTo(3));
 
             ExpireDamageGrace(player);
             float hitTime = Time.time;

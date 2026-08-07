@@ -93,7 +93,7 @@ namespace MukJump.Core
             Mathf.RoundToInt(EffectTotal(PermanentGrowthType.Vitality)),
             0,
             PlayerController.MaximumHealth - PlayerController.DefaultMaxHealth);
-        /// 먹피 결실은 모든 런타임 분신의 최대 체력을 1칸 늘린다.
+        /// 먹피 결실은 모든 런타임 분신의 최대 체력을 기본 2칸에서 3칸으로 늘린다.
         public int InkCloneMaxHealthBonus => Mathf.Clamp(
             Mathf.RoundToInt(EffectTotal(PermanentGrowthType.CloneMaxHealth)),
             0,

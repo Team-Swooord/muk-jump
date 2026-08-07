@@ -1830,7 +1830,8 @@ namespace MukJump.Core
                 SummaryTitle("생존", survivalColor) + "\n" +
                 SummaryLine(
                     "본체·분신 체력",
-                    "1→" + maxHealth + " · 1→" +
+                    Player.PlayerController.DefaultMaxHealth + "→" + maxHealth +
+                    " · " + Player.PlayerController.RuntimeCloneMaxHealth + "→" +
                     (Player.PlayerController.RuntimeCloneMaxHealth +
                      snapshot.InkCloneMaxHealthBonus),
                     survivalColor) + "\n" +

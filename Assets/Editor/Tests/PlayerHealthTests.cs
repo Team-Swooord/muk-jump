@@ -72,8 +72,20 @@ namespace MukJump.EditorTests
             player.ConfigureAsClone(1f);
 
             Assert.That(player.IsRuntimeClone, Is.True);
-            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.CurrentHealth, Is.EqualTo(2));
             Assert.That(player.DamageStage, Is.Zero);
+
+            ExpireDamageGrace(player);
+            Assert.That(player.TakeHit(), Is.True);
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.IsDead, Is.False,
+                "기본 먹분신은 첫 피해를 받고도 한 칸으로 생존해야 합니다.");
+
+            ExpireDamageGrace(player);
+            Assert.That(player.TakeHit(), Is.True);
+            Assert.That(player.CurrentHealth, Is.Zero);
+            Assert.That(player.IsDead, Is.True,
+                "기본 먹분신은 방어막이 없으면 두 번째 피해에 사망해야 합니다.");
         }
 
         [Test]
@@ -491,8 +503,13 @@ namespace MukJump.EditorTests
             Assert.That(clone.CurrentHealth, Is.EqualTo(clone.MaxHealth));
             Assert.That(clone.MaxHealth,
                 Is.EqualTo(PlayerController.MaximumRuntimeCloneHealth));
-            Assert.That(clone.CurrentHealth, Is.EqualTo(2),
-                "먹피 결실을 열면 새 먹분신은 정확히 2/2로 생성되어야 합니다.");
+            Assert.That(clone.CurrentHealth, Is.EqualTo(3),
+                "먹피 결실을 열면 새 먹분신은 정확히 3/3으로 생성되어야 합니다.");
+
+            ExpireDamageGrace(clone);
+            Assert.That(clone.TakeHit(), Is.True);
+            Assert.That(clone.CurrentHealth, Is.EqualTo(2));
+            Assert.That(clone.IsDead, Is.False);
 
             ExpireDamageGrace(clone);
             Assert.That(clone.TakeHit(), Is.True);
