@@ -319,6 +319,13 @@ namespace MukJump.Core
         const int DebugGrowthCurrency = 999;
         static int debugCurrencyOverride = -1;
 #endif
+#if UNITY_EDITOR
+        // Editor Play에서는 해금 상태만 미리 보여 주고, 실제 판 효과는 사용자가
+        // 고른 계보별 한 줄기만 적용한다. 선택은 저장을 건드리지 않는 세션 값이다.
+        static readonly Dictionary<PermanentGrowthBranch, string>
+            editorActiveKeystoneOverrides = new();
+        static bool IsEditorUnlockPreviewActive => Application.isPlaying;
+#endif
 
         public static event Action Changed;
 
@@ -493,33 +500,51 @@ namespace MukJump.Core
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             debugCurrencyOverride = -1;
 #endif
+#if UNITY_EDITOR
+            editorActiveKeystoneOverrides.Clear();
+#endif
         }
 
         public static PermanentGrowthRunSnapshot CreateRunSnapshot()
         {
             EnsureLoaded();
+            var equipped = new Dictionary<PermanentGrowthBranch, string>(3)
+            {
+                [PermanentGrowthBranch.Survival] =
+                    GetActiveKeystoneId(PermanentGrowthBranch.Survival),
+                [PermanentGrowthBranch.Leap] =
+                    GetActiveKeystoneId(PermanentGrowthBranch.Leap),
+                [PermanentGrowthBranch.InkHandling] =
+                    GetActiveKeystoneId(PermanentGrowthBranch.InkHandling),
+            };
 #if UNITY_EDITOR
-            // 현재 밸런스·상호작용 확인용 임시 Editor Play override.
-            // 저장 데이터는 바꾸지 않고 모든 성장 경로와 결실을 동시에 적용한다.
-            if (Application.isPlaying)
+            // UI에서는 모든 노드를 해금된 것처럼 보여도 런 스냅샷에는 공용 뿌리와
+            // 사용자가 고른 A/B/C 줄기만 넣는다. 선택이 없는 계보는 효과도 없다.
+            if (IsEditorUnlockPreviewActive)
             {
                 IReadOnlyList<PermanentGrowthNodeDefinition> nodes =
                     PermanentGrowthCatalog.Nodes;
-                var allNodeIds = new string[nodes.Count];
+                var appliedNodeIds = new List<string>(nodes.Count);
                 for (int i = 0; i < nodes.Count; i++)
-                    allNodeIds[i] = nodes[i].Id;
-                return new PermanentGrowthRunSnapshot(
-                    allNodeIds,
-                    null,
-                    applyAllOwnedPaths: true);
+                {
+                    PermanentGrowthNodeDefinition node = nodes[i];
+                    PermanentGrowthPath path =
+                        PermanentGrowthCatalog.GetPath(node);
+                    if (path == PermanentGrowthPath.None ||
+                        equipped.TryGetValue(
+                            node.Branch,
+                            out string activeKeystoneId) &&
+                        string.Equals(
+                            activeKeystoneId,
+                            PermanentGrowthCatalog.GetKeystoneId(
+                                node.Branch,
+                                path),
+                            StringComparison.Ordinal))
+                        appliedNodeIds.Add(node.Id);
+                }
+                return new PermanentGrowthRunSnapshot(appliedNodeIds, equipped);
             }
 #endif
-            var equipped = new Dictionary<PermanentGrowthBranch, string>(3)
-            {
-                [PermanentGrowthBranch.Survival] = data.survivalKeystoneId,
-                [PermanentGrowthBranch.Leap] = data.leapKeystoneId,
-                [PermanentGrowthBranch.InkHandling] = data.inkHandlingKeystoneId,
-            };
             return new PermanentGrowthRunSnapshot(data.ownedNodeIds, equipped);
         }
 
@@ -554,6 +579,11 @@ namespace MukJump.Core
             EnsureLoaded();
             if (string.IsNullOrEmpty(nodeId))
                 return false;
+#if UNITY_EDITOR
+            if (IsEditorUnlockPreviewActive &&
+                PermanentGrowthCatalog.GetNode(nodeId) != null)
+                return true;
+#endif
             for (int i = 0; i < data.ownedNodeIds.Count; i++)
                 if (string.Equals(data.ownedNodeIds[i], nodeId, StringComparison.Ordinal))
                     return true;
@@ -671,12 +701,23 @@ namespace MukJump.Core
         public static string GetActiveKeystoneId(PermanentGrowthBranch branch)
         {
             EnsureLoaded();
-            return branch switch
+            string savedKeystoneId = branch switch
             {
                 PermanentGrowthBranch.Survival => data.survivalKeystoneId,
                 PermanentGrowthBranch.Leap => data.leapKeystoneId,
                 _ => data.inkHandlingKeystoneId,
             } ?? string.Empty;
+#if UNITY_EDITOR
+            if (IsEditorUnlockPreviewActive)
+            {
+                if (editorActiveKeystoneOverrides.TryGetValue(
+                        branch,
+                        out string sessionKeystoneId))
+                    return sessionKeystoneId;
+                return savedKeystoneId;
+            }
+#endif
+            return savedKeystoneId;
         }
 
         /// 선택한 비기 ID는 해당 계보에서 실제 적용할 A·B·C 줄기를 뜻한다.
@@ -688,8 +729,22 @@ namespace MukJump.Core
                 return false;
             PermanentGrowthNodeDefinition node =
                 PermanentGrowthCatalog.GetNode(nodeId);
-            if (node == null || !node.IsKeystone ||
-                !OwnsAnyNodeInPath(
+            if (node == null || !node.IsKeystone)
+                return false;
+#if UNITY_EDITOR
+            if (IsEditorUnlockPreviewActive)
+            {
+                if (string.Equals(
+                        GetActiveKeystoneId(node.Branch),
+                        node.Id,
+                        StringComparison.Ordinal))
+                    return true;
+                editorActiveKeystoneOverrides[node.Branch] = node.Id;
+                Changed?.Invoke();
+                return true;
+            }
+#endif
+            if (!OwnsAnyNodeInPath(
                     node.Branch,
                     PermanentGrowthCatalog.GetPath(node)))
                 return false;
@@ -2640,6 +2695,7 @@ namespace MukJump.Core
             ResetLoadSafetyState();
             Changed = null;
             debugCurrencyOverride = -1;
+            editorActiveKeystoneOverrides.Clear();
         }
 
         public static void ResetCacheForTests()
@@ -2651,6 +2707,7 @@ namespace MukJump.Core
             ResetLoadSafetyState();
             Changed = null;
             debugCurrencyOverride = -1;
+            editorActiveKeystoneOverrides.Clear();
         }
 
         public static void RestoreDefaultStoreForTests()
@@ -2663,6 +2720,7 @@ namespace MukJump.Core
             ResetLoadSafetyState();
             Changed = null;
             debugCurrencyOverride = -1;
+            editorActiveKeystoneOverrides.Clear();
         }
 #endif
     }
