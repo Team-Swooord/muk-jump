@@ -308,43 +308,76 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void HighInkFootReservesAndPerformsOneDoubleJump()
+        public void HighInkFootPerformsOneDoubleJumpOnEveryAutomaticJump()
         {
             SeedGrowth(new[] { "J-KC" }, leapKeystone: "J-KC");
-            var manager = CreatePlayingManager(out var growth);
+            var manager = CreatePlayingManager(out _);
             var player = CreatePlayer("PermanentDoubleJump");
             manager.RegisterPlayer(player);
             var autoJump = player.gameObject.AddComponent<AutoJump>();
             Invoke(autoJump, "Awake");
-            player.BeginAutomaticJumpFlight();
-            SetField(autoJump, "primaryJumpVerticalSpeed", 10f);
-            SetField(autoJump, "doubleJumpArmed", true);
-            SetField(autoJump, "doubleJumpUsed", false);
-            Assert.That(growth.TryReserveDoubleJump(player), Is.True);
+            SetField(autoJump, "baseJumpSpeed", 10f);
+            SetField(autoJump, "jumpStrengthMultiplier", 1f);
+            SetField(autoJump, "normalInfluence", 0f);
+            SetProperty(player, "GroundNormal", Vector2.up);
+
+            Invoke(autoJump, "Jump");
             Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(true));
+            Assert.That(player.Body.linearVelocity.y, Is.EqualTo(4f).Within(0.001f));
+
+            autoJump.NotifyLanding(false);
+            SetField(player, "automaticJumpInFlight", false);
+            player.Body.linearVelocity = Vector2.zero;
+            Invoke(autoJump, "Jump");
+            Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(true),
+                "높은 먹발 결실은 12초 대기 없이 다음 일반 자동점프에도 발동해야 합니다.");
             Assert.That(player.Body.linearVelocity.y, Is.EqualTo(4f).Within(0.001f));
         }
 
         [Test]
-        public void SpecialLaunchCancelsReservedDoubleJump()
+        public void HighInkFootAppliesToEveryCloneWithoutRepresentativeReservation()
         {
             SeedGrowth(new[] { "J-KC" }, leapKeystone: "J-KC");
-            var manager = CreatePlayingManager(out var growth);
+            var manager = CreatePlayingManager(out _);
+            var original = CreatePlayer("PermanentDoubleJumpOriginal");
+            var clone = CreatePlayer("PermanentDoubleJumpClone");
+            clone.ConfigureAsClone(1f);
+            manager.RegisterPlayer(original);
+            manager.RegisterPlayer(clone);
+
+            foreach (PlayerController player in new[] { original, clone })
+            {
+                var autoJump = player.gameObject.AddComponent<AutoJump>();
+                Invoke(autoJump, "Awake");
+                SetField(autoJump, "baseJumpSpeed", 10f);
+                SetField(autoJump, "jumpStrengthMultiplier", 1f);
+                SetField(autoJump, "normalInfluence", 0f);
+                SetProperty(player, "GroundNormal", Vector2.up);
+                Invoke(autoJump, "Jump");
+                Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(true));
+            }
+        }
+
+        [Test]
+        public void SpecialLaunchCancelsLocalDoubleJump()
+        {
+            SeedGrowth(new[] { "J-KC" }, leapKeystone: "J-KC");
+            var manager = CreatePlayingManager(out _);
             var player = CreatePlayer("PermanentSpecialLaunchReservation");
             manager.RegisterPlayer(player);
             var autoJump = player.gameObject.AddComponent<AutoJump>();
             Invoke(autoJump, "Awake");
-            SetField(autoJump, "doubleJumpArmed", true);
-            player.BeginAutomaticJumpFlight();
-            Assert.That(growth.TryReserveDoubleJump(player), Is.True);
+            SetField(autoJump, "baseJumpSpeed", 10f);
+            SetField(autoJump, "jumpStrengthMultiplier", 1f);
+            SetField(autoJump, "normalInfluence", 0f);
+            SetProperty(player, "GroundNormal", Vector2.up);
+            Invoke(autoJump, "Jump");
+            Assert.That(GetField<bool>(autoJump, "doubleJumpArmed"), Is.True);
 
             player.LaunchToHeight(10f);
 
-            Assert.That(
-                GetField<PlayerController>(growth, "doubleJumpReservedPlayer"),
-                Is.Null,
-                "특수 상승이 일반 2단점프 공용 예약을 붙잡으면 안 됩니다.");
             Assert.That(GetField<bool>(autoJump, "doubleJumpArmed"), Is.False);
+            Assert.That(Invoke(autoJump, "TryPerformDoubleJump"), Is.EqualTo(false));
         }
 
         [Test]

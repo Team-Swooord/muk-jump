@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace MukJump.Core
 {
-    /// 영구 성장 프로필을 판 시작에 고정하고 먹떼 공용 패시브와 쿨다운을 소유한다.
+    /// 영구 성장 프로필을 판 시작에 고정하고 판 단위 공용 패시브 상태를 소유한다.
     /// 모든 효과는 저장된 성장 나무의 소유 노드와 장착 비기에서만 온다.
     [DisallowMultipleComponent]
     public sealed class RunGrowthController : MonoBehaviour
@@ -23,8 +23,6 @@ namespace MukJump.Core
         GameManager manager;
         float stableHitReadyAt;
         float lastFallBrakeReadyAt;
-        float doubleJumpReadyAt;
-        PlayerController doubleJumpReservedPlayer;
         PlatformCollider activeSafetyPlatform;
 
         void Awake()
@@ -107,48 +105,6 @@ namespace MukJump.Core
             if (activeSafetyPlatform == null)
                 SafetyJumpProgress = 5;
             return activeSafetyPlatform != null;
-        }
-
-        /// 이륙 순간의 먹떼 대표에게 2단점프 사용권을 예약한다. 정점에 도달할 때
-        /// 대표가 바뀌어도 예약자는 사용권을 잃지 않는다.
-        public bool TryReserveDoubleJump(PlayerController player)
-        {
-            if (doubleJumpReservedPlayer != null &&
-                doubleJumpReservedPlayer.IsDead)
-                doubleJumpReservedPlayer = null;
-            if (player == null || player.IsDead ||
-                !PermanentSnapshot.HasDoubleJump ||
-                manager == null || manager.State != GameState.Playing ||
-                Time.time < doubleJumpReadyAt)
-                return false;
-            if (doubleJumpReservedPlayer == player)
-                return true;
-            if (doubleJumpReservedPlayer != null || !IsSwarmRepresentative(player))
-                return false;
-            doubleJumpReservedPlayer = player;
-            return true;
-        }
-
-        /// 예약된 자동 2단점프를 먹떼 공용 12초 사용권으로 소비한다.
-        /// 먹물방울·풍맥은 AutoJump에서 이 경로를 호출하지 않는다.
-        public bool TryUseDoubleJump(PlayerController player)
-        {
-            if (player == null || player.IsDead ||
-                !PermanentSnapshot.HasDoubleJump ||
-                manager == null || manager.State != GameState.Playing ||
-                doubleJumpReservedPlayer != player ||
-                Time.time < doubleJumpReadyAt)
-                return false;
-
-            doubleJumpReservedPlayer = null;
-            doubleJumpReadyAt = Time.time + 12f;
-            return true;
-        }
-
-        public void CancelDoubleJumpReservation(PlayerController player)
-        {
-            if (doubleJumpReservedPlayer == player)
-                doubleJumpReservedPlayer = null;
         }
 
         /// 카메라·난이도와 같은 하위 중앙 먹떼 대표를 사용한다. 선두만 구조 비기를
@@ -258,8 +214,6 @@ namespace MukJump.Core
             LastBreathAvailable = PermanentSnapshot.HasLastBreath;
             stableHitReadyAt = float.NegativeInfinity;
             lastFallBrakeReadyAt = float.NegativeInfinity;
-            doubleJumpReadyAt = float.NegativeInfinity;
-            doubleJumpReservedPlayer = null;
             SafetyJumpProgress = 0;
             if (activeSafetyPlatform != null)
                 Destroy(activeSafetyPlatform.gameObject);

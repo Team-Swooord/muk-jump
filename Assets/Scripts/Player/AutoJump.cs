@@ -93,7 +93,7 @@ namespace MukJump.Player
             }
             else if (wasRising)
             {
-                // 일반 자동점프의 첫 정점에서는 장착 비기가 있으면 한 번 더 솟는다.
+                // 높은 먹발 결실은 모든 일반 자동점프의 첫 정점에서 한 번 더 솟는다.
                 // 먹물방울·풍맥은 automaticJumpInFlight가 아니므로 이 경로에 들어오지 않는다.
                 wasRising = false;
                 if (TryPerformDoubleJump())
@@ -157,9 +157,7 @@ namespace MukJump.Player
             growth?.NotifyPrimaryAutomaticJump(
                 player,
                 rb.linearVelocity);
-            doubleJumpArmed = ActivePermanentGrowth.HasDoubleJump &&
-                growth != null &&
-                growth.TryReserveDoubleJump(player);
+            doubleJumpArmed = ActivePermanentGrowth.HasDoubleJump;
             GameFeedbackController.Instance?.PlayJump(transform.position);
             Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
                 transform, Mathf.InverseLerp(10f, 18f, power));
@@ -186,17 +184,15 @@ namespace MukJump.Player
         /// 실제 착지는 다음 공중 사이클의 2단점프 소모 상태를 정리한다.
         public void NotifyLanding(bool isTemporaryDrawnPlatform)
         {
-            RunGrowthController.Instance?.CancelDoubleJumpReservation(player);
             doubleJumpArmed = false;
             doubleJumpUsed = false;
             primaryJumpVerticalSpeed = 0f;
         }
 
         /// 먹물방울·풍맥 같은 특수 상승은 일반 자동점프의 정점 비기를 쓰지 않는다.
-        /// 이미 잡은 먹떼 공용 예약을 즉시 돌려 다른 대표가 사용할 수 있게 한다.
+        /// 이미 잡은 현재 자동점프의 2단점프 예약도 함께 취소한다.
         public void CancelForSpecialLaunch()
         {
-            RunGrowthController.Instance?.CancelDoubleJumpReservation(player);
             doubleJumpArmed = false;
             doubleJumpUsed = false;
             primaryJumpVerticalSpeed = 0f;
@@ -206,9 +202,7 @@ namespace MukJump.Player
         {
             if (!doubleJumpArmed || doubleJumpUsed ||
                 !player.IsAutomaticJumpInFlight ||
-                primaryJumpVerticalSpeed <= 0f ||
-                RunGrowthController.Instance == null ||
-                !RunGrowthController.Instance.TryUseDoubleJump(player))
+                primaryJumpVerticalSpeed <= 0f)
                 return false;
 
             doubleJumpArmed = false;
