@@ -46,6 +46,11 @@ namespace MukJump.Drawing
         readonly List<Vector2> points = new();
         Camera cam;
         bool drawing;
+#if UNITY_EDITOR
+        // Recorder가 포인터 장치 대신 실제 획 처리 경로를 구동하는 동안에는
+        // Update의 "포인터가 떼어짐" 판정이 같은 프레임에 획을 끝내면 안 된다.
+        bool recordingStrokeActive;
+#endif
         float strokeLength;
         LineRenderer preview;
         float unlimitedInkUntil;
@@ -243,6 +248,11 @@ namespace MukJump.Drawing
 
             RefreshInkBudget();
 
+#if UNITY_EDITOR
+            if (!ShouldProcessLivePointer(recordingStrokeActive))
+                return;
+#endif
+
             if (PointerInput.TryGetPressed(out var screenPos))
             {
                 if (GameplayHudView.IsPointerOverItemTestControls(screenPos) ||
@@ -404,6 +414,9 @@ namespace MukJump.Drawing
         void CancelStroke()
         {
             drawing = false;
+#if UNITY_EDITOR
+            recordingStrokeActive = false;
+#endif
             GameFeedbackController.Instance?.StopBrushDrawing();
             DestroyPreview();
         }
@@ -413,8 +426,49 @@ namespace MukJump.Drawing
             if (drawing)
                 CancelStroke();
             else
+            {
+#if UNITY_EDITOR
+                recordingStrokeActive = false;
+#endif
                 GameFeedbackController.Instance?.StopBrushDrawing();
+            }
         }
+
+#if UNITY_EDITOR
+        /// Unity Recorder 촬영에서 실제 포인터 장치를 흉내 내지 않고도 본 게임의
+        /// 먹 비용·스무딩·붓소리·발판 생성 경로를 그대로 재생하는 전용 진입점이다.
+        /// 플레이어 빌드에는 포함되지 않는다.
+        public bool BeginRecordingStroke(Vector2 worldPosition)
+        {
+            if (GameManager.Instance == null ||
+                !GameManager.Instance.IsGameplayTicking)
+                return false;
+
+            CancelActiveStroke();
+            BeginStrokeAtWorld(worldPosition);
+            recordingStrokeActive = true;
+            return true;
+        }
+
+        public void AppendRecordingStroke(Vector2 worldPosition)
+        {
+            if (drawing)
+                AppendWorldSample(worldPosition);
+        }
+
+        public void EndRecordingStroke()
+        {
+            if (drawing)
+                EndStroke();
+            recordingStrokeActive = false;
+        }
+
+        public bool IsRecordingStrokeActive => recordingStrokeActive;
+
+        /// 촬영용 획이 진행 중일 때 실제 포인터의 미입력을 해제 신호로 해석하지 않는다.
+        public static bool ShouldProcessLivePointer(bool recorderOwnsStroke) =>
+            !recorderOwnsStroke;
+#endif
 
         void TryBindGrowthController()
         {

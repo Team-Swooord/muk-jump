@@ -249,6 +249,7 @@ docs/
 - [게임 아키텍처](docs/architecture.md)
 - [영구 성장 설계](docs/design/permanent-growth-trait-tree-v3.md)
 - [AI 활용 및 외부 에셋 기록](docs/ai-usage-log.md)
+- [NAN 2026 플레이 영상 촬영 가이드](docs/submission/NAN2026-recording-guide.md)
 - [제출 전 코드 감사](docs/code-audit-2026-07-26.md)
 
 ## 개발 상태
