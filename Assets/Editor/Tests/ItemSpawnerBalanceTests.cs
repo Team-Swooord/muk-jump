@@ -111,6 +111,7 @@ public sealed class ItemSpawnerBalanceTests
     [TestCase(12f, 0)]
     [TestCase(18f, 0)]
     [TestCase(24f, 1)]
+    [TestCase(3.2f, 2)]
     public void LegacySceneInkCapacityUpgradesToCurrentBalance(
         float legacyCapacity,
         int legacyTuningVersion)
@@ -199,7 +200,7 @@ public sealed class ItemSpawnerBalanceTests
     }
 
     [Test]
-    public void InkGaugeFillShrinksFromLeftAndStaysAttachedToBrush()
+    public void InkGaugeRemainingFillChangesInsideFixedTrack()
     {
         MethodInfo rectMethod = typeof(PrototypeHud).GetMethod(
             "CalculateGaugeFillRect",

@@ -11,11 +11,12 @@ namespace MukJump.Drawing
     /// 손을 떼면 BezierSmoother로 다듬어 PlatformCollider 발판을 생성한다.
     public class StrokeCapture : MonoBehaviour
     {
-        public const float DefaultInkCapacity = 3.2f;
+        public const float DefaultInkCapacity = 4.8f;
         const float LegacyInkCapacityV0 = 12f;
         const float LegacyInkCapacityV1 = 18f;
         const float LegacyInkCapacityV2 = 24f;
-        public const int CurrentInkCapacityTuningVersion = 2;
+        const float LegacyInkCapacityV3 = 3.2f;
+        public const int CurrentInkCapacityTuningVersion = 3;
 
         [Tooltip("이 간격(월드 단위) 이상 움직였을 때만 점 추가")]
         [SerializeField] float minPointDistance = 0.15f;
@@ -37,8 +38,9 @@ namespace MukJump.Drawing
         [Tooltip("유효 먹선이 선명하게 유지된 뒤 자연 소멸을 시작하는 시간")]
         [SerializeField] float naturalHoldDuration =
             PlatformCollider.DefaultNaturalHoldDuration;
-        // 기존 Main 씬에는 이 필드가 없으므로 0을 유지해야 구 12/18/24m 값을
-        // 재생 시 현재 한 획 기준으로 바꿀 수 있다. 새 씬은 빌더가 현재 버전을 명시한다.
+        // 기존 Main 씬에는 이 필드가 없으므로 0을 유지해야 구 12/18/24m 값과
+        // 이전 3.2m 튜닝을 재생 시 현재 4.8m 기준으로 바꿀 수 있다.
+        // 새 씬은 빌더가 현재 버전을 명시한다.
         [SerializeField, HideInInspector] int inkCapacityTuningVersion;
 
         readonly List<Vector2> points = new();
@@ -688,11 +690,12 @@ namespace MukJump.Drawing
             if (inkCapacityTuningVersion >= CurrentInkCapacityTuningVersion)
                 return;
 
-            // 현재 Main의 24m와 이전 설계의 12/18m를 모두 씬 재생성 전부터
-            // 새 한 획 밸런스로 바꾼다. 사용자가 별도로 조정한 다른 값은 보존한다.
+            // 현재 Main의 24m와 이전 설계의 12/18/3.2m를 모두 씬 재생성 전부터
+            // 새 4.8m 밸런스로 바꾼다. 사용자가 별도로 조정한 다른 값은 보존한다.
             if (Mathf.Approximately(inkCapacity, LegacyInkCapacityV0) ||
                 Mathf.Approximately(inkCapacity, LegacyInkCapacityV1) ||
-                Mathf.Approximately(inkCapacity, LegacyInkCapacityV2))
+                Mathf.Approximately(inkCapacity, LegacyInkCapacityV2) ||
+                Mathf.Approximately(inkCapacity, LegacyInkCapacityV3))
                 inkCapacity = DefaultInkCapacity;
             inkCapacityTuningVersion = CurrentInkCapacityTuningVersion;
         }

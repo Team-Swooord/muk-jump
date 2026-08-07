@@ -144,12 +144,12 @@ namespace MukJump.EditorTests
                 Is.EqualTo(unlockedCount < 4 ? 1 : 2));
         }
 
-        [TestCase(0, 1.0f, 3.20f)]
-        [TestCase(1, 1.375f, 4.40f)]
-        [TestCase(2, 1.75f, 5.60f)]
-        [TestCase(3, 2.125f, 6.80f)]
-        [TestCase(4, 2.5f, 8.00f)]
-        public void InkCapacityPathGrowsOnePracticalStrokeToTwoPointFive(
+        [TestCase(0, 1.0f, 4.80f)]
+        [TestCase(1, 1.375f, 6.60f)]
+        [TestCase(2, 1.75f, 8.40f)]
+        [TestCase(3, 2.125f, 10.20f)]
+        [TestCase(4, 2.5f, 12.00f)]
+        public void InkCapacityPathKeepsFiftyPercentRaisedProgression(
             int unlockedCount,
             float expectedMultiplier,
             float expectedCapacity)
@@ -169,7 +169,7 @@ namespace MukJump.EditorTests
             var snapshot = new PermanentGrowthRunSnapshot(owned, active);
 
             Assert.That(StrokeCapture.DefaultInkCapacity,
-                Is.EqualTo(3.2f).Within(0.0001f));
+                Is.EqualTo(4.8f).Within(0.0001f));
             Assert.That(snapshot.InkCapacityMultiplier,
                 Is.EqualTo(expectedMultiplier).Within(0.0001f));
             Assert.That(

@@ -344,9 +344,9 @@ namespace MukJump.EditorTests
             SetField(stroke, "inkCapacity", StrokeCapture.DefaultInkCapacity);
 
             Assert.That(stroke.BaseEffectiveInkCapacity,
-                Is.EqualTo(8.0f).Within(0.0001f));
+                Is.EqualTo(12.0f).Within(0.0001f));
             Assert.That(stroke.EffectiveInkCapacity,
-                Is.EqualTo(8.0f).Within(0.0001f));
+                Is.EqualTo(12.0f).Within(0.0001f));
             Assert.That(stroke.EffectiveNaturalHoldDuration,
                 Is.EqualTo(
                     PlatformCollider.DefaultNaturalHoldDuration + 1f)

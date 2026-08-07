@@ -11,7 +11,7 @@ namespace MukJump.Core
         const float BrushIconSizeRatio = 0.14f;
         const float BrushOverlapRatio = 0.32f;
         const float FallbackGaugeHeightRatio = 0.05f;
-        const float EmptyGaugeGuideAlpha = 0.12f;
+        const float EmptyGaugeGuideAlpha = 0.16f;
         const float GaugeConsumeFadeSeconds = 0.24f;
         const float GaugeRecoverFadeSeconds = 0.75f;
 
@@ -150,6 +150,9 @@ namespace MukJump.Core
             float bottomMargin = Mathf.Max(18f, Screen.height * 0.014f);
             float maximumGaugeWidth = Mathf.Max(1f,
                 safeGui.width - horizontalMargin * 2f);
+            // 바깥 먹붓 UI는 잔량과 무관하게 최대 용량 폭을 계속 유지한다.
+            // ratio는 아래의 안쪽 채움에만 사용해, 먹을 써도 게이지 자체가
+            // 작아지는 것처럼 보이지 않게 한다.
             float gaugeTrackWidth = CalculateGaugeTrackWidth(
                 safeGui.width,
                 horizontalMargin,
