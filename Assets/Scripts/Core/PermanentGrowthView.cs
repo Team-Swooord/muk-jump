@@ -25,6 +25,15 @@ namespace MukJump.Core
         const float LeapBranchHorizontalOffset = 350f;
         const float FruitionVerticalGap = 310f;
         const float JourneyTrackWidth = 520f;
+        const float HeaderPanelBaseY = 690f;
+        const float HeaderPanelHeight = 410f;
+        const float HeaderCurrencyBaseY = 800f;
+        const float HeaderResetBaseY = 810f;
+        const float HeaderSummaryBaseY = 630f;
+        const float HeaderSafeTopInset = 24f;
+        const float HeaderSummarySideX = 330f;
+        const float HeaderResetX = -385f;
+        const float BackButtonSafeInset = 24f;
         const float NodeResetConfirmationGuard = 0.35f;
         const float NodeResetConfirmationWindow = 3f;
         const float NodePopupHeight = 1020f;
@@ -94,6 +103,8 @@ namespace MukJump.Core
         RectTransform selectedActionSafeAreaRoot;
         RectTransform selectedActionContentPanel;
         RectTransform selectedActionRoot;
+        RectTransform headerInfoPanelRect;
+        RectTransform currencyHudRect;
         Image selectedActionDimmer;
         Text balanceText;
         Text distanceProgressText;
@@ -413,9 +424,10 @@ namespace MukJump.Core
                 panel,
                 LoadPermanentGrowthSprite("pg_hanji_card") ??
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, 690f),
-                new Vector2(1040f, 410f),
+                new Vector2(0f, HeaderPanelBaseY),
+                new Vector2(1040f, HeaderPanelHeight),
                 WithAlpha(InkPalette.Ink, 0.94f));
+            headerInfoPanelRect = headerInfoPanel.rectTransform;
             headerInfoPanel.raycastTarget = false;
             if (headerInfoPanel.sprite != null &&
                 headerInfoPanel.sprite.border != Vector4.zero)
@@ -424,8 +436,9 @@ namespace MukJump.Core
             RectTransform balanceHud = CreateRect(
                 "CurrencyHud",
                 panel,
-                new Vector2(0f, 800f),
+                new Vector2(0f, HeaderCurrencyBaseY),
                 new Vector2(680f, 154f));
+            currencyHudRect = balanceHud;
             Image balanceDrop = CreateImage(
                 "CurrencyDrop",
                 balanceHud,
@@ -489,11 +502,13 @@ namespace MukJump.Core
                 "NodeResetButton",
                 panel,
                 "노드 초기화",
-                new Vector2(-425f, 810f),
-                new Vector2(180f, 120f),
+                new Vector2(HeaderResetX, HeaderResetBaseY),
+                new Vector2(250f, 120f),
                 28);
             nodeResetButtonText =
                 NodeResetButton.GetComponentInChildren<Text>();
+            if (nodeResetButtonText != null)
+                nodeResetButtonText.fontSize = 36;
             NodeResetButton.onClick.AddListener(HandleNodeResetRequested);
 
             BackButton = CreateBrushButton(
@@ -510,15 +525,15 @@ namespace MukJump.Core
             survivalSummaryText = CreateGrowthSummaryColumn(
                 "SurvivalSummary",
                 panel,
-                new Vector2(-345f, 630f));
+                new Vector2(-HeaderSummarySideX, HeaderSummaryBaseY));
             leapSummaryText = CreateGrowthSummaryColumn(
                 "LeapSummary",
                 panel,
-                new Vector2(0f, 630f));
+                new Vector2(0f, HeaderSummaryBaseY));
             inkSummaryText = CreateGrowthSummaryColumn(
                 "InkSummary",
                 panel,
-                new Vector2(345f, 630f));
+                new Vector2(HeaderSummarySideX, HeaderSummaryBaseY));
 
         }
 
@@ -2570,6 +2585,7 @@ namespace MukJump.Core
 
             Rect safe = MobileUiLayout.CurrentSafeArea;
             ApplySafeAreaContent(safeAreaRoot, contentPanel, safe);
+            ApplyPinnedGrowthHud(safe);
             ApplySafeAreaContent(
                 selectedActionSafeAreaRoot,
                 selectedActionContentPanel,
@@ -2588,6 +2604,83 @@ namespace MukJump.Core
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
             lastSafeArea = Screen.safeArea;
+        }
+
+        void ApplyPinnedGrowthHud(Rect safe)
+        {
+            if (contentPanel == null ||
+                headerInfoPanelRect == null ||
+                currencyHudRect == null)
+                return;
+
+            Vector2 safeSize = MobileUiLayout.GetLogicalSafeSize(
+                safe,
+                Screen.width,
+                Screen.height);
+            float contentScale = Mathf.Max(
+                0.01f,
+                contentPanel.localScale.x);
+            if (safeSize.x <= 0f || safeSize.y <= 0f)
+                return;
+
+            // 세로로 긴 기기에서는 1080 폭 맞춤 때문에 1920 프레임 위에
+            // 빈 공간이 생긴다. 전체 나무·하단 버튼을 끌어올리지 않고,
+            // 상단 정보 묶음만 노치 아래 일정 여백에 고정한다.
+            float targetHeaderTop =
+                (safeSize.y * 0.5f - HeaderSafeTopInset) /
+                contentScale;
+            float headerOffsetY = targetHeaderTop -
+                                  (HeaderPanelBaseY +
+                                   HeaderPanelHeight * 0.5f);
+
+            headerInfoPanelRect.anchoredPosition = new Vector2(
+                0f,
+                HeaderPanelBaseY + headerOffsetY);
+            currencyHudRect.anchoredPosition = new Vector2(
+                0f,
+                HeaderCurrencyBaseY + headerOffsetY);
+            if (NodeResetButton != null)
+            {
+                NodeResetButton.GetComponent<RectTransform>()
+                    .anchoredPosition = new Vector2(
+                        HeaderResetX,
+                        HeaderResetBaseY + headerOffsetY);
+            }
+            if (survivalSummaryText != null)
+            {
+                survivalSummaryText.rectTransform.anchoredPosition =
+                    new Vector2(
+                        -HeaderSummarySideX,
+                        HeaderSummaryBaseY + headerOffsetY);
+            }
+            if (leapSummaryText != null)
+            {
+                leapSummaryText.rectTransform.anchoredPosition =
+                    new Vector2(
+                        0f,
+                        HeaderSummaryBaseY + headerOffsetY);
+            }
+            if (inkSummaryText != null)
+            {
+                inkSummaryText.rectTransform.anchoredPosition =
+                    new Vector2(
+                        HeaderSummarySideX,
+                        HeaderSummaryBaseY + headerOffsetY);
+            }
+
+            // 로비 버튼도 같은 고정 프레임의 중앙 정렬 영향을 받지 않고
+            // Safe Area 좌하단 안쪽에 머물게 한다.
+            if (BackButton != null)
+            {
+                RectTransform backRect =
+                    BackButton.GetComponent<RectTransform>();
+                Vector2 size = backRect.sizeDelta;
+                backRect.anchoredPosition = new Vector2(
+                    (-safeSize.x * 0.5f + BackButtonSafeInset) /
+                    contentScale + size.x * 0.5f,
+                    (-safeSize.y * 0.5f + BackButtonSafeInset) /
+                    contentScale + size.y * 0.5f);
+            }
         }
 
         static void ApplySafeAreaContent(
