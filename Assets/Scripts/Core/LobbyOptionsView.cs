@@ -36,7 +36,7 @@ namespace MukJump.Core
         Text tutorialPage;
         Text tutorialNextLabel;
         Button tutorialPreviousButton;
-        readonly Button[] debugScenarioButtons = new Button[4];
+        readonly Button[] debugScenarioButtons = new Button[5];
         GameManager manager;
         Rect lastSafeArea;
         int lastScreenWidth;
@@ -402,7 +402,7 @@ namespace MukJump.Core
 
             IReadOnlyList<DebugShowcaseScenarioDefinition> definitions =
                 DebugShowcaseScenarioProfile.Definitions;
-            float[] yPositions = { 275f, 110f, -55f, -220f };
+            float[] yPositions = { 285f, 153f, 21f, -111f, -243f };
             for (int i = 0;
                  i < definitions.Count && i < debugScenarioButtons.Length;
                  i++)
@@ -937,7 +937,7 @@ namespace MukJump.Core
                 parent,
                 string.Empty,
                 position,
-                new Vector2(700f, 136f),
+                new Vector2(700f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.BodySize);
             Transform paper = button.transform.Find("Paper");
             CreateReadableText(
@@ -945,8 +945,8 @@ namespace MukJump.Core
                 paper,
                 definition.Title,
                 InkUiStyle.BodySize,
-                new Vector2(0f, 27f),
-                new Vector2(650f, 50f),
+                new Vector2(0f, 23f),
+                new Vector2(650f, 46f),
                 InkPalette.TextDark,
                 TextAnchor.MiddleCenter,
                 strong: true,
@@ -956,8 +956,8 @@ namespace MukJump.Core
                 paper,
                 definition.Summary,
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, -29f),
-                new Vector2(650f, 42f),
+                new Vector2(0f, -25f),
+                new Vector2(650f, 38f),
                 InkPalette.TextMuted,
                 TextAnchor.MiddleCenter,
                 wrap: false);

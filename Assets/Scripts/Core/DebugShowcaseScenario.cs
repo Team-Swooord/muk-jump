@@ -16,6 +16,7 @@ namespace MukJump.Core
         GoldenInkRain = 2,
         HaetaeDescent = 3,
         CelestialLeap = 4,
+        InkRiverRelay = 5,
     }
 
     /// 한 시나리오의 맵·먹떼·성장 빌드·시작 연출을 한곳에서 정의한다.
@@ -38,7 +39,8 @@ namespace MukJump.Core
             bool spawnHaetae = false,
             bool applyGoldenBrush = false,
             bool applyInkDrop = false,
-            bool shieldAllPlayers = false)
+            bool shieldAllPlayers = false,
+            bool runInkSwarmCascade = false)
         {
             Id = id;
             Title = title;
@@ -59,6 +61,7 @@ namespace MukJump.Core
             ApplyGoldenBrush = applyGoldenBrush;
             ApplyInkDrop = applyInkDrop;
             ShieldAllPlayers = shieldAllPlayers;
+            RunInkSwarmCascade = runInkSwarmCascade;
         }
 
         public DebugShowcaseScenarioId Id { get; }
@@ -77,6 +80,7 @@ namespace MukJump.Core
         public bool ApplyGoldenBrush { get; }
         public bool ApplyInkDrop { get; }
         public bool ShieldAllPlayers { get; }
+        public bool RunInkSwarmCascade { get; }
 
         public PermanentGrowthRunSnapshot CreateGrowthSnapshot()
         {
@@ -178,6 +182,18 @@ namespace MukJump.Core
                 PermanentGrowthPath.A,
                 triggerUpdraft: true,
                 applyInkDrop: true),
+            new(
+                DebugShowcaseScenarioId.InkRiverRelay,
+                "상황 5 · 천하수 먹떼",
+                "2→12마리 · 천하수 · 50m 연속 상승",
+                "먹물방울과 먹분신이 번갈아 이어지는 천하수 질주입니다",
+                1510,
+                2,
+                PermanentGrowthPath.C,
+                PermanentGrowthPath.C,
+                PermanentGrowthPath.C,
+                flipWind: true,
+                runInkSwarmCascade: true),
         };
 
         static DebugShowcaseScenarioId selectedId;
@@ -221,6 +237,9 @@ namespace MukJump.Core
     [DisallowMultipleComponent]
     public sealed class DebugShowcaseScenarioController : MonoBehaviour
     {
+        public const int CascadeInkDropCount = 3;
+        public const int CascadeFinalLivingPlayers = 12;
+
         readonly List<PlayerController> livingPlayers =
             new(GameManager.MaxLivingPlayers);
 
@@ -266,14 +285,7 @@ namespace MukJump.Core
 
         void CreateStartingSwarm(int desiredLivingPlayers)
         {
-            int remainingAttempts = GameManager.MaxLivingPlayers;
-            while (manager.LivingPlayerCount < desiredLivingPlayers &&
-                   remainingAttempts-- > 0)
-            {
-                PlayerController source = manager.HighestLivingPlayer;
-                if (source == null || !manager.TryCreateInkClone(source))
-                    break;
-            }
+            CreateSwarmTowardCount(desiredLivingPlayers);
         }
 
         IEnumerator ApplyOpeningEffects(
@@ -313,6 +325,18 @@ namespace MukJump.Core
                  FindFirstObjectByType<ObstacleSpawner>())?.DebugSpawnHaetae();
             }
 
+            if (scenario.RunInkSwarmCascade)
+            {
+                // 천하수 배경의 1초 교차 전환을 먼저 보여준 뒤 연쇄를 시작한다.
+                ProtectLivingPlayers(2f);
+                yield return new WaitForSeconds(0.92f);
+                if (manager == null || !manager.IsGameplayTicking)
+                    yield break;
+                yield return RunInkSwarmCascade();
+                effectsRoutine = null;
+                yield break;
+            }
+
             PlayerController target = manager.HighestLivingPlayer;
             if (scenario.ApplyGoldenBrush && target != null)
                 ItemEffect.Apply(ItemType.GoldenBrush, target);
@@ -325,6 +349,132 @@ namespace MukJump.Core
             }
 
             effectsRoutine = null;
+        }
+
+        /// 천하수 시나리오는 먹물방울 3회 사이에 먹분신 픽업을 끼워 넣어
+        /// 2마리에서 12마리까지 실제 아이템 배관으로 불어난다.
+        IEnumerator RunInkSwarmCascade()
+        {
+            ProtectLivingPlayers(10f);
+            int[] clonePickupsAfterDrop = { 2, 2, 1 };
+            int[] livingTargets = { 6, 10, CascadeFinalLivingPlayers };
+
+            for (int round = 0; round < CascadeInkDropCount; round++)
+            {
+                if (manager == null || !manager.IsGameplayTicking)
+                    yield break;
+
+                ApplyToHighest(ItemType.InkDrop);
+                yield return new WaitForSeconds(0.82f);
+
+                for (int pickup = 0;
+                     pickup < clonePickupsAfterDrop[round];
+                     pickup++)
+                {
+                    if (manager == null || !manager.IsGameplayTicking)
+                        yield break;
+                    ApplyToHighest(ItemType.InkClone);
+                    ProtectLivingPlayers(3f);
+                    yield return new WaitForSeconds(0.42f);
+                }
+
+                // 화면 가장자리 때문에 실제 아이템 생성이 일부 실패하더라도
+                // 다른 생존자를 기준으로 빈 슬롯을 찾아 촬영 인원을 맞춘다.
+                CreateSwarmTowardCount(livingTargets[round]);
+                ProtectLivingPlayers(3f);
+                if (round + 1 < CascadeInkDropCount)
+                    yield return new WaitForSeconds(0.72f);
+            }
+
+            GameFeedbackController.Instance?.ShowZone(
+                "먹떼 열두 마리",
+                "세 번의 50m 상승 뒤에도 분신과 2단도약이 이어집니다");
+        }
+
+        void ApplyToHighest(ItemType type)
+        {
+            PlayerController target = manager != null
+                ? manager.HighestLivingPlayer
+                : null;
+            if (target != null)
+                ItemEffect.Apply(type, target);
+        }
+
+        void CreateSwarmTowardCount(int targetCount)
+        {
+            if (manager == null)
+                return;
+
+            int attemptsRemaining = GameManager.MaxLivingPlayers * 2;
+            bool spreadAcrossRows = false;
+            while (manager.LivingPlayerCount < targetCount &&
+                   attemptsRemaining-- > 0)
+            {
+                manager.GetLivingPlayersNonAlloc(livingPlayers);
+                bool created = false;
+                for (int i = 0;
+                     i < livingPlayers.Count &&
+                     manager.LivingPlayerCount < targetCount;
+                     i++)
+                {
+                    PlayerController source = livingPlayers[i];
+                    if (source == null || source.IsDead ||
+                        !manager.TryCreateInkClone(source))
+                        continue;
+                    created = true;
+                }
+                if (!created)
+                {
+                    // 세로 화면은 같은 높이에 약 7마리까지만 안전하게 들어간다.
+                    // 한 번만 두 행으로 펼쳐 10마리 이상의 분신도 화면 안에서 읽히게 한다.
+                    if (spreadAcrossRows || !SpreadSwarmAcrossTwoRows())
+                        break;
+                    spreadAcrossRows = true;
+                }
+            }
+        }
+
+        bool SpreadSwarmAcrossTwoRows()
+        {
+            if (manager == null)
+                return false;
+            manager.GetLivingPlayersNonAlloc(livingPlayers);
+            if (livingPlayers.Count < 2)
+                return false;
+
+            PlayerController highest = manager.HighestLivingPlayer;
+            if (highest == null)
+                return false;
+            float topRowY = highest.transform.position.y;
+            const float RowSeparation = 1.65f;
+            for (int i = 0; i < livingPlayers.Count; i++)
+            {
+                PlayerController player = livingPlayers[i];
+                if (player == null || player.IsDead)
+                    continue;
+                Rigidbody2D body = player.Body;
+                Vector2 velocity = body != null
+                    ? body.linearVelocity
+                    : Vector2.zero;
+                float targetY = topRowY - (i % 2) * RowSeparation;
+                player.DebugTeleportBy(
+                    Vector2.up * (targetY - player.transform.position.y));
+                // DebugTeleportBy가 위치 안정화를 위해 속도를 비우므로, 연쇄 상승의
+                // 흐름은 끊지 않도록 시나리오에서만 직전 속도를 되돌린다.
+                if (body != null)
+                    body.linearVelocity = velocity;
+            }
+            Physics2D.SyncTransforms();
+            return true;
+        }
+
+        void ProtectLivingPlayers(float seconds)
+        {
+            if (manager == null)
+                return;
+            manager.GetLivingPlayersNonAlloc(livingPlayers);
+            for (int i = 0; i < livingPlayers.Count; i++)
+                livingPlayers[i]?.GrantObstacleProtection(seconds);
         }
     }
 }

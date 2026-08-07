@@ -19,7 +19,7 @@ namespace MukJump.EditorTests
         {
             IReadOnlyList<DebugShowcaseScenarioDefinition> definitions =
                 DebugShowcaseScenarioProfile.Definitions;
-            Assert.That(definitions.Count, Is.EqualTo(4));
+            Assert.That(definitions.Count, Is.EqualTo(5));
             Assert.That(definitions[0].DesiredLivingPlayers, Is.EqualTo(10));
 
             var heights = new HashSet<int>();
@@ -34,6 +34,24 @@ namespace MukJump.EditorTests
                 Assert.That(definition.CreateGrowthSnapshot().OwnedNodeCount,
                     Is.EqualTo(15));
             }
+        }
+
+        [Test]
+        public void InkRiverRelayUsesThreeJumpsAndEndsAboveTenPlayers()
+        {
+            DebugShowcaseScenarioDefinition definition =
+                DebugShowcaseScenarioProfile.GetDefinition(
+                    DebugShowcaseScenarioId.InkRiverRelay);
+
+            Assert.That(definition, Is.Not.Null);
+            Assert.That(definition.TargetHeight, Is.EqualTo(1510));
+            Assert.That(definition.RunInkSwarmCascade, Is.True);
+            Assert.That(
+                DebugShowcaseScenarioController.CascadeInkDropCount,
+                Is.EqualTo(3));
+            Assert.That(
+                DebugShowcaseScenarioController.CascadeFinalLivingPlayers,
+                Is.GreaterThan(10));
         }
 
         [Test]
