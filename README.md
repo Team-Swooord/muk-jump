@@ -7,7 +7,7 @@
 
 `Unity 6000.3.10f1` · `URP 2D` · `Android` · `9:16 Portrait`
 
-NHN NAN 2026 Game × AI Hackathon · Team-Swooord
+NHN NAN 2026 Game × AI Hackathon · 최연소밴드
 
 ## 게임 한눈에 보기
 
@@ -257,7 +257,7 @@ docs/
 
 ## 팀
 
-**Team-Swooord · 2인 개발**
+**최연소밴드 · 김승연 / 최성빈 · 2인 개발**
 
 NHN NAN 2026 Game × AI Hackathon 제출 프로젝트
 

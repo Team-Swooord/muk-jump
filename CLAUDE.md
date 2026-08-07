@@ -55,7 +55,7 @@ Claude Code를 포함한 모든 코딩 에이전트는 다음 순서를 지킨�
 
 - 대회: NHN NAN 2026 · Game × AI Hackathon (nan2026.nhn.com 사전과제)
 - 마감: 공식 공고의 정확한 제출 날짜와 시각을 최종 제출 전에 재확인
-- 팀 구성: 2인 (승연 + 팀원 1명) — Team-Swooord
+- 팀 구성: 2인 (김승연 + 최성빈) — 최연소밴드
 - GitHub 레포: https://github.com/Team-Swooord/muk-jump (Public)
 - 제출 형태: **모바일 APK** + GitHub 전체 소스 (커밋 기록이 심사 대상)
 
