@@ -134,8 +134,8 @@ public class PauseMenuViewTests
             "보조 행동도 글자 자체는 선명하게 유지해야 합니다.");
         Assert.That(
             lobby.targetGraphic.color.a,
-            Is.EqualTo(0.72f).Within(0.001f),
-            "일시정지판은 배경 농도만 낮춰 계속하기를 주 행동으로 보여야 합니다.");
+            Is.EqualTo(0.88f).Within(0.001f),
+            "보조 행동도 읽을 수 있어야 하되 계속하기보다 한 단계 낮게 보여야 합니다.");
         Assert.GreaterOrEqual(resumeRect.sizeDelta.y, 96f);
         Assert.IsNotNull(panel.Find("ScrollBody/HanjiPaper"));
         var pausePaperCore = panel.Find("ScrollBody/PaperCore")
@@ -150,6 +150,26 @@ public class PauseMenuViewTests
         Assert.IsNull(panel.Find("PauseSeal"));
         Assert.IsNull(panel.Find("Subtitle"));
         Assert.IsNull(panel.Find("SessionHint"));
+    }
+
+    [Test]
+    public void PauseButtonTouchAreaStaysBelowTopHud()
+    {
+        host = new GameObject("PauseButtonSpacingHost");
+        var view = host.AddComponent<PauseMenuView>();
+
+        Invoke(view, "BuildIfNeeded");
+
+        RectTransform pauseButtonRect = host.transform
+            .Find("PauseMenuCanvas/PauseButton") as RectTransform;
+        Assert.That(pauseButtonRect, Is.Not.Null);
+        const float topHudBottom = -(52f + 148f);
+        float pauseButtonTop = pauseButtonRect.anchoredPosition.y +
+                               pauseButtonRect.sizeDelta.y * 0.5f;
+        Assert.That(
+            pauseButtonTop,
+            Is.LessThanOrEqualTo(topHudBottom - 10f),
+            "일시정지 터치 영역이 상단 기록 HUD와 겹치면 안 됩니다.");
     }
 
     [Test]
@@ -259,6 +279,10 @@ public class PauseMenuViewTests
         var permanentGrowthResult =
             content.Find("PermanentGrowthReward") as RectTransform;
         var retry = content.Find("RetryBrush") as RectTransform;
+        var revive = content.Find("ReviveBrush") as RectTransform;
+        Assert.That(revive, Is.Not.Null);
+        view.SetReviveOffer(true);
+        Assert.That(revive.gameObject.activeSelf, Is.True);
         Assert.Greater(title.rectTransform.anchoredPosition.y,
             currentResult.anchoredPosition.y);
         Assert.Greater(currentResult.anchoredPosition.y,
@@ -304,21 +328,85 @@ public class PauseMenuViewTests
             journeyTop + 1f);
         float growthBottom = permanentGrowthResult.anchoredPosition.y -
                              permanentGrowthResult.sizeDelta.y * 0.5f;
+        float growthTop = permanentGrowthResult.anchoredPosition.y +
+                          permanentGrowthResult.sizeDelta.y * 0.5f;
+        float bestBottom = bestResult.anchoredPosition.y -
+                           bestResult.sizeDelta.y * 0.5f;
         float retryTop = retry.anchoredPosition.y +
                          retry.sizeDelta.y * 0.5f;
-        Assert.GreaterOrEqual(growthBottom, retryTop + 4f);
+        Assert.GreaterOrEqual(
+            bestBottom,
+            growthTop + 12f,
+            "최고 기록과 성장 보상 영역이 맞닿거나 겹치면 안 됩니다.");
+        Assert.GreaterOrEqual(
+            growthBottom,
+            retryTop + 24f,
+            "성장 보상과 게임오버 선택 버튼 사이에 충분한 여백이 필요합니다.");
         Assert.Greater(bestResult.anchoredPosition.y,
             retry.anchoredPosition.y);
-        Assert.GreaterOrEqual(retry.sizeDelta.x, 560f);
-        Assert.GreaterOrEqual(retry.sizeDelta.y, 96f);
+        Assert.GreaterOrEqual(retry.sizeDelta.x, 260f);
+        Assert.That(retry.sizeDelta.y, Is.EqualTo(104f));
+        Assert.GreaterOrEqual(revive.sizeDelta.x, 260f);
+        Assert.That(revive.sizeDelta.y, Is.EqualTo(104f));
+        Assert.That(retry.GetComponent<Button>(), Is.Not.Null);
+        Assert.That(revive.GetComponent<Button>(), Is.Not.Null);
+        Assert.That(retry.GetComponent<Image>().raycastTarget, Is.True);
+        Assert.That(revive.GetComponent<Image>().raycastTarget, Is.True);
         Assert.IsTrue(
             InkUiStyle.UsesActionButtonSprite(
                 retry.GetComponent<Image>()));
+        Assert.IsTrue(
+            InkUiStyle.UsesActionButtonSprite(
+                revive.GetComponent<Image>()));
         Assert.IsNull(content.Find("CurrentResult")?.GetComponent<Image>());
         Assert.IsNull(content.Find("BestResult")?.GetComponent<Image>());
         Assert.IsNull(content.Find("ResultSeal"));
         Assert.IsNull(content.Find("Subtitle"));
         Assert.IsNull(content.Find("Footer"));
+    }
+
+    [Test]
+    public void GameOverReviveChoiceUsesExplicitRewardAndLobbyActions()
+    {
+        host = new GameObject("GameOverRewardChoiceHost");
+        var view = host.AddComponent<GameOverPopupView>();
+        Invoke(view, "BuildIfNeeded");
+
+        int reviveRequests = 0;
+        int lobbyRequests = 0;
+        view.ConfigureActions(
+            () => reviveRequests++,
+            () => lobbyRequests++);
+        view.SetReviveOffer(true);
+
+        Transform content = host.transform.Find(
+            "GameOverPopupCanvas/SafeAreaRoot/ScrollResultPopup/ResultContent");
+        Button revive = content.Find("ReviveBrush")?.GetComponent<Button>();
+        Button lobby = content.Find("RetryBrush")?.GetComponent<Button>();
+        Text reviveLabel = content.Find("ReviveBrush/Label")?.GetComponent<Text>();
+        Text lobbyLabel = content.Find("RetryBrush/TouchHint")?.GetComponent<Text>();
+
+        Assert.That(revive, Is.Not.Null);
+        Assert.That(lobby, Is.Not.Null);
+        Assert.That(reviveLabel.text, Does.Contain("광고 보고"));
+        Assert.That(reviveLabel.text, Does.Contain("체력 1"));
+        Assert.That(lobbyLabel.text, Is.EqualTo("메인으로"));
+        revive.onClick.Invoke();
+        lobby.onClick.Invoke();
+        Assert.That(reviveRequests, Is.EqualTo(1));
+        Assert.That(lobbyRequests, Is.EqualTo(1));
+
+        view.SetReviveRequestInFlight(true);
+        Assert.That(revive.interactable, Is.False);
+        Assert.That(lobby.interactable, Is.False);
+        Assert.That(reviveLabel.text, Is.EqualTo("광고 여는 중..."));
+
+        view.SetReviveRequestInFlight(false);
+        view.SetReviveOffer(false);
+        Assert.That(revive.gameObject.activeSelf, Is.False);
+        Assert.That(
+            (lobby.transform as RectTransform).sizeDelta.x,
+            Is.EqualTo(580f));
     }
 
     [Test]
@@ -694,6 +782,40 @@ public class PauseMenuViewTests
         Assert.That(Time.fixedDeltaTime,
             Is.EqualTo(originalFixedDeltaTime).Within(0.000001f));
         Assert.AreEqual(originalAudioPause, AudioListener.pause);
+    }
+
+    [Test]
+    public void ApplicationBackgroundCannotResumeAnotherPauseOwner()
+    {
+        host = new GameObject("GameManagerHost");
+        var manager = host.AddComponent<GameManager>();
+        SetProperty(manager, "State", GameState.Playing);
+        Invoke(manager, "OnEnable");
+
+        Assert.IsTrue(manager.PauseGame());
+        Assert.IsFalse(manager.PauseForApplicationBackground());
+        Assert.IsFalse(manager.ResumeFromApplicationBackground());
+        Assert.IsTrue(manager.IsPaused);
+        Assert.AreEqual(GameplayPauseReason.UserMenu, manager.PauseReason);
+        Assert.IsTrue(manager.ResumeGame());
+
+        Assert.IsTrue(manager.PauseForApplicationBackground());
+        Assert.AreEqual(
+            GameplayPauseReason.ApplicationBackground,
+            manager.PauseReason);
+        Assert.IsFalse(manager.ResumeGame());
+        Assert.IsTrue(manager.ResumeFromApplicationBackground());
+        Assert.IsFalse(manager.IsPaused);
+    }
+
+    [TestCase(0, "먹이 아직 덜 말랐어요")]
+    [TestCase(8, "발판보다 먼저 포기했어요")]
+    [TestCase(12, "그래도 두 자릿수예요")]
+    [TestCase(35, "제법 하찮게 올랐어요")]
+    [TestCase(80, "먹방울치고 꽤 높았어요")]
+    public void ResultTitleKeepsFailureLightweight(int height, string expected)
+    {
+        Assert.AreEqual(expected, GameOverPopupView.ResultTitleForHeight(height));
     }
 
     [Test]

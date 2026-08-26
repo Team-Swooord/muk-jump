@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
@@ -25,12 +26,18 @@ namespace MukJump.Core
         RectTransform newBestSeal;
         CanvasGroup contentGroup;
         CanvasGroup newBestGroup;
+        Text titleText;
         Text heightText;
         Text bestText;
         Text growthRewardText;
         Text growthJourneyText;
         Image growthJourneyFill;
         Text touchHint;
+        Button reviveButton;
+        Button lobbyButton;
+        Text reviveButtonLabel;
+        Action reviveRequested;
+        Action lobbyRequested;
         Coroutine showRoutine;
         GameOverResult boundResult;
         int lastScreenWidth;
@@ -43,7 +50,7 @@ namespace MukJump.Core
             if (!Application.isPlaying || safeAreaRoot == null) return;
             if (lastScreenWidth != Screen.width ||
                 lastScreenHeight != Screen.height ||
-                lastSafeArea != Screen.safeArea)
+                lastSafeArea != MobileUiLayout.CurrentSafeArea)
                 ApplySafeArea();
         }
 
@@ -60,13 +67,86 @@ namespace MukJump.Core
 
         public void Show(GameOverResult result)
         {
+            Show(result, false, false);
+        }
+
+        public void Show(
+            GameOverResult result,
+            bool canOfferRevive,
+            bool settlementPending)
+        {
             BuildIfNeeded();
             ApplySafeArea();
             boundResult = result;
             BindResult(result);
+            if (settlementPending)
+            {
+                growthRewardText.text = "부활 선택 전 · 정산 보류";
+                growthJourneyText.text = "광고를 보면 현재 도전을 이어갑니다";
+                SetGrowthJourneyProgress(0f);
+            }
+            SetReviveOffer(canOfferRevive);
+            rootGroup.interactable = true;
             if (showRoutine != null)
                 StopCoroutine(showRoutine);
             showRoutine = StartCoroutine(ShowRoutine());
+        }
+
+        public void ConfigureActions(Action onRevive, Action onLobby)
+        {
+            reviveRequested = onRevive;
+            lobbyRequested = onLobby;
+        }
+
+        public void SetReviveOffer(bool available)
+        {
+            BuildIfNeeded();
+            if (reviveButton == null || lobbyButton == null)
+                return;
+
+            reviveButton.gameObject.SetActive(available);
+            RectTransform lobbyRect = lobbyButton.transform as RectTransform;
+            if (available)
+            {
+                reviveButton.interactable = true;
+                reviveButtonLabel.text = "광고 보고\n체력 1로 부활";
+                lobbyRect.anchoredPosition = new Vector2(150f, -280f);
+                lobbyRect.sizeDelta = new Vector2(280f, 104f);
+                touchHint.text = "메인으로";
+            }
+            else
+            {
+                lobbyRect.anchoredPosition = new Vector2(0f, -280f);
+                lobbyRect.sizeDelta = new Vector2(580f, 104f);
+                if (boundResult.PersistenceState ==
+                    GameOverPersistenceState.Complete)
+                    touchHint.text = "메인으로";
+            }
+        }
+
+        public void SetReviveRequestInFlight(bool inFlight)
+        {
+            if (reviveButton == null || lobbyButton == null)
+                return;
+            reviveButton.interactable = !inFlight;
+            lobbyButton.interactable = !inFlight;
+            reviveButtonLabel.text = inFlight
+                ? "광고 여는 중..."
+                : "광고 보고\n체력 1로 부활";
+        }
+
+        public void Hide()
+        {
+            if (showRoutine != null)
+            {
+                StopCoroutine(showRoutine);
+                showRoutine = null;
+            }
+            if (rootGroup == null)
+                return;
+            rootGroup.alpha = 0f;
+            rootGroup.interactable = false;
+            rootGroup.blocksRaycasts = false;
         }
 
         public void RefreshResult(GameOverResult result)
@@ -74,6 +154,7 @@ namespace MukJump.Core
             BuildIfNeeded();
             boundResult = result;
             BindResult(result);
+            SetReviveOffer(false);
             if (showRoutine == null && rootGroup.blocksRaycasts)
             {
                 ApplyRevealPose(1f, result.ReachedNewBest);
@@ -100,12 +181,7 @@ namespace MukJump.Core
                 StopCoroutine(showRoutine);
                 showRoutine = null;
             }
-            if (rootGroup != null)
-            {
-                rootGroup.alpha = 0f;
-                rootGroup.interactable = false;
-                rootGroup.blocksRaycasts = false;
-            }
+            Hide();
         }
 
         void BuildIfNeeded()
@@ -158,6 +234,7 @@ namespace MukJump.Core
             BuildContent();
             ApplySafeArea();
             BindResult(new GameOverResult(0, 0, false, 0, 0, true));
+            SetReviveOffer(false);
             ApplyRevealPose(0f, false);
         }
 
@@ -223,7 +300,7 @@ namespace MukJump.Core
                 new Vector2(650f, 650f));
             contentGroup = contentRect.gameObject.AddComponent<CanvasGroup>();
 
-            var title = CreateText(
+            titleText = CreateText(
                 "Title",
                 contentRect,
                 "도전 끝",
@@ -233,7 +310,7 @@ namespace MukJump.Core
                 InkPalette.TextDark,
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
-            AddSoftWeight(title, InkPalette.Ink, 0.2f);
+            AddSoftWeight(titleText, InkPalette.Ink, 0.2f);
 
             var currentResult = CreateRect(
                 "CurrentResult",
@@ -273,8 +350,8 @@ namespace MukJump.Core
             var bestResult = CreateRect(
                 "BestResult",
                 contentRect,
-                new Vector2(0f, -90f),
-                new Vector2(610f, 82f));
+                new Vector2(0f, -68f),
+                new Vector2(610f, 72f));
             CreateText(
                 "Caption",
                 bestResult,
@@ -302,15 +379,15 @@ namespace MukJump.Core
             var growthResult = CreateRect(
                 "PermanentGrowthReward",
                 contentRect,
-                new Vector2(0f, -174f),
-                new Vector2(610f, 92f));
+                new Vector2(0f, -160f),
+                new Vector2(610f, 88f));
             CreateText(
                 "Caption",
                 growthResult,
                 "영구 성장 · 먹빛",
-                27,
+                30,
                 new Vector2(-165f, 22f),
-                new Vector2(230f, 42f),
+                new Vector2(230f, 40f),
                 ReadableMutedColor(),
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
@@ -318,9 +395,9 @@ namespace MukJump.Core
                 "Value",
                 growthResult,
                 "+0 · 보유 0",
-                26,
+                32,
                 new Vector2(95f, 22f),
-                new Vector2(370f, 44f),
+                new Vector2(370f, 40f),
                 InkPalette.TextDark,
                 FontStyle.Normal,
                 TextAnchor.MiddleRight);
@@ -330,8 +407,8 @@ namespace MukJump.Core
                 "JourneyProgress",
                 growthResult,
                 "누적 0 / 20 m",
-                26,
-                new Vector2(0f, -16f),
+                30,
+                new Vector2(0f, -14f),
                 new Vector2(540f, 30f),
                 ReadableMutedColor(),
                 FontStyle.Normal,
@@ -340,7 +417,7 @@ namespace MukJump.Core
                 "JourneyTrack",
                 growthResult,
                 null,
-                new Vector2(0f, -39f),
+                new Vector2(0f, -37f),
                 new Vector2(520f, 9f),
                 new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.13f));
             growthJourneyFill = CreateImage(
@@ -356,24 +433,72 @@ namespace MukJump.Core
             journeyFillRect.pivot = new Vector2(0f, 0.5f);
             journeyFillRect.anchoredPosition = Vector2.zero;
 
+            var reviveBrush = CreateImage(
+                "ReviveBrush",
+                contentRect,
+                null,
+                new Vector2(-150f, -280f),
+                new Vector2(280f, 104f),
+                InkPalette.Red);
+            reviveBrush.raycastTarget = true;
+            reviveButton = reviveBrush.gameObject.AddComponent<Button>();
+            reviveButton.targetGraphic = reviveBrush;
+            reviveButton.onClick.AddListener(HandleRevivePressed);
+            reviveButtonLabel = CreateText(
+                "Label",
+                reviveBrush.transform,
+                "광고 보고\n체력 1로 부활",
+                32,
+                Vector2.zero,
+                new Vector2(244f, 82f),
+                InkPalette.Paper,
+                FontStyle.Normal);
+            AddSoftWeight(reviveButtonLabel, Color.black, 0.18f);
+            InkUiStyle.ConfigureButton(reviveButton, reviveBrush);
+            InkUiStyle.ConfigureActionSurface(reviveBrush, reviveButtonLabel);
+            reviveBrush.color = InkPalette.Red;
+            reviveButtonLabel.fontSize = 32;
+            reviveButtonLabel.fontStyle = FontStyle.Normal;
+
             var retryBrush = CreateImage(
                 "RetryBrush",
                 contentRect,
                 null,
-                new Vector2(0f, -280f),
-                new Vector2(580f, 104f),
+                new Vector2(150f, -280f),
+                new Vector2(280f, 104f),
                 InkPalette.Ink);
+            retryBrush.raycastTarget = true;
+            lobbyButton = retryBrush.gameObject.AddComponent<Button>();
+            lobbyButton.targetGraphic = retryBrush;
+            lobbyButton.onClick.AddListener(HandleLobbyPressed);
             touchHint = CreateText(
                 "TouchHint",
                 retryBrush.transform,
-                "터치하여 로비로",
-                36,
+                "메인으로",
+                32,
                 Vector2.zero,
-                new Vector2(500f, 74f),
+                new Vector2(244f, 74f),
                 InkPalette.Paper,
                 FontStyle.Normal);
             AddSoftWeight(touchHint, Color.black, 0.2f);
+            InkUiStyle.ConfigureButton(lobbyButton, retryBrush);
             InkUiStyle.ConfigureActionSurface(retryBrush, touchHint);
+            touchHint.fontSize = 32;
+            touchHint.fontStyle = FontStyle.Normal;
+        }
+
+        void HandleRevivePressed()
+        {
+            if (reviveButton == null || !reviveButton.interactable)
+                return;
+            reviveRequested?.Invoke();
+        }
+
+        void HandleLobbyPressed()
+        {
+            if (lobbyButton == null || !lobbyButton.interactable)
+                return;
+            lobbyRequested?.Invoke();
         }
 
         void BuildNewBestSeal(Transform parent, Sprite blob)
@@ -422,6 +547,8 @@ namespace MukJump.Core
 
         void BindResult(GameOverResult result)
         {
+            titleText.text = ResultTitleForHeight(result.Height);
+            titleText.fontSize = 54;
             heightText.text = FormatHeight(result.Height);
             bestText.text = FormatHeight(result.Best);
             SetGrowthJourneyVisible(true);
@@ -456,10 +583,20 @@ namespace MukJump.Core
                         growthJourneyText.text = "누적 거리 미반영";
                         SetGrowthJourneyProgress(0f);
                     }
-                    touchHint.text = "터치하여 로비로";
+                    touchHint.text = "메인으로";
                     break;
             }
             newBestSeal.gameObject.SetActive(result.ReachedNewBest);
+        }
+
+        public static string ResultTitleForHeight(int meters)
+        {
+            int height = Mathf.Max(0, meters);
+            if (height < 5) return "먹이 아직 덜 말랐어요";
+            if (height < 10) return "발판보다 먼저 포기했어요";
+            if (height < 20) return "그래도 두 자릿수예요";
+            if (height < 50) return "제법 하찮게 올랐어요";
+            return "먹방울치고 꽤 높았어요";
         }
 
         void BindGrowthJourney(GameOverResult result)
@@ -626,7 +763,7 @@ namespace MukJump.Core
             }
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
-            lastSafeArea = Screen.safeArea;
+            lastSafeArea = safe;
         }
 
         static RectTransform CreateScrollRoll(Transform parent, float y, bool top)

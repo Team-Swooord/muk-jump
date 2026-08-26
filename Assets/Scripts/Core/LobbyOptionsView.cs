@@ -4,8 +4,7 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 로비 옵션, 로컬 소리 설정, 지원 안내와 5장 튜토리얼을 제공한다.
-    /// 실제 고객센터·Google/Apple 연결은 하지 않으며 준비 중 정보만 제공한다.
+    /// 로비에서 꼭 필요한 소리 설정, 고객센터와 튜토리얼만 제공한다.
     [DisallowMultipleComponent]
     public sealed class LobbyOptionsView : MonoBehaviour
     {
@@ -13,6 +12,7 @@ namespace MukJump.Core
         const float PanelWidth = 820f;
         const float PanelHeight = 1510f;
         const float SafeAreaPadding = 24f;
+        const string CustomerSupportEmail = "cysbandcs@gmail.com";
 
         CanvasGroup rootGroup;
         CanvasGroup optionsGroup;
@@ -26,8 +26,8 @@ namespace MukJump.Core
         Text sfxValue;
         Text bgmToggleLabel;
         Text sfxToggleLabel;
-        Text uidText;
         Text connectionStatus;
+        Text adPrivacyStatus;
         Text debugScenarioStatus;
         Text debugScenarioSummary;
         Image tutorialImage;
@@ -53,7 +53,6 @@ namespace MukJump.Core
             debugScenarioGroup.blocksRaycasts;
         public int TutorialPageCount => GameplayTutorialCatalog.Count;
         public int CurrentTutorialPage => currentTutorialPage;
-        public string PlayerUidLabel => uidText != null ? uidText.text : string.Empty;
 
         void Awake()
         {
@@ -103,8 +102,9 @@ namespace MukJump.Core
                 Close();
             if (Screen.width != lastScreenWidth ||
                 Screen.height != lastScreenHeight ||
-                Screen.safeArea != lastSafeArea)
+                MobileUiLayout.CurrentSafeArea != lastSafeArea)
                 ApplySafeArea();
+            RefreshAdPrivacyStatus();
         }
 
         public void Open()
@@ -238,39 +238,10 @@ namespace MukJump.Core
                 TextAnchor.MiddleCenter);
             CreateDivider(panel, "HeaderDivider", 548f, 700f);
 
-            var uidButton = CreatePaperButton(
-                "UidButton", panel, string.Empty,
-                new Vector2(0f, 475f),
-                new Vector2(700f, InkUiStyle.MinimumTapHeight),
-                InkUiStyle.BodySize);
-            uidText = uidButton.transform
-                .Find("Paper/Label")?.GetComponent<Text>();
-            Transform uidPaper = uidButton.transform.Find("Paper");
-            if (uidText != null)
-            {
-                uidText.rectTransform.anchoredPosition = new Vector2(-14f, 0f);
-                uidText.rectTransform.sizeDelta = new Vector2(470f, 88f);
-                uidText.alignment = TextAnchor.MiddleCenter;
-                uidText.fontSize = InkUiStyle.BodySize;
-                uidText.fontStyle = FontStyle.Normal;
-            }
-            CreateReadableText(
-                "UidCaption", uidPaper, "UID", InkUiStyle.CaptionSize,
-                new Vector2(-290f, 0f), new Vector2(84f, 72f),
-                InkPalette.TextDark,
-                TextAnchor.MiddleLeft,
-                strong: true);
-            CreateReadableText(
-                "CopyHint", uidPaper, "복사", InkUiStyle.CaptionSize,
-                new Vector2(292f, 0f), new Vector2(88f, 72f),
-                InkPalette.TextMuted,
-                TextAnchor.MiddleRight);
-            uidButton.onClick.AddListener(CopyUid);
-
             CreateReadableText(
                 "AudioCaption", panel, "소리",
                 InkUiStyle.BodySize,
-                new Vector2(-290f, 380f), new Vector2(120f, 48f),
+                new Vector2(-290f, 475f), new Vector2(120f, 48f),
                 InkPalette.TextDark, TextAnchor.MiddleLeft,
                 strong: true);
 
@@ -278,7 +249,7 @@ namespace MukJump.Core
                 panel,
                 "BgmCard",
                 "배경음",
-                new Vector2(0f, 285f),
+                new Vector2(0f, 375f),
                 out bgmSlider,
                 out bgmValue,
                 out Button bgmToggle,
@@ -290,7 +261,7 @@ namespace MukJump.Core
                 panel,
                 "SfxCard",
                 "효과음",
-                new Vector2(0f, 135f),
+                new Vector2(0f, 225f),
                 out sfxSlider,
                 out sfxValue,
                 out Button sfxToggle,
@@ -301,25 +272,17 @@ namespace MukJump.Core
             CreateReadableText(
                 "HelpCaption", panel, "도움과 정보",
                 InkUiStyle.BodySize,
-                new Vector2(-250f, 35f), new Vector2(200f, 48f),
+                new Vector2(-250f, 115f), new Vector2(200f, 48f),
                 InkPalette.TextDark, TextAnchor.MiddleLeft,
                 strong: true);
 
-            var language = CreateUtilityButton(
-                "LanguageButton", panel, "언어", "한국어",
-                new Vector2(-180f, -65f));
-            language.onClick.AddListener(ShowLanguageGuide);
-            var support = CreateUtilityButton(
-                "CustomerCenterButton", panel, "고객센터", "준비 중",
-                new Vector2(180f, -65f));
+            var support = CreateWideUtilityButton(
+                "CustomerCenterButton", panel, "고객센터", "이메일 문의",
+                new Vector2(0f, 15f), out _);
             support.onClick.AddListener(ShowCustomerCenterGuide);
-            var account = CreateUtilityButton(
-                "AccountConnectButton", panel, "계정 연동", "준비 중",
-                new Vector2(-180f, -205f));
-            account.onClick.AddListener(ShowConnectionGuide);
-            var guide = CreateUtilityButton(
+            var guide = CreateWideUtilityButton(
                 "GuideButton", panel, "튜토리얼", "다시 보기",
-                new Vector2(180f, -205f));
+                new Vector2(0f, -115f), out _);
             guide.onClick.AddListener(() => ShowTutorialPage(0));
 
             bool showDebugScenario = GameManager.DebugToolsAvailable;
@@ -330,33 +293,43 @@ namespace MukJump.Core
                     panel,
                     "DEBUG · 연출 시나리오",
                     "일반 플레이",
-                    new Vector2(0f, -335f),
+                    new Vector2(0f, -245f),
                     out debugScenarioStatus);
                 debugScenario.onClick.AddListener(ShowDebugScenarioPage);
             }
+
+            var adPrivacy = CreateWideUtilityButton(
+                "AdPrivacyButton",
+                panel,
+                "광고 개인정보",
+                "선택 관리",
+                new Vector2(0f, showDebugScenario ? -375f : -245f),
+                out adPrivacyStatus);
+            adPrivacy.onClick.AddListener(ShowAdPrivacyOptions);
 
             connectionStatus = CreateReadableText(
                 "ConnectionStatus", panel,
                 "설정은 이 기기에 저장됩니다",
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, showDebugScenario ? -438f : -325f),
+                new Vector2(0f, showDebugScenario ? -470f : -340f),
                 new Vector2(700f, 56f),
                 InkPalette.TextMuted);
 
             var close = CreateBrushButton(
                 "CloseButton", panel, "닫기",
-                new Vector2(0f, showDebugScenario ? -550f : -450f),
+                new Vector2(0f, showDebugScenario ? -565f : -435f),
                 new Vector2(390f, 120f),
                 InkUiStyle.CardTitleSize);
             close.onClick.AddListener(Close);
 
             CreateReadableText(
                 "PrivacyCaption", panel,
-                "로컬 저장  ·  개인정보 수집 없음",
+                "게임 기록·설정은 기기에 저장되며 광고 선택은 언제든 바꿀 수 있습니다",
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, showDebugScenario ? -655f : -555f),
+                new Vector2(0f, showDebugScenario ? -665f : -535f),
                 new Vector2(700f, 44f),
                 InkPalette.TextMuted);
+            RefreshAdPrivacyStatus();
         }
 
         void BuildDebugScenarioPage(Transform panel)
@@ -452,7 +425,8 @@ namespace MukJump.Core
             tutorialPage = CreateReadableText(
                 "Page", panel, "1 / 5", InkUiStyle.BodySize,
                 new Vector2(250f, 640f), new Vector2(200f, 70f),
-                InkPalette.TextMuted);
+                InkPalette.TextDark,
+                strong: true);
 
             var iconPaper = CreateImage(
                 "TutorialIconPaper", panel,
@@ -470,15 +444,15 @@ namespace MukJump.Core
 
             tutorialTitle = CreateReadableText(
                 "TutorialTitle", panel, string.Empty,
-                InkUiStyle.CardTitleSize,
+                46,
                 new Vector2(0f, 30f), new Vector2(680f, 90f),
                 InkPalette.TextDark,
                 TextAnchor.MiddleCenter,
                 strong: true);
             tutorialDescription = CreateReadableText(
                 "TutorialDescription", panel, string.Empty,
-                InkUiStyle.BodySize,
-                new Vector2(0f, -200f), new Vector2(680f, 300f),
+                40,
+                new Vector2(0f, -200f), new Vector2(680f, 320f),
                 InkPalette.TextDark,
                 TextAnchor.MiddleCenter);
             tutorialDescription.lineSpacing = 1.2f;
@@ -585,9 +559,9 @@ namespace MukJump.Core
             bgmSlider.value = LobbySettingsProfile.BgmVolume;
             sfxSlider.value = LobbySettingsProfile.SfxVolume;
             suppressSliderCallbacks = false;
-            uidText.text = LobbySettingsProfile.PlayerUid;
             RefreshAudioLabels();
             RefreshDebugScenario();
+            RefreshAdPrivacyStatus();
         }
 
         void RefreshDebugScenario()
@@ -642,27 +616,32 @@ namespace MukJump.Core
                 LobbySettingsProfile.SfxVolume > 0.01f ? "켜짐" : "꺼짐";
         }
 
-        void ShowConnectionGuide()
-        {
-            connectionStatus.text =
-                "Google Play · Apple 계정 연동은 준비 중입니다";
-        }
-
-        void ShowLanguageGuide()
-        {
-            connectionStatus.text = "현재 한국어를 지원합니다";
-        }
-
         void ShowCustomerCenterGuide()
         {
             connectionStatus.text =
-                "고객센터는 제출 버전에서 준비 중입니다";
+                $"고객센터 문의 · {CustomerSupportEmail}";
         }
 
-        void CopyUid()
+        void ShowAdPrivacyOptions()
         {
-            GUIUtility.systemCopyBuffer = LobbySettingsProfile.PlayerUid;
-            connectionStatus.text = "플레이어 UID를 복사했습니다";
+            if (connectionStatus != null)
+                connectionStatus.text = "광고 개인정보 선택 화면을 여는 중입니다";
+            GoogleMobileAdsPrivacy.ShowOptions(message =>
+            {
+                if (connectionStatus != null)
+                    connectionStatus.text = message;
+                RefreshAdPrivacyStatus();
+            });
+        }
+
+        void RefreshAdPrivacyStatus()
+        {
+            if (adPrivacyStatus == null) return;
+            adPrivacyStatus.text = GoogleMobileAdsPrivacy.IsRequired
+                ? "선택 필요"
+                : GoogleMobileAdsPrivacy.IsAvailable
+                    ? "선택 관리"
+                    : "해당 없음";
         }
 
         void ShowOptionsPage()
@@ -758,7 +737,7 @@ namespace MukJump.Core
                 Screen.height);
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
-            lastSafeArea = Screen.safeArea;
+            lastSafeArea = safe;
 
             float panelScale = MobileUiLayout.CalculateFitScale(
                 new Vector2(PanelWidth, PanelHeight),
@@ -885,7 +864,7 @@ namespace MukJump.Core
             CreateReadableText(
                 "Status", paper, status, InkUiStyle.CaptionSize,
                 new Vector2(98f, 0f), new Vector2(130f, 72f),
-                InkPalette.TextMuted, TextAnchor.MiddleRight);
+                InkPalette.TextDark, TextAnchor.MiddleRight);
             return button;
         }
 
@@ -922,7 +901,7 @@ namespace MukJump.Core
                 InkUiStyle.CaptionSize,
                 new Vector2(210f, 0f),
                 new Vector2(240f, 74f),
-                InkPalette.TextMuted,
+                InkPalette.TextDark,
                 TextAnchor.MiddleRight);
             return button;
         }

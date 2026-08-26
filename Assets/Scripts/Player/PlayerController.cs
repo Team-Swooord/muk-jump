@@ -85,7 +85,7 @@ namespace MukJump.Player
         public bool CanAutomaticJumpFromCurrentSurface =>
             !IsWallClinging || Time.time >= wallClingReleaseAllowedAt;
         /// 일반 먹피 성장은 본체에만 적용한다. 다만 마지막 먹피 결실을 열면
-        /// 모든 런타임 분신도 기본 2칸에서 3칸으로 한 번 성장한다.
+        /// 모든 런타임 분신은 기본 2칸으로 시작하고 먹피 결실로 3칸이 된다.
         public int MaxHealth => isRuntimeClone
             ? Mathf.Clamp(
                 RuntimeCloneMaxHealth + ActivePermanentGrowth.InkCloneMaxHealthBonus,
@@ -114,6 +114,7 @@ namespace MukJump.Player
         public event Action<int, int> HealthChanged;
 
         Rigidbody2D rb;
+        Coroutine deathSequenceRoutine;
         Collider2D primaryCollider;
         Camera cam;
         float camHalfHeight;
@@ -644,7 +645,56 @@ namespace MukJump.Player
                                 GameManager.Instance.NotifyPlayerDied(this);
             GameFeedbackController.Instance?.PlayDeath(
                 transform.position, isLastPlayer);
-            StartCoroutine(DeathSequence(isLastPlayer));
+            deathSequenceRoutine = StartCoroutine(DeathSequence(isLastPlayer));
+        }
+
+        /// 보상형 광고를 끝까지 본 뒤 게임오버 직전 먹방울을 체력 1로 복구한다.
+        /// 이미 끝난 사망 연출도 되돌릴 수 있도록 렌더러·충돌·물리를 모두 복원한다.
+        public bool ReviveFromRewardedAd()
+        {
+            if (!IsDead || !EnsureBody())
+                return false;
+
+            if (deathSequenceRoutine != null)
+            {
+                StopCoroutine(deathSequenceRoutine);
+                deathSequenceRoutine = null;
+            }
+
+            IsDead = false;
+            CurrentHealth = 1;
+            HealthChanged?.Invoke(CurrentHealth, MaxHealth);
+            ResetWallTraversalState(true);
+            IsGrounded = false;
+            CurrentPlatform = null;
+            GroundNormal = Vector2.up;
+            HasShield = false;
+            damageInvulnerableUntil = Time.time +
+                                      LastBreathInvulnerabilityDuration;
+
+            foreach (var col in GetComponents<Collider2D>())
+                col.enabled = true;
+
+            var playerRenderer = GetComponent<SpriteRenderer>();
+            if (playerRenderer != null)
+                playerRenderer.enabled = true;
+
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            rb.simulated = true;
+            rb.gravityScale = normalGravityScale;
+            rb.linearVelocity = Vector2.zero;
+            rb.angularVelocity = 0f;
+            if (cam != null)
+            {
+                float safeY = cam.transform.position.y - camHalfHeight + 1.1f;
+                rb.position = new Vector2(rb.position.x, safeY);
+            }
+            rb.WakeUp();
+
+            inkDropEndShieldArmed = false;
+            LaunchInkDrop(LastBreathReviveHeight);
+            GetComponent<InkDropJumpVfx>()?.Play();
+            return true;
         }
 
         System.Collections.IEnumerator DeathSequence(bool isLastPlayer)
@@ -694,6 +744,7 @@ namespace MukJump.Player
             // 마지막 캐릭터는 게임오버 씬이 유지하므로 숨긴 채 남기고,
             // 먹분신이 살아 있으면 죽은 개체만 정리한다.
             if (!isLastPlayer) Destroy(gameObject);
+            deathSequenceRoutine = null;
         }
 
         void OnDestroy()
@@ -727,15 +778,14 @@ namespace MukJump.Player
                 var contact = collision.GetContact(i);
                 if (platform != null)
                 {
-                    // 풍맥 발판은 아래에서 통과한다. Effector 경계에서 발생할 수 있는
-                    // 아래·옆면 접촉도 착지나 풍맥 효과로 처리하지 않는다.
+                    // 모든 먹선 발판은 아래에서 통과한다. Effector 경계에서 발생할 수
+                    // 있는 아래·옆면 접촉도 착지나 특수 효과로 처리하지 않는다.
                     if (platform.IsOneWayPlatform &&
                         contact.normal.y < groundNormalMinY)
                         continue;
                     // 먹물방울 상승 중에는 방금 떨어져 나온 대각선 발판이 같은 물리
                     // 스텝에서 다시 캐릭터를 붙잡아 점프 속도를 덮지 못하게 한다.
                     if (IsInkDropBoosted) return;
-                    // 실제 드로잉 발판은 가파른 대각선도 스파이더처럼 붙는다.
                     // 이미 표면 바깥으로 점프 중이면 다시 붙잡지 않는다.
                     if (Vector2.Dot(rb.linearVelocity, contact.normal) > 0.2f) continue;
                     AttachToDrawnPlatform(contact.normal, platform);
@@ -809,9 +859,7 @@ namespace MukJump.Player
                 return;
             }
 
-            bool isSpecialPlatform = platform != null &&
-                                     platform.IsOneWayPlatform;
-            bool landed = hasTopContact || (platform != null && !isSpecialPlatform);
+            bool landed = hasTopContact;
             if (landed)
             {
                 if (IsWallClinging)

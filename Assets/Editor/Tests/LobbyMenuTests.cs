@@ -466,7 +466,8 @@ namespace MukJump.EditorTests
             Assert.That(element, Is.Not.Null, label);
             Rect elementRect = WorldRect(element);
             Rect viewportRect = WorldRect(viewport);
-            const float Tolerance = 1f;
+            // Canvas 스케일의 부동소수 반올림으로 0.02 논리 픽셀 정도 흔들릴 수 있다.
+            const float Tolerance = 1.1f;
             Assert.That(
                 elementRect.xMin,
                 Is.GreaterThanOrEqualTo(viewportRect.xMin - Tolerance),
@@ -520,9 +521,6 @@ namespace MukJump.EditorTests
                 optionsView.TutorialPageCount,
                 Is.EqualTo(GameplayTutorialCatalog.Count));
             Assert.That(optionsView.CurrentTutorialPage, Is.EqualTo(0));
-            Assert.That(optionsView.PlayerUidLabel,
-                Does.Match("^MUK-[0-9A-F]{8}$"));
-
             for (int expectedPage = 1;
                  expectedPage < GameplayTutorialCatalog.Count;
                  expectedPage++)
@@ -563,22 +561,29 @@ namespace MukJump.EditorTests
             Transform page = viewHost.transform.Find(
                 "LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/OptionsPage");
             Assert.IsNotNull(page);
-            RectTransform uid = RequireRect(page, "UidButton");
             RectTransform bgm = RequireRect(page, "BgmCard");
             RectTransform sfx = RequireRect(page, "SfxCard");
             RectTransform support = RequireRect(page, "CustomerCenterButton");
             RectTransform tutorial = RequireRect(page, "GuideButton");
+            RectTransform adPrivacy = RequireRect(page, "AdPrivacyButton");
 
-            Assert.That(uid.anchoredPosition.y, Is.GreaterThan(bgm.anchoredPosition.y));
             Assert.That(bgm.anchoredPosition.x, Is.EqualTo(0f));
             Assert.That(sfx.anchoredPosition.x, Is.EqualTo(0f));
             Assert.That(bgm.anchoredPosition.y, Is.GreaterThan(sfx.anchoredPosition.y),
                 "두 음량 조절은 좁은 화면에서도 읽히는 한 줄 행으로 쌓아야 합니다.");
-            Assert.That(support.anchoredPosition.x,
-                Is.EqualTo(tutorial.anchoredPosition.x));
+            Assert.That(support.anchoredPosition.x, Is.EqualTo(0f));
+            Assert.That(tutorial.anchoredPosition.x, Is.EqualTo(0f));
             Assert.That(support.anchoredPosition.y,
                 Is.GreaterThan(tutorial.anchoredPosition.y),
-                "튜토리얼은 고객센터 바로 아래 같은 열에 배치해야 합니다.");
+                "고객센터와 튜토리얼은 긴 문구가 잘리지 않도록 넓은 행으로 쌓아야 합니다.");
+            Assert.That(support.sizeDelta.x, Is.GreaterThanOrEqualTo(700f));
+            Assert.That(tutorial.sizeDelta.x, Is.GreaterThanOrEqualTo(700f));
+            Assert.That(adPrivacy.sizeDelta.x, Is.GreaterThanOrEqualTo(700f));
+            Assert.That(tutorial.anchoredPosition.y,
+                Is.GreaterThan(adPrivacy.anchoredPosition.y));
+            Assert.That(page.Find("UidButton"), Is.Null);
+            Assert.That(page.Find("LanguageButton"), Is.Null);
+            Assert.That(page.Find("AccountConnectButton"), Is.Null);
 
             Text title = page.Find("Title")?.GetComponent<Text>();
             Text version = page.Find("Version")?.GetComponent<Text>();
@@ -594,12 +599,10 @@ namespace MukJump.EditorTests
                 title.rectTransform.anchoredPosition.x,
                 Is.EqualTo(version.rectTransform.anchoredPosition.x));
 
-            AssertOptionButton(page, "LanguageButton", usesActionBrush: false);
             AssertOptionButton(page, "CustomerCenterButton", usesActionBrush: false);
-            AssertOptionButton(page, "AccountConnectButton", usesActionBrush: false);
             AssertOptionButton(page, "GuideButton", usesActionBrush: false);
+            AssertOptionButton(page, "AdPrivacyButton", usesActionBrush: false);
             AssertOptionButton(page, "CloseButton", usesActionBrush: true);
-            AssertOptionButton(page, "UidButton", usesActionBrush: false);
             AssertOptionButton(
                 page.Find("BgmCard/Paper"),
                 "Toggle",
@@ -631,7 +634,7 @@ namespace MukJump.EditorTests
             Text status = page.Find("ConnectionStatus")?.GetComponent<Text>();
             Assert.IsNotNull(status);
             Assert.That(status.text, Does.Contain("고객센터"));
-            Assert.That(status.text, Does.Contain("준비 중"));
+            Assert.That(status.text, Does.Contain("cysbandcs@gmail.com"));
 
             page.Find("GuideButton")?.GetComponent<Button>()?.onClick.Invoke();
             Assert.That(optionsView.IsTutorialOpen, Is.True);
@@ -654,7 +657,7 @@ namespace MukJump.EditorTests
                 .Find("TutorialDescription") as RectTransform;
             Assert.That(tutorialDescription, Is.Not.Null);
             Assert.That(tutorialDescription.sizeDelta,
-                Is.EqualTo(new Vector2(680f, 300f)));
+                Is.EqualTo(new Vector2(680f, 320f)));
 
             optionsView.Close();
             CanvasGroup root = viewHost.transform

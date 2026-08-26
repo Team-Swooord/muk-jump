@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbc1fab2fbce4a07908f077f91725714, type: 3}
+  m_Name: MukJumpGoogleAdsSettings
+  m_EditorClassIdentifier: Assembly-CSharp::MukJump.Core.MukJumpGoogleAdsSettings
+  enableLobbyBanner: 1
+  enablePostRunInterstitial: 0
+  productionConfigurationVerified: 0
+  verificationNote: SHIFT에서 찾은 앱 ID와 최근 광고 단위 ID의 게시자 번호가 다르고 배너 ID가 없습니다. AdMob에서 먹점프 전용 값을 만든 뒤 검증을 완료하세요.
+  androidAppId: ca-app-pub-2944517353618559~3326566482
+  android:
+    banner:
+    rewarded: ca-app-pub-9163142359221291/3658718565
+    interstitial: ca-app-pub-9163142359221291/4477669111
+  iosAppId: ca-app-pub-2944517353618559~6105294520
+  ios:
+    banner:
+    rewarded: ca-app-pub-9163142359221291/3288053012
+    interstitial: ca-app-pub-9163142359221291/7375295191

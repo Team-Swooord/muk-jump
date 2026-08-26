@@ -21,6 +21,7 @@ namespace MukJump.Core
         None,
         UserMenu,
         FirstRunTutorial,
+        ApplicationBackground,
     }
 
     /// 게임 상태(로비/플레이/게임오버)와 시작·재도전 흐름을 관리한다.
@@ -88,6 +89,12 @@ namespace MukJump.Core
         float maxSwarmProgressHeight;
         float activeGameplaySeconds;
         int lastActiveTimeSampleFrame = -1;
+        PlayerController lastDeadPlayer;
+        bool reviveUsedThisRun;
+        bool reviveRequestInFlight;
+        bool reviveCompletionPendingForeground;
+        bool pendingReviveRewardEarned;
+        bool gameOverResultSettled;
         [SerializeField, HideInInspector] string currentRunId;
         readonly List<PlayerController> players = new();
         readonly List<PlayerController> swarmScratch =
@@ -182,6 +189,9 @@ namespace MukJump.Core
             if (transitionView == null) transitionView = gameObject.AddComponent<BrushTransitionView>();
             gameOverPopupView = GetComponent<GameOverPopupView>();
             if (gameOverPopupView == null) gameOverPopupView = gameObject.AddComponent<GameOverPopupView>();
+            gameOverPopupView.ConfigureActions(
+                HandleGameOverReviveRequested,
+                HandleGameOverLobbyRequested);
             if (GetComponent<PauseMenuView>() == null)
                 gameObject.AddComponent<PauseMenuView>();
             if (GetComponent<RunGrowthController>() == null)
@@ -218,6 +228,9 @@ namespace MukJump.Core
         void OnDisable()
         {
             transitionInProgress = false;
+            reviveCompletionPendingForeground = false;
+            pendingReviveRewardEarned = false;
+            gameOverPopupView?.ConfigureActions(null, null);
             if (Instance != this) return;
             RestorePausedWorld(false);
             Instance = null;
@@ -238,48 +251,38 @@ namespace MukJump.Core
                 return;
 
             if (State != GameState.GameOver) return;
-            // 같은 프레임에 저장소가 회복되고 사용자가 '재시도 중단'을 누를 수
-            // 있다. 사용자 입력을 먼저 확정해 안내와 반대로 정산되는 경합을 막는다.
-            if (Time.unscaledTime - gameOverTime >= restartDelay &&
-                PointerInput.WasPressedThisFrame())
+            if (reviveCompletionPendingForeground &&
+                MobileApplicationLifecycle.IsApplicationActive)
             {
-                if (latestGameOverResult.PersistenceState ==
-                        GameOverPersistenceState.ScoreBaselinePending &&
-                    !pendingRestartConfirmationArmed)
-                {
-                    pendingRestartConfirmationArmed = true;
-                    gameOverPopupView?.ShowPendingAbandonConfirmation();
+                bool rewardEarned = pendingReviveRewardEarned;
+                reviveCompletionPendingForeground = false;
+                pendingReviveRewardEarned = false;
+                FinishGameOverReviveAdCompleted(rewardEarned);
+                if (State != GameState.GameOver)
                     return;
-                }
-                if (latestGameOverResult.PersistenceState ==
-                    GameOverPersistenceState.RecordWritePending)
-                {
-                    gameOverPersistenceAbandoned = true;
-                    ScoreManager.Instance?.StopPendingBestSaveRetry();
-                }
-                else if (latestGameOverResult.PersistenceState ==
-                         GameOverPersistenceState.ScoreBaselinePending)
-                {
-                    // 두 번째 확인 탭부터 이 판의 기록·먹빛 정산을 명시적으로 포기한다.
-                    // 전환 cover 동안 자동 재시도가 다시 저장하지 않도록 먼저 종결한다.
-                    gameOverPersistenceAbandoned = true;
-                }
-                Restart();
-                return;
             }
-
             bool persistenceRetryPending =
                 latestGameOverResult.PersistenceState ==
                     GameOverPersistenceState.ScoreBaselinePending ||
                 latestGameOverResult.PersistenceState ==
                     GameOverPersistenceState.RecordWritePending;
-            if (!transitionInProgress &&
+            if (gameOverResultSettled &&
+                !transitionInProgress &&
                 !gameOverPersistenceAbandoned &&
                 persistenceRetryPending &&
                 Time.unscaledTime >= nextScoreSettlementRetryTime)
             {
                 nextScoreSettlementRetryTime = Time.unscaledTime + 0.5f;
                 RetryPendingGameOverPersistence();
+            }
+
+            if (!gameOverResultSettled &&
+                !reviveUsedThisRun &&
+                !reviveRequestInFlight)
+            {
+                bool ready = MonetizationAds.Provider.IsReady(
+                    FullScreenAdPlacement.GameOverReviveReward);
+                gameOverPopupView?.SetReviveOffer(ready);
             }
         }
 
@@ -421,6 +424,23 @@ namespace MukJump.Core
             return true;
         }
 
+        /// 운영체제 백그라운드로 이동했을 때만 소유하는 일시정지다.
+        /// 사용자가 이미 메뉴나 튜토리얼로 멈춘 판은 앱 복귀가 임의로 재개하지 않는다.
+        public bool PauseForApplicationBackground()
+        {
+            return BeginPause(GameplayPauseReason.ApplicationBackground);
+        }
+
+        public bool ResumeFromApplicationBackground()
+        {
+            if (PauseReason != GameplayPauseReason.ApplicationBackground ||
+                IsTransitioning)
+                return false;
+            PointerInput.SuppressUntilRelease();
+            RestorePausedWorld(true);
+            return true;
+        }
+
         /// 첫 플레이 설명을 읽는 동안 자동 점프·스폰·날씨·기록 시간을 함께 멈춘다.
         /// 사용자 일시정지와 소유권을 분리해 어느 한쪽이 다른 팝업을 닫지 않게 한다.
         public bool PauseForFirstRunTutorial()
@@ -498,6 +518,7 @@ namespace MukJump.Core
             }
             SampleActiveGameplayTime();
 
+            lastDeadPlayer = player;
             EnterGameOver();
             return true;
         }
@@ -532,11 +553,167 @@ namespace MukJump.Core
             float revealDelay = feedback != null ? feedback.GameOverRevealDelay : 0.62f;
             feedback?.PlayGameOver();
             gameOverTime = float.PositiveInfinity;
-            latestGameOverResult = SettleGameOverResult();
+            bool canWaitForRevive = !reviveUsedThisRun &&
+                                    MonetizationAds.HasProvider;
+            bool canOfferRevive = MonetizationPolicy.CanOfferGameOverRevive(
+                true,
+                reviveUsedThisRun,
+                MonetizationAds.Provider.IsReady(
+                    FullScreenAdPlacement.GameOverReviveReward));
+            gameOverResultSettled = !canWaitForRevive;
+            latestGameOverResult = canWaitForRevive
+                ? CreateUnsettledGameOverPreview()
+                : SettleGameOverResult();
             pendingRestartConfirmationArmed = false;
             gameOverPersistenceAbandoned = false;
             nextScoreSettlementRetryTime = Time.unscaledTime + 0.5f;
-            StartCoroutine(ShowGameOverAfterDeath(revealDelay));
+            StartCoroutine(ShowGameOverAfterDeath(
+                revealDelay,
+                canOfferRevive,
+                !gameOverResultSettled));
+        }
+
+        GameOverResult CreateUnsettledGameOverPreview()
+        {
+            ScoreManager score = ScoreManager.Instance;
+            int height = score != null ? score.Height : 0;
+            int previousBest = score != null ? score.Best : 0;
+            bool rewardsAllowed = score == null || score.RecordsAllowed;
+            return new GameOverResult(
+                height,
+                Mathf.Max(previousBest, height),
+                rewardsAllowed && height > previousBest,
+                0,
+                PermanentGrowthProfile.Currency,
+                rewardsAllowed);
+        }
+
+        void HandleGameOverReviveRequested()
+        {
+            if (State != GameState.GameOver ||
+                gameOverResultSettled ||
+                reviveUsedThisRun ||
+                reviveRequestInFlight)
+                return;
+
+            IFullScreenAdProvider ads = MonetizationAds.Provider;
+            if (!MonetizationPolicy.CanOfferGameOverRevive(
+                    true,
+                    reviveUsedThisRun,
+                    ads.IsReady(FullScreenAdPlacement.GameOverReviveReward)))
+            {
+                gameOverPopupView?.SetReviveOffer(false);
+                ads.Preload(FullScreenAdPlacement.GameOverReviveReward);
+                return;
+            }
+
+            reviveRequestInFlight = true;
+            gameOverPopupView?.SetReviveRequestInFlight(true);
+            AudioListener.pause = true;
+            ads.Show(
+                FullScreenAdPlacement.GameOverReviveReward,
+                HandleGameOverReviveAdCompleted);
+        }
+
+        void HandleGameOverReviveAdCompleted(bool rewardEarned)
+        {
+            if (this == null)
+                return;
+
+            if (!MobileApplicationLifecycle.IsApplicationActive)
+            {
+                reviveCompletionPendingForeground = true;
+                pendingReviveRewardEarned = rewardEarned;
+                return;
+            }
+
+            FinishGameOverReviveAdCompleted(rewardEarned);
+        }
+
+        void FinishGameOverReviveAdCompleted(bool rewardEarned)
+        {
+            AudioListener.pause = false;
+            reviveRequestInFlight = false;
+            if (State != GameState.GameOver || !rewardEarned)
+            {
+                bool ready = State == GameState.GameOver &&
+                             MonetizationAds.Provider.IsReady(
+                                 FullScreenAdPlacement.GameOverReviveReward);
+                gameOverPopupView?.SetReviveRequestInFlight(false);
+                gameOverPopupView?.SetReviveOffer(ready);
+                return;
+            }
+
+            PlayerController reviveTarget = ResolveRewardRevivePlayer();
+            if (reviveTarget == null || !reviveTarget.ReviveFromRewardedAd())
+            {
+                gameOverPopupView?.SetReviveRequestInFlight(false);
+                gameOverPopupView?.SetReviveOffer(false);
+                return;
+            }
+
+            reviveUsedThisRun = true;
+            lastDeadPlayer = null;
+            gameOverTime = float.PositiveInfinity;
+            pendingRestartConfirmationArmed = false;
+            gameOverPersistenceAbandoned = false;
+            SetState(GameState.Playing);
+            gameOverPopupView?.Hide();
+            Camera.main?.GetComponent<CameraFollow>()?
+                .RequestSurvivorReframe();
+            PointerInput.SuppressUntilRelease();
+        }
+
+        PlayerController ResolveRewardRevivePlayer()
+        {
+            CleanupPlayers();
+            for (int i = 0; i < players.Count; i++)
+            {
+                PlayerController candidate = players[i];
+                if (candidate != null && candidate.IsDead &&
+                    !candidate.IsRuntimeClone)
+                    return candidate;
+            }
+            return lastDeadPlayer != null && lastDeadPlayer.IsDead
+                ? lastDeadPlayer
+                : null;
+        }
+
+        void HandleGameOverLobbyRequested()
+        {
+            if (State != GameState.GameOver ||
+                transitionInProgress ||
+                reviveRequestInFlight ||
+                Time.unscaledTime - gameOverTime < restartDelay)
+                return;
+
+            if (!gameOverResultSettled)
+            {
+                latestGameOverResult = SettleGameOverResult();
+                gameOverResultSettled = true;
+                gameOverPopupView?.RefreshResult(latestGameOverResult);
+            }
+
+            if (latestGameOverResult.PersistenceState ==
+                    GameOverPersistenceState.ScoreBaselinePending &&
+                !pendingRestartConfirmationArmed)
+            {
+                pendingRestartConfirmationArmed = true;
+                gameOverPopupView?.ShowPendingAbandonConfirmation();
+                return;
+            }
+            if (latestGameOverResult.PersistenceState ==
+                GameOverPersistenceState.RecordWritePending)
+            {
+                gameOverPersistenceAbandoned = true;
+                ScoreManager.Instance?.StopPendingBestSaveRetry();
+            }
+            else if (latestGameOverResult.PersistenceState ==
+                     GameOverPersistenceState.ScoreBaselinePending)
+            {
+                gameOverPersistenceAbandoned = true;
+            }
+            Restart();
         }
 
         /// 결과 표시보다 먼저 최고 기록과 영구 성장 보상을 한 번에 확정한다.
@@ -651,10 +828,16 @@ namespace MukJump.Core
             gameOverPopupView?.RefreshResult(latestGameOverResult);
         }
 
-        System.Collections.IEnumerator ShowGameOverAfterDeath(float delay)
+        System.Collections.IEnumerator ShowGameOverAfterDeath(
+            float delay,
+            bool canOfferRevive,
+            bool settlementPending)
         {
             yield return new WaitForSecondsRealtime(delay);
-            gameOverPopupView.Show(latestGameOverResult);
+            gameOverPopupView.Show(
+                latestGameOverResult,
+                canOfferRevive,
+                settlementPending);
             // 팝업이 나타난 뒤 restartDelay 동안은 오터치 재시작을 막는다.
             gameOverTime = Time.unscaledTime;
         }
@@ -1109,6 +1292,14 @@ namespace MukJump.Core
             currentRunId = Guid.NewGuid().ToString("N");
             activeGameplaySeconds = 0f;
             lastActiveTimeSampleFrame = -1;
+            lastDeadPlayer = null;
+            reviveUsedThisRun = false;
+            reviveRequestInFlight = false;
+            reviveCompletionPendingForeground = false;
+            pendingReviveRewardEarned = false;
+            gameOverResultSettled = false;
+            MonetizationAds.Provider.Preload(
+                FullScreenAdPlacement.GameOverReviveReward);
             SetState(GameState.Playing);
             var debugScenario = DebugToolsAvailable
                 ? GetComponent<DebugShowcaseScenarioController>()

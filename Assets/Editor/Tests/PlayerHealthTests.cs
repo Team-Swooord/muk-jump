@@ -60,7 +60,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ShieldIsConsumedBeforeHealthAndRuntimeCloneStartsFull()
+        public void ShieldIsConsumedBeforeHealthAndRuntimeCloneStartsAtTwo()
         {
             var player = CreatePlayer("ShieldAndCloneTarget");
             player.GrantShield();
@@ -121,6 +121,30 @@ namespace MukJump.EditorTests
             Assert.That(player.CurrentHealth, Is.Zero);
             Assert.That(notifiedCurrent, Is.Zero);
             Assert.That(notifiedMax, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RewardedAdReviveRestoresOneHealthCollisionAndUpwardMotion()
+        {
+            var player = CreatePlayer("RewardedAdReviveTarget");
+            var collider = player.GetComponent<CircleCollider2D>();
+            var renderer = player.GetComponent<SpriteRenderer>();
+
+            player.Kill();
+            Assert.That(player.IsDead, Is.True);
+            Assert.That(collider.enabled, Is.False);
+            Assert.That(player.Body.simulated, Is.False);
+
+            Assert.That(player.ReviveFromRewardedAd(), Is.True);
+            Assert.That(player.IsDead, Is.False);
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(collider.enabled, Is.True);
+            Assert.That(renderer.enabled, Is.True);
+            Assert.That(player.Body.simulated, Is.True);
+            Assert.That(player.Body.linearVelocity.y, Is.GreaterThan(0f));
+            Assert.That(player.IsInkDropBoosted, Is.True);
+            Assert.That(player.ReviveFromRewardedAd(), Is.False,
+                "살아 있는 동안 같은 부활 보상을 다시 적용하면 안 됩니다.");
         }
 
         [Test]

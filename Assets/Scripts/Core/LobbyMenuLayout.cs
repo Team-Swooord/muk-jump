@@ -19,9 +19,10 @@ namespace MukJump.Core
         public const float MenuRailX = 0.5f;
         public const float RecordRailX = MenuRailX;
         public const float PrimaryAlpha = 1f;
-        public const float SecondaryAlpha = 0.78f;
+        public const float SecondaryAlpha = 0.9f;
 
-        public static readonly Vector2 RecordAnchor = new(RecordRailX, 0.94f);
+        // 상단 96px 배너 지면과 최고 기록 UI가 겹치지 않도록 한 칸 아래에 둔다.
+        public static readonly Vector2 RecordAnchor = new(RecordRailX, 0.865f);
         public static readonly Vector2 RecordPosition = new(89f, -12f);
         // 비대칭 붓 원본은 배경을 오른쪽, 라벨을 왼쪽으로 같은 양만큼 보정한다.
         // 두 값의 합을 거의 0으로 유지해 실제 라벨 중심은 화면 중앙에 둔다.

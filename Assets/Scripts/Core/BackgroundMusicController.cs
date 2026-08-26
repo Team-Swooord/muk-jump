@@ -18,6 +18,7 @@ namespace MukJump.Core
         public static BackgroundMusicController Instance { get; private set; }
 
         AudioSource source;
+        bool applicationActive = true;
 
         void OnEnable()
         {
@@ -46,6 +47,7 @@ namespace MukJump.Core
             source.ignoreListenerPause = true;
             source.clip = Resources.Load<AudioClip>(MusicResourcePath);
             source.volume = lobbyVolume * LobbySettingsProfile.BgmVolume;
+            applicationActive = MobileApplicationLifecycle.IsApplicationActive;
 
             if (source.clip == null)
             {
@@ -53,12 +55,15 @@ namespace MukJump.Core
                 return;
             }
 
-            source.Play();
+            if (applicationActive)
+                source.Play();
         }
 
         void Update()
         {
-            if (Instance != this || source == null || source.clip == null) return;
+            if (Instance != this || source == null || source.clip == null ||
+                !applicationActive)
+                return;
 
             float stateVolume = GameManager.Instance == null
                 ? lobbyVolume
@@ -76,6 +81,22 @@ namespace MukJump.Core
 
             if (!source.isPlaying)
                 source.Play();
+        }
+
+        public void SetApplicationActive(bool active)
+        {
+            applicationActive = active;
+            if (source == null || source.clip == null)
+                return;
+            if (active)
+            {
+                if (!source.isPlaying)
+                    source.UnPause();
+            }
+            else
+            {
+                source.Pause();
+            }
         }
 
         void OnDestroy()

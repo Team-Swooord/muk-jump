@@ -67,7 +67,7 @@ namespace MukJump.Core
             BindManager();
             if (lastScreenWidth != Screen.width ||
                 lastScreenHeight != Screen.height ||
-                lastSafeArea != Screen.safeArea)
+                lastSafeArea != MobileUiLayout.CurrentSafeArea)
                 ApplySafeArea();
 
             if (boundManager == null)
@@ -311,7 +311,7 @@ namespace MukJump.Core
             lobbyButton = CreateBrushButton("LobbyButton", panel, "로비로",
                 new Vector2(0f, -120f), false);
             ApplyActionPriority(resumeButton, 1f);
-            ApplyActionPriority(lobbyButton, 0.72f);
+            ApplyActionPriority(lobbyButton, 0.88f);
 
             ApplySafeArea();
         }
@@ -346,7 +346,7 @@ namespace MukJump.Core
                             resumeButton != null && lobbyButton != null;
             if (!complete) return false;
             ApplyActionPriority(resumeButton, 1f);
-            ApplyActionPriority(lobbyButton, 0.72f);
+            ApplyActionPriority(lobbyButton, 0.88f);
             EnableFullButtonRaycast(pauseButton);
             EnableFullButtonRaycast(resumeButton);
             EnableFullButtonRaycast(lobbyButton);
@@ -547,15 +547,16 @@ namespace MukJump.Core
                     safe.xMax / Screen.width,
                     safe.yMax / Screen.height);
             pauseButtonRect.pivot = new Vector2(0.5f, 0.5f);
-            // 가독성 보강으로 높아진 상단 HUD와 겹치지 않도록 한 칸 아래에 둔다.
-            pauseButtonRect.anchoredPosition = new Vector2(-82f, -245f);
+            // 보이는 아이콘뿐 아니라 120px 터치 영역 전체가 상단 HUD와 분리되도록
+            // 한 칸 더 아래에 둔다. 토스 닫기 버튼의 우측 상단 영역도 함께 피한다.
+            pauseButtonRect.anchoredPosition = new Vector2(-82f, -270f);
             pauseButtonRect.sizeDelta = new Vector2(
                 InkUiStyle.MinimumTapHeight,
                 InkUiStyle.MinimumTapHeight);
 
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
-            lastSafeArea = Screen.safeArea;
+            lastSafeArea = safe;
         }
 
         void ApplyPanelPresentationScale(float presentationScale)
