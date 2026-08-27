@@ -1,7 +1,12 @@
 #if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR
+using System.Collections;
 using GoogleMobileAds.Api;
 using GoogleMobileAds.Ump.Api;
 using UnityEngine;
+
+#if UNITY_IOS
+using Unity.Advertisement.IosSupport;
+#endif
 
 namespace MukJump.Core
 {
@@ -22,6 +27,7 @@ namespace MukJump.Core
         bool bannerVisible;
         bool bannerLoading;
         bool consentGathering;
+        bool trackingAuthorizationResolved;
         double nextBannerLoadTime;
         double nextConsentRetryTime;
         float bannerHeightPixels;
@@ -74,13 +80,13 @@ namespace MukJump.Core
             MobileAds.SetRequestConfiguration(new RequestConfiguration
             {
                 MaxAdContentRating = MaxAdContentRating.G,
-                TagForChildDirectedTreatment =
-                    TagForChildDirectedTreatment.False,
-                TagForUnderAgeOfConsent =
-                    TagForUnderAgeOfConsent.False,
-                // 1.0은 ATT를 요청하지 않고 비맞춤 광고만 사용한다.
-                // SDK 8.7.0+에서 기본 활성화되는 퍼블리셔 1차 식별자도
-                // 꺼 두어 광고 개인화에 사용할 앱 단위 식별자를 만들지 않는다.
+                // 로그인만으로 사용자의 연령을 단정하지 않는다. 광고 SDK의
+                // 최신 통합 연령 설정을 미지정으로 두고 UMP/스토어 설정에서
+                // 실제 대상 연령 정책을 일관되게 적용한다.
+                AgeRestrictedTreatment =
+                    AgeRestrictedTreatment.Unspecified,
+                // ATT 선택과 별개로 모든 요청은 비맞춤형이며, SDK 8.7.0+
+                // 기본값인 퍼블리셔 1차 식별자도 사용하지 않는다.
                 PublisherFirstPartyIdEnabled = false,
                 PublisherPrivacyPersonalizationState =
                     PublisherPrivacyPersonalizationState.Disabled,
@@ -88,14 +94,20 @@ namespace MukJump.Core
             GoogleMobileAdsPrivacy.Register(
                 ShowPrivacyOptions,
                 isRequired: false);
+#if UNITY_IOS
+            StartCoroutine(RequestTrackingAuthorizationThenGatherConsent());
+#else
+            trackingAuthorizationResolved = true;
             GatherConsent();
+#endif
         }
 
         void Update()
         {
             if (!initialized)
             {
-                if (!consentGathering &&
+                if (trackingAuthorizationResolved &&
+                    !consentGathering &&
                     Time.realtimeSinceStartupAsDouble >= nextConsentRetryTime)
                     GatherConsent();
                 return;
@@ -113,6 +125,7 @@ namespace MukJump.Core
             provider = null;
             LobbyAdLayout.ClearTopInset();
             GoogleMobileAdsPrivacy.Reset();
+            trackingAuthorizationResolved = false;
         }
 
         static GoogleAdsPlatform CurrentPlatform()
@@ -124,16 +137,39 @@ namespace MukJump.Core
 #endif
         }
 
+#if UNITY_IOS
+        IEnumerator RequestTrackingAuthorizationThenGatherConsent()
+        {
+            // Apple은 앱이 활성 상태일 때만 ATT 알림을 표시한다.
+            yield return null;
+            while (!Application.isFocused)
+                yield return null;
+
+            var status = ATTrackingStatusBinding
+                .GetAuthorizationTrackingStatus();
+            if (status == ATTrackingStatusBinding
+                    .AuthorizationTrackingStatus.NOT_DETERMINED)
+            {
+                ATTrackingStatusBinding.RequestAuthorizationTracking();
+                while (ATTrackingStatusBinding
+                           .GetAuthorizationTrackingStatus() ==
+                       ATTrackingStatusBinding
+                           .AuthorizationTrackingStatus.NOT_DETERMINED)
+                    yield return null;
+            }
+
+            trackingAuthorizationResolved = true;
+            GatherConsent();
+        }
+#endif
+
         void GatherConsent()
         {
             if (consentGathering || initialized)
                 return;
             consentGathering = true;
             ConsentInformation.Update(
-                new ConsentRequestParameters
-                {
-                    TagForUnderAgeOfConsent = false,
-                },
+                new ConsentRequestParameters(),
                 updateError =>
                 {
                     UpdatePrivacyRequirement();

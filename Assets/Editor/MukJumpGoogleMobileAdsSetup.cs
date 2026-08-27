@@ -14,6 +14,8 @@ namespace MukJump.EditorTools
     [InitializeOnLoad]
     public sealed class MukJumpGoogleMobileAdsSetup : IPreprocessBuildWithReport
     {
+        public const string TrackingUsageDescription =
+            "광고 제공 및 광고 성과 측정을 위해 기기 활동 사용 권한을 요청합니다.";
         const string SettingsFolder = "Assets/Resources/MukJump/Settings";
         const string SettingsAssetPath =
             SettingsFolder + "/MukJumpGoogleAdsSettings.asset";
@@ -113,11 +115,16 @@ namespace MukJump.EditorTools
                 issues.Add("퍼블리셔 광고 개인화 비활성화가 없습니다.");
             if (!runtime.Contains("MaxAdContentRating.G"))
                 issues.Add("광고 콘텐츠 등급 G 제한이 없습니다.");
+            if (!runtime.Contains("AgeRestrictedTreatment.Unspecified"))
+                issues.Add("연령 제한 처리의 미지정 안전값이 없습니다.");
             if (!runtime.Contains(
-                    "TagForChildDirectedTreatment.False"))
-                issues.Add("COPPA 아동 전용 아님 태그가 없습니다.");
-            if (!runtime.Contains("TagForUnderAgeOfConsent.False"))
-                issues.Add("동의 연령 미만 아님 태그가 없습니다.");
+                    "RequestTrackingAuthorizationThenGatherConsent") ||
+                !runtime.Contains("RequestAuthorizationTracking"))
+                issues.Add("iOS ATT 응답 후 광고 동의를 시작하는 흐름이 없습니다.");
+            if (runtime.Contains("TagForChildDirectedTreatment.False") ||
+                runtime.Contains("TagForUnderAgeOfConsent.False") ||
+                runtime.Contains("TagForUnderAgeOfConsent = false"))
+                issues.Add("연령을 확인하지 않고 아동·청소년이 아니라고 단정합니다.");
             if (!requestFactory.Contains(
                     "request.Extras[\"npa\"] = \"1\""))
                 issues.Add("비맞춤 광고 npa=1 요청이 없습니다.");
@@ -168,7 +175,7 @@ namespace MukJump.EditorTools
             SetString(
                 serialized,
                 "userTrackingUsageDescription",
-                string.Empty);
+                TrackingUsageDescription);
             SetString(serialized, "userLanguage", "ko");
             serialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(pluginSettings);

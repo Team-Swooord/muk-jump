@@ -448,11 +448,17 @@ namespace MukJump.EditorTools
             bool configureReleaseSigning,
             string label)
         {
+            if (EditorUserBuildSettings.activeBuildTarget !=
+                BuildTarget.Android)
+                throw new BuildFailedException(
+                    "Android 빌드는 Android 타깃이 활성화된 상태에서 시작해야 " +
+                    "광고·Google 로그인 전처리기가 포함됩니다. 에디터에서 " +
+                    "Android로 전환하거나 배치 명령에 -buildTarget Android를 " +
+                    "추가하세요.");
+
             string outputPath = Path.GetFullPath(relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
 
-            BuildTarget previousTarget =
-                EditorUserBuildSettings.activeBuildTarget;
             bool previousBuildAppBundle =
                 EditorUserBuildSettings.buildAppBundle;
             bool previousUseCustomKeystore =
@@ -468,12 +474,6 @@ namespace MukJump.EditorTools
 
             try
             {
-                if (!EditorUserBuildSettings.SwitchActiveBuildTarget(
-                        BuildTargetGroup.Android,
-                        BuildTarget.Android))
-                    throw new BuildFailedException(
-                        "Android 빌드 타깃으로 전환하지 못했습니다.");
-
                 EditorUserBuildSettings.buildAppBundle = buildAppBundle;
                 if (configureReleaseSigning)
                 {
@@ -523,18 +523,7 @@ namespace MukJump.EditorTools
                 PlayerSettings.Android.keyaliasName = previousKeyaliasName;
                 EditorUserBuildSettings.buildAppBundle =
                     previousBuildAppBundle;
-                RestoreBuildTarget(previousTarget);
             }
-        }
-
-        static void RestoreBuildTarget(BuildTarget target)
-        {
-            if (target == BuildTarget.NoTarget ||
-                target == EditorUserBuildSettings.activeBuildTarget)
-                return;
-            BuildTargetGroup group = BuildPipeline.GetBuildTargetGroup(target);
-            if (group != BuildTargetGroup.Unknown)
-                EditorUserBuildSettings.SwitchActiveBuildTarget(group, target);
         }
 
         static void BuildIosProjectAt(
@@ -627,10 +616,12 @@ namespace MukJump.EditorTools
                         $"<string>{System.Text.RegularExpressions.Regex.Escape(expectedBuild)}</string>"))
                     issues.Add(
                         $"iOS 빌드 번호가 Unity 설정과 다릅니다: {expectedBuild}");
-                if (infoPlistText.Contains(
-                        "<key>NSUserTrackingUsageDescription</key>"))
+                if (!System.Text.RegularExpressions.Regex.IsMatch(
+                        infoPlistText,
+                        "<key>NSUserTrackingUsageDescription</key>\\s*" +
+                        $"<string>{System.Text.RegularExpressions.Regex.Escape(MukJumpGoogleMobileAdsSetup.TrackingUsageDescription)}</string>"))
                     issues.Add(
-                        "ATT를 요청하지 않는 1.0 빌드에 NSUserTrackingUsageDescription이 남아 있습니다.");
+                        "ATT 설명 NSUserTrackingUsageDescription이 없거나 출시 문구와 다릅니다.");
                 if (!System.Text.RegularExpressions.Regex.IsMatch(
                         infoPlistText,
                         "<key>ITSAppUsesNonExemptEncryption</key>\\s*" +

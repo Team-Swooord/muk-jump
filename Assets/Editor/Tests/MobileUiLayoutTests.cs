@@ -42,6 +42,36 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void TossCssInsetsConvertToUnityBottomLeftSafeArea()
+        {
+            Rect safe = MobileUiLayout.SafeAreaFromInsets(
+                top: 180f,
+                bottom: 96f,
+                left: 24f,
+                right: 36f,
+                screenWidth: 1080,
+                screenHeight: 2400);
+
+            Assert.That(safe.xMin, Is.EqualTo(24f));
+            Assert.That(safe.xMax, Is.EqualTo(1044f));
+            Assert.That(safe.yMin, Is.EqualTo(96f));
+            Assert.That(safe.yMax, Is.EqualTo(2220f));
+        }
+
+        [Test]
+        public void PlatformAndUnitySafeAreasUseTheirSafeIntersection()
+        {
+            Rect safe = MobileUiLayout.IntersectSafeAreas(
+                new Rect(0f, 96f, 1080f, 2208f),
+                new Rect(24f, 0f, 1020f, 2220f),
+                1080,
+                2400);
+
+            Assert.That(safe, Is.EqualTo(
+                Rect.MinMaxRect(24f, 96f, 1044f, 2220f)));
+        }
+
+        [Test]
         public void NarrowIPhoneSafeAreaKeepsOptionsAtReadableScale()
         {
             Rect safe = new Rect(0f, 102f, 1179f, 2361f);
@@ -202,6 +232,21 @@ namespace MukJump.EditorTests
                 new Vector2(28f, 32f));
 
             Assert.That(scale, Is.EqualTo(1f).Within(0.001f));
+        }
+
+        [Test]
+        public void LobbyAdInsetUsesCanvasReferenceHeightAndClampsOversizeAds()
+        {
+            Assert.That(
+                LobbyAdLayout.CalculateCanvasInset(1920f, 0.065f),
+                Is.EqualTo(124.8f).Within(0.001f));
+            Assert.That(
+                LobbyAdLayout.CalculateCanvasInset(1920f, 0.9f),
+                Is.EqualTo(480f).Within(0.001f),
+                "비정상 광고 높이가 로비 전체를 밀어내면 안 됩니다.");
+            Assert.That(
+                LobbyAdLayout.CalculateCanvasInset(0f, -1f),
+                Is.Zero.Within(0.001f));
         }
     }
 }

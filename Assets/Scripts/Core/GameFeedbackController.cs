@@ -6,6 +6,7 @@ using UnityEngine.InputSystem;
 using MukJump.AI;
 using MukJump.Items;
 using MukJump.Core.Pooling;
+using AppsInToss;
 
 namespace MukJump.Core
 {
@@ -111,7 +112,7 @@ namespace MukJump.Core
             if (bannerText == null) return;
             if (lastOverlayScreenWidth != Screen.width ||
                 lastOverlayScreenHeight != Screen.height ||
-                lastOverlaySafeArea != Screen.safeArea)
+                lastOverlaySafeArea != MobileUiLayout.CurrentSafeArea)
                 ApplyOverlayLayout();
         }
 
@@ -541,6 +542,9 @@ namespace MukJump.Core
 
         void PlayHaptic(HapticPattern pattern, float strength)
         {
+            if (!LobbySettingsProfile.HapticsEnabled)
+                return;
+
             int durationMs = pattern switch
             {
                 HapticPattern.Landing => Mathf.RoundToInt(Mathf.Lerp(18f, 34f, strength)),
@@ -554,7 +558,9 @@ namespace MukJump.Core
                 _ => 220,
             };
 
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if UNITY_WEBGL && !UNITY_EDITOR
+            PlayAppsInTossHaptic(pattern);
+#elif UNITY_ANDROID && !UNITY_EDITOR
             VibrateAndroid(durationMs, amplitude);
 #elif UNITY_IOS && !UNITY_EDITOR
             Handheld.Vibrate();
@@ -570,6 +576,29 @@ namespace MukJump.Core
             gamepad.SetMotorSpeeds(low, high);
             gamepadHapticRoutine = StartCoroutine(StopGamepadHaptic(gamepad, durationMs / 1000f));
         }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        static async void PlayAppsInTossHaptic(HapticPattern pattern)
+        {
+            HapticFeedbackType type = pattern switch
+            {
+                HapticPattern.Landing => HapticFeedbackType.Tap,
+                HapticPattern.ShieldBreak => HapticFeedbackType.BasicMedium,
+                _ => HapticFeedbackType.Error,
+            };
+
+            try
+            {
+                await AIT.GenerateHapticFeedback(
+                    new HapticFeedbackOptions { Type = type },
+                    1500);
+            }
+            catch (AITException)
+            {
+                // 햅틱 미지원·타임아웃은 게임 진행을 막지 않는다.
+            }
+        }
+#endif
 
         IEnumerator StopGamepadHaptic(Gamepad gamepad, float duration)
         {
@@ -1138,7 +1167,7 @@ namespace MukJump.Core
                     24f);
             lastOverlayScreenWidth = Screen.width;
             lastOverlayScreenHeight = Screen.height;
-            lastOverlaySafeArea = Screen.safeArea;
+            lastOverlaySafeArea = safe;
         }
 
         IEnumerator AnimateBanner(string title, string subtitle)

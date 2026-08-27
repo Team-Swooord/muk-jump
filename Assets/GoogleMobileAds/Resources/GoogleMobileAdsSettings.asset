@@ -18,7 +18,9 @@ MonoBehaviour:
   enableGradleBuildPreProcessor: 1
   disableOptimizeInitialization: 0
   disableOptimizeAdLoading: 0
-  userTrackingUsageDescription:
+  userTrackingUsageDescription: "\uAD11\uACE0 \uC81C\uACF5 \uBC0F \uAD11\uACE0 \uC131\uACFC
+    \uCE21\uC815\uC744 \uC704\uD574 \uAE30\uAE30 \uD65C\uB3D9 \uC0AC\uC6A9 \uAD8C\uD55C\uC744
+    \uC694\uCCAD\uD569\uB2C8\uB2E4."
   userLanguage: ko
   overrideDefaultGmaAndroidSdk: 0
   selectedGmaAndroidSdk: 0

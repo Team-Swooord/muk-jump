@@ -10,6 +10,9 @@ namespace MukJump.Core
         public const float ReferenceWidth = 1080f;
         public const float ReferenceHeight = 1920f;
 
+        static Rect platformSafeAreaOverride;
+        static bool hasPlatformSafeAreaOverride;
+
         public static void ConfigurePortraitScaler(CanvasScaler scaler)
         {
             if (scaler == null) return;
@@ -40,8 +43,77 @@ namespace MukJump.Core
             return Rect.MinMaxRect(xMin, yMin, xMax, yMax);
         }
 
-        public static Rect CurrentSafeArea =>
-            SanitizeSafeArea(Screen.safeArea, Screen.width, Screen.height);
+        public static Rect CurrentSafeArea
+        {
+            get
+            {
+                Rect unitySafeArea = SanitizeSafeArea(
+                    Screen.safeArea,
+                    Screen.width,
+                    Screen.height);
+                if (!hasPlatformSafeAreaOverride)
+                    return unitySafeArea;
+                Rect platformSafeArea = SanitizeSafeArea(
+                    platformSafeAreaOverride,
+                    Screen.width,
+                    Screen.height);
+                return IntersectSafeAreas(
+                    unitySafeArea,
+                    platformSafeArea,
+                    Screen.width,
+                    Screen.height);
+            }
+        }
+
+        public static Rect SafeAreaFromInsets(
+            float top,
+            float bottom,
+            float left,
+            float right,
+            int screenWidth,
+            int screenHeight)
+        {
+            float xMin = Mathf.Max(0f, left);
+            float xMax = screenWidth - Mathf.Max(0f, right);
+            float yMin = Mathf.Max(0f, bottom);
+            float yMax = screenHeight - Mathf.Max(0f, top);
+            return SanitizeSafeArea(
+                Rect.MinMaxRect(xMin, yMin, xMax, yMax),
+                screenWidth,
+                screenHeight);
+        }
+
+        public static Rect IntersectSafeAreas(
+            Rect first,
+            Rect second,
+            int screenWidth,
+            int screenHeight)
+        {
+            Rect a = SanitizeSafeArea(first, screenWidth, screenHeight);
+            Rect b = SanitizeSafeArea(second, screenWidth, screenHeight);
+            float xMin = Mathf.Max(a.xMin, b.xMin);
+            float yMin = Mathf.Max(a.yMin, b.yMin);
+            float xMax = Mathf.Min(a.xMax, b.xMax);
+            float yMax = Mathf.Min(a.yMax, b.yMax);
+            return xMax > xMin && yMax > yMin
+                ? Rect.MinMaxRect(xMin, yMin, xMax, yMax)
+                : a;
+        }
+
+        public static void SetPlatformSafeAreaOverride(Rect safeArea)
+        {
+            platformSafeAreaOverride = SanitizeSafeArea(
+                safeArea,
+                Screen.width,
+                Screen.height);
+            hasPlatformSafeAreaOverride = true;
+        }
+
+        public static void ClearPlatformSafeAreaOverride()
+        {
+            platformSafeAreaOverride = Rect.zero;
+            hasPlatformSafeAreaOverride = false;
+        }
 
         public static void ApplySafeArea(
             RectTransform target,
@@ -68,7 +140,7 @@ namespace MukJump.Core
 
         public static void ApplyCurrentSafeArea(RectTransform target)
         {
-            ApplySafeArea(target, Screen.safeArea, Screen.width, Screen.height);
+            ApplySafeArea(target, CurrentSafeArea, Screen.width, Screen.height);
         }
 
         public static Vector2 GetLogicalSafeSize(

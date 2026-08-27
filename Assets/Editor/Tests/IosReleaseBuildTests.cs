@@ -122,6 +122,9 @@ namespace MukJump.EditorTests
                 "</array></dict></array>" +
                 $"<key>CFBundleShortVersionString</key><string>{PlayerSettings.bundleVersion}</string>" +
                 $"<key>CFBundleVersion</key><string>{PlayerSettings.iOS.buildNumber}</string>" +
+                "<key>NSUserTrackingUsageDescription</key><string>" +
+                MukJumpGoogleMobileAdsSetup.TrackingUsageDescription +
+                "</string>" +
                 "<key>ITSAppUsesNonExemptEncryption</key><false/>" +
                 "</dict></plist>");
             File.WriteAllText(
@@ -238,6 +241,9 @@ namespace MukJump.EditorTests
                 "<?xml version=\"1.0\"?><plist><dict>" +
                 $"<key>CFBundleShortVersionString</key><string>{PlayerSettings.bundleVersion}</string>" +
                 $"<key>CFBundleVersion</key><string>{PlayerSettings.iOS.buildNumber}</string>" +
+                "<key>NSUserTrackingUsageDescription</key><string>" +
+                MukJumpGoogleMobileAdsSetup.TrackingUsageDescription +
+                "</string>" +
                 "<key>ITSAppUsesNonExemptEncryption</key><false/>" +
                 "</dict></plist>");
             File.WriteAllText(

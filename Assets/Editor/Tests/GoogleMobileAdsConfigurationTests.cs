@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using MukJump.Core;
 using MukJump.EditorTools;
@@ -21,7 +22,7 @@ namespace MukJump.EditorTests
         public void TearDown()
         {
             if (settings != null)
-                Object.DestroyImmediate(settings);
+                UnityEngine.Object.DestroyImmediate(settings);
         }
 
         [Test]
@@ -209,14 +210,86 @@ namespace MukJump.EditorTests
             Assert.That(runtime, Does.Contain("MaxAdContentRating.G"));
             Assert.That(
                 runtime,
-                Does.Contain("TagForChildDirectedTreatment.False"));
+                Does.Contain("RequestTrackingAuthorizationThenGatherConsent"));
+            Assert.That(runtime, Does.Contain("RequestAuthorizationTracking"));
+            Assert.That(
+                MukJumpGoogleMobileAdsSetup.TrackingUsageDescription,
+                Is.Not.Empty);
             Assert.That(
                 runtime,
-                Does.Contain("TagForUnderAgeOfConsent.False"));
+                Does.Contain("AgeRestrictedTreatment.Unspecified"));
+            Assert.That(
+                runtime,
+                Does.Not.Contain("TagForChildDirectedTreatment.False"));
+            Assert.That(
+                runtime,
+                Does.Not.Contain("TagForUnderAgeOfConsent.False"));
+            Assert.That(
+                runtime,
+                Does.Not.Contain("TagForUnderAgeOfConsent = false"));
             Assert.That(requestFactory, Does.Contain("request.Extras[\"npa\"] = \"1\""));
             Assert.That(
                 MukJumpGoogleMobileAdsSetup.CollectPrivacyPolicyIssues(),
                 Is.Empty);
+        }
+
+        [Test]
+        public void GeneratedAndroidProjectRequiresAdsConsentAndGoogleLogin()
+        {
+            string projectRoot = Path.Combine(
+                Path.GetTempPath(),
+                "MukJumpAndroidGradle-" + Guid.NewGuid().ToString("N"));
+            string root = Path.Combine(projectRoot, "unityLibrary");
+            string manifestFolder = Path.Combine(
+                root,
+                "GoogleMobileAdsPlugin.androidlib");
+            string libsFolder = Path.Combine(root, "libs");
+            Directory.CreateDirectory(manifestFolder);
+            Directory.CreateDirectory(libsFolder);
+            const string appId =
+                "ca-app-pub-3940256099942544~3347511713";
+
+            try
+            {
+                File.WriteAllText(
+                    Path.Combine(root, "build.gradle"),
+                    "implementation 'com.google.android.gms:play-services-ads:25.4.0'\n" +
+                    "implementation 'com.google.android.ump:user-messaging-platform:4.0.0'\n" +
+                    "implementation 'com.google.android.gms:play-services-auth:19.0.0'\n" +
+                    "implementation(name: 'io.thebackend.googlelogin', ext:'aar')\n");
+                File.WriteAllText(
+                    Path.Combine(manifestFolder, "AndroidManifest.xml"),
+                    "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">" +
+                    "<application><meta-data " +
+                    "android:name=\"com.google.android.gms.ads.APPLICATION_ID\" " +
+                    $"android:value=\"{appId}\" /></application></manifest>");
+                File.WriteAllBytes(
+                    Path.Combine(libsFolder, "googlemobileads-unity.aar"),
+                    new byte[] { 1 });
+                File.WriteAllBytes(
+                    Path.Combine(libsFolder, "io.thebackend.googlelogin.aar"),
+                    new byte[] { 1 });
+
+                Assert.That(
+                    MukJumpAndroidGeneratedProjectValidator.CollectIssues(
+                        root,
+                        appId),
+                    Is.Empty);
+
+                File.WriteAllText(
+                    Path.Combine(root, "build.gradle"),
+                    "implementation 'com.google.android.gms:play-services-ads:25.4.0'");
+                string[] issues = MukJumpAndroidGeneratedProjectValidator
+                    .CollectIssues(root, "ca-app-pub-0000000000000000~0000000000");
+                Assert.That(issues, Has.Some.Contains("user-messaging-platform"));
+                Assert.That(issues, Has.Some.Contains("play-services-auth"));
+                Assert.That(issues, Has.Some.Contains("앱 ID"));
+            }
+            finally
+            {
+                if (Directory.Exists(projectRoot))
+                    Directory.Delete(projectRoot, recursive: true);
+            }
         }
     }
 }

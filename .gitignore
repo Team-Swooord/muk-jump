@@ -82,3 +82,24 @@ crashlytics-build.properties
 *.pem
 *.key
 .DS_Store
+
+# 로컬 스토어 빌드 산출물
+/output/ios/
+/output/android/
+/output/test-results/
+
+# BACKND 콘솔에서 내려받는 앱 설정에는 프로젝트 식별·서명 값이 포함될 수 있다.
+/Assets/TheBackend/Resources/TheBackendSettings.asset
+/Assets/TheBackend/Resources/TheBackendSettings.asset.meta
+
+# Apps in Toss 로컬 설정·빌드 산출물
+**/AITCredentials.asset
+**/AITCredentials.asset.meta
+/ait-build/
+/webgl/
+Assets/StreamingAssets/build_info
+Assets/StreamingAssets/build_info.meta
+Assets/Resources/AITVersionInfo.json
+Assets/Resources/AITVersionInfo.json.meta
+
+# AITTemplate은 새 클론에서도 같은 Apps in Toss 패키지를 만들 수 있어야 하므로 추적한다.

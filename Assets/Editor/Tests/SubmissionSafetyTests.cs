@@ -263,6 +263,19 @@ namespace MukJump.EditorTests
             Assert.That(source, Does.Contain("m_AllowMSAA: 0"));
         }
 
+        [Test]
+        public void WebGlTemplateCoversViewportWithoutBlackFallback()
+        {
+            const string templatePath =
+                "Assets/WebGLTemplates/AITTemplate/index.html";
+            string source = File.ReadAllText(templatePath);
+
+            Assert.That(source, Does.Contain("id=\"mukjump-fullscreen-webgl\""));
+            Assert.That(source, Does.Contain("width: 100vw;"));
+            Assert.That(source, Does.Contain("height: 100dvh;"));
+            Assert.That(source, Does.Contain("background: #EAE3D2 !important;"));
+        }
+
         static object Invoke(object target, string methodName)
         {
             return target.GetType().GetMethod(
