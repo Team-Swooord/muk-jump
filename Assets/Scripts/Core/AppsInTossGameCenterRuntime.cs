@@ -9,6 +9,12 @@ namespace MukJump.Core
     public static class AppsInTossGameCenterRuntime
     {
         const int ApiTimeoutMilliseconds = 10000;
+        const string PendingBestHeightKey =
+            "MukJump.AppsInToss.PendingBestHeight";
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        static bool submitInFlight;
+#endif
 
         public static bool IsEligible(GameOverResult result) =>
             result.PersistenceState == GameOverPersistenceState.Complete &&
@@ -21,9 +27,35 @@ namespace MukJump.Core
 #if UNITY_WEBGL && !UNITY_EDITOR
             if (!IsEligible(result))
                 return;
-            SubmitScoreAsync(result.Best);
+            QueueAndSubmitScore(result.Best);
 #endif
         }
+
+        [RuntimeInitializeOnLoadMethod(
+            RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void RetryPendingScoreAfterSceneLoad()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (PlayerPrefs.HasKey(PendingBestHeightKey))
+                QueueAndSubmitScore(PlayerPrefs.GetInt(
+                    PendingBestHeightKey,
+                    0));
+#endif
+        }
+
+        public static int ResolvePendingBestHeight(
+            int storedBest,
+            int candidateBest) =>
+            Mathf.Max(0, Mathf.Max(storedBest, candidateBest));
+
+        public static bool ShouldClearPendingBestHeight(
+            int storedBest,
+            int submittedBest) =>
+            storedBest <= submittedBest;
+
+        public static bool HasSubmissionResponse(
+            SubmitGameCenterLeaderBoardScoreResponse response) =>
+            response != null;
 
         public static void OpenLeaderboard()
         {
@@ -35,8 +67,20 @@ namespace MukJump.Core
         }
 
 #if UNITY_WEBGL && !UNITY_EDITOR
+        static void QueueAndSubmitScore(int bestHeight)
+        {
+            int pendingBest = ResolvePendingBestHeight(
+                PlayerPrefs.GetInt(PendingBestHeightKey, 0),
+                bestHeight);
+            PlayerPrefs.SetInt(PendingBestHeightKey, pendingBest);
+            PlayerPrefs.Save();
+            if (!submitInFlight)
+                SubmitScoreAsync(pendingBest);
+        }
+
         static async void SubmitScoreAsync(int bestHeight)
         {
+            submitInFlight = true;
             try
             {
                 var parameters = new SubmitGameCenterLeaderBoardScoreParams
@@ -44,14 +88,36 @@ namespace MukJump.Core
                     Score = Mathf.Max(0, bestHeight).ToString(
                         System.Globalization.CultureInfo.InvariantCulture),
                 };
-                await AIT.SubmitGameCenterLeaderBoardScore(
+                SubmitGameCenterLeaderBoardScoreResponse response =
+                    await AIT.SubmitGameCenterLeaderBoardScore(
                     parameters,
                     ApiTimeoutMilliseconds);
+                if (!HasSubmissionResponse(response))
+                {
+                    submitInFlight = false;
+                    Debug.LogWarning(
+                        "[MukJump] 현재 토스 앱 버전에서 순위 제출 결과를 확인하지 못해 기록을 보관합니다.");
+                    return;
+                }
+                int storedBest = PlayerPrefs.GetInt(
+                    PendingBestHeightKey,
+                    0);
+                if (ShouldClearPendingBestHeight(
+                        storedBest,
+                        bestHeight))
+                    PlayerPrefs.DeleteKey(PendingBestHeightKey);
+                PlayerPrefs.Save();
+                submitInFlight = false;
+                if (PlayerPrefs.HasKey(PendingBestHeightKey))
+                    SubmitScoreAsync(PlayerPrefs.GetInt(
+                        PendingBestHeightKey,
+                        0));
             }
             catch (Exception exception)
             {
+                submitInFlight = false;
                 Debug.LogWarning(
-                    $"[MukJump] 토스 최고 고도 제출을 다음 판에 다시 시도합니다: " +
+                    $"[MukJump] 토스 최고 고도를 저장해 다음 실행 또는 판에 다시 시도합니다: " +
                     exception.Message);
             }
         }

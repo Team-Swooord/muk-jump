@@ -565,6 +565,7 @@ namespace MukJump.EditorTests
             RectTransform sfx = RequireRect(page, "SfxCard");
             RectTransform support = RequireRect(page, "CustomerCenterButton");
             RectTransform tutorial = RequireRect(page, "GuideButton");
+            RectTransform account = RequireRect(page, "AccountButton");
             RectTransform adPrivacy = RequireRect(page, "AdPrivacyButton");
 
             Assert.That(bgm.anchoredPosition.x, Is.EqualTo(0f));
@@ -578,8 +579,11 @@ namespace MukJump.EditorTests
                 "고객센터와 튜토리얼은 긴 문구가 잘리지 않도록 넓은 행으로 쌓아야 합니다.");
             Assert.That(support.sizeDelta.x, Is.GreaterThanOrEqualTo(700f));
             Assert.That(tutorial.sizeDelta.x, Is.GreaterThanOrEqualTo(700f));
+            Assert.That(account.sizeDelta.x, Is.GreaterThanOrEqualTo(700f));
             Assert.That(adPrivacy.sizeDelta.x, Is.GreaterThanOrEqualTo(700f));
             Assert.That(tutorial.anchoredPosition.y,
+                Is.GreaterThan(account.anchoredPosition.y));
+            Assert.That(account.anchoredPosition.y,
                 Is.GreaterThan(adPrivacy.anchoredPosition.y));
             Assert.That(page.Find("UidButton"), Is.Null);
             Assert.That(page.Find("LanguageButton"), Is.Null);
@@ -601,6 +605,7 @@ namespace MukJump.EditorTests
 
             AssertOptionButton(page, "CustomerCenterButton", usesActionBrush: false);
             AssertOptionButton(page, "GuideButton", usesActionBrush: false);
+            AssertOptionButton(page, "AccountButton", usesActionBrush: false);
             AssertOptionButton(page, "AdPrivacyButton", usesActionBrush: false);
             AssertOptionButton(page, "CloseButton", usesActionBrush: true);
             AssertOptionButton(
@@ -618,6 +623,54 @@ namespace MukJump.EditorTests
             AssertQuietOptionText(page.Find("PrivacyCaption")?.GetComponent<Text>());
             AssertQuietOptionText(
                 page.Find("CustomerCenterButton/Paper/Status")?.GetComponent<Text>());
+
+            Transform accountPage = page.parent.Find("AccountPage");
+            Transform leaderboardPage = page.parent.Find("LeaderboardPage");
+            Transform playSettingsPage = page.parent.Find("PlaySettingsPage");
+            Assert.That(accountPage, Is.Not.Null);
+            Assert.That(leaderboardPage, Is.Not.Null);
+            Assert.That(playSettingsPage, Is.Not.Null);
+            foreach (string conflictName in new[]
+                     {
+                         "AccountConflict",
+                         "SyncConflict",
+                         "AccountSyncPending",
+                     })
+            {
+                RectTransform conflict = accountPage.Find(conflictName)
+                    ?.GetComponent<RectTransform>();
+                Image blocker = conflict?.Find("ModalBlocker")
+                    ?.GetComponent<Image>();
+                Assert.That(conflict, Is.Not.Null, conflictName);
+                Assert.That(conflict.sizeDelta.x, Is.GreaterThanOrEqualTo(760f));
+                Assert.That(conflict.sizeDelta.y, Is.GreaterThanOrEqualTo(1450f));
+                Assert.That(blocker, Is.Not.Null, conflictName);
+                Assert.That(blocker.raycastTarget, Is.True,
+                    "충돌 선택 전에는 뒤쪽 계정 메뉴를 누를 수 없어야 합니다.");
+                Assert.That(blocker.color.a, Is.GreaterThanOrEqualTo(0.95f));
+            }
+            AssertOptionButton(
+                playSettingsPage,
+                "HapticsButton",
+                usesActionBrush: false);
+            AssertOptionButton(
+                playSettingsPage,
+                "ReducedMotionButton",
+                usesActionBrush: false);
+            AssertOptionButton(
+                playSettingsPage,
+                "AdConsentButton",
+                usesActionBrush: false);
+            AssertOptionButton(
+                accountPage,
+                "AccountLegal",
+                usesActionBrush: false);
+            Assert.That(
+                leaderboardPage.Find("LeaderboardRow1")?.GetComponent<Text>(),
+                Is.Not.Null);
+            Assert.That(
+                leaderboardPage.Find("LeaderboardRow10")?.GetComponent<Text>(),
+                Is.Not.Null);
 
             RectTransform bgmSlider = RequireRect(page.Find("BgmCard/Paper"), "Slider");
             RectTransform bgmToggle = RequireRect(page.Find("BgmCard/Paper"), "Toggle");
@@ -674,6 +727,8 @@ namespace MukJump.EditorTests
             LobbySettingsProfile.SetSfxVolume(0.6f);
             LobbySettingsProfile.SetBgmVolume(0f);
             LobbySettingsProfile.SetSfxVolume(0f);
+            LobbySettingsProfile.SetHapticsEnabled(false);
+            LobbySettingsProfile.SetReducedMotionEnabled(true);
             LobbySettingsProfile.MarkTutorialSeen();
             string firstUid = LobbySettingsProfile.PlayerUid;
             LobbySettingsProfile.Flush();
@@ -685,6 +740,8 @@ namespace MukJump.EditorTests
 
             Assert.That(LobbySettingsProfile.BgmVolume, Is.EqualTo(0f).Within(0.001f));
             Assert.That(LobbySettingsProfile.SfxVolume, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(LobbySettingsProfile.HapticsEnabled, Is.False);
+            Assert.That(LobbySettingsProfile.ReducedMotionEnabled, Is.True);
             Assert.That(
                 LobbySettingsProfile.BgmResumeVolume,
                 Is.EqualTo(0.35f).Within(0.001f),
@@ -700,6 +757,50 @@ namespace MukJump.EditorTests
                 "과거 정적 가이드 완료 여부가 새 인터랙티브 안내 버전을 대신하면 안 됩니다.");
             Assert.That(LobbySettingsProfile.PlayerUid, Is.EqualTo(firstUid),
                 "로컬 UID는 옵션 화면을 다시 열어도 바뀌면 안 됩니다.");
+        }
+
+        [Test]
+        public void PlaySettingsPageTogglesHapticsAndReducedMotion()
+        {
+            managerHost = new GameObject("PlaySettingsManager");
+            var manager = managerHost.AddComponent<GameManager>();
+            Invoke(manager, "OnEnable");
+            viewHost = new GameObject("PlaySettingsHost");
+            var optionsView = viewHost.AddComponent<LobbyOptionsView>();
+            optionsView.BuildForTests();
+            optionsView.Open();
+
+            Transform pages = viewHost.transform.Find(
+                "LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll");
+            Transform optionsPage = pages?.Find("OptionsPage");
+            Transform playPage = pages?.Find("PlaySettingsPage");
+            Assert.That(optionsPage, Is.Not.Null);
+            Assert.That(playPage, Is.Not.Null);
+
+            optionsPage.Find("AdPrivacyButton")
+                ?.GetComponent<Button>()?.onClick.Invoke();
+            Assert.That(
+                playPage.GetComponent<CanvasGroup>().blocksRaycasts,
+                Is.True);
+            Assert.That(
+                optionsPage.GetComponent<CanvasGroup>().blocksRaycasts,
+                Is.False);
+
+            playPage.Find("HapticsButton")
+                ?.GetComponent<Button>()?.onClick.Invoke();
+            playPage.Find("ReducedMotionButton")
+                ?.GetComponent<Button>()?.onClick.Invoke();
+
+            Assert.That(LobbySettingsProfile.HapticsEnabled, Is.False);
+            Assert.That(LobbySettingsProfile.ReducedMotionEnabled, Is.True);
+            Assert.That(
+                playPage.Find("HapticsButton/Paper/Status")
+                    ?.GetComponent<Text>()?.text,
+                Is.EqualTo("꺼짐"));
+            Assert.That(
+                playPage.Find("ReducedMotionButton/Paper/Status")
+                    ?.GetComponent<Text>()?.text,
+                Is.EqualTo("켜짐"));
         }
 
         [Test]

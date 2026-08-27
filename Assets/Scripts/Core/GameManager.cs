@@ -781,9 +781,14 @@ namespace MukJump.Core
                 settlement.PreviousRewardDistanceMeters,
                 settlement.NextRewardDistanceMeters,
                 settlement.DistanceJourneyComplete);
+            PublishCompletedRun(result);
+            return result;
+        }
+
+        static void PublishCompletedRun(GameOverResult result)
+        {
             MukJumpAccountRuntime.Instance?.NotifyRunSettled(result);
             AppsInTossGameCenterRuntime.SubmitCompletedRun(result);
-            return result;
         }
 
         void RetryPendingGameOverPersistence()
@@ -828,6 +833,9 @@ namespace MukJump.Core
                 previous.GrowthDistanceJourneyComplete);
             pendingRestartConfirmationArmed = false;
             gameOverPopupView?.RefreshResult(latestGameOverResult);
+            // 최초 정산은 기록 저장 실패 상태라 클라우드와 순위 제출이
+            // 거절된다. 기록 재시도가 완료된 정확한 시점에 한 번 더 알린다.
+            PublishCompletedRun(latestGameOverResult);
         }
 
         System.Collections.IEnumerator ShowGameOverAfterDeath(

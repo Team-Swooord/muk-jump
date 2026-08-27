@@ -428,6 +428,34 @@ namespace MukJump.EditorTests
                 Is.EqualTo(expected));
         }
 
+        [TestCase(MukJumpAccountKind.BackendGuest, true)]
+        [TestCase(MukJumpAccountKind.LocalGuest, false)]
+        [TestCase(MukJumpAccountKind.Google, false)]
+        [TestCase(MukJumpAccountKind.Apple, false)]
+        public void BackendGuestLogoutPreservesCurrentProfileLocally(
+            MukJumpAccountKind kind,
+            bool expected)
+        {
+            Assert.That(
+                MukJumpAccountRuntime
+                    .ShouldPreserveBackendGuestBeforeLogout(kind),
+                Is.EqualTo(expected));
+        }
+
+        [TestCase(MukJumpAccountKind.Google, true)]
+        [TestCase(MukJumpAccountKind.LocalGuest, false)]
+        [TestCase(MukJumpAccountKind.BackendGuest, false)]
+        [TestCase(MukJumpAccountKind.Apple, false)]
+        public void GoogleAccountDeletionClearsProviderSession(
+            MukJumpAccountKind kind,
+            bool expected)
+        {
+            Assert.That(
+                MukJumpAccountRuntime
+                    .RequiresFederationSignOutBeforeAccountDeletion(kind),
+                Is.EqualTo(expected));
+        }
+
         [TestCase(true, false, true, false)]
         [TestCase(true, true, true, true)]
         [TestCase(false, false, true, false)]
@@ -474,6 +502,23 @@ namespace MukJump.EditorTests
                 MukJumpAccountRuntime.ShouldPreserveLocalGuestBeforeFederation(
                     online,
                     kind),
+                Is.EqualTo(expected));
+        }
+
+        [TestCase("guest-a", "social-b", true)]
+        [TestCase(" guest-a ", "guest-a", false)]
+        [TestCase("", "social-b", true)]
+        [TestCase("guest-a", "", false)]
+        public void InterruptedFederationRecoveryRequiresChangedAccount(
+            string previousOwner,
+            string currentOwner,
+            bool expected)
+        {
+            Assert.That(
+                MukJumpAccountRuntime
+                    .DidAuthorizedTransitionChangeAccount(
+                        previousOwner,
+                        currentOwner),
                 Is.EqualTo(expected));
         }
 
@@ -576,6 +621,42 @@ namespace MukJump.EditorTests
                     automaticLoginSuppressed,
                     explicitRecovery,
                     loginInFlight),
+                Is.EqualTo(expected));
+        }
+
+        [TestCase(false, false, false, true)]
+        [TestCase(true, false, false, false)]
+        [TestCase(false, true, false, false)]
+        [TestCase(false, false, true, false)]
+        [TestCase(true, true, true, false)]
+        public void TokenFailureNeverCreatesGuestDuringAccountTransition(
+            bool profileResolutionPending,
+            bool authorizedTransitionPending,
+            bool guestUpgradePending,
+            bool expected)
+        {
+            Assert.That(
+                MukJumpAccountRuntime.ShouldStartGuestLoginAfterTokenFailure(
+                    profileResolutionPending,
+                    authorizedTransitionPending,
+                    guestUpgradePending),
+                Is.EqualTo(expected));
+        }
+
+        [TestCase("412", true, true)]
+        [TestCase("412", false, false)]
+        [TestCase("409", true, false)]
+        [TestCase("503", true, false)]
+        public void InterruptedGuestUpgradeReauthorizesOnlyAfterGuestRejection(
+            string statusCode,
+            bool guestUpgradePending,
+            bool expected)
+        {
+            Assert.That(
+                MukJumpAccountRuntime
+                    .ShouldRecoverGuestUpgradeWithAuthorization(
+                        statusCode,
+                        guestUpgradePending),
                 Is.EqualTo(expected));
         }
 

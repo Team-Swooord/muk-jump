@@ -41,6 +41,7 @@ namespace MukJump.Core
         Text debugScenarioSummary;
         Text accountKindText;
         Text accountStatusText;
+        Text accountSupportCodeText;
         Text accountSyncPendingTitleText;
         Text accountSyncPendingStatusText;
         Text accountSyncPendingCaptionText;
@@ -516,17 +517,22 @@ namespace MukJump.Core
                 InkUiStyle.CaptionSize,
                 new Vector2(0f, 375f), new Vector2(680f, 90f),
                 InkPalette.TextMuted, TextAnchor.MiddleCenter);
+            accountSupportCodeText = CreateReadableText(
+                "AccountSupportCode", panel, string.Empty,
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, 295f), new Vector2(680f, 48f),
+                InkPalette.TextMuted, TextAnchor.MiddleCenter);
 
             accountGoogleButton = CreateWideUtilityButton(
                 "GoogleLoginButton", panel,
                 "Google", "로그인·연결",
-                new Vector2(0f, 245f), out _);
+                new Vector2(0f, 205f), out _);
             accountGoogleButton.onClick.AddListener(
                 () => MukJumpAccountRuntime.Instance?.SignInWithGoogle());
             accountAppleButton = CreateWideUtilityButton(
                 "AppleLoginButton", panel,
                 "Apple", "로그인·연결",
-                new Vector2(0f, 105f), out _);
+                new Vector2(0f, 65f), out _);
             accountAppleButton.onClick.AddListener(
                 () => MukJumpAccountRuntime.Instance?.SignInWithApple());
             // Android 1.0과 WebGL은 fresh authorization code를 안전하게 얻는
@@ -889,6 +895,13 @@ namespace MukJump.Core
             accountStatusText.text = runtime != null
                 ? runtime.StatusMessage
                 : "로그인하지 않아도 바로 플레이할 수 있습니다";
+            if (accountSupportCodeText != null)
+            {
+                string supportCode = runtime?.SupportCode ?? string.Empty;
+                accountSupportCodeText.text = supportCode.Length > 0
+                    ? $"지원 코드 · {supportCode}"
+                    : string.Empty;
+            }
 
             bool busy = runtime != null &&
                 (runtime.Phase == MukJumpAccountPhase.Connecting ||

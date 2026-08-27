@@ -34,6 +34,16 @@ namespace MukJump.Core
             "MukJump.Account.PendingLocalGuestImportRestoredOwner";
         const string PendingProfileResolutionOwnerKey =
             "MukJump.Account.PendingProfileResolutionOwner";
+        const string PendingAuthorizedTransitionKindKey =
+            "MukJump.Account.PendingAuthorizedTransitionKind";
+        const string PendingAuthorizedTransitionPreviousOwnerKey =
+            "MukJump.Account.PendingAuthorizedTransitionPreviousOwner";
+        const string PendingAuthorizedTransitionReplaceLocalKey =
+            "MukJump.Account.PendingAuthorizedTransitionReplaceLocal";
+        const string PendingAuthorizedTransitionRestoreGuestKey =
+            "MukJump.Account.PendingAuthorizedTransitionRestoreGuest";
+        const string PendingGuestUpgradeKindKey =
+            "MukJump.Account.PendingGuestUpgradeKind";
         const string PendingLocalLogoutCleanupKey =
             "MukJump.Account.PendingLocalLogoutCleanup";
         const string PendingLocalLogoutRemoteConfirmedKey =
@@ -44,6 +54,8 @@ namespace MukJump.Core
             "MukJump.Account.PendingLocalAccountDeletionOwner";
         const string PendingLocalAccountDeletionRemoteConfirmedKey =
             "MukJump.Account.PendingLocalAccountDeletionRemoteConfirmed";
+        const string PendingLocalAccountDeletionFederationClearedKey =
+            "MukJump.Account.PendingLocalAccountDeletionFederationCleared";
         const string PendingLeaderboardBestKey =
             "MukJump.Cloud.PendingLeaderboardBest";
         const string PendingLeaderboardOwnerKey =
@@ -77,6 +89,9 @@ namespace MukJump.Core
         public string LeaderboardStatus { get; private set; } =
             "계정 연결 후 최고 고도 순위를 확인할 수 있습니다";
         public bool LeaderboardLoading { get; private set; }
+        public string SupportCode => IsOnlineAuthenticated
+            ? CurrentAccountScope()
+            : string.Empty;
 
         public event Action StateChanged;
 
@@ -96,6 +111,7 @@ namespace MukJump.Core
         bool localLogoutRemoteConfirmed;
         bool accountDeletionCleanupPending;
         bool accountDeletionRemoteConfirmed;
+        bool accountDeletionFederationCleared;
         bool accountDeletionRequestInFlight;
         bool syncWriteBlocked;
         bool leaderboardSaveInFlight;
@@ -110,6 +126,7 @@ namespace MukJump.Core
         long localLogoutFinalizationGeneration;
         bool localLogoutFinalizationInFlight;
         long accountDeletionRequestGeneration;
+        bool accountDeletionFinalizationInFlight;
         MukJumpCloudSnapshot pendingServerSnapshot;
         string pendingServerRowInDate = string.Empty;
         float retryDelaySeconds = InitialRetrySeconds;
@@ -167,6 +184,9 @@ namespace MukJump.Core
                 0) != 0;
             accountDeletionRemoteConfirmed = PlayerPrefs.GetInt(
                 PendingLocalAccountDeletionRemoteConfirmedKey,
+                0) != 0;
+            accountDeletionFederationCleared = PlayerPrefs.GetInt(
+                PendingLocalAccountDeletionFederationClearedKey,
                 0) != 0;
             dirty = PlayerPrefs.GetInt(PendingSaveKey, 0) != 0;
             localMutationVersion = dirty ? 1L : 0L;
@@ -346,6 +366,13 @@ namespace MukJump.Core
             !loginInFlight &&
             (explicitRecovery || !automaticAuthenticationSuppressed);
 
+        public static bool ShouldStartGuestLoginAfterTokenFailure(
+            bool profileResolutionPending,
+            bool authorizedTransitionPending,
+            bool guestUpgradePending) =>
+            !profileResolutionPending && !authorizedTransitionPending &&
+            !guestUpgradePending;
+
         void InvalidateBackendTokenLogin()
         {
             tokenLoginGeneration++;
@@ -366,6 +393,16 @@ namespace MukJump.Core
             }
             if (bro != null && bro.IsSuccess())
             {
+                if (TryResumePendingAuthorizedTransition())
+                    return;
+                if (PlayerPrefs.HasKey(PendingGuestUpgradeKindKey))
+                {
+                    AccountKind = MukJumpAccountKind.BackendGuest;
+                    StoreKind();
+                    CompleteAuthentication(
+                        "중단된 계정 연결을 확인하려면 같은 로그인 버튼을 다시 눌러 주세요");
+                    return;
+                }
                 if (AccountKind == MukJumpAccountKind.LocalGuest)
                     AccountKind = MukJumpAccountKind.BackendGuest;
                 CompleteAuthentication("계정 연결 완료");
@@ -377,6 +414,19 @@ namespace MukJump.Core
                 SetState(
                     MukJumpAccountPhase.Error,
                     "전환 중인 계정을 확인하지 못했습니다. 다시 시도하거나 로컬 게스트로 돌아가 주세요");
+                return;
+            }
+
+            bool authorizedTransitionPending = PlayerPrefs.HasKey(
+                PendingAuthorizedTransitionKindKey);
+            if (!ShouldStartGuestLoginAfterTokenFailure(
+                    profileResolutionPending,
+                    authorizedTransitionPending,
+                    PlayerPrefs.HasKey(PendingGuestUpgradeKindKey)))
+            {
+                SetState(
+                    MukJumpAccountPhase.Error,
+                    "계정 전환 결과를 확인하지 못했습니다. 게스트를 새로 만들지 않고 다시 확인합니다");
                 return;
             }
 
@@ -564,6 +614,162 @@ namespace MukJump.Core
             PlayerPrefs.DeleteKey(PendingLocalGuestImportOwnerKey);
             PlayerPrefs.DeleteKey(
                 PendingLocalGuestImportRestoredOwnerKey);
+            PlayerPrefs.Save();
+        }
+
+        bool BeginPendingAuthorizedTransition(
+            string previousAccountScope,
+            MukJumpAccountKind kind,
+            bool replaceLocalProfile,
+            bool restoreLocalIfServerEmpty)
+        {
+            if (kind != MukJumpAccountKind.Google &&
+                kind != MukJumpAccountKind.Apple)
+                return false;
+
+            PlayerPrefs.SetInt(
+                PendingAuthorizedTransitionKindKey,
+                (int)kind);
+            PlayerPrefs.SetString(
+                PendingAuthorizedTransitionPreviousOwnerKey,
+                previousAccountScope?.Trim() ?? string.Empty);
+            PlayerPrefs.SetInt(
+                PendingAuthorizedTransitionReplaceLocalKey,
+                replaceLocalProfile ? 1 : 0);
+            PlayerPrefs.SetInt(
+                PendingAuthorizedTransitionRestoreGuestKey,
+                restoreLocalIfServerEmpty ? 1 : 0);
+            PlayerPrefs.Save();
+            return PlayerPrefs.HasKey(
+                       PendingAuthorizedTransitionKindKey) &&
+                   PlayerPrefs.GetInt(
+                       PendingAuthorizedTransitionKindKey,
+                       -1) == (int)kind;
+        }
+
+        bool BeginPendingGuestUpgrade(MukJumpAccountKind kind)
+        {
+            if (kind != MukJumpAccountKind.Google &&
+                kind != MukJumpAccountKind.Apple)
+                return false;
+            PlayerPrefs.SetInt(PendingGuestUpgradeKindKey, (int)kind);
+            PlayerPrefs.Save();
+            return PlayerPrefs.GetInt(PendingGuestUpgradeKindKey, -1) ==
+                   (int)kind;
+        }
+
+        void ClearPendingGuestUpgrade()
+        {
+            PlayerPrefs.DeleteKey(PendingGuestUpgradeKindKey);
+            PlayerPrefs.Save();
+        }
+
+        bool TryResumePendingAuthorizedTransition()
+        {
+            if (!PlayerPrefs.HasKey(
+                    PendingAuthorizedTransitionKindKey))
+                return false;
+
+            int rawKind = PlayerPrefs.GetInt(
+                PendingAuthorizedTransitionKindKey,
+                -1);
+            if (!Enum.IsDefined(typeof(MukJumpAccountKind), rawKind))
+            {
+                ClearPendingAuthorizedTransition();
+                return false;
+            }
+
+            var kind = (MukJumpAccountKind)rawKind;
+            if (kind != MukJumpAccountKind.Google &&
+                kind != MukJumpAccountKind.Apple)
+            {
+                ClearPendingAuthorizedTransition();
+                return false;
+            }
+
+            string previousAccountScope = PlayerPrefs.GetString(
+                PendingAuthorizedTransitionPreviousOwnerKey,
+                string.Empty);
+            bool replaceLocalProfile = PlayerPrefs.GetInt(
+                PendingAuthorizedTransitionReplaceLocalKey,
+                0) != 0;
+            bool restoreLocalIfServerEmpty = PlayerPrefs.GetInt(
+                PendingAuthorizedTransitionRestoreGuestKey,
+                0) != 0;
+            if (!DidAuthorizedTransitionChangeAccount(
+                    previousAccountScope,
+                    CurrentAccountScope()))
+            {
+                ClearPendingAuthorizedTransition();
+                if (restoreLocalIfServerEmpty)
+                    ClearPendingLocalGuestImport();
+                return false;
+            }
+
+            FinishAuthorizedAccountTransition(
+                kind,
+                replaceLocalProfile,
+                restoreLocalIfServerEmpty,
+                "중단된 계정 전환을 복구했습니다");
+            return true;
+        }
+
+        public static bool DidAuthorizedTransitionChangeAccount(
+            string previousAccountScope,
+            string currentAccountScope)
+        {
+            string current = currentAccountScope?.Trim() ?? string.Empty;
+            if (current.Length == 0)
+                return false;
+            return !string.Equals(
+                previousAccountScope?.Trim() ?? string.Empty,
+                current,
+                StringComparison.Ordinal);
+        }
+
+        bool FinishAuthorizedAccountTransition(
+            MukJumpAccountKind kind,
+            bool replaceLocalProfile,
+            bool restoreLocalIfServerEmpty,
+            string message)
+        {
+            ClearPendingFederation();
+            if (!PersistAuthorizedAccountTransition(
+                    kind,
+                    replaceLocalProfile,
+                    restoreLocalIfServerEmpty))
+            {
+                EnterFatalSyncBlock(
+                    "계정 전환 상태를 안전하게 저장하지 못했습니다. 로컬 기록은 보존됩니다");
+                return false;
+            }
+
+            ClearPendingAuthorizedTransition();
+            ClearPendingGuestUpgrade();
+            if (replaceLocalProfile)
+            {
+                replaceLocalFromServerOnNextLoad = true;
+                restoreLocalGuestIfServerEmptyOnNextLoad =
+                    restoreLocalIfServerEmpty;
+                revision = 0L;
+                if (!TryClearAccountProgressForSwitch())
+                    Debug.LogWarning(
+                        "[MukJump] 계정 전환 중 기기 기록 초기화가 완전히 검증되지 않았습니다. 서버 기록을 다시 불러옵니다.");
+            }
+            rowInDate = string.Empty;
+            CompleteAuthentication(message);
+            return true;
+        }
+
+        void ClearPendingAuthorizedTransition()
+        {
+            PlayerPrefs.DeleteKey(PendingAuthorizedTransitionKindKey);
+            PlayerPrefs.DeleteKey(
+                PendingAuthorizedTransitionPreviousOwnerKey);
+            PlayerPrefs.DeleteKey(
+                PendingAuthorizedTransitionReplaceLocalKey);
+            PlayerPrefs.DeleteKey(
+                PendingAuthorizedTransitionRestoreGuestKey);
             PlayerPrefs.Save();
         }
 
@@ -1241,10 +1447,18 @@ namespace MukJump.Core
             string failureMessage,
             int attempt)
         {
+            if (!BeginPendingGuestUpgrade(kind))
+            {
+                SetState(
+                    MukJumpAccountPhase.Error,
+                    "계정 연결 복구 상태를 저장하지 못해 로그인을 중단했습니다");
+                return;
+            }
             Backend.BMember.ChangeCustomToFederation(token, type, bro =>
             {
                 if (bro != null && bro.IsSuccess())
                 {
+                    ClearPendingGuestUpgrade();
                     AccountKind = kind;
                     CompleteAuthentication("게스트 기록을 계정에 연결했습니다");
                     MarkDirty();
@@ -1265,6 +1479,7 @@ namespace MukJump.Core
 
                 if (statusCode == "409")
                 {
+                    ClearPendingGuestUpgrade();
                     pendingFederationToken = token;
                     pendingFederationType = type;
                     pendingFederationKind = kind;
@@ -1274,6 +1489,21 @@ namespace MukJump.Core
                     return;
                 }
 
+                if (ShouldRecoverGuestUpgradeWithAuthorization(
+                        statusCode,
+                        PlayerPrefs.HasKey(PendingGuestUpgradeKindKey)))
+                {
+                    // 서버가 전환을 끝냈지만 성공 콜백 전에 앱이 종료된 경우
+                    // 같은 provider 토큰으로 현재 계정을 다시 확인한다.
+                    AuthorizeExistingFederation(
+                        token,
+                        type,
+                        kind,
+                        replaceLocalProfile: false);
+                    return;
+                }
+
+                ClearPendingGuestUpgrade();
                 string message = statusCode switch
                 {
                     "403" => "로그인 정보가 만료되었습니다. 다시 로그인해 주세요",
@@ -1287,6 +1517,11 @@ namespace MukJump.Core
         public static bool IsTransientStatusCode(string statusCode) =>
             statusCode == "500" || statusCode == "502" ||
             statusCode == "503";
+
+        public static bool ShouldRecoverGuestUpgradeWithAuthorization(
+            string statusCode,
+            bool guestUpgradePending) =>
+            guestUpgradePending && statusCode == "412";
 
         public void UseExistingAccountAfterConflict()
         {
@@ -1309,6 +1544,7 @@ namespace MukJump.Core
         public void KeepCurrentGuestAfterConflict()
         {
             ClearPendingFederation();
+            ClearPendingGuestUpgrade();
             SetState(MukJumpAccountPhase.OnlineReady, "현재 게스트 기록을 유지합니다");
         }
 
@@ -1320,6 +1556,17 @@ namespace MukJump.Core
             bool restoreLocalIfServerEmpty = false)
         {
             string previousAccountScope = CurrentAccountScope();
+            if (!BeginPendingAuthorizedTransition(
+                    previousAccountScope,
+                    kind,
+                    replaceLocalProfile,
+                    restoreLocalIfServerEmpty))
+            {
+                SetState(
+                    MukJumpAccountPhase.Error,
+                    "계정 전환 복구 상태를 저장하지 못해 로그인을 중단했습니다");
+                return;
+            }
             // 인증 주체가 바뀌는 동안 이전 계정 콜백이 UI·저장 상태를
             // 되돌리지 못하게 먼저 세대를 끊는다. 보류 순위는 성공 시
             // 계정 초기화에서 지우고, 실패하면 기존 계정 소유자로 유지한다.
@@ -1329,31 +1576,15 @@ namespace MukJump.Core
             {
                 if (bro != null && bro.IsSuccess())
                 {
-                    ClearPendingFederation();
-                    if (!PersistAuthorizedAccountTransition(
-                            kind,
-                            replaceLocalProfile,
-                            restoreLocalIfServerEmpty))
-                    {
-                        EnterFatalSyncBlock(
-                            "계정 전환 상태를 안전하게 저장하지 못했습니다. 로컬 기록은 보존됩니다");
-                        return;
-                    }
-                    if (replaceLocalProfile)
-                    {
-                        replaceLocalFromServerOnNextLoad = true;
-                        restoreLocalGuestIfServerEmptyOnNextLoad =
-                            restoreLocalIfServerEmpty;
-                        revision = 0L;
-                        if (!TryClearAccountProgressForSwitch())
-                            Debug.LogWarning(
-                                "[MukJump] 계정 전환 중 기기 기록 초기화가 완전히 검증되지 않았습니다. 서버 기록을 다시 불러옵니다.");
-                    }
-                    rowInDate = string.Empty;
-                    CompleteAuthentication("기존 계정으로 전환했습니다");
+                    FinishAuthorizedAccountTransition(
+                        kind,
+                        replaceLocalProfile,
+                        restoreLocalIfServerEmpty,
+                        "기존 계정으로 전환했습니다");
                 }
                 else
                 {
+                    ClearPendingAuthorizedTransition();
                     if (restoreLocalIfServerEmpty)
                         ClearPendingLocalGuestImport();
                     RestoreAuthenticatedSessionAfterFailedTransition(
@@ -1391,6 +1622,14 @@ namespace MukJump.Core
                         : "기록 동기화가 끝난 뒤 로그아웃을 다시 눌러 주세요");
                 return;
             }
+            if (ShouldPreserveBackendGuestBeforeLogout(AccountKind) &&
+                !SaveCurrentProfileAsLocalGuest())
+            {
+                SetState(
+                    MukJumpAccountPhase.Error,
+                    "게스트 기록을 안전하게 백업하지 못해 로그아웃을 중단했습니다");
+                return;
+            }
             if (!BeginPendingLocalLogoutCleanup())
             {
                 SetState(
@@ -1415,6 +1654,10 @@ namespace MukJump.Core
                 SignOutFederationAndFinishLocalLogout();
             });
         }
+
+        public static bool ShouldPreserveBackendGuestBeforeLogout(
+            MukJumpAccountKind accountKind) =>
+            accountKind == MukJumpAccountKind.BackendGuest;
 
         public void RetryPendingProfileResolution()
         {
@@ -1649,6 +1892,24 @@ namespace MukJump.Core
             localLogoutFinalizationInFlight = false;
             InvalidateBackendTokenLogin();
             suppressAutomaticAuthentication = true;
+            if (ShouldPreserveBackendGuestBeforeLogout(AccountKind))
+            {
+                try
+                {
+                    // 서버의 익명 계정은 삭제하지 않고 이 기기의 자동 로그인
+                    // 자격만 제거한다. 저장한 스냅샷은 곧 로컬 게스트로 복원한다.
+                    Backend.BMember.DeleteGuestInfo();
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning(
+                        "[MukJump] 뒤끝 게스트 로그인 정보 삭제를 다시 시도합니다: " +
+                        exception.Message);
+                    EnterLocalLogoutCleanupBlock(
+                        "게스트 로그인 정보 정리에 실패했습니다. 다시 시도해 주세요");
+                    return;
+                }
+            }
             bool mustRestorePendingGuest = profileResolutionPending;
             bool hasValidLocalGuestBackup =
                 HasValidSavedLocalGuestProfile();
@@ -1685,6 +1946,7 @@ namespace MukJump.Core
             PlayerPrefs.DeleteKey(PendingSaveKey);
             PlayerPrefs.DeleteKey(PendingOperationIdKey);
             PlayerPrefs.DeleteKey(RevisionKey);
+            ClearPendingGuestUpgrade();
             ClearPendingProfileResolution();
             ClearPendingLocalGuestImport();
             AccountKind = MukJumpAccountKind.LocalGuest;
@@ -1703,6 +1965,7 @@ namespace MukJump.Core
 
             accountDeletionCleanupPending = true;
             accountDeletionRemoteConfirmed = false;
+            accountDeletionFederationCleared = false;
             PlayerPrefs.SetInt(
                 PendingLocalAccountDeletionCleanupKey,
                 1);
@@ -1711,6 +1974,8 @@ namespace MukJump.Core
                 normalizedScope);
             PlayerPrefs.DeleteKey(
                 PendingLocalAccountDeletionRemoteConfirmedKey);
+            PlayerPrefs.DeleteKey(
+                PendingLocalAccountDeletionFederationClearedKey);
             PlayerPrefs.Save();
             return PlayerPrefs.GetInt(
                        PendingLocalAccountDeletionCleanupKey,
@@ -1948,12 +2213,100 @@ namespace MukJump.Core
             SetState(MukJumpAccountPhase.Error, message);
         }
 
+        public static bool RequiresFederationSignOutBeforeAccountDeletion(
+            MukJumpAccountKind accountKind) =>
+            accountKind == MukJumpAccountKind.Google;
+
         void CompleteLocalAccountDeletion()
         {
             if (!accountDeletionCleanupPending ||
                 !accountDeletionRemoteConfirmed)
                 return;
+            if (accountDeletionFinalizationInFlight)
+            {
+                SetStatus("기기 로그인 정보를 정리하고 있습니다");
+                return;
+            }
 
+            if (!accountDeletionFederationCleared &&
+                RequiresFederationSignOutBeforeAccountDeletion(AccountKind))
+            {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                BeginGoogleAccountDeletionSignOut();
+                try
+                {
+                    TheBackend.ToolKit.GoogleLogin.Android.GoogleSignOut(
+                        true,
+                        LogGoogleAccountDeletionSignOutResult);
+                }
+                catch (Exception exception)
+                {
+                    LogGoogleAccountDeletionSignOutResult(
+                        false,
+                        exception.Message);
+                }
+                CompleteGoogleAccountDeletionSignOutAttempt();
+                return;
+#elif UNITY_IOS && !UNITY_EDITOR
+                BeginGoogleAccountDeletionSignOut();
+                try
+                {
+                    TheBackend.ToolKit.GoogleLogin.iOS.GoogleSignOut(
+                        LogGoogleAccountDeletionSignOutResult);
+                }
+                catch (Exception exception)
+                {
+                    LogGoogleAccountDeletionSignOutResult(
+                        false,
+                        exception.Message);
+                }
+                CompleteGoogleAccountDeletionSignOutAttempt();
+                return;
+#endif
+            }
+
+            FinishLocalAccountDeletion();
+        }
+
+        void BeginGoogleAccountDeletionSignOut()
+        {
+            accountDeletionFinalizationInFlight = true;
+            SetState(
+                MukJumpAccountPhase.Deleting,
+                "Google 기기 로그인 정보를 정리하고 있습니다");
+        }
+
+        static void LogGoogleAccountDeletionSignOutResult(
+            bool success,
+            string message)
+        {
+            if (success)
+                return;
+
+            // 서버 탈퇴는 이미 끝났다. Google SDK의 로컬 캐시 정리는
+            // best-effort로 처리해 콜백 누락이나 오류로 사용자를 가두지 않는다.
+            Debug.LogWarning(
+                "[MukJump] 계정 삭제 후 Google 기기 로그아웃을 완료하지 못했습니다: " +
+                (message ?? string.Empty));
+        }
+
+        void CompleteGoogleAccountDeletionSignOutAttempt()
+        {
+            accountDeletionFederationCleared = true;
+            PlayerPrefs.SetInt(
+                PendingLocalAccountDeletionFederationClearedKey,
+                1);
+            PlayerPrefs.Save();
+            FinishLocalAccountDeletion();
+        }
+
+        void FinishLocalAccountDeletion()
+        {
+            if (!accountDeletionCleanupPending ||
+                !accountDeletionRemoteConfirmed)
+                return;
+
+            accountDeletionFinalizationInFlight = false;
             accountDeletionRequestGeneration++;
             accountDeletionRequestInFlight = false;
             suppressAutomaticAuthentication = true;
@@ -2057,6 +2410,14 @@ namespace MukJump.Core
             PlayerPrefs.DeleteKey(
                 PendingLocalGuestImportRestoredOwnerKey);
             PlayerPrefs.DeleteKey(PendingProfileResolutionOwnerKey);
+            PlayerPrefs.DeleteKey(PendingAuthorizedTransitionKindKey);
+            PlayerPrefs.DeleteKey(
+                PendingAuthorizedTransitionPreviousOwnerKey);
+            PlayerPrefs.DeleteKey(
+                PendingAuthorizedTransitionReplaceLocalKey);
+            PlayerPrefs.DeleteKey(
+                PendingAuthorizedTransitionRestoreGuestKey);
+            PlayerPrefs.DeleteKey(PendingGuestUpgradeKindKey);
             PlayerPrefs.DeleteKey(PendingLocalLogoutCleanupKey);
             PlayerPrefs.DeleteKey(
                 PendingLocalLogoutRemoteConfirmedKey);
@@ -2069,12 +2430,15 @@ namespace MukJump.Core
                 PendingLocalAccountDeletionOwnerKey);
             PlayerPrefs.DeleteKey(
                 PendingLocalAccountDeletionRemoteConfirmedKey);
+            PlayerPrefs.DeleteKey(
+                PendingLocalAccountDeletionFederationClearedKey);
             PlayerPrefs.DeleteKey(PendingLeaderboardBestKey);
             PlayerPrefs.DeleteKey(PendingLeaderboardOwnerKey);
             PlayerPrefs.Save();
 
             accountDeletionCleanupPending = false;
             accountDeletionRemoteConfirmed = false;
+            accountDeletionFederationCleared = false;
             SetLocalReady("계정과 연결된 서버·기기 데이터를 삭제했습니다");
         }
 
@@ -2768,6 +3132,7 @@ namespace MukJump.Core
         public bool IsOnlineAuthenticated => false;
         public string StatusMessage =>
             "Apps in Toss에서는 토스 계정으로 기록을 관리합니다";
+        public string SupportCode => string.Empty;
         public bool HasPendingAccountConflict => false;
         public bool HasPendingSyncConflict => false;
         public bool HasPendingAccountDeletionCleanup => false;
