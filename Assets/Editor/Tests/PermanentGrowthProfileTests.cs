@@ -56,11 +56,18 @@ namespace MukJump.EditorTests
             Assert.That(store.Json, Does.Contain("\"wallet\":0"));
             Assert.That(store.Json, Does.Contain("\"ownedNodeIds\":[]"));
             Assert.That(changedCount, Is.EqualTo(1));
+            Assert.That(
+                PermanentGrowthProfile.TryExportCloudJson(out _),
+                Is.True);
 
             PermanentGrowthProfile.ResetCacheForTests();
+            Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.False);
             Assert.That(PermanentGrowthProfile.Currency, Is.Zero,
                 "999 먹빛은 저장 재화가 아니라 현재 개발 세션 전용이어야 합니다.");
             Assert.That(PermanentGrowthProfile.IsDebugCurrencyActive, Is.False);
+            Assert.That(
+                PermanentGrowthProfile.TryExportCloudJson(out _),
+                Is.True);
         }
 
         [Test]
@@ -71,9 +78,51 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.TryPurchaseNode("I00"), Is.True);
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(998));
             Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(1));
+            Assert.That(
+                PermanentGrowthProfile.TryExportCloudJson(out _),
+                Is.True);
+
+            PermanentGrowthProfile.ResetCacheForTests();
+            Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.False);
+            Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.EqualTo(1));
+            Assert.That(
+                PermanentGrowthProfile.TryExportCloudJson(out _),
+                Is.True);
 
             PermanentGrowthProfile.DebugRefillCurrency();
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(999));
+        }
+
+        [Test]
+        public void DebugPurchaseAtRewardCapSpendsRealWalletBeforeSponsoring()
+        {
+            int lastIndex = PermanentGrowthCatalog.Nodes.Count - 1;
+            var owned = new string[lastIndex];
+            for (int i = 0; i < lastIndex; i++)
+                owned[i] = PermanentGrowthCatalog.Nodes[i].Id;
+            store.Json = CurrentSaveJson(1, owned);
+            PermanentGrowthProfile.ResetCacheForTests();
+            _ = PermanentGrowthProfile.Currency;
+            PermanentGrowthProfile.DebugRefillCurrency();
+
+            string finalNodeId =
+                PermanentGrowthCatalog.Nodes[lastIndex].Id;
+            Assert.That(
+                PermanentGrowthProfile.TryPurchaseNode(finalNodeId),
+                Is.True);
+            Assert.That(PermanentGrowthProfile.OwnedNodeCount,
+                Is.EqualTo(PermanentGrowthCatalog.Nodes.Count));
+            Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount,
+                Is.EqualTo(RunRewardCalculator.MaxRewardCount));
+            Assert.That(
+                PermanentGrowthProfile.TryExportCloudJson(out _),
+                Is.True);
+
+            PermanentGrowthProfile.ResetCacheForTests();
+            Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.False);
+            Assert.That(PermanentGrowthProfile.Currency, Is.Zero);
+            Assert.That(PermanentGrowthProfile.OwnedNodeCount,
+                Is.EqualTo(PermanentGrowthCatalog.Nodes.Count));
         }
 
         [TestCase(0, 0)]
@@ -359,6 +408,13 @@ namespace MukJump.EditorTests
                 valid.Replace(
                     "\"claimedDistanceRewardCount\":5",
                     "\"claimedDistanceRewardCount\":40"),
+                BuildSaveJson(
+                    7,
+                    -1,
+                    0L,
+                    0,
+                    true,
+                    "I00"),
             };
 
             for (int i = 0; i < invalidPrimaries.Length; i++)

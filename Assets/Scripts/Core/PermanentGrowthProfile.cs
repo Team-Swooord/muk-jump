@@ -455,6 +455,48 @@ namespace MukJump.Core
             }
         }
 
+        /// 클라우드에는 검증을 통과한 현재 세대만 올린다. 복구 대기 중인
+        /// 저장은 서버의 정상 세대를 덮지 않도록 내보내지 않는다.
+        public static bool TryExportCloudJson(out string json)
+        {
+            EnsureLoaded();
+            if (writeBlocked || data == null)
+            {
+                json = string.Empty;
+                return false;
+            }
+
+            json = JsonUtility.ToJson(data);
+            return TryReadSupportedSave(json, out _, out _);
+        }
+
+        /// 서버 스냅샷을 로컬에 적용하기 전에 현재 포맷과 경제 불변식을
+        /// 부작용 없이 검사한다. 계정 전환 중 부분 적용을 막는 데 사용한다.
+        public static bool IsSupportedCloudJson(string json) =>
+            TryReadSupportedSave(json, out _, out _);
+
+        /// 서버를 기준으로 먹빛·구매·장착 상태를 교체한다. 입력을 먼저 완전히
+        /// 검증하고 기존 로컬 세대를 rollback 대상으로 남긴 뒤 원자적으로 저장한다.
+        public static bool TryReplaceFromCloudJson(string cloudJson)
+        {
+            EnsureLoaded();
+            if (writeBlocked ||
+                !TryReadSupportedSave(
+                    cloudJson,
+                    out SaveData cloudData,
+                    out _))
+                return false;
+
+            MutationSnapshot rollback = CaptureMutationSnapshot();
+            data = cloudData;
+            PrepareSupportedData();
+            if (!Save(rollback, rollback.Json))
+                return false;
+
+            Changed?.Invoke();
+            return true;
+        }
+
         // 로비·구 코드 호환용 조회. 실제 판에서는 영구 성장 런타임 스냅샷을 쓴다.
         public static float InkCapacityMultiplier =>
             CreateRunSnapshot().InkCapacityMultiplier;
@@ -644,7 +686,24 @@ namespace MukJump.Core
             data.ownedNodeIds.Add(catalogNode.Id);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (debugCurrencyOverride >= 0)
+            {
                 debugCurrencyOverride -= catalogNode.Cost;
+                // QA용 무료 구매도 저장 JSON 자체는 운영 경제 불변식을
+                // 유지해야 다음 실행과 클라우드 내보내기가 복구 모드에 빠지지 않는다.
+                if (data.wallet > 0)
+                    data.wallet--;
+                else
+                {
+                    data.claimedDistanceRewardCount = Mathf.Clamp(
+                        data.ownedNodeIds.Count,
+                        0,
+                        RunRewardCalculator.MaxRewardCount);
+                    data.cumulativeDistanceMeters = Math.Max(
+                        data.cumulativeDistanceMeters,
+                        RunRewardCalculator.GetThresholdForRewardCount(
+                            data.claimedDistanceRewardCount));
+                }
+            }
             else
 #endif
             data.wallet -= catalogNode.Cost;
@@ -799,6 +858,47 @@ namespace MukJump.Core
                 return false;
             Changed?.Invoke();
             return true;
+        }
+
+        /// 회원 탈퇴가 완료되면 성장 세대와 복구용 사본까지 모두 빈 새 세대로
+        /// 덮어쓴다. 일반 초기화와 달리 이전 계정의 복구 백업을 남기지 않는다.
+        public static bool TryClearForAccountDeletion()
+        {
+            var cleared = new SaveData();
+            string json = JsonUtility.ToJson(cleared);
+            try
+            {
+                store.Save(json);
+                if (store is IPermanentGrowthRecoveryStore recoveryStore)
+                {
+                    recoveryStore.SaveBackup(json);
+                    recoveryStore.SaveQuarantine(string.Empty);
+                    recoveryStore.SaveBackupQuarantine(string.Empty);
+                    recoveryStore.SaveBackupSyncTarget(string.Empty);
+                    recoveryStore.SaveBackupSyncPending(false);
+                    recoveryStore.SaveResetPending(false);
+                }
+
+                data = cleared;
+                loaded = true;
+                primaryGenerationJson = json;
+                primaryGenerationKnown = true;
+                ResetLoadSafetyState();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                debugCurrencyOverride = -1;
+#endif
+#if UNITY_EDITOR
+                editorActiveKeystoneOverrides.Clear();
+#endif
+                Changed?.Invoke();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"회원 탈퇴 후 성장 기록 삭제에 실패했습니다: {exception.Message}");
+                return false;
+            }
         }
 
         public static string GetNodeLockReason(PermanentGrowthNodeDefinition node)
@@ -1438,14 +1538,20 @@ namespace MukJump.Core
         static bool HasValidDistanceJourney(SaveData candidate)
         {
             if (candidate == null ||
+                candidate.ownedNodeIds == null ||
+                candidate.wallet < 0 ||
                 candidate.cumulativeDistanceMeters < 0L ||
                 candidate.claimedDistanceRewardCount < 0 ||
                 candidate.claimedDistanceRewardCount >
                 RunRewardCalculator.MaxRewardCount)
                 return false;
 
+            int ownedCount = candidate.ownedNodeIds.Count;
             return RunRewardCalculator.GetRewardCountForDistance(
                        candidate.cumulativeDistanceMeters) ==
+                   candidate.claimedDistanceRewardCount &&
+                   candidate.spent == ownedCount &&
+                   candidate.wallet + ownedCount ==
                    candidate.claimedDistanceRewardCount;
         }
 
@@ -1992,6 +2098,13 @@ namespace MukJump.Core
                 return false;
 
             string json = JsonUtility.ToJson(data);
+            if (!TryReadSupportedSave(json, out _, out _))
+            {
+                RestoreMutationSnapshot(rollbackSnapshot);
+                Debug.LogError(
+                    "영구 성장 변경이 경제·그래프 불변식을 위반해 저장하지 않았습니다.");
+                return false;
+            }
             string previousPhysicalJson = recoveryRawJson ??
                 (primaryGenerationKnown
                     ? primaryGenerationJson
@@ -2651,7 +2764,7 @@ namespace MukJump.Core
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        /// 성장 화면 QA용. 보상 중복 방지 값은 보존하고 열매만 초기화한다.
+        /// 성장 화면 QA용. 저장 경제가 유효하도록 거리 여정과 열매를 함께 초기화한다.
         public static void DebugResetProgress()
         {
             EnsureLoaded();
@@ -2662,6 +2775,8 @@ namespace MukJump.Core
             data.ownedNodeIds.Clear();
             data.wallet = 0;
             data.spent = 0;
+            data.cumulativeDistanceMeters = 0L;
+            data.claimedDistanceRewardCount = 0;
             data.survivalKeystoneId = string.Empty;
             data.leapKeystoneId = string.Empty;
             data.inkHandlingKeystoneId = string.Empty;
