@@ -13,11 +13,17 @@ namespace MukJump.Core
         const float PanelHeight = 1510f;
         const float SafeAreaPadding = 24f;
         const string CustomerSupportEmail = "cysbandcs@gmail.com";
+        const string PrivacyPolicyUrl =
+            "https://github.com/Team-Swooord/muk-jump/blob/main/" +
+            "docs/legal/privacy-policy.md";
 
         CanvasGroup rootGroup;
         CanvasGroup optionsGroup;
         CanvasGroup tutorialGroup;
+        CanvasGroup playSettingsGroup;
         CanvasGroup debugScenarioGroup;
+        CanvasGroup accountGroup;
+        CanvasGroup leaderboardGroup;
         RectTransform safeAreaRoot;
         RectTransform optionsPanel;
         Slider bgmSlider;
@@ -28,8 +34,29 @@ namespace MukJump.Core
         Text sfxToggleLabel;
         Text connectionStatus;
         Text adPrivacyStatus;
+        Text adConsentStatus;
+        Text hapticsStatus;
+        Text reducedMotionStatus;
         Text debugScenarioStatus;
         Text debugScenarioSummary;
+        Text accountKindText;
+        Text accountStatusText;
+        Text accountSyncPendingTitleText;
+        Text accountSyncPendingStatusText;
+        Text accountSyncPendingCaptionText;
+        Text accountSyncPendingFootnoteText;
+        Text accountDeleteLabel;
+        Text leaderboardStatusText;
+        Button accountGoogleButton;
+        Button accountAppleButton;
+        Button accountLogoutButton;
+        Button accountDeleteButton;
+        Button accountSyncRetryButton;
+        Button accountSyncReturnButton;
+        RectTransform accountConflictRoot;
+        RectTransform syncConflictRoot;
+        RectTransform accountSyncPendingRoot;
+        readonly Text[] leaderboardRows = new Text[10];
         Image tutorialImage;
         Text tutorialTitle;
         Text tutorialDescription;
@@ -43,6 +70,8 @@ namespace MukJump.Core
         int lastScreenHeight;
         int currentTutorialPage;
         bool suppressSliderCallbacks;
+        bool deleteConfirmationArmed;
+        MukJumpAccountRuntime boundAccountRuntime;
 
         public bool IsOpen =>
             rootGroup != null && rootGroup.blocksRaycasts;
@@ -51,6 +80,8 @@ namespace MukJump.Core
         public bool IsDebugScenarioOpen =>
             IsOpen && debugScenarioGroup != null &&
             debugScenarioGroup.blocksRaycasts;
+        public bool IsAccountOpen =>
+            IsOpen && accountGroup != null && accountGroup.blocksRaycasts;
         public int TutorialPageCount => GameplayTutorialCatalog.Count;
         public int CurrentTutorialPage => currentTutorialPage;
 
@@ -66,12 +97,14 @@ namespace MukJump.Core
             BindManager();
             LobbySettingsProfile.Changed += RefreshSettings;
             DebugShowcaseScenarioProfile.Changed += RefreshDebugScenario;
+            BindAccountRuntime();
         }
 
         void OnDisable()
         {
             LobbySettingsProfile.Changed -= RefreshSettings;
             DebugShowcaseScenarioProfile.Changed -= RefreshDebugScenario;
+            UnbindAccountRuntime();
             LobbySettingsProfile.Flush();
             UnbindManager();
             CloseImmediate();
@@ -98,6 +131,8 @@ namespace MukJump.Core
         {
             if (manager == null)
                 BindManager();
+            if (boundAccountRuntime == null)
+                BindAccountRuntime();
             if (manager != null && manager.State != GameState.Lobby && IsOpen)
                 Close();
             if (Screen.width != lastScreenWidth ||
@@ -117,14 +152,32 @@ namespace MukJump.Core
                 return;
             }
             RefreshSettings();
-            ShowOptionsPage();
+            if (MukJumpAccountRuntime.Instance != null &&
+                MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
+                ShowAccountPage();
+            else
+                ShowOptionsPage();
             SetVisible(true);
         }
 
         public void Close()
         {
+            if (MukJumpAccountRuntime.Instance != null &&
+                MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
+                return;
             LobbySettingsProfile.Flush();
             SetVisible(false);
+        }
+
+        public void OpenAccountForRequiredSync()
+        {
+            BuildIfNeeded();
+            BindManager();
+            if (manager == null || manager.State != GameState.Lobby)
+                return;
+            ShowAccountPage();
+            SetVisible(true);
+            RefreshAccountState();
         }
 
         public void BuildForTests()
@@ -210,6 +263,16 @@ namespace MukJump.Core
             BuildOptionsPage(optionsGroup.transform);
             tutorialGroup = CreatePageGroup("TutorialPage", optionsPanel);
             BuildTutorialPage(tutorialGroup.transform);
+            playSettingsGroup = CreatePageGroup(
+                "PlaySettingsPage",
+                optionsPanel);
+            BuildPlaySettingsPage(playSettingsGroup.transform);
+            accountGroup = CreatePageGroup("AccountPage", optionsPanel);
+            BuildAccountPage(accountGroup.transform);
+            leaderboardGroup = CreatePageGroup(
+                "LeaderboardPage",
+                optionsPanel);
+            BuildLeaderboardPage(leaderboardGroup.transform);
             if (GameManager.DebugToolsAvailable)
             {
                 debugScenarioGroup = CreatePageGroup(
@@ -298,26 +361,47 @@ namespace MukJump.Core
                 debugScenario.onClick.AddListener(ShowDebugScenarioPage);
             }
 
+            float accountY = showDebugScenario ? -375f : -245f;
+            float adPrivacyY = showDebugScenario ? -505f : -375f;
+            var account = CreateWideUtilityButton(
+                "AccountButton",
+                panel,
+#if UNITY_WEBGL && !UNITY_EDITOR
+                "최고 고도",
+                "토스 게임센터",
+#else
+                "계정",
+                "연결·동기화",
+#endif
+                new Vector2(0f, accountY),
+                out _);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            account.onClick.AddListener(
+                AppsInTossGameCenterRuntime.OpenLeaderboard);
+#else
+            account.onClick.AddListener(ShowAccountPage);
+#endif
+
             var adPrivacy = CreateWideUtilityButton(
                 "AdPrivacyButton",
                 panel,
-                "광고 개인정보",
-                "선택 관리",
-                new Vector2(0f, showDebugScenario ? -375f : -245f),
+                "플레이·광고",
+                "햅틱·움직임·동의",
+                new Vector2(0f, adPrivacyY),
                 out adPrivacyStatus);
-            adPrivacy.onClick.AddListener(ShowAdPrivacyOptions);
+            adPrivacy.onClick.AddListener(ShowPlaySettingsPage);
 
             connectionStatus = CreateReadableText(
                 "ConnectionStatus", panel,
                 "설정은 이 기기에 저장됩니다",
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, showDebugScenario ? -470f : -340f),
+                new Vector2(0f, showDebugScenario ? -585f : -455f),
                 new Vector2(700f, 56f),
                 InkPalette.TextMuted);
 
             var close = CreateBrushButton(
                 "CloseButton", panel, "닫기",
-                new Vector2(0f, showDebugScenario ? -565f : -435f),
+                new Vector2(0f, showDebugScenario ? -665f : -535f),
                 new Vector2(390f, 120f),
                 InkUiStyle.CardTitleSize);
             close.onClick.AddListener(Close);
@@ -326,10 +410,570 @@ namespace MukJump.Core
                 "PrivacyCaption", panel,
                 "게임 기록·설정은 기기에 저장되며 광고 선택은 언제든 바꿀 수 있습니다",
                 InkUiStyle.CaptionSize,
-                new Vector2(0f, showDebugScenario ? -665f : -535f),
+                new Vector2(0f, showDebugScenario ? -735f : -635f),
                 new Vector2(700f, 44f),
                 InkPalette.TextMuted);
             RefreshAdPrivacyStatus();
+        }
+
+        void BuildPlaySettingsPage(Transform panel)
+        {
+            var back = CreateBrushButton(
+                "PlaySettingsBack", panel, "옵션으로",
+                new Vector2(-250f, 640f),
+                new Vector2(280f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.ActionButtonLabelSize);
+            back.onClick.AddListener(ShowOptionsPage);
+
+            CreateReadableText(
+                "PlaySettingsTitle", panel, "플레이·광고",
+                InkUiStyle.ScreenTitleSize,
+                new Vector2(0f, 535f), new Vector2(560f, 82f),
+                InkPalette.TextDark, TextAnchor.MiddleCenter,
+                strong: true);
+            CreateReadableText(
+                "PlaySettingsCaption", panel,
+                "기기별 플레이 감각과 광고 개인정보 선택을 관리합니다",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, 455f), new Vector2(680f, 64f),
+                InkPalette.TextMuted, TextAnchor.MiddleCenter);
+            CreateDivider(panel, "PlaySettingsDivider", 405f, 680f);
+
+            var haptics = CreateWideUtilityButton(
+                "HapticsButton", panel,
+                "햅틱", "켜짐",
+                new Vector2(0f, 300f), out hapticsStatus);
+            haptics.onClick.AddListener(() =>
+            {
+                LobbySettingsProfile.SetHapticsEnabled(
+                    !LobbySettingsProfile.HapticsEnabled);
+                RefreshPlaySettings();
+            });
+
+            var reducedMotion = CreateWideUtilityButton(
+                "ReducedMotionButton", panel,
+                "움직임 줄이기", "꺼짐",
+                new Vector2(0f, 155f), out reducedMotionStatus);
+            reducedMotion.onClick.AddListener(() =>
+            {
+                LobbySettingsProfile.SetReducedMotionEnabled(
+                    !LobbySettingsProfile.ReducedMotionEnabled);
+                RefreshPlaySettings();
+            });
+
+            CreateReadableText(
+                "ReducedMotionCaption", panel,
+                "켜면 강한 점프의 화면 흔들림과 확대 연출을 제거합니다",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, 65f), new Vector2(680f, 58f),
+                InkPalette.TextMuted, TextAnchor.MiddleCenter);
+
+            var privacy = CreateWideUtilityButton(
+                "AdConsentButton", panel,
+                "광고 개인정보", "선택 관리",
+                new Vector2(0f, -60f), out adConsentStatus);
+            privacy.onClick.AddListener(ShowAdPrivacyOptions);
+            CreateReadableText(
+                "AdConsentCaption", panel,
+                "동의 여부와 관계없이 게임은 플레이할 수 있습니다",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, -150f), new Vector2(680f, 58f),
+                InkPalette.TextMuted, TextAnchor.MiddleCenter);
+
+            var done = CreateBrushButton(
+                "PlaySettingsDone", panel, "완료",
+                new Vector2(0f, -520f),
+                new Vector2(390f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.CardTitleSize);
+            done.onClick.AddListener(ShowOptionsPage);
+            RefreshPlaySettings();
+        }
+
+        void BuildAccountPage(Transform panel)
+        {
+            var back = CreateBrushButton(
+                "AccountBack", panel, "옵션으로",
+                new Vector2(-250f, 640f),
+                new Vector2(280f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.ActionButtonLabelSize);
+            back.onClick.AddListener(ShowOptionsPage);
+
+            CreateReadableText(
+                "AccountTitle", panel, "계정과 기록",
+                InkUiStyle.ScreenTitleSize,
+                new Vector2(0f, 535f), new Vector2(560f, 82f),
+                InkPalette.TextDark, TextAnchor.MiddleCenter,
+                strong: true);
+            accountKindText = CreateReadableText(
+                "AccountKind", panel, "게스트",
+                InkUiStyle.CardTitleSize,
+                new Vector2(0f, 445f), new Vector2(650f, 70f),
+                InkPalette.TextDark, TextAnchor.MiddleCenter,
+                strong: true);
+            accountStatusText = CreateReadableText(
+                "AccountStatus", panel,
+                "로그인하지 않아도 바로 플레이할 수 있습니다",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, 375f), new Vector2(680f, 90f),
+                InkPalette.TextMuted, TextAnchor.MiddleCenter);
+
+            accountGoogleButton = CreateWideUtilityButton(
+                "GoogleLoginButton", panel,
+                "Google", "로그인·연결",
+                new Vector2(0f, 245f), out _);
+            accountGoogleButton.onClick.AddListener(
+                () => MukJumpAccountRuntime.Instance?.SignInWithGoogle());
+            accountAppleButton = CreateWideUtilityButton(
+                "AppleLoginButton", panel,
+                "Apple", "로그인·연결",
+                new Vector2(0f, 105f), out _);
+            accountAppleButton.onClick.AddListener(
+                () => MukJumpAccountRuntime.Instance?.SignInWithApple());
+            // Android 1.0과 WebGL은 fresh authorization code를 안전하게 얻는
+            // 탈퇴 철회 흐름이 없어 Apple 계정 생성을 제공하지 않는다.
+            accountAppleButton.gameObject.SetActive(
+                ShouldOfferAppleSignIn(Application.platform));
+
+            accountConflictRoot = CreateRect(
+                "AccountConflict",
+                panel,
+                Vector2.zero,
+                new Vector2(780f, 1490f));
+            Image accountConflictBlocker = CreateStretchImage(
+                "ModalBlocker",
+                accountConflictRoot,
+                InkPalette.Paper);
+            accountConflictBlocker.raycastTarget = true;
+            CreateReadableText(
+                "ConflictTitle", accountConflictRoot,
+                "계정 선택이 필요합니다",
+                InkUiStyle.ScreenTitleSize,
+                new Vector2(0f, 300f), new Vector2(680f, 90f),
+                InkPalette.TextDark, TextAnchor.MiddleCenter,
+                strong: true);
+            CreateReadableText(
+                "ConflictCaption", accountConflictRoot,
+                "이미 사용 중인 계정입니다\n현재 게스트 기록은 기기에 보관하고 합치지 않습니다",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, 115f), new Vector2(680f, 130f),
+                InkPalette.Red, TextAnchor.MiddleCenter,
+                strong: true);
+            var useExisting = CreatePaperButton(
+                "UseExistingAccount", accountConflictRoot,
+                "기존 계정으로 전환",
+                new Vector2(-180f, -75f),
+                new Vector2(340f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.CaptionSize);
+            useExisting.onClick.AddListener(
+                () => MukJumpAccountRuntime.Instance?
+                    .UseExistingAccountAfterConflict());
+            var keepGuest = CreatePaperButton(
+                "KeepGuestAccount", accountConflictRoot,
+                "현재 게스트 유지",
+                new Vector2(180f, -75f),
+                new Vector2(340f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.CaptionSize);
+            keepGuest.onClick.AddListener(
+                () => MukJumpAccountRuntime.Instance?
+                    .KeepCurrentGuestAfterConflict());
+            CreateReadableText(
+                "ConflictFootnote", accountConflictRoot,
+                "선택하기 전에는 다른 계정 메뉴를 조작할 수 없습니다",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, -235f), new Vector2(680f, 70f),
+                InkPalette.TextMuted, TextAnchor.MiddleCenter);
+
+            syncConflictRoot = CreateRect(
+                "SyncConflict",
+                panel,
+                Vector2.zero,
+                new Vector2(780f, 1490f));
+            Image syncConflictBlocker = CreateStretchImage(
+                "ModalBlocker",
+                syncConflictRoot,
+                InkPalette.Paper);
+            syncConflictBlocker.raycastTarget = true;
+            CreateReadableText(
+                "SyncConflictTitle", syncConflictRoot,
+                "기록 선택이 필요합니다",
+                InkUiStyle.ScreenTitleSize,
+                new Vector2(0f, 300f), new Vector2(680f, 90f),
+                InkPalette.TextDark, TextAnchor.MiddleCenter,
+                strong: true);
+            CreateReadableText(
+                "SyncConflictCaption", syncConflictRoot,
+                "다른 기기의 성장 기록이 변경되었습니다\n자동으로 합치면 먹빛이나 성장이 사라질 수 있어 직접 선택해야 합니다",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, 115f), new Vector2(690f, 150f),
+                InkPalette.Red, TextAnchor.MiddleCenter,
+                strong: true);
+            var useServer = CreatePaperButton(
+                "UseServerRecord", syncConflictRoot,
+                "서버 기록 사용",
+                new Vector2(-180f, -85f),
+                new Vector2(340f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.CaptionSize);
+            useServer.onClick.AddListener(
+                () => MukJumpAccountRuntime.Instance?
+                    .UseServerAfterSyncConflict());
+            var useDevice = CreatePaperButton(
+                "UseDeviceRecord", syncConflictRoot,
+                "이 기기 기록 사용",
+                new Vector2(180f, -85f),
+                new Vector2(340f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.CaptionSize);
+            useDevice.onClick.AddListener(
+                () => MukJumpAccountRuntime.Instance?
+                    .KeepThisDeviceAfterSyncConflict());
+            CreateReadableText(
+                "SyncConflictFootnote", syncConflictRoot,
+                "최고 고도는 어느 쪽을 골라도 더 높은 기록을 보존합니다",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, -245f), new Vector2(680f, 70f),
+                InkPalette.TextMuted, TextAnchor.MiddleCenter);
+
+            accountSyncPendingRoot = CreateRect(
+                "AccountSyncPending",
+                panel,
+                Vector2.zero,
+                new Vector2(780f, 1490f));
+            Image accountSyncBlocker = CreateStretchImage(
+                "ModalBlocker",
+                accountSyncPendingRoot,
+                InkPalette.Paper);
+            accountSyncBlocker.raycastTarget = true;
+            accountSyncPendingTitleText = CreateReadableText(
+                "SyncPendingTitle", accountSyncPendingRoot,
+                "계정 기록 확인 중",
+                InkUiStyle.ScreenTitleSize,
+                new Vector2(0f, 315f), new Vector2(680f, 90f),
+                InkPalette.TextDark, TextAnchor.MiddleCenter,
+                strong: true);
+            accountSyncPendingStatusText = CreateReadableText(
+                "SyncPendingStatus", accountSyncPendingRoot,
+                "서버 기록을 안전하게 확인하고 있습니다",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, 145f), new Vector2(680f, 130f),
+                InkPalette.Red, TextAnchor.MiddleCenter,
+                strong: true);
+            accountSyncPendingCaptionText = CreateReadableText(
+                "SyncPendingCaption", accountSyncPendingRoot,
+                "확인이 끝나기 전에 플레이하면 다른 계정의 기록이 섞일 수 있어 잠시 시작을 멈춥니다",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, 30f), new Vector2(690f, 100f),
+                InkPalette.TextMuted, TextAnchor.MiddleCenter);
+            accountSyncRetryButton = CreatePaperButton(
+                "RetryAccountSync", accountSyncPendingRoot,
+                "다시 확인",
+                new Vector2(-180f, -130f),
+                new Vector2(340f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.CaptionSize);
+            accountSyncRetryButton.onClick.AddListener(
+                () => MukJumpAccountRuntime.Instance?
+                    .RetryPendingProfileResolution());
+            accountSyncReturnButton = CreatePaperButton(
+                "ReturnToLocalGuest", accountSyncPendingRoot,
+                "로컬 게스트로 돌아가기",
+                new Vector2(180f, -130f),
+                new Vector2(340f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.CaptionSize);
+            accountSyncReturnButton.onClick.AddListener(
+                () => MukJumpAccountRuntime.Instance?
+                    .ReturnToLocalGuestDuringAccountSync());
+            accountSyncPendingFootnoteText = CreateReadableText(
+                "SyncPendingFootnote", accountSyncPendingRoot,
+                "로컬 게스트로 돌아가면 전환 전 기기 기록을 다시 불러옵니다",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, -280f), new Vector2(680f, 70f),
+                InkPalette.TextMuted, TextAnchor.MiddleCenter);
+
+            accountLogoutButton = CreateUtilityButton(
+                "AccountLogout", panel,
+                "로그아웃", "로컬 게스트로 전환",
+                new Vector2(-180f, -250f));
+            accountLogoutButton.onClick.AddListener(
+                () => MukJumpAccountRuntime.Instance?.Logout());
+            var leaderboard = CreateUtilityButton(
+                "LeaderboardButton", panel,
+                "최고 고도", "TOP 10",
+                new Vector2(180f, -250f));
+            leaderboard.onClick.AddListener(ShowLeaderboardPage);
+
+            accountDeleteButton = CreateBrushButton(
+                "AccountDelete", panel, "계정 삭제",
+                new Vector2(0f, -410f),
+                new Vector2(520f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.ActionButtonLabelSize);
+            accountDeleteLabel = accountDeleteButton.transform
+                .Find("Label")?.GetComponent<Text>();
+            accountDeleteButton.onClick.AddListener(HandleDeleteAccount);
+
+            var legal = CreatePaperButton(
+                "AccountLegal", panel,
+                "개인정보·계정 삭제 안내",
+                new Vector2(0f, -535f),
+                new Vector2(700f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.CaptionSize);
+            legal.onClick.AddListener(OpenPrivacyPolicy);
+
+            var done = CreateBrushButton(
+                "AccountDone", panel, "완료",
+                new Vector2(0f, -650f),
+                new Vector2(390f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.CardTitleSize);
+            done.onClick.AddListener(ShowOptionsPage);
+            RefreshAccountState();
+        }
+
+        public static bool ShouldOfferAppleSignIn(RuntimePlatform platform)
+        {
+            return platform == RuntimePlatform.IPhonePlayer ||
+                   platform == RuntimePlatform.OSXEditor ||
+                   platform == RuntimePlatform.WindowsEditor ||
+                   platform == RuntimePlatform.LinuxEditor;
+        }
+
+        void BuildLeaderboardPage(Transform panel)
+        {
+            var back = CreateBrushButton(
+                "LeaderboardBack", panel, "계정으로",
+                new Vector2(-250f, 640f),
+                new Vector2(280f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.ActionButtonLabelSize);
+            back.onClick.AddListener(ShowAccountPage);
+
+            CreateReadableText(
+                "LeaderboardTitle", panel, "최고 고도 순위",
+                InkUiStyle.ScreenTitleSize,
+                new Vector2(0f, 535f), new Vector2(600f, 82f),
+                InkPalette.TextDark, TextAnchor.MiddleCenter,
+                strong: true);
+            leaderboardStatusText = CreateReadableText(
+                "LeaderboardStatus", panel,
+                "순위를 불러오려면 새로고침을 눌러 주세요",
+                InkUiStyle.CaptionSize,
+                new Vector2(0f, 455f), new Vector2(680f, 60f),
+                InkPalette.TextMuted, TextAnchor.MiddleCenter);
+            CreateDivider(panel, "LeaderboardDivider", 410f, 680f);
+
+            for (int i = 0; i < leaderboardRows.Length; i++)
+            {
+                leaderboardRows[i] = CreateReadableText(
+                    $"LeaderboardRow{i + 1}", panel,
+                    $"{i + 1}위     —",
+                    InkUiStyle.BodySize,
+                    new Vector2(0f, 350f - i * 68f),
+                    new Vector2(620f, 56f),
+                    i < 3 ? InkPalette.Red : InkPalette.TextDark,
+                    TextAnchor.MiddleCenter,
+                    strong: i < 3);
+            }
+
+            var refresh = CreatePaperButton(
+                "LeaderboardRefresh", panel, "순위 새로고침",
+                new Vector2(0f, -430f),
+                new Vector2(620f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.BodySize);
+            refresh.onClick.AddListener(
+                () => MukJumpAccountRuntime.Instance?.RefreshLeaderboard());
+            var done = CreateBrushButton(
+                "LeaderboardDone", panel, "완료",
+                new Vector2(0f, -575f),
+                new Vector2(390f, InkUiStyle.MinimumTapHeight),
+                InkUiStyle.CardTitleSize);
+            done.onClick.AddListener(ShowAccountPage);
+            RefreshLeaderboardPage();
+        }
+
+        void BindAccountRuntime()
+        {
+            MukJumpAccountRuntime next = MukJumpAccountRuntime.Instance;
+            if (ReferenceEquals(boundAccountRuntime, next))
+                return;
+            UnbindAccountRuntime();
+            boundAccountRuntime = next;
+            if (boundAccountRuntime != null)
+                boundAccountRuntime.StateChanged += RefreshAccountState;
+            RefreshAccountState();
+        }
+
+        void UnbindAccountRuntime()
+        {
+            if (boundAccountRuntime != null)
+                boundAccountRuntime.StateChanged -= RefreshAccountState;
+            boundAccountRuntime = null;
+        }
+
+        void ShowAccountPage()
+        {
+            deleteConfirmationArmed = false;
+            SetPageVisible(optionsGroup, false);
+            SetPageVisible(tutorialGroup, false);
+            SetPageVisible(playSettingsGroup, false);
+            SetPageVisible(debugScenarioGroup, false);
+            SetPageVisible(accountGroup, true);
+            SetPageVisible(leaderboardGroup, false);
+            BindAccountRuntime();
+            RefreshAccountState();
+        }
+
+        void ShowLeaderboardPage()
+        {
+            SetPageVisible(optionsGroup, false);
+            SetPageVisible(tutorialGroup, false);
+            SetPageVisible(playSettingsGroup, false);
+            SetPageVisible(debugScenarioGroup, false);
+            SetPageVisible(accountGroup, false);
+            SetPageVisible(leaderboardGroup, true);
+            BindAccountRuntime();
+            RefreshLeaderboardPage();
+            MukJumpAccountRuntime.Instance?.RefreshLeaderboard();
+        }
+
+        void RefreshLeaderboardPage()
+        {
+            MukJumpAccountRuntime runtime = MukJumpAccountRuntime.Instance;
+            if (leaderboardStatusText != null)
+                leaderboardStatusText.text = runtime != null
+                    ? runtime.LeaderboardStatus
+                    : "서버 연결 전에도 게임은 계속 플레이할 수 있습니다";
+
+            IReadOnlyList<MukJumpLeaderboardEntry> entries =
+                runtime?.LeaderboardEntries;
+            for (int i = 0; i < leaderboardRows.Length; i++)
+            {
+                if (leaderboardRows[i] == null)
+                    continue;
+                leaderboardRows[i].text = entries != null && i < entries.Count
+                    ? $"{entries[i].Rank}위     {entries[i].Height:N0}m"
+                    : $"{i + 1}위     —";
+            }
+        }
+
+        void HandleDeleteAccount()
+        {
+            MukJumpAccountRuntime runtime = MukJumpAccountRuntime.Instance;
+            if (runtime == null || !runtime.IsOnlineAuthenticated)
+                return;
+            if (!deleteConfirmationArmed)
+            {
+                deleteConfirmationArmed = true;
+                if (accountDeleteLabel != null)
+                    accountDeleteLabel.text = "정말 삭제할까요? 한 번 더 누르기";
+                if (accountStatusText != null)
+                    accountStatusText.text =
+                        "계정과 서버 기록이 영구 삭제됩니다";
+                return;
+            }
+            deleteConfirmationArmed = false;
+            runtime.DeleteAccountConfirmed();
+        }
+
+        void RefreshAccountState()
+        {
+            MukJumpAccountRuntime runtime = MukJumpAccountRuntime.Instance;
+            if (accountKindText == null || accountStatusText == null)
+                return;
+
+            bool online = runtime != null && runtime.IsOnlineAuthenticated;
+            MukJumpAccountKind kind = runtime != null
+                ? runtime.AccountKind
+                : MukJumpAccountKind.LocalGuest;
+            accountKindText.text = kind switch
+            {
+                MukJumpAccountKind.BackendGuest => "연결된 게스트 계정",
+                MukJumpAccountKind.Google => "Google 계정",
+                MukJumpAccountKind.Apple => "Apple 계정",
+                _ => "로컬 게스트",
+            };
+            accountStatusText.text = runtime != null
+                ? runtime.StatusMessage
+                : "로그인하지 않아도 바로 플레이할 수 있습니다";
+
+            bool busy = runtime != null &&
+                (runtime.Phase == MukJumpAccountPhase.Connecting ||
+                 runtime.Phase == MukJumpAccountPhase.NeedsAccountChoice ||
+                 runtime.Phase == MukJumpAccountPhase.NeedsSyncChoice ||
+                 runtime.Phase == MukJumpAccountPhase.Deleting ||
+                 runtime.BlocksGameplayForAccountSync);
+            bool canStartSocialLogin = CanStartSocialLogin(
+                online,
+                kind,
+                busy);
+            if (accountGoogleButton != null)
+                accountGoogleButton.interactable = canStartSocialLogin;
+            if (accountAppleButton != null)
+                accountAppleButton.interactable = canStartSocialLogin;
+            if (accountLogoutButton != null)
+                accountLogoutButton.interactable = online && !busy;
+            if (accountDeleteButton != null)
+                accountDeleteButton.interactable = online && !busy;
+            if (accountConflictRoot != null)
+            {
+                bool active = runtime != null &&
+                              runtime.HasPendingAccountConflict;
+                accountConflictRoot.gameObject.SetActive(active);
+                if (active)
+                    accountConflictRoot.SetAsLastSibling();
+            }
+            if (syncConflictRoot != null)
+            {
+                bool active = runtime != null &&
+                              runtime.HasPendingSyncConflict;
+                syncConflictRoot.gameObject.SetActive(active);
+                if (active)
+                    syncConflictRoot.SetAsLastSibling();
+            }
+            if (accountSyncPendingRoot != null)
+            {
+                bool active = runtime != null &&
+                              runtime.BlocksGameplayForAccountSync;
+                bool deleting = runtime != null &&
+                                runtime.HasPendingAccountDeletionCleanup;
+                accountSyncPendingRoot.gameObject.SetActive(active);
+                if (accountSyncPendingTitleText != null)
+                    accountSyncPendingTitleText.text = deleting
+                        ? "계정 삭제 마무리 중"
+                        : "계정 기록 확인 중";
+                if (accountSyncPendingStatusText != null)
+                    accountSyncPendingStatusText.text = runtime != null
+                        ? runtime.StatusMessage
+                        : "계정 기록을 확인하고 있습니다";
+                if (accountSyncPendingCaptionText != null)
+                    accountSyncPendingCaptionText.text = deleting
+                        ? "서버 계정 삭제 요청 뒤 기기에 남은 기록까지 안전하게 지우고 있습니다"
+                        : "확인이 끝나기 전에 플레이하면 다른 계정의 기록이 섞일 수 있어 잠시 시작을 멈춥니다";
+                if (accountSyncReturnButton != null)
+                    accountSyncReturnButton.gameObject.SetActive(!deleting);
+                if (accountSyncRetryButton != null)
+                {
+                    RectTransform retryRect = accountSyncRetryButton
+                        .GetComponent<RectTransform>();
+                    if (retryRect != null)
+                        retryRect.anchoredPosition = new Vector2(
+                            deleting ? 0f : -180f,
+                            -130f);
+                }
+                if (accountSyncPendingFootnoteText != null)
+                    accountSyncPendingFootnoteText.text = deleting
+                        ? "삭제가 끝날 때까지 다시 확인을 눌러 기기 데이터 정리를 완료해 주세요"
+                        : "로컬 게스트로 돌아가면 전환 전 기기 기록을 다시 불러옵니다";
+                if (active)
+                    accountSyncPendingRoot.SetAsLastSibling();
+            }
+            if (!deleteConfirmationArmed && accountDeleteLabel != null)
+                accountDeleteLabel.text = "계정 삭제";
+            RefreshLeaderboardPage();
+        }
+
+        public static bool CanStartSocialLogin(
+            bool online,
+            MukJumpAccountKind kind,
+            bool busy)
+        {
+            if (busy)
+                return false;
+            return !online || kind == MukJumpAccountKind.BackendGuest;
         }
 
         void BuildDebugScenarioPage(Transform panel)
@@ -560,6 +1204,7 @@ namespace MukJump.Core
             sfxSlider.value = LobbySettingsProfile.SfxVolume;
             suppressSliderCallbacks = false;
             RefreshAudioLabels();
+            RefreshPlaySettings();
             RefreshDebugScenario();
             RefreshAdPrivacyStatus();
         }
@@ -616,10 +1261,38 @@ namespace MukJump.Core
                 LobbySettingsProfile.SfxVolume > 0.01f ? "켜짐" : "꺼짐";
         }
 
+        void RefreshPlaySettings()
+        {
+            if (hapticsStatus != null)
+                hapticsStatus.text = LobbySettingsProfile.HapticsEnabled
+                    ? "켜짐"
+                    : "꺼짐";
+            if (reducedMotionStatus != null)
+                reducedMotionStatus.text =
+                    LobbySettingsProfile.ReducedMotionEnabled
+                        ? "켜짐"
+                        : "꺼짐";
+        }
+
         void ShowCustomerCenterGuide()
         {
             connectionStatus.text =
                 $"고객센터 문의 · {CustomerSupportEmail}";
+#if !UNITY_EDITOR
+            Application.OpenURL(
+                $"mailto:{CustomerSupportEmail}?subject=" +
+                System.Uri.EscapeDataString("먹점프 고객 문의"));
+#endif
+        }
+
+        void OpenPrivacyPolicy()
+        {
+            if (accountStatusText != null)
+                accountStatusText.text =
+                    "개인정보처리방침과 계정 삭제 안내를 엽니다";
+#if !UNITY_EDITOR
+            Application.OpenURL(PrivacyPolicyUrl);
+#endif
         }
 
         void ShowAdPrivacyOptions()
@@ -636,20 +1309,38 @@ namespace MukJump.Core
 
         void RefreshAdPrivacyStatus()
         {
-            if (adPrivacyStatus == null) return;
-            adPrivacyStatus.text = GoogleMobileAdsPrivacy.IsRequired
+            string status = GoogleMobileAdsPrivacy.IsRequired
                 ? "선택 필요"
                 : GoogleMobileAdsPrivacy.IsAvailable
                     ? "선택 관리"
                     : "해당 없음";
+            if (adPrivacyStatus != null)
+                adPrivacyStatus.text = status;
+            if (adConsentStatus != null)
+                adConsentStatus.text = status;
         }
 
         void ShowOptionsPage()
         {
             SetPageVisible(optionsGroup, true);
             SetPageVisible(tutorialGroup, false);
+            SetPageVisible(playSettingsGroup, false);
             SetPageVisible(debugScenarioGroup, false);
+            SetPageVisible(accountGroup, false);
+            SetPageVisible(leaderboardGroup, false);
             RefreshDebugScenario();
+        }
+
+        void ShowPlaySettingsPage()
+        {
+            SetPageVisible(optionsGroup, false);
+            SetPageVisible(tutorialGroup, false);
+            SetPageVisible(playSettingsGroup, true);
+            SetPageVisible(debugScenarioGroup, false);
+            SetPageVisible(accountGroup, false);
+            SetPageVisible(leaderboardGroup, false);
+            RefreshPlaySettings();
+            RefreshAdPrivacyStatus();
         }
 
         void ShowDebugScenarioPage()
@@ -658,7 +1349,10 @@ namespace MukJump.Core
                 return;
             SetPageVisible(optionsGroup, false);
             SetPageVisible(tutorialGroup, false);
+            SetPageVisible(playSettingsGroup, false);
             SetPageVisible(debugScenarioGroup, true);
+            SetPageVisible(accountGroup, false);
+            SetPageVisible(leaderboardGroup, false);
             RefreshDebugScenario();
         }
 
@@ -673,7 +1367,10 @@ namespace MukJump.Core
                 GameplayTutorialCatalog.Get(currentTutorialPage);
             SetPageVisible(optionsGroup, false);
             SetPageVisible(tutorialGroup, true);
+            SetPageVisible(playSettingsGroup, false);
             SetPageVisible(debugScenarioGroup, false);
+            SetPageVisible(accountGroup, false);
+            SetPageVisible(leaderboardGroup, false);
             tutorialTitle.text = pageData.Title;
             tutorialDescription.text = pageData.Description;
             tutorialImage.sprite = Resources.Load<Sprite>(

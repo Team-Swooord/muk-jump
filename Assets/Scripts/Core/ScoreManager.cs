@@ -191,6 +191,117 @@ namespace MukJump.Core
             uncertainBestCandidate = 0;
         }
 
+        /// 서버 동기화에서 확인된 최고 기록을 로컬의 단조 기록에 합친다.
+        /// 낮은 서버 값이나 손상된 음수 값은 기존 기록을 낮추지 못한다.
+        public bool TryMergeVerifiedBest(int verifiedBest)
+        {
+            if (!TryEnsureBestLoaded())
+                return false;
+
+            int candidate = Mathf.Max(Best, Mathf.Max(0, verifiedBest));
+            if (candidate == Best)
+                return true;
+
+            int previousHeight = Height;
+            int previousBest = Best;
+            try
+            {
+                scoreStore.SaveBest(candidate);
+                int persisted = Mathf.Max(0, scoreStore.LoadBest());
+                if (persisted < candidate)
+                    return false;
+                Best = Mathf.Max(previousBest, persisted);
+                RunBestToBeat = Mathf.Max(RunBestToBeat, Best);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Best = previousBest;
+                Height = previousHeight;
+                bestLoadValid = false;
+                Debug.LogWarning(
+                    $"검증된 최고 기록을 로컬에 합치지 못했습니다: {exception.Message}");
+                return false;
+            }
+        }
+
+        /// 씬의 ScoreManager가 아직 생성되기 전에도 서버 최고 기록을 안전하게
+        /// 로컬 저장소에 합친다. BeforeSceneLoad 계정 동기화에서 사용한다.
+        public static bool TryMergeVerifiedBestIntoStore(int verifiedBest)
+        {
+            try
+            {
+                int current = Mathf.Max(0, scoreStore.LoadBest());
+                int candidate = Mathf.Max(current, Mathf.Max(0, verifiedBest));
+                scoreStore.SaveBest(candidate);
+                return Mathf.Max(0, scoreStore.LoadBest()) >= candidate;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"검증된 최고 기록을 로컬 저장소에 합치지 못했습니다: {exception.Message}");
+                return false;
+            }
+        }
+
+        /// 계정을 명시적으로 전환할 때만 사용한다. 다른 계정의 로컬 최고 기록이
+        /// 새 계정에 섞이지 않도록 서버에서 검증한 값으로 정확히 교체한다.
+        public static bool TryReplaceVerifiedBestForAccountSwitch(
+            int verifiedBest)
+        {
+            try
+            {
+                int candidate = Mathf.Max(0, verifiedBest);
+                scoreStore.SaveBest(candidate);
+                if (Mathf.Max(0, scoreStore.LoadBest()) != candidate)
+                    return false;
+
+                uncertainBestCandidate = 0;
+                if (Instance != null)
+                {
+                    Instance.Best = candidate;
+                    Instance.Height = 0;
+                    Instance.RunBestToBeat = candidate;
+                    Instance.IsNewBestThisRun = false;
+                    Instance.bestLoadValid = true;
+                }
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"계정 전환 최고 기록을 교체하지 못했습니다: {exception.Message}");
+                return false;
+            }
+        }
+
+        /// 회원 탈퇴 완료 뒤 계정에 연결됐던 로컬 최고 기록도 제거한다.
+        public static bool TryClearForAccountDeletion()
+        {
+            try
+            {
+                scoreStore.SaveBest(0);
+                if (scoreStore.LoadBest() != 0)
+                    return false;
+                uncertainBestCandidate = 0;
+                if (Instance != null)
+                {
+                    Instance.Best = 0;
+                    Instance.Height = 0;
+                    Instance.RunBestToBeat = 0;
+                    Instance.IsNewBestThisRun = false;
+                    Instance.bestLoadValid = true;
+                }
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"회원 탈퇴 후 최고 기록 삭제에 실패했습니다: {exception.Message}");
+                return false;
+            }
+        }
+
         /// 로비에서 선택한 시작 발판으로 이동한 직후 그 위치를 이번 도전의 0m로 삼는다.
         public void ResetOrigin(float worldY)
         {

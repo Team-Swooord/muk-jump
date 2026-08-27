@@ -33,7 +33,7 @@ namespace MukJump.Core
     }
 
     /// 로비 옵션에서 바꾸는 소리·튜토리얼·로컬 플레이어 식별자를 저장한다.
-    /// 플랫폼 로그인 버튼은 표시만 하며 이 프로필에 인증 정보는 저장하지 않는다.
+    /// 외부 계정이나 인증 정보는 이 프로필에 저장하지 않는다.
     public static class LobbySettingsProfile
     {
         public const int CurrentGameplayTutorialVersion = 5;
@@ -46,6 +46,9 @@ namespace MukJump.Core
         const string GameplayTutorialVersionKey =
             "MukJump.Settings.GameplayTutorialVersion";
         const string PlayerUidKey = "MukJump.Settings.PlayerUid";
+        const string HapticsEnabledKey = "MukJump.Settings.HapticsEnabled";
+        const string ReducedMotionEnabledKey =
+            "MukJump.Settings.ReducedMotionEnabled";
 
         static ILobbySettingsStore store = new PlayerPrefsLobbySettingsStore();
         static bool loaded;
@@ -56,6 +59,8 @@ namespace MukJump.Core
         static bool tutorialSeen;
         static int gameplayTutorialVersion;
         static string playerUid;
+        static bool hapticsEnabled;
+        static bool reducedMotionEnabled;
 
         public static event Action Changed;
 
@@ -148,6 +153,26 @@ namespace MukJump.Core
             }
         }
 
+        /// 햅틱은 기기별 접근성 선택이므로 계정 클라우드 저장과 분리한다.
+        public static bool HapticsEnabled
+        {
+            get
+            {
+                EnsureLoaded();
+                return hapticsEnabled;
+            }
+        }
+
+        /// 카메라 흔들림과 점프 줌을 줄이는 기기별 접근성 선택이다.
+        public static bool ReducedMotionEnabled
+        {
+            get
+            {
+                EnsureLoaded();
+                return reducedMotionEnabled;
+            }
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
         {
@@ -183,6 +208,26 @@ namespace MukJump.Core
                 sfxResumeVolume = next;
                 store.SetFloat(SfxResumeVolumeKey, sfxResumeVolume);
             }
+            Changed?.Invoke();
+        }
+
+        public static void SetHapticsEnabled(bool enabled)
+        {
+            EnsureLoaded();
+            if (hapticsEnabled == enabled) return;
+            hapticsEnabled = enabled;
+            store.SetInt(HapticsEnabledKey, enabled ? 1 : 0);
+            store.Save();
+            Changed?.Invoke();
+        }
+
+        public static void SetReducedMotionEnabled(bool enabled)
+        {
+            EnsureLoaded();
+            if (reducedMotionEnabled == enabled) return;
+            reducedMotionEnabled = enabled;
+            store.SetInt(ReducedMotionEnabledKey, enabled ? 1 : 0);
+            store.Save();
             Changed?.Invoke();
         }
 
@@ -230,6 +275,81 @@ namespace MukJump.Core
             store.Save();
         }
 
+        /// 같은 계정의 서버 설정을 기기에 적용한다. 알려지지 않은 미래
+        /// 튜토리얼 버전은 현재 버전까지만 인정한다.
+        public static void ApplyCloudSettings(
+            float cloudBgmVolume,
+            float cloudSfxVolume,
+            int cloudTutorialVersion)
+        {
+            EnsureLoaded();
+            float nextBgm = Mathf.Clamp01(cloudBgmVolume);
+            float nextSfx = Mathf.Clamp01(cloudSfxVolume);
+            int nextTutorial = Mathf.Clamp(
+                cloudTutorialVersion,
+                0,
+                CurrentGameplayTutorialVersion);
+
+            bgmVolume = nextBgm;
+            sfxVolume = nextSfx;
+            if (nextBgm > 0.01f)
+                bgmResumeVolume = nextBgm;
+            if (nextSfx > 0.01f)
+                sfxResumeVolume = nextSfx;
+            gameplayTutorialVersion = nextTutorial;
+            tutorialSeen = nextTutorial > 0;
+
+            store.SetFloat(BgmVolumeKey, bgmVolume);
+            store.SetFloat(SfxVolumeKey, sfxVolume);
+            store.SetFloat(BgmResumeVolumeKey, bgmResumeVolume);
+            store.SetFloat(SfxResumeVolumeKey, sfxResumeVolume);
+            store.SetInt(GameplayTutorialVersionKey, gameplayTutorialVersion);
+            store.SetInt(TutorialSeenKey, tutorialSeen ? 1 : 0);
+            store.Save();
+            Changed?.Invoke();
+        }
+
+        /// 회원 탈퇴 뒤 계정에 연결됐던 옵션·튜토리얼 식별값을 기본값으로
+        /// 덮어쓰고 새 로컬 게스트 식별자를 만든다.
+        public static bool TryResetForAccountDeletion()
+        {
+            try
+            {
+                EnsureLoaded();
+                bgmVolume = 1f;
+                sfxVolume = 1f;
+                bgmResumeVolume = 1f;
+                sfxResumeVolume = 1f;
+                tutorialSeen = false;
+                gameplayTutorialVersion = 0;
+                hapticsEnabled = true;
+                reducedMotionEnabled = false;
+                playerUid = "MUK-" +
+                            Guid.NewGuid().ToString("N")
+                                .Substring(0, 8)
+                                .ToUpperInvariant();
+
+                store.SetFloat(BgmVolumeKey, bgmVolume);
+                store.SetFloat(SfxVolumeKey, sfxVolume);
+                store.SetFloat(BgmResumeVolumeKey, bgmResumeVolume);
+                store.SetFloat(SfxResumeVolumeKey, sfxResumeVolume);
+                store.SetInt(TutorialSeenKey, 0);
+                store.SetInt(GameplayTutorialVersionKey, 0);
+                store.SetInt(HapticsEnabledKey, 1);
+                store.SetInt(ReducedMotionEnabledKey, 0);
+                store.SetString(PlayerUidKey, playerUid);
+                store.Save();
+                Changed?.Invoke();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"회원 탈퇴 후 로컬 옵션 삭제에 실패했습니다: {exception.Message}");
+                return false;
+            }
+        }
+
         static void EnsureLoaded()
         {
             if (loaded) return;
@@ -252,6 +372,9 @@ namespace MukJump.Core
             gameplayTutorialVersion = Mathf.Max(
                 0,
                 store.GetInt(GameplayTutorialVersionKey, 0));
+            hapticsEnabled = store.GetInt(HapticsEnabledKey, 1) != 0;
+            reducedMotionEnabled =
+                store.GetInt(ReducedMotionEnabledKey, 0) != 0;
             playerUid = store.GetString(PlayerUidKey, string.Empty);
             if (string.IsNullOrWhiteSpace(playerUid))
             {

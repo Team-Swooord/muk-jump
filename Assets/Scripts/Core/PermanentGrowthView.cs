@@ -16,7 +16,9 @@ namespace MukJump.Core
         const float ReferenceWidth = 1080f;
         const float ReferenceHeight = 1920f;
         const string ArtResourceRoot = "MukJump/UI/PermanentGrowth/";
-        const float TreeCanvasZoom = 0.60f;
+        // 첫 진입에서 생존·먹 운용·도약의 첫 열매가 모두 마스크 안에 보여야
+        // 사용자가 가로 드래그가 필요한 구조임을 바로 이해할 수 있다.
+        const float TreeCanvasZoom = 0.50f;
         const float TreeBackgroundOpacity = 0.42f;
         const float TreeBranchOpacity = 1f;
         const float InactiveBranchOpacity = 0.46f;
@@ -26,18 +28,25 @@ namespace MukJump.Core
         const float FruitionVerticalGap = 310f;
         const float JourneyTrackWidth = 520f;
         const float HeaderPanelBaseY = 690f;
-        const float HeaderPanelHeight = 410f;
+        const float HeaderPanelHeight = 440f;
         const float HeaderCurrencyBaseY = 800f;
         const float HeaderResetBaseY = 810f;
-        const float HeaderSummaryBaseY = 630f;
+        const float HeaderSummaryBaseY = 620f;
         const float HeaderSafeTopInset = 24f;
-        const float HeaderSummarySideX = 330f;
+        const float HeaderSummarySideX = 340f;
+        const float HeaderSummaryWidth = 294f;
+        const float HeaderSummaryHeight = 230f;
         const float HeaderResetX = -385f;
         const float BackButtonSafeInset = 24f;
         const float NodeResetConfirmationGuard = 0.35f;
         const float NodeResetConfirmationWindow = 3f;
         const float NodePopupHeight = 1020f;
-        const float NodeActionButtonY = -404f;
+        const float NodeActionButtonY = -372f;
+        const float NodeInfoPanelCenterY = 20f;
+        const float NodeInfoPanelHeight = 600f;
+        const float NodeDescriptionCenterY = -92f;
+        const float NodeDescriptionHeight = 144f;
+        const float NodeCostCenterY = -212f;
         static readonly Vector2 TreeCanvasSize = new(3600f, 3200f);
         static readonly Vector2 TreeBackgroundSize = new(2200f, 3060f);
         static readonly Vector2 TreeBackgroundPosition = Vector2.zero;
@@ -210,7 +219,7 @@ namespace MukJump.Core
                 ResetNodeResetConfirmation();
             if (Screen.width != lastScreenWidth ||
                 Screen.height != lastScreenHeight ||
-                Screen.safeArea != lastSafeArea)
+                MobileUiLayout.CurrentSafeArea != lastSafeArea)
                 ApplySafeArea();
         }
 
@@ -221,6 +230,14 @@ namespace MukJump.Core
             if (manager == null || manager.State != GameState.Lobby)
             {
                 CloseImmediate();
+                return;
+            }
+            if (MukJumpAccountRuntime.Instance != null &&
+                MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
+            {
+                CloseImmediate();
+                FindFirstObjectByType<LobbyOptionsView>()?
+                    .OpenAccountForRequiredSync();
                 return;
             }
 
@@ -409,8 +426,8 @@ namespace MukJump.Core
             // 좌(-700)·중앙(0)·우(+1000) 세 계보 뿌리가 첫 화면에 함께
             // 들어오도록 중앙보다 아주 조금 오른쪽을 기준으로 연다.
             // 20:9에서도 생존 씨앗의 터치 영역이 왼쪽 마스크에 닿지 않게
-            // 기존 중심에서 5px가량 왼쪽 계보 쪽으로 여유를 둔다.
-            treeScrollRect.horizontalNormalizedPosition = 0.553f;
+            // 240px 터치 영역까지 오른쪽 마스크 안에 들어오도록 미세 조정한다.
+            treeScrollRect.horizontalNormalizedPosition = 0.560f;
             treeScrollRect.verticalNormalizedPosition = 0f;
         }
 
@@ -432,6 +449,28 @@ namespace MukJump.Core
             if (headerInfoPanel.sprite != null &&
                 headerInfoPanel.sprite.border != Vector4.zero)
                 headerInfoPanel.type = Image.Type.Sliced;
+
+            CreateImage(
+                "HeaderTopDivider",
+                headerInfoPanel.transform,
+                null,
+                new Vector2(0f, 42f),
+                new Vector2(930f, 4f),
+                WithAlpha(InkPalette.Paper, 0.14f));
+            CreateImage(
+                "HeaderLeftDivider",
+                headerInfoPanel.transform,
+                null,
+                new Vector2(-170f, -82f),
+                new Vector2(4f, 210f),
+                WithAlpha(InkPalette.Paper, 0.12f));
+            CreateImage(
+                "HeaderRightDivider",
+                headerInfoPanel.transform,
+                null,
+                new Vector2(170f, -82f),
+                new Vector2(4f, 210f),
+                WithAlpha(InkPalette.Paper, 0.12f));
 
             RectTransform balanceHud = CreateRect(
                 "CurrencyHud",
@@ -503,12 +542,24 @@ namespace MukJump.Core
                 panel,
                 "노드 초기화",
                 new Vector2(HeaderResetX, HeaderResetBaseY),
-                new Vector2(250f, 120f),
+                new Vector2(210f, InkUiStyle.MinimumTapHeight),
                 28);
+            Image nodeResetSurface = NodeResetButton.GetComponent<Image>();
+            if (nodeResetSurface != null)
+            {
+                nodeResetSurface.sprite =
+                    InkUiTextureFactory.CreateBlobSprite();
+                nodeResetSurface.type = Image.Type.Simple;
+                nodeResetSurface.color =
+                    WithAlpha(InkPalette.Paper, 0.16f);
+            }
             nodeResetButtonText =
                 NodeResetButton.GetComponentInChildren<Text>();
             if (nodeResetButtonText != null)
-                nodeResetButtonText.fontSize = 36;
+            {
+                nodeResetButtonText.fontSize = 30;
+                nodeResetButtonText.fontStyle = FontStyle.Normal;
+            }
             NodeResetButton.onClick.AddListener(HandleNodeResetRequested);
 
             BackButton = CreateBrushButton(
@@ -546,14 +597,14 @@ namespace MukJump.Core
                 objectName,
                 parent,
                 string.Empty,
-                34,
+                36,
                 position,
-                new Vector2(320f, 196f),
+                new Vector2(HeaderSummaryWidth, HeaderSummaryHeight),
                 InkPalette.TextLight,
                 FontStyle.Normal,
-                TextAnchor.UpperCenter);
+                TextAnchor.UpperLeft);
             text.supportRichText = true;
-            text.lineSpacing = 0.94f;
+            text.lineSpacing = 1f;
             return text;
         }
 
@@ -931,11 +982,10 @@ namespace MukJump.Core
             bool rootNode = definition.NodeKind == PermanentGrowthNodeKind.Root;
             bool fruitionNode = definition.IsKeystone;
             Vector2 position = NodePosition(definition);
-            Vector2 touchSize = rootNode
-                ? new Vector2(216f, 240f)
-                : fruitionNode
-                    ? new Vector2(216f, 240f)
-                    : new Vector2(200f, 224f);
+            // 20:9 화면에서는 나무 전체가 0.4배까지 축소된다. 보이는 열매 크기는
+            // 유지하되 투명 터치 면만 240px로 통일해 최종 96px 터치 폭·높이를
+            // 보장한다. 인접 노드는 충분히 떨어져 있어 터치 면끼리 겹치지 않는다.
+            Vector2 touchSize = new(240f, 240f);
             RectTransform root = CreateRect(
                 $"GrowthNode_{SanitizeNodeId(definition.Id)}",
                 parent,
@@ -1095,9 +1145,9 @@ namespace MukJump.Core
                 selectedActionRoot,
                 LoadPermanentGrowthSprite("pg_hanji_card") ??
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(0f, 8f),
-                new Vector2(700f, 520f),
-                WithAlpha(InkPalette.Ink, 0.94f));
+                new Vector2(0f, NodeInfoPanelCenterY),
+                new Vector2(720f, NodeInfoPanelHeight),
+                WithAlpha(InkPalette.Ink, 0.97f));
             infoPanel.raycastTarget = false;
             if (infoPanel.sprite != null &&
                 infoPanel.sprite.border != Vector4.zero)
@@ -1107,17 +1157,17 @@ namespace MukJump.Core
                 "ActionBranchBrush",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(72f, 130f),
-                new Vector2(476f, 50f),
-                WithAlpha(InkPalette.Gold, 0.32f));
+                new Vector2(70f, 162f),
+                new Vector2(440f, 54f),
+                WithAlpha(InkPalette.Gold, 0.46f));
             selectedActionBranchText = CreateText(
                 "ActionBranch",
                 branchBrush.transform,
                 string.Empty,
-                26,
-                Vector2.zero,
-                new Vector2(432f, 44f),
-                InkPalette.Paper,
+                32,
+                new Vector2(18f, 0f),
+                new Vector2(352f, 46f),
+                InkPalette.TextLight,
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
 
@@ -1125,7 +1175,7 @@ namespace MukJump.Core
                 "ActionIconPlate",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(-260f, 180f),
+                new Vector2(-250f, 226f),
                 new Vector2(96f, 96f),
                 WithAlpha(InkPalette.Paper2, 0.96f));
             iconPlate.preserveAspect = true;
@@ -1134,8 +1184,8 @@ namespace MukJump.Core
                 "ActionIcon",
                 selectedActionRoot,
                 null,
-                new Vector2(-260f, 180f),
-                new Vector2(68f, 68f),
+                new Vector2(-250f, 226f),
+                new Vector2(72f, 72f),
                 Color.white);
             selectedActionIcon.preserveAspect = true;
 
@@ -1143,10 +1193,10 @@ namespace MukJump.Core
                 "ActionName",
                 selectedActionRoot,
                 string.Empty,
-                44,
-                new Vector2(72f, 196f),
-                new Vector2(476f, 60f),
-                InkPalette.Paper,
+                48,
+                new Vector2(78f, 236f),
+                new Vector2(424f, 64f),
+                InkPalette.TextLight,
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
 
@@ -1154,18 +1204,29 @@ namespace MukJump.Core
                 "ActionDivider",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0f, 90f),
-                new Vector2(604f, 10f),
-                WithAlpha(InkPalette.Paper, 0.2f));
+                new Vector2(0f, 112f),
+                new Vector2(560f, 8f),
+                WithAlpha(InkPalette.Paper, 0.18f));
+
+            // 넓은 흰색 붓판은 어두운 정보 카드 한가운데서 별도의 버튼처럼
+            // 보여 위계를 깨뜨린다. 얇은 금색 표식만 남겨 효과 문구의 시작점을
+            // 잡고, 본문은 먹 바탕 위에서 직접 읽히게 한다.
+            CreateImage(
+                "ActionEffectMarker",
+                selectedActionRoot,
+                InkUiTextureFactory.CreateBrushSprite(),
+                new Vector2(-278f, 42f),
+                new Vector2(8f, 76f),
+                WithAlpha(InkPalette.Gold, 0.78f));
 
             selectedActionEffectSummaryText = CreateText(
                 "ActionEffectSummary",
                 selectedActionRoot,
                 string.Empty,
-                34,
-                new Vector2(0f, 30f),
-                new Vector2(604f, 58f),
-                InkPalette.Paper,
+                38,
+                new Vector2(16f, 42f),
+                new Vector2(512f, 86f),
+                InkPalette.TextLight,
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
 
@@ -1173,10 +1234,10 @@ namespace MukJump.Core
                 "ActionDescription",
                 selectedActionRoot,
                 string.Empty,
-                30,
-                new Vector2(0f, -78f),
-                new Vector2(604f, 132f),
-                WithAlpha(InkPalette.Paper, 0.92f),
+                34,
+                new Vector2(0f, NodeDescriptionCenterY),
+                new Vector2(552f, NodeDescriptionHeight),
+                WithAlpha(InkPalette.TextLight, 0.96f),
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft);
             selectedActionDescriptionText.lineSpacing = 1.08f;
@@ -1187,7 +1248,7 @@ namespace MukJump.Core
                 "ActionCostPlate",
                 selectedActionRoot,
                 InkUiTextureFactory.CreateBlobSprite(),
-                new Vector2(-48f, -184f),
+                new Vector2(-48f, NodeCostCenterY),
                 new Vector2(54f, 54f),
                 WithAlpha(InkPalette.Paper2, 0.92f));
             selectedActionCostPlate.preserveAspect = true;
@@ -1197,7 +1258,7 @@ namespace MukJump.Core
                 selectedActionRoot,
                 LoadPermanentGrowthSprite("pg_ink_drop") ??
                 InkUiTextureFactory.CreateInkDropSprite(),
-                new Vector2(-48f, -184f),
+                new Vector2(-48f, NodeCostCenterY),
                 new Vector2(38f, 38f),
                 InkPalette.Ink);
             selectedActionCostIcon.preserveAspect = true;
@@ -1206,7 +1267,7 @@ namespace MukJump.Core
                 selectedActionRoot,
                 "0",
                 38,
-                new Vector2(32f, -184f),
+                new Vector2(32f, NodeCostCenterY),
                 new Vector2(72f, 54f),
                 InkPalette.Paper,
                 FontStyle.Normal,
@@ -1829,16 +1890,23 @@ namespace MukJump.Core
             survivalSummaryText.text =
                 SummaryTitle("생존", survivalColor) + "\n" +
                 SummaryLine(
-                    "본체·분신 체력",
-                    Player.PlayerController.DefaultMaxHealth + "→" + maxHealth +
-                    " · " + Player.PlayerController.RuntimeCloneMaxHealth + "→" +
+                    "본체",
+                    Player.PlayerController.DefaultMaxHealth + "→" + maxHealth,
+                    survivalColor) + "\n" +
+                SummaryLine(
+                    "분신",
+                    Player.PlayerController.RuntimeCloneMaxHealth + "→" +
                     (Player.PlayerController.RuntimeCloneMaxHealth +
                      snapshot.InkCloneMaxHealthBonus),
                     survivalColor) + "\n" +
                 SummaryLine(
-                    "무적·밀림",
+                    "무적",
                     "+" + snapshot.DamageGraceBonusSeconds.ToString("0.00") +
-                    $"초 · 82→{snapshot.HitHorizontalRetention * 100f:0}%",
+                    "초",
+                    survivalColor) + "\n" +
+                SummaryLine(
+                    "밀림",
+                    $"82 → {snapshot.HitHorizontalRetention * 100f:0}%",
                     survivalColor) + "\n" +
                 SummaryLine(
                     "결실",
@@ -1855,9 +1923,9 @@ namespace MukJump.Core
                 SummaryTitle("도약", leapColor) + "\n" +
                 SummaryLine("준비", FormatDeltaPercent(jumpChargeReduction, "-"), leapColor) + "\n" +
                 SummaryLine("점프력", FormatDeltaPercent(jumpPowerIncrease, "+"), leapColor) + "\n" +
+                SummaryLine("높이", FormatDeltaPercent(jumpHeightIncrease, "+"), leapColor) + "\n" +
                 SummaryLine(
-                    "높이·결실",
-                    FormatDeltaPercent(jumpHeightIncrease, "+") + " · " +
+                    "결실",
                     ResolveFruitionSummary(snapshot, PermanentGrowthBranch.Leap),
                     leapColor);
 
@@ -1869,13 +1937,13 @@ namespace MukJump.Core
             inkSummaryText.text =
                 SummaryTitle("먹 운용", inkColor) + "\n" +
                 SummaryLine(
-                    "최대 먹 용량",
-                    $"{baseInkCapacity:0.#} → {currentInkCapacity:0.#}m",
+                    "용량",
+                    $"{baseInkCapacity:0.#}→{currentInkCapacity:0.#}m",
                     inkColor) + "\n" +
                 SummaryLine("획 소모", FormatDeltaPercent(inkSaving, "-"), inkColor) + "\n" +
+                SummaryLine("회복", FormatDeltaPercent(inkRecovery, "+"), inkColor) + "\n" +
                 SummaryLine(
-                    "회복·결실",
-                    FormatDeltaPercent(inkRecovery, "+") + " · " +
+                    "결실",
                     ResolveFruitionSummary(snapshot, PermanentGrowthBranch.InkHandling),
                     inkColor);
         }
@@ -1890,12 +1958,12 @@ namespace MukJump.Core
             return keystoneId switch
             {
                 "S-KA" => "분신 체력 +1",
-                "S-KB" => "부활 + 50m 상승",
-                "S-KC" => "분신 생성 +1",
-                "J-KA" => "점프 종료 방어막",
-                "J-KB" => "벽 상시 자동점프",
+                "S-KB" => "부활·50m 상승",
+                "S-KC" => "분신 +1",
+                "J-KA" => "상승 후 방어막",
+                "J-KB" => "벽 자동점프",
                 "J-KC" => "2단점프",
-                "I-KA" => "최대 용량 ×2",
+                "I-KA" => "용량 ×2",
                 "I-KB" => "황금 붓 방어막",
                 "I-KC" => "회복 +10%",
                 _ => "미해금",
@@ -1903,13 +1971,13 @@ namespace MukJump.Core
         }
 
         static string SummaryTitle(string title, string htmlColor) =>
-            $"<color=#{htmlColor}>{title}</color>";
+            $"<size=42><color=#{htmlColor}>{title}</color></size>";
 
         static string SummaryLine(
             string label,
             string value,
             string htmlColor) =>
-            $"{label}  <color=#{htmlColor}>{value}</color>";
+            $"{label}  <size=34><color=#{htmlColor}>{value}</color></size>";
 
         static string FormatPercent(float value) =>
             value < 0.005f ? "0%" : value.ToString("0.#") + "%";
@@ -2604,7 +2672,7 @@ namespace MukJump.Core
 
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
-            lastSafeArea = Screen.safeArea;
+            lastSafeArea = safe;
         }
 
         void ApplyPinnedGrowthHud(Rect safe)

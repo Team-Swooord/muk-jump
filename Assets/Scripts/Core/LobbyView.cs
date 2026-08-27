@@ -40,6 +40,7 @@ namespace MukJump.Core
         int lastScreenWidth;
         int lastScreenHeight;
         Rect lastSafeArea;
+        float lastAdTopInsetFraction = -1f;
 
         public Button StartButton => startButton;
         public Button GrowthButton => growthButton;
@@ -76,7 +77,10 @@ namespace MukJump.Core
         {
             if (lastScreenWidth != Screen.width ||
                 lastScreenHeight != Screen.height ||
-                lastSafeArea != Screen.safeArea ||
+                lastSafeArea != MobileUiLayout.CurrentSafeArea ||
+                !Mathf.Approximately(
+                    lastAdTopInsetFraction,
+                    LobbyAdLayout.TopInsetFraction) ||
                 safeAreaRoot == null || lobbyContentRoot == null ||
                 logoRect == null)
                 EnsureSafeAreaLayout();
@@ -142,6 +146,12 @@ namespace MukJump.Core
 
         void HandleGrowthPressed()
         {
+            if (MukJumpAccountRuntime.Instance != null &&
+                MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
+            {
+                ResolveOptionsView()?.OpenAccountForRequiredSync();
+                return;
+            }
             ResolveOptionsView()?.Close();
             LobbyScreenNavigator navigator = ResolveScreenNavigator();
             if (navigator != null)
@@ -157,6 +167,15 @@ namespace MukJump.Core
 
         void HandleOptionsPressed()
         {
+            if (MukJumpAccountRuntime.Instance != null &&
+                MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
+            {
+                LobbyOptionsView pendingOptions = ResolveOptionsView();
+                pendingOptions?.OpenAccountForRequiredSync();
+                if (pendingOptions != null && pendingOptions.IsOpen)
+                    SetActiveMenu(LobbyMenuSelection.Options);
+                return;
+            }
             LobbyScreenNavigator navigator = ResolveScreenNavigator();
             if (navigator != null && !navigator.CanStartGame)
                 return;
@@ -297,6 +316,8 @@ namespace MukJump.Core
                 safe,
                 Screen.width,
                 Screen.height);
+            CanvasScaler scaler = GetComponent<CanvasScaler>();
+            MobileUiLayout.ConfigurePortraitScaler(scaler);
 
             float contentScale = MobileUiLayout.CalculateWidthFitScale(
                 LobbyContentDesignWidth,
@@ -304,7 +325,16 @@ namespace MukJump.Core
                 Screen.width,
                 Screen.height,
                 LobbyHorizontalPadding);
-            lobbyContentRoot.anchoredPosition = Vector2.zero;
+            lobbyContentRoot.anchorMin = Vector2.zero;
+            lobbyContentRoot.anchorMax = Vector2.one;
+            lobbyContentRoot.offsetMin = Vector2.zero;
+            float referenceHeight = scaler != null
+                ? scaler.referenceResolution.y
+                : 1920f;
+            float adTopInset = LobbyAdLayout.CalculateCanvasInset(
+                referenceHeight,
+                LobbyAdLayout.TopInsetFraction);
+            lobbyContentRoot.offsetMax = new Vector2(0f, -adTopInset);
             lobbyContentRoot.localScale = Vector3.one * contentScale;
 
             if (logoRect == null)
@@ -323,12 +353,10 @@ namespace MukJump.Core
                     LobbyHorizontalPadding);
                 logoRect.localScale = Vector3.one * logoScale;
             }
-
-            CanvasScaler scaler = GetComponent<CanvasScaler>();
-            MobileUiLayout.ConfigurePortraitScaler(scaler);
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
-            lastSafeArea = Screen.safeArea;
+            lastSafeArea = safe;
+            lastAdTopInsetFraction = LobbyAdLayout.TopInsetFraction;
         }
 
         void MoveLobbyContentToSafeArea()

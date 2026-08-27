@@ -33,7 +33,9 @@ namespace MukJump.Core
         public bool CanStartGame =>
             !IsTransitioning &&
             CurrentSection == LobbySection.Lobby &&
-            !PermanentGrowthProfile.RequiresRecovery;
+            !PermanentGrowthProfile.RequiresRecovery &&
+            (MukJumpAccountRuntime.Instance == null ||
+             !MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync);
 
         void Awake()
         {
@@ -131,6 +133,13 @@ namespace MukJump.Core
         {
             ResolveDependencies();
             BindManager();
+            if (destination == LobbySection.PermanentGrowth &&
+                MukJumpAccountRuntime.Instance != null &&
+                MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
+            {
+                optionsView?.OpenAccountForRequiredSync();
+                return false;
+            }
             if (manager == null ||
                 manager.State != GameState.Lobby ||
                 IsTransitioning ||

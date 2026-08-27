@@ -781,6 +781,8 @@ namespace MukJump.Core
                 settlement.PreviousRewardDistanceMeters,
                 settlement.NextRewardDistanceMeters,
                 settlement.DistanceJourneyComplete);
+            MukJumpAccountRuntime.Instance?.NotifyRunSettled(result);
+            AppsInTossGameCenterRuntime.SubmitCompletedRun(result);
             return result;
         }
 
@@ -1269,6 +1271,17 @@ namespace MukJump.Core
             var navigator = LobbyScreenNavigator.Instance;
             if (navigator == null)
                 navigator = GetComponent<LobbyScreenNavigator>();
+            MukJumpAccountRuntime accountRuntime =
+                MukJumpAccountRuntime.Instance;
+            if (accountRuntime != null &&
+                accountRuntime.BlocksGameplayForAccountSync)
+            {
+                LobbyOptionsView options = GetComponent<LobbyOptionsView>();
+                if (options == null)
+                    options = FindFirstObjectByType<LobbyOptionsView>();
+                options?.OpenAccountForRequiredSync();
+                return;
+            }
             if (State != GameState.Lobby ||
                 IsTransitioning ||
                 PermanentGrowthProfile.RequiresRecovery ||

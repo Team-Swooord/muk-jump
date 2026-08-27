@@ -10,6 +10,7 @@
   ],
   "dependencies": {
     "com.google.ads.mobile": "11.4.0",
+    "com.lupidan.apple-signin-unity": "https://github.com/lupidan/apple-signin-unity.git?path=Source#1.5.0",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.2d.tooling": "3.0.1",
     "com.unity.device-simulator.devices": "1.0.1",

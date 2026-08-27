@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 255f738f029184e8d8643bc45b84b8d7, type: 3}
+  m_Name: MukJumpBackendSettings
+  m_EditorClassIdentifier: Assembly-CSharp::MukJump.Core.MukJumpBackendSettings
+  productionConfigurationVerified: 1
+  playerTableName: MukJumpPlayer
+  bestHeightColumn: bestHeight
+  allTimeRankUuid: 01a04198-3705-7286-bce6-651ddcd17e2f
+  androidGoogleWebClientId:
+  androidAppleServiceId:
+  appleRevocationConfigurationVerified: 0
+  appleAccountChangeWebhookVerified: 0
+  androidSigningHashesVerified: 0
