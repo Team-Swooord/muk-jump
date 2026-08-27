@@ -9,6 +9,7 @@ namespace MukJump.Core
     public sealed class GoogleMobileAdsProvider : IFullScreenAdProvider, IDisposable
     {
         const float RetryDelaySeconds = 15f;
+        const float ShowTimeoutSeconds = 90f;
 
         readonly string rewardedAdUnitId;
         readonly string interstitialAdUnitId;
@@ -25,6 +26,7 @@ namespace MukJump.Core
         bool disposed;
         double nextRewardedLoadTime;
         double nextInterstitialLoadTime;
+        double showDeadline;
 
         public GoogleMobileAdsProvider(
             string rewardedAdUnitId,
@@ -54,6 +56,13 @@ namespace MukJump.Core
         public void Tick()
         {
             if (disposed) return;
+            if (pendingCompletion != null &&
+                Time.realtimeSinceStartupAsDouble >= showDeadline)
+            {
+                Debug.LogWarning(
+                    "먹점프 광고 종료 콜백 대기 시간이 초과되었습니다.");
+                CompleteShow(false);
+            }
             if (rewardedAd == null &&
                 !rewardedLoading &&
                 Time.realtimeSinceStartupAsDouble >= nextRewardedLoadTime)
@@ -78,6 +87,8 @@ namespace MukJump.Core
 
             showingPlacement = placement;
             pendingCompletion = onCompleted;
+            showDeadline = Time.realtimeSinceStartupAsDouble +
+                           ShowTimeoutSeconds;
             if (IsRewarded(placement))
                 ShowRewarded();
             else
@@ -90,6 +101,7 @@ namespace MukJump.Core
             disposed = true;
             Action<bool> callback = pendingCompletion;
             pendingCompletion = null;
+            showDeadline = 0d;
             callback?.Invoke(false);
 
             rewardedAd?.Destroy();
@@ -119,7 +131,7 @@ namespace MukJump.Core
             rewardedLoading = true;
             RewardedAd.Load(
                 rewardedAdUnitId,
-                new AdRequest(),
+                GoogleMobileAdsRequestFactory.CreateNonPersonalized(),
                 (ad, error) =>
                 {
                     rewardedLoading = false;
@@ -156,7 +168,7 @@ namespace MukJump.Core
             interstitialLoading = true;
             InterstitialAd.Load(
                 interstitialAdUnitId,
-                new AdRequest(),
+                GoogleMobileAdsRequestFactory.CreateNonPersonalized(),
                 (ad, error) =>
                 {
                     interstitialLoading = false;
@@ -246,6 +258,7 @@ namespace MukJump.Core
 
             Action<bool> callback = pendingCompletion;
             pendingCompletion = null;
+            showDeadline = 0d;
             callback?.Invoke(completed);
             Preload(completedPlacement);
         }

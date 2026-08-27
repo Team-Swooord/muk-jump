@@ -90,8 +90,8 @@ namespace MukJump.Core
         [Header("운영 전 최종 확인")]
         [SerializeField] bool productionConfigurationVerified;
         [SerializeField, TextArea(3, 6)] string verificationNote =
-            "SHIFT에서 발견한 값은 앱 ID와 광고 단위의 게시자 번호가 달라 후보로만 보관합니다. " +
-            "AdMob에서 먹점프 앱과 배너·보상형 광고 단위를 만든 뒤 검증을 완료하세요.";
+            "cysbandcs@gmail.com AdMob 계정에서 먹점프 Android·iOS 앱과 " +
+            "로비 배너·게임오버 부활 보상형 광고 단위를 생성했습니다.";
 
         [Header("Android 운영값")]
         [SerializeField] string androidAppId;
@@ -130,6 +130,13 @@ namespace MukJump.Core
             GoogleAdsPlatform platform,
             out string error)
         {
+            if (enablePostRunInterstitial)
+            {
+                error =
+                    "먹점프 1.0은 강제 전면 광고를 사용하지 않습니다. " +
+                    "로비 배너와 선택형 부활 보상 광고만 허용합니다.";
+                return false;
+            }
             if (!productionConfigurationVerified)
             {
                 error = "먹점프 AdMob 운영 설정의 '검증 완료'가 꺼져 있습니다.";
@@ -253,23 +260,27 @@ namespace MukJump.Core
             ios = iosUnits ?? new GoogleAdUnitSet();
         }
 
-        public void ConfigureDetectedShiftCandidates()
+        public void ConfigureProductionAdMobIds()
         {
             enableLobbyBanner = true;
             enablePostRunInterstitial = false;
-            productionConfigurationVerified = false;
-            androidAppId = "ca-app-pub-2944517353618559~3326566482";
-            iosAppId = "ca-app-pub-2944517353618559~6105294520";
+            productionConfigurationVerified = true;
+            verificationNote =
+                "2026-08-26 cysbandcs@gmail.com AdMob 계정에서 먹점프 전용 " +
+                "Android·iOS 앱과 배너·보상형 광고 단위를 생성해 확인했습니다. " +
+                "스토어 출시 후 각 AdMob 앱을 실제 스토어 목록과 연결해야 합니다.";
+            androidAppId = "ca-app-pub-2944517353618559~3718407207";
+            iosAppId = "ca-app-pub-2944517353618559~8630103905";
             android ??= new GoogleAdUnitSet();
             ios ??= new GoogleAdUnitSet();
             android.Configure(
-                string.Empty,
-                "ca-app-pub-9163142359221291/3658718565",
-                "ca-app-pub-9163142359221291/4477669111");
+                "ca-app-pub-2944517353618559/6947205773",
+                "ca-app-pub-2944517353618559/4202000231",
+                string.Empty);
             ios.Configure(
-                string.Empty,
-                "ca-app-pub-9163142359221291/3288053012",
-                "ca-app-pub-9163142359221291/7375295191");
+                "ca-app-pub-2944517353618559/3377777224",
+                "ca-app-pub-2944517353618559/5343691518",
+                string.Empty);
         }
 #endif
     }

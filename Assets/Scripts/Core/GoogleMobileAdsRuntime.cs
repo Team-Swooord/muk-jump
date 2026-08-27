@@ -9,6 +9,7 @@ namespace MukJump.Core
     public sealed class GoogleMobileAdsRuntime : MonoBehaviour
     {
         const float BannerRetryDelaySeconds = 20f;
+        const float ConsentRetryDelaySeconds = 20f;
 
         MukJumpGoogleAdsSettings settings;
         GoogleAdUnitSet units;
@@ -20,7 +21,10 @@ namespace MukJump.Core
         bool bannerLoaded;
         bool bannerVisible;
         bool bannerLoading;
+        bool consentGathering;
         double nextBannerLoadTime;
+        double nextConsentRetryTime;
+        float bannerHeightPixels;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Bootstrap()
@@ -70,6 +74,16 @@ namespace MukJump.Core
             MobileAds.SetRequestConfiguration(new RequestConfiguration
             {
                 MaxAdContentRating = MaxAdContentRating.G,
+                TagForChildDirectedTreatment =
+                    TagForChildDirectedTreatment.False,
+                TagForUnderAgeOfConsent =
+                    TagForUnderAgeOfConsent.False,
+                // 1.0은 ATT를 요청하지 않고 비맞춤 광고만 사용한다.
+                // SDK 8.7.0+에서 기본 활성화되는 퍼블리셔 1차 식별자도
+                // 꺼 두어 광고 개인화에 사용할 앱 단위 식별자를 만들지 않는다.
+                PublisherFirstPartyIdEnabled = false,
+                PublisherPrivacyPersonalizationState =
+                    PublisherPrivacyPersonalizationState.Disabled,
             });
             GoogleMobileAdsPrivacy.Register(
                 ShowPrivacyOptions,
@@ -79,7 +93,13 @@ namespace MukJump.Core
 
         void Update()
         {
-            if (!initialized) return;
+            if (!initialized)
+            {
+                if (!consentGathering &&
+                    Time.realtimeSinceStartupAsDouble >= nextConsentRetryTime)
+                    GatherConsent();
+                return;
+            }
             provider?.Tick();
             UpdateLobbyBanner();
         }
@@ -91,6 +111,7 @@ namespace MukJump.Core
                 MonetizationAds.ResetProvider();
             provider?.Dispose();
             provider = null;
+            LobbyAdLayout.ClearTopInset();
             GoogleMobileAdsPrivacy.Reset();
         }
 
@@ -105,6 +126,9 @@ namespace MukJump.Core
 
         void GatherConsent()
         {
+            if (consentGathering || initialized)
+                return;
+            consentGathering = true;
             ConsentInformation.Update(
                 new ConsentRequestParameters
                 {
@@ -115,20 +139,31 @@ namespace MukJump.Core
                     UpdatePrivacyRequirement();
                     if (updateError != null)
                     {
+                        consentGathering = false;
                         Debug.LogWarning(
                             $"광고 개인정보 상태 갱신 실패: {updateError.Message}");
                         if (ConsentInformation.CanRequestAds())
                             InitializeAds();
+                        else
+                            nextConsentRetryTime =
+                                Time.realtimeSinceStartupAsDouble +
+                                ConsentRetryDelaySeconds;
                         return;
                     }
 
                     ConsentForm.LoadAndShowConsentFormIfRequired(
                         formError =>
                         {
+                            consentGathering = false;
                             UpdatePrivacyRequirement();
                             if (formError != null)
+                            {
                                 Debug.LogWarning(
                                     $"광고 동의 화면 표시 실패: {formError.Message}");
+                                nextConsentRetryTime =
+                                    Time.realtimeSinceStartupAsDouble +
+                                    ConsentRetryDelaySeconds;
+                            }
                             if (ConsentInformation.CanRequestAds())
                                 InitializeAds();
                             else
@@ -176,6 +211,7 @@ namespace MukJump.Core
                 {
                     banner?.Hide();
                     bannerVisible = false;
+                    LobbyAdLayout.ClearTopInset();
                 }
                 return;
             }
@@ -185,6 +221,7 @@ namespace MukJump.Core
             {
                 banner.Show();
                 bannerVisible = true;
+                LobbyAdLayout.SetTopInsetPixels(bannerHeightPixels);
             }
         }
 
@@ -215,6 +252,7 @@ namespace MukJump.Core
             {
                 bannerLoading = false;
                 bannerLoaded = true;
+                bannerHeightPixels = banner.GetHeightInPixels();
                 UpdateLobbyBanner();
             };
             banner.OnBannerAdLoadFailed += error =>
@@ -225,7 +263,8 @@ namespace MukJump.Core
                     Time.realtimeSinceStartupAsDouble +
                     BannerRetryDelaySeconds;
             };
-            banner.LoadAd(new AdRequest());
+            banner.LoadAd(
+                GoogleMobileAdsRequestFactory.CreateNonPersonalized());
         }
 
         LobbyScreenNavigator ResolveNavigator()
@@ -250,6 +289,8 @@ namespace MukJump.Core
             bannerLoaded = false;
             bannerLoading = false;
             bannerVisible = false;
+            bannerHeightPixels = 0f;
+            LobbyAdLayout.ClearTopInset();
         }
 
         void UpdatePrivacyRequirement()

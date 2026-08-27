@@ -56,6 +56,7 @@ namespace MukJump.Core
         int lastWidth;
         int lastHeight;
         Rect lastSafeArea;
+        bool bannerVisible;
 
         public bool IsFullScreenOpen => pendingCompletion != null;
 
@@ -99,6 +100,20 @@ namespace MukJump.Core
                                       navigator,
                                       options);
             SetGroupVisible(bannerGroup, showBanner, false);
+            if (showBanner != bannerVisible)
+            {
+                bannerVisible = showBanner;
+                if (bannerVisible)
+                {
+                    LobbyAdLayout.SetTopInsetFraction(
+                        (BannerHeight + 16f) /
+                        MobileUiLayout.ReferenceHeight);
+                }
+                else
+                {
+                    LobbyAdLayout.ClearTopInset();
+                }
+            }
         }
 
         void OnDisable()
@@ -107,6 +122,8 @@ namespace MukJump.Core
             if (ReferenceEquals(MonetizationAds.Provider, provider))
                 MonetizationAds.ResetProvider();
             provider = null;
+            bannerVisible = false;
+            LobbyAdLayout.ClearTopInset();
             GoogleMobileAdsPrivacy.Reset();
         }
 
@@ -258,6 +275,8 @@ namespace MukJump.Core
             cancelButton.gameObject.SetActive(rewarded);
             SetGroupVisible(fullScreenGroup, true, true);
             SetGroupVisible(bannerGroup, false, false);
+            bannerVisible = false;
+            LobbyAdLayout.ClearTopInset();
         }
 
         void Complete(bool completed)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using MukJump.Core;
@@ -16,8 +17,10 @@ namespace MukJump.EditorTools
         const string SettingsFolder = "Assets/Resources/MukJump/Settings";
         const string SettingsAssetPath =
             SettingsFolder + "/MukJumpGoogleAdsSettings.asset";
-        const string TrackingDescription =
-            "맞춤형 광고 제공과 광고 성과 측정을 위해 기기 식별자 사용 권한을 요청합니다.";
+        const string RuntimeSourcePath =
+            "Assets/Scripts/Core/GoogleMobileAdsRuntime.cs";
+        const string RequestFactorySourcePath =
+            "Assets/Scripts/Core/GoogleMobileAdsRequestFactory.cs";
 
         public int callbackOrder => -1000;
 
@@ -43,10 +46,15 @@ namespace MukJump.EditorTools
             bool ios = settings.TryValidateProduction(
                 GoogleAdsPlatform.IOS,
                 out string iosError);
+            string[] privacyIssues = CollectPrivacyPolicyIssues();
             string message =
                 $"Android: {(android ? "통과" : androidError)}\n" +
-                $"iOS: {(ios ? "통과" : iosError)}";
-            if (android && ios)
+                $"iOS: {(ios ? "통과" : iosError)}\n" +
+                $"광고 개인정보: " +
+                (privacyIssues.Length == 0
+                    ? "통과"
+                    : string.Join(" / ", privacyIssues));
+            if (android && ios && privacyIssues.Length == 0)
                 Debug.Log($"먹점프 Google 광고 운영 설정 검증 완료\n{message}");
             else
                 Debug.LogWarning($"먹점프 Google 광고 운영 설정 미완료\n{message}");
@@ -80,7 +88,40 @@ namespace MukJump.EditorTools
                     "먹점프 Release 빌드의 Google 광고 설정이 안전하지 않습니다. " +
                     error + " 설정 에셋에서 먹점프 전용 AdMob 값을 입력하세요.");
             }
+            string[] privacyIssues = CollectPrivacyPolicyIssues();
+            if (privacyIssues.Length > 0)
+                throw new BuildFailedException(
+                    "먹점프 Release 광고 개인정보 정책이 코드와 다릅니다:\n" +
+                    string.Join("\n", privacyIssues));
             SyncPluginSettings(settings, forceTestAppIds: false);
+        }
+
+        public static string[] CollectPrivacyPolicyIssues()
+        {
+            var issues = new List<string>();
+            string runtime = File.Exists(RuntimeSourcePath)
+                ? File.ReadAllText(RuntimeSourcePath)
+                : string.Empty;
+            string requestFactory = File.Exists(RequestFactorySourcePath)
+                ? File.ReadAllText(RequestFactorySourcePath)
+                : string.Empty;
+
+            if (!runtime.Contains("PublisherFirstPartyIdEnabled = false"))
+                issues.Add("퍼블리셔 1차 식별자 비활성화가 없습니다.");
+            if (!runtime.Contains(
+                    "PublisherPrivacyPersonalizationState.Disabled"))
+                issues.Add("퍼블리셔 광고 개인화 비활성화가 없습니다.");
+            if (!runtime.Contains("MaxAdContentRating.G"))
+                issues.Add("광고 콘텐츠 등급 G 제한이 없습니다.");
+            if (!runtime.Contains(
+                    "TagForChildDirectedTreatment.False"))
+                issues.Add("COPPA 아동 전용 아님 태그가 없습니다.");
+            if (!runtime.Contains("TagForUnderAgeOfConsent.False"))
+                issues.Add("동의 연령 미만 아님 태그가 없습니다.");
+            if (!requestFactory.Contains(
+                    "request.Extras[\"npa\"] = \"1\""))
+                issues.Add("비맞춤 광고 npa=1 요청이 없습니다.");
+            return issues.ToArray();
         }
 
         static MukJumpGoogleAdsSettings EnsureSettingsAsset()
@@ -93,14 +134,12 @@ namespace MukJump.EditorTools
             Directory.CreateDirectory(SettingsFolder);
             settings = ScriptableObject
                 .CreateInstance<MukJumpGoogleAdsSettings>();
-            // 사용자 요청대로 SHIFT의 값을 조사해 후보로 기록한다. 게시자 불일치와
-            // 배너 부재 때문에 검증 플래그는 켜지 않으며 운영 빌드에는 쓰지 않는다.
-            settings.ConfigureDetectedShiftCandidates();
+            settings.ConfigureProductionAdMobIds();
             AssetDatabase.CreateAsset(settings, SettingsAssetPath);
             EditorUtility.SetDirty(settings);
             AssetDatabase.SaveAssets();
             Debug.Log(
-                "먹점프 Google 광고 설정을 만들었습니다. SHIFT 후보 ID는 검증 전까지 운영 요청에서 차단됩니다.");
+                "먹점프 전용 Google 광고 설정을 만들고 운영 ID를 연결했습니다.");
             return settings;
         }
 
@@ -129,7 +168,7 @@ namespace MukJump.EditorTools
             SetString(
                 serialized,
                 "userTrackingUsageDescription",
-                TrackingDescription);
+                string.Empty);
             SetString(serialized, "userLanguage", "ko");
             serialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(pluginSettings);

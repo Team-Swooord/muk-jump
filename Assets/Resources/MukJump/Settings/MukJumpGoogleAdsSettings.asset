@@ -14,15 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MukJump.Core.MukJumpGoogleAdsSettings
   enableLobbyBanner: 1
   enablePostRunInterstitial: 0
-  productionConfigurationVerified: 0
-  verificationNote: SHIFT에서 찾은 앱 ID와 최근 광고 단위 ID의 게시자 번호가 다르고 배너 ID가 없습니다. AdMob에서 먹점프 전용 값을 만든 뒤 검증을 완료하세요.
-  androidAppId: ca-app-pub-2944517353618559~3326566482
+  productionConfigurationVerified: 1
+  verificationNote: 2026-08-26 cysbandcs@gmail.com AdMob 계정에서 먹점프 전용 Android·iOS 앱과 배너·보상형 광고 단위를 생성해 확인했습니다. 스토어 출시 후 각 AdMob 앱을 실제 스토어 목록과 연결해야 합니다.
+  androidAppId: ca-app-pub-2944517353618559~3718407207
   android:
-    banner:
-    rewarded: ca-app-pub-9163142359221291/3658718565
-    interstitial: ca-app-pub-9163142359221291/4477669111
-  iosAppId: ca-app-pub-2944517353618559~6105294520
+    banner: ca-app-pub-2944517353618559/6947205773
+    rewarded: ca-app-pub-2944517353618559/4202000231
+    interstitial:
+  iosAppId: ca-app-pub-2944517353618559~8630103905
   ios:
-    banner:
-    rewarded: ca-app-pub-9163142359221291/3288053012
-    interstitial: ca-app-pub-9163142359221291/7375295191
+    banner: ca-app-pub-2944517353618559/3377777224
+    rewarded: ca-app-pub-2944517353618559/5343691518
+    interstitial:
