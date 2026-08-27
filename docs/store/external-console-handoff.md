@@ -1,18 +1,20 @@
 # 먹점프 외부 콘솔 인계표
 
-로컬 코드·에셋·자동 검사는 완료된 상태를 기준으로 한다. 아래 값은 저장소에 임의로 만들거나
-다른 게임의 값을 복사하지 않고 각 콘솔에서 **먹점프 전용**으로 발급한다. 비밀번호, p8,
-서명키, keystore는 저장소에 커밋하지 않는다.
+이 문서는 로컬에서 대신할 수 없는 콘솔·서명·실기기 작업의 현재 인계표다. `[완료]`로
+표시되지 않은 항목은 실제 콘솔이나 산출물로 확인해야 한다. 아래 값은 저장소에 임의로
+만들거나 다른 게임의 값을 복사하지 않고 각 콘솔에서 **먹점프 전용**으로 발급한다.
+비밀번호, p8, 서명키, keystore는 저장소에 커밋하지 않는다.
 
 ## 1. Android 모듈과 서명
 
-1. 현재 Mac에는 Unity 6000.5.9f1이 두 경로에 있고, 실행 중인 에디터는
-   `/Applications/Unity/Hub/Editor/6000.5.9f1-arm64`지만 Unity Hub가 등록한 경로는
-   `/Applications/Unity/Hub/Editor/6000.5.9f1`이다. 두 복사본을 임의 삭제하거나 모듈을
-   서로 복사하지 않는다. 열려 있는 프로젝트를 저장하고 닫은 뒤 Hub에 등록된
-   Unity 6000.5.9f1로 프로젝트를 다시 연다.
-2. Unity Hub의 해당 6000.5.9f1 모듈 추가 창에서 Google Android SDK/NDK 약관을 직접
-   확인·동의하고 Android Build Support, SDK & NDK Tools, OpenJDK를 모두 설치한다.
+1. [완료] Unity Hub가 등록한 `/Applications/Unity/Hub/Editor/6000.5.9f1`에 Android
+   Build Support, SDK/NDK Tools, OpenJDK를 설치했다. 대상 API 36, ARM64 로컬 빌드에
+   필요한 도구가 해당 Unity 설치 안에 있다.
+2. [완료] `MukJump > Release > Build Android Local Validation APK`로
+   `output/android/MukJumpValidation.apk`를 실제 빌드했다. 패키지 ID
+   `com.CYSB.MukJump`, minSdk 26, targetSdk 36, ARM64, Google 공식 테스트 광고 App ID,
+   AD_ID 권한, GMA·UMP·Google 로그인·뒤끝 네이티브 포함을 확인했다. 이 APK는 Play
+   Console에 제출하지 않는다.
 3. 먹점프 전용 업로드 keystore를 안전한 로컬 위치에 만들고 아래 환경 변수로만 전달한다.
    - `MUKJUMP_ANDROID_KEYSTORE_PATH`
    - `MUKJUMP_ANDROID_KEYSTORE_PASS`
@@ -56,6 +58,9 @@
    등록한다. URL은 문서에서 추측하지 말고 콘솔에 표시되는 값을 그대로 사용한다.
 7. 위 외부 확인 뒤 `MukJumpBackendSettings`의 대응 확인 플래그를 켠다. OAuth 입력 후
    `MukJump > Store > Backend > Validate Release Setup`을 다시 통과시킨다.
+8. 뒤끝 콘솔의 공식 회원 탈퇴 웹 링크를 생성하고, 비로그인 브라우저에서 먹점프 계정
+   삭제 요청이 동작하는지 확인한 뒤 계정 삭제 안내와 Play Console 외부 삭제 URL에
+   연결한다.
 
 ## 4. 광고와 개인정보
 
@@ -72,22 +77,31 @@
    - 2026-08-27 확인 기준 저장소 루트와 고객지원 URL은 공개되지만, 두 문서의 현재
      GitHub URL은 아직 404다. 파일을 원격 저장소에 반영하거나 별도 정적 페이지로
      배포하기 전에는 스토어에 입력하지 않는다.
-5. App Store 개인정보와 Play 데이터 보안 답변은
-   `docs/store/privacy-disclosures.md`를 그대로 기준으로 입력한다.
+5. App Store 개인정보와 Play 데이터 보안 답변 초안은
+   `docs/store/privacy-disclosures.md`에 있다. iOS는 ATT를 요청하고 포함된 Google Mobile
+   Ads 개인정보 매니페스트가 기기 ID 추적을 선언하므로 App Store의 기기 ID 추적은
+   `예`로 답한다. 최종 Archive Privacy Report를 다시 대조하고, 법적 운영자·국외 이전·
+   서비스 제공자 역할도 공개본과 일치하는지 확인한 뒤 입력한다.
 6. 뒤끝 `Send Log Report`와 `Auto Load Location Properties`는 출시 설정에서 꺼 두었고,
    Unity 출시 검증기가 둘 중 하나가 다시 켜지면 실패한다.
 
 ## 5. 스토어와 Apps in Toss
 
-1. 기존 `output/ios/MukJump`는 2026-08-26 생성본이고,
-   `output/ios/MukJumpValidation`도 최신 계정 안전성 변경 전 검증본이다. 둘 다 제출하지
-   않는다. Unity가 정상화된 뒤 새 iOS Release 프로젝트를 생성하고 자동 검증을 통과한
-   `Unity-iPhone.xcworkspace`만 Archive·TestFlight에 사용한다.
+1. [완료] 최신 `output/ios/MukJumpValidation`을 Unity에서 재생성하고 Xcode Release
+   서명 없는 컴파일까지 통과했다. 번들 ID·버전·실제 iOS AdMob 앱 ID·ATT 안내 문구·
+   암호화 면제 선언·Apple 로그인 entitlement를 확인했다. 이 로컬 검증본은 제출하지
+   않으며, 동일 검사를 통과한 배포용 `Unity-iPhone.xcworkspace`만 Archive·TestFlight에
+   사용한다.
 2. Google Play는 내부 테스트에 AAB을 먼저 올린다.
 3. 게스트·Google·Apple(iOS), 클라우드 병합, TOP 10, 계정 삭제, 배너와 판당 1회 부활,
    백그라운드 복귀를 실제 기기에서 확인한다.
 4. Apps in Toss에는 공개 HTTPS 아이콘 URL과 토스 배너·보상형 광고 그룹 ID를 넣고 최종
-   `.ait`을 만들어 QR 실기기 검증을 진행한다.
+   `.ait`을 만들어 QR 실기기 검증을 진행한다. 토스 인앱 광고는 사업자 등록이 끝난
+   워크스페이스에서만 운영한다. 비사업자 상태라면 게임센터 리더보드만 연결하고 광고는
+   운영 ID 없이 둔다.
+5. 게임 제출에는 출시된 App Store 또는 Google Play URL과 자체등급분류 조회 정보·원본
+   플레이 화면, 또는 게임물관리위원회 등급분류증명서 PDF를 준비한다. 단순히 모바일
+   게임이라는 이유로 증빙이 자동 면제되지는 않는다.
 
 ## 완료 판정
 

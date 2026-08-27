@@ -86,8 +86,9 @@
 - [ ] 고객지원 URL은 공개됐다. 개인정보처리방침·계정 삭제 파일은 로컬에 작성됐지만 현재 공개 URL이 404이므로 저장소 반영 또는 별도 HTTPS 배포가 필요한가?
 - [x] 뒤끝, Apple/Google 로그인, AdMob 수집 항목을 개인정보처리방침 원문에 적었는가?
 - [x] App Store 개인정보 응답과 Google Play 데이터 보안 응답 초안이 실제 SDK와 일치하는가?
-- [x] 1.0은 ATT를 요청하지 않고 모든 광고 요청에 `npa=1`을 붙이며,
-  퍼블리셔 1차 식별자와 개인화 처리도 끄도록 결정·구현했는가?
+- [x] iOS는 Google Mobile Ads 초기화 전에 ATT를 요청하고, 응답 뒤 UMP 동의 절차를
+  거쳐 광고 요청 허용 여부를 확인하는가? 모든 광고 요청은 `npa=1`이며 퍼블리셔 1차
+  식별자와 개인화 처리도 꺼 두었는가?
 - [~] 전체이용가·아동 전용 아님·광고 G 등급을 코드와 문서에서 강제했다.
   App Store Connect·Play Console·AdMob의 최종 연령 설정도 동일한지 확인했는가?
 - [~] 계정 생성이 있으면 앱 안의 계정 삭제와 공개 삭제 정책 URL을 모두 제공하는가?
@@ -96,13 +97,15 @@
 
 - [x] Google Ads 11.4.0과 네이티브 의존성이 해석된 뒤 새 iOS 워크스페이스의 서명 없는 Release 컴파일이 성공하는가?
 - [ ] Xcode Archive, 서명, TestFlight 설치와 로그인·광고 실기기 테스트가 통과하는가?
-- [ ] Android Build Support, keystore, 64-bit AAB, Play 내부 테스트가 준비됐는가?
+- [~] Android Build Support·SDK/NDK·OpenJDK 설치와 API 36·ARM64 검증 APK 빌드는
+  끝났다. 먹점프 전용 keystore, 64-bit AAB, Play 내부 테스트가 준비됐는가?
 - [x] Google Play 새 앱 제출 기준에 맞춰 대상 API 36, ARM64 AAB를 빌드 설정에서 강제하는가?
 - [x] iOS·Android 번들 ID가 `com.CYSB.MukJump`로 동일한 제품을 가리키는가?
 - [~] Release는 DEBUG 시나리오·에디터 테스트 배너를 숨기고 운영 광고 ID만 허용한다.
   Apps in Toss 산출물도 vConsole이 켜지거나 토큰이 미치환되면 실패한다. 최신 모바일·`.ait`
   산출물에서 한 번 더 확인했는가?
-- [~] Apps in Toss 사전 빌드는 32.21MB/100MB를 통과했다. 최종 `.ait`, QR 실행, Safe Area, 배너·부활 광고가 통과하는가?
+- [~] Apps in Toss 최신 사전 빌드는 32.57MB/100MB를 통과했다. 최종 `.ait`, QR 실행,
+  Safe Area, 배너·부활 광고가 통과하는가?
 
 ## P1 — 출시 품질을 좌우하는 질문
 
@@ -160,36 +163,37 @@
 3. 개인정보처리방침·삭제 안내·스토어 데이터 답변 원문은 작성됐다. 고객지원 저장소는
    공개됐지만 두 법적 문서 URL은 현재 404다. 저장소 반영 또는 별도 HTTPS 배포와
    App Store Connect·Play Console 최종 입력이 남았다.
-4. 2026-08-27 13:45 iOS Unity 검증본과 `Unity-iPhone.xcworkspace`의 서명 없는 Release
-   컴파일은 성공했다. 생성된 앱에도 번들 ID `com.CYSB.MukJump`, 버전 `1.0.0`(1),
-   `ITSAppUsesNonExemptEncryption=NO`, ATT 설명 키 부재가 유지된다.
-   이 산출물은 최신 계정 안전성 변경 전 검증본이므로 제출하지 않는다. 최신 Unity 재생성,
-   Xcode Archive·TestFlight·실기기 검증과 Android AAB가 남아 있다.
-5. Apps in Toss는 공식 게임센터 연동, WebGL 전용 플랫폼 분리, 32.21MB 사전 용량 검증까지
+4. 2026-08-27 최신 iOS Unity 검증본과 `Unity-iPhone.xcworkspace`의 서명 없는 Release
+   컴파일은 성공했다. 생성된 앱은 번들 ID `com.CYSB.MukJump`, 버전 `1.0.0`(1), 실제
+   iOS AdMob 앱 ID, `ITSAppUsesNonExemptEncryption=NO`, ATT 안내 문구와 Apple 로그인
+   entitlement를 포함한다. 로컬 검증본은 제출용이 아니며 Xcode Archive·TestFlight·
+   로그인·광고 실기기 검증이 남아 있다.
+5. Apps in Toss는 공식 게임센터 연동, WebGL 전용 플랫폼 분리, 32.57MB 사전 용량 검증까지
    완료했다. 공개 HTTPS 아이콘 URL과 토스 배너·보상형 광고 그룹 ID를 입력한 뒤 최종 `.ait`
    생성, 콘솔 업로드, QR 실기기 검증이 남았다.
-6. Android Build Support는 아직 없다. 실행 중인 `6000.5.9f1-arm64` 복사본과 Hub에 등록된
-   `6000.5.9f1` 경로가 달라 자동 설치를 중단했다. 프로젝트를 저장·종료한 뒤 Hub 등록
-   경로로 다시 열고 Android Build Support·SDK/NDK·OpenJDK를 함께 설치해야 한다.
-   재배포 제한 폰트·MP3·버튼 파생물은 OFL 폰트·자체 WAV·자체 마스크로 교체했다.
+6. Hub의 Unity `6000.5.9f1`에 Android Build Support·SDK/NDK·OpenJDK를 설치했고,
+   `output/android/MukJumpValidation.apk`를 실제 Gradle로 빌드했다. 패키지
+   `com.CYSB.MukJump`, minSdk 26, targetSdk 36, ARM64, Google 공식 테스트 광고 앱 ID,
+   AD_ID 권한과 GMA·UMP·Google 로그인·뒤끝 네이티브 포함을 확인했다. 먹점프 전용
+   keystore·서명 해시, Release AAB와 Play 내부 테스트가 남았다. 재배포 제한 에셋은
+   OFL 폰트·자체 WAV·자체 마스크로 교체했다.
 
 ## 현재 자동 검증 기준
 
-- 2026-08-27 Unity EditMode 기준선: **537/537 통과**, 실패·건너뜀 0. 이후 추가된 광고
-  개인정보·Unity 온라인 서비스·토스 출시 산출물 검증은 최신 스크립트 임시 컴파일을
-  통과했으며 전체 회귀 재실행 요청이 대기 중
-- iOS: 2026-08-27 13:45 Unity 6000.5.9f1 검증 빌드 생성 후 Xcode 26.2·iPhoneOS 26.2에서
+- 2026-08-27 Unity EditMode 기준선: **674/674 통과**, 실패·건너뜀 0
+- iOS: 2026-08-27 Unity 6000.5.9f1 검증 빌드 생성 후 Xcode 26.2·iPhoneOS 26.2에서
   `Unity-iPhone.xcworkspace` Release 서명 없는 컴파일 성공. Google Mobile Ads 13.7.0,
-  Google Sign-In 7.1.0, UMP 3.1.0 해석 확인. ATT를 요청하지 않는 정책에 맞춰 최종
-  `Info.plist`의 `NSUserTrackingUsageDescription` 부재와
-  `ITSAppUsesNonExemptEncryption=NO`를 자동 검사. 최신 계정 코드 반영 후 재생성 필요
-- Android: API 36·ARM64 AAB, 환경 변수 기반 keystore, 개발용 테스트 광고 APK와 출시용
-  AAB 경로 및 사전 검증 구현. 모듈 라이선스 동의·설치 후 실제 Gradle 빌드가 남음
+  Google Sign-In 7.1.0, UMP 3.1.0 해석 확인. 최종 검증 앱에서 ATT 안내 문구,
+  `ITSAppUsesNonExemptEncryption=NO`, 실제 iOS AdMob 앱 ID, 번들·버전을 확인
+- Android: Unity Hub 모듈 설치와 실제 Gradle 검증 APK 빌드 완료. API 36·ARM64,
+  Google 공식 테스트 광고, GMA·UMP·Google 로그인·뒤끝 포함을 자동·수동 확인. 환경 변수
+  기반 먹점프 전용 keystore와 Release AAB, Play 내부 테스트가 남음
 - 에셋: Nanum Brush Script 해시 고정 원본과 OFL 1.1 동봉, 제한 OTF·Pixabay MP3 2개
   빌드 경로 제거, Pngtree 파생 버튼을 절차 생성 자체 마스크로 교체. 1024×1024 앱 아이콘은
   iOS·Android 무손실 임포트를 강제해 모바일 빌드의 압축 아이콘 경고 제거
 - 계정 동기화: 최고 기록 단조 병합, 서버 성장 검증, 탈퇴 로컬 삭제 자동 테스트 포함
-- 광고: Development 공식 테스트 ID, Release 운영 ID 검증, UMP, 비맞춤 광고 요청 포함
+- 광고: `cysbandcs@gmail.com` 게시자 계정의 먹점프 전용 운영 ID를 사용하고 Development는
+  공식 테스트 ID를 강제한다. iOS ATT → UMP → 광고 초기화 순서와 비맞춤 광고 요청 포함
 - Apps in Toss: 뒤끝 DLL 15개와 Toolkit WebGL 제외, 완료된 판만 게임센터 제출, 사전 빌드
-  **32.21MB/100MB**, 빌드 뒤 iOS 타깃 자동 복귀 확인
+  **32.57MB/100MB**, Production vConsole 비활성 검증. 최종 `.ait`·QR 검증은 외부 값 입력 후 진행
 - 운영 기준: `docs/store/release-operations.md`

@@ -24,9 +24,11 @@ rewarded ad per run to revive once, or return to the lobby without watching an a
 startup ads, forced interstitial ads, purchases, subscriptions, loot boxes, chat, or user-generated
 content.
 
-Version 1.0 requests non-personalized ads only and does not request App Tracking Transparency
-permission. Where required, Google UMP consent is presented before any ad request and can be
-reopened from Settings > Play & Ads > Ad Privacy.
+On iOS, the app requests App Tracking Transparency permission first. After the ATT response, it
+updates Google UMP consent and initializes Google Mobile Ads only when UMP reports that ads may be
+requested. The choice is optional and does not restrict gameplay. Version 1.0 sends
+non-personalized ad requests only. The UMP privacy choices can be reopened from Settings > Play &
+Ads > Ad Privacy.
 
 Support: cysbandcs@gmail.com
 

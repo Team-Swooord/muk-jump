@@ -36,7 +36,7 @@
 
 - `MukJump > Release > Build Apps in Toss Size Probe`는 Production 프로필로 WebGL을 새로
   만들고 100MB 제한을 검사한 뒤 원래 iOS 빌드 타깃으로 돌아온다.
-- 2026-08-26 측정한 압축 해제 패키지 기준 사전 용량은 **32.21MB/100MB**다. 최종 `.ait`
+- 2026-08-27 측정한 압축 해제 WebGL 사전 용량은 **32.57MB/100MB**다. 최종 `.ait`
   생성 때도 같은 검사를 다시 통과해야 한다.
 - `MukJump > Release > Build Apps in Toss Package`는 공개 HTTPS 아이콘 URL, 토스 배너 광고
   그룹 ID, 토스 보상형 광고 그룹 ID가 없으면 패키징을 중단한다.
@@ -54,9 +54,10 @@
   `GoogleSignIn/GoogleSignIn.h` 같은 Pod 헤더를 찾지 못한다.
 - Unity 빌드 직후 `Podfile.lock`의 Google Mobile Ads, Google Sign-In, UMP와 워크스페이스
   존재를 자동 검사한다. 하나라도 없으면 Xcode 인계 전에 빌드를 실패시킨다.
-- 빌드 후처리는 사용하지 않는 ATT 설명 키를 제거하고 표준 HTTPS만 쓰는 현재 구성에 맞춰
-  `ITSAppUsesNonExemptEncryption=NO`를 선언한다. 암호화 SDK 구성이 바뀌면 App Store
-  Connect의 수출 규정 질문을 다시 검토한다.
+- iOS는 Google Mobile Ads 초기화 전에 ATT 권한을 요청한다. 응답 뒤 UMP 동의 절차를
+  진행하고 `CanRequestAds()`가 허용할 때만 광고를 초기화한다. 빌드 후처리는 ATT 안내
+  문구와 `ITSAppUsesNonExemptEncryption=NO`를 선언한다. 암호화 SDK 구성이 바뀌면 App
+  Store Connect의 수출 규정 질문을 다시 검토한다.
 - 자동 서명 없이 컴파일만 확인할 때는 생성 폴더에서 아래 명령을 사용한다.
 
 ```sh

@@ -36,14 +36,14 @@
 Apps in Toss 공식 광고 가이드:
 https://developers-apps-in-toss.toss.im/unity/porting-tutorials/iaa.html
 
-## 연결 전에 필요한 값
+## 연결 상태와 남은 작업
 
 1. Apps in Toss 보상형·배너 `adGroupId`
-2. AdMob에서 **먹점프 앱을 별도로 등록**해 받은 iOS·Android 앱 ID
-3. 각 앱에 만든 로비 적응형 배너·게임오버 보상형 광고 단위 ID
-4. AdMob 개인정보 메시지 게시와 App Store·Google Play 데이터 안전성 응답
-5. 광고 종료·앱 백그라운드·네트워크 실패 뒤 부활과 오디오 복귀 실기기 확인
+2. AdMob 개인정보 메시지 게시와 App Store·Google Play 데이터 안전성 응답
+3. 스토어 출시 후 AdMob의 먹점프 앱을 실제 스토어 목록과 연결
+4. 광고 종료·앱 백그라운드·네트워크 실패 뒤 부활과 오디오 복귀 실기기 확인
 
-SHIFT에서 발견한 앱 ID는 `ca-app-pub-2944517353618559` 계열이지만 최근 광고 단위는
-`ca-app-pub-9163142359221291` 계열이고 배너 단위가 없다. 따라서 이 값은 설정 에셋에
-후보로만 기록하며 먹점프 운영 광고에는 사용하지 않는다.
+먹점프 전용 Android·iOS AdMob 앱과 로비 배너·게임오버 부활 보상형 광고 단위는
+`cysbandcs@gmail.com` 계정에서 생성했다. 모든 값은 동일한
+`ca-app-pub-2944517353618559` 게시자에 속한다. 앱인토스 빌드에서는 이 값을 직접 쓰지
+않고 Apps in Toss 콘솔의 광고 그룹 ID와 통합 광고 API만 사용한다.
