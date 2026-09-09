@@ -10,12 +10,25 @@ namespace MukJump.EditorTests
     public sealed class GrowthUnlockPresentationTests
     {
         GameObject root;
+        InkUiFeedbackController previousFeedback;
+
+        [SetUp]
+        public void SetUp()
+        {
+            previousFeedback = InkUiFeedbackController.Instance;
+            typeof(InkUiFeedbackController).GetField("<Instance>k__BackingField",
+                BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, null);
+        }
 
         [TearDown]
         public void TearDown()
         {
+            if (root != null && root.TryGetComponent<InkUiFeedbackController>(out var controller))
+                InvokeLifecycle(controller, "OnDisable");
             if (root != null)
                 Object.DestroyImmediate(root);
+            typeof(InkUiFeedbackController).GetField("<Instance>k__BackingField",
+                BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, previousFeedback);
             PermanentGrowthProfile.RestoreDefaultStoreForTests();
             VfxQualityRuntime.SetTier(
                 VfxQualityTier.Medium,
@@ -39,7 +52,7 @@ namespace MukJump.EditorTests
             Assert.That(view.PresentationRoot.childCount, Is.EqualTo(childCount));
             Assert.That(view.PresentationGroup.blocksRaycasts, Is.False);
             Assert.That(view.PresentationGroup.interactable, Is.False);
-            Assert.That(view.Title, Is.EqualTo("성장 해금"));
+            Assert.That(view.Title, Is.EqualTo("힘이 자랐어요"));
             Assert.That(view.UnlockedIcon, Is.SameAs(growthIcon));
             var iconPlate = view.PresentationRoot
                 .Find("UnlockedIconPlate")
@@ -165,7 +178,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void UpgradeOverlay_같은계층을_압축재생하고_강화단계를_표시한다()
+        public void UpgradeOverlay_같은계층을_압축재생하고_숫자단계를_숨긴다()
         {
             GrowthUnlockPresentation view = CreateView();
             Sprite growthIcon = Resources.Load<Sprite>(
@@ -181,14 +194,14 @@ namespace MukJump.EditorTests
                 Is.EqualTo(
                     GrowthUnlockPresentation.UpgradeSequenceDuration)
                     .Within(0.001f));
-            Assert.That(view.Title, Is.EqualTo("성장 강화"));
+            Assert.That(view.Title, Is.EqualTo("힘이 자랐어요"));
             Assert.That(view.Subtitle, Does.Contain("먹그릇"));
-            Assert.That(view.Subtitle, Does.Contain("Lv. 3"));
+            Assert.That(view.Subtitle, Does.Not.Contain("Lv."));
             Assert.That(
                 view.PresentationRoot.Find("LockedInkPlate/LockedLabel")
                     ?.GetComponent<Text>()
                     ?.text,
-                Is.EqualTo("Lv. 3"));
+                Is.EqualTo("더 자람"));
             Assert.That(
                 view.PresentationRoot.childCount,
                 Is.EqualTo(childCount));
@@ -259,144 +272,221 @@ namespace MukJump.EditorTests
         [Test]
         public void PermanentGrowth_성공한_모든강화가_재사용연출을_호출한다()
         {
-            var store = new MemoryPermanentGrowthStore
-            {
-                Json =
-                    "{\"schemaVersion\":1,\"balanceVersion\":1," +
-                    "\"wallet\":100,\"spent\":0," +
-                    "\"tutorialRewardClaimed\":false," +
-                    "\"lastSettledRunId\":\"\",\"ranks\":[]}",
-            };
-            PermanentGrowthProfile.UseStoreForTests(store);
-
-            root = new GameObject("GrowthUnlockIntegrationTests");
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            PermanentGrowthProfile.DebugRefillCurrency();
+            root = new GameObject("GrowthBloomIntegrationTests");
             var managerHost = new GameObject("Manager");
             managerHost.transform.SetParent(root.transform, false);
             managerHost.AddComponent<GameManager>();
             managerHost.AddComponent<InkUiFeedbackController>();
             var viewHost = new GameObject("GrowthView");
             viewHost.transform.SetParent(root.transform, false);
-            var growthView =
-                viewHost.AddComponent<PermanentGrowthView>();
+            var growthView = viewHost.AddComponent<PermanentGrowthView>();
             growthView.BuildForTests();
-
-            growthView.SelectGrowthForTests("I00");
-            growthView.PurchaseButton.onClick.Invoke();
-
-            Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkBudgetEfficiency),
-                Is.EqualTo(1));
-            GrowthUnlockPresentation presentation =
-                managerHost.GetComponent<GrowthUnlockPresentation>();
+            var presentation = viewHost.GetComponent<GrowthBloomPresentation>();
             Assert.That(presentation, Is.Not.Null);
-            Assert.That(presentation.IsPlaying, Is.True);
-            Assert.That(presentation.Title, Is.EqualTo("성장 해금"));
-            Assert.That(presentation.Subtitle, Does.Contain("아끼는 먹의 씨"));
-            Assert.That(presentation.HasNodeFeedback, Is.True);
-            Assert.That(
-                presentation.NodeFruitSprite?.name,
-                Does.StartWith("pg_node_bloom_mask"));
-            Assert.That(growthView.PurchaseButton.interactable, Is.False);
-            Assert.That(growthView.BackButton.interactable, Is.False);
-            RectTransform reusedRoot = presentation.PresentationRoot;
-            int reusedChildCount = reusedRoot.childCount;
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var bloom = (RectTransform)typeof(GrowthBloomPresentation).GetField("root", flags).GetValue(presentation);
+            int count = bloom.GetComponentsInChildren<Transform>(true).Length;
+            try
+            {
+                foreach (string key in new[] { "brush.1", "ink.1", "ink.2" })
+                {
+                    presentation.Cancel();
+                    typeof(PermanentGrowthView).GetField("purchaseLockedUntil", flags).SetValue(growthView, -1f);
+                    typeof(PermanentGrowthView).GetMethod("Update", flags).Invoke(growthView, null);
+                    growthView.SelectGrowthForTests(key);
+                    Assert.That(growthView.PurchaseButton.interactable, Is.True);
+                    growthView.PurchaseButton.onClick.Invoke();
+                    var type = key.StartsWith("brush") ? PermanentGrowthType.InkBudgetEfficiency : PermanentGrowthType.InkCapacity;
+                    int expectedLevel = key.EndsWith("2") ? 2 : 1;
+                    Assert.That(PermanentGrowthProfile.GetLevel(type), Is.EqualTo(expectedLevel));
+                    Assert.That(presentation.IsPlaying, Is.True);
+                    Assert.That(bloom.gameObject.activeSelf, Is.True);
+                    Assert.That(bloom.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(count), "먹고리·금박 풀을 재사용합니다.");
+                    Assert.That(growthView.PurchaseButton.interactable, Is.False);
+                    Assert.That(growthView.BackButton.interactable, Is.False);
+                    growthView.PurchaseButton.onClick.Invoke();
+                    Assert.That(PermanentGrowthProfile.GetLevel(type), Is.EqualTo(expectedLevel), "연출 중 중복 구매를 막습니다.");
+                    float lockedUntil = (float)typeof(PermanentGrowthView).GetField("purchaseLockedUntil", flags).GetValue(growthView);
+                    Assert.That(lockedUntil - Time.unscaledTime, Is.GreaterThanOrEqualTo(GrowthBloomPresentation.Duration - .05f));
+                }
+                Assert.That(managerHost.GetComponent<GrowthUnlockPresentation>(), Is.Null, "폐기한 전체 화면 해금 연출을 다시 만들지 않습니다.");
+                growthView.Close();
+                Assert.That(presentation.IsPlaying, Is.False);
+                Assert.That(bloom.gameObject.activeSelf, Is.False);
+            }
+            finally { LobbySettingsProfile.RestoreDefaultStoreForTests(); }
+        }
 
-            growthView.PurchaseButton.onClick.Invoke();
-            Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkBudgetEfficiency),
-                Is.EqualTo(1),
-                "전체 화면 해금 연출 중에는 연속 구매가 겹치면 안 됩니다.");
-            float lockedUntil = (float)typeof(PermanentGrowthView)
-                .GetField(
-                    "purchaseLockedUntil",
-                    BindingFlags.Instance | BindingFlags.NonPublic)
-                .GetValue(growthView);
-            Assert.That(
-                lockedUntil - Time.unscaledTime,
-                Is.GreaterThanOrEqualTo(
-                    GrowthUnlockPresentation.SequenceDuration - 0.05f));
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ReloadedDropArraysRebindExistingUiInDayAndNight(bool night)
+        {
+            WithNightState(night, () =>
+            {
+                var view = CreateView();
+                view.PlayAtNode("먹결", null, Vector2.one, null);
+                view.EvaluateForTests(.5f);
+                var original = view.PresentationRoot;
+                string[] order = original.Cast<Transform>().Select(child => child.name).ToArray();
+                foreach (string name in new[] { "drops", "dropDirections", "dropDistances", "dropDelays",
+                    "dropRotations", "nodeDrops", "nodeDropDirections", "nodeDropRotations" })
+                {
+                    var array = (System.Array)ReadField(view, name);
+                    System.Array.Clear(array, 0, array.Length);
+                }
+                Assert.DoesNotThrow(() => InvokeLifecycle(view, "OnEnable"));
+                Assert.That(view.IsPlaying, Is.False);
+                Assert.That(view.PresentationGroup.alpha, Is.Zero);
+                Assert.DoesNotThrow(() => view.PlayAtNode("먹결", null, Vector2.one, null));
+                Assert.DoesNotThrow(() => view.EvaluateForTests(.5f));
+                Assert.That(view.IsPlaying, Is.True);
+                Assert.That(view.PresentationRoot, Is.SameAs(original));
+                Assert.That(original.Cast<Transform>().Select(child => child.name).ToArray(), Is.EqualTo(order));
+                Assert.That(LobbyNightState.TargetNight, Is.EqualTo(night));
+                Assert.That(LobbyNightState.Progress, Is.EqualTo(night ? 1f : 0f));
+            });
+        }
 
-            presentation.ResetPresentation();
-            typeof(PermanentGrowthView)
-                .GetField(
-                    "purchaseLockedUntil",
-                    BindingFlags.Instance | BindingFlags.NonPublic)
-                ?.SetValue(growthView, -1f);
-            typeof(PermanentGrowthView)
-                .GetMethod(
-                    "Update",
-                    BindingFlags.Instance | BindingFlags.NonPublic)
-                ?.Invoke(growthView, null);
-            growthView.SelectGrowthForTests("I-A1");
-            Assert.That(growthView.PurchaseButton.interactable, Is.True);
-            Assert.That(growthView.BackButton.interactable, Is.True);
-            growthView.PurchaseButton.onClick.Invoke();
+        [Test]
+        public void LostUiFieldsReuseNamedHierarchyInsteadOfDuplicatingOverlay()
+        {
+            var view = CreateView();
+            var original = view.PresentationRoot;
+            int descendants = original.GetComponentsInChildren<Transform>(true).Length;
+            foreach (var field in typeof(GrowthUnlockPresentation).GetFields(BindingFlags.Instance | BindingFlags.NonPublic))
+                if (field.Name != "canvasOwner" && typeof(Object).IsAssignableFrom(field.FieldType))
+                    field.SetValue(view, null);
+            Assert.DoesNotThrow(() => view.Initialize(root.GetComponent<RectTransform>()));
+            view.Play("복구");
+            view.EvaluateForTests(.5f);
+            Assert.That(view.PresentationRoot, Is.SameAs(original));
+            Assert.That(original.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(descendants));
+            Assert.That(root.transform.Cast<Transform>().Count(child => child.name == "GrowthUnlockPresentation"), Is.EqualTo(1));
+        }
 
-            Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkCapacity),
-                Is.EqualTo(1));
-            Assert.That(
-                presentation.IsPlaying,
-                Is.True,
-                "2단계도 별도 열매이므로 전체 해금 연출을 재생해야 합니다.");
-            Assert.That(presentation.Title, Is.EqualTo("성장 해금"));
-            Assert.That(presentation.Subtitle, Does.Contain("넓은 벼루 I"));
-            Assert.That(
-                presentation.HasNodeFeedback,
-                Is.True,
-                "각 rank는 한 번만 찍는 독립 열매로 개화해야 합니다.");
-            Assert.That(
-                presentation.PresentationRoot,
-                Is.SameAs(reusedRoot));
-            Assert.That(
-                presentation.PresentationRoot.childCount,
-                Is.EqualTo(reusedChildCount));
-            lockedUntil = (float)typeof(PermanentGrowthView)
-                .GetField(
-                    "purchaseLockedUntil",
-                    BindingFlags.Instance | BindingFlags.NonPublic)
-                .GetValue(growthView);
-            Assert.That(
-                lockedUntil - Time.unscaledTime,
-                Is.GreaterThanOrEqualTo(
-                    GrowthUnlockPresentation.SequenceDuration - 0.05f));
+        [TestCase("UnlockDrop01", true)]
+        [TestCase("NodeFruitFeedback/FruitDrop01", true)]
+        [TestCase("InkVeil", true)]
+        [TestCase("UpperDiagonalBrush", false)]
+        [TestCase("CanvasGroup", false)]
+        [TestCase("EntireOverlay", true)]
+        public void DamagedOverlayCancelsWithoutGhostsAndRepairsNextPlay(string part, bool destroyObject)
+        {
+            var view = CreateView();
+            view.PlayAtNode("먹결", null, Vector2.zero, null);
+            view.EvaluateForTests(.5f);
+            string[] order = view.PresentationRoot.Cast<Transform>().Select(child => child.name).ToArray();
+            if (part == "CanvasGroup") Object.DestroyImmediate(view.PresentationGroup);
+            else if (part == "EntireOverlay") Object.DestroyImmediate(view.PresentationRoot.gameObject);
+            else
+            {
+                var target = view.PresentationRoot.Find(part);
+                Object.DestroyImmediate(destroyObject ? target.gameObject : (Object)target.GetComponent<Image>());
+            }
+            Assert.DoesNotThrow(() => InvokeLifecycle(view, "Update"));
+            Assert.That(view.IsPlaying, Is.False);
+            Assert.That(view.PresentationRoot == null || !view.PresentationRoot.gameObject.activeSelf
+                || (view.PresentationGroup != null && view.PresentationGroup.alpha == 0f), Is.True);
+            Assert.DoesNotThrow(() => view.PlayAtNode("다시 성장", null, Vector2.zero, null));
+            Assert.DoesNotThrow(() => view.EvaluateForTests(.5f));
+            Assert.That(view.IsPlaying, Is.True);
+            Assert.That(view.PresentationRoot.gameObject.activeSelf, Is.True);
+            Assert.That(view.PresentationGroup.blocksRaycasts, Is.False);
+            Assert.That(view.PresentationRoot.Cast<Transform>().Select(child => child.name).ToArray(), Is.EqualTo(order));
+            Assert.That(view.PresentationRoot.Find("InkVeil").GetSiblingIndex(), Is.Zero);
+        }
 
-            typeof(PermanentGrowthView)
-                .GetField(
-                    "purchaseLockedUntil",
-                    BindingFlags.Instance | BindingFlags.NonPublic)
-                ?.SetValue(growthView, -1f);
-            typeof(PermanentGrowthView)
-                .GetMethod(
-                    "Update",
-                    BindingFlags.Instance | BindingFlags.NonPublic)
-                ?.Invoke(growthView, null);
-            growthView.SelectGrowthForTests("I-A2");
-            growthView.PurchaseButton.onClick.Invoke();
+        [TestCase(false)]
+        [TestCase(true)]
+        public void TapPoolRebindsAfterManagedCacheLossWithoutDuplicateUi(bool night)
+        {
+            WithNightState(night, () =>
+            {
+                root = new GameObject("TapPoolReloadTests");
+                var controller = root.AddComponent<InkUiFeedbackController>();
+                InvokeLifecycle(controller, "OnEnable");
+                var original = root.transform.Find("InkUiFeedbackCanvas");
+                int descendants = original.GetComponentsInChildren<Transform>(true).Length;
+                var marks = (System.Array)ReadField(controller, "marks");
+                for (int iteration = 0; iteration < 3; iteration++)
+                {
+                    System.Array.Clear(marks, 0, marks.Length);
+                    WriteField(controller, "canvasRoot", null);
+                    WriteField(controller, "unlockPresentation", null);
+                    Assert.DoesNotThrow(() => InvokeLifecycle(controller, "OnEnable"));
+                    Assert.That(controller.ActiveMarkCount, Is.Zero);
+                    Assert.DoesNotThrow(() => InkUiFeedbackController.PlayTap(Vector2.zero));
+                    Assert.That(controller.ActiveMarkCount, Is.EqualTo(6));
+                    Assert.That(root.transform.Find("InkUiFeedbackCanvas"), Is.SameAs(original));
+                    Assert.That(original.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(descendants));
+                    Assert.That(root.transform.Cast<Transform>().Count(child => child.name == "InkUiFeedbackCanvas"), Is.EqualTo(1));
+                }
+                Assert.That(LobbyNightState.TargetNight, Is.EqualTo(night));
+            });
+        }
 
-            Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkCapacity),
-                Is.EqualTo(2));
-            Assert.That(
-                presentation.IsPlaying,
-                Is.True,
-                "같은 선택 갈래의 다음 열매도 전체 화면 해금 연출을 사용해야 합니다.");
-            Assert.That(presentation.HasNodeFeedback, Is.True);
+        [TestCase(true)]
+        [TestCase(false)]
+        public void DestroyedTapSlotIsSafeToUpdateAndDisableThenRepairs(bool destroyObject)
+        {
+            root = new GameObject("TapPoolDamageTests");
+            var controller = root.AddComponent<InkUiFeedbackController>();
+            InkUiFeedbackController.PlayTap(Vector2.zero);
+            var canvas = root.transform.Find("InkUiFeedbackCanvas");
+            var target = canvas.Find("InkTapMark01");
+            Object.DestroyImmediate(destroyObject ? target.gameObject : (Object)target.GetComponent<Image>());
+            Assert.DoesNotThrow(() => InvokeLifecycle(controller, "Update"));
+            Assert.That(controller.ActiveMarkCount, Is.EqualTo(5));
+            Assert.DoesNotThrow(() => controller.enabled = false);
+            Assert.DoesNotThrow(() => InvokeLifecycle(controller, "OnDisable"));
+            Assert.DoesNotThrow(() => controller.enabled = true);
+            Assert.DoesNotThrow(() => InvokeLifecycle(controller, "OnEnable"));
+            Assert.DoesNotThrow(() => InkUiFeedbackController.PlayTap(Vector2.zero));
+            Assert.That(controller.ActiveMarkCount, Is.EqualTo(6));
+            Assert.That(canvas.Cast<Transform>().Count(child => child.name.StartsWith("InkTapMark")), Is.EqualTo(32));
+            Assert.That(canvas.Find("InkTapMark01").GetComponent<Image>(), Is.Not.Null);
+        }
 
-            Assert.That(
-                InkUiFeedbackController.Instance,
-                Is.Not.Null,
-                "성장 화면이 닫힐 때 기존 피드백 컨트롤러를 찾아야 합니다.");
-            Assert.That(
-                managerHost.GetComponent<InkUiFeedbackController>(),
-                Is.SameAs(InkUiFeedbackController.Instance));
-            growthView.Close();
-            Assert.That(presentation.IsPlaying, Is.False);
-            Assert.That(presentation.HasNodeFeedback, Is.False);
+        [Test]
+        public void NormalTapDoesNotCancelAnActiveGrowthSequence()
+        {
+            root = new GameObject("TapDuringGrowthTests");
+            root.AddComponent<InkUiFeedbackController>();
+            InkUiFeedbackController.PlayGrowthUnlock("먹결", null);
+            var view = root.GetComponent<GrowthUnlockPresentation>();
+            view.EvaluateForTests(.5f);
+            Assert.DoesNotThrow(() => InkUiFeedbackController.PlayTap(Vector2.zero));
+            Assert.That(view.IsPlaying, Is.True);
+            Assert.That(view.PresentationGroup.alpha, Is.EqualTo(1f));
+            InkUiFeedbackController.CancelGrowthPresentation();
+            Assert.That(view.IsPlaying, Is.False);
+            Assert.That(view.PresentationGroup.alpha, Is.Zero);
+        }
+
+        static object ReadField(object target, string name) => target.GetType()
+            .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(target);
+        static void WriteField(object target, string name, object value) => target.GetType()
+            .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
+        static void InvokeLifecycle(object target, string name) => target.GetType()
+            .GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, null);
+
+        static void WithNightState(bool night, System.Action action)
+        {
+            float oldProgress = LobbyNightState.Progress, oldHold = LobbyNightState.DepartureHold;
+            bool oldNight = LobbyNightState.TargetNight, oldInitialized = LobbyNightState.Initialized;
+            var set = typeof(LobbyNightState).GetMethod("Set", BindingFlags.Static | BindingFlags.NonPublic);
+            float oldTravel = LobbyNightState.CelestialTravel, oldVelocity = LobbyNightState.CelestialVelocity;
+            set.Invoke(null, new object[] { night ? 1f : 0f, night, 0f, 0f, 0f });
+            try { action(); }
+            finally
+            {
+                set.Invoke(null, new object[] { oldProgress, oldNight, oldHold, oldTravel, oldVelocity });
+                typeof(LobbyNightState).GetProperty(nameof(LobbyNightState.Initialized))
+                    .GetSetMethod(true).Invoke(null, new object[] { oldInitialized });
+            }
         }
 
         GrowthUnlockPresentation CreateView()

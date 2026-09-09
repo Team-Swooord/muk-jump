@@ -11,6 +11,7 @@ namespace MukJump.Core
         public static MobileApplicationLifecycle Instance { get; private set; }
         public static bool IsApplicationActive { get; private set; } = true;
 
+        static bool platformVisible = true;
         bool applicationPaused;
         bool applicationFocused = true;
 
@@ -34,10 +35,11 @@ namespace MukJump.Core
             }
 
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            if (Application.isPlaying)
+                DontDestroyOnLoad(gameObject);
             applicationPaused = false;
             applicationFocused = true;
-            SetApplicationActive(true);
+            RefreshApplicationState();
         }
 
         void OnDisable()
@@ -66,14 +68,30 @@ namespace MukJump.Core
 
         void RefreshApplicationState()
         {
-            SetApplicationActive(!applicationPaused && applicationFocused);
+            SetApplicationActive(ResolveApplicationActive(
+                applicationPaused,
+                applicationFocused,
+                platformVisible));
         }
 
         /// WebGL 호스트처럼 Unity의 포커스 콜백과 별도인 플랫폼 가시성 이벤트를 받는다.
         public static void SetPlatformVisibility(bool visible)
         {
-            SetApplicationActive(visible);
+            platformVisible = visible;
+            if (Instance != null)
+                Instance.RefreshApplicationState();
+            else
+                SetApplicationActive(ResolveApplicationActive(
+                    false,
+                    true,
+                    platformVisible));
         }
+
+        public static bool ResolveApplicationActive(
+            bool paused,
+            bool focused,
+            bool visible) =>
+            !paused && focused && visible;
 
         static void SetApplicationActive(bool active)
         {

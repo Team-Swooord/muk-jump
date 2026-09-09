@@ -9,6 +9,8 @@
     }
   ],
   "dependencies": {
+    "com.google.firebase.app": "file:Firebase/com.google.firebase.app-13.16.0.tgz",
+    "com.google.firebase.analytics": "file:Firebase/com.google.firebase.analytics-13.16.0.tgz",
     "com.google.ads.mobile": "11.4.0",
     "com.lupidan.apple-signin-unity": "https://github.com/lupidan/apple-signin-unity.git?path=Source#1.5.0",
     "com.unity.ads.ios-support": "1.0.1",

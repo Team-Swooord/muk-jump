@@ -16,9 +16,11 @@ namespace MukJump.Core
         [SerializeField, Min(0.01f)] float fadeSpeed = 0.45f;
 
         public static BackgroundMusicController Instance { get; private set; }
+        public bool IsFullScreenAdActive => fullScreenAdActive;
 
         AudioSource source;
         bool applicationActive = true;
+        bool fullScreenAdActive;
 
         void OnEnable()
         {
@@ -55,14 +57,14 @@ namespace MukJump.Core
                 return;
             }
 
-            if (applicationActive)
+            if (applicationActive && !fullScreenAdActive)
                 source.Play();
         }
 
         void Update()
         {
             if (Instance != this || source == null || source.clip == null ||
-                !applicationActive)
+                !applicationActive || fullScreenAdActive)
                 return;
 
             float stateVolume = GameManager.Instance == null
@@ -86,12 +88,32 @@ namespace MukJump.Core
         public void SetApplicationActive(bool active)
         {
             applicationActive = active;
+            ApplyPlaybackState();
+        }
+
+        /// 네이티브/호스트 전체 화면 광고는 Unity의 포커스·visibility 콜백을
+        /// 항상 발생시키지 않는다. 메뉴 일시정지의 저음량 정책과 분리해 BGM만
+        /// 확실히 멈추고, 광고와 앱 비활성 사유가 모두 풀렸을 때만 재개한다.
+        public void SetFullScreenAdActive(bool active)
+        {
+            fullScreenAdActive = active;
+            ApplyPlaybackState();
+        }
+
+        void ApplyPlaybackState()
+        {
             if (source == null || source.clip == null)
                 return;
-            if (active)
+            if (applicationActive && !fullScreenAdActive)
             {
                 if (!source.isPlaying)
+                {
                     source.UnPause();
+                    // 앱이 비활성인 상태에서 최초 생성됐다면 UnPause할 재생
+                    // 세션이 없으므로 이때만 처음부터 시작한다.
+                    if (!source.isPlaying)
+                        source.Play();
+                }
             }
             else
             {

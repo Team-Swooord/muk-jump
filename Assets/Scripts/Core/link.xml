@@ -1,0 +1,10 @@
+<linker>
+  <assembly fullname="Assembly-CSharp">
+    <!-- 저장 계약의 필드는 직접 읽지 않아도 JsonUtility에 필요하다.
+         IL2CPP가 구 버전 호환 필드를 제거하면 첫 정산부터 검증에 실패해
+         다음 게임 시작이 영구 차단되므로 DTO 전체를 보존한다. -->
+    <type fullname="MukJump.Core.PermanentGrowthProfile/SaveData" preserve="all" />
+    <type fullname="MukJump.Core.PermanentGrowthProfile/SaveHeader" preserve="all" />
+    <type fullname="MukJump.Core.PermanentGrowthProfile/RankRecord" preserve="all" />
+  </assembly>
+</linker>

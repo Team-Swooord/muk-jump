@@ -35,6 +35,8 @@ namespace MukJump.EditorTests
 
             Assert.That(settings.ShouldUseTestAds(true, false), Is.True);
             Assert.That(settings.ShouldUseTestAds(false, true), Is.True);
+            Assert.That(settings.ShouldUseTestAds(false, false, true), Is.True);
+            Assert.That(settings.ShouldUseTestAds(false, false, false), Is.False);
             Assert.That(android.Banner,
                 Is.EqualTo("ca-app-pub-3940256099942544/9214589741"));
             Assert.That(android.Rewarded,
@@ -50,18 +52,41 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void TestFlightQaVariantForcesTestAdsWithoutChangingProductionIds()
+        {
+            string runtime = File.ReadAllText(
+                "Assets/Scripts/Core/GoogleMobileAdsRuntime.cs");
+            string build = File.ReadAllText(
+                "Assets/Editor/MukJumpStoreBuild.cs");
+
+            Assert.That(
+                MukJumpStoreBuild.TestFlightQaAdsDefine,
+                Is.EqualTo("MUKJUMP_TEST_ADS"));
+            Assert.That(runtime, Does.Contain("#if MUKJUMP_TEST_ADS"));
+            Assert.That(runtime, Does.Contain("ForceTestAdsForBuild = true"));
+            Assert.That(runtime, Does.Contain("GoogleMobileAdsTestIds.For(platform)"));
+            Assert.That(build, Does.Contain("extraScriptingDefines"));
+            Assert.That(build, Does.Contain("new[] { TestFlightQaAdsDefine }"));
+
+            settings.ConfigureProductionAdMobIds();
+            Assert.That(
+                settings.AppIdFor(GoogleAdsPlatform.IOS),
+                Is.EqualTo("ca-app-pub-2944517353618559~8630103905"));
+        }
+
+        [Test]
         public void ReleaseRejectsShiftPublisherMismatchAndMissingBanner()
         {
             settings.ConfigureForTests(
                 true,
                 true,
                 false,
-                "ca-app-pub-2944517353618559~3326566482",
+                MukJumpGoogleAdsSettings.AndroidProductionAppId,
                 new GoogleAdUnitSet(
                     string.Empty,
                     "ca-app-pub-9163142359221291/3658718565",
                     "ca-app-pub-9163142359221291/4477669111"),
-                "ca-app-pub-2944517353618559~6105294520",
+                MukJumpGoogleAdsSettings.IosProductionAppId,
                 new GoogleAdUnitSet(
                     string.Empty,
                     "ca-app-pub-9163142359221291/3288053012",
@@ -82,7 +107,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ReleaseAcceptsCompleteSamePublisherConfiguration()
+        public void ReleaseRejectsCompleteConfigurationFromOtherPublisher()
         {
             var units = new GoogleAdUnitSet(
                 "ca-app-pub-1234567890123456/1000000001",
@@ -101,14 +126,44 @@ namespace MukJump.EditorTests
                 settings.TryValidateProduction(
                     GoogleAdsPlatform.Android,
                     out string androidError),
-                Is.True,
-                androidError);
+                Is.False);
+            Assert.That(androidError, Does.Contain("cysbandcs@gmail.com"));
             Assert.That(
                 settings.TryValidateProduction(
                     GoogleAdsPlatform.IOS,
                     out string iosError),
-                Is.True,
-                iosError);
+                Is.False);
+            Assert.That(iosError, Does.Contain("cysbandcs@gmail.com"));
+        }
+
+        [Test]
+        public void ReleaseRejectsOtherAppAndUnitsFromSamePublisher()
+        {
+            var units = new GoogleAdUnitSet(
+                "ca-app-pub-2944517353618559/1000000001",
+                "ca-app-pub-2944517353618559/1000000002",
+                string.Empty);
+            settings.ConfigureForTests(
+                true,
+                true,
+                false,
+                "ca-app-pub-2944517353618559~2000000001",
+                units,
+                "ca-app-pub-2944517353618559~2000000002",
+                units);
+
+            Assert.That(
+                settings.TryValidateProduction(
+                    GoogleAdsPlatform.Android,
+                    out string androidError),
+                Is.False);
+            Assert.That(androidError, Does.Contain("먹점프 전용"));
+            Assert.That(
+                settings.TryValidateProduction(
+                    GoogleAdsPlatform.IOS,
+                    out string iosError),
+                Is.False);
+            Assert.That(iosError, Does.Contain("먹점프 전용"));
         }
 
         [Test]
@@ -136,9 +191,39 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void ReleaseRequiresLobbyBannerForVersionOnePolicy()
+        {
+            settings.ConfigureForTests(
+                true,
+                false,
+                false,
+                MukJumpGoogleAdsSettings.AndroidProductionAppId,
+                new GoogleAdUnitSet(
+                    MukJumpGoogleAdsSettings.AndroidProductionBannerId,
+                    MukJumpGoogleAdsSettings.AndroidProductionRewardedId,
+                    string.Empty),
+                MukJumpGoogleAdsSettings.IosProductionAppId,
+                new GoogleAdUnitSet(
+                    MukJumpGoogleAdsSettings.IosProductionBannerId,
+                    MukJumpGoogleAdsSettings.IosProductionRewardedId,
+                    string.Empty));
+
+            Assert.That(
+                settings.TryValidateProduction(
+                    GoogleAdsPlatform.Android,
+                    out string error),
+                Is.False);
+            Assert.That(error, Does.Contain("로비 배너"));
+        }
+
+        [Test]
         public void ProductionPresetUsesMukJumpAdMobUnits()
         {
             settings.ConfigureProductionAdMobIds();
+
+            Assert.That(
+                MukJumpGoogleAdsSettings.ProductionPublisherPrefix,
+                Is.EqualTo("ca-app-pub-2944517353618559"));
 
             Assert.That(
                 settings.TryValidateProduction(
@@ -154,22 +239,22 @@ namespace MukJump.EditorTests
                 iosError);
             Assert.That(
                 settings.AppIdFor(GoogleAdsPlatform.Android),
-                Is.EqualTo("ca-app-pub-2944517353618559~3718407207"));
+                Is.EqualTo(MukJumpGoogleAdsSettings.AndroidProductionAppId));
             Assert.That(
                 settings.UnitsFor(GoogleAdsPlatform.Android).Banner,
-                Is.EqualTo("ca-app-pub-2944517353618559/6947205773"));
+                Is.EqualTo(MukJumpGoogleAdsSettings.AndroidProductionBannerId));
             Assert.That(
                 settings.UnitsFor(GoogleAdsPlatform.Android).Rewarded,
-                Is.EqualTo("ca-app-pub-2944517353618559/4202000231"));
+                Is.EqualTo(MukJumpGoogleAdsSettings.AndroidProductionRewardedId));
             Assert.That(
                 settings.AppIdFor(GoogleAdsPlatform.IOS),
-                Is.EqualTo("ca-app-pub-2944517353618559~8630103905"));
+                Is.EqualTo(MukJumpGoogleAdsSettings.IosProductionAppId));
             Assert.That(
                 settings.UnitsFor(GoogleAdsPlatform.IOS).Banner,
-                Is.EqualTo("ca-app-pub-2944517353618559/3377777224"));
+                Is.EqualTo(MukJumpGoogleAdsSettings.IosProductionBannerId));
             Assert.That(
                 settings.UnitsFor(GoogleAdsPlatform.IOS).Rewarded,
-                Is.EqualTo("ca-app-pub-2944517353618559/5343691518"));
+                Is.EqualTo(MukJumpGoogleAdsSettings.IosProductionRewardedId));
         }
 
         [Test]
@@ -231,6 +316,52 @@ namespace MukJump.EditorTests
             Assert.That(
                 MukJumpGoogleMobileAdsSetup.CollectPrivacyPolicyIssues(),
                 Is.Empty);
+        }
+
+        [TestCase(true, true, false, true, true)]
+        [TestCase(false, true, false, true, false)]
+        [TestCase(true, false, false, true, false)]
+        [TestCase(true, true, true, true, false)]
+        [TestCase(true, true, false, false, false)]
+        public void AttWaitsForActiveMainScreen(bool focused, bool active, bool splash, bool main, bool expected)
+        {
+            Assert.That(GoogleMobileAdsRuntimePolicy.CanRequestTrackingAuthorization(
+                focused, active, splash, main), Is.EqualTo(expected));
+        }
+
+        [TestCase(false, 40d, 30d, false)]
+        [TestCase(true, 29.999d, 30d, false)]
+        [TestCase(true, 30d, 30d, true)]
+        [TestCase(true, 40d, 0d, false)]
+        public void AttWatchdogOnlyExpiresAnActiveRequestWithADeadline(
+            bool requestInFlight,
+            double now,
+            double deadline,
+            bool expected)
+        {
+            Assert.That(
+                GoogleMobileAdsRuntimePolicy
+                    .HasTrackingAuthorizationTimedOut(
+                        requestInFlight,
+                        now,
+                        deadline),
+                Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void NativeAdSdkBoundariesHaveRetryAndFailOpenGuards()
+        {
+            string runtime = File.ReadAllText(
+                "Assets/Scripts/Core/GoogleMobileAdsRuntime.cs");
+
+            Assert.That(runtime, Does.Contain("TryConfigureSdkAndBeginFlow"));
+            Assert.That(runtime, Does.Contain("nextSdkSetupRetryTime"));
+            Assert.That(runtime, Does.Contain("TryGetTrackingAuthorizationStatus"));
+            Assert.That(runtime, Does.Contain("trackingAuthorizationDeadline"));
+            Assert.That(
+                runtime,
+                Does.Contain("ResolveTrackingAuthorizationAfterFailure"));
+            Assert.That(runtime, Does.Contain("completionSent"));
         }
 
         [Test]

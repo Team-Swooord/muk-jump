@@ -13,16 +13,16 @@ namespace MukJump.EditorTests
     {
         GameObject playerObject;
         GameObject itemObject;
-        HashSet<int> existingPlatformIds;
+        HashSet<EntityId> existingPlatformIds;
 
         [SetUp]
         public void SetUp()
         {
-            existingPlatformIds = new HashSet<int>();
+            existingPlatformIds = new HashSet<EntityId>();
             foreach (Drawing.PlatformCollider platform in
                      Object.FindObjectsByType<Drawing.PlatformCollider>(
-                         FindObjectsSortMode.None))
-                existingPlatformIds.Add(platform.GetInstanceID());
+                         ))
+                existingPlatformIds.Add(platform.GetEntityId());
             PermanentGrowthProfile.UseStoreForTests(
                 new MemoryPermanentGrowthStore());
         }
@@ -36,8 +36,8 @@ namespace MukJump.EditorTests
                 Object.DestroyImmediate(itemObject);
             foreach (Drawing.PlatformCollider platform in
                      Object.FindObjectsByType<Drawing.PlatformCollider>(
-                         FindObjectsSortMode.None))
-                if (!existingPlatformIds.Contains(platform.GetInstanceID()))
+                         ))
+                if (!existingPlatformIds.Contains(platform.GetEntityId()))
                     Object.DestroyImmediate(platform.gameObject);
             PermanentGrowthProfile.RestoreDefaultStoreForTests();
         }
@@ -85,6 +85,11 @@ namespace MukJump.EditorTests
             Invoke(pickup, "OnTriggerEnter2D",
                 player.GetComponent<CircleCollider2D>());
 
+            Assert.That(released, Is.False,
+                "효과는 즉시 적용하되 원화의 짧은 흡수가 끝난 뒤 반납합니다.");
+            Assert.That(player.HasShield, Is.True);
+            Assert.That(itemObject.GetComponent<CircleCollider2D>().enabled, Is.False);
+            Invoke(pickup, "AdvanceCollection", 0.2f);
             Assert.That(released, Is.True,
                 "기존 방어막을 쓴 뒤에는 남은 픽업을 다시 획득할 수 있어야 합니다.");
             Assert.That(itemObject.GetComponent<CircleCollider2D>().enabled, Is.False);

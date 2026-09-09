@@ -1,3 +1,4 @@
+using System;
 using AppsInToss;
 using UnityEngine;
 
@@ -19,11 +20,18 @@ namespace MukJump.Core
         LobbyScreenNavigator lobbyNavigator;
         LobbyOptionsView lobbyOptions;
         float nextBannerRetryAt;
+        bool runtimeActive;
+
+#if UNITY_EDITOR
+        Action<string> showBannerForTests;
+        Action hideBannerForTests;
+#endif
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Bootstrap()
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
+            LobbyAdLayout.ReserveDefaultTopInset();
             if (FindAnyObjectByType<AppsInTossAdRuntime>() == null)
                 new GameObject(nameof(AppsInTossAdRuntime))
                     .AddComponent<AppsInTossAdRuntime>();
@@ -32,6 +40,8 @@ namespace MukJump.Core
 
         void OnEnable()
         {
+            runtimeActive = true;
+            LobbyAdLayout.ReserveDefaultTopInset();
             DontDestroyOnLoad(gameObject);
             AppsInTossAdSettings settings =
                 Resources.Load<AppsInTossAdSettings>(SettingsResourcePath);
@@ -46,7 +56,10 @@ namespace MukJump.Core
             // 현재 출시 흐름은 부활 보상형만 필수다. 전면형 ID가 비어 있어도
             // 배너와 보상형 광고는 각각 독립적으로 동작해야 한다.
             if (string.IsNullOrWhiteSpace(rewardedId))
+            {
+                LobbyAdLayout.ClearTopInset();
                 return;
+            }
 
             provider = new AppsInTossAdProvider(rewardedId, interstitialId);
             MonetizationAds.RegisterProvider(provider);
@@ -63,43 +76,40 @@ namespace MukJump.Core
             if (lobbyOptions == null)
                 lobbyOptions = FindAnyObjectByType<LobbyOptionsView>();
 
-            bool mainLobbyScreen = lobbyNavigator == null ||
-                                   !lobbyNavigator.IsTransitioning &&
-                                   lobbyNavigator.CurrentSection ==
-                                   LobbyScreenNavigator.LobbySection.Lobby;
-            if (lobbyOptions != null && lobbyOptions.IsOpen)
-                mainLobbyScreen = false;
             bool shouldShowBanner = !string.IsNullOrWhiteSpace(bannerId) &&
-                                    GameManager.Instance != null &&
-                                    GameManager.Instance.State == GameState.Lobby &&
-                                    mainLobbyScreen &&
+                                    GoogleMobileAdsPresentation.ShouldShowTopBanner(
+                                        GameManager.Instance, lobbyNavigator, lobbyOptions) &&
                                     Time.realtimeSinceStartup >=
                                     nextBannerRetryAt;
             if (shouldShowBanner == bannerVisible)
                 return;
 
-            bannerVisible = shouldShowBanner;
-            if (bannerVisible)
+            if (shouldShowBanner)
             {
-                LobbyAdLayout.SetTopInsetFraction(
-                    DefaultBannerInsetFraction);
-                AITBannerAd.Show(
-                    bannerId,
-                    AITBannerPosition.Top,
-                    AITBannerTheme.Light,
-                    AITBannerTone.Grey,
-                    AITBannerVariant.Expanded);
+                // 다시 표시할 때 이미 받은 실제 크기를 기본 예약값으로 덮지 않는다.
+                if (LobbyAdLayout.MeasuredTopInsetFraction <= 0f)
+                    LobbyAdLayout.SetTopInsetFraction(DefaultBannerInsetFraction);
+                if (TryShowBanner())
+                {
+                    bannerVisible = true;
+                    LobbyAdLayout.MarkBannerVisible();
+                }
+                else
+                {
+                    ScheduleBannerRetry();
+                }
             }
             else
             {
-                AITBannerAd.Hide();
-                LobbyAdLayout.ClearTopInset();
+                bannerVisible = false;
+                LobbyAdLayout.MarkBannerHidden();
+                TryHideBanner();
             }
         }
 
         void HandleBannerEvent(AITBannerAdEvent bannerEvent)
         {
-            if (bannerEvent == null)
+            if (!runtimeActive || bannerEvent == null)
                 return;
             if (bannerEvent.Kind == AITBannerAdEventKind.Resized &&
                 bannerEvent.HeightFraction > 0f)
@@ -117,31 +127,106 @@ namespace MukJump.Core
 
         void HandleBannerError(string message)
         {
+            if (!runtimeActive)
+                return;
             Debug.LogWarning($"먹점프 토스 배너 오류: {message}");
             ScheduleBannerRetry();
         }
 
         void ScheduleBannerRetry()
         {
-            AITBannerAd.Hide();
             bannerVisible = false;
-            LobbyAdLayout.ClearTopInset();
+            LobbyAdLayout.MarkBannerHidden();
             nextBannerRetryAt =
                 Time.realtimeSinceStartup + BannerRetrySeconds;
+            TryHideBanner();
         }
 
         void OnDisable()
         {
-            if (bannerVisible)
-                AITBannerAd.Hide();
+            runtimeActive = false;
             bannerVisible = false;
-            AITBannerAd.OnAdEvent -= HandleBannerEvent;
-            AITBannerAd.OnError -= HandleBannerError;
+            LobbyAdLayout.MarkBannerHidden();
+            TryHideBanner();
+            try
+            {
+                AITBannerAd.OnAdEvent -= HandleBannerEvent;
+                AITBannerAd.OnError -= HandleBannerError;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    "먹점프 토스 배너 이벤트 해제 실패: " +
+                    exception.Message);
+            }
             LobbyAdLayout.ClearTopInset();
-            if (ReferenceEquals(MonetizationAds.Provider, provider))
-                MonetizationAds.ResetProvider();
-            provider?.Dispose();
+            try
+            {
+                if (ReferenceEquals(MonetizationAds.Provider, provider))
+                    MonetizationAds.ResetProvider();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    "먹점프 토스 광고 공급자 해제 실패: " +
+                    exception.Message);
+            }
+            try
+            {
+                provider?.Dispose();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    "먹점프 토스 광고 객체 정리 실패: " +
+                    exception.Message);
+            }
             provider = null;
+        }
+
+        bool TryShowBanner()
+        {
+            try
+            {
+#if UNITY_EDITOR
+                if (showBannerForTests != null)
+                    showBannerForTests.Invoke(bannerId);
+                else
+#endif
+                    AITBannerAd.Show(
+                        bannerId,
+                        AITBannerPosition.Top,
+                        AITBannerTheme.Light,
+                        AITBannerTone.Grey,
+                        AITBannerVariant.Expanded);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    "먹점프 토스 배너 표시 실패: " + exception.Message);
+                return false;
+            }
+        }
+
+        bool TryHideBanner()
+        {
+            try
+            {
+#if UNITY_EDITOR
+                if (hideBannerForTests != null)
+                    hideBannerForTests.Invoke();
+                else
+#endif
+                    AITBannerAd.Hide();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    "먹점프 토스 배너 숨김 실패: " + exception.Message);
+                return false;
+            }
         }
 
         public static string ResolveRewardedId(

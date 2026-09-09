@@ -4,6 +4,32 @@ using UnityEngine;
 
 namespace MukJump.Core
 {
+    public readonly struct LobbyCloudSettingsSnapshot
+    {
+        public LobbyCloudSettingsSnapshot(
+            float bgmVolume,
+            float sfxVolume,
+            float bgmResumeVolume,
+            float sfxResumeVolume,
+            int gameplayTutorialVersion,
+            bool tutorialSeen)
+        {
+            BgmVolume = bgmVolume;
+            SfxVolume = sfxVolume;
+            BgmResumeVolume = bgmResumeVolume;
+            SfxResumeVolume = sfxResumeVolume;
+            GameplayTutorialVersion = gameplayTutorialVersion;
+            TutorialSeen = tutorialSeen;
+        }
+
+        public float BgmVolume { get; }
+        public float SfxVolume { get; }
+        public float BgmResumeVolume { get; }
+        public float SfxResumeVolume { get; }
+        public int GameplayTutorialVersion { get; }
+        public bool TutorialSeen { get; }
+    }
+
     public interface ILobbySettingsStore
     {
         float GetFloat(string key, float fallback);
@@ -46,12 +72,15 @@ namespace MukJump.Core
         const string GameplayTutorialVersionKey =
             "MukJump.Settings.GameplayTutorialVersion";
         const string PlayerUidKey = "MukJump.Settings.PlayerUid";
+        const string LanguageKey = "MukJump.Settings.Language";
         const string HapticsEnabledKey = "MukJump.Settings.HapticsEnabled";
         const string ReducedMotionEnabledKey =
             "MukJump.Settings.ReducedMotionEnabled";
 
         static ILobbySettingsStore store = new PlayerPrefsLobbySettingsStore();
         static bool loaded;
+        // 완료 저장과 별개인 실행 단위 가드. 씬 재로드·계정 변경으로 초기화하지 않는다.
+        static bool gameplayStartedThisSession;
         static float bgmVolume;
         static float sfxVolume;
         static float bgmResumeVolume;
@@ -59,6 +88,45 @@ namespace MukJump.Core
         static bool tutorialSeen;
         static int gameplayTutorialVersion;
         static string playerUid;
+        static GameLanguage language;
+
+        public static GameLanguage Language { get { EnsureLoaded(); return language; } }
+
+        // 언어는 기기별 선택이다. 클라우드 설정 적용·계정 전환 때 덮어쓰지 않는다.
+        public static bool TrySetLanguage(GameLanguage next)
+        {
+            try { EnsureLoaded(); }
+            catch (Exception exception)
+            {
+                Debug.LogWarning("[MukJump] 언어 설정 읽기 실패: " + exception.Message);
+                return false;
+            }
+            if (next != GameLanguage.Korean && next != GameLanguage.English) return false;
+            if (language == next)
+            {
+                GameLocalization.NotifyChanged();
+                return true;
+            }
+            string previous = language == GameLanguage.English ? "en" : "ko";
+            try
+            {
+                store.SetString(LanguageKey, next == GameLanguage.English ? "en" : "ko");
+                store.Save();
+            }
+            catch (Exception exception)
+            {
+                try { store.SetString(LanguageKey, previous); }
+                catch (Exception rollbackException)
+                {
+                    Debug.LogWarning("[MukJump] 언어 선택 복원 실패: " + rollbackException.Message);
+                }
+                Debug.LogWarning("[MukJump] 언어 선택을 저장하지 못했습니다: " + exception.Message);
+                return false;
+            }
+            language = next;
+            GameLocalization.NotifyChanged();
+            return true;
+        }
         static bool hapticsEnabled;
         static bool reducedMotionEnabled;
 
@@ -140,9 +208,12 @@ namespace MukJump.Core
             }
         }
 
-        /// 최초 접속에서만 로비를 건너뛰고 게임 화면의 정지형 안내로 바로 진입한다.
+        /// 완료하지 않은 새 설치는 로비를 거치지 않고 첫 게임 안내로 들어간다.
         public static bool ShouldAutoStartGameplayTutorial =>
-            NeedsGameplayTutorial;
+            !gameplayStartedThisSession && NeedsGameplayTutorial;
+
+        internal static void MarkGameplayStartedThisSession() =>
+            gameplayStartedThisSession = true;
 
         public static string PlayerUid
         {
@@ -163,7 +234,7 @@ namespace MukJump.Core
             }
         }
 
-        /// 카메라 흔들림과 점프 줌을 줄이는 기기별 접근성 선택이다.
+        /// 카메라와 큰 UI 이동 연출을 줄이는 기기별 접근성 선택이다.
         public static bool ReducedMotionEnabled
         {
             get
@@ -176,6 +247,7 @@ namespace MukJump.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
         {
+            gameplayStartedThisSession = false;
             store = new PlayerPrefsLobbySettingsStore();
             loaded = false;
             Changed = null;
@@ -184,7 +256,7 @@ namespace MukJump.Core
         public static void SetBgmVolume(float value)
         {
             EnsureLoaded();
-            float next = Mathf.Clamp01(value);
+            float next = NormalizeVolume(value, bgmVolume);
             if (Mathf.Approximately(bgmVolume, next)) return;
             bgmVolume = next;
             store.SetFloat(BgmVolumeKey, bgmVolume);
@@ -193,13 +265,13 @@ namespace MukJump.Core
                 bgmResumeVolume = next;
                 store.SetFloat(BgmResumeVolumeKey, bgmResumeVolume);
             }
-            Changed?.Invoke();
+            NotifyChangedSafely();
         }
 
         public static void SetSfxVolume(float value)
         {
             EnsureLoaded();
-            float next = Mathf.Clamp01(value);
+            float next = NormalizeVolume(value, sfxVolume);
             if (Mathf.Approximately(sfxVolume, next)) return;
             sfxVolume = next;
             store.SetFloat(SfxVolumeKey, sfxVolume);
@@ -208,7 +280,7 @@ namespace MukJump.Core
                 sfxResumeVolume = next;
                 store.SetFloat(SfxResumeVolumeKey, sfxResumeVolume);
             }
-            Changed?.Invoke();
+            NotifyChangedSafely();
         }
 
         public static void SetHapticsEnabled(bool enabled)
@@ -217,8 +289,8 @@ namespace MukJump.Core
             if (hapticsEnabled == enabled) return;
             hapticsEnabled = enabled;
             store.SetInt(HapticsEnabledKey, enabled ? 1 : 0);
-            store.Save();
-            Changed?.Invoke();
+            TryFlush();
+            NotifyChangedSafely();
         }
 
         public static void SetReducedMotionEnabled(bool enabled)
@@ -227,8 +299,8 @@ namespace MukJump.Core
             if (reducedMotionEnabled == enabled) return;
             reducedMotionEnabled = enabled;
             store.SetInt(ReducedMotionEnabledKey, enabled ? 1 : 0);
-            store.Save();
-            Changed?.Invoke();
+            TryFlush();
+            NotifyChangedSafely();
         }
 
         public static void MarkTutorialSeen()
@@ -237,8 +309,8 @@ namespace MukJump.Core
             if (tutorialSeen) return;
             tutorialSeen = true;
             store.SetInt(TutorialSeenKey, 1);
-            store.Save();
-            Changed?.Invoke();
+            TryFlush();
+            NotifyChangedSafely();
         }
 
         /// 완료 또는 확인된 건너뛰기만 새 안내 버전을 기록한다.
@@ -258,7 +330,7 @@ namespace MukJump.Core
                 store.SetInt(TutorialSeenKey, 1);
                 store.Save();
                 if (changed)
-                    Changed?.Invoke();
+                    NotifyChangedSafely();
                 return true;
             }
             catch (Exception exception)
@@ -271,8 +343,26 @@ namespace MukJump.Core
 
         public static void Flush()
         {
-            EnsureLoaded();
-            store.Save();
+            TryFlush();
+        }
+
+        /// 옵션 내구 저장 실패가 로비 입력이나 화면 전환을 막지 않게 한다.
+        /// 값은 저장소에 이미 기록돼 있으므로 다음 Flush에서 다시 시도한다.
+        public static bool TryFlush()
+        {
+            try
+            {
+                EnsureLoaded();
+                store.Save();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    "[MukJump] 로비 설정을 저장하지 못해 다음 기회에 " +
+                    "다시 시도합니다: " + exception.Message);
+                return false;
+            }
         }
 
         /// 같은 계정의 서버 설정을 기기에 적용한다. 알려지지 않은 미래
@@ -283,12 +373,8 @@ namespace MukJump.Core
             int cloudTutorialVersion)
         {
             EnsureLoaded();
-            float nextBgm = Mathf.Clamp01(cloudBgmVolume);
-            float nextSfx = Mathf.Clamp01(cloudSfxVolume);
-            int nextTutorial = Mathf.Clamp(
-                cloudTutorialVersion,
-                0,
-                CurrentGameplayTutorialVersion);
+            float nextBgm = NormalizeVolume(cloudBgmVolume, bgmVolume);
+            float nextSfx = NormalizeVolume(cloudSfxVolume, sfxVolume);
 
             bgmVolume = nextBgm;
             sfxVolume = nextSfx;
@@ -296,8 +382,7 @@ namespace MukJump.Core
                 bgmResumeVolume = nextBgm;
             if (nextSfx > 0.01f)
                 sfxResumeVolume = nextSfx;
-            gameplayTutorialVersion = nextTutorial;
-            tutorialSeen = nextTutorial > 0;
+            // 첫 안내는 설치 단위다. 계정의 0/완료 값으로 생략하거나 다시 열지 않는다.
 
             store.SetFloat(BgmVolumeKey, bgmVolume);
             store.SetFloat(SfxVolumeKey, sfxVolume);
@@ -306,7 +391,63 @@ namespace MukJump.Core
             store.SetInt(GameplayTutorialVersionKey, gameplayTutorialVersion);
             store.SetInt(TutorialSeenKey, tutorialSeen ? 1 : 0);
             store.Save();
-            Changed?.Invoke();
+            NotifyChangedSafely();
+        }
+
+        public static LobbyCloudSettingsSnapshot CaptureCloudSettings()
+        {
+            EnsureLoaded();
+            return new LobbyCloudSettingsSnapshot(
+                bgmVolume,
+                sfxVolume,
+                bgmResumeVolume,
+                sfxResumeVolume,
+                gameplayTutorialVersion,
+                tutorialSeen);
+        }
+
+        /// 다중 저장소 계정 동기화가 중간 실패했을 때 클라우드가 관리하는
+        /// 설정만 정확히 되돌린다. 햅틱·감소 모션·로컬 UID는 건드리지 않는다.
+        public static bool TryRestoreCloudSettings(
+            LobbyCloudSettingsSnapshot snapshot)
+        {
+            EnsureLoaded();
+            bgmVolume = NormalizeVolume(snapshot.BgmVolume, bgmVolume);
+            sfxVolume = NormalizeVolume(snapshot.SfxVolume, sfxVolume);
+            bgmResumeVolume = Mathf.Clamp(
+                NormalizeVolume(snapshot.BgmResumeVolume, bgmResumeVolume),
+                0.1f,
+                1f);
+            sfxResumeVolume = Mathf.Clamp(
+                NormalizeVolume(snapshot.SfxResumeVolume, sfxResumeVolume),
+                0.1f,
+                1f);
+            // 계정 rollback 중 완료한 기기 튜토리얼도 되감지 않는다.
+
+            try
+            {
+                store.SetFloat(BgmVolumeKey, bgmVolume);
+                store.SetFloat(SfxVolumeKey, sfxVolume);
+                store.SetFloat(BgmResumeVolumeKey, bgmResumeVolume);
+                store.SetFloat(SfxResumeVolumeKey, sfxResumeVolume);
+                store.SetInt(
+                    GameplayTutorialVersionKey,
+                    gameplayTutorialVersion);
+                store.SetInt(TutorialSeenKey, tutorialSeen ? 1 : 0);
+                store.Save();
+                NotifyChangedSafely();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                // 메모리 값은 rollback 대상 그대로 유지해 현재 화면에 서버의
+                // 부분 적용값이 노출되지 않게 하고, 상위 계정 흐름은 계속 차단한다.
+                NotifyChangedSafely();
+                Debug.LogWarning(
+                    "[MukJump] 동기화 실패 뒤 로컬 설정 복원을 내구 저장하지 " +
+                    "못했습니다: " + exception.Message);
+                return false;
+            }
         }
 
         /// 회원 탈퇴 뒤 계정에 연결됐던 옵션·튜토리얼 식별값을 기본값으로
@@ -320,8 +461,6 @@ namespace MukJump.Core
                 sfxVolume = 1f;
                 bgmResumeVolume = 1f;
                 sfxResumeVolume = 1f;
-                tutorialSeen = false;
-                gameplayTutorialVersion = 0;
                 hapticsEnabled = true;
                 reducedMotionEnabled = false;
                 playerUid = "MUK-" +
@@ -333,13 +472,13 @@ namespace MukJump.Core
                 store.SetFloat(SfxVolumeKey, sfxVolume);
                 store.SetFloat(BgmResumeVolumeKey, bgmResumeVolume);
                 store.SetFloat(SfxResumeVolumeKey, sfxResumeVolume);
-                store.SetInt(TutorialSeenKey, 0);
-                store.SetInt(GameplayTutorialVersionKey, 0);
+                store.SetInt(TutorialSeenKey, tutorialSeen ? 1 : 0);
+                store.SetInt(GameplayTutorialVersionKey, gameplayTutorialVersion);
                 store.SetInt(HapticsEnabledKey, 1);
                 store.SetInt(ReducedMotionEnabledKey, 0);
                 store.SetString(PlayerUidKey, playerUid);
                 store.Save();
-                Changed?.Invoke();
+                NotifyChangedSafely();
                 return true;
             }
             catch (Exception exception)
@@ -350,22 +489,51 @@ namespace MukJump.Core
             }
         }
 
+        static void NotifyChangedSafely()
+        {
+            Action listeners = Changed;
+            if (listeners == null)
+                return;
+
+            foreach (Action listener in listeners.GetInvocationList())
+            {
+                try
+                {
+                    listener();
+                }
+                catch (Exception exception)
+                {
+                    // 설정 저장은 이미 끝난 상태다. 깨진 UI 관찰자 하나가
+                    // 저장 성공을 실패로 바꾸거나 다른 화면 갱신을 막지 않는다.
+                    Debug.LogWarning(
+                        "[MukJump] 로비 설정 변경 알림 구독자 예외를 격리했습니다: " +
+                        exception.Message);
+                }
+            }
+        }
+
+        /// 손상된 로컬/서버 값이 오디오와 다음 저장에 NaN을 전파하지 않는다.
+        public static float NormalizeVolume(float value, float fallback = 1f)
+        {
+            if (float.IsNaN(fallback) || float.IsInfinity(fallback)) fallback = 1f;
+            return Mathf.Clamp01(float.IsNaN(value) || float.IsInfinity(value) ? fallback : value);
+        }
+
         static void EnsureLoaded()
         {
             if (loaded) return;
-            loaded = true;
-            bgmVolume = Mathf.Clamp01(store.GetFloat(BgmVolumeKey, 1f));
-            sfxVolume = Mathf.Clamp01(store.GetFloat(SfxVolumeKey, 1f));
+            bgmVolume = NormalizeVolume(store.GetFloat(BgmVolumeKey, 1f));
+            sfxVolume = NormalizeVolume(store.GetFloat(SfxVolumeKey, 1f));
             bgmResumeVolume = Mathf.Clamp(
-                store.GetFloat(
+                NormalizeVolume(store.GetFloat(
                     BgmResumeVolumeKey,
-                    bgmVolume > 0.01f ? bgmVolume : 0.8f),
+                    bgmVolume > 0.01f ? bgmVolume : 0.8f), 0.8f),
                 0.1f,
                 1f);
             sfxResumeVolume = Mathf.Clamp(
-                store.GetFloat(
+                NormalizeVolume(store.GetFloat(
                     SfxResumeVolumeKey,
-                    sfxVolume > 0.01f ? sfxVolume : 0.8f),
+                    sfxVolume > 0.01f ? sfxVolume : 0.8f), 0.8f),
                 0.1f,
                 1f);
             tutorialSeen = store.GetInt(TutorialSeenKey, 0) != 0;
@@ -375,6 +543,8 @@ namespace MukJump.Core
             hapticsEnabled = store.GetInt(HapticsEnabledKey, 1) != 0;
             reducedMotionEnabled =
                 store.GetInt(ReducedMotionEnabledKey, 0) != 0;
+            language = store.GetString(LanguageKey, "ko") == "en"
+                ? GameLanguage.English : GameLanguage.Korean;
             playerUid = store.GetString(PlayerUidKey, string.Empty);
             if (string.IsNullOrWhiteSpace(playerUid))
             {
@@ -385,11 +555,14 @@ namespace MukJump.Core
                 store.SetString(PlayerUidKey, playerUid);
                 store.Save();
             }
+            // 일시적인 읽기 실패가 기본값을 영구 캐시하지 않도록 성공한 뒤 확정한다.
+            loaded = true;
         }
 
 #if UNITY_EDITOR
         public static void UseStoreForTests(ILobbySettingsStore testStore)
         {
+            gameplayStartedThisSession = false;
             store = testStore ??
                     throw new ArgumentNullException(nameof(testStore));
             loaded = false;
@@ -398,6 +571,7 @@ namespace MukJump.Core
 
         public static void RestoreDefaultStoreForTests()
         {
+            gameplayStartedThisSession = false;
             store = new PlayerPrefsLobbySettingsStore();
             loaded = false;
             Changed = null;
@@ -413,6 +587,7 @@ namespace MukJump.Core
         readonly Dictionary<string, int> ints = new();
 
         public int SaveCount { get; private set; }
+        public bool ThrowOnSave { get; set; }
 
         public float GetFloat(string key, float fallback) =>
             floats.TryGetValue(key, out float value) ? value : fallback;
@@ -424,7 +599,13 @@ namespace MukJump.Core
         public int GetInt(string key, int fallback) =>
             ints.TryGetValue(key, out int value) ? value : fallback;
         public void SetInt(string key, int value) => ints[key] = value;
-        public void Save() => SaveCount++;
+        public void Save()
+        {
+            if (ThrowOnSave)
+                throw new InvalidOperationException(
+                    "Injected lobby settings save failure");
+            SaveCount++;
+        }
     }
 #endif
 }

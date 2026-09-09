@@ -181,7 +181,7 @@ namespace MukJump.EditorTests
                 2400,
                 new Vector2(28f, 32f));
             float resultScale = MobileUiLayout.CalculateFitScale(
-                new Vector2(800f, 900f),
+                new Vector2(800f, 1080f),
                 safe,
                 1080,
                 2400,
@@ -189,7 +189,7 @@ namespace MukJump.EditorTests
 
             Assert.LessOrEqual(760f * pauseScale + 56f, logicalSafe.x + 0.01f);
             Assert.LessOrEqual(800f * resultScale + 56f, logicalSafe.x + 0.01f);
-            Assert.LessOrEqual(900f * resultScale + 64f, logicalSafe.y + 0.01f);
+            Assert.LessOrEqual(1080f * resultScale + 64f, logicalSafe.y + 0.01f);
         }
 
         [Test]
@@ -225,7 +225,7 @@ namespace MukJump.EditorTests
             Rect full = new Rect(0f, 0f, 1536f, 2048f);
 
             float scale = MobileUiLayout.CalculateFitScale(
-                new Vector2(800f, 900f),
+                new Vector2(800f, 1080f),
                 full,
                 1536,
                 2048,
@@ -247,6 +247,69 @@ namespace MukJump.EditorTests
             Assert.That(
                 LobbyAdLayout.CalculateCanvasInset(0f, -1f),
                 Is.Zero.Within(0.001f));
+        }
+
+        [Test]
+        public void HiddenLobbyBannerKeepsReservedLayoutUntilRuntimeStops()
+        {
+            try
+            {
+                LobbyAdLayout.SetTopInsetFraction(0.065f);
+                LobbyAdLayout.MarkBannerVisible();
+                float before = LobbyAdLayout.CalculateCanvasInset(
+                    1920f,
+                    LobbyAdLayout.TopInsetFraction);
+
+                LobbyAdLayout.MarkBannerHidden();
+                float after = LobbyAdLayout.CalculateCanvasInset(
+                    1920f,
+                    LobbyAdLayout.TopInsetFraction);
+
+                Assert.That(LobbyAdLayout.IsBannerVisible, Is.False);
+                Assert.That(after, Is.EqualTo(before).Within(0.001f),
+                    "배너만 숨길 때 로비 기준선까지 움직이면 안 됩니다.");
+
+                LobbyAdLayout.ClearTopInset();
+                Assert.That(LobbyAdLayout.TopInsetFraction, Is.Zero);
+            }
+            finally
+            {
+                LobbyAdLayout.ClearTopInset();
+            }
+        }
+
+        [Test]
+        public void DelayedBannerLoadAndResizeNeverMoveReservedLobbySlot()
+        {
+            try
+            {
+                LobbyAdLayout.ClearTopInset();
+                LobbyAdLayout.ReserveDefaultTopInset();
+                float reserved = LobbyAdLayout.TopInsetFraction;
+                Assert.That(
+                    reserved,
+                    Is.EqualTo(
+                        LobbyAdLayout.ReservedBannerInsetFraction));
+
+                LobbyAdLayout.SetTopInsetFraction(0.04f);
+                LobbyAdLayout.MarkBannerVisible();
+                Assert.That(LobbyAdLayout.TopInsetFraction, Is.EqualTo(reserved));
+                Assert.That(
+                    LobbyAdLayout.MeasuredTopInsetFraction,
+                    Is.EqualTo(0.04f));
+
+                LobbyAdLayout.SetTopInsetFraction(0.12f);
+                LobbyAdLayout.MarkBannerHidden();
+                Assert.That(
+                    LobbyAdLayout.TopInsetFraction,
+                    Is.EqualTo(reserved),
+                    "지연 로드·리사이즈·숨김에서 로비 기준선이 바뀌면 안 됩니다.");
+                Assert.That(LobbyAdLayout.IsBannerVisible, Is.False);
+            }
+            finally
+            {
+                LobbyAdLayout.ClearTopInset();
+            }
         }
     }
 }

@@ -19,7 +19,7 @@ namespace MukJump.Core
         {
             var manager = GameManager.Instance;
             var weather = WindWeatherController.Instance;
-            bool visible = manager != null && manager.State == GameState.Playing &&
+            bool visible = manager != null && manager.IsGameplayTicking &&
                            weather != null;
             if (!visible)
             {
@@ -27,7 +27,7 @@ namespace MukJump.Core
                 return;
             }
 
-            worldCamera ??= Camera.main;
+            if (worldCamera == null) worldCamera = Camera.main;
             if (worldCamera == null) return;
             EnsureLines();
             UpdateLines(weather);
@@ -73,6 +73,7 @@ namespace MukJump.Core
                 _ => 0f,
             };
             float alpha = Mathf.Lerp(breezeAlpha, updraftAlpha, phaseStrength);
+            if (rising) alpha = Mathf.Min(alpha, .12f);
             float halfHeight = worldCamera.orthographicSize;
             float halfWidth = halfHeight * worldCamera.aspect;
             Vector3 center = worldCamera.transform.position;
@@ -83,6 +84,11 @@ namespace MukJump.Core
                 VfxQualityRuntime.Profile.WeatherLineCount,
                 1,
                 lines.Length);
+            if (rising) activeLineCount = Mathf.Min(activeLineCount, 4);
+            // HUD의 실제 하단(상단 기준 논리 좌표)을 월드로 옮겨 입자 끝까지 그 아래에 둔다.
+            Rect hud = GameplayHudView.CalculateTopHudRect(MobileUiLayout.CurrentSafeArea,
+                Screen.width, Screen.height);
+            float ceiling = Mathf.Clamp(1f + hud.yMin / MobileUiLayout.ReferenceHeight - .025f, .25f, .90f);
 
             for (int i = 0; i < lines.Length; i++)
             {
@@ -93,24 +99,29 @@ namespace MukJump.Core
                     continue;
                 }
                 line.enabled = true;
-                Color color = rising ? InkPalette.Gold : InkPalette.WindAccent;
+                Color color = InkPalette.WindAccent;
                 color.a = alpha * (0.78f + i % 3 * 0.11f);
                 line.startColor = line.endColor = color;
 
                 if (rising)
                 {
-                    float travel = Mathf.Repeat(Time.time * (0.7f + phaseStrength * 1.1f) +
-                                                i * 0.137f, 1f);
-                    float x = center.x - halfWidth + Mathf.Repeat(i * 1.83f,
-                        halfWidth * 2f);
-                    float y = center.y - halfHeight + travel * halfHeight * 2f;
-                    float length = 0.65f + i % 4 * 0.18f;
-                    float lean = direction * 0.08f;
+                    float travel = Mathf.Repeat(Time.time * .20f + i * .25f, 1f);
+                    float x = center.x + Mathf.Lerp(-.78f, .78f, (i + .5f) / activeLineCount) * halfWidth;
+                    float length = .38f + i % 3 * .08f;
+                    float bottom = center.y - halfHeight * .72f + length * .5f;
+                    float top = center.y - halfHeight + ceiling * halfHeight * 2f - length * .5f;
+                    float y = Mathf.Lerp(bottom, Mathf.Max(bottom, top), travel);
+                    float lean = direction * .035f;
+                    color.a *= Mathf.SmoothStep(0f, 1f, travel / .12f) *
+                        Mathf.SmoothStep(0f, 1f, (1f - travel) / .18f);
+                    line.startColor = line.endColor = color;
+                    line.startWidth = line.endWidth = .018f;
                     line.SetPosition(0, new Vector3(x, y - length * 0.5f, 0f));
                     line.SetPosition(1, new Vector3(x + lean, y + length * 0.5f, 0f));
                 }
                 else
                 {
+                    line.startWidth = line.endWidth = .025f + i % 3 * .008f;
                     float travel = Mathf.Repeat(Time.time * (0.25f + weather.Strength01 * 0.55f) +
                                                 i * 0.157f, 1f);
                     if (direction < 0f) travel = 1f - travel;

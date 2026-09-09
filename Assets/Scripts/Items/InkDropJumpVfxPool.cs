@@ -54,8 +54,7 @@ namespace MukJump.Items
                 // 참조가 먼저 사라질 수 있다. 계층에 남은 서비스를 우선 복구해야
                 // 분신마다 별도 풀이 생기지 않는다.
                 var candidates = FindObjectsByType<InkDropJumpVfxPool>(
-                    FindObjectsInactive.Exclude,
-                    FindObjectsSortMode.None);
+                    FindObjectsInactive.Exclude);
                 for (int i = 0; i < candidates.Length; i++)
                 {
                     if (!candidates[i].isActiveAndEnabled) continue;

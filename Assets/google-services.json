@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "82898003095",
+    "project_id": "mukjump-3751d",
+    "storage_bucket": "mukjump-3751d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:82898003095:android:5dec4e01abb1de1ca2b5d2",
+        "android_client_info": {
+          "package_name": "com.CYSB.MukJump"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDghts8Zs-ja-kU7AJ2zzw_id3XBg-bzOs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

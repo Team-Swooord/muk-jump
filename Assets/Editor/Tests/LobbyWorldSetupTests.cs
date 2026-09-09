@@ -92,6 +92,15 @@ namespace MukJump.EditorTests
                 "시작 버튼 뒤에는 실제 플레이어가 보여야 합니다.");
             Assert.IsTrue(line.enabled,
                 "시작 버튼 뒤에는 첫 점프용 먹선이 보여야 합니다.");
+            LobbyWorldSetup.NotifyStarterTakeoff(platform);
+            Assert.That(line.enabled, Is.False, "첫 이륙 뒤 시작 먹선은 사라져야 합니다.");
+            Assert.That(platform.GetComponent<EdgeCollider2D>().enabled, Is.False);
+            setup.ApplyPresentationForTests(GameState.Playing);
+            Assert.That(line.enabled, Is.False, "표시 갱신으로 시작 먹선이 되살아나면 안 됩니다.");
+            setup.ApplyPresentationForTests(GameState.Lobby);
+            Assert.That(platform.GetComponent<EdgeCollider2D>().enabled, Is.True);
+            setup.ApplyPresentationForTests(GameState.Playing);
+            Assert.That(line.enabled, Is.True, "새 도전에는 첫 점프 발판이 다시 필요합니다.");
         }
 
         [Test]

@@ -223,6 +223,18 @@ namespace MukJump.Obstacles
 
         void AdvanceTelegraph(float deltaTime)
         {
+            // 예고 중 카메라가 올라가도 해태가 화면 아래에 남지 않게 한다.
+            // 벽 선택은 유지하고 출발 전까지 현재 화면의 상단/하단을 따라간다.
+            // 돌진 시작 이후에는 경로를 고정해 추적 공격이나 순간 이동을 막는다.
+            if (worldCamera != null)
+            {
+                ResolveWallDescentPath(out Vector2 start, out Vector2 end);
+                lockedStart = start;
+                lockedTarget = end;
+                transform.position = new Vector3(start.x, start.y, transform.position.z);
+                body.position = start;
+                LayoutLockedWarningPath();
+            }
             stateElapsed += deltaTime;
             float normalized = Mathf.Clamp01(stateElapsed / telegraphDuration);
             float materializeStart = telegraphDuration * WarningOnlyFraction;
@@ -469,8 +481,10 @@ namespace MukJump.Obstacles
             hiddenColor.a = 0f;
             spriteRenderer.color = hiddenColor;
             // 원본 해태의 머리는 왼쪽을 향하므로 90도 회전하면 아래를 바라본다.
-            // 어느 벽이 선택돼도 회전·유도 없이 같은 방향으로 곧게 내려온다.
+            // 회전 전 Y 반전으로 왼쪽 해태의 발만 벽 쪽으로 향하게 한다.
+            // 루트 회전·콜라이더·수직 이동 경로는 양쪽 모두 유지한다.
             spriteRenderer.flipX = false;
+            spriteRenderer.flipY = enterFromLeft;
             transform.localScale = baseScale;
             transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             SetFrame(0);
@@ -822,6 +836,7 @@ namespace MukJump.Obstacles
             hitbox.enabled = false;
             spriteRenderer.enabled = false;
             spriteRenderer.flipX = false;
+            spriteRenderer.flipY = false;
             spriteRenderer.color = baseColor;
             transform.localScale = baseScale;
             transform.localRotation = Quaternion.identity;

@@ -23,6 +23,36 @@ namespace MukJump.EditorTools
                 return;
 
             ApplyToInfoPlist(buildPath);
+            ApplyUserDefaultsReason(buildPath);
+        }
+
+        public static void ApplyUserDefaultsReason(string buildPath)
+        {
+            string path = Path.Combine(buildPath, "UnityFramework/PrivacyInfo.xcprivacy");
+            var manifest = new PlistDocument();
+            if (File.Exists(path)) manifest.ReadFromFile(path);
+            var root = manifest.root;
+            var types = root.values.TryGetValue("NSPrivacyAccessedAPITypes", out var existing)
+                ? existing.AsArray() : root.CreateArray("NSPrivacyAccessedAPITypes");
+            foreach (var entry in types.values)
+            {
+                var item = entry.AsDict();
+                if (!item.values.TryGetValue("NSPrivacyAccessedAPIType", out var category) ||
+                    category.AsString() != "NSPrivacyAccessedAPICategoryUserDefaults") continue;
+                var reasons = item.values.TryGetValue("NSPrivacyAccessedAPITypeReasons", out var saved)
+                    ? saved.AsArray() : item.CreateArray("NSPrivacyAccessedAPITypeReasons");
+                foreach (var reason in reasons.values)
+                    if (reason.AsString() == "CA92.1") return;
+                reasons.AddString("CA92.1");
+                File.WriteAllText(path, manifest.WriteToString());
+                return;
+            }
+            // Game Center 재전송 대기 기록은 이 앱의 standardUserDefaults에만 저장한다.
+            var declaration = types.AddDict();
+            declaration.SetString("NSPrivacyAccessedAPIType", "NSPrivacyAccessedAPICategoryUserDefaults");
+            declaration.CreateArray("NSPrivacyAccessedAPITypeReasons").AddString("CA92.1");
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllText(path, manifest.WriteToString());
         }
 
         public static void ApplyToInfoPlist(string buildPath)

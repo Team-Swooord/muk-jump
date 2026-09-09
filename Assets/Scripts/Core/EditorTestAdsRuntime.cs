@@ -10,6 +10,7 @@ namespace MukJump.Core
     {
         const int CanvasSortingOrder = 9000;
         const float BannerHeight = 96f;
+        const float BannerTopPadding = 8f;
 
         sealed class EditorTestProvider : IFullScreenAdProvider
         {
@@ -63,6 +64,14 @@ namespace MukJump.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Bootstrap()
         {
+            EnsureExists();
+        }
+
+        /// RuntimeInitialize 호출 순서와 무관하게 GameManager에서도 한 번 더 보장한다.
+        /// 빠른 Play 진입·도메인 설정 차이로 테스트 광고 전체가 빠지는 일을 막는다.
+        public static void EnsureExists()
+        {
+            LobbyAdLayout.ReserveDefaultTopInset();
             if (FindAnyObjectByType<EditorTestAdsRuntime>() == null)
                 new GameObject(nameof(EditorTestAdsRuntime))
                     .AddComponent<EditorTestAdsRuntime>();
@@ -95,7 +104,7 @@ namespace MukJump.Core
                 options = FindAnyObjectByType<LobbyOptionsView>();
             bool showBanner = !IsFullScreenOpen &&
                               GoogleMobileAdsPresentation
-                                  .ShouldShowLobbyBanner(
+                                  .ShouldShowTopBanner(
                                       GameManager.Instance,
                                       navigator,
                                       options);
@@ -106,12 +115,13 @@ namespace MukJump.Core
                 if (bannerVisible)
                 {
                     LobbyAdLayout.SetTopInsetFraction(
-                        (BannerHeight + 16f) /
+                        (BannerHeight + BannerTopPadding) /
                         MobileUiLayout.ReferenceHeight);
+                    LobbyAdLayout.MarkBannerVisible();
                 }
                 else
                 {
-                    LobbyAdLayout.ClearTopInset();
+                    LobbyAdLayout.MarkBannerHidden();
                 }
             }
         }
@@ -161,7 +171,7 @@ namespace MukJump.Core
                 new Vector2(920f, BannerHeight));
             root.anchorMin = root.anchorMax = new Vector2(0.5f, 1f);
             root.pivot = new Vector2(0.5f, 1f);
-            root.anchoredPosition = new Vector2(0f, -8f);
+            root.anchoredPosition = new Vector2(0f, -BannerTopPadding);
             Image outline = root.gameObject.AddComponent<Image>();
             outline.color = new Color(
                 InkPalette.Ink.r,
@@ -181,7 +191,7 @@ namespace MukJump.Core
             Text label = CreateText(
                 "Label",
                 paper,
-                "Google 테스트 광고  ·  로비 상단 배너",
+                "Google 테스트 광고  ·  상단 배너",
                 34,
                 Vector2.zero,
                 new Vector2(850f, 70f),
@@ -263,20 +273,20 @@ namespace MukJump.Core
             pendingCompletion = onCompleted;
             bool rewarded = placement !=
                             FullScreenAdPlacement.PostRunInterstitial;
-            fullScreenTitle.text = rewarded
+            InkLocalizedText.SetSource(fullScreenTitle, rewarded
                 ? "보상형 광고 테스트"
-                : "전면 광고 테스트";
-            fullScreenDescription.text = rewarded
+                : "전면 광고 테스트");
+            InkLocalizedText.SetSource(fullScreenDescription, rewarded
                 ? "에디터에서는 실제 광고 대신 이 화면으로\n부활 보상 지급과 취소 흐름을 확인합니다."
-                : "에디터 전면 광고 모의 화면입니다.\n닫은 뒤 게임 흐름이 정상인지 확인하세요.";
-            confirmLabel.text = rewarded
+                : "에디터 전면 광고 모의 화면입니다.\n닫은 뒤 게임 흐름이 정상인지 확인하세요.");
+            InkLocalizedText.SetSource(confirmLabel, rewarded
                 ? "테스트 보상 완료"
-                : "테스트 광고 닫기";
+                : "테스트 광고 닫기");
             cancelButton.gameObject.SetActive(rewarded);
             SetGroupVisible(fullScreenGroup, true, true);
             SetGroupVisible(bannerGroup, false, false);
             bannerVisible = false;
-            LobbyAdLayout.ClearTopInset();
+            LobbyAdLayout.MarkBannerHidden();
         }
 
         void Complete(bool completed)
@@ -319,9 +329,7 @@ namespace MukJump.Core
         {
             RectTransform root = CreateRect(name, parent, position, size);
             Image image = root.gameObject.AddComponent<Image>();
-            image.color = primary ? InkPalette.Ink : InkPalette.Paper2;
             Button button = root.gameObject.AddComponent<Button>();
-            button.targetGraphic = image;
             label = CreateText(
                 "Label",
                 root,
@@ -329,8 +337,15 @@ namespace MukJump.Core
                 40,
                 Vector2.zero,
                 size - new Vector2(32f, 20f),
-                primary ? InkPalette.TextLight : InkPalette.TextDark);
+                InkPalette.TextDark);
             label.fontStyle = FontStyle.Bold;
+            InkUiStyle.ConfigureActionButton(
+                button,
+                image,
+                label,
+                primary
+                    ? ActionButtonRole.Primary
+                    : ActionButtonRole.Secondary);
             return button;
         }
 
@@ -345,7 +360,7 @@ namespace MukJump.Core
         {
             RectTransform rect = CreateRect(name, parent, position, size);
             Text text = rect.gameObject.AddComponent<Text>();
-            text.text = value;
+            InkLocalizedText.SetSource(text, value);
             text.color = color;
             InkUiStyle.ApplyReadableText(
                 text,

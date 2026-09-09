@@ -10,7 +10,8 @@ namespace MukJump.Core
     {
         const int CanvasSortingOrder = 1000;
         const float ShowDuration = 0.18f;
-        const float HideDuration = 0.12f;
+        const int PauseActionLabelSize = 56;
+        public const float PauseVisualSize = 72f;
         static readonly Vector2 PanelDesignSize = new(760f, 680f);
         static readonly Vector2 PanelEdgePadding = new(28f, 32f);
 
@@ -25,13 +26,31 @@ namespace MukJump.Core
         Button pauseButton;
         Button resumeButton;
         Button lobbyButton;
+        RectTransform exitPromptRoot;
+        RectTransform exitSafeAreaRoot;
+        RectTransform exitPanel;
+        HanjiScrollFrame exitFrame;
+        Button confirmExitButton;
+        Button cancelExitButton;
+        Button exitDimButton;
+        bool exitConfirmationOpen;
+        bool exitClosing;
+        GameManager exitOwner;
         GameManager boundManager;
         Coroutine visibilityRoutine;
         bool overlayVisible;
         int lastScreenWidth;
         int lastScreenHeight;
         Rect lastSafeArea;
+        float lastBannerInset = -1f;
         float panelLayoutScale = 1f;
+
+        // 로비 전환은 화면이 덮일 때까지 UserMenu 일시정지를 유지한다.
+        // 이 동안 닫힌 두루마리를 새 일시정지 요청으로 오인해 다시 열면 안 된다.
+        bool ShouldShowPauseMenu => boundManager != null &&
+                                    boundManager.State == GameState.Playing &&
+                                    boundManager.PauseReason == GameplayPauseReason.UserMenu &&
+                                    !boundManager.IsTransitioning;
 
         void Awake()
         {
@@ -58,6 +77,7 @@ namespace MukJump.Core
             }
             UnbindButtons();
             UnbindManager();
+            SetOverlayVisible(false, false);
             if (Instance == this) Instance = null;
         }
 
@@ -67,9 +87,15 @@ namespace MukJump.Core
             BindManager();
             if (lastScreenWidth != Screen.width ||
                 lastScreenHeight != Screen.height ||
-                lastSafeArea != MobileUiLayout.CurrentSafeArea)
+                lastSafeArea != MobileUiLayout.CurrentSafeArea ||
+                lastBannerInset != LobbyAdLayout.GameplayTopInsetFraction)
                 ApplySafeArea();
 
+            RefreshManagerState();
+        }
+
+        void RefreshManagerState()
+        {
             if (boundManager == null)
             {
                 if (pauseButton != null) pauseButton.gameObject.SetActive(false);
@@ -83,8 +109,7 @@ namespace MukJump.Core
                             visibilityRoutine == null;
             if (pauseButton != null && pauseButton.gameObject.activeSelf != canPause)
                 pauseButton.gameObject.SetActive(canPause);
-            bool menuPaused =
-                boundManager.PauseReason == GameplayPauseReason.UserMenu;
+            bool menuPaused = ShouldShowPauseMenu;
             if (menuPaused != overlayVisible)
                 SetOverlayVisible(menuPaused, true);
         }
@@ -106,6 +131,7 @@ namespace MukJump.Core
         {
             var manager = GameManager.Instance;
             if (manager == boundManager) return;
+            ResetExitConfirmation();
             UnbindManager();
             boundManager = manager;
             if (boundManager != null)
@@ -125,6 +151,9 @@ namespace MukJump.Core
             pauseButton?.onClick.AddListener(HandlePausePressed);
             resumeButton?.onClick.AddListener(HandleResumePressed);
             lobbyButton?.onClick.AddListener(HandleLobbyPressed);
+            confirmExitButton?.onClick.AddListener(HandleExitConfirmed);
+            cancelExitButton?.onClick.AddListener(HandleExitCancelled);
+            exitDimButton?.onClick.AddListener(HandleExitCancelled);
         }
 
         void UnbindButtons()
@@ -132,6 +161,9 @@ namespace MukJump.Core
             pauseButton?.onClick.RemoveListener(HandlePausePressed);
             resumeButton?.onClick.RemoveListener(HandleResumePressed);
             lobbyButton?.onClick.RemoveListener(HandleLobbyPressed);
+            confirmExitButton?.onClick.RemoveListener(HandleExitConfirmed);
+            cancelExitButton?.onClick.RemoveListener(HandleExitCancelled);
+            exitDimButton?.onClick.RemoveListener(HandleExitCancelled);
         }
 
         void HandlePausePressed()
@@ -141,26 +173,110 @@ namespace MukJump.Core
 
         void HandleResumePressed()
         {
-            boundManager?.ResumeGame();
+            CloseBeforeAction(() =>
+            {
+                if (boundManager != null && !boundManager.ResumeGame())
+                    SetOverlayVisible(true, false);
+            });
         }
 
         void HandleLobbyPressed()
         {
+            if (!ShouldShowPauseMenu)
+            {
+                SetOverlayVisible(false, false);
+                return;
+            }
+            if (!overlayVisible || exitConfirmationOpen || exitClosing ||
+                panel.GetComponent<HanjiScrollFrame>().IsClosing) return;
+            BuildExitConfirmation();
+            exitOwner = boundManager;
+            exitConfirmationOpen = true;
+            exitFrame.ResetPresentation();
+            exitPromptRoot.gameObject.SetActive(true);
+            confirmExitButton.interactable = cancelExitButton.interactable = exitDimButton.interactable = true;
+            resumeButton.interactable = lobbyButton.interactable = false;
+        }
+
+        void HandleExitCancelled()
+        {
+            if (!exitConfirmationOpen || exitClosing) return;
+            CloseExitConfirmation(null);
+        }
+
+        void HandleExitConfirmed()
+        {
+            if (!exitConfirmationOpen || exitClosing || exitOwner != boundManager || !ShouldShowPauseMenu) return;
+            GameManager owner = exitOwner;
+            CloseExitConfirmation(() =>
+            {
+                if (owner == boundManager && ShouldShowPauseMenu)
+                    LeaveAfterConfirmation();
+            });
+        }
+
+        void LeaveAfterConfirmation()
+        {
+            CloseBeforeAction(() =>
+            {
+                if (boundManager == null || !boundManager.ReturnToLobby())
+                {
+                    if (resumeButton != null) resumeButton.interactable = true;
+                    if (lobbyButton != null) lobbyButton.interactable = true;
+                    SetOverlayVisible(true, false);
+                }
+            });
+        }
+
+        void CloseExitConfirmation(System.Action completed)
+        {
+            exitConfirmationOpen = false;
+            exitClosing = true;
+            confirmExitButton.interactable = cancelExitButton.interactable = exitDimButton.interactable = false;
+            exitFrame.Close(() =>
+            {
+                exitPromptRoot.gameObject.SetActive(false);
+                exitClosing = false;
+                exitOwner = null;
+                if (ShouldShowPauseMenu)
+                    resumeButton.interactable = lobbyButton.interactable = true;
+                completed?.Invoke();
+            });
+        }
+
+        void ResetExitConfirmation()
+        {
+            exitConfirmationOpen = exitClosing = false;
+            exitOwner = null;
+            exitFrame?.ResetPresentation();
+            if (exitPromptRoot != null) exitPromptRoot.gameObject.SetActive(false);
+        }
+
+        void CloseBeforeAction(System.Action action)
+        {
+            if (panel == null || !overlayVisible || exitConfirmationOpen || exitClosing) return;
+            var frame = panel.GetComponent<HanjiScrollFrame>();
+            if (frame.IsClosing) return;
+            GameManager owner = boundManager;
+            if (visibilityRoutine != null) StopCoroutine(visibilityRoutine);
+            visibilityRoutine = null;
             if (resumeButton != null) resumeButton.interactable = false;
             if (lobbyButton != null) lobbyButton.interactable = false;
-            if (boundManager == null || !boundManager.ReturnToLobby())
+            overlayGroup.interactable = false;
+            frame.Close(() =>
             {
-                if (resumeButton != null) resumeButton.interactable = true;
-                if (lobbyButton != null) lobbyButton.interactable = true;
-            }
+                SetOverlayVisible(false, false);
+                if (owner != null && boundManager == owner &&
+                    owner.State == GameState.Playing &&
+                    !owner.IsTransitioning &&
+                    owner.PauseReason == GameplayPauseReason.UserMenu)
+                    action?.Invoke();
+            }, overlayGroup);
         }
 
         void HandlePauseChanged(bool paused)
         {
-            bool menuPaused = paused &&
-                              boundManager != null &&
-                              boundManager.PauseReason ==
-                              GameplayPauseReason.UserMenu;
+            bool menuPaused = paused && ShouldShowPauseMenu;
             if (!menuPaused)
             {
                 if (resumeButton != null) resumeButton.interactable = true;
@@ -179,9 +295,7 @@ namespace MukJump.Core
         void RefreshImmediate()
         {
             ApplySafeArea();
-            bool menuPaused = boundManager != null &&
-                              boundManager.PauseReason ==
-                              GameplayPauseReason.UserMenu;
+            bool menuPaused = ShouldShowPauseMenu;
             SetOverlayVisible(menuPaused, false);
             if (pauseButton != null)
                 pauseButton.gameObject.SetActive(
@@ -194,7 +308,28 @@ namespace MukJump.Core
         void SetOverlayVisible(bool visible, bool animate)
         {
             overlayVisible = visible;
+            if (!visible) ResetExitConfirmation();
             if (overlayGroup == null || panel == null) return;
+            var frame = panel.GetComponent<HanjiScrollFrame>();
+            if (!visible && animate && Application.isPlaying)
+            {
+                if (visibilityRoutine != null) StopCoroutine(visibilityRoutine);
+                visibilityRoutine = null;
+                overlayGroup.interactable = false;
+                frame.Close(() => SetOverlayVisible(false, false), overlayGroup);
+                return;
+            }
+            if (visible)
+            {
+                frame.CancelClose();
+                // 씬 전환이 취소되면 PauseChanged 없이 Update에서 복구될 수도 있다.
+                bool canAct = !exitConfirmationOpen && !exitClosing;
+                if (resumeButton != null) resumeButton.interactable = canAct;
+                if (lobbyButton != null) lobbyButton.interactable = canAct;
+            }
+            else frame.ResetPresentation();
+            if (LobbySettingsProfile.ReducedMotionEnabled)
+                animate = false;
             if (visibilityRoutine != null)
             {
                 StopCoroutine(visibilityRoutine);
@@ -218,15 +353,15 @@ namespace MukJump.Core
             float startAlpha = overlayGroup.alpha;
             float targetAlpha = visible ? 1f : 0f;
             float safeLayoutScale = Mathf.Max(0.01f, panelLayoutScale);
-            float startScale = panel.localScale.x / safeLayoutScale;
-            float targetScale = visible ? 1f : 0.98f;
+            float startScale = 1f;
+            float targetScale = 1f;
             if (visible && startAlpha <= 0.001f)
             {
-                startScale = 0.96f;
+                startScale = 1f;
                 ApplyPanelPresentationScale(startScale);
             }
 
-            float duration = visible ? ShowDuration : HideDuration;
+            float duration = ShowDuration;
             float elapsed = 0f;
             while (elapsed < duration)
             {
@@ -248,11 +383,16 @@ namespace MukJump.Core
 
         void BuildIfNeeded()
         {
-            if (rootCanvas != null) return;
+            if (rootCanvas != null)
+            {
+                BuildExitConfirmation();
+                return;
+            }
 
             var existing = transform.Find("PauseMenuCanvas");
             if (existing != null && RestoreExistingReferences(existing))
             {
+                BuildExitConfirmation();
                 ApplySafeArea();
                 return;
             }
@@ -300,20 +440,67 @@ namespace MukJump.Core
 
             BuildPauseScrollFrame(panel);
 
-            var title = CreateText("Title", panel, "잠시 멈춤", 58,
-                new Vector2(0f, 165f), new Vector2(520f, 78f),
-                InkPalette.TextDark, FontStyle.Normal);
-            title.alignment = TextAnchor.MiddleCenter;
-            AddSoftWeight(title, InkPalette.Ink, 0.2f);
+            var title = CreateText("Title", panel, "잠시 멈춤", InkUiStyle.PauseTitleSize,
+                new Vector2(0f, 165f), new Vector2(580f, 112f),
+                InkPalette.Ink, FontStyle.Bold);
+            ConfigurePauseTitle(title);
 
             resumeButton = CreateBrushButton("ResumeButton", panel, "계속하기",
-                new Vector2(0f, 25f), true);
+                new Vector2(0f, 25f), ActionButtonRole.Primary);
             lobbyButton = CreateBrushButton("LobbyButton", panel, "로비로",
-                new Vector2(0f, -120f), false);
-            ApplyActionPriority(resumeButton, 1f);
-            ApplyActionPriority(lobbyButton, 0.88f);
+                new Vector2(0f, -120f), ActionButtonRole.Secondary);
+            ApplyActionPriority(resumeButton, ActionButtonRole.Primary);
+            ApplyActionPriority(lobbyButton, ActionButtonRole.Secondary);
 
+            BuildExitConfirmation();
             ApplySafeArea();
+        }
+
+        void BuildExitConfirmation()
+        {
+            if (exitPromptRoot != null || rootCanvas == null) return;
+            exitPromptRoot = rootCanvas.transform.Find("ExitConfirmation") as RectTransform;
+            if (exitPromptRoot != null)
+            {
+                exitSafeAreaRoot = (RectTransform)exitPromptRoot.Find("SafeAreaRoot");
+                exitPanel = (RectTransform)exitSafeAreaRoot.Find("ExitScroll");
+                exitFrame = exitPanel.GetComponent<HanjiScrollFrame>();
+                confirmExitButton = exitPanel.Find("ConfirmExitButton").GetComponent<Button>();
+                cancelExitButton = exitPanel.Find("CancelExitButton").GetComponent<Button>();
+                exitDimButton = exitPromptRoot.Find("Dim").GetComponent<Button>();
+                ResetExitConfirmation();
+                return;
+            }
+            exitPromptRoot = CreateStretchRect("ExitConfirmation", rootCanvas.transform);
+            Image dim = CreateStretchImage("Dim", exitPromptRoot, InkUiStyle.PopupDimColor);
+            InkUiStyle.ConfigurePopupDim(dim);
+            exitDimButton = dim.gameObject.AddComponent<Button>();
+            exitDimButton.targetGraphic = dim;
+            exitDimButton.transition = Selectable.Transition.None;
+            exitSafeAreaRoot = CreateStretchRect("SafeAreaRoot", exitPromptRoot);
+            exitPanel = CreateRect("ExitScroll", exitSafeAreaRoot, Vector2.zero, PanelDesignSize);
+            var paperHit = CreateStretchImage("PaperHitArea", exitPanel, Color.clear);
+            paperHit.raycastTarget = true;
+            exitFrame = HanjiScrollFrame.Attach(exitPanel, new Vector2(700, 570));
+            CreateText("Title", exitPanel, "종료하시겠습니까?", 64,
+                new Vector2(0, 165), new Vector2(620, 100), InkPalette.Ink, FontStyle.Bold);
+            CreateText("Message", exitPanel, "지금 종료하면 이번 판 기록이 저장되지 않습니다.", 44,
+                new Vector2(0, 25), new Vector2(600, 150), InkPalette.Ink, FontStyle.Bold);
+            cancelExitButton = CreateExitButton("CancelExitButton", "취소", -150f, ActionButtonRole.Secondary);
+            confirmExitButton = CreateExitButton("ConfirmExitButton", "종료", 150f, ActionButtonRole.Primary);
+            ResetExitConfirmation();
+        }
+
+        Button CreateExitButton(string name, string label, float x, ActionButtonRole role)
+        {
+            var background = CreateImage(name, exitPanel, null, new Vector2(x, -155),
+                new Vector2(270, 120), Color.white);
+            var button = background.gameObject.AddComponent<Button>();
+            var text = CreateText("Label", background.transform, label, 52, Vector2.zero,
+                new Vector2(220, 80), InkPalette.Ink, FontStyle.Bold);
+            InkUiStyle.ConfigureActionButton(button, background, text, role);
+            text.fontSize = 52;
+            return button;
         }
 
         bool RestoreExistingReferences(Transform existing)
@@ -344,10 +531,12 @@ namespace MukJump.Core
                             overlayRoot != null && overlayGroup != null &&
                             safeAreaRoot != null && panel != null &&
                             resumeButton != null && lobbyButton != null;
-            if (!complete) return false;
-            ApplyActionPriority(resumeButton, 1f);
-            ApplyActionPriority(lobbyButton, 0.88f);
+            if (!complete || panel.GetComponent<HanjiScrollFrame>() == null) return false;
+            ConfigurePauseTitle(panel.Find("Title")?.GetComponent<Text>());
+            ReconfigureActionButton(resumeButton, ActionButtonRole.Primary);
+            ReconfigureActionButton(lobbyButton, ActionButtonRole.Secondary);
             EnableFullButtonRaycast(pauseButton);
+            ConfigurePauseButtonIcon(pauseButton);
             EnableFullButtonRaycast(resumeButton);
             EnableFullButtonRaycast(lobbyButton);
             return true;
@@ -355,122 +544,11 @@ namespace MukJump.Core
 
         static void BuildPauseScrollFrame(Transform parent)
         {
-            Sprite brush = InkUiTextureFactory.CreateBrushSprite();
-            var body = CreateRect(
-                "ScrollBody",
-                parent,
-                Vector2.zero,
-                new Vector2(700f, 560f));
-
-            var shadow = CreateImage(
-                "InkBleedShadow",
-                body,
-                brush,
-                new Vector2(10f, -12f),
-                new Vector2(580f, 720f),
-                new Color(0f, 0f, 0f, 0.14f));
-            shadow.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
-
-            var outline = CreateImage(
-                "ScrollBodyOutline",
-                body,
-                brush,
-                Vector2.zero,
-                new Vector2(568f, 708f),
-                InkPalette.Ink);
-            outline.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
-
-            var paper = CreateImage(
-                "HanjiPaper",
-                body,
-                brush,
-                Vector2.zero,
-                new Vector2(548f, 680f),
-                InkPalette.Paper);
-            paper.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
-
-            // 붓 스프라이트 안쪽의 투명 섬유 틈만 막아 세로 빗줄기처럼 보이는
-            // 아티팩트를 없앤다. 외곽의 수묵 붓결은 종이 레이어에서 유지된다.
-            CreateImage(
-                "PaperCore",
-                body,
-                null,
-                Vector2.zero,
-                new Vector2(620f, 520f),
-                InkPalette.Paper);
-
-            CreatePauseRoll(parent, 285f, true);
-            CreatePauseRoll(parent, -285f, false);
-        }
-
-        static void CreatePauseRoll(Transform parent, float y, bool top)
-        {
-            Sprite brush = InkUiTextureFactory.CreateBrushSprite();
-            Sprite blob = InkUiTextureFactory.CreateBlobSprite();
-            var root = CreateRect(
-                top ? "TopRoll" : "BottomRoll",
-                parent,
-                new Vector2(0f, y),
-                new Vector2(750f, 88f));
-
-            CreateImage(
-                "Shadow",
-                root,
-                brush,
-                new Vector2(7f, -6f),
-                new Vector2(724f, 72f),
-                new Color(0f, 0f, 0f, 0.16f));
-            var roll = CreateImage(
-                "PaperRoll",
-                root,
-                brush,
-                Vector2.zero,
-                new Vector2(736f, 74f),
-                InkPalette.Ink);
-            CreateImage(
-                "Paper",
-                roll.transform,
-                brush,
-                Vector2.zero,
-                new Vector2(710f, 54f),
-                InkPalette.Paper2);
-            CreateImage(
-                "FoldShade",
-                roll.transform,
-                brush,
-                new Vector2(0f, top ? -12f : 12f),
-                new Vector2(670f, 7f),
-                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.12f));
-
-            for (int side = -1; side <= 1; side += 2)
-            {
-                var cap = CreateImage(
-                    side < 0 ? "LeftCap" : "RightCap",
-                    root,
-                    blob,
-                    new Vector2(side * 352f, 0f),
-                    new Vector2(78f, 78f),
-                    InkPalette.Ink);
-                CreateImage(
-                    "Paper",
-                    cap.transform,
-                    blob,
-                    Vector2.zero,
-                    new Vector2(58f, 58f),
-                    InkPalette.Paper2);
-                CreateImage(
-                    "Axis",
-                    cap.transform,
-                    blob,
-                    Vector2.zero,
-                    new Vector2(18f, 18f),
-                    InkPalette.Ink);
-            }
+            HanjiScrollFrame.Attach((RectTransform)parent, new Vector2(700, 570));
         }
 
         Button CreatePauseButton(Transform parent)
         {
-            Sprite blob = InkUiTextureFactory.CreateBlobSprite();
             RectTransform hitSurface = CreateRect(
                 "PauseButton",
                 parent,
@@ -481,34 +559,86 @@ namespace MukJump.Core
             var hitImage = hitSurface.gameObject.AddComponent<Image>();
             hitImage.color = Color.clear;
             hitImage.raycastTarget = true;
-            var outer = CreateImage("Visual", hitSurface, blob, Vector2.zero,
-                new Vector2(78f, 78f), InkPalette.Ink);
-            var inner = CreateImage("Paper", outer.transform, blob, Vector2.zero,
-                new Vector2(62f, 62f), InkPalette.Paper);
+            var outer = CreateImage("Visual", hitSurface, null, Vector2.zero,
+                new Vector2(PauseVisualSize, PauseVisualSize), Color.clear);
+            var inner = CreateImage("Paper", outer.transform, null, Vector2.zero,
+                new Vector2(62f, 62f), Color.clear);
             var button = hitSurface.gameObject.AddComponent<Button>();
-            button.targetGraphic = outer;
-            EnableFullButtonRaycast(button);
-            button.colors = ReadableButtonColors();
-            button.navigation = new Navigation { mode = Navigation.Mode.None };
             CreateImage("LeftBar", inner.transform, null, new Vector2(-8f, 0f),
                 new Vector2(7f, 28f), InkPalette.Ink);
             CreateImage("RightBar", inner.transform, null, new Vector2(8f, 0f),
                 new Vector2(7f, 28f), InkPalette.Ink);
+            ConfigurePauseButtonIcon(button);
             return button;
         }
 
+        static void ConfigurePauseButtonIcon(Button button)
+        {
+            var face = button != null ? button.transform.Find("Visual")?.GetComponent<Image>() : null;
+            if (face == null) return;
+            face.rectTransform.sizeDelta = new Vector2(PauseVisualSize, PauseVisualSize);
+            InkUiStyle.ConfigureButton(button, face);
+            // 기존 Play 계층을 복원해도 한지 면을 되살리지 않는다.
+            // 투명 부모의 터치 영역과 공통 눌림 반응만 남기고 두 막대만 그린다.
+            face.sprite = null;
+            face.color = Color.clear;
+            face.enabled = false;
+            face.raycastTarget = false;
+            // 구형 한지 버튼에서 복구한 경우 별도 갈필 프레임도 숨긴다.
+            var legacyFrame = face.GetComponent<HanjiCardFrame>();
+            if (legacyFrame != null) legacyFrame.enabled = false;
+            var legacyOutline = face.transform.Find("BrushFrame");
+            if (legacyOutline != null) legacyOutline.gameObject.SetActive(false);
+            button.transition = Selectable.Transition.None;
+            var hitImage = button.GetComponent<Image>();
+            if (hitImage != null)
+            {
+                hitImage.color = Color.clear;
+                hitImage.enabled = true;
+                hitImage.raycastTarget = true;
+            }
+            var legacyPaper = face.transform.Find("Paper")?.GetComponent<Image>();
+            if (legacyPaper != null)
+            {
+                legacyPaper.sprite = null;
+                legacyPaper.color = Color.clear;
+                legacyPaper.enabled = false;
+                legacyPaper.raycastTarget = false;
+            }
+            foreach (string name in new[] { "Paper/LeftBar", "Paper/RightBar" })
+            {
+                var oldBar = face.transform.Find(name)?.GetComponent<Graphic>();
+                if (oldBar != null) oldBar.enabled = false;
+            }
+            var icon = face.transform.Find("BrushPause")?.GetComponent<InkBrushIcon>();
+            if (icon == null)
+            {
+                var go = new GameObject("BrushPause", typeof(RectTransform), typeof(CanvasRenderer), typeof(InkBrushIcon));
+                go.transform.SetParent(face.transform, false);
+                icon = go.GetComponent<InkBrushIcon>();
+            }
+            icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = new Vector2(.5f, .5f);
+            icon.rectTransform.anchoredPosition = Vector2.zero;
+            icon.rectTransform.sizeDelta = new Vector2(48f, 48f);
+            icon.Configure(InkBrushIcon.Symbol.Pause);
+        }
+
         Button CreateBrushButton(
-            string objectName, Transform parent, string label, Vector2 position, bool filled)
+            string objectName,
+            Transform parent,
+            string label,
+            Vector2 position,
+            ActionButtonRole role)
         {
             var outer = CreateImage(objectName, parent, null, position,
                 new Vector2(580f, 104f), InkPalette.Ink);
             var button = outer.gameObject.AddComponent<Button>();
             var text = CreateText(
-                "Label", outer.transform, label, filled ? 40 : 36,
+                "Label", outer.transform, label, InkUiStyle.ActionButtonLabelSize,
                 Vector2.zero,
                 new Vector2(470f, 76f), InkPalette.Paper, FontStyle.Bold);
-            AddSoftWeight(text, InkPalette.Ink, 0.14f);
-            InkUiStyle.ConfigureActionButton(button, outer, text);
+            InkUiStyle.ConfigureActionButton(button, outer, text, role);
+            text.fontSize = PauseActionLabelSize;
             EnableFullButtonRaycast(button);
             return button;
         }
@@ -525,6 +655,8 @@ namespace MukJump.Core
                 safe,
                 Screen.width,
                 Screen.height);
+            if (exitSafeAreaRoot != null)
+                MobileUiLayout.ApplySafeArea(exitSafeAreaRoot, safe, Screen.width, Screen.height);
 
             float previousLayoutScale = Mathf.Max(0.01f, panelLayoutScale);
             float presentationScale = panel != null
@@ -536,6 +668,11 @@ namespace MukJump.Core
                 Screen.width,
                 Screen.height,
                 PanelEdgePadding);
+            if (exitPanel != null)
+            {
+                exitPanel.anchoredPosition = Vector2.zero;
+                exitPanel.localScale = Vector3.one * panelLayoutScale;
+            }
             if (panel != null)
             {
                 panel.anchoredPosition = Vector2.zero;
@@ -543,20 +680,26 @@ namespace MukJump.Core
             }
 
             pauseButtonRect.anchorMin = pauseButtonRect.anchorMax =
-                new Vector2(
-                    safe.xMax / Screen.width,
-                    safe.yMax / Screen.height);
+                new Vector2(0.5f, 1f);
             pauseButtonRect.pivot = new Vector2(0.5f, 0.5f);
-            // 보이는 아이콘뿐 아니라 120px 터치 영역 전체가 상단 HUD와 분리되도록
-            // 한 칸 더 아래에 둔다. 토스 닫기 버튼의 우측 상단 영역도 함께 피한다.
-            pauseButtonRect.anchoredPosition = new Vector2(-82f, -270f);
-            pauseButtonRect.sizeDelta = new Vector2(
-                InkUiStyle.MinimumTapHeight,
-                InkUiStyle.MinimumTapHeight);
+            // 종전 오른쪽 신기록 자리. 아이콘만 HUD와 같이 축소하고 터치 면적은 유지한다.
+            Vector2 iconPosition = GameplayHudView.CalculatePauseButtonPosition(
+                safe, Screen.width, Screen.height);
+            Rect touchRect = GameplayHudView.CalculatePauseTouchRect(safe, Screen.width, Screen.height);
+            pauseButtonRect.anchoredPosition = touchRect.center;
+            pauseButtonRect.sizeDelta = touchRect.size;
+            var face = pauseButtonRect.Find("Visual") as RectTransform;
+            if (face != null)
+            {
+                face.anchoredPosition = iconPosition - touchRect.center;
+                face.localScale = Vector3.one * GameplayHudView.CalculateTopHudScale(
+                    safe, Screen.width, Screen.height);
+            }
 
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
             lastSafeArea = safe;
+            lastBannerInset = LobbyAdLayout.GameplayTopInsetFraction;
         }
 
         void ApplyPanelPresentationScale(float presentationScale)
@@ -617,7 +760,7 @@ namespace MukJump.Core
         {
             var rect = CreateRect(objectName, parent, position, size);
             var text = rect.gameObject.AddComponent<Text>();
-            text.text = value;
+            InkLocalizedText.SetSource(text, value);
             text.font = InkPalette.UiFont;
             text.fontSize = fontSize;
             text.fontStyle = style;
@@ -626,16 +769,19 @@ namespace MukJump.Core
             text.raycastTarget = false;
             text.resizeTextForBestFit = false;
             text.alignByGeometry = true;
+            InkLocalizedText.Bind(text);
             return text;
         }
 
-        static void AddSoftWeight(Text text, Color color, float alpha)
+        static void ConfigurePauseTitle(Text text)
         {
             if (text == null) return;
-            var shadow = text.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(color.r, color.g, color.b, alpha);
-            shadow.effectDistance = new Vector2(1f, -1f);
-            shadow.useGraphicAlpha = true;
+            InkUiStyle.ApplyReadableText(text, InkUiStyle.PauseTitleSize);
+            text.color = InkPalette.Ink;
+            text.rectTransform.sizeDelta = new Vector2(580f, 112f);
+            // 작은 반투명 그림자로 두께를 흉내 내지 않고 큰 Bold 획 자체를 읽게 한다.
+            foreach (Shadow shadow in text.GetComponents<Shadow>())
+                shadow.enabled = false;
         }
 
         static ColorBlock ReadableButtonColors()
@@ -660,7 +806,22 @@ namespace MukJump.Core
                 button.targetGraphic.raycastTarget = true;
         }
 
-        static void ApplyActionPriority(Button button, float alpha)
+        static void ReconfigureActionButton(
+            Button button,
+            ActionButtonRole role)
+        {
+            if (button == null) return;
+            Image border = button.GetComponent<Image>();
+            Text label = button.transform.Find("Label")?.GetComponent<Text>();
+            if (border == null || label == null) return;
+            InkUiStyle.ConfigureActionButton(button, border, label, role);
+            label.fontSize = PauseActionLabelSize;
+            ApplyActionPriority(button, role);
+        }
+
+        static void ApplyActionPriority(
+            Button button,
+            ActionButtonRole role)
         {
             if (button == null) return;
             var group = button.GetComponent<CanvasGroup>();
@@ -670,13 +831,9 @@ namespace MukJump.Core
             group.interactable = true;
             group.blocksRaycasts = true;
 
-            Graphic background = button.targetGraphic;
-            if (background == null)
-                background = button.GetComponent<Graphic>();
-            if (background == null) return;
-            Color color = background.color;
-            color.a = Mathf.Clamp01(alpha);
-            background.color = color;
+            InkUiStyle.SetActionButtonRole(
+                button.GetComponent<Image>(),
+                role);
         }
 
         static float EaseOutCubic(float value)

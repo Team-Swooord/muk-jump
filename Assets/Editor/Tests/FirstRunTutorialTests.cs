@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using MukJump.Core;
 using NUnit.Framework;
 using UnityEngine;
@@ -11,12 +12,20 @@ namespace MukJump.EditorTests
     {
         GameObject host;
         MemoryLobbySettingsStore store;
+        sealed class IdentityStore : MukJumpIdentityProfile.IStore
+        {
+            readonly Dictionary<string, string> values = new();
+            public string Read(string key) => values.TryGetValue(key, out var value) ? value : string.Empty;
+            public void Write(string key, string value) => values[key] = value;
+            public void Save() { }
+        }
 
         [SetUp]
         public void SetUp()
         {
             store = new MemoryLobbySettingsStore();
             LobbySettingsProfile.UseStoreForTests(store);
+            MukJumpIdentityProfile.UseStoreForTests(new IdentityStore());
         }
 
         [TearDown]
@@ -26,12 +35,15 @@ namespace MukJump.EditorTests
                 UnityEngine.Object.DestroyImmediate(host);
             PointerInput.ResetSuppressionForTests();
             LobbySettingsProfile.RestoreDefaultStoreForTests();
+            MukJumpIdentityProfile.UseStoreForTests(null);
         }
 
         [Test]
-        public void CatalogCoversEachRequiredGameplayTopicExactlyOnce()
+        public void CatalogOnlyKeepsThreeShortEssentialPages()
         {
+            Assert.That(GameplayTutorialCatalog.Count, Is.EqualTo(3));
             var topics = new HashSet<GameplayTutorialTopic>();
+            int totalCharacters = 0;
             for (int i = 0; i < GameplayTutorialCatalog.Count; i++)
             {
                 GameplayTutorialPage page = GameplayTutorialCatalog.Get(i);
@@ -41,23 +53,46 @@ namespace MukJump.EditorTests
                 Assert.That(page.Description, Is.Not.Empty);
                 Assert.That(
                     page.Description.Split('\n').Length,
-                    Is.InRange(3, 4),
-                    $"{page.Topic} 설명은 3~4개의 짧은 문장이어야 합니다.");
+                    Is.InRange(2, 3),
+                    $"{page.Topic} 설명은 2~3문장만 남겨야 합니다.");
+                Assert.That(page.Description.Length, Is.LessThanOrEqualTo(80));
+                totalCharacters += page.Description.Length;
                 Assert.That(page.SpriteResourcePath, Is.Not.Empty);
             }
 
-            foreach (GameplayTutorialTopic topic in
-                     Enum.GetValues(typeof(GameplayTutorialTopic)))
-                Assert.That(topics, Does.Contain(topic));
+            Assert.That(totalCharacters, Is.LessThanOrEqualTo(200));
+            Assert.That(topics, Is.EquivalentTo(new[] {
+                GameplayTutorialTopic.DrawInk, GameplayTutorialTopic.InkBudget, GameplayTutorialTopic.Obstacles }));
 
             GameplayTutorialPage drawingPage = GameplayTutorialCatalog.Get(0);
-            Assert.That(drawingPage.Description, Does.Contain("시간이 지나면"));
-            Assert.That(drawingPage.Description, Does.Contain("오래된 것부터"));
+            Assert.That(drawingPage.Description, Does.Contain("자동으로"));
+            Assert.That(drawingPage.Description, Does.Contain("기울기"));
+            Assert.That(drawingPage.Description, Does.Contain("길이"));
+            GameplayTutorialPage inkPage = GameplayTutorialCatalog.Get(1);
+            Assert.That(inkPage.Description, Does.Contain("시간이 지나면"));
+            Assert.That(inkPage.Description, Does.Contain("오래된 선부터"));
             GameplayTutorialPage obstaclePage = GameplayTutorialCatalog.Get(2);
-            Assert.That(obstaclePage.Description, Does.Contain("체력 한 칸"));
-            Assert.That(obstaclePage.Description, Does.Contain("위에서 내려와요"));
+            Assert.That(obstaclePage.Description, Does.Contain("체력이 1칸"));
+            Assert.That(obstaclePage.Description, Does.Contain("분신까지 모두"));
             Assert.That(LobbySettingsProfile.CurrentGameplayTutorialVersion,
                 Is.EqualTo(5));
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        public void EveryEssentialPageHasConciseEnglishCopy(int index)
+        {
+            var translate = typeof(GameLocalization).GetMethod("English", BindingFlags.NonPublic | BindingFlags.Static);
+            var page = GameplayTutorialCatalog.Get(index);
+            foreach (string source in new[] { page.Title, page.Description })
+            {
+                var english = (string)translate.Invoke(null, new object[] { source });
+                Assert.That(english, Is.Not.EqualTo(source));
+                Assert.That(english, Does.Not.Match("[가-힣]"));
+                Assert.That(english.Length, Is.LessThanOrEqualTo(145));
+                Assert.That(english.Split('\n').Length, Is.LessThanOrEqualTo(3));
+            }
         }
 
         [Test]
@@ -83,115 +118,162 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void PausedTutorialUsesReadableBlockingPopupAndCompletesOnce()
+        public void FreshInstallAutoStartsButCompletedInstallDoesNot()
+        {
+            Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.True);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.False);
+            LobbySettingsProfile.UseStoreForTests(store);
+            Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.False);
+        }
+
+        [Test]
+        public void CloudAccountChangesCannotSkipOrRepeatInstallationTutorial()
+        {
+            LobbySettingsProfile.ApplyCloudSettings(1, 1, 5);
+            Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.True);
+            var beforeCompletion = LobbySettingsProfile.CaptureCloudSettings();
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            LobbySettingsProfile.ApplyCloudSettings(1, 1, 0);
+            Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.False);
+            LobbySettingsProfile.TryRestoreCloudSettings(beforeCompletion);
+            Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.False);
+            LobbySettingsProfile.TryResetForAccountDeletion();
+            Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.False);
+        }
+
+        [Test]
+        public void CompletedProfileInvalidatesAlreadyCachedAutoStart()
+        {
+            host = new GameObject("CachedTutorialAutoStart");
+            var tutorial = host.AddComponent<FirstRunTutorialController>();
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            typeof(FirstRunTutorialController).GetField("autoStartFirstVisit", flags).SetValue(tutorial, true);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            typeof(FirstRunTutorialController).GetMethod("TryAutoStartFirstVisit", flags)
+                .Invoke(tutorial, new object[] { false });
+            Assert.That(typeof(FirstRunTutorialController).GetField("autoStartFirstVisit", flags)
+                .GetValue(tutorial), Is.False);
+        }
+
+        [Test]
+        public void SpotlightBlocksTheWholeScreenAndCompletesWithoutNicknameForGuest()
         {
             host = new GameObject("FirstRunTutorialTestHost");
             var tutorial = host.AddComponent<FirstRunTutorialController>();
             tutorial.BuildForTests();
             tutorial.BeginForTests();
-
+            var root = host.transform.Find("FirstRunTutorialCanvas");
+            var dim = root.Find("TutorialDim").GetComponent<TutorialSpotlightGraphic>();
+            var panel = root.Find("SafeAreaRoot/TutorialPanel");
             Assert.That(tutorial.IsActive, Is.True);
-            Assert.That(tutorial.CurrentTopic,
-                Is.EqualTo(GameplayTutorialTopic.DrawInk));
-            Transform root = host.transform.Find("FirstRunTutorialCanvas");
-            Assert.That(root, Is.Not.Null);
-            Assert.That(root.GetComponent<Canvas>().sortingOrder,
-                Is.GreaterThan(1000));
+            Assert.That(tutorial.CurrentTopic, Is.EqualTo(GameplayTutorialTopic.AutoJump));
             Assert.That(root.GetComponent<CanvasGroup>().blocksRaycasts, Is.True);
-
-            Image dim = root.Find("TutorialDim")?.GetComponent<Image>();
-            Assert.That(dim, Is.Not.Null);
             Assert.That(dim.raycastTarget, Is.True);
-            Assert.That(dim.color.a,
-                Is.EqualTo(InkUiStyle.PopupDimAlpha).Within(0.001f));
-            Assert.That(dim.rectTransform.anchorMin, Is.EqualTo(Vector2.zero));
-            Assert.That(dim.rectTransform.anchorMax, Is.EqualTo(Vector2.one));
-
-            Transform panel = root.Find("SafeAreaRoot/TutorialPanel");
-            Assert.That(panel, Is.Not.Null);
-            Assert.That(panel.Find("Paper")?.GetComponent<Image>()?.raycastTarget,
-                Is.True,
-                "카드 빈 영역도 아래 HUD로 탭을 통과시키면 안 됩니다.");
-            var title = panel.Find("Title")?.GetComponent<Text>();
-            var description = panel.Find("Description")?.GetComponent<Text>();
-            var skip = panel.Find("SkipButton") as RectTransform;
-            var previous = panel.Find("PreviousButton")
-                ?.GetComponent<Button>();
-            var next = panel.Find("NextButton")?.GetComponent<Button>();
-            Assert.That(title, Is.Not.Null);
-            Assert.That(description, Is.Not.Null);
-            Assert.That(title.resizeTextForBestFit, Is.False);
-            Assert.That(description.resizeTextForBestFit, Is.False);
-            Assert.That(description.fontStyle, Is.EqualTo(FontStyle.Normal));
-            Assert.That(description.alignment,
-                Is.EqualTo(TextAnchor.MiddleCenter));
-            Assert.That(description.rectTransform.sizeDelta,
-                Is.EqualTo(new Vector2(700f, 230f)));
-            Canvas.ForceUpdateCanvases();
-            Assert.That(description.preferredHeight,
-                Is.LessThanOrEqualTo(
-                    description.rectTransform.rect.height + 0.01f),
-                "설명은 자동 축소 없이 정해진 영역 안에 모두 보여야 합니다.");
-            Assert.That(skip, Is.Not.Null);
-            Assert.That(previous, Is.Not.Null);
-            Assert.That(next, Is.Not.Null);
-            Assert.That(previous.interactable, Is.False);
-            Assert.That(skip.sizeDelta.y,
-                Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight));
-            var panelChildren = new[]
+            Assert.That(dim.color, Is.EqualTo(new Color(0, 0, 0, .78f)));
+            Assert.That(dim.FocusRect.width, Is.GreaterThan(0));
+            Assert.That(dim.FocusRect.height, Is.GreaterThan(0));
+            Assert.That(panel.GetComponent<HanjiScrollFrame>(), Is.Null,
+                "첫 안내는 설명할 게임 화면을 가리는 두루마리를 만들지 않는다.");
+            Assert.That(panel.GetComponentsInChildren<Button>(), Is.Empty);
+            Assert.That(panel.Find("Title").GetComponent<Text>().text, Is.EqualTo("자동 점프"));
+            Assert.That(FirstRunTutorialController.IsPointerOverControls(Vector2.zero), Is.True);
+            var topics = new HashSet<GameplayTutorialTopic>();
+            for (int i = 0; i < FirstRunTutorialController.StepCount; i++)
             {
-                panel.Find("Progress") as RectTransform,
-                panel.Find("TopicIconPaper") as RectTransform,
-                panel.Find("TopicIcon") as RectTransform,
-                panel.Find("Title") as RectTransform,
-                panel.Find("Description") as RectTransform,
-                panel.Find("PauseHint") as RectTransform,
-                panel.Find("PreviousButton") as RectTransform,
-                panel.Find("NextButton") as RectTransform,
-                skip,
-            };
-            for (int i = 0; i < panelChildren.Length; i++)
-                Assert.That(
-                    IsInsidePanel(panelChildren[i]),
-                    Is.True,
-                    $"튜토리얼 카드 요소 {i}가 패널 경계를 벗어났습니다.");
-            for (int i = 0; i < panelChildren.Length; i++)
-                Assert.That(
-                    IsInsideVisualPanel(panelChildren[i]),
-                    Is.True,
-                    $"튜토리얼 카드 요소 {i}가 장식 테두리와 겹쳤습니다.");
-
-            Text progress = panel.Find("Progress")?.GetComponent<Text>();
-            Assert.That(progress, Is.Not.Null);
-            Assert.That(progress.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
-            Assert.That(progress.rectTransform.anchoredPosition.x,
-                Is.Zero.Within(0.001f));
-
-            skip.GetComponent<Button>().onClick.Invoke();
-            Text skipLabel = skip.Find("Label")?.GetComponent<Text>();
-            Canvas.ForceUpdateCanvases();
-            Assert.That(skipLabel?.text, Is.EqualTo("다시 눌러 확인"));
-            Assert.That(skipLabel?.preferredWidth,
-                Is.LessThanOrEqualTo(skipLabel.rectTransform.rect.width + 0.01f));
-
-            Assert.That(
-                FirstRunTutorialController.IsPointerOverControls(
-                    new Vector2(1f, 1f)),
-                Is.True,
-                "모달 바깥 터치도 월드 먹선으로 통과하면 안 됩니다.");
-
-            for (int i = 1; i < GameplayTutorialCatalog.Count; i++)
+                topics.Add(tutorial.CurrentTopic);
+                Assert.That(panel.Find("Progress").GetComponent<Text>().text, Is.EqualTo($"{i + 1} / 4"));
                 tutorial.AdvanceForTests();
-            Assert.That(tutorial.IsActive, Is.True);
-            Assert.That(tutorial.CurrentTopic,
-                Is.EqualTo(GameplayTutorialTopic.MapZones));
-            Assert.That(next.transform.Find("Label")?.GetComponent<Text>()?.text,
-                Is.EqualTo("시작하기"));
-
-            tutorial.AdvanceForTests();
+            }
+            Assert.That(topics.Count, Is.EqualTo(4));
             Assert.That(tutorial.IsActive, Is.False);
-            Assert.That(root.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
+            Assert.That(tutorial.IsAwaitingNickname, Is.False);
             Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.False);
+            Assert.That(root.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
+            Assert.That(host.transform.Find("NicknameCanvas"), Is.Null);
+            Assert.That(MukJumpIdentityProfile.IsGeneratedNickname(MukJumpIdentityProfile.GuestNickname), Is.True);
+            Assert.That(tutorial.PrepareForGameStart(), Is.False);
+        }
+
+        [TestCase(GameLanguage.Korean)]
+        [TestCase(GameLanguage.English)]
+        public void LastStepHasNoTapHintAndGuestSkipsNicknameSetup(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language);
+            host = new GameObject("TutorialFinalHintTestHost");
+            var tutorial = host.AddComponent<FirstRunTutorialController>();
+            tutorial.BuildForTests();
+            tutorial.BeginForTests();
+            var hint = host.transform.Find(
+                "FirstRunTutorialCanvas/SafeAreaRoot/TutorialPanel/TapHint").GetComponent<Text>();
+            for (int i = 0; i < FirstRunTutorialController.StepCount - 1; i++)
+            {
+                Assert.That(hint.text, Is.EqualTo(language == GameLanguage.English
+                    ? "Tap to continue" : "탭하여 다음"));
+                tutorial.AdvanceForTests();
+            }
+            Assert.That(hint.text, Is.Empty);
+            GameLocalization.SetLanguage(language == GameLanguage.English
+                ? GameLanguage.Korean : GameLanguage.English);
+            Assert.That(hint.text, Is.Empty, "언어를 바꿔도 마지막 안내 문구가 되살아나면 안 됩니다.");
+            tutorial.AdvanceForTests();
+            Assert.That(tutorial.IsAwaitingNickname, Is.False);
+            Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.False);
+            GameLocalization.SetLanguage(GameLanguage.Korean);
+        }
+
+        [Test]
+        public void SpotlightMeshLeavesItsCenterActuallyTransparent()
+        {
+            host = new GameObject("Spotlight", typeof(RectTransform));
+            var rect = host.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(1080, 1920);
+            var graphic = host.AddComponent<TutorialSpotlightGraphic>();
+            Assert.That(typeof(Graphic).GetProperty("useLegacyMeshGeneration", BindingFlags.NonPublic | BindingFlags.Instance)
+                .GetValue(graphic), Is.False, "VertexHelper 메시가 실제 렌더 경로에서도 사용되어야 한다.");
+            graphic.SetFocus(new Rect(-120, -80, 240, 160), 24);
+            using var vertices = new VertexHelper();
+            typeof(TutorialSpotlightGraphic).GetMethod("OnPopulateMesh", BindingFlags.NonPublic | BindingFlags.Instance,
+                null, new[] { typeof(VertexHelper) }, null)
+                .Invoke(graphic, new object[] { vertices });
+            var mesh = new Mesh();
+            try
+            {
+                vertices.FillMesh(mesh);
+                var points = mesh.vertices;
+                var triangles = mesh.triangles;
+                Assert.That(triangles.Length, Is.GreaterThan(24));
+                for (int i = 0; i < triangles.Length; i += 3)
+                    Assert.That(ContainsPoint(Vector2.zero, points[triangles[i]], points[triangles[i + 1]], points[triangles[i + 2]]),
+                        Is.False, "구멍 중앙에는 어두운 삼각형이 없어야 한다.");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(mesh); }
+        }
+
+        static bool ContainsPoint(Vector2 p, Vector2 a, Vector2 b, Vector2 c)
+        {
+            float Cross(Vector2 u, Vector2 v) => u.x * v.y - u.y * v.x;
+            float x = Cross(b - a, p - a), y = Cross(c - b, p - b), z = Cross(a - c, p - c);
+            return (x > .001f && y > .001f && z > .001f) || (x < -.001f && y < -.001f && z < -.001f);
+        }
+
+        [TestCase(1080, 1920, 0, 0)]
+        [TestCase(1179, 2556, 177, 102)]
+        [TestCase(1080, 2400, 100, 90)]
+        public void CalloutStaysInsideSafeAreaAndOutsideTheHole(int width, int height, int top, int bottom)
+        {
+            var safe = new Rect(0, bottom, width, height - top - bottom);
+            foreach (float fraction in new[] { .08f, .25f, .6f, .88f })
+            {
+                var focus = new Rect(safe.center.x - width * .1f,
+                    safe.yMin + safe.height * fraction, width * .2f, width * .08f);
+                var callout = FirstRunTutorialController.CalculateCalloutRect(focus, safe, height);
+                Assert.That(callout.xMin, Is.GreaterThanOrEqualTo(safe.xMin));
+                Assert.That(callout.xMax, Is.LessThanOrEqualTo(safe.xMax));
+                Assert.That(callout.yMin, Is.GreaterThanOrEqualTo(safe.yMin));
+                Assert.That(callout.yMax, Is.LessThanOrEqualTo(safe.yMax));
+                Assert.That(callout.Overlaps(focus), Is.False);
+            }
         }
 
         [TestCase(1080, 2400, 0, 96, 1080, 2208)]

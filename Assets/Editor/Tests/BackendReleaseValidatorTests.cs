@@ -60,6 +60,82 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void MukJumpGoogleIosOauthSettingsMatchIssuedClient()
+        {
+            const string path =
+                "Assets/TheBackend/Resources/" +
+                "TheBackendGoogleSettingsForIOS.asset";
+            const string clientId =
+                "58212920281-bm72q2dnoc79ee4214e3k9fojb636u2e" +
+                ".apps.googleusercontent.com";
+            const string urlScheme =
+                "com.googleusercontent.apps." +
+                "58212920281-bm72q2dnoc79ee4214e3k9fojb636u2e";
+
+            Assert.That(
+                MukJumpBackendReleaseValidator.SerializedValueMatches(
+                    path,
+                    "iosClientID",
+                    clientId),
+                Is.True);
+            Assert.That(
+                MukJumpBackendReleaseValidator.SerializedValueMatches(
+                    path,
+                    "iosURLSchema",
+                    urlScheme),
+                Is.True);
+            Assert.That(
+                MukJumpBackendReleaseValidator
+                    .IsMatchingGoogleIosUrlScheme(clientId, urlScheme),
+                Is.True);
+            Assert.That(
+                MukJumpBackendReleaseValidator.ExpectedIosGoogleClientId,
+                Is.EqualTo(clientId));
+        }
+
+        [Test]
+        public void BackendReleaseIdentityIsPinnedToMukJumpProject()
+        {
+            const string backendPath =
+                "Assets/TheBackend/Resources/TheBackendSettings.asset";
+            Assert.That(
+                MukJumpBackendReleaseValidator.ExpectedPackageName,
+                Is.EqualTo(MukJumpStoreBuild.DefaultBundleIdentifier));
+            Assert.That(
+                MukJumpBackendReleaseValidator.SerializedValueMatches(
+                    backendPath,
+                    "packageName",
+                    MukJumpBackendReleaseValidator.ExpectedPackageName),
+                Is.True);
+            Assert.That(
+                MukJumpBackendReleaseValidator.SerializedValueSha256Matches(
+                    backendPath,
+                    "clientAppID",
+                    "417028671d793073b90595866eb26cdd21e9d755cc755c7b7ae4abc8619d9d40"),
+                Is.True,
+                "다른 프로젝트의 뒤끝 앱 ID가 섞이면 출시 검증이 실패해야 합니다.");
+            Assert.That(
+                MukJumpBackendReleaseValidator.SerializedValueSha256Matches(
+                    backendPath,
+                    "signatureKey",
+                    "d142f72c7d636df04c7b766997a7e6f18acb085df6d64c361c1b2e683c0ed143"),
+                Is.True,
+                "다른 프로젝트의 뒤끝 서명키가 섞이면 출시 검증이 실패해야 합니다.");
+            Assert.That(
+                MukJumpBackendSettings.Load().AllTimeRankUuid,
+                Is.EqualTo(
+                    MukJumpBackendReleaseValidator.ExpectedAllTimeRankUuid));
+            Assert.That(
+                MukJumpBackendSettings.Load().PlayerTableName,
+                Is.EqualTo(
+                    MukJumpBackendReleaseValidator.ExpectedPlayerTableName));
+            Assert.That(
+                MukJumpBackendSettings.Load().BestHeightColumn,
+                Is.EqualTo(
+                    MukJumpBackendReleaseValidator.ExpectedBestHeightColumn));
+        }
+
+        [Test]
         public void PrivacyMinimizingBackendFlagsMustBeDisabled()
         {
             string path = Path.Combine(

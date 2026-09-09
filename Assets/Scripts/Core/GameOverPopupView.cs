@@ -7,13 +7,20 @@ namespace MukJump.Core
 {
     /// 짧은 반복 플레이 흐름을 방해하지 않는 간결한 게임 종료 두루마리.
     /// MonoBehaviour 파일명과 클래스명을 일치시켜 씬 직렬화 시 Missing Script를 방지한다.
-    public sealed class GameOverPopupView : MonoBehaviour
+    public sealed partial class GameOverPopupView : MonoBehaviour
     {
         const int CanvasSortingOrder = 5000;
-        const float RevealDuration = 0.3f;
-        const float RollOpenDistance = 360f;
-        const float ClosedPaperScale = 0.18f;
-        static readonly Vector2 PanelDesignSize = new(800f, 900f);
+        const float RevealDuration = 0.56f;
+        const float RollOpenDistance = 550f;
+        const string ReviveRewardLabel = "광고 시청하고 부활하기";
+        const float ActionWidth = 640f;
+        const float PrimaryActionY = -268f;
+        const float SecondaryActionY = -428f;
+        const float SingleActionY = -350f;
+        const float SingleActionHeight = 132f;
+        const float TwoLineActionHeight = 188f;
+        const int ResultActionFontSize = 56;
+        static readonly Vector2 PanelDesignSize = new(840f, 1200f);
         static readonly Vector2 PanelEdgePadding = new(28f, 32f);
 
         CanvasGroup rootGroup;
@@ -22,6 +29,9 @@ namespace MukJump.Core
         RectTransform scrollBody;
         RectTransform topRoll;
         RectTransform bottomRoll;
+        HanjiScrollPaperGraphic paperGraphic;
+        HanjiScrollPaperGraphic paperShadow;
+        CanvasGroup topRollGroup;
         RectTransform contentRect;
         RectTransform newBestSeal;
         CanvasGroup contentGroup;
@@ -29,9 +39,7 @@ namespace MukJump.Core
         Text titleText;
         Text heightText;
         Text bestText;
-        Text growthRewardText;
-        Text growthJourneyText;
-        Image growthJourneyFill;
+        Text saveNoticeText;
         Text touchHint;
         Button reviveButton;
         Button lobbyButton;
@@ -44,6 +52,10 @@ namespace MukJump.Core
         int lastScreenHeight;
         Rect lastSafeArea;
         float panelLayoutScale = 1f;
+        bool closing;
+        float currentOpening;
+        Action afterClose;
+        public bool IsClosing => closing;
 
         void Update()
         {
@@ -52,6 +64,9 @@ namespace MukJump.Core
                 lastScreenHeight != Screen.height ||
                 lastSafeArea != MobileUiLayout.CurrentSafeArea)
                 ApplySafeArea();
+            if (!closing && rootGroup.blocksRaycasts && contentGroup.alpha >= .99f &&
+                MobileApplicationLifecycle.IsApplicationActive)
+                AdvanceGrowthProgress(Time.unscaledDeltaTime);
         }
 
         public void Show(int height, int best, bool reachedNewBest)
@@ -79,13 +94,10 @@ namespace MukJump.Core
             ApplySafeArea();
             boundResult = result;
             BindResult(result);
-            if (settlementPending)
-            {
-                growthRewardText.text = "부활 선택 전 · 정산 보류";
-                growthJourneyText.text = "광고를 보면 현재 도전을 이어갑니다";
-                SetGrowthJourneyProgress(0f);
-            }
-            SetReviveOffer(canOfferRevive);
+            BindGrowthProgress(result, true);
+            SetReviveOffer(canOfferRevive, settlementPending);
+            closing = false;
+            afterClose = null;
             rootGroup.interactable = true;
             if (showRoutine != null)
                 StopCoroutine(showRoutine);
@@ -98,30 +110,46 @@ namespace MukJump.Core
             lobbyRequested = onLobby;
         }
 
-        public void SetReviveOffer(bool available)
+        public void SetReviveOffer(
+            bool available,
+            bool waitingForAvailability = false)
         {
             BuildIfNeeded();
             if (reviveButton == null || lobbyButton == null)
                 return;
 
-            reviveButton.gameObject.SetActive(available);
-            RectTransform lobbyRect = lobbyButton.transform as RectTransform;
-            if (available)
+            bool visible = available || waitingForAvailability;
+            reviveButton.gameObject.SetActive(visible);
+            // 광고 요청 중 잠갔던 버튼 상태가 다음 게임오버 팝업까지 남지 않게 한다.
+            // 광고 부활 직후 다시 전멸하더라도 메인 버튼은 항상 복구되어야 한다.
+            lobbyButton.interactable = true;
+            if (visible)
             {
-                reviveButton.interactable = true;
-                reviveButtonLabel.text = "광고 보고\n체력 1로 부활";
-                lobbyRect.anchoredPosition = new Vector2(150f, -280f);
-                lobbyRect.sizeDelta = new Vector2(280f, 104f);
-                touchHint.text = "메인으로";
+                reviveButton.interactable = available;
+                InkLocalizedText.SetSource(reviveButtonLabel, available
+                    ? ReviveRewardLabel
+                    : "광고 준비 중...");
+                ApplyDualActionLayout();
+                InkLocalizedText.SetSource(touchHint, "메인으로");
+                InkUiStyle.SetActionButtonRole(
+                    lobbyButton.GetComponent<Image>(),
+                    ActionButtonRole.Secondary);
             }
             else
             {
-                lobbyRect.anchoredPosition = new Vector2(0f, -280f);
-                lobbyRect.sizeDelta = new Vector2(580f, 104f);
+                bool needsTwoLines = boundResult.PersistenceState !=
+                                     GameOverPersistenceState.Complete;
+                ApplySingleActionLayout(needsTwoLines);
                 if (boundResult.PersistenceState ==
                     GameOverPersistenceState.Complete)
-                    touchHint.text = "메인으로";
+                    InkLocalizedText.SetSource(touchHint, "메인으로");
+                InkUiStyle.SetActionButtonRole(
+                    lobbyButton.GetComponent<Image>(),
+                    ActionButtonRole.Primary);
             }
+            InkUiStyle.RefreshActionButtonLayout(
+                lobbyButton.GetComponent<Image>());
+            ApplyResultActionTypography();
         }
 
         public void SetReviveRequestInFlight(bool inFlight)
@@ -130,18 +158,47 @@ namespace MukJump.Core
                 return;
             reviveButton.interactable = !inFlight;
             lobbyButton.interactable = !inFlight;
-            reviveButtonLabel.text = inFlight
+            InkLocalizedText.SetSource(reviveButtonLabel, inFlight
                 ? "광고 여는 중..."
-                : "광고 보고\n체력 1로 부활";
+                : ReviveRewardLabel);
         }
 
         public void Hide()
+        {
+            Close(null);
+        }
+
+        public void Close(Action completed)
+        {
+            if (closing) return;
+            FinishGrowthProgress();
+            if (rootGroup == null || rootGroup.alpha <= 0.001f ||
+                !Application.isPlaying || !isActiveAndEnabled ||
+                LobbySettingsProfile.ReducedMotionEnabled)
+            {
+                HideImmediate();
+                completed?.Invoke();
+                return;
+            }
+            if (showRoutine != null) StopCoroutine(showRoutine);
+            closing = true;
+            afterClose = completed;
+            rootGroup.interactable = false;
+            contentGroup.interactable = false;
+            // 월드 입력은 말림이 끝날 때까지 전체 화면 dim이 소유한다.
+            rootGroup.blocksRaycasts = true;
+            showRoutine = StartCoroutine(CloseRoutine());
+        }
+
+        void HideImmediate()
         {
             if (showRoutine != null)
             {
                 StopCoroutine(showRoutine);
                 showRoutine = null;
             }
+            closing = false;
+            afterClose = null;
             if (rootGroup == null)
                 return;
             rootGroup.alpha = 0f;
@@ -154,24 +211,97 @@ namespace MukJump.Core
             BuildIfNeeded();
             boundResult = result;
             BindResult(result);
-            SetReviveOffer(false);
+            BindGrowthProgress(result, false);
+            if (!result.IsGrowthPreview) SetReviveOffer(false);
             if (showRoutine == null && rootGroup.blocksRaycasts)
             {
                 ApplyRevealPose(1f, result.ReachedNewBest);
             }
         }
 
-        public string GrowthRewardLabel =>
-            growthRewardText != null ? growthRewardText.text : string.Empty;
+        public string SaveNoticeLabel =>
+            saveNoticeText != null ? saveNoticeText.text : string.Empty;
         public string TouchHintLabel =>
             touchHint != null ? touchHint.text : string.Empty;
-        public string GrowthJourneyLabel =>
-            growthJourneyText != null ? growthJourneyText.text : string.Empty;
 
         public void ShowPendingAbandonConfirmation()
         {
             BuildIfNeeded();
-            touchHint.text = "한 번 더 터치해 기록·먹빛 포기";
+            if (reviveButton != null)
+                reviveButton.gameObject.SetActive(false);
+            if (lobbyButton != null)
+            {
+                lobbyButton.interactable = true;
+                ApplySingleActionLayout(true);
+            }
+            InkLocalizedText.SetSource(touchHint, "기록·먹빛 포기\n한 번 더 눌러 확인");
+            InkUiStyle.SetActionButtonRole(
+                lobbyButton != null ? lobbyButton.GetComponent<Image>() : null,
+                ActionButtonRole.Primary);
+            InkUiStyle.RefreshActionButtonLayout(
+                lobbyButton != null ? lobbyButton.GetComponent<Image>() : null);
+            ApplyResultActionTypography();
+        }
+
+        void ApplyDualActionLayout()
+        {
+            ApplyActionGeometry(
+                reviveButton,
+                new Vector2(0f, PrimaryActionY),
+                new Vector2(ActionWidth, 164f),
+                ActionButtonLayout.TwoLine);
+            ApplyActionGeometry(
+                lobbyButton,
+                new Vector2(0f, SecondaryActionY),
+                new Vector2(ActionWidth, SingleActionHeight),
+                ActionButtonLayout.SingleLine);
+        }
+
+        void ApplySingleActionLayout(bool twoLines)
+        {
+            ApplyActionGeometry(
+                lobbyButton,
+                new Vector2(0f, SingleActionY),
+                new Vector2(
+                    ActionWidth,
+                    twoLines
+                        ? TwoLineActionHeight
+                        : SingleActionHeight),
+                twoLines
+                    ? ActionButtonLayout.TwoLine
+                    : ActionButtonLayout.SingleLine);
+        }
+
+        static void ApplyActionGeometry(
+            Button button,
+            Vector2 position,
+            Vector2 size,
+            ActionButtonLayout layout)
+        {
+            if (button == null) return;
+            RectTransform rect = button.transform as RectTransform;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+            Image image = button.GetComponent<Image>();
+            InkUiStyle.SetActionButtonLayout(image, layout);
+            InkUiStyle.RefreshActionButtonLayout(image);
+        }
+
+        // 결과창의 고정 56px Bold 규격은 공통 버튼의 재배치 후에도 유지한다.
+        void ApplyResultActionTypography()
+        {
+            ApplyResultActionLabel(reviveButtonLabel);
+            ApplyResultActionLabel(touchHint);
+        }
+
+        static void ApplyResultActionLabel(Text label)
+        {
+            if (label == null) return;
+            label.fontSize = ResultActionFontSize;
+            label.fontStyle = FontStyle.Bold;
+            label.resizeTextForBestFit = false;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
         }
 
         void OnDisable()
@@ -181,7 +311,7 @@ namespace MukJump.Core
                 StopCoroutine(showRoutine);
                 showRoutine = null;
             }
-            Hide();
+            HideImmediate();
         }
 
         void BuildIfNeeded()
@@ -240,51 +370,27 @@ namespace MukJump.Core
 
         void BuildScrollPaper()
         {
-            Sprite brush = InkUiTextureFactory.CreateBrushSprite();
+            Texture2D paperTexture = Resources.Load<Texture2D>(
+                "MukJump/UI/PermanentGrowth/pg_hanji_background");
             scrollBody = CreateRect(
                 "ScrollBody",
                 panel,
                 Vector2.zero,
-                new Vector2(700f, 720f));
+                new Vector2(768f, 1100f));
 
-            var shadow = CreateImage(
-                "InkBleedShadow",
-                scrollBody,
-                brush,
-                new Vector2(12f, -14f),
-                new Vector2(742f, 712f),
-                new Color(0f, 0f, 0f, 0.15f));
-            shadow.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
-
-            var outline = CreateImage(
-                "ScrollBodyOutline",
-                scrollBody,
-                brush,
-                Vector2.zero,
-                new Vector2(728f, 704f),
-                InkPalette.Ink);
-            outline.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
-
-            var paper = CreateImage(
-                "ScrollPaper",
-                scrollBody,
-                brush,
-                Vector2.zero,
-                new Vector2(708f, 680f),
-                InkPalette.Paper);
-            paper.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);
-
-            // 회전해 늘린 붓 마스크의 섬유 틈이 어두운 배경을 비처럼 비추지 않도록
-            // 본문 안쪽만 불투명 한지로 채운다. 가장자리의 불규칙한 붓결은 그대로 남긴다.
-            CreateImage(
-                "PaperCore",
-                scrollBody,
-                null,
-                Vector2.zero,
-                new Vector2(620f, 680f),
-                InkPalette.Paper);
+            var shadowRect = CreateRect("InkBleedShadow", scrollBody,
+                new Vector2(4f, -6f), new Vector2(748f, 1100f));
+            paperShadow = shadowRect.gameObject.AddComponent<HanjiScrollPaperGraphic>();
+            paperShadow.Configure(paperTexture, new Color(0.12f, 0.10f, 0.08f, 0.12f));
+            var paperRect = CreateRect("ScrollPaper", scrollBody,
+                Vector2.zero, new Vector2(748f, 1100f));
+            paperGraphic = paperRect.gameObject.AddComponent<HanjiScrollPaperGraphic>();
+            paperGraphic.Configure(paperTexture, paperTexture != null ? Color.white : InkPalette.Paper);
 
             topRoll = CreateScrollRoll(panel, RollOpenDistance, true);
+            topRollGroup = topRoll.gameObject.AddComponent<CanvasGroup>();
+            topRollGroup.blocksRaycasts = false;
+            topRollGroup.interactable = false;
             bottomRoll = CreateScrollRoll(panel, -RollOpenDistance, false);
         }
 
@@ -297,7 +403,7 @@ namespace MukJump.Core
                 "ResultContent",
                 panel,
                 Vector2.zero,
-                new Vector2(650f, 650f));
+                new Vector2(660f, 1020f));
             contentGroup = contentRect.gameObject.AddComponent<CanvasGroup>();
 
             titleText = CreateText(
@@ -305,140 +411,93 @@ namespace MukJump.Core
                 contentRect,
                 "도전 끝",
                 58,
-                new Vector2(0f, 270f),
-                new Vector2(560f, 78f),
+                new Vector2(0f, 450f),
+                new Vector2(600f, 84f),
                 InkPalette.TextDark,
-                FontStyle.Normal,
-                TextAnchor.MiddleLeft);
-            AddSoftWeight(titleText, InkPalette.Ink, 0.2f);
+                FontStyle.Bold,
+                TextAnchor.MiddleCenter);
 
             var currentResult = CreateRect(
                 "CurrentResult",
                 contentRect,
-                new Vector2(0f, 100f),
-                new Vector2(650f, 230f));
+                new Vector2(0f, 260f),
+                new Vector2(660f, 280f));
             CreateText(
                 "Caption",
                 currentResult,
                 "이번 고도",
-                32,
-                new Vector2(0f, 80f),
-                new Vector2(560f, 52f),
-                ReadableMutedColor(),
-                FontStyle.Normal,
-                TextAnchor.MiddleLeft);
+                48,
+                new Vector2(0f, 98f),
+                new Vector2(600f, 64f),
+                InkPalette.TextDark,
+                FontStyle.Bold,
+                TextAnchor.MiddleCenter);
             heightText = CreateText(
                 "Value",
                 currentResult,
                 "0 m",
-                112,
-                new Vector2(0f, -15f),
-                new Vector2(560f, 150f),
+                156,
+                new Vector2(0f, -42f),
+                new Vector2(600f, 188f),
                 InkPalette.TextDark,
-                FontStyle.Normal,
-                TextAnchor.MiddleLeft);
-            AddSoftWeight(heightText, InkPalette.Ink, 0.22f);
+                FontStyle.Bold,
+                TextAnchor.MiddleCenter);
 
             CreateImage(
                 "RecordDivider",
                 contentRect,
                 brush,
-                new Vector2(0f, -25f),
-                new Vector2(360f, 8f),
+                new Vector2(0f, 104f),
+                new Vector2(600f, 6f),
                 new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.16f));
 
             var bestResult = CreateRect(
                 "BestResult",
                 contentRect,
-                new Vector2(0f, -68f),
-                new Vector2(610f, 72f));
+                new Vector2(0f, 20f),
+                new Vector2(640f, 156f));
             CreateText(
                 "Caption",
                 bestResult,
                 "최고 고도",
-                30,
-                new Vector2(-155f, 0f),
-                new Vector2(250f, 58f),
-                ReadableMutedColor(),
-                FontStyle.Normal,
-                TextAnchor.MiddleLeft);
+                48,
+                new Vector2(0f, 40f),
+                new Vector2(600f, 64f),
+                InkPalette.TextDark,
+                FontStyle.Bold,
+                TextAnchor.MiddleCenter);
             bestText = CreateText(
                 "Value",
                 bestResult,
                 "0 m",
-                48,
-                new Vector2(115f, 0f),
-                new Vector2(330f, 72f),
+                64,
+                new Vector2(0f, -38f),
+                new Vector2(600f, 76f),
                 InkPalette.TextDark,
-                FontStyle.Normal,
-                TextAnchor.MiddleRight);
-            AddSoftWeight(bestText, InkPalette.Ink, 0.16f);
+                FontStyle.Bold,
+                TextAnchor.MiddleCenter);
 
             BuildNewBestSeal(contentRect, blob);
+            BuildGrowthProgress(contentRect, brush);
 
-            var growthResult = CreateRect(
-                "PermanentGrowthReward",
+            // 일반 결과에는 기록과 선택만 표시한다. 저장 문제가 있을 때만 안내한다.
+            saveNoticeText = CreateText(
+                "SaveNotice",
                 contentRect,
-                new Vector2(0f, -160f),
-                new Vector2(610f, 88f));
-            CreateText(
-                "Caption",
-                growthResult,
-                "영구 성장 · 먹빛",
-                30,
-                new Vector2(-165f, 22f),
-                new Vector2(230f, 40f),
-                ReadableMutedColor(),
-                FontStyle.Normal,
-                TextAnchor.MiddleLeft);
-            growthRewardText = CreateText(
-                "Value",
-                growthResult,
-                "+0 · 보유 0",
-                32,
-                new Vector2(95f, 22f),
-                new Vector2(370f, 40f),
+                string.Empty,
+                48,
+                new Vector2(0f, -116f),
+                new Vector2(600f, 56f),
                 InkPalette.TextDark,
                 FontStyle.Normal,
-                TextAnchor.MiddleRight);
-            AddSoftWeight(growthRewardText, InkPalette.Ink, 0.14f);
-
-            growthJourneyText = CreateText(
-                "JourneyProgress",
-                growthResult,
-                "누적 0 / 20 m",
-                30,
-                new Vector2(0f, -14f),
-                new Vector2(540f, 30f),
-                ReadableMutedColor(),
-                FontStyle.Normal,
                 TextAnchor.MiddleCenter);
-            Image journeyTrack = CreateImage(
-                "JourneyTrack",
-                growthResult,
-                null,
-                new Vector2(0f, -37f),
-                new Vector2(520f, 9f),
-                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.13f));
-            growthJourneyFill = CreateImage(
-                "Fill",
-                journeyTrack.transform,
-                null,
-                Vector2.zero,
-                new Vector2(0f, 9f),
-                InkPalette.Red);
-            RectTransform journeyFillRect = growthJourneyFill.rectTransform;
-            journeyFillRect.anchorMin = journeyFillRect.anchorMax =
-                new Vector2(0f, 0.5f);
-            journeyFillRect.pivot = new Vector2(0f, 0.5f);
-            journeyFillRect.anchoredPosition = Vector2.zero;
 
             var reviveBrush = CreateImage(
                 "ReviveBrush",
                 contentRect,
                 null,
-                new Vector2(-150f, -280f),
-                new Vector2(280f, 104f),
+                new Vector2(0f, PrimaryActionY),
+                new Vector2(ActionWidth, InkUiStyle.ActionButtonTwoLineHeight),
                 InkPalette.Red);
             reviveBrush.raycastTarget = true;
             reviveButton = reviveBrush.gameObject.AddComponent<Button>();
@@ -447,25 +506,26 @@ namespace MukJump.Core
             reviveButtonLabel = CreateText(
                 "Label",
                 reviveBrush.transform,
-                "광고 보고\n체력 1로 부활",
-                32,
+                ReviveRewardLabel,
+                InkUiStyle.ActionButtonLabelSize,
                 Vector2.zero,
-                new Vector2(244f, 82f),
-                InkPalette.Paper,
-                FontStyle.Normal);
-            AddSoftWeight(reviveButtonLabel, Color.black, 0.18f);
-            InkUiStyle.ConfigureButton(reviveButton, reviveBrush);
-            InkUiStyle.ConfigureActionSurface(reviveBrush, reviveButtonLabel);
-            reviveBrush.color = InkPalette.Red;
-            reviveButtonLabel.fontSize = 32;
-            reviveButtonLabel.fontStyle = FontStyle.Normal;
+                new Vector2(544f, 120f),
+                InkPalette.TextDark,
+                FontStyle.Bold);
+            InkUiStyle.ConfigureActionButton(
+                reviveButton,
+                reviveBrush,
+                reviveButtonLabel,
+                ActionButtonRole.Primary,
+                ActionButtonLayout.TwoLine,
+                labelStyle: FontStyle.Bold);
 
             var retryBrush = CreateImage(
                 "RetryBrush",
                 contentRect,
                 null,
-                new Vector2(150f, -280f),
-                new Vector2(280f, 104f),
+                new Vector2(0f, SecondaryActionY),
+                new Vector2(ActionWidth, InkUiStyle.MinimumTapHeight),
                 InkPalette.Ink);
             retryBrush.raycastTarget = true;
             lobbyButton = retryBrush.gameObject.AddComponent<Button>();
@@ -475,29 +535,33 @@ namespace MukJump.Core
                 "TouchHint",
                 retryBrush.transform,
                 "메인으로",
-                32,
+                InkUiStyle.ActionButtonLabelSize,
                 Vector2.zero,
-                new Vector2(244f, 74f),
-                InkPalette.Paper,
-                FontStyle.Normal);
-            AddSoftWeight(touchHint, Color.black, 0.2f);
-            InkUiStyle.ConfigureButton(lobbyButton, retryBrush);
-            InkUiStyle.ConfigureActionSurface(retryBrush, touchHint);
-            touchHint.fontSize = 32;
-            touchHint.fontStyle = FontStyle.Normal;
+                new Vector2(536f, 80f),
+                InkPalette.TextDark,
+                FontStyle.Bold);
+            InkUiStyle.ConfigureActionButton(
+                lobbyButton,
+                retryBrush,
+                touchHint,
+                ActionButtonRole.Secondary,
+                ActionButtonLayout.SingleLine,
+                labelStyle: FontStyle.Bold);
         }
 
         void HandleRevivePressed()
         {
-            if (reviveButton == null || !reviveButton.interactable)
+            if (closing || reviveButton == null || !reviveButton.interactable)
                 return;
+            FinishGrowthProgress();
             reviveRequested?.Invoke();
         }
 
         void HandleLobbyPressed()
         {
-            if (lobbyButton == null || !lobbyButton.interactable)
+            if (closing || lobbyButton == null || !lobbyButton.interactable)
                 return;
+            FinishGrowthProgress();
             lobbyRequested?.Invoke();
         }
 
@@ -506,8 +570,8 @@ namespace MukJump.Core
             newBestSeal = CreateRect(
                 "NewBestSeal",
                 parent,
-                new Vector2(236f, 75f),
-                new Vector2(100f, 100f));
+                new Vector2(254f, 328f),
+                new Vector2(120f, 120f));
             newBestSeal.localEulerAngles = new Vector3(0f, 0f, -7f);
             newBestGroup = newBestSeal.gameObject.AddComponent<CanvasGroup>();
 
@@ -516,74 +580,53 @@ namespace MukJump.Core
                 newBestSeal,
                 blob,
                 new Vector2(4f, -5f),
-                new Vector2(92f, 92f),
+                new Vector2(116f, 116f),
                 new Color(0f, 0f, 0f, 0.17f));
             CreateImage(
                 "Seal",
                 newBestSeal,
                 blob,
                 Vector2.zero,
-                new Vector2(88f, 88f),
+                new Vector2(112f, 112f),
                 InkPalette.Red);
             CreateText(
                 "NewBest",
                 newBestSeal,
-                "신",
-                32,
-                new Vector2(0f, 9f),
-                new Vector2(58f, 44f),
+                "신기록",
+                40,
+                Vector2.zero,
+                new Vector2(100f, 64f),
                 InkPalette.Paper,
-                FontStyle.Normal);
-            CreateText(
-                "Label",
-                newBestSeal,
-                "기록",
-                17,
-                new Vector2(0f, -22f),
-                new Vector2(60f, 26f),
-                InkPalette.Paper,
-                FontStyle.Normal);
+                FontStyle.Bold);
         }
 
         void BindResult(GameOverResult result)
         {
-            titleText.text = ResultTitleForHeight(result.Height);
-            titleText.fontSize = 54;
-            heightText.text = FormatHeight(result.Height);
-            bestText.text = FormatHeight(result.Best);
-            SetGrowthJourneyVisible(true);
+            InkLocalizedText.SetSource(titleText, ResultTitleForHeight(result.Height));
+            titleText.fontSize = 64;
+            string height = FormatHeight(result.Height);
+            int unitStart = height.LastIndexOf(' ');
+            // 숫자가 먼저 읽히도록 단위만 작게 분리한다. 자동 글자 축소는 사용하지 않는다.
+            InkLocalizedText.SetSource(heightText, height.Substring(0, unitStart) +
+                " <size=72>" + height.Substring(unitStart + 1) + "</size>");
+            InkLocalizedText.SetSource(bestText, FormatHeight(result.Best));
             switch (result.PersistenceState)
             {
                 case GameOverPersistenceState.ScoreBaselinePending:
-                    growthRewardText.text = "기록 기준 확인 중 · 자동 재시도";
-                    growthJourneyText.text = "거리 정산 대기";
-                    SetGrowthJourneyProgress(0f);
-                    touchHint.text = "이번 판 기록·먹빛 포기";
+                    SetSaveNotice("기록을 확인하지 못했어요");
+                    InkLocalizedText.SetSource(touchHint, "이번 판 기록·먹빛 포기");
                     break;
                 case GameOverPersistenceState.GrowthRecoveryRequired:
-                    growthRewardText.text = "저장 실패 · 성장 복구 필요";
-                    growthJourneyText.text = "이번 판 누적 거리 미반영";
-                    SetGrowthJourneyProgress(0f);
-                    touchHint.text = "로비에서 성장 복구";
+                    SetSaveNotice("성장 저장을 복구해 주세요");
+                    InkLocalizedText.SetSource(touchHint, "로비에서 성장 복구");
                     break;
                 case GameOverPersistenceState.RecordWritePending:
-                    growthRewardText.text = "기록 저장 중 · 자동 재시도";
-                    BindGrowthJourney(result);
-                    touchHint.text = "재시도 중단하고 로비로";
+                    SetSaveNotice("기록 저장을 다시 시도해요");
+                    InkLocalizedText.SetSource(touchHint, "재시도 중단하고 로비로");
                     break;
                 default:
-                    growthRewardText.text = result.RewardsAllowed
-                        ? $"+{Mathf.Max(0, result.EarnedGrowthCurrency)} · " +
-                          $"보유 {Mathf.Max(0, result.GrowthCurrencyBalance)}"
-                        : "디버그 판 · 보상 없음";
-                    if (result.RewardsAllowed)
-                        BindGrowthJourney(result);
-                    else
-                    {
-                        growthJourneyText.text = "누적 거리 미반영";
-                        SetGrowthJourneyProgress(0f);
-                    }
-                    touchHint.text = "메인으로";
+                    SetSaveNotice(string.Empty);
+                    InkLocalizedText.SetSource(touchHint, "메인으로");
                     break;
             }
             newBestSeal.gameObject.SetActive(result.ReachedNewBest);
@@ -599,56 +642,10 @@ namespace MukJump.Core
             return "먹방울치고 꽤 높았어요";
         }
 
-        void BindGrowthJourney(GameOverResult result)
+        void SetSaveNotice(string message)
         {
-            long cumulative = System.Math.Max(
-                0L,
-                result.CumulativeGrowthDistanceMeters);
-            if (result.GrowthDistanceJourneyComplete)
-            {
-                growthJourneyText.text = $"완성 · {FormatDistance(cumulative)}";
-                SetGrowthJourneyProgress(1f);
-                return;
-            }
-
-            long previous = System.Math.Max(
-                0L,
-                result.PreviousGrowthRewardDistanceMeters);
-            long configuredNext = result.NextGrowthRewardDistanceMeters;
-            long next = configuredNext > previous
-                ? configuredNext
-                : RunRewardCalculator.GetNextRewardDistance(0);
-            growthJourneyText.text =
-                $"누적 {cumulative:N0} / {next:N0} m";
-            float progress = (float)System.Math.Clamp(
-                (cumulative - previous) / (double)(next - previous),
-                0d,
-                1d);
-            SetGrowthJourneyProgress(progress);
-        }
-
-        void SetGrowthJourneyVisible(bool visible)
-        {
-            if (growthJourneyText != null)
-                growthJourneyText.gameObject.SetActive(visible);
-            if (growthJourneyFill != null && growthJourneyFill.transform.parent != null)
-                growthJourneyFill.transform.parent.gameObject.SetActive(visible);
-        }
-
-        void SetGrowthJourneyProgress(float progress)
-        {
-            if (growthJourneyFill == null) return;
-            growthJourneyFill.rectTransform.sizeDelta = new Vector2(
-                520f * Mathf.Clamp01(progress),
-                9f);
-        }
-
-        static string FormatDistance(long meters)
-        {
-            long safeMeters = System.Math.Max(0L, meters);
-            return safeMeters >= 10000L
-                ? $"{safeMeters / 1000d:0.#} km"
-                : $"{safeMeters:N0} m";
+            InkLocalizedText.SetSource(saveNoticeText, message);
+            saveNoticeText.gameObject.SetActive(!string.IsNullOrEmpty(message));
         }
 
         // 기존 EditMode 레이아웃 테스트와 구형 호출 경로를 위한 단순 결과 바인딩.
@@ -666,11 +663,22 @@ namespace MukJump.Core
         IEnumerator ShowRoutine()
         {
             rootGroup.blocksRaycasts = true;
+            if (LobbySettingsProfile.ReducedMotionEnabled)
+            {
+                ApplyRevealPose(1f, boundResult.ReachedNewBest);
+                showRoutine = null;
+                yield break;
+            }
             ApplyRevealPose(0f, boundResult.ReachedNewBest);
 
             float elapsed = 0f;
             while (elapsed < RevealDuration)
             {
+                if (!MobileApplicationLifecycle.IsApplicationActive)
+                {
+                    yield return null;
+                    continue;
+                }
                 elapsed += Time.unscaledDeltaTime;
                 ApplyRevealPose(
                     elapsed / RevealDuration,
@@ -682,27 +690,58 @@ namespace MukJump.Core
             showRoutine = null;
         }
 
+        IEnumerator CloseRoutine()
+        {
+            float startOpening = currentOpening;
+            float startContent = contentGroup.alpha;
+            float startAlpha = rootGroup.alpha;
+            float elapsed = 0f;
+            while (elapsed < HanjiScrollFrame.CloseDuration)
+            {
+                if (!MobileApplicationLifecycle.IsApplicationActive)
+                {
+                    yield return null;
+                    continue;
+                }
+                elapsed = LobbySettingsProfile.ReducedMotionEnabled
+                    ? HanjiScrollFrame.CloseDuration : elapsed + Time.unscaledDeltaTime;
+                ApplyClosePose(elapsed / HanjiScrollFrame.CloseDuration,
+                    startOpening, startContent, startAlpha);
+                yield return null;
+            }
+            Action completed = afterClose;
+            showRoutine = null;
+            HideImmediate();
+            completed?.Invoke();
+        }
+
+        void ApplyClosePose(float progress, float startOpening, float startContent, float startAlpha)
+        {
+            float t = Mathf.Clamp01(progress);
+            ApplyPaperPose(Mathf.Lerp(startOpening, 0f, Smooth01(t)), 0f, false);
+            contentGroup.alpha = startContent * (1f - Smooth01(Mathf.Clamp01(t / 0.25f)));
+            contentGroup.interactable = contentGroup.blocksRaycasts = false;
+            rootGroup.interactable = false;
+            rootGroup.alpha = startAlpha * (1f - Smooth01(Mathf.InverseLerp(0.78f, 1f, t)));
+        }
+
         /// 시간 대기 없이 팝업 진입 자세를 검증할 수 있도록 정규화된 진행률만 적용한다.
         void ApplyRevealPose(float progress, bool reachedNewBest)
         {
             float t = Mathf.Clamp01(progress);
             float appear = EaseOutCubic(Mathf.InverseLerp(0f, 0.2f, t));
-            float unroll = EaseOutCubic(Mathf.InverseLerp(0.02f, 0.82f, t));
-            float content = EaseOutCubic(Mathf.InverseLerp(0.22f, 0.78f, t));
+            float unroll = EaseOutCubic(Mathf.InverseLerp(0.02f, 0.92f, t));
+            float content = Smooth01(Mathf.InverseLerp(0.58f, 0.95f, t));
 
             rootGroup.alpha = appear;
-            panel.localScale = Vector3.one *
-                               (panelLayoutScale *
-                                Mathf.Lerp(0.97f, 1f, unroll));
+            panel.localScale = Vector3.one * panelLayoutScale;
             panel.localEulerAngles = Vector3.zero;
-            scrollBody.localScale = new Vector3(
-                1f,
-                Mathf.Lerp(ClosedPaperScale, 1f, unroll),
-                1f);
-            topRoll.anchoredPosition = Vector2.up * (RollOpenDistance * unroll);
-            bottomRoll.anchoredPosition = Vector2.down * (RollOpenDistance * unroll);
+            // 위 축은 고정하고 아래 롤만 내려온다. 한지 UV·내용의 크기는 늘리지 않는다.
+            ApplyPaperPose(unroll, 0f, false);
             contentGroup.alpha = content;
-            contentRect.anchoredPosition = Vector2.down * (12f * (1f - content));
+            contentGroup.interactable = content >= 0.99f;
+            contentGroup.blocksRaycasts = content >= 0.99f;
+            contentRect.anchoredPosition = Vector2.zero;
 
             if (!reachedNewBest)
             {
@@ -731,6 +770,24 @@ namespace MukJump.Core
                 0f,
                 0f,
                 Mathf.Lerp(-12f, -7f, EaseOutCubic(stamp)));
+        }
+
+        void ApplyPaperPose(float opening, float seconds, bool flutter)
+        {
+            currentOpening = opening;
+            float fraction = Mathf.Lerp(HanjiScrollPaperGraphic.ClosedFraction, 1f, opening);
+            scrollBody.localScale = Vector3.one;
+            // 결과 화면도 열린 뒤에는 시간과 무관한 정지 자세만 사용한다.
+            paperGraphic.SetPose(opening, 0f, 0f);
+            paperShadow.SetPose(opening, 0f, 0f);
+            topRoll.anchoredPosition = new Vector2(0f, RollOpenDistance);
+            // 시작부터 상단 말림이 종이 단면을 덮는다. 전체 등장은 rootGroup이 담당한다.
+            topRollGroup.alpha = 1f;
+            bottomRoll.anchoredPosition = new Vector2(0f,
+                RollOpenDistance - 2f * RollOpenDistance * fraction);
+            // 풀리면서 롤이 얇아지는 일회성 동작만 유지한다.
+            bottomRoll.localScale = new Vector3(1f, Mathf.Lerp(1.34f, 1f, opening), 1f);
+            bottomRoll.localEulerAngles = Vector3.zero;
         }
 
         void ApplySafeArea()
@@ -768,67 +825,19 @@ namespace MukJump.Core
 
         static RectTransform CreateScrollRoll(Transform parent, float y, bool top)
         {
-            Sprite brush = InkUiTextureFactory.CreateBrushSprite();
-            Sprite blob = InkUiTextureFactory.CreateBlobSprite();
+            Sprite rollArt = Resources.Load<Sprite>("MukJump/UI/Common/scroll_roll_hanji_v2");
             var root = CreateRect(
                 top ? "TopRoll" : "BottomRoll",
                 parent,
                 new Vector2(0f, y),
-                new Vector2(760f, 96f));
-
+                new Vector2(804f, 62f));
             CreateImage(
-                "Shadow",
-                root,
-                brush,
-                new Vector2(8f, -7f),
-                new Vector2(734f, 78f),
-                new Color(0f, 0f, 0f, 0.17f));
-            var roll = CreateImage(
                 "PaperRoll",
                 root,
-                brush,
+                rollArt,
                 Vector2.zero,
-                new Vector2(744f, 78f),
-                InkPalette.Ink);
-            CreateImage(
-                "Paper",
-                roll.transform,
-                brush,
-                Vector2.zero,
-                new Vector2(718f, 58f),
-                InkPalette.Paper2);
-            CreateImage(
-                "FoldShade",
-                roll.transform,
-                brush,
-                new Vector2(0f, top ? -13f : 13f),
-                new Vector2(680f, 8f),
-                new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, 0.12f));
-
-            for (int side = -1; side <= 1; side += 2)
-            {
-                var cap = CreateImage(
-                    side < 0 ? "LeftCap" : "RightCap",
-                    root,
-                    blob,
-                    new Vector2(side * 358f, 0f),
-                    new Vector2(82f, 82f),
-                    InkPalette.Ink);
-                CreateImage(
-                    "Paper",
-                    cap.transform,
-                    blob,
-                    Vector2.zero,
-                    new Vector2(62f, 62f),
-                    InkPalette.Paper2);
-                CreateImage(
-                    "Axis",
-                    cap.transform,
-                    blob,
-                    Vector2.zero,
-                    new Vector2(19f, 19f),
-                    InkPalette.Ink);
-            }
+                new Vector2(804f, 62f),
+                rollArt != null ? Color.white : InkPalette.Paper2);
             return root;
         }
 
@@ -902,7 +911,7 @@ namespace MukJump.Core
         {
             var rect = CreateRect(objectName, parent, position, size);
             var text = rect.gameObject.AddComponent<Text>();
-            text.text = value;
+            InkLocalizedText.SetSource(text, value);
             text.font = InkPalette.UiFont;
             text.fontSize = fontSize;
             text.fontStyle = style;
@@ -910,24 +919,11 @@ namespace MukJump.Core
             text.color = color;
             text.raycastTarget = false;
             text.resizeTextForBestFit = false;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
             text.alignByGeometry = true;
+            InkLocalizedText.Bind(text);
             return text;
-        }
-
-        static void AddSoftWeight(Text text, Color color, float alpha)
-        {
-            if (text == null) return;
-            var shadow = text.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(color.r, color.g, color.b, alpha);
-            shadow.effectDistance = new Vector2(1f, -1f);
-            shadow.useGraphicAlpha = true;
-        }
-
-        static Color ReadableMutedColor()
-        {
-            Color color = InkPalette.TextDark;
-            color.a = 0.84f;
-            return color;
         }
 
         static float EaseOutCubic(float value)

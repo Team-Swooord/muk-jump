@@ -204,7 +204,9 @@ namespace MukJump.Core
 
         void HandleStateChanged(GameState previous, GameState current)
         {
-            if (current == GameState.Playing && previous != GameState.Playing)
+            // 광고 부활은 GameOver -> Playing이지만 같은 판이다. 성장 스냅샷과
+            // 먹선 장부·무한 먹 상태는 새 판인 Lobby -> Playing에서만 초기화한다.
+            if (current == GameState.Playing && previous == GameState.Lobby)
                 ResetRun();
         }
 

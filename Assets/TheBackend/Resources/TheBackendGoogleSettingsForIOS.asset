@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: -1417519677, guid: 36fe862070d9a6e48ba552531560ef36, type: 3}
   m_Name: TheBackendGoogleSettingsForIOS
   m_EditorClassIdentifier: TheBackend.ToolKit.GoogleLogin.Settings.iOS.dll::TheBackend.ToolKit.GoogleLogin.Settings.iOS.TheBackendGoogleSettingsForIOS
-  iosClientID:
-  iosURLSchema:
+  iosClientID: 58212920281-bm72q2dnoc79ee4214e3k9fojb636u2e.apps.googleusercontent.com
+  iosURLSchema: com.googleusercontent.apps.58212920281-bm72q2dnoc79ee4214e3k9fojb636u2e
   iosSDKVersion: 2.1.0

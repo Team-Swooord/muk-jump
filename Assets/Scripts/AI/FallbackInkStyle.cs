@@ -10,8 +10,10 @@ namespace MukJump.AI
     {
         static Material inkMaterial;
         static Material tintableBrushMaterial;
+        static Material restPlatformMaterial;
         static Texture2D brushTexture;
         static Texture2D tintableBrushTexture;
+        static Texture2D restPlatformTexture;
         static bool ownsBrushTexture;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -19,13 +21,17 @@ namespace MukJump.AI
         {
             DestroyRuntimeObject(inkMaterial);
             DestroyRuntimeObject(tintableBrushMaterial);
+            DestroyRuntimeObject(restPlatformMaterial);
             if (ownsBrushTexture)
                 DestroyRuntimeObject(brushTexture);
             DestroyRuntimeObject(tintableBrushTexture);
+            DestroyRuntimeObject(restPlatformTexture);
             inkMaterial = null;
             tintableBrushMaterial = null;
+            restPlatformMaterial = null;
             brushTexture = null;
             tintableBrushTexture = null;
+            restPlatformTexture = null;
             ownsBrushTexture = false;
         }
 
@@ -47,6 +53,20 @@ namespace MukJump.AI
                 if (tintableBrushMaterial == null)
                     tintableBrushMaterial = CreateMaterial(TintableBrushTexture);
                 return tintableBrushMaterial;
+            }
+        }
+
+        /// 쉼터만 양 끝의 먹섬유가 짧게 모여 닫힌다. 일반 획·풍맥의 붓꼬리는 변경하지 않는다.
+        public static Material SharedRestPlatformMaterial
+        {
+            get
+            {
+                if (restPlatformTexture == null)
+                    restPlatformTexture = CreateProceduralBrushTexture(
+                        "MukJump_RestPlatformBrushTexture", sealEnds: true);
+                if (restPlatformMaterial == null)
+                    restPlatformMaterial = CreateMaterial(restPlatformTexture);
+                return restPlatformMaterial;
             }
         }
 
@@ -113,9 +133,11 @@ namespace MukJump.AI
             }
         }
 
-        static Texture2D CreateProceduralBrushTexture(string textureName)
+        static Texture2D CreateProceduralBrushTexture(string textureName, bool sealEnds = false)
         {
-            const int w = 256, h = 64;
+            // 짧은 끝마감에 충분한 표본을 주되 재질·텍스처는 모든 쉼터가 한 장씩 공유한다.
+            int w = sealEnds ? 512 : 256;
+            const int h = 64;
             var texture = new Texture2D(w, h, TextureFormat.RGBA32, false)
             {
                 name = textureName,
@@ -136,6 +158,8 @@ namespace MukJump.AI
                     float grain = Mathf.PerlinNoise(u * 40f, y * 0.15f) * 0.25f;
                     float a = Mathf.Clamp01(edge * 1.4f - (1f - streak) * 0.7f - grain);
                     a = Mathf.SmoothStep(0f, 1f, a);
+                    if (sealEnds)
+                        a *= RestEndCoverage(x / (float)(w - 1), y / (float)(h - 1));
                     pixels[y * w + x] =
                         new Color32(255, 255, 255, (byte)Mathf.RoundToInt(a * 255f));
                 }
@@ -143,6 +167,18 @@ namespace MukJump.AI
             texture.SetPixels32(pixels);
             texture.Apply(false, true);
             return texture;
+        }
+
+        static float RestEndCoverage(float u, float v)
+        {
+            // 폭의 마지막 약 4% 안에서만 번진다. 둥근 플라스틱 캡 대신
+            // 높이마다 끝나는 지점을 달리해 먹결이 안쪽으로 봉합되는 어깨를 만든다.
+            float shoulder = 0.022f * Mathf.Pow(Mathf.Abs(v * 2f - 1f), 1.7f);
+            float left = 0.003f + shoulder + 0.007f * Mathf.PerlinNoise(v * 9f, 8.1f);
+            float right = 0.003f + shoulder + 0.007f * Mathf.PerlinNoise(v * 9f, 23.7f);
+            float feather = 0.012f + 0.004f * Mathf.PerlinNoise(v * 17f, 3.4f);
+            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(left, left + feather, u)) *
+                   Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(right, right + feather, 1f - u));
         }
 
         static Material CreateMaterial(Texture2D texture)

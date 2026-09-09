@@ -2,9 +2,9 @@
 name: unity-2d-urp-android-vfx
 version: 1.0.0
 language: ko-KR
-last_verified: 2026-07-27
-project_editor_current: 6000.3.10f1
-project_editor_recommended: 6000.3.20f1
+last_verified: 2026-08-23
+project_editor_current: 6000.5.9f1
+project_editor_recommended: 6000.5.9f1
 render_pipeline: Universal Render Pipeline / 2D Renderer
 platform: Android
 primary_topics:
@@ -20,9 +20,9 @@ license_note: 프로젝트 내부 운영 규칙 문서. 인용한 외부 저장�
 
 # Unity 2D URP Android VFX Master Skill
 
-> **대상 프로젝트**: Unity 6.3, 2D, URP 2D Renderer, Android, 카드/수집/전투/보상 중심 모바일 게임  
-> **현재 프로젝트 버전**: `6000.3.10f1`  
-> **권장 검증 버전**: `6000.3.20f1`  
+> **대상 프로젝트**: Unity 6.5, 2D, URP 2D Renderer, Android·WebGL, 카드/수집/전투/보상 중심 게임
+> **현재 프로젝트 버전**: `6000.5.9f1`
+> **권장 검증 버전**: `6000.5.9f1`
 > **문서 목적**: 사람 또는 AI 코딩 에이전트가 이 문서 하나를 읽고, 모바일에서 아름답고 읽기 쉬우며 유지보수 가능한 2D VFX를 설계·구현·검증하도록 만드는 실전 운영 규칙
 
 ---
@@ -126,7 +126,7 @@ AI 에이전트 또는 개발자는 이펙트 작업을 시작할 때 다음 순
 
 | 항목 | 프로젝트 기본값 | 이유 |
 |---|---|---|
-| Unity | `6000.3.20f1`로 검증 후 승격 | 현재 `6000.3.10f1` 이후 2D, URP, Android 관련 수정 포함 |
+| Unity | `6000.5.9f1` 고정 | 먹점프의 Android·WebGL 컴파일 및 빌드 기준 |
 | Render Pipeline | URP 2D Renderer | Sprite Lit/Unlit, Light2D, 2D Shadow, 2D Shader Graph 사용 |
 | Color Space | Linear | 알파·가산 혼합과 조명 결과의 일관성. 아트 색은 실제 기기에서 재보정 |
 | Android Minimum API | **API 28 권장** | Unity 자체 최저 API 25보다 테스트 행렬을 줄이는 실무 기준. 서비스 요구에 따라 25~27로 낮출 수 있음 |
@@ -148,10 +148,10 @@ AI 에이전트 또는 개발자는 이펙트 작업을 시작할 때 다음 순
 
 ## 1.2 Unity 업데이트 정책
 
-현재 프로젝트는 `6000.3.10f1`이지만, 이 문서 작성일 기준 확인된 6.3 LTS 최신 패치는 `6000.3.20f1`이다. 업데이트는 다음 절차로만 수행한다.
+현재 프로젝트는 2026-08-23 기준 최신 안정 Update 릴리스인 `6000.5.9f1`로 마이그레이션했다. 다음 업데이트도 아래 절차로만 수행한다.
 
 1. Git 작업 트리가 깨끗한지 확인한다.
-2. `upgrade/unity-6000.3.20f1` 브랜치를 만든다.
+2. `main` 단일 브랜치 정책을 유지하고 새 브랜치·worktree를 만들지 않는다.
 3. 다음 파일을 별도 보관한다.
    - `ProjectSettings/ProjectVersion.txt`
    - `Packages/manifest.json`
@@ -7356,7 +7356,7 @@ OpenGLES3와 비교하고 Unity 패치 Release Notes 및 기기별 Crash를 확�
 
 ## Phase 0 — 기준선
 
-- Unity `6000.3.20f1` 별도 브랜치 검증.
+- Unity `6000.5.9f1`의 `main` 작업 트리에서 검증.
 - Android API 36 빌드.
 - Tier L/M/H 테스트 기기 확보.
 - 현재 Frame Time/메모리 기준선 기록.

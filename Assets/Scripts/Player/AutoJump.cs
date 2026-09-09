@@ -143,6 +143,7 @@ namespace MukJump.Player
 
         void Jump()
         {
+            var takeoffPlatform = player.CurrentPlatform;
             chargeTimer = 0f;
             chargeStarted = false;
             hasLaunched = true;
@@ -177,12 +178,17 @@ namespace MukJump.Player
                                        ActivePermanentGrowth
                                            .JumpVerticalSpeedMultiplier;
             rb.linearVelocity = new Vector2(horizontal, primaryJumpVerticalSpeed);
+            // 점프 속도를 적용한 뒤 시작 발판의 표시와 충돌을 함께 제거한다.
+            LobbyWorldSetup.NotifyStarterTakeoff(takeoffPlatform);
             RunGrowthController growth = RunGrowthController.Instance;
             growth?.NotifyPrimaryAutomaticJump(
                 player,
                 rb.linearVelocity);
             doubleJumpArmed = ActivePermanentGrowth.HasDoubleJump;
-            GameFeedbackController.Instance?.PlayJump(transform.position);
+            Vector3 takeoff = player.PrimaryCollider != null
+                ? new Vector3(transform.position.x, player.PrimaryCollider.bounds.min.y, transform.position.z)
+                : transform.position;
+            GameFeedbackController.Instance?.PlayDirectionalJump(takeoff, rb.linearVelocity);
             Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
                 transform, Mathf.InverseLerp(10f, 18f, power));
         }
@@ -191,7 +197,8 @@ namespace MukJump.Player
         {
             var platform = player.CurrentPlatform;
             if (platform == null) return 1f; // 시작 지형 등 기본 발판
-            if (platform.IsGrowthSafetyPlatform) return 1f;
+            if (platform.IsGrowthSafetyPlatform || platform.IsMapRestPlatform)
+                return 1f;
 
             float t = Mathf.InverseLerp(platformLengthRange.x, platformLengthRange.y, platform.Length);
             float minimum = ActivePermanentGrowth.MinimumPlatformPowerMultiplier;
@@ -242,7 +249,7 @@ namespace MukJump.Player
             rb.linearVelocity = new Vector2(
                 rb.linearVelocity.x,
                 primaryJumpVerticalSpeed * ratio);
-            GameFeedbackController.Instance?.PlayJump(transform.position);
+            GameFeedbackController.Instance?.PlayDirectionalJump(transform.position, rb.linearVelocity, true);
             Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
                 transform,
                 0.35f);

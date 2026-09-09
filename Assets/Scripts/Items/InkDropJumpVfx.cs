@@ -50,8 +50,12 @@ namespace MukJump.Items
         }
 
         public void Play()
+            => TryPlay();
+
+        public bool TryPlay()
         {
-            if (!isActiveAndEnabled) return;
+            if (!isActiveAndEnabled || (verticalBrush == null &&
+                inkSplash == null && shockRing == null)) return false;
 
             float height = playerRenderer != null ? playerRenderer.bounds.size.y : 1f;
             height = Mathf.Max(0.25f, height) * effectScale;
@@ -64,7 +68,7 @@ namespace MukJump.Items
             poolService.Play(this, transform, playerRenderer, ground, height,
                 maximumStrokeLength);
 
-            if (immediateClip == null) return;
+            if (immediateClip == null) return true;
             if (VfxAudioManager.Instance != null)
             {
                 VfxAudioManager.Instance.PlayOneShot(immediateClip);
@@ -74,6 +78,7 @@ namespace MukJump.Items
                 audioSource.PlayOneShot(
                     immediateClip,
                     LobbySettingsProfile.SfxVolume);
+            return true;
         }
 
         void OnDisable()

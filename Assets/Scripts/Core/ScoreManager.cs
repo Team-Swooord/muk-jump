@@ -35,9 +35,13 @@ namespace MukJump.Core
         public bool IsNewBestThisRun { get; private set; }
         public bool RecordsAllowed { get; private set; } = true;
         public int DisplayBest => Mathf.Max(Best, Height);
+        public bool HasConfirmedBest => bestLoadValid;
+        public bool HasPendingBestSaveRetry => uncertainBestCandidate > 0;
 
         /// 이전 최고 기록을 처음 넘어선 순간에만 한 판에 한 번 발생한다.
         public event Action<int, int> NewBestReached;
+        /// 로컬 저장소 write/readback까지 끝난 최고 기록만 알린다.
+        public event Action<int> BestCommitted;
 
         Transform target;
         float startY;
@@ -64,6 +68,17 @@ namespace MukJump.Core
 
         void Awake()
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // Apps in Toss에서는 현재 토스 사용자와 이 브라우저의 기록 소유권을
+            // 대조하기 전까지 이전 사용자의 최고 기록을 읽거나 표시하지 않는다.
+            if (!AppsInTossIdentityPolicy.HasVerifiedIdentity)
+            {
+                Best = 0;
+                RunBestToBeat = 0;
+                bestLoadValid = false;
+                return;
+            }
+#endif
             try
             {
                 Best = Mathf.Max(0, scoreStore.LoadBest());
@@ -82,7 +97,7 @@ namespace MukJump.Core
 
         void Start()
         {
-            var player = FindFirstObjectByType<Player.PlayerController>();
+            var player = FindAnyObjectByType<Player.PlayerController>();
             if (player != null)
             {
                 target = player.transform;
@@ -108,7 +123,7 @@ namespace MukJump.Core
                 BeatsRecord(Height, RunBestToBeat))
             {
                 IsNewBestThisRun = true;
-                NewBestReached?.Invoke(Height, RunBestToBeat);
+                NotifyNewBestReached(Height, RunBestToBeat);
             }
         }
 
@@ -122,7 +137,11 @@ namespace MukJump.Core
             TrySaveBest();
         }
 
-        public bool TrySaveBest()
+        public bool TrySaveBest() => TryCommitBestCandidate(Height);
+
+        /// 광고 선택이나 성장 정산보다 먼저 현재 판의 후보를 내구 저장한다.
+        /// 판의 Height·RunBestToBeat는 건드리지 않아 부활 뒤 같은 판을 이어갈 수 있다.
+        public bool TryCommitBestCandidate(int candidateHeight)
         {
             if (!RecordsAllowed)
                 return true;
@@ -130,21 +149,31 @@ namespace MukJump.Core
             if (!TryEnsureBestLoaded())
                 return false;
 
-            if (Height <= Best && uncertainBestCandidate <= 0)
+            int requestedCandidate = Mathf.Max(0, candidateHeight);
+            if (requestedCandidate <= Best && uncertainBestCandidate <= 0)
                 return true;
 
             int previousBest = Best;
+            bool wasPendingRetry = uncertainBestCandidate > 0;
             int candidate = Mathf.Max(
                 Best,
-                Mathf.Max(Height, uncertainBestCandidate));
+                Mathf.Max(requestedCandidate, uncertainBestCandidate));
             try
             {
                 scoreStore.SaveBest(candidate);
                 int persisted = Mathf.Max(0, scoreStore.LoadBest());
                 if (persisted < candidate)
+                {
+                    // 저장 API가 예외 없이 끝나도 readback이 후보보다 낮으면
+                    // 내구 저장을 확인한 것이 아니다. 다음 재시도까지 후보를 보존한다.
+                    uncertainBestCandidate = Mathf.Max(
+                        uncertainBestCandidate,
+                        candidate);
                     return false;
+                }
                 Best = Mathf.Max(previousBest, persisted);
                 uncertainBestCandidate = 0;
+                NotifyBestCommittedIfChanged(previousBest, wasPendingRetry);
                 return true;
             }
             catch (Exception exception)
@@ -163,16 +192,79 @@ namespace MukJump.Core
             }
         }
 
+        void NotifyBestCommittedIfChanged(
+            int previousBest,
+            bool forceNotification = false)
+        {
+            if (!forceNotification && Best == previousBest)
+                return;
+            Action<int> listeners = BestCommitted;
+            if (listeners != null)
+            {
+                foreach (Action<int> listener in listeners.GetInvocationList())
+                {
+                    try
+                    {
+                        listener(Best);
+                    }
+                    catch (Exception exception)
+                    {
+                        Debug.LogWarning(
+                            "[MukJump] 최고 기록 완료 알림 구독자 예외를 격리했습니다: " +
+                            exception.Message,
+                            this);
+                    }
+                }
+            }
+
+            try
+            {
+                MukJumpAccountRuntime.Instance?.NotifyBestCommitted(Best);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    "[MukJump] 최고 기록 외부 동기화 알림 예외를 격리했습니다: " +
+                    exception.Message,
+                    this);
+            }
+        }
+
+        void NotifyNewBestReached(int height, int previousBest)
+        {
+            Action<int, int> listeners = NewBestReached;
+            if (listeners == null)
+                return;
+
+            foreach (Action<int, int> listener in listeners.GetInvocationList())
+            {
+                try
+                {
+                    listener(height, previousBest);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning(
+                        "[MukJump] 신기록 알림 구독자 예외를 격리했습니다: " +
+                        exception.Message,
+                        this);
+                }
+            }
+        }
+
         public bool TryEnsureBestLoaded()
         {
             if (bestLoadValid)
                 return true;
             try
             {
+                int previousBest = Best;
                 Best = Mathf.Max(Best, Mathf.Max(0, scoreStore.LoadBest()));
-                RunBestToBeat = Mathf.Max(RunBestToBeat, Best);
-                IsNewBestThisRun = BeatsRecord(Height, RunBestToBeat);
                 bestLoadValid = true;
+                // flush 예외 뒤 PlayerPrefs 메모리 readback은 내구 저장 증거가 아니다.
+                // 보류 후보가 있으면 실제 재쓰기 성공 때만 완료 이벤트를 보낸다.
+                if (!HasPendingBestSaveRetry)
+                    NotifyBestCommittedIfChanged(previousBest);
                 return true;
             }
             catch (Exception exception)
@@ -182,6 +274,18 @@ namespace MukJump.Core
                     exception.Message);
                 return false;
             }
+        }
+
+        /// 새 판의 기준 기록은 읽기 성공뿐 아니라 이전 판에서 남은 모호한
+        /// 저장 후보의 재쓰기·readback까지 확인된 뒤에만 확정한다.
+        public bool TryPrepareRunBaseline()
+        {
+            if (!TryEnsureBestLoaded())
+                return false;
+            if (HasPendingBestSaveRetry &&
+                !TryCommitBestCandidate(Best))
+                return false;
+            return bestLoadValid && !HasPendingBestSaveRetry;
         }
 
         /// 모호한 flush 결과 자체를 되돌릴 수는 없으므로, 아직 메모리에만 남은
@@ -200,7 +304,8 @@ namespace MukJump.Core
 
             int candidate = Mathf.Max(Best, Mathf.Max(0, verifiedBest));
             if (candidate == Best)
-                return true;
+                return !HasPendingBestSaveRetry ||
+                       TryCommitBestCandidate(candidate);
 
             int previousHeight = Height;
             int previousBest = Best;
@@ -211,7 +316,7 @@ namespace MukJump.Core
                 if (persisted < candidate)
                     return false;
                 Best = Mathf.Max(previousBest, persisted);
-                RunBestToBeat = Mathf.Max(RunBestToBeat, Best);
+                NotifyBestCommittedIfChanged(previousBest);
                 return true;
             }
             catch (Exception exception)
@@ -249,6 +354,13 @@ namespace MukJump.Core
         public static bool TryReplaceVerifiedBestForAccountSwitch(
             int verifiedBest)
         {
+            if (GameManager.Instance != null &&
+                GameManager.Instance.State != GameState.Lobby)
+            {
+                Debug.LogWarning(
+                    "진행 중인 판에서는 계정 전환 최고 기록을 교체하지 않습니다.");
+                return false;
+            }
             try
             {
                 int candidate = Mathf.Max(0, verifiedBest);
@@ -259,11 +371,13 @@ namespace MukJump.Core
                 uncertainBestCandidate = 0;
                 if (Instance != null)
                 {
+                    int previousBest = Instance.Best;
                     Instance.Best = candidate;
                     Instance.Height = 0;
                     Instance.RunBestToBeat = candidate;
                     Instance.IsNewBestThisRun = false;
                     Instance.bestLoadValid = true;
+                    Instance.NotifyBestCommittedIfChanged(previousBest);
                 }
                 return true;
             }
@@ -286,11 +400,13 @@ namespace MukJump.Core
                 uncertainBestCandidate = 0;
                 if (Instance != null)
                 {
+                    int previousBest = Instance.Best;
                     Instance.Best = 0;
                     Instance.Height = 0;
                     Instance.RunBestToBeat = 0;
                     Instance.IsNewBestThisRun = false;
                     Instance.bestLoadValid = true;
+                    Instance.NotifyBestCommittedIfChanged(previousBest);
                 }
                 return true;
             }
@@ -298,6 +414,48 @@ namespace MukJump.Core
             {
                 Debug.LogWarning(
                     $"회원 탈퇴 후 최고 기록 삭제에 실패했습니다: {exception.Message}");
+                return false;
+            }
+        }
+
+        /// Apps in Toss 사용자 식별이 비동기로 끝난 뒤, 시작 전에 가려 두었던
+        /// 최고 기록을 같은 소유자의 저장소에서 다시 읽는다.
+        public static bool TryReloadAfterAppsInTossIdentity()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (!AppsInTossIdentityPolicy.HasVerifiedIdentity)
+                return false;
+#endif
+            if (GameManager.Instance != null &&
+                GameManager.Instance.State != GameState.Lobby)
+                return false;
+
+            try
+            {
+                int persisted = Mathf.Max(0, scoreStore.LoadBest());
+                uncertainBestCandidate = 0;
+                if (Instance != null)
+                {
+                    int previousBest = Instance.Best;
+                    Instance.Best = persisted;
+                    Instance.Height = 0;
+                    Instance.RunBestToBeat = persisted;
+                    Instance.IsNewBestThisRun = false;
+                    Instance.RecordsAllowed = true;
+                    Instance.bestLoadValid = true;
+                    Instance.NotifyBestCommittedIfChanged(
+                        previousBest,
+                        forceNotification: true);
+                }
+                return true;
+            }
+            catch (Exception exception)
+            {
+                if (Instance != null)
+                    Instance.bestLoadValid = false;
+                Debug.LogWarning(
+                    "토스 사용자 확인 뒤 최고 기록을 다시 읽지 못했습니다: " +
+                    exception.Message);
                 return false;
             }
         }
@@ -326,6 +484,7 @@ namespace MukJump.Core
         /// 무적·아이템 지급·순간이동을 사용한 판은 로컬 최고 기록에 저장하지 않는다.
         public void InvalidateCurrentRunForRecords()
         {
+            MukJumpAnalytics.ExcludeDebugRun();
             RecordsAllowed = false;
             IsNewBestThisRun = false;
         }
@@ -349,6 +508,7 @@ namespace MukJump.Core
     public sealed class MemoryScoreStore : IScoreStore
     {
         public int Best { get; set; }
+        public int? ForcedLoadBest { get; set; }
         public bool ThrowOnLoad { get; set; }
         public bool ThrowOnSave { get; set; }
         public bool ApplyBeforeThrow { get; set; }
@@ -358,7 +518,7 @@ namespace MukJump.Core
         {
             if (ThrowOnLoad)
                 throw new InvalidOperationException("Injected score read failure");
-            return Best;
+            return ForcedLoadBest ?? Best;
         }
 
         public void SaveBest(int value)

@@ -22,6 +22,7 @@ namespace MukJump.EditorTests
             "pg_selected_ring",
             "pg_hanji_card",
             "pg_root_emblem",
+            "pg_inklight_sumukhwa_v1",
             "pg_icon_capacity",
             "pg_icon_recovery",
             "pg_icon_platform",
@@ -34,15 +35,9 @@ namespace MukJump.EditorTests
         [SetUp]
         public void SetUp()
         {
-            var store = new MemoryPermanentGrowthStore
-            {
-                Json =
-                    "{\"schemaVersion\":1,\"balanceVersion\":1," +
-                    "\"wallet\":100,\"spent\":0," +
-                    "\"tutorialRewardClaimed\":false," +
-                    "\"lastSettledRunId\":\"\",\"ranks\":[]}",
-            };
+            var store = new MemoryPermanentGrowthStore();
             PermanentGrowthProfile.UseStoreForTests(store);
+            PermanentGrowthProfile.DebugRefillCurrency();
 
             managerHost = new GameObject("PermanentGrowthArtManager");
             managerHost.AddComponent<GameManager>();
@@ -127,6 +122,67 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void MiniBrushIsTransparentAndImportedForBothGrowthIconSizes()
+        {
+            string path = "Assets/Resources/" + PermanentGrowthView.BrushIconResourcePath + ".png";
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            Assert.That(importer, Is.Not.Null);
+            Assert.That(importer.textureType, Is.EqualTo(TextureImporterType.Sprite));
+            Assert.That(importer.spriteImportMode, Is.EqualTo(SpriteImportMode.Single));
+            Assert.That(importer.maxTextureSize, Is.EqualTo(512));
+            Assert.That(importer.alphaIsTransparency, Is.True);
+            Assert.That(importer.mipmapEnabled, Is.False);
+            Assert.That(Resources.Load<Sprite>(PermanentGrowthView.BrushIconResourcePath), Is.Not.Null);
+            var source = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                Assert.That(source.LoadImage(System.IO.File.ReadAllBytes(path)), Is.True);
+                Assert.That(source.width, Is.EqualTo(source.height));
+                Color32[] pixels = source.GetPixels32();
+                int clear = 0, painted = 0;
+                for (int i = 0; i < pixels.Length; i++)
+                {
+                    if (pixels[i].a < 8) clear++;
+                    if (pixels[i].a > 240) painted++;
+                }
+                Assert.That(clear, Is.GreaterThan(pixels.Length / 3), "체크무늬 배경이 아닌 실제 알파가 필요합니다.");
+                Assert.That(painted, Is.GreaterThan(pixels.Length / 8), "붓 실루엣이 너무 작거나 비어 있습니다.");
+                Assert.That(source.GetPixel(0, 0).a, Is.Zero);
+                Assert.That(source.GetPixel(source.width - 1, source.height - 1).a, Is.Zero);
+            }
+            finally { Object.DestroyImmediate(source); }
+        }
+
+        [Test]
+        public void InkLightPaintingHasRealTransparentMarginsAndDenseInkBody()
+        {
+            string path = ArtRoot + "pg_inklight_sumukhwa_v1.png";
+            var source = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                Assert.That(source.LoadImage(System.IO.File.ReadAllBytes(path)), Is.True);
+                Assert.That(source.width, Is.EqualTo(source.height));
+                // 체크무늬가 RGB에 구워진 원화를 투명 PNG로 잘못 채택하지 않는다.
+                Color32[] pixels = source.GetPixels32();
+                int edge = source.width - 1;
+                for (int i = 0; i < source.width; i++)
+                {
+                    Assert.That(pixels[i].a, Is.LessThanOrEqualTo(1));
+                    Assert.That(pixels[edge * source.width + i].a, Is.LessThanOrEqualTo(1));
+                    Assert.That(pixels[i * source.width].a, Is.LessThanOrEqualTo(1));
+                    Assert.That(pixels[i * source.width + edge].a, Is.LessThanOrEqualTo(1));
+                }
+                Color body = source.GetPixel(source.width / 2, source.height / 3);
+                Assert.That(body.a, Is.GreaterThan(0.95f));
+                Assert.That(body.grayscale, Is.LessThan(0.35f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
         public void ViewDefersArtConstructionUntilFirstVisiblePresentation()
         {
             var view = viewHost.AddComponent<PermanentGrowthView>();
@@ -146,169 +202,52 @@ namespace MukJump.EditorTests
         [Test]
         public void ViewBuildsThreeReadableBranchesAndEveryCatalogNode()
         {
-            var view = viewHost.AddComponent<PermanentGrowthView>();
-            view.BuildForTests();
-
-            Assert.That(view.CreatedRowCount, Is.EqualTo(3));
-            Assert.That(
-                view.CreatedNodeCount,
-                Is.EqualTo(PermanentGrowthCatalog.Nodes.Count));
-            Assert.That(view.PurchaseButton, Is.Not.Null);
-            Assert.That(
-                view.PurchaseButton.GetComponent<RectTransform>().sizeDelta.y,
-                Is.GreaterThanOrEqualTo(100f));
-            Assert.That(
-                view.PurchaseButton.targetGraphic,
-                Is.TypeOf<Image>());
-            Assert.That(
-                InkUiStyle.UsesActionButtonSprite(
-                    view.PurchaseButton.targetGraphic as Image),
-                Is.True);
-
-            Transform panel = viewHost.transform.Find(
-                "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
-                "PermanentGrowthScreen");
-            Assert.That(panel, Is.Not.Null);
-            Transform treeCanvas = viewHost.transform.Find(
-                "PermanentGrowthCanvas/ScreenRoot/TreeLayerRoot/" +
-                "TreeViewport/TreeCanvas");
-            Assert.That(treeCanvas, Is.Not.Null);
-            AssertSprite(treeCanvas.Find("InkTreeRoot"), "pg_root_emblem");
-            AssertSprite(
-                treeCanvas.Find("InkTreeBackground"),
-                "pg_tree_background_v3");
-            Assert.That(treeCanvas.Find("InkTreeTrunk"), Is.Null);
-            Assert.That(
-                treeCanvas.Find("InkTreeRedFlow"),
-                Is.Null,
-                "강화 성공은 화면 먹획 연출로 표시하며 나무를 붉게 덮지 않습니다.");
-
-            foreach (PermanentGrowthBranchMetadata branch
-                     in PermanentGrowthCatalog.Branches)
             {
-                Transform header = treeCanvas.Find(
-                    $"GrowthBranchHeader_{branch.Branch}");
-                Assert.That(
-                    header,
-                    Is.Not.Null,
-                    branch.DisplayName);
-                Text title = header.Find("Brush/BranchTitle")
-                    ?.GetComponent<Text>();
-                Assert.That(
-                    title?.fontSize,
-                    Is.GreaterThanOrEqualTo(34));
-                Assert.That(header.Find("BranchSummary"), Is.Null);
+                var compactView = viewHost.AddComponent<PermanentGrowthView>();
+                compactView.BuildForTests();
+                Transform compactPanel = compactView.ScreenRoot.Find(
+                    "SafeAreaRoot/PermanentGrowthScreen");
+                Transform grid = compactPanel.Find("ChoiceGrid");
+                Assert.That(compactView.CreatedCardCount, Is.EqualTo(4));
+                Assert.That(compactView.TreeCanvas, Is.Null);
+                Assert.That(compactView.IsNodePopupOpen, Is.False);
+                for (int i = 0; i < 4; i++)
+                {
+                    Transform card = grid.Find($"GrowthCard{i}");
+                    Assert.That(card, Is.Not.Null);
+                    Image icon = card.Find("Icon")?.GetComponent<Image>();
+                    Assert.That(icon?.sprite, Is.Not.Null);
+                    Assert.That(icon.preserveAspect, Is.True);
+                    Assert.That(card.GetComponent<Button>(), Is.Not.Null);
+                }
             }
-
-            foreach (PermanentGrowthNodeDefinition definition
-                     in PermanentGrowthCatalog.Nodes)
-            {
-                Transform node = treeCanvas.Find(
-                    $"GrowthNode_{SanitizeNodeId(definition.Id)}");
-                Assert.That(
-                    node,
-                    Is.Not.Null,
-                    definition.Name);
-                RectTransform touch = node.GetComponent<RectTransform>();
-                Assert.That(touch.sizeDelta.x, Is.GreaterThanOrEqualTo(100f));
-                Assert.That(touch.sizeDelta.y, Is.GreaterThanOrEqualTo(100f));
-                Assert.That(node.GetComponent<Button>(), Is.Not.Null);
-                Assert.That(node.Find("NodeName"), Is.Null);
-                Assert.That(node.Find("NodeLevel"), Is.Null);
-                Assert.That(
-                    HasIncomingPath(treeCanvas, definition),
-                    Is.True,
-                    definition.Id);
-                Assert.That(node.Find("Fruit"), Is.Not.Null);
-                Assert.That(node.Find("FruitGlow"), Is.Not.Null);
-                Transform branchArt =
-                    FindIncomingBranchArt(treeCanvas, definition);
-                Assert.That(branchArt, Is.Not.Null, definition.Id);
-                string spriteName =
-                    branchArt.GetComponent<Image>()?.sprite?.name;
-                Assert.That(
-                    spriteName,
-                    Does.StartWith("pg_branch"),
-                    definition.Id);
-            }
-
-            Transform popup = view.ScreenRoot.Find(
-                "GrowthNodePopupOverlay/SafeAreaRoot/PopupContent/" +
-                "SelectedGrowthAction");
-            Assert.That(popup, Is.Not.Null);
-            Assert.That(popup.Find("ActionName"), Is.Not.Null);
-            Assert.That(popup.Find("ActionDescription"), Is.Not.Null);
-            Assert.That(popup.Find("ActionEffectSummary"), Is.Not.Null);
-            Assert.That(popup.Find("ActionCurrentEffect"), Is.Null);
-            Assert.That(popup.Find("ActionUsage"), Is.Null);
-            Assert.That(popup.Find("ActionNextEffect"), Is.Null);
-            Assert.That(popup.Find("ActionStatus"), Is.Null);
-            Assert.That(popup.Find("ActionCostIcon"), Is.Not.Null);
-            Assert.That(popup.Find("EnhanceButton"), Is.Not.Null);
-            Assert.That(popup.Find("CloseButton"), Is.Null);
-            Assert.That(
-                view.ScreenRoot.Find(
-                        "GrowthNodePopupOverlay/GrowthNodePopupDimmer")
-                    ?.GetComponent<Button>(),
-                Is.Not.Null,
-                "상세창 닫기는 카드 밖 DIM 터치가 소유해야 합니다.");
         }
 
         [Test]
         public void SelectingBranchDoesNotPurchaseUntilEnhanceButton()
         {
-            var view = viewHost.AddComponent<PermanentGrowthView>();
-            view.BuildForTests();
+            {
+                var compactView = viewHost.AddComponent<PermanentGrowthView>();
+                compactView.BuildForTests();
+                Transform grid = compactView.ScreenRoot.Find(
+                    "SafeAreaRoot/PermanentGrowthScreen/ChoiceGrid");
+                Button brushCard = grid.Find("GrowthCard2").GetComponent<Button>();
+                brushCard.onClick.Invoke();
 
-            view.SelectGrowthForTests("I00");
+                Assert.That(compactView.SelectedNodeId, Is.EqualTo("brush"));
+                Assert.That(PermanentGrowthProfile.GetLevel(
+                    PermanentGrowthType.InkBudgetEfficiency), Is.Zero);
+                Assert.That(compactView.IsNodePopupOpen, Is.False);
 
-            Assert.That(
-                view.SelectedGrowthType,
-                Is.EqualTo(PermanentGrowthType.InkBudgetEfficiency));
-            Assert.That(view.IsNodePopupOpen, Is.True);
-            Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkBudgetEfficiency),
-                Is.Zero);
-            Assert.That(view.PurchaseButton.interactable, Is.True);
+                compactView.PurchaseButton.onClick.Invoke();
 
-            view.PurchaseButton.onClick.Invoke();
-
-            Assert.That(
-                PermanentGrowthProfile.GetLevel(
-                    PermanentGrowthType.InkBudgetEfficiency),
-                Is.EqualTo(1));
-            Transform panel = viewHost.transform.Find(
-                "PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/" +
-                "PermanentGrowthScreen");
-            Transform selectedNode = viewHost.transform.Find(
-                "PermanentGrowthCanvas/ScreenRoot/TreeLayerRoot/" +
-                "TreeViewport/TreeCanvas/" +
-                "GrowthNode_I00");
-            Assert.That(selectedNode.Find("NodeLevel"), Is.Null);
-            Assert.That(
-                selectedNode.Find("NodeSurface").GetComponent<Image>().color,
-                Is.Not.EqualTo(InkPalette.Red),
-                "나무 전체가 아니라 별도의 해금 열매만 붉어야 합니다.");
-            Color fruitColor =
-                selectedNode.Find("Fruit").GetComponent<Image>().color;
-            Assert.That(
-                fruitColor.r,
-                Is.EqualTo(InkPalette.Red.r).Within(0.001f));
-            Assert.That(
-                fruitColor.g,
-                Is.EqualTo(InkPalette.Red.g).Within(0.001f));
-            Assert.That(
-                fruitColor.b,
-                Is.EqualTo(InkPalette.Red.b).Within(0.001f));
-            Assert.That(fruitColor.a, Is.GreaterThan(0.9f));
-            Assert.That(
-                selectedNode.Find("FruitGlow")
-                    .GetComponent<Image>().color.a,
-                Is.GreaterThan(0.1f));
-            Assert.That(
-                panel.Find("GrowthBranchRedFlow2"),
-                Is.Null);
+                Assert.That(PermanentGrowthProfile.GetLevel(
+                    PermanentGrowthType.InkBudgetEfficiency), Is.EqualTo(1));
+                Assert.That(grid.Find("GrowthCard2/SelectionInk")
+                    .gameObject.activeSelf, Is.True);
+                Assert.That(grid.Find("GrowthCard2/TabLabel")
+                    .GetComponent<Text>().color, Is.EqualTo(InkPalette.Red));
+            }
         }
 
         static void AssertSprite(Transform transform, string expectedName)

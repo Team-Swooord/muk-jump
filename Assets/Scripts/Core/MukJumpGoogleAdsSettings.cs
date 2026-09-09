@@ -82,6 +82,20 @@ namespace MukJump.Core
     {
         public const string ResourcePath =
             "MukJump/Settings/MukJumpGoogleAdsSettings";
+        public const string ProductionPublisherPrefix =
+            "ca-app-pub-2944517353618559";
+        public const string AndroidProductionAppId =
+            "ca-app-pub-2944517353618559~3718407207";
+        public const string AndroidProductionBannerId =
+            "ca-app-pub-2944517353618559/6947205773";
+        public const string AndroidProductionRewardedId =
+            "ca-app-pub-2944517353618559/4202000231";
+        public const string IosProductionAppId =
+            "ca-app-pub-2944517353618559~8630103905";
+        public const string IosProductionBannerId =
+            "ca-app-pub-2944517353618559/3377777224";
+        public const string IosProductionRewardedId =
+            "ca-app-pub-2944517353618559/5343691518";
 
         [Header("노출 정책")]
         [SerializeField] bool enableLobbyBanner = true;
@@ -119,17 +133,27 @@ namespace MukJump.Core
             return platform == GoogleAdsPlatform.Android ? android : ios;
         }
 
-        public bool ShouldUseTestAds(bool isEditor, bool isDevelopmentBuild)
+        public bool ShouldUseTestAds(
+            bool isEditor,
+            bool isDevelopmentBuild,
+            bool forceTestAds = false)
         {
             // 실수로 운영 광고를 누르는 무효 트래픽을 막기 위해
-            // 에디터와 Development Build는 항상 Google 테스트 ID만 쓴다.
-            return isEditor || isDevelopmentBuild;
+            // 에디터·Development Build와 TestFlight QA 변형은 항상
+            // Google 공식 테스트 ID만 쓴다.
+            return forceTestAds || isEditor || isDevelopmentBuild;
         }
 
         public bool TryValidateProduction(
             GoogleAdsPlatform platform,
             out string error)
         {
+            if (!enableLobbyBanner)
+            {
+                error =
+                    "먹점프 1.0은 로비 배너 광고가 활성화되어야 합니다.";
+                return false;
+            }
             if (enablePostRunInterstitial)
             {
                 error =
@@ -150,14 +174,66 @@ namespace MukJump.Core
                 error = $"{platform} AdMob 앱 ID가 비었거나 형식이 올바르지 않습니다.";
                 return false;
             }
+            string publisher = PublisherPrefix(appId);
+            if (string.Equals(
+                    publisher,
+                    "ca-app-pub-3940256099942544",
+                    StringComparison.Ordinal))
+            {
+                error = $"{platform} 운영 설정에 Google 테스트 광고 ID가 들어 있습니다.";
+                return false;
+            }
+            if (!string.Equals(
+                    publisher,
+                    ProductionPublisherPrefix,
+                    StringComparison.Ordinal))
+            {
+                error =
+                    $"{platform} AdMob 앱은 cysbandcs@gmail.com 먹점프 게시자 " +
+                    $"({ProductionPublisherPrefix})여야 합니다.";
+                return false;
+            }
+            string expectedAppId = platform == GoogleAdsPlatform.Android
+                ? AndroidProductionAppId
+                : IosProductionAppId;
+            string expectedBannerId = platform == GoogleAdsPlatform.Android
+                ? AndroidProductionBannerId
+                : IosProductionBannerId;
+            string expectedRewardedId = platform == GoogleAdsPlatform.Android
+                ? AndroidProductionRewardedId
+                : IosProductionRewardedId;
+            if (!string.Equals(appId, expectedAppId, StringComparison.Ordinal))
+            {
+                error =
+                    $"{platform} AdMob 앱 ID가 확인된 먹점프 전용 값과 다릅니다.";
+                return false;
+            }
             if (enableLobbyBanner && !IsAdUnitId(units.Banner))
             {
                 error = $"{platform} 로비 배너 광고 단위 ID가 필요합니다.";
                 return false;
             }
+            if (enableLobbyBanner && !string.Equals(
+                    units.Banner,
+                    expectedBannerId,
+                    StringComparison.Ordinal))
+            {
+                error =
+                    $"{platform} 배너 광고 단위가 확인된 먹점프 전용 값과 다릅니다.";
+                return false;
+            }
             if (!IsAdUnitId(units.Rewarded))
             {
                 error = $"{platform} 부활 보상형 광고 단위 ID가 필요합니다.";
+                return false;
+            }
+            if (!string.Equals(
+                    units.Rewarded,
+                    expectedRewardedId,
+                    StringComparison.Ordinal))
+            {
+                error =
+                    $"{platform} 부활 보상형 광고 단위가 확인된 먹점프 전용 값과 다릅니다.";
                 return false;
             }
             if (enablePostRunInterstitial &&
@@ -167,7 +243,6 @@ namespace MukJump.Core
                 return false;
             }
 
-            string publisher = PublisherPrefix(appId);
             foreach (string adUnitId in RequiredUnitIds(units))
             {
                 if (!string.Equals(
@@ -269,17 +344,17 @@ namespace MukJump.Core
                 "2026-08-26 cysbandcs@gmail.com AdMob 계정에서 먹점프 전용 " +
                 "Android·iOS 앱과 배너·보상형 광고 단위를 생성해 확인했습니다. " +
                 "스토어 출시 후 각 AdMob 앱을 실제 스토어 목록과 연결해야 합니다.";
-            androidAppId = "ca-app-pub-2944517353618559~3718407207";
-            iosAppId = "ca-app-pub-2944517353618559~8630103905";
+            androidAppId = AndroidProductionAppId;
+            iosAppId = IosProductionAppId;
             android ??= new GoogleAdUnitSet();
             ios ??= new GoogleAdUnitSet();
             android.Configure(
-                "ca-app-pub-2944517353618559/6947205773",
-                "ca-app-pub-2944517353618559/4202000231",
+                AndroidProductionBannerId,
+                AndroidProductionRewardedId,
                 string.Empty);
             ios.Configure(
-                "ca-app-pub-2944517353618559/3377777224",
-                "ca-app-pub-2944517353618559/5343691518",
+                IosProductionBannerId,
+                IosProductionRewardedId,
                 string.Empty);
         }
 #endif

@@ -268,7 +268,9 @@ namespace MukJump.Items
 
         void OnStateChanged(GameState previous, GameState next)
         {
-            if (next != GameState.Playing)
+            // 광고 부활은 같은 판이다. 결과창에서는 미획득 아이템과 스폰
+            // 예약을 함께 보존하고, 판을 떠날 때만 풀에 반납한다.
+            if (next == GameState.Lobby)
                 ReleaseAllActive();
         }
 
@@ -321,13 +323,7 @@ namespace MukJump.Items
 
         static Color ColorFor(ItemType type)
         {
-            return type switch
-            {
-                ItemType.InkDrop => new Color(0.42f, 0.62f, 0.72f),
-                ItemType.GoldenBrush => new Color(0.95f, 0.72f, 0.2f),
-                ItemType.InkShield => new Color(0.72f, 0.18f, 0.28f),
-                _ => new Color(0.2f, 0.18f, 0.16f),
-            };
+            return ItemFeedbackPalette.For(type);
         }
 
         void OnValidate()

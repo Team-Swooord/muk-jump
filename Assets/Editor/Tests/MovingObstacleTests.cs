@@ -6,12 +6,16 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using MukJump.Core;
+using MukJump.Drawing;
 using MukJump.Obstacles;
 using MukJump.Player;
 
 public sealed class MovingObstacleTests
 {
     readonly List<Object> cleanup = new();
+
+    [SetUp]
+    public void SetUp() => PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
 
     [TearDown]
     public void TearDown()
@@ -20,6 +24,8 @@ public sealed class MovingObstacleTests
             if (cleanup[i] != null)
                 Object.DestroyImmediate(cleanup[i]);
         cleanup.Clear();
+        PermanentGrowthProfile.RestoreDefaultStoreForTests();
+        GameplayRandom.ResetSession(0x4D554B);
     }
 
     [Test]
@@ -78,9 +84,9 @@ public sealed class MovingObstacleTests
 
         Invoke(obstacle, "OnTriggerEnter2D", playerCollider);
 
-        Assert.That(player.CurrentHealth, Is.Zero);
-        Assert.That(player.IsDead, Is.True,
-            "기본 체력 1칸은 첫 무방비 장애물 피격에 소진되어야 합니다.");
+        Assert.That(player.CurrentHealth, Is.EqualTo(2));
+        Assert.That(player.IsDead, Is.False,
+            "기본 체력 3칸은 첫 무방비 장애물 피격 뒤 2칸이 남아야 합니다.");
         Assert.That(active.Count, Is.Zero,
             "유효 피격을 준 먹가시는 활성 목록에서 즉시 빠져야 합니다.");
         Assert.That(obstacle.gameObject.activeSelf, Is.False,
@@ -111,7 +117,7 @@ public sealed class MovingObstacleTests
         Invoke(obstacle, "OnTriggerEnter2D", playerCollider);
 
         Assert.That(releaseRequested, Is.False);
-        Assert.That(player.CurrentHealth, Is.EqualTo(1));
+        Assert.That(player.CurrentHealth, Is.EqualTo(3));
         Assert.That(obstacleObject.GetComponent<CircleCollider2D>().enabled, Is.True);
     }
 
@@ -151,6 +157,7 @@ public sealed class MovingObstacleTests
         var spawner = spawnerObject.AddComponent<ObstacleSpawner>();
         SetField(spawner, "dragonSprite", CreateSprite(300, 100));
         SetField(spawner, "dragonUnlockHeight", 60f);
+        SetField(spawner, "dragonChanceBeforeHaetae", 0f);
         SetField(spawner, "dragonChance", 0f);
         SetField(spawner, "firstDragonPending", true);
 
@@ -482,6 +489,36 @@ public sealed class MovingObstacleTests
         Invoke(spawner, "EnsureSessionSchedule");
 
         Assert.AreEqual(30f, (float)GetField(spawner, "nextSpawnHeight"));
+    }
+
+    [Test]
+    public void MapRestReservationSkipsObstacleWithoutConsumingGuarantees()
+    {
+        GameplayRandom.ResetSession(20260831);
+        var restSpawner = Track(new GameObject("ObstacleRestZone"))
+            .AddComponent<RestPlatformSpawner>();
+        Invoke(restSpawner, "OnEnable");
+        SetField(restSpawner, "scheduledSessionVersion",
+            GameplayRandom.SessionVersion);
+        SetField(restSpawner, "nextMapRestHeight", 30f);
+
+        var spawnerObject = Track(new GameObject("RestAwareObstacleSpawner"));
+        var spawner = spawnerObject.AddComponent<ObstacleSpawner>();
+        SetField(spawner, "obstacleSprite", CreateSprite(100, 100));
+        SetField(spawner, "firstDragonPending", true);
+        SetField(spawner, "firstHaetaePending", true);
+
+        Invoke(spawner, "Spawn", 30f);
+
+        var active = (IList)GetField(spawner, "active");
+        Assert.That(active.Count, Is.Zero);
+        Assert.That((bool)GetField(spawner, "firstDragonPending"), Is.True);
+        Assert.That((bool)GetField(spawner, "firstHaetaePending"), Is.True);
+
+        SetField(restSpawner, "nextMapRestHeight", 100f);
+        Invoke(spawner, "Spawn", 30f);
+        Assert.That(active.Count, Is.EqualTo(1),
+            "안전지대 밖의 다음 슬롯에서는 장애물이 다시 자연스럽게 생성되어야 합니다.");
     }
 
     [Test]

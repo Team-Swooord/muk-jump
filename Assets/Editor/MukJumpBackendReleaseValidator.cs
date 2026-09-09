@@ -1,7 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using MukJump.Core;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEngine;
 
 namespace MukJump.EditorTools
@@ -15,6 +19,19 @@ namespace MukJump.EditorTools
 
     public static class MukJumpBackendReleaseValidator
     {
+        public const string ExpectedPackageName =
+            MukJumpStoreBuild.DefaultBundleIdentifier;
+        public const string ExpectedPlayerTableName = "MukJumpPlayer";
+        public const string ExpectedBestHeightColumn = "bestHeight";
+        public const string ExpectedAllTimeRankUuid =
+            "01a04198-3705-7286-bce6-651ddcd17e2f";
+        public const string ExpectedIosGoogleClientId =
+            "58212920281-bm72q2dnoc79ee4214e3k9fojb636u2e" +
+            ".apps.googleusercontent.com";
+        const string ExpectedClientAppIdSha256 =
+            "417028671d793073b90595866eb26cdd21e9d755cc755c7b7ae4abc8619d9d40";
+        const string ExpectedSignatureKeySha256 =
+            "d142f72c7d636df04c7b766997a7e6f18acb085df6d64c361c1b2e683c0ed143";
         const string BackendSettingsPath =
             "Assets/TheBackend/Resources/TheBackendSettings.asset";
         const string AndroidGoogleSettingsPath =
@@ -75,10 +92,28 @@ namespace MukJump.EditorTools
                 issues.Add("• 뒤끝 콘솔 앱 연결 확인 체크가 꺼져 있습니다.");
             if (string.IsNullOrWhiteSpace(settings.PlayerTableName))
                 issues.Add("• 비공개 MukJumpPlayer 테이블 이름이 비었습니다.");
+            else if (!string.Equals(
+                         settings.PlayerTableName,
+                         ExpectedPlayerTableName,
+                         StringComparison.Ordinal))
+                issues.Add(
+                    $"• 플레이어 테이블 이름은 {ExpectedPlayerTableName}이어야 합니다.");
             if (string.IsNullOrWhiteSpace(settings.BestHeightColumn))
                 issues.Add("• 최고 고도 컬럼 이름이 비었습니다.");
+            else if (!string.Equals(
+                         settings.BestHeightColumn,
+                         ExpectedBestHeightColumn,
+                         StringComparison.Ordinal))
+                issues.Add(
+                    $"• 최고 고도 컬럼 이름은 {ExpectedBestHeightColumn}이어야 합니다.");
             if (string.IsNullOrWhiteSpace(settings.AllTimeRankUuid))
                 issues.Add("• 전체 최고 고도 리더보드 UUID가 비었습니다.");
+            else if (!string.Equals(
+                         settings.AllTimeRankUuid,
+                         ExpectedAllTimeRankUuid,
+                         StringComparison.Ordinal))
+                issues.Add(
+                    "• 먹점프 전용 전체 최고 고도 리더보드 UUID가 아닙니다.");
             if (includeAndroid &&
                 string.IsNullOrWhiteSpace(settings.AndroidGoogleWebClientId))
                 issues.Add("• Android Google Web Client ID가 비었습니다.");
@@ -89,6 +124,36 @@ namespace MukJump.EditorTools
                 !HasSerializedValue(BackendSettingsPath, "signatureKey"))
                 issues.Add(
                     "• The Backend > Edit Settings에서 먹점프 앱 ID·서명키를 연결해야 합니다.");
+            else if (!SerializedValueSha256Matches(
+                         BackendSettingsPath,
+                         "clientAppID",
+                         ExpectedClientAppIdSha256) ||
+                     !SerializedValueSha256Matches(
+                         BackendSettingsPath,
+                         "signatureKey",
+                         ExpectedSignatureKeySha256))
+                issues.Add(
+                    "• The Backend 앱 ID·서명키가 확인된 먹점프 전용 값과 다릅니다.");
+            if (!SerializedValueEquals(
+                    BackendSettingsPath,
+                    "packageName",
+                    ExpectedPackageName))
+                issues.Add(
+                    $"• The Backend 패키지 이름은 {ExpectedPackageName}여야 합니다.");
+            if (includeIos && !string.Equals(
+                    PlayerSettings.GetApplicationIdentifier(
+                        NamedBuildTarget.iOS),
+                    ExpectedPackageName,
+                    StringComparison.Ordinal))
+                issues.Add(
+                    $"• iOS PlayerSettings 번들 ID는 {ExpectedPackageName}여야 합니다.");
+            if (includeAndroid && !string.Equals(
+                    PlayerSettings.GetApplicationIdentifier(
+                        NamedBuildTarget.Android),
+                    ExpectedPackageName,
+                    StringComparison.Ordinal))
+                issues.Add(
+                    $"• Android PlayerSettings application ID는 {ExpectedPackageName}여야 합니다.");
             if (!SerializedValueEquals(
                     BackendSettingsPath,
                     "sendLogReport",
@@ -134,6 +199,12 @@ namespace MukJump.EditorTools
                 if (string.IsNullOrWhiteSpace(iosClientId))
                     issues.Add(
                         "• The Backend > ToolKit > GoogleLogin > iOS Settings의 iOS Client ID가 비었습니다.");
+                else if (!string.Equals(
+                             iosClientId,
+                             ExpectedIosGoogleClientId,
+                             StringComparison.Ordinal))
+                    issues.Add(
+                        "• iOS Google Client ID가 발급 확인된 먹점프 전용 값과 다릅니다.");
                 if (string.IsNullOrWhiteSpace(iosUrlScheme))
                     issues.Add(
                         "• iOS Google 로그인 URL Scheme이 비었습니다.");
@@ -157,6 +228,28 @@ namespace MukJump.EditorTools
             string fieldName,
             string expected) =>
             SerializedValueEquals(path, fieldName, expected);
+
+        public static bool SerializedValueSha256Matches(
+            string path,
+            string fieldName,
+            string expectedSha256)
+        {
+            string value = ReadSerializedValue(path, fieldName);
+            if (string.IsNullOrWhiteSpace(value) ||
+                string.IsNullOrWhiteSpace(expectedSha256))
+                return false;
+
+            using SHA256 sha256 = SHA256.Create();
+            byte[] digest = sha256.ComputeHash(
+                Encoding.UTF8.GetBytes(value));
+            string actual = BitConverter.ToString(digest)
+                .Replace("-", string.Empty)
+                .ToLowerInvariant();
+            return string.Equals(
+                actual,
+                expectedSha256.Trim(),
+                StringComparison.OrdinalIgnoreCase);
+        }
 
         public static bool IsMatchingGoogleIosUrlScheme(
             string clientId,

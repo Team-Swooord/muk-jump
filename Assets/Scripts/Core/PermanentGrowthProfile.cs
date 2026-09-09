@@ -132,7 +132,8 @@ namespace MukJump.Core
             long cumulativeDistanceMeters = 0L,
             long previousRewardDistanceMeters = 0L,
             long nextRewardDistanceMeters = 0L,
-            bool distanceJourneyComplete = false)
+            bool distanceJourneyComplete = false,
+            long distanceRewardOffsetMeters = 0L)
         {
             Earned = earned;
             Balance = balance;
@@ -142,6 +143,7 @@ namespace MukJump.Core
             PreviousRewardDistanceMeters = previousRewardDistanceMeters;
             NextRewardDistanceMeters = nextRewardDistanceMeters;
             DistanceJourneyComplete = distanceJourneyComplete;
+            DistanceRewardOffsetMeters = distanceRewardOffsetMeters;
         }
 
         public int Earned { get; }
@@ -152,13 +154,14 @@ namespace MukJump.Core
         public long PreviousRewardDistanceMeters { get; }
         public long NextRewardDistanceMeters { get; }
         public bool DistanceJourneyComplete { get; }
+        public long DistanceRewardOffsetMeters { get; }
     }
 
     /// 게임 종료 뒤에도 유지되는 먹빛·열매 소유·비기 장착 상태를 소유한다.
     public static class PermanentGrowthProfile
     {
         const int SchemaVersion = 1;
-        const int BalanceVersion = 7;
+        const int BalanceVersion = 11;
         const int V2TotalCost = 39;
         const int LegacyTotalCost = 957;
         const int SettledRunHistoryLimit = 64;
@@ -184,6 +187,9 @@ namespace MukJump.Core
             // v7: 결과창의 한 판 고도를 합산하는 39단계 성장 여정.
             public long cumulativeDistanceMeters;
             public int claimedDistanceRewardCount;
+            // v10: 받은 먹빛은 회수하지 않고, 구 문턱과 새 문턱의 차이만 보정한다.
+            // 실제 누적 거리는 고치지 않으며 미지급 잔여 m도 그대로 이어진다.
+            public long distanceRewardOffsetMeters;
             public string lastSettledRunId = string.Empty;
             public List<string> settledRunIds = new();
             // balanceVersion 1 역직렬화·마이그레이션 전용.
@@ -320,14 +326,39 @@ namespace MukJump.Core
         static int debugCurrencyOverride = -1;
 #endif
 #if UNITY_EDITOR
-        // Editor Play에서는 해금 상태만 미리 보여 주고, 실제 판 효과는 사용자가
-        // 고른 계보별 한 줄기만 적용한다. 선택은 저장을 건드리지 않는 세션 값이다.
+        // 구 나무 UI의 미리보기 선택값은 테스트 호환을 위해 남기되, v8 카드형
+        // 성장에서는 실제 저장 소유권만 해금·효과의 기준으로 사용한다.
         static readonly Dictionary<PermanentGrowthBranch, string>
             editorActiveKeystoneOverrides = new();
-        static bool IsEditorUnlockPreviewActive => Application.isPlaying;
+        static bool IsEditorUnlockPreviewActive => false;
 #endif
 
         public static event Action Changed;
+
+        /// 저장 성공 뒤의 화면/클라우드 알림은 부가 작업이다. 한 구독자의
+        /// 예외가 이미 확정된 성장 저장이나 게임오버 정산 흐름을 되돌리거나
+        /// 다음 구독자의 갱신까지 막지 않도록 각각 격리한다.
+        static void NotifyChangedSafely()
+        {
+            Action handlers = Changed;
+            if (handlers == null)
+                return;
+
+            Delegate[] subscribers = handlers.GetInvocationList();
+            for (int i = 0; i < subscribers.Length; i++)
+            {
+                try
+                {
+                    ((Action)subscribers[i]).Invoke();
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning(
+                        "[MukJump] 성장 저장 완료 알림을 처리하지 못했습니다: " +
+                        exception.Message);
+                }
+            }
+        }
 
         public static PermanentGrowthLoadState LoadState
         {
@@ -405,6 +436,16 @@ namespace MukJump.Core
             }
         }
 
+        public static bool HasCompletedRun
+        {
+            get
+            {
+                EnsureLoaded();
+                return !writeBlocked && (data.settledRunIds.Count > 0 ||
+                    !string.IsNullOrEmpty(data.lastSettledRunId) || data.cumulativeDistanceMeters > 0);
+            }
+        }
+
         public static int ClaimedDistanceRewardCount
         {
             get
@@ -420,7 +461,7 @@ namespace MukJump.Core
             {
                 EnsureLoaded();
                 return RunRewardCalculator.GetPreviousRewardDistance(
-                    data.claimedDistanceRewardCount);
+                    data.claimedDistanceRewardCount) - data.distanceRewardOffsetMeters;
             }
         }
 
@@ -430,7 +471,7 @@ namespace MukJump.Core
             {
                 EnsureLoaded();
                 return RunRewardCalculator.GetNextRewardDistance(
-                    data.claimedDistanceRewardCount);
+                    data.claimedDistanceRewardCount) - data.distanceRewardOffsetMeters;
             }
         }
 
@@ -440,7 +481,7 @@ namespace MukJump.Core
             {
                 EnsureLoaded();
                 return RunRewardCalculator.GetDistanceToNextReward(
-                    data.cumulativeDistanceMeters,
+                    GetRewardDistance(data),
                     data.claimedDistanceRewardCount);
             }
         }
@@ -454,6 +495,17 @@ namespace MukJump.Core
                        RunRewardCalculator.MaxRewardCount;
             }
         }
+
+        public static int DistanceRewardIntervalMeters =>
+            RunRewardCalculator.GetRequiredMetersForNextReward(ClaimedDistanceRewardCount);
+
+        public static long DistanceRewardProgressMeters => IsDistanceJourneyComplete
+            ? DistanceRewardIntervalMeters
+            : Math.Clamp(CumulativeDistanceMeters - PreviousDistanceRewardMeters, 0L,
+                DistanceRewardIntervalMeters);
+
+        static long GetRewardDistance(SaveData value) => RunRewardCalculator.SaturatingAdd(
+            value.cumulativeDistanceMeters, value.distanceRewardOffsetMeters);
 
         /// 클라우드에는 검증을 통과한 현재 세대만 올린다. 복구 대기 중인
         /// 저장은 서버의 정상 세대를 덮지 않도록 내보내지 않는다.
@@ -493,7 +545,7 @@ namespace MukJump.Core
             if (!Save(rollback, rollback.Json))
                 return false;
 
-            Changed?.Invoke();
+            NotifyChangedSafely();
             return true;
         }
 
@@ -605,7 +657,7 @@ namespace MukJump.Core
         }
 
         public static int GetNextCost(PermanentGrowthType type) =>
-            FindNextNode(type) != null ? 1 : 0;
+            FindNextNode(type)?.Cost ?? 0;
 
         public static bool CanPurchase(PermanentGrowthType type) =>
             CanPurchaseNode(FindNextNode(type));
@@ -690,24 +742,23 @@ namespace MukJump.Core
                 debugCurrencyOverride -= catalogNode.Cost;
                 // QA용 무료 구매도 저장 JSON 자체는 운영 경제 불변식을
                 // 유지해야 다음 실행과 클라우드 내보내기가 복구 모드에 빠지지 않는다.
-                if (data.wallet > 0)
-                    data.wallet--;
-                else
-                {
-                    data.claimedDistanceRewardCount = Mathf.Clamp(
-                        data.ownedNodeIds.Count,
-                        0,
-                        RunRewardCalculator.MaxRewardCount);
-                    data.cumulativeDistanceMeters = Math.Max(
-                        data.cumulativeDistanceMeters,
-                        RunRewardCalculator.GetThresholdForRewardCount(
-                            data.claimedDistanceRewardCount));
-                }
+                int nextSpent = CalculateOwnedCost(data.ownedNodeIds);
+                int granted = Mathf.Clamp(
+                    Math.Max(
+                        data.claimedDistanceRewardCount,
+                        nextSpent + Math.Max(0, data.wallet)),
+                    0,
+                    RunRewardCalculator.MaxRewardCount);
+                data.claimedDistanceRewardCount = granted;
+                data.cumulativeDistanceMeters = Math.Max(
+                    data.cumulativeDistanceMeters,
+                    RunRewardCalculator.GetThresholdForRewardCount(granted) - data.distanceRewardOffsetMeters);
+                data.wallet = Math.Max(0, granted - nextSpent);
             }
             else
 #endif
             data.wallet -= catalogNode.Cost;
-            data.spent = data.ownedNodeIds.Count;
+            data.spent = CalculateOwnedCost(data.ownedNodeIds);
 
             PermanentGrowthPath purchasedPath =
                 PermanentGrowthCatalog.GetPath(catalogNode);
@@ -722,7 +773,9 @@ namespace MukJump.Core
 
             if (!Save(snapshot))
                 return false;
-            Changed?.Invoke();
+            if (!AnalyticsDebugCurrencyActive)
+                MukJumpAnalytics.Upgrade(catalogNode.Type, catalogNode.Rank, catalogNode.Cost, data.wallet);
+            NotifyChangedSafely();
             return true;
         }
 
@@ -799,7 +852,7 @@ namespace MukJump.Core
                         StringComparison.Ordinal))
                     return true;
                 editorActiveKeystoneOverrides[node.Branch] = node.Id;
-                Changed?.Invoke();
+                NotifyChangedSafely();
                 return true;
             }
 #endif
@@ -817,7 +870,7 @@ namespace MukJump.Core
             SetActiveKeystoneId(node.Branch, node.Id);
             if (!Save(snapshot))
                 return false;
-            Changed?.Invoke();
+            NotifyChangedSafely();
             return true;
         }
 
@@ -835,7 +888,7 @@ namespace MukJump.Core
             EnsureLoaded();
             if (writeBlocked)
                 return false;
-            int refund = data.ownedNodeIds?.Count ?? 0;
+            int refund = data.spent;
             if (refund <= 0)
                 return true;
 
@@ -856,7 +909,9 @@ namespace MukJump.Core
 #endif
             if (!Save(snapshot))
                 return false;
-            Changed?.Invoke();
+            if (!AnalyticsDebugCurrencyActive)
+                MukJumpAnalytics.EarnCurrency(refund, data.wallet, refund: true);
+            NotifyChangedSafely();
             return true;
         }
 
@@ -890,7 +945,7 @@ namespace MukJump.Core
 #if UNITY_EDITOR
                 editorActiveKeystoneOverrides.Clear();
 #endif
-                Changed?.Invoke();
+                NotifyChangedSafely();
                 return true;
             }
             catch (Exception exception)
@@ -946,6 +1001,25 @@ namespace MukJump.Core
         public static string GetLockReason(PermanentGrowthType type) =>
             GetNodeLockReason(FindNextNode(type));
 
+        /// 부활 선택 중 결과 게이지만 미리 보여 준다. 지갑·거리·run ID·저장은 변경하지 않는다.
+        public static PermanentGrowthSettlement PreviewRun(int scoreHeight, bool eligible)
+        {
+            EnsureLoaded();
+            if (writeBlocked || !eligible)
+                return CreateSettlement(0, !writeBlocked);
+            int distance = Mathf.Max(0, scoreHeight);
+            long cumulative = RunRewardCalculator.SaturatingAdd(data.cumulativeDistanceMeters, distance);
+            int reached = Mathf.Max(data.claimedDistanceRewardCount,
+                RunRewardCalculator.GetRewardCountForDistance(RunRewardCalculator.SaturatingAdd(
+                    cumulative, data.distanceRewardOffsetMeters)));
+            int budget = Mathf.Max(0, PermanentGrowthCatalog.TotalCost - data.spent - data.wallet);
+            int earned = Mathf.Min(reached - data.claimedDistanceRewardCount, budget);
+            return new PermanentGrowthSettlement(earned, data.wallet + earned, true, distance, cumulative,
+                RunRewardCalculator.GetPreviousRewardDistance(reached) - data.distanceRewardOffsetMeters,
+                RunRewardCalculator.GetNextRewardDistance(reached) - data.distanceRewardOffsetMeters,
+                reached >= RunRewardCalculator.MaxRewardCount, data.distanceRewardOffsetMeters);
+        }
+
         /// 정상 게임오버를 runId로 멱등 정산한다. 결과창에 표시되는 한 판 고도를
         /// 계정 누적 거리에 더하고, 새로 통과한 성장 여정 단계만 먹빛으로 지급한다.
         public static PermanentGrowthSettlement SettleRun(
@@ -977,14 +1051,14 @@ namespace MukJump.Core
             int reachedRewardCount = Mathf.Max(
                 data.claimedDistanceRewardCount,
                 RunRewardCalculator.GetRewardCountForDistance(
-                    data.cumulativeDistanceMeters));
+                    GetRewardDistance(data)));
             int crossedRewardCount = Mathf.Max(
                 0,
                 reachedRewardCount - data.claimedDistanceRewardCount);
             int remainingBudget = Mathf.Max(
                 0,
                 PermanentGrowthCatalog.TotalCost -
-                data.ownedNodeIds.Count -
+                data.spent -
                 data.wallet);
             int earned = Mathf.Min(crossedRewardCount, remainingBudget);
             // 먹빛 상한에 걸려도 통과한 거리 단계는 소비된 것으로 기록한다.
@@ -994,12 +1068,32 @@ namespace MukJump.Core
 
             if (!Save(snapshot))
                 return CreateSettlement(0, false);
+            if (!AnalyticsDebugCurrencyActive)
+                MukJumpAnalytics.EarnCurrency(earned, data.wallet);
             if (runDistanceMeters > 0 || earned > 0)
-                Changed?.Invoke();
+                NotifyChangedSafely();
             return CreateSettlement(
                 earned,
                 true,
                 runDistanceMeters);
+        }
+
+        static bool AnalyticsDebugCurrencyActive
+        {
+            get
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                return debugCurrencyOverride >= 0;
+#else
+                return false;
+#endif
+            }
+        }
+
+        public static bool IsRunSettled(string runId)
+        {
+            EnsureLoaded();
+            return !string.IsNullOrEmpty(runId) && HasSettledRunId(runId);
         }
 
         /// 구 호출부 호환. 새 게임 코드는 진행 고도·실제 시간을 명시하는 오버로드를 쓴다.
@@ -1033,9 +1127,9 @@ namespace MukJump.Core
                 accepted,
                 runDistanceMeters,
                 data.cumulativeDistanceMeters,
-                RunRewardCalculator.GetPreviousRewardDistance(claimed),
-                RunRewardCalculator.GetNextRewardDistance(claimed),
-                claimed >= RunRewardCalculator.MaxRewardCount);
+                RunRewardCalculator.GetPreviousRewardDistance(claimed) - data.distanceRewardOffsetMeters,
+                RunRewardCalculator.GetNextRewardDistance(claimed) - data.distanceRewardOffsetMeters,
+                claimed >= RunRewardCalculator.MaxRewardCount, data.distanceRewardOffsetMeters);
         }
 
         static PermanentGrowthNodeDefinition FindNextNode(PermanentGrowthType type)
@@ -1053,6 +1147,19 @@ namespace MukJump.Core
                     return node;
             }
             return fallback;
+        }
+
+        static int CalculateOwnedCost(IEnumerable<string> ownedNodeIds)
+        {
+            if (ownedNodeIds == null)
+                return 0;
+            int total = 0;
+            foreach (string nodeId in ownedNodeIds)
+                if (PermanentGrowthCatalog.TryGetNode(
+                        nodeId,
+                        out PermanentGrowthNodeDefinition node))
+                    total += node.Cost;
+            return total;
         }
 
         static int CountOwnedGeneralNodes(PermanentGrowthBranch branch)
@@ -1248,6 +1355,19 @@ namespace MukJump.Core
         {
             if (loaded)
                 return;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // 비동기 토스 사용자 식별이 끝나기 전에는 브라우저에 남은 다른
+            // 사용자의 성장 저장을 읽거나 자동 마이그레이션하지 않는다.
+            if (!AppsInTossIdentityPolicy.HasVerifiedIdentity)
+            {
+                data = new SaveData();
+                loaded = true;
+                writeBlocked = true;
+                loadState =
+                    PermanentGrowthLoadState.PersistenceFailureReadOnly;
+                return;
+            }
+#endif
             ResetLoadSafetyState();
             string json;
             try
@@ -1353,11 +1473,24 @@ namespace MukJump.Core
                 return;
             }
 
+            int sourceBalanceVersion = loadedData.balanceVersion;
             data = loadedData;
             MutationSnapshot snapshot = CaptureMutationSnapshot();
             bool changed = PrepareSupportedData();
             if (changed)
             {
+                // v8에서 구 39열매를 환급하기 전, 검증이 끝난 원문 세대를
+                // 물리 backup에 먼저 기록하고 다시 읽어 확인한다. 이 단계가
+                // 실패하면 primary를 한 글자도 바꾸지 않는다.
+                if (sourceBalanceVersion < BalanceVersion &&
+                    !TryPreserveMigrationSource(json))
+                {
+                    RestoreMutationSnapshot(snapshot);
+                    EnterPersistenceFailureRecovery(
+                        json,
+                        preferPhysicalBackup: true);
+                    return;
+                }
                 if (!Save(snapshot, json))
                 {
                     PrepareSupportedData();
@@ -1387,11 +1520,22 @@ namespace MukJump.Core
                 MigrateMilestoneWatermarkToV5();
             if (data.balanceVersion < 6)
                 MigrateInkBudgetSemanticsToV6();
-            NormalizeLoadedData();
             // 구 저장의 소유 그래프와 지갑을 먼저 정규화해야 중복·고아 노드를
             // 이미 받은 거리 단계로 잘못 환산하지 않는다.
             if (needsDistanceJourneyMigration)
+            {
+                NormalizeLegacyV7Data();
                 MigrateDistanceJourneyToV7();
+            }
+            if (data.balanceVersion == 7)
+                MigrateV7ToV8();
+            if (data.balanceVersion == 8)
+                MigrateV8ToV9();
+            if (data.balanceVersion == 9)
+                MigrateV9ToV10();
+            if (data.balanceVersion == 10)
+                MigrateV10ToV11();
+            NormalizeLoadedData();
             return !string.Equals(
                 before,
                 JsonUtility.ToJson(data),
@@ -1446,13 +1590,25 @@ namespace MukJump.Core
                 if (header.balanceVersion >= 2 &&
                     parsed.settledRunIds == null)
                     return false;
-                // v5 이상은 같은 노드 ID·부모 그래프를 사용한다. 마이그레이션 전에
-                // 검증해야 손상된 그래프를 정규화한 뒤 정상 저장으로 덮지 않는다.
+                // v5~v7은 동결된 39노드 그래프로 먼저 검증한다. 새 15노드
+                // 카탈로그로 먼저 검사하면 정상 구 저장까지 손상으로 오판한다.
                 if (header.balanceVersion >= 5 &&
+                    header.balanceVersion <= 7 &&
+                    !PermanentGrowthLegacyV7Catalog.IsValidOwnedGraph(
+                        parsed.ownedNodeIds,
+                        parsed.survivalKeystoneId,
+                        parsed.leapKeystoneId,
+                        parsed.inkHandlingKeystoneId))
+                    return false;
+                if (header.balanceVersion >= 5 &&
+                    header.balanceVersion <= 6 &&
+                    !HasValidLegacyNodeEconomy(parsed))
+                    return false;
+                if (header.balanceVersion >= 8 &&
                     !HasValidOwnedGraph(parsed))
                     return false;
                 if (header.balanceVersion >= 7 &&
-                    !HasValidDistanceJourney(parsed))
+                    !HasValidDistanceJourney(parsed, header.balanceVersion))
                     return false;
                 return true;
             }
@@ -1497,7 +1653,8 @@ namespace MukJump.Core
         static bool HasRequiredPayload(string json, int balanceVersion)
         {
             for (int i = 0; i < CommonRequiredPayloadFields.Length; i++)
-                if (!HasTopLevelField(json, CommonRequiredPayloadFields[i]))
+                if (!IsRetiredV7RewardFlag(balanceVersion, CommonRequiredPayloadFields[i]) &&
+                    !HasTopLevelField(json, CommonRequiredPayloadFields[i]))
                     return false;
 
             if (balanceVersion >= 2)
@@ -1514,7 +1671,8 @@ namespace MukJump.Core
                 for (int i = 0;
                      i < MilestoneRequiredPayloadFields.Length;
                      i++)
-                    if (!HasTopLevelField(
+                    if (!IsRetiredV7RewardFlag(balanceVersion, MilestoneRequiredPayloadFields[i]) &&
+                        !HasTopLevelField(
                             json,
                             MilestoneRequiredPayloadFields[i]))
                         return false;
@@ -1531,11 +1689,24 @@ namespace MukJump.Core
                         return false;
             }
 
+            if (balanceVersion >= 10 && !HasTopLevelField(json, "distanceRewardOffsetMeters"))
+                return false;
+
             return balanceVersion < 2 ||
                    HasTopLevelField(json, "settledRunIds");
         }
 
-        static bool HasValidDistanceJourney(SaveData candidate)
+        // 초기 v7 서버 저장에는 이전 튜토리얼·고도 보상 표식이 없다.
+        // v7은 누적 거리 경제만 사용하므로 이 두 bool의 기본값(false)을 허용한다.
+        // 재화·구매·거리 필드와 경제 불변식, 다른 버전의 필수 필드는 그대로 검증한다.
+        static bool IsRetiredV7RewardFlag(int balanceVersion, string field) =>
+            balanceVersion == 7 &&
+            (field == "tutorialRewardClaimed" ||
+             field == "rewardMilestoneWatermarkInitialized");
+
+        static bool HasValidDistanceJourney(
+            SaveData candidate,
+            int balanceVersion)
         {
             if (candidate == null ||
                 candidate.ownedNodeIds == null ||
@@ -1543,16 +1714,40 @@ namespace MukJump.Core
                 candidate.cumulativeDistanceMeters < 0L ||
                 candidate.claimedDistanceRewardCount < 0 ||
                 candidate.claimedDistanceRewardCount >
-                RunRewardCalculator.MaxRewardCount)
+                (balanceVersion <= 8 ? V2TotalCost : RunRewardCalculator.MaxRewardCount))
                 return false;
 
-            int ownedCount = candidate.ownedNodeIds.Count;
-            return RunRewardCalculator.GetRewardCountForDistance(
-                       candidate.cumulativeDistanceMeters) ==
+            int spent = balanceVersion >= 8
+                ? CalculateOwnedCost(candidate.ownedNodeIds)
+                : candidate.ownedNodeIds.Count;
+            long claimedThreshold = balanceVersion == 10
+                ? RunRewardCalculator.GetV10ThresholdForRewardCount(candidate.claimedDistanceRewardCount)
+                : RunRewardCalculator.GetThresholdForRewardCount(candidate.claimedDistanceRewardCount);
+            if (balanceVersion >= 10 && (candidate.distanceRewardOffsetMeters < 0L ||
+                candidate.distanceRewardOffsetMeters > claimedThreshold))
+                return false;
+            int reached = balanceVersion == 10
+                ? RunRewardCalculator.GetV10RewardCountForDistance(GetRewardDistance(candidate))
+                : balanceVersion >= 11
+                ? RunRewardCalculator.GetRewardCountForDistance(GetRewardDistance(candidate))
+                : RunRewardCalculator.GetLegacyRewardCountForDistance(candidate.cumulativeDistanceMeters);
+            // 구 버전은 누적 거리가 길어도 39번째 보상에서 멈췄다.
+            if (balanceVersion <= 8)
+                reached = Math.Min(reached, V2TotalCost);
+            return reached ==
                    candidate.claimedDistanceRewardCount &&
-                   candidate.spent == ownedCount &&
-                   candidate.wallet + ownedCount ==
+                   candidate.spent == spent &&
+                   (long)candidate.wallet + spent ==
                    candidate.claimedDistanceRewardCount;
+        }
+
+        static bool HasValidLegacyNodeEconomy(SaveData candidate)
+        {
+            if (candidate?.ownedNodeIds == null || candidate.wallet < 0)
+                return false;
+            int spent = candidate.ownedNodeIds.Count;
+            return candidate.spent == spent &&
+                   (long)candidate.wallet + spent <= V2TotalCost;
         }
 
         static bool HasValidOwnedGraph(SaveData candidate)
@@ -1563,8 +1758,12 @@ namespace MukJump.Core
             for (int i = 0; i < candidate.ownedNodeIds.Count; i++)
             {
                 string nodeId = candidate.ownedNodeIds[i];
-                if (!PermanentGrowthCatalog.TryGetNode(nodeId, out _) ||
+                if (!PermanentGrowthCatalog.TryGetNode(nodeId, out var node) ||
                     !owned.Add(nodeId))
+                    return false;
+                // v8 저장이 신규 단계를 소유했다고 주장하면 이관하지 않는다.
+                if (candidate.balanceVersion == 8 &&
+                    node.Rank > (node.EffectId == PermanentGrowthType.Vitality ? 3 : 4))
                     return false;
             }
 
@@ -1750,7 +1949,8 @@ namespace MukJump.Core
             foreach (PermanentGrowthBranch branch
                      in Enum.GetValues(typeof(PermanentGrowthBranch)))
             {
-                IReadOnlyList<string> order = PermanentGrowthCatalog.MigrationOrder(branch);
+                IReadOnlyList<string> order =
+                    PermanentGrowthLegacyV7Catalog.MigrationOrder(branch);
                 int legacyCount = Mathf.Max(0, branchLevels[branch]);
                 int mappedCount = Mathf.Min(order.Count, legacyCount);
                 for (int i = 0; i < mappedCount; i++)
@@ -1793,21 +1993,19 @@ namespace MukJump.Core
                 data.ownedNodeIds,
                 StringComparer.Ordinal);
 
+            // v2의 비기 소유자는 당시 존재하던 3개 일반 노드까지만 완주한
+            // 것으로 본다. v3에서 새로 추가된 J-?4/J-?5까지 증정하면 바로
+            // 다음 v4 환급에서 가짜 먹빛 2개가 생겨 총 권리가 증가한다.
             CompleteGrandfatheredPath(owned, "J-KA", "J00",
-                "J-A1", "J-A2", "J-A3", "J-A4", "J-A5");
+                "J-A1", "J-A2", "J-A3");
             CompleteGrandfatheredPath(owned, "J-KB", "J00",
-                "J-B1", "J-B2", "J-B3", "J-B4", "J-B5");
+                "J-B1", "J-B2", "J-B3");
             CompleteGrandfatheredPath(owned, "J-KC", "J00",
-                "J-C1", "J-C2", "J-C3", "J-C4", "J-C5");
+                "J-C1", "J-C2", "J-C3");
 
-            var migrated = new List<string>(PermanentGrowthCatalog.TotalCost);
-            for (int i = 0; i < PermanentGrowthCatalog.Nodes.Count; i++)
-            {
-                string nodeId = PermanentGrowthCatalog.Nodes[i].Id;
-                if (owned.Contains(nodeId))
-                    migrated.Add(nodeId);
-            }
-            data.ownedNodeIds = migrated;
+            // 실제 balanceVersion 3 저장에 들어 있던 J-?4/J-?5만 바로 뒤
+            // v4 이관에서 환급하도록 원본 집합을 보존한다.
+            data.ownedNodeIds = new List<string>(owned);
             data.spent = data.ownedNodeIds.Count;
             // 지갑 상한은 바로 뒤 NormalizeLoadedData에서 유효 ID 수를 확정한 뒤
             // 한 번만 계산한다. 먼저 줄이면 구 저장의 먹빛을 잃을 수 있다.
@@ -1864,12 +2062,90 @@ namespace MukJump.Core
             int grantedRewardCount = Mathf.Clamp(
                 data.ownedNodeIds.Count + data.wallet,
                 0,
-                RunRewardCalculator.MaxRewardCount);
+                V2TotalCost);
             data.claimedDistanceRewardCount = grantedRewardCount;
             data.cumulativeDistanceMeters =
-                RunRewardCalculator.GetThresholdForRewardCount(
+                RunRewardCalculator.GetLegacyThresholdForRewardCount(
                     grantedRewardCount);
             data.balanceVersion = 7;
+        }
+
+        /// v7의 39개 열매는 더 이상 게임 효과로 적용하지 않는다. 정상 저장임을
+        /// 동결 그래프로 확인한 뒤 구매액 전부를 먹빛으로 돌려 네 카드에서 다시
+        /// 고르게 하며 거리·정산·튜토리얼 이력은 그대로 둔다.
+        static void MigrateV7ToV8()
+        {
+            int refund = data.ownedNodeIds?.Count ?? 0;
+            data.wallet = Mathf.Clamp(
+                Math.Max(0, data.wallet) + refund,
+                0,
+                PermanentGrowthCatalog.TotalCost);
+            data.spent = 0;
+            data.ownedNodeIds.Clear();
+            data.ranks.Clear();
+            data.survivalKeystoneId = string.Empty;
+            data.leapKeystoneId = string.Empty;
+            data.inkHandlingKeystoneId = string.Empty;
+            data.balanceVersion = 8;
+        }
+
+        // v8에서 산 단계와 비용은 그대로 둔다. 과거에 39개 상한을 넘겨
+        // 걸어 둔 거리의 보상 차액만 한 번 지급하고 버전과 함께 저장한다.
+        static void MigrateV8ToV9()
+        {
+            int reached = RunRewardCalculator.GetLegacyRewardCountForDistance(
+                data.cumulativeDistanceMeters);
+            data.wallet += Math.Max(0, reached - data.claimedDistanceRewardCount);
+            data.claimedDistanceRewardCount = reached;
+            data.balanceVersion = 9;
+        }
+
+        static void MigrateV9ToV10()
+        {
+            int claimed = data.claimedDistanceRewardCount;
+            data.distanceRewardOffsetMeters = RunRewardCalculator.GetV10ThresholdForRewardCount(claimed) -
+                RunRewardCalculator.GetLegacyThresholdForRewardCount(claimed);
+            data.balanceVersion = 10;
+        }
+
+        static void MigrateV10ToV11()
+        {
+            long effective = RunRewardCalculator.GetMigratedV10RewardDistance(
+                data.cumulativeDistanceMeters, data.distanceRewardOffsetMeters, data.claimedDistanceRewardCount);
+            int reached = RunRewardCalculator.GetRewardCountForDistance(effective);
+            data.wallet += Math.Max(0, reached - data.claimedDistanceRewardCount);
+            data.claimedDistanceRewardCount = reached;
+            data.distanceRewardOffsetMeters = effective - data.cumulativeDistanceMeters;
+            data.balanceVersion = 11;
+        }
+
+        static void NormalizeLegacyV7Data()
+        {
+            List<string> normalized =
+                PermanentGrowthLegacyV7Catalog.NormalizeOwnedIds(
+                    data.ownedNodeIds);
+            data.ownedNodeIds = normalized;
+            data.spent = normalized.Count;
+            data.wallet = Mathf.Clamp(
+                data.wallet,
+                0,
+                V2TotalCost - data.spent);
+            data.rewardedBestHeight = Mathf.Max(0, data.rewardedBestHeight);
+            data.cumulativeDistanceMeters = Math.Max(
+                0L,
+                data.cumulativeDistanceMeters);
+            data.lastSettledRunId ??= string.Empty;
+            NormalizeSettledRunHistory();
+            if (!PermanentGrowthLegacyV7Catalog.IsValidOwnedGraph(
+                    data.ownedNodeIds,
+                    data.survivalKeystoneId,
+                    data.leapKeystoneId,
+                    data.inkHandlingKeystoneId))
+            {
+                data.survivalKeystoneId = string.Empty;
+                data.leapKeystoneId = string.Empty;
+                data.inkHandlingKeystoneId = string.Empty;
+            }
         }
 
         static void CompleteGrandfatheredPath(
@@ -1922,7 +2198,7 @@ namespace MukJump.Core
                 }
             } while (added);
             data.ownedNodeIds = normalized;
-            data.spent = data.ownedNodeIds.Count;
+            data.spent = CalculateOwnedCost(data.ownedNodeIds);
             data.wallet = Mathf.Clamp(
                 data.wallet,
                 0,
@@ -2221,6 +2497,43 @@ namespace MukJump.Core
             return true;
         }
 
+        static bool TryPreserveMigrationSource(string sourceJson)
+        {
+            if (!TryReadSupportedSave(sourceJson, out _, out _) ||
+                store is not IPermanentGrowthRecoveryStore recoveryStore)
+                return store is not IPermanentGrowthRecoveryStore;
+
+            try
+            {
+                if (!ResolveExistingBackupSync(recoveryStore, sourceJson))
+                    return false;
+
+                string previousBackup = recoveryStore.LoadBackup();
+                if (!string.IsNullOrWhiteSpace(previousBackup) &&
+                    !string.Equals(
+                        previousBackup,
+                        sourceJson,
+                        StringComparison.Ordinal))
+                {
+                    recoveryStore.SaveBackupQuarantine(previousBackup);
+                }
+                recoveryStore.SaveBackup(sourceJson);
+                string durableSource = recoveryStore.LoadBackup();
+                return string.Equals(
+                           durableSource,
+                           sourceJson,
+                           StringComparison.Ordinal) &&
+                       TryReadSupportedSave(durableSource, out _, out _);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"성장 저장 이관 전 원본 backup을 확정하지 못했습니다: " +
+                    exception.Message);
+                return false;
+            }
+        }
+
         static bool ResolveExistingBackupSync(
             IPermanentGrowthRecoveryStore recoveryStore,
             string currentPrimaryJson)
@@ -2260,34 +2573,35 @@ namespace MukJump.Core
             try
             {
                 store.Save(json);
-                return PrimaryWriteResult.Applied;
             }
             catch (Exception exception)
             {
                 error = exception;
-                try
-                {
-                    // SetString 반영 뒤 디스크 flush에서 예외가 난 경우에는 현재 값이
-                    // 이미 새 세대다. 메모리를 되돌리지 않고 backup 동기화를 마친다.
-                    string currentJson = store.Load();
-                    if (string.Equals(
-                            currentJson,
-                            json,
-                            StringComparison.Ordinal))
-                        return PrimaryWriteResult.Applied;
-                    if (previousJson != null &&
-                        string.Equals(
-                            currentJson,
-                            previousJson,
-                            StringComparison.Ordinal))
-                        return PrimaryWriteResult.DefinitelyNotApplied;
-                    unexpectedJson = currentJson ?? string.Empty;
-                    return PrimaryWriteResult.Unknown;
-                }
-                catch (Exception)
-                {
-                    return PrimaryWriteResult.Unknown;
-                }
+            }
+
+            try
+            {
+                // Save가 정상 반환해도 조용한 truncate·변조를 배제하려면 실제
+                // 저장 세대를 다시 읽어 정확한 문자열과 불변식을 함께 확인해야 한다.
+                string currentJson = store.Load();
+                if (string.Equals(
+                        currentJson,
+                        json,
+                        StringComparison.Ordinal) &&
+                    TryReadSupportedSave(currentJson, out _, out _))
+                    return PrimaryWriteResult.Applied;
+                if (previousJson != null &&
+                    string.Equals(
+                        currentJson,
+                        previousJson,
+                        StringComparison.Ordinal))
+                    return PrimaryWriteResult.DefinitelyNotApplied;
+                unexpectedJson = currentJson ?? string.Empty;
+                return PrimaryWriteResult.Unknown;
+            }
+            catch (Exception)
+            {
+                return PrimaryWriteResult.Unknown;
             }
         }
 
@@ -2621,7 +2935,7 @@ namespace MukJump.Core
                     exception.Message);
             }
             ResetLoadSafetyState();
-            Changed?.Invoke();
+            NotifyChangedSafely();
             return true;
         }
 
@@ -2641,7 +2955,7 @@ namespace MukJump.Core
             {
                 // 일시적인 read 실패가 풀린 정상 primary를 즉시 파괴하지 않는다.
                 // UI를 갱신해 사용자가 먼저 저장 복구를 선택할 수 있게 한다.
-                Changed?.Invoke();
+                NotifyChangedSafely();
                 return false;
             }
 
@@ -2739,11 +3053,11 @@ namespace MukJump.Core
                     $"새 성장 기록의 backup 정리를 다음 실행으로 미룹니다: " +
                     exception.Message);
                 ResetLoadSafetyState();
-                Changed?.Invoke();
+                NotifyChangedSafely();
                 return true;
             }
             ResetLoadSafetyState();
-            Changed?.Invoke();
+            NotifyChangedSafely();
             return true;
         }
 
@@ -2763,6 +3077,32 @@ namespace MukJump.Core
             loadState = PermanentGrowthLoadState.Ready;
         }
 
+        /// Apps in Toss 식별 완료 뒤에만 실제 성장 저장을 로드한다. 사용자
+        /// 대조 전에 만든 읽기 전용 placeholder는 이 경계에서 폐기한다.
+        public static bool TryReloadAfterAppsInTossIdentity()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (!AppsInTossIdentityPolicy.HasVerifiedIdentity)
+                return false;
+#endif
+            if (GameManager.Instance != null &&
+                GameManager.Instance.State != GameState.Lobby)
+                return false;
+
+            data = null;
+            loaded = false;
+            primaryGenerationJson = string.Empty;
+            primaryGenerationKnown = false;
+            ResetLoadSafetyState();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            debugCurrencyOverride = -1;
+#endif
+            EnsureLoaded();
+            bool ready = data != null && !writeBlocked;
+            NotifyChangedSafely();
+            return ready;
+        }
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         /// 성장 화면 QA용. 저장 경제가 유효하도록 거리 여정과 열매를 함께 초기화한다.
         public static void DebugResetProgress()
@@ -2776,6 +3116,7 @@ namespace MukJump.Core
             data.wallet = 0;
             data.spent = 0;
             data.cumulativeDistanceMeters = 0L;
+            data.distanceRewardOffsetMeters = 0L;
             data.claimedDistanceRewardCount = 0;
             data.survivalKeystoneId = string.Empty;
             data.leapKeystoneId = string.Empty;
@@ -2783,7 +3124,7 @@ namespace MukJump.Core
             debugCurrencyOverride = DebugGrowthCurrency;
             if (!Save(snapshot))
                 return;
-            Changed?.Invoke();
+            NotifyChangedSafely();
         }
 
         /// 저장 경제 상한은 건드리지 않고 현재 개발 세션에만 먹빛 999를 제공한다.
@@ -2793,7 +3134,7 @@ namespace MukJump.Core
             if (writeBlocked)
                 return;
             debugCurrencyOverride = DebugGrowthCurrency;
-            Changed?.Invoke();
+            NotifyChangedSafely();
         }
 
         public static bool IsDebugCurrencyActive => debugCurrencyOverride >= 0;

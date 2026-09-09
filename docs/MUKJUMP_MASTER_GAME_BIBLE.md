@@ -6,9 +6,9 @@
 >
 > 감사 기준: `main` 브랜치 `ed481c7`
 >
-> 프로젝트: NHN NAN 2026 Game × AI Hackathon 제출작
+> 프로젝트: Apple App Store · Google Play · Apps in Toss 일반 서비스 출시 준비작
 >
-> 팀: 최연소밴드 — 김승연, 최성빈
+> 팀: Team-Swooord — 김승연, 최성빈
 
 감사 당시 저장소는 313개 커밋과 이 문서 작업 기록을 포함한 227개의 일자별 AI 활용
 기록을 포함했다. 숫자는 이후 개발로 바뀔 수 있으므로 프로젝트 규모를 설명하는
@@ -83,8 +83,8 @@
 | 핵심 목표 | 살아 있는 먹방울을 지키며 최고 고도 갱신 |
 | 플랫폼 | Android 제출 빌드, iPhone 세로 UI 대응 |
 | 화면 | 9:16 세로, 1080×1920 논리 좌표, Safe Area 대응 |
-| 엔진 | Unity 6000.3.10f1, URP 2D 17.3.0 |
-| 입력 | Unity Input System 1.18.0 전용 |
+| 엔진 | Unity 6000.5.9f1, URP 2D 17.5.0 |
+| 입력 | Unity Input System 1.20.0 전용 |
 | 세션 길이 | 목표 1~3분 반복 플레이 |
 | 프레임 목표 | 모바일 60 FPS, 품질 단계에 따라 연출 자동 축소 |
 | 점수 | 한 판에서 시작점 대비 도달한 최고 높이 |
@@ -296,7 +296,7 @@ Device Simulator가 마우스를 가로채는 문제가 다시 생기므로 금�
 
 | 대상 | 기본 | 현재 성장 최대 | 코드 안전 상한 |
 |---|---:|---:|---:|
-| 본체 | 1 | 4 | 5 |
+| 본체 | 3 | 6 | 6 |
 | 분신 | 1 | 2 (`먹피 결실`) | 2 |
 
 각 캐릭터는 머리 위에 자기 체력만 표시하는 월드 칸형 체력바를 가진다. 96×14 공유
@@ -603,7 +603,7 @@ Transform, Rigidbody2D와 Collider는 바뀌지 않는다.
 
 완성값:
 
-- 먹피: 본체 1→4칸, 결실 선택 시 분신 2→3칸
+- 먹피: 본체 3→6칸, 결실 선택 시 분신 1→2칸
 - 숨 고르기: 기본 포함 피격 무적 +0.16초, 본체 1회 부활
 - 먹발 버팀: 수평 속도 보존율 82%→64%, 분신 아이템 1→2마리
 
@@ -690,7 +690,7 @@ Transform, Rigidbody2D와 Collider는 바뀌지 않는다.
 | 보조 본문 | `#514B42` |
 | 밝은 글씨 | `#F5F1E6` |
 
-기본 폰트는 `Resources/MukJump/Fonts/HealthsetJoritdaeStd`다. 런타임 로드 실패 시
+기본 폰트는 `Resources/MukJump/Fonts/NanumBrushScript-Regular`다. 런타임 로드 실패 시
 LegacyRuntime.ttf로 폴백한다.
 
 ### 공통 반응형 규칙
@@ -733,12 +733,10 @@ LegacyRuntime.ttf로 폴백한다.
 
 - sorting 4150, dim 0.78
 - 820×1510 한지 패널 Safe Fit
-- 로컬 UID와 복사
 - BGM/SFX 슬라이더, 수치, on/off
-- 언어 한국어
-- 고객센터와 계정 연동은 `준비 중` 목업이며 실제 서비스가 아님
+- 고객센터 `cysbandcs@gmail.com`
 - 튜토리얼 다시 보기
-- 버전과 개인정보 미수집 안내
+- 버전과 사용자 식별키 용도 안내
 
 ### 게임 HUD
 
@@ -1107,15 +1105,15 @@ iPhone 실기기 캡처와 Android 세로 해상도 프리셋이며 Android 다�
 
 ### 개발 환경
 
-- Unity 6000.3.10f1
-- URP 2D 17.3.0
-- Input System 1.18.0
+- Unity 6000.5.9f1
+- URP 2D 17.5.0
+- Input System 1.20.0
 - 테스트 프레임워크
 - macOS Apple Silicon 개발 환경
 
 ### Unity에서 실행
 
-1. 저장소를 Unity Hub에서 Unity 6000.3.10f1로 연다.
+1. 저장소를 Unity Hub에서 Unity 6000.5.9f1로 연다.
 2. `Assets/Scenes/Main.unity`를 연다.
 3. Game View를 9:16 세로로 맞춘다.
 4. Play한다.
@@ -1126,14 +1124,14 @@ Unity 에디터가 같은 프로젝트를 열고 있을 때 `-batchmode`를 동�
 
 ### Android 제출 기준
 
-- 최소 Android API 25
+- 최소 Android API 26
 - 세로 Portrait, upside-down과 landscape 비활성
 - ARM64 기준 제출
-- 패키지 ID `com.teamswooord.mukjump`
-- 앱 버전 1.0, version code 1
-- Target API는 현재 자동값 0이므로 제출 시점 요구 버전으로 명시 확인
+- 패키지 ID `com.CYSB.MukJump`
+- 앱 버전 1.0.0, version code 1
+- Target API 36
 - release keystore는 저장소에 설정돼 있지 않으므로 제출 서명 별도 준비
-- 회원가입, 로그인, API 키, 인터넷 없이 플레이 가능
+- 소셜 로그인 없이 게스트로 코어 게임 플레이 가능. Google 로그인과 클라우드 저장은 선택 사항
 - 패키지 식별자와 Android Target API는 최종 제출 설정에서 재확인
 - 현재 저장소에는 최종 APK/AAB가 없으므로 제출 직전 별도 빌드·설치 검증 필요
 
@@ -1208,21 +1206,18 @@ Pillow, AVFoundation, Unity Test Framework와 Roslyn/Bee 정적 검증이었다.
 | Unity 패키지 | Unity Technologies | Unity Companion License |
 | Inkdrop Ascent | 팀 Suno Pro 계정 | 생성 당시 유료 구독 상업권 증빙 보관 |
 | 붓 소리 | Freesound Reitanna 332666 | CC0 |
-| 사망 Slime Squish | Pixabay floraphonic 218569 | Pixabay Content License, raw 재배포 범위 재확인 |
-| 게임오버 Ink Spill | Pixabay 108080 | Pixabay Content License, raw 재배포 범위 재확인 |
-| Healthset Joritdae 폰트 | 제주조릿대 RIS사업단·한그리아 | 임베딩 허용과 raw OTF 공개 배포는 별도. 재배포 허가가 없으면 Public Git에서 제거·교체 |
-| 공용 붓획 Pngtree 5624185 | 사용자 제공 | Premium/Enterprise 등 상업 사용 증빙이 없으면 자체 제작 마스크로 교체 |
+| 사망·게임오버 효과음 | 프로젝트 자체 생성 WAV | 원본과 빌드 모두 프로젝트 배포 가능 |
+| Nanum Brush Script | NHN Corporation / Google Fonts | SIL Open Font License 1.1, 원문 동봉 |
+| 공용 버튼 먹붓 마스크 | 프로젝트 절차 생성기 | 외부 원본 없이 자체 생성 |
 
 캐릭터, 배경 7종, 어린 용, 해태, 성장 UI와 VFX용 프로젝트 전용 이미지는 AI 보조 후
 팀이 검수한 자체 제작물이다. 참고용 이미지와 워터마크가 있는 캡처 원본은 최종 에셋에
 포함하지 않는다. 상세 출처 표는 `docs/ai-usage-log.md`를 따른다.
 
-현재 공개 저장소에 raw OTF·MP3와 Pngtree 파생 PNG가 이미 포함돼 있어 단순한 출시 전
-확인이 아니라 **즉시 조치 대상**이다. 폰트는 프로그램 임베딩 허용과 원본 파일 공개
-재배포를 분리해 판단하고, 명시적 재배포 허가가 없으면 Public Git에서 제거한 뒤
-재배포 가능한 폰트로 교체한다. Pngtree는 유효한 상업 라이선스 증빙이 없으면 공용
-버튼 마스크를 자체 제작물로 교체한다. Pixabay MP3도 빌드 내 이용과 공개 저장소의 raw
-파일 재배포가 같은 허용인지 별도로 확인하고, 불명확하면 대체한다.
+재배포 제한이 있던 Healthset OTF와 불명확한 Pixabay MP3 두 개는 2026-08-26에 빌드
+경로에서 제거했다. 폰트는 해시 고정된 Google Fonts 원본의 Nanum Brush Script와 OFL
+원문으로 교체했고, 사망·게임오버는 자체 WAV, 공용 버튼은 절차 생성 먹붓 마스크를 쓴다.
+현재 배포 근거는 루트 `THIRD_PARTY_NOTICES.md`와 각 원문 라이선스를 기준으로 한다.
 
 ---
 
@@ -1281,8 +1276,8 @@ Pillow, AVFoundation, Unity Test Framework와 Roslyn/Bee 정적 검증이었다.
 | 성장 프리셋 | 삭제 |
 | 5회 점프마다 안전 발판 | 삭제 |
 | 분신 보호·분신 사망 회복·분신 유대 패시브 | 삭제 |
-| 외부 계정 연동 | 옵션 목업만 존재 |
-| 온라인 랭킹 | 없음 |
+| 외부 계정 연동 | iOS 게스트·Google·Apple, Android 게스트·Google. 코어 플레이에는 선택 사항 |
+| 온라인 랭킹 | 보상·닉네임 없는 전체 최고 고도 TOP 10 |
 
 옛 enum과 일부 메서드는 저장 호환이나 테스트 API를 위해 남을 수 있다. 이름이 존재한다는
 이유만으로 활성 기능이라고 판단하지 말고 `PermanentGrowthRunSnapshot`의 반환값과 실제
@@ -1300,9 +1295,10 @@ Pillow, AVFoundation, Unity Test Framework와 Roslyn/Bee 정적 검증이었다.
 6. 성장 화면의 `노드 초기화 없음`이라고 적힌 옛 `CLAUDE.md` 문장은 stale일 수 있다.
    현재는 환급형 노드 초기화가 있다.
 7. 상단 HUD 일부 BestFit은 공통 UI 원칙과 다른 기술 부채다.
-8. 고객센터·계정연동은 실제 서비스가 아니다.
+8. 고객센터는 `cysbandcs@gmail.com`이며, 외부 계정 연동은 선택 사항이다. iOS는
+   게스트·Google·Apple, Android는 게스트·Google을 제공한다.
 9. iPhone 실기기 캡처가 있지만 Android 다기종 장시간 테스트 완료를 과장하지 않는다.
-10. 제출 전 폰트와 Pngtree 붓획 라이선스 증빙을 재확인한다.
+10. 새 외부 에셋을 추가하면 `THIRD_PARTY_NOTICES.md`와 원문 라이선스를 함께 갱신한다.
 
 ---
 
@@ -1374,7 +1370,7 @@ docs/
 현재 코드와 문서가 다르면 컴파일되는 런타임 코드를 실행 사실로 삼되, 기획 의도는
 마스터 게임 바이블과 관련 design 문서를 교차 확인하라.
 
-이 저장소는 Unity 6000.3.10f1, URP 2D, Input System 전용 모바일 세로 게임이다.
+이 저장소는 Unity 6000.5.9f1, URP 2D, Input System 전용 모바일·WebGL 세로 게임이다.
 Assets/Scenes/Main.unity를 직접 편집하지 말고 Assets/Editor/MukJumpSceneBuilder.cs를
 수정해 재생성하라. main 하나에서 작업하며 새 브랜치·clone·worktree를 만들지 마라.
 

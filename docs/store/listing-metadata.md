@@ -11,11 +11,12 @@
 | 영문 이름 | MukJump |
 | 번들·패키지 ID | `com.CYSB.MukJump` |
 | 버전 | `1.0.0` |
-| iOS 빌드 번호 | `1` |
+| iOS 빌드 번호 | `3` |
 | SKU | `CYSB-MUKJUMP-IOS-001` |
 | 기본 언어 | 한국어 |
 | 가격 | 무료 |
 | 고객지원 이메일 | `cysbandcs@gmail.com` |
+| 개발자 계정 공식 연락처 | `choiysband@gmail.com` |
 | 저작권 | `2026 CYSBand` |
 
 ## App Store Connect
@@ -66,21 +67,36 @@
 
 ### 키워드
 
-`캐주얼,아케이드,점프,드로잉,플랫포머,수묵화,붓,클라이밍,하이스코어,세로게임`
+`캐주얼,아케이드,점프게임,드로잉,플랫포머,수묵화,붓그림,클라이밍`
 
 ### 지원·개인정보 URL
 
 - 지원 URL: `https://github.com/Team-Swooord/muk-jump#고객지원`
 - 마케팅 URL: 비워 둔다.
+- 서비스 이용약관 URL:
+  `https://storage.thebackend.io/27f4347cc58b6eca8349b49f00b25a0a9f7c92836f10ec5f6385356867184326/terms.html`
 - 개인정보처리방침 URL:
-  `https://github.com/Team-Swooord/muk-jump/blob/main/docs/legal/privacy-policy.md`
+  `https://storage.thebackend.io/27f4347cc58b6eca8349b49f00b25a0a9f7c92836f10ec5f6385356867184326/privacy.html`
 - 개인정보 선택 사항 URL:
   `https://github.com/Team-Swooord/muk-jump/blob/main/docs/legal/account-deletion.md`
+
+App Review의 연락처 이메일에는 개발자 계정 공식 연락처 `choiysband@gmail.com`을
+사용한다. 사용자가 보는 고객지원과 개인정보 문의는 `cysbandcs@gmail.com`으로 유지한다.
+뒤끝 공개 이용약관·개인정보처리방침은 2026-08-28 비로그인 HTTPS 200과 먹점프 본문
+렌더링을 확인했다.
 
 ### 버전 1.0.0의 새로운 기능
 
 > 붓으로 발판을 그려 먹방울을 올리는 먹점프의 첫 출시입니다. 고도별 산수화 배경,
 > 네 가지 아이템, 먹분신, 영구 성장 먹나무, 최고 고도 순위를 제공합니다.
+
+### App Store 스크린샷
+
+- iPhone 6.9인치(1320×2868): `store-screenshots/appstore-iphone-69/`의 PNG 6장
+- iPhone 6.5인치(1284×2778): `store-screenshots/appstore-iphone-65/`의 PNG 6장
+- 업로드 순서: 한 줄 그리기 → 발판 각도 → 먹분신 → 즉시 재도전 → 튜토리얼 → 영구 성장 먹나무
+- 앱이 iPhone 전용이므로 iPad 스크린샷은 생성하지 않는다.
+- 두 폴더에는 App Store Connect에 바로 올릴 최종 PNG만 유지한다.
 
 ### 수출 규정
 
@@ -141,8 +157,8 @@
 
 ## 제출 전 문구 검증
 
-- App Store 이름·부제는 각 30자 이하, 프로모션 텍스트는 170자 이하, 키워드는 100자
-  이하로 유지한다.
+- App Store 이름·부제는 각 30자 이하, 프로모션 텍스트는 170자 이하로 유지한다.
+  키워드는 각 3자 이상이고 쉼표까지 포함해 UTF-8 100바이트 이하로 유지한다.
 - Google Play 이름 30자, 짧은 설명 80자, 자세한 설명 4,000자 제한을 지킨다.
 - 스크린샷이나 설명에 `1위`, 수상, 할인, 무료 기간, 대회 출품 같은 현재 제품과 무관한
   표현을 넣지 않는다.

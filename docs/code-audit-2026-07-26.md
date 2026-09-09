@@ -75,7 +75,7 @@ Haptics, CameraFeedback, TransientVfx와 PauseView/Presenter로 분리해야 한
 - DEBUG 패널과 치트 호출을 Editor/Development Build에서만 허용했다.
 - 디버그 아이템·무적·고도 이동을 사용한 판은 로컬 최고 기록 저장 대상에서 제외했다.
 - 기본 회사명과 번들 식별자를 `Team-Swooord`,
-  `com.teamswooord.mukjump`로 교체했다.
+  현재 배포용 식별자인 `com.CYSB.MukJump`로 교체했다.
 - 미구현 원격 API 필드·코루틴을 제거해 API 키가 없는 로컬 수묵 스타일 경로만 남겼다.
 
 ### 상태와 예외 경계

@@ -9,6 +9,7 @@
 /[Bb]uilds/
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
+/.utmp/
 
 # MemoryCaptures can get excessive in size.
 /[Mm]emoryCaptures/
@@ -79,6 +80,7 @@ crashlytics-build.properties
 *.keystore
 *.jks
 *.p12
+*.p8
 *.pem
 *.key
 .DS_Store
@@ -102,4 +104,14 @@ Assets/StreamingAssets/build_info.meta
 Assets/Resources/AITVersionInfo.json
 Assets/Resources/AITVersionInfo.json.meta
 
-# AITTemplate은 새 클론에서도 같은 Apps in Toss 패키지를 만들 수 있어야 하므로 추적한다.
+# AITTemplate은 고정 SDK와 Assets/Editor의 패치 원본으로 빌드 시 재생성한다.
+
+# Apps in Toss SDK - 자동 보호 패턴
+Assets/WebGLTemplates/
+
+# 로컬 검증·촬영 출력과 Unity 복구 사본 (기존 추적 문서는 유지)
+/output/
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+/Assets/StreamingAssets/google-services-desktop.json
+/Assets/StreamingAssets/google-services-desktop.json.meta

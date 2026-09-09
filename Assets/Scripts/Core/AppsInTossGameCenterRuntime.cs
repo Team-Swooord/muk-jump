@@ -11,6 +11,8 @@ namespace MukJump.Core
         const int ApiTimeoutMilliseconds = 10000;
         const string PendingBestHeightKey =
             "MukJump.AppsInToss.PendingBestHeight";
+        const string PendingBestHeightOwnerKey =
+            "MukJump.AppsInToss.PendingBestHeight.Owner";
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         static bool submitInFlight;
@@ -27,6 +29,8 @@ namespace MukJump.Core
 #if UNITY_WEBGL && !UNITY_EDITOR
             if (!IsEligible(result))
                 return;
+            if (!AppsInTossIdentityPolicy.HasVerifiedIdentity)
+                return;
             QueueAndSubmitScore(result.Best);
 #endif
         }
@@ -36,49 +40,133 @@ namespace MukJump.Core
         static void RetryPendingScoreAfterSceneLoad()
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            if (PlayerPrefs.HasKey(PendingBestHeightKey))
-                QueueAndSubmitScore(PlayerPrefs.GetInt(
-                    PendingBestHeightKey,
-                    0));
+            RetryPendingScoreForVerifiedUser();
 #endif
         }
+
+        public static bool PendingOwnerMatches(
+            string storedOwner,
+            string verifiedOwner) =>
+            !string.IsNullOrWhiteSpace(storedOwner) &&
+            !string.IsNullOrWhiteSpace(verifiedOwner) &&
+            string.Equals(
+                storedOwner,
+                verifiedOwner,
+                StringComparison.Ordinal);
+
+        public static bool ShouldClearPendingBestHeightForOwner(
+            string storedOwner,
+            string submittedOwner,
+            string verifiedCurrentOwner,
+            int storedBest,
+            int submittedBest) =>
+            PendingOwnerMatches(storedOwner, submittedOwner) &&
+            PendingOwnerMatches(
+                submittedOwner,
+                verifiedCurrentOwner) &&
+            ShouldClearPendingBestHeight(storedBest, submittedBest);
 
         public static int ResolvePendingBestHeight(
             int storedBest,
             int candidateBest) =>
             Mathf.Max(0, Mathf.Max(storedBest, candidateBest));
 
+        public static int ResolvePendingBestHeightForOwner(
+            int storedBest,
+            int candidateBest,
+            string storedOwner,
+            string verifiedOwner) =>
+            PendingOwnerMatches(storedOwner, verifiedOwner)
+                ? ResolvePendingBestHeight(storedBest, candidateBest)
+                : Mathf.Max(0, candidateBest);
+
         public static bool ShouldClearPendingBestHeight(
             int storedBest,
             int submittedBest) =>
             storedBest <= submittedBest;
 
-        public static bool HasSubmissionResponse(
+        public static bool ShouldRetryCurrentOwnerAfterAttempt(
+            string submittedOwner,
+            string verifiedCurrentOwner) =>
+            !string.IsNullOrWhiteSpace(submittedOwner) &&
+            !string.IsNullOrWhiteSpace(verifiedCurrentOwner) &&
+            !string.Equals(
+                submittedOwner,
+                verifiedCurrentOwner,
+                StringComparison.Ordinal);
+
+        public static bool IsSuccessfulSubmission(
             SubmitGameCenterLeaderBoardScoreResponse response) =>
-            response != null;
+            response != null && string.Equals(
+                response.StatusCode,
+                "SUCCESS",
+                StringComparison.OrdinalIgnoreCase);
 
         public static void OpenLeaderboard()
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
+            if (!AppsInTossIdentityPolicy.HasVerifiedIdentity)
+                return;
             OpenLeaderboardAsync();
 #else
             Debug.Log("[MukJump] 토스 게임센터는 Apps in Toss에서 열립니다.");
 #endif
         }
 
+        public static void RetryPendingScoreForVerifiedUser()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (!AppsInTossIdentityPolicy.HasVerifiedIdentity ||
+                !PlayerPrefs.HasKey(PendingBestHeightKey))
+                return;
+
+            string currentOwner =
+                AppsInTossIdentityPolicy.VerifiedOwnerToken;
+            string storedOwner = PlayerPrefs.GetString(
+                PendingBestHeightOwnerKey,
+                string.Empty);
+            // 소유자를 증명할 수 없는 구 pending과 다른 사용자의 pending은
+            // 현재 토스 사용자에게 제출하지 않는다.
+            if (!PendingOwnerMatches(storedOwner, currentOwner))
+                return;
+            QueueAndSubmitScore(PlayerPrefs.GetInt(
+                PendingBestHeightKey,
+                0));
+#endif
+        }
+
 #if UNITY_WEBGL && !UNITY_EDITOR
         static void QueueAndSubmitScore(int bestHeight)
         {
-            int pendingBest = ResolvePendingBestHeight(
-                PlayerPrefs.GetInt(PendingBestHeightKey, 0),
-                bestHeight);
-            PlayerPrefs.SetInt(PendingBestHeightKey, pendingBest);
-            PlayerPrefs.Save();
-            if (!submitInFlight)
-                SubmitScoreAsync(pendingBest);
+            string owner = AppsInTossIdentityPolicy.VerifiedOwnerToken;
+            if (string.IsNullOrEmpty(owner))
+                return;
+            try
+            {
+                string storedOwner = PlayerPrefs.GetString(
+                    PendingBestHeightOwnerKey,
+                    string.Empty);
+                int pendingBest = ResolvePendingBestHeightForOwner(
+                    PlayerPrefs.GetInt(PendingBestHeightKey, 0),
+                    bestHeight,
+                    storedOwner,
+                    owner);
+                PlayerPrefs.SetInt(PendingBestHeightKey, pendingBest);
+                PlayerPrefs.SetString(PendingBestHeightOwnerKey, owner);
+                PlayerPrefs.Save();
+                if (!submitInFlight)
+                    SubmitScoreAsync(pendingBest, owner);
+            }
+            catch (Exception)
+            {
+                Debug.LogWarning(
+                    "[MukJump] 토스 최고 고도 재시도 정보를 저장하지 못했습니다.");
+            }
         }
 
-        static async void SubmitScoreAsync(int bestHeight)
+        static async void SubmitScoreAsync(
+            int bestHeight,
+            string submittedOwner)
         {
             submitInFlight = true;
             try
@@ -92,26 +180,39 @@ namespace MukJump.Core
                     await AIT.SubmitGameCenterLeaderBoardScore(
                     parameters,
                     ApiTimeoutMilliseconds);
-                if (!HasSubmissionResponse(response))
+                if (!IsSuccessfulSubmission(response))
                 {
                     submitInFlight = false;
                     Debug.LogWarning(
-                        "[MukJump] 현재 토스 앱 버전에서 순위 제출 결과를 확인하지 못해 기록을 보관합니다.");
+                        "[MukJump] 토스 순위 제출이 성공으로 확인되지 않아 기록을 보관합니다." +
+                        (string.IsNullOrWhiteSpace(response?.StatusCode)
+                            ? string.Empty
+                            : $" (status: {response.StatusCode})"));
+                    if (ShouldRetryCurrentOwnerAfterAttempt(
+                            submittedOwner,
+                            AppsInTossIdentityPolicy.VerifiedOwnerToken))
+                        RetryPendingScoreForVerifiedUser();
                     return;
                 }
                 int storedBest = PlayerPrefs.GetInt(
                     PendingBestHeightKey,
                     0);
-                if (ShouldClearPendingBestHeight(
+                string storedOwner = PlayerPrefs.GetString(
+                    PendingBestHeightOwnerKey,
+                    string.Empty);
+                if (ShouldClearPendingBestHeightForOwner(
+                        storedOwner,
+                        submittedOwner,
+                        AppsInTossIdentityPolicy.VerifiedOwnerToken,
                         storedBest,
                         bestHeight))
+                {
                     PlayerPrefs.DeleteKey(PendingBestHeightKey);
+                    PlayerPrefs.DeleteKey(PendingBestHeightOwnerKey);
+                }
                 PlayerPrefs.Save();
                 submitInFlight = false;
-                if (PlayerPrefs.HasKey(PendingBestHeightKey))
-                    SubmitScoreAsync(PlayerPrefs.GetInt(
-                        PendingBestHeightKey,
-                        0));
+                RetryPendingScoreForVerifiedUser();
             }
             catch (Exception exception)
             {
@@ -119,6 +220,10 @@ namespace MukJump.Core
                 Debug.LogWarning(
                     $"[MukJump] 토스 최고 고도를 저장해 다음 실행 또는 판에 다시 시도합니다: " +
                     exception.Message);
+                if (ShouldRetryCurrentOwnerAfterAttempt(
+                        submittedOwner,
+                        AppsInTossIdentityPolicy.VerifiedOwnerToken))
+                    RetryPendingScoreForVerifiedUser();
             }
         }
 

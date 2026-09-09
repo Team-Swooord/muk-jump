@@ -10,10 +10,14 @@ namespace MukJump.Core
         Warning,
         Updraft,
         Recovery,
+        GaleWarning,
+        Gale,
+        DowndraftWarning,
+        Downdraft,
     }
 
-    /// 전 맵에 약한 횡풍을 적용하고, 수백 m마다 낙하를 잠시 멈추는 상승기류를 만든다.
-    /// 중력값은 건드리지 않고 현재 속도만 보정하므로 발판 접착·아이템 점프와 충돌하지 않는다.
+    /// 약한 횡풍, 점프를 돕는 상승기류, 드물게 몸을 휘감는 광풍을 담당한다.
+    /// 실제 중력 배율은 PlayerController가 소유하며 발판·아이템 점프는 제외한다.
     [DefaultExecutionOrder(-80)]
     public class WindWeatherController : MonoBehaviour
     {
@@ -31,7 +35,6 @@ namespace MukJump.Core
         [SerializeField] Vector2 directionHoldSeconds = new(28f, 45f);
 
         [Header("상승기류")]
-        [SerializeField, Min(0f)] float updraftHorizontalMultiplier = 1.35f;
         [SerializeField, Min(0f)] float updraftRiseAcceleration = 0.72f;
 
         readonly List<PlayerController> livingPlayers = new();
@@ -41,6 +44,8 @@ namespace MukJump.Core
         float phaseElapsed;
         float directionHoldRemaining;
         bool sessionActive;
+        bool recoveringFromGale;
+        int nextGaleHeight = int.MaxValue;
 
         public int DirectionSign { get; private set; } = 1;
         public float DirectionBlend { get; private set; } = 1f;
@@ -48,6 +53,13 @@ namespace MukJump.Core
         public WindWeatherPhase Phase { get; private set; } = WindWeatherPhase.Breeze;
         public int NextUpdraftHeight { get; private set; }
         public bool IsUpdraftActive => Phase == WindWeatherPhase.Updraft;
+        public bool IsDowndraftActive => Phase == WindWeatherPhase.Downdraft;
+        public float RisingGravityMultiplier => IsUpdraftActive ? .65f : IsDowndraftActive ? 1.35f : 1f;
+        public bool IsGaleActive => Phase == WindWeatherPhase.Gale;
+        public float UpdraftMotionTime => phaseElapsed;
+        public float GravitySuppression => IsGaleActive ? 1f :
+            Phase == WindWeatherPhase.Recovery && recoveringFromGale
+                ? 1f - Mathf.SmoothStep(0f, 1f, phaseElapsed / RecoveryDuration) : 0f;
 
         /// 현재 맵 구간은 바람을 없애지 않고 세기만 조금 다르게 만든다.
         public float ZoneStrengthMultiplier
@@ -120,7 +132,8 @@ namespace MukJump.Core
 
             subscribedManager.GetLivingPlayersNonAlloc(livingPlayers);
             float zoneMultiplier = ZoneStrengthMultiplier;
-            float horizontalMultiplier = IsUpdraftActive ? updraftHorizontalMultiplier : 1f;
+            // 수직 바람은 점프 높이만 바꾸고, 횡풍은 공중에서만 옆으로 살짝 민다.
+            float horizontalMultiplier = IsUpdraftActive || IsDowndraftActive ? 0f : 1f;
             float permanentWindMultiplier =
                 RunGrowthController.Instance != null
                     ? RunGrowthController.Instance.PermanentSnapshot
@@ -132,6 +145,7 @@ namespace MukJump.Core
             float horizontalLimit = breezeSpeedLimit * zoneMultiplier *
                                     permanentWindMultiplier;
             float deltaTime = Time.fixedDeltaTime;
+            var driftCamera = IsGaleActive ? Camera.main : null;
 
             for (int i = 0; i < livingPlayers.Count; i++)
             {
@@ -145,14 +159,22 @@ namespace MukJump.Core
                     body.bodyType != RigidbodyType2D.Dynamic)
                     continue;
 
-                bool applyVerticalUpdraft = IsUpdraftActive &&
-                                             !player.IsInkDropBoosted;
+                if (IsGaleActive && !player.IsInkDropBoosted)
+                {
+                    Vector2 viewport = driftCamera != null
+                        ? (Vector2)driftCamera.WorldToViewportPoint(body.position) : new Vector2(.5f, .5f);
+                    float individualPhase = Mathf.Repeat((player.GetEntityId().GetHashCode() & 1023) * .618034f,
+                        Mathf.PI * 2f);
+                    body.linearVelocity = CalculateDriftVelocity(body.linearVelocity,
+                        phaseElapsed, individualPhase, viewport, deltaTime);
+                    continue;
+                }
                 body.linearVelocity = CalculateVelocity(
                     body.linearVelocity,
                     DirectionBlend,
                     horizontalAcceleration,
                     horizontalLimit,
-                    applyVerticalUpdraft,
+                    false,
                     updraftRiseAcceleration,
                     UpdraftHoverSpeed,
                     Mathf.Abs(Physics2D.gravity.y * body.gravityScale),
@@ -187,14 +209,24 @@ namespace MukJump.Core
         {
             if (next == GameState.Playing)
             {
-                // GameManager가 직후 점수 원점을 0m로 맞추므로 새 판은 항상 첫 간격을 사용한다.
-                BeginSession(0);
+                // 로비에서 시작한 판만 새 날씨 세션이다. GameOver → Playing은
+                // 광고 부활로 같은 판을 잇는 경로이므로 예고·풍향·다음 높이를 보존한다.
+                if (previous == GameState.Lobby || !sessionActive)
+                    BeginSession(0);
+                return;
+            }
+
+            if (next == GameState.GameOver)
+            {
+                // 게임오버 화면 동안 힘과 시간만 멈추고 세션 자체는 보존한다.
+                Strength01 = 0f;
                 return;
             }
 
             sessionActive = false;
             Phase = WindWeatherPhase.Breeze;
             phaseElapsed = 0f;
+            NextUpdraftHeight = 0;
             Strength01 = 0f;
         }
 
@@ -206,6 +238,9 @@ namespace MukJump.Core
 
         void BeginSession(int currentHeight, bool useFirstInterval = true)
         {
+            recoveringFromGale = false;
+            nextGaleHeight = Mathf.Max(0, currentHeight) + GameplayRandom.Range(
+                GameplayRandomStream.Weather, 1100, 1601);
             sessionActive = true;
             Phase = WindWeatherPhase.Breeze;
             phaseElapsed = 0f;
@@ -248,7 +283,9 @@ namespace MukJump.Core
             switch (Phase)
             {
                 case WindWeatherPhase.Breeze:
-                    if (CurrentHeight >= NextUpdraftHeight &&
+                    if (CurrentHeight >= nextGaleHeight && !HazardConcurrencyGate.HasHaetaeReservation)
+                        BeginGaleWarning();
+                    else if (CurrentHeight >= NextUpdraftHeight &&
                         !HazardConcurrencyGate.HasHaetaeReservation)
                         BeginWarning();
                     break;
@@ -257,8 +294,18 @@ namespace MukJump.Core
                         SetPhase(WindWeatherPhase.Updraft);
                     break;
                 case WindWeatherPhase.Updraft:
+                case WindWeatherPhase.Downdraft:
                     if (phaseElapsed >= UpdraftDuration)
                         SetPhase(WindWeatherPhase.Recovery);
+                    break;
+                case WindWeatherPhase.DowndraftWarning:
+                    if (phaseElapsed >= WarningDuration) SetPhase(WindWeatherPhase.Downdraft);
+                    break;
+                case WindWeatherPhase.GaleWarning:
+                    if (phaseElapsed >= 1.8f) SetPhase(WindWeatherPhase.Gale);
+                    break;
+                case WindWeatherPhase.Gale:
+                    if (phaseElapsed >= 3.5f) SetPhase(WindWeatherPhase.Recovery);
                     break;
                 case WindWeatherPhase.Recovery:
                     if (phaseElapsed >= RecoveryDuration)
@@ -267,18 +314,19 @@ namespace MukJump.Core
             }
         }
 
-        void BeginWarning()
+        void BeginWarning(bool? downward = null)
         {
-            SetPhase(WindWeatherPhase.Warning);
+            bool down = downward ?? (GameplayRandom.Value(GameplayRandomStream.Weather) < .25f);
+            SetPhase(down ? WindWeatherPhase.DowndraftWarning : WindWeatherPhase.Warning);
             NextUpdraftHeight = CurrentHeight + GameplayRandom.Range(
                 GameplayRandomStream.Weather, 220, 341);
-            GameFeedbackController.Instance?.ShowZone(
-                "상승기류 접근",
-                "잠시 뒤 낙하를 받쳐 주는 강한 바람이 붑니다");
+            // 예고는 상단 풍향 HUD 한 곳에서만 알린다. 별도 긴 안내를 겹치지 않는다.
         }
 
         void SetPhase(WindWeatherPhase next)
         {
+            if (next == WindWeatherPhase.Recovery)
+                recoveringFromGale = IsGaleActive;
             Phase = next;
             phaseElapsed = 0f;
         }
@@ -293,6 +341,10 @@ namespace MukJump.Core
                 WindWeatherPhase.Warning => Mathf.Lerp(
                     breeze, 0.82f, Mathf.Clamp01(phaseElapsed / WarningDuration)),
                 WindWeatherPhase.Updraft => 1f,
+                WindWeatherPhase.Downdraft => 1f,
+                WindWeatherPhase.DowndraftWarning => .82f,
+                WindWeatherPhase.GaleWarning => .85f,
+                WindWeatherPhase.Gale => 1f,
                 WindWeatherPhase.Recovery => Mathf.Lerp(
                     1f, breeze, Mathf.Clamp01(phaseElapsed / RecoveryDuration)),
                 _ => breeze,
@@ -326,7 +378,26 @@ namespace MukJump.Core
             if (subscribedManager == null ||
                 subscribedManager.State != GameState.Playing)
                 return;
-            BeginWarning();
+            BeginWarning(false);
+        }
+
+        public void DebugTriggerDowndraft()
+        {
+            if (GameManager.DebugToolsAvailable && subscribedManager != null && subscribedManager.IsGameplayTicking)
+                BeginWarning(true);
+        }
+
+        void BeginGaleWarning()
+        {
+            SetPhase(WindWeatherPhase.GaleWarning);
+            nextGaleHeight = CurrentHeight + GameplayRandom.Range(GameplayRandomStream.Weather, 1100, 1601);
+            NextUpdraftHeight = CurrentHeight + GameplayRandom.Range(GameplayRandomStream.Weather, 220, 341);
+        }
+
+        public void DebugTriggerGale()
+        {
+            if (GameManager.DebugToolsAvailable && subscribedManager != null && subscribedManager.IsGameplayTicking)
+                BeginGaleWarning();
         }
 
         /// 물리 컴포넌트 없이도 바람 속도 규칙을 검증할 수 있는 순수 계산 함수.
@@ -370,6 +441,24 @@ namespace MukJump.Core
             }
 
             return new Vector2(velocityX, velocityY);
+        }
+
+        /// 서로 위상이 다른 강한 난류로 크게 휘말리며 한 높이에 머무르지 않는다.
+        /// 화면 가장자리에서는 부드럽게 안쪽으로 유도하며 좌표를 순간 이동시키지 않는다.
+        public static Vector2 CalculateDriftVelocity(Vector2 velocity, float seconds, float phase,
+            Vector2 viewport, float deltaTime)
+        {
+            float x = Mathf.Sin(seconds * 2.15f + phase) * 5.4f +
+                Mathf.Sin(seconds * 4.7f + phase * .7f) * 1.7f;
+            float y = .35f + Mathf.Sin(seconds * 2.65f + phase * .83f) * 3.8f +
+                Mathf.Sin(seconds * 5.3f + phase) * .9f;
+            x += Mathf.Clamp01((.22f - viewport.x) / .15f) * 9f;
+            x -= Mathf.Clamp01((viewport.x - .78f) / .15f) * 9f;
+            y += Mathf.Clamp01((.28f - viewport.y) / .16f) * 7f;
+            y -= Mathf.Clamp01((viewport.y - .74f) / .16f) * 7f;
+            Vector2 target = new(Mathf.Clamp(x, -6f, 6f), Mathf.Clamp(y, -4.2f, 4.8f));
+            float dt = float.IsFinite(deltaTime) ? Mathf.Clamp(deltaTime, 0f, .05f) : 0f;
+            return Vector2.Lerp(velocity, target, 1f - Mathf.Exp(-6f * dt));
         }
 
         /// 네 구간 모두 바람이 존재하며, 바람 고개만 조금 더 강하게 느껴진다.

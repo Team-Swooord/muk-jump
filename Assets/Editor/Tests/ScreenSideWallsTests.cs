@@ -15,7 +15,7 @@ namespace MukJump.EditorTests
             if (cameraObject != null)
                 Object.DestroyImmediate(cameraObject);
             var orphanedWalls = Object.FindObjectsByType<ScreenSideWall>(
-                FindObjectsInactive.Include, FindObjectsSortMode.None);
+                FindObjectsInactive.Include);
             for (int i = 0; i < orphanedWalls.Length; i++)
                 if (orphanedWalls[i] != null)
                     Object.DestroyImmediate(orphanedWalls[i].gameObject);
@@ -58,7 +58,7 @@ namespace MukJump.EditorTests
             Assert.AreSame(right, rightField.GetValue(sideWalls),
                 "domain reload 뒤 기존 오른쪽 벽을 다시 찾아야 합니다.");
             Assert.That(Object.FindObjectsByType<ScreenSideWall>(
-                FindObjectsInactive.Include, FindObjectsSortMode.None).Length,
+                FindObjectsInactive.Include).Length,
                 Is.EqualTo(2));
 
             cleanup.Invoke(sideWalls, null);

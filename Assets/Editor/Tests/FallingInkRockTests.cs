@@ -30,6 +30,7 @@ public class FallingInkRockTests
             if (cleanup[i] != null) Object.DestroyImmediate(cleanup[i]);
         }
         cleanup.Clear();
+        GameplayRandom.ResetSession(0x4D554B);
     }
 
     [Test]
@@ -63,6 +64,129 @@ public class FallingInkRockTests
         Assert.AreEqual(FallingInkRockState.Resolved, rock.State);
         Assert.IsFalse(rock.GetComponent<CircleCollider2D>().enabled);
         Assert.IsFalse(rock.GetComponent<Rigidbody2D>().simulated);
+    }
+
+    [Test]
+    public void GameOverFreezesFallingRockAndProtectsDrawnPlatform()
+    {
+        var managerObject = Track(new GameObject("FrozenRockGameManager"));
+        var manager = managerObject.AddComponent<GameManager>();
+        SetProperty(manager, "State", GameState.GameOver);
+        Invoke(manager, "OnEnable");
+
+        var rock = CreateRock(0.8f);
+        SetField(rock, "warningElapsed", 0.8f);
+        Invoke(rock, "UpdateWarning");
+        SetField(rock, "fallSpeed", 4f);
+        var platform = PlatformCollider.Spawn(new List<Vector2>
+        {
+            new(-2f, 0f),
+            new(2f, 0f),
+        });
+        cleanup.Add(platform.gameObject);
+
+        Invoke(rock, "FixedUpdate");
+        bool resolved = (bool)Invoke(
+            rock,
+            "ResolveCollision",
+            platform.GetComponent<EdgeCollider2D>());
+
+        Assert.That((float)GetField(rock, "fallSpeed"), Is.EqualTo(4f));
+        Assert.That(resolved, Is.False);
+        Assert.That(rock.State, Is.EqualTo(FallingInkRockState.Falling));
+        Assert.That(platform.GetComponent<EdgeCollider2D>().enabled, Is.True,
+            "GameOver로 같은 판이 멈춘 뒤 큐에 남은 충돌이 먹선을 파괴하면 안 됩니다.");
+    }
+
+    [Test]
+    public void GameOverUpdatePreservesRockUntilSameRunRevives()
+    {
+        var managerObject = Track(new GameObject("ReviveRockGameManager"));
+        var manager = managerObject.AddComponent<GameManager>();
+        SetProperty(manager, "State", GameState.GameOver);
+        Invoke(manager, "OnEnable");
+
+        var rock = CreateRock(0.8f);
+        SetField(rock, "warningElapsed", 0.8f);
+        Invoke(rock, "UpdateWarning");
+        SetField(rock, "fallSpeed", 4f);
+        SetField(rock, "lifetimeElapsed", 2f);
+
+        Invoke(rock, "Update");
+
+        Assert.That(rock.State, Is.EqualTo(FallingInkRockState.Falling));
+        Assert.That((float)GetField(rock, "lifetimeElapsed"), Is.EqualTo(2f));
+        Assert.That(rock.gameObject.activeSelf, Is.True);
+
+        SetProperty(manager, "State", GameState.Playing);
+        Invoke(rock, "FixedUpdate");
+
+        Assert.That((float)GetField(rock, "fallSpeed"), Is.GreaterThan(4f),
+            "광고 부활 뒤에는 동결된 낙하가 같은 상태에서 다시 진행되어야 합니다.");
+    }
+
+    [Test]
+    public void GameOverReviveTransitionPreservesRockScheduleAndActiveList()
+    {
+        var spawnerObject = Track(new GameObject("ReviveRockSpawner"));
+        var spawner = spawnerObject.AddComponent<FallingInkRockSpawner>();
+        var rock = CreateRock(0.8f);
+        var active = (List<FallingInkRock>)GetField(spawner, "active");
+        active.Add(rock);
+        SetField(spawner, "heightUnlocked", true);
+        SetField(spawner, "spawnTimer", 2.75f);
+
+        Invoke(
+            spawner,
+            "HandleStateTransition",
+            GameState.Playing,
+            GameState.GameOver);
+        Invoke(
+            spawner,
+            "HandleStateTransition",
+            GameState.GameOver,
+            GameState.Playing);
+
+        Assert.That(active, Has.Count.EqualTo(1));
+        Assert.That(active[0], Is.SameAs(rock));
+        Assert.That((bool)GetField(spawner, "heightUnlocked"), Is.True);
+        Assert.That((float)GetField(spawner, "spawnTimer"), Is.EqualTo(2.75f));
+    }
+
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public void PauseOrTransitionFreezesFallingRockCollision(
+        bool paused,
+        bool transitioning)
+    {
+        var managerObject = Track(new GameObject("PausedRockGameManager"));
+        var manager = managerObject.AddComponent<GameManager>();
+        SetProperty(manager, "State", GameState.Playing);
+        SetProperty(manager, "IsPaused", paused);
+        SetField(manager, "transitionInProgress", transitioning);
+        Invoke(manager, "OnEnable");
+        Assert.That(manager.IsGameplayTicking, Is.False);
+
+        var rock = CreateRock(0.8f);
+        SetField(rock, "warningElapsed", 0.8f);
+        Invoke(rock, "UpdateWarning");
+        SetField(rock, "fallSpeed", 4f);
+        var platform = PlatformCollider.Spawn(new List<Vector2>
+        {
+            new(-2f, 0f),
+            new(2f, 0f),
+        });
+        cleanup.Add(platform.gameObject);
+
+        Invoke(rock, "FixedUpdate");
+        bool resolved = (bool)Invoke(
+            rock,
+            "ResolveCollision",
+            platform.GetComponent<EdgeCollider2D>());
+
+        Assert.That((float)GetField(rock, "fallSpeed"), Is.EqualTo(4f));
+        Assert.That(resolved, Is.False);
+        Assert.That(platform.GetComponent<EdgeCollider2D>().enabled, Is.True);
     }
 
     [Test]
@@ -176,6 +300,80 @@ public class FallingInkRockTests
 
         Assert.IsTrue((bool)Invoke(spawner, "ValidateReferences"));
         Assert.AreSame(livingClone, GetField(spawner, "player"));
+    }
+
+    [Test]
+    public void MapRestZoneDelaysOnlyNewFallingRockWarnings()
+    {
+        GameplayRandom.ResetSession(80831);
+        var score = Track(new GameObject("RestRockScore"))
+            .AddComponent<ScoreManager>();
+        Invoke(score, "OnEnable");
+        score.ResetOrigin(0f);
+        score.SampleWorldHeight(50f);
+
+        var restSpawner = Track(new GameObject("RestRockPlatformSpawner"))
+            .AddComponent<RestPlatformSpawner>();
+        Invoke(restSpawner, "OnEnable");
+        SetField(restSpawner, "scheduledSessionVersion",
+            GameplayRandom.SessionVersion);
+        SetField(restSpawner, "nextMapRestHeight", 50f);
+
+        var rockSpawner = Track(new GameObject("RestRockSpawner"))
+            .AddComponent<FallingInkRockSpawner>();
+
+        Assert.That(
+            (bool)Invoke(rockSpawner, "IsSpawnBlockedByConcurrentHazard"),
+            Is.True,
+            "안전지대 주변에서는 새 낙묵석 경고를 시작하면 안 됩니다.");
+
+        score.SampleWorldHeight(70f);
+        Assert.That(
+            (bool)Invoke(rockSpawner, "IsSpawnBlockedByConcurrentHazard"),
+            Is.False,
+            "안전 구간을 벗어나면 낙묵석은 다시 자연스럽게 예약되어야 합니다.");
+    }
+
+    [Test]
+    public void MapRestRockGateUsesCurrentSurvivorHeightAfterLeaderDies()
+    {
+        GameplayRandom.ResetSession(83124);
+        var score = Track(new GameObject("RestRockSurvivorScore"))
+            .AddComponent<ScoreManager>();
+        Invoke(score, "OnEnable");
+        score.ResetOrigin(0f);
+        score.SampleWorldHeight(120f);
+
+        var manager = Track(new GameObject("RestRockSurvivorManager"))
+            .AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+        var survivorObject = Track(new GameObject("RestRockSurvivor"));
+        survivorObject.AddComponent<Rigidbody2D>();
+        survivorObject.AddComponent<CircleCollider2D>();
+        var survivor = survivorObject.AddComponent<PlayerController>();
+        Invoke(survivor, "Awake");
+        survivor.transform.position = new Vector3(0f, 50f, 0f);
+        manager.RegisterPlayer(survivor);
+
+        var restSpawner = Track(new GameObject("RestRockSurvivorPlatform"))
+            .AddComponent<RestPlatformSpawner>();
+        Invoke(restSpawner, "OnEnable");
+        SetField(restSpawner, "scheduledSessionVersion",
+            GameplayRandom.SessionVersion);
+        SetField(restSpawner, "nextMapRestHeight", 50f);
+
+        var rockSpawner = Track(new GameObject("RestRockSurvivorSpawner"))
+            .AddComponent<FallingInkRockSpawner>();
+        Assert.That(
+            (bool)Invoke(rockSpawner, "IsSpawnBlockedByConcurrentHazard"),
+            Is.True,
+            "과거 최고 높이가 앞서 있어도 현재 생존자가 쉼터에 있으면 새 경고를 막아야 합니다.");
+
+        survivor.transform.position = new Vector3(0f, 70f, 0f);
+        Assert.That(
+            (bool)Invoke(rockSpawner, "IsSpawnBlockedByConcurrentHazard"),
+            Is.False,
+            "현재 생존자가 쉼터를 벗어나면 과거 최고 기록과 무관하게 경고를 재개해야 합니다.");
     }
 
     [Test]
@@ -301,6 +499,20 @@ public class FallingInkRockTests
             movingSerialized.FindProperty("dragonSprite").objectReferenceValue);
         Assert.AreEqual(30f, movingSerialized.FindProperty("firstSpawnHeight").floatValue);
 
+        var restSpawners = FindAllInScene<RestPlatformSpawner>(builderTestScene);
+        Assert.AreEqual(1, restSpawners.Length);
+        var restSerialized = new SerializedObject(restSpawners[0]);
+        Assert.AreEqual(new Vector2(22f, 28f),
+            restSerialized.FindProperty("firstRestHeightRange").vector2Value);
+        Assert.AreEqual(new Vector2(28f, 38f),
+            restSerialized.FindProperty("restHeightIntervalRange").vector2Value);
+        Assert.AreEqual(RestPlatformSpawner.DefaultMapRestWidth,
+            restSerialized.FindProperty("restPlatformWidth").floatValue);
+        Assert.AreEqual(new Vector2(-0.9f, 0.9f),
+            restSerialized.FindProperty("restHorizontalOffsetRange").vector2Value);
+        Assert.AreEqual(RestPlatformSpawner.DefaultMapRestHazardClearance,
+            restSerialized.FindProperty("restHazardClearance").floatValue);
+
         var itemSpawner = FindFirstInScene<ItemSpawner>(builderTestScene);
         Assert.IsNotNull(itemSpawner);
         var itemSerialized = new SerializedObject(itemSpawner);
@@ -424,12 +636,11 @@ public class FallingInkRockTests
         Assert.AreEqual(FontStyle.Bold, lobbyBest.fontStyle);
         Assert.AreEqual(TextAnchor.MiddleCenter, lobbyBest.alignment);
         Assert.AreEqual(Color.white, lobbyBest.color);
-        Assert.IsFalse(lobbyBest.resizeTextForBestFit);
+        Assert.IsTrue(lobbyBest.resizeTextForBestFit);
         Assert.IsTrue(lobbyBest.alignByGeometry);
-        Assert.That(lobbyBest.rectTransform.anchoredPosition.x, Is.EqualTo(-87f).Within(0.01f));
+        Assert.That(lobbyBest.rectTransform.anchoredPosition.x, Is.EqualTo(LobbyMenuLayout.RecordLabelPosition.x).Within(0.01f));
         Assert.That(lobbyBest.rectTransform.anchoredPosition.y, Is.EqualTo(-5f).Within(0.01f));
-        Assert.That(lobbyBest.rectTransform.sizeDelta.x, Is.EqualTo(400f).Within(0.01f));
-        Assert.That(lobbyBest.rectTransform.sizeDelta.y, Is.EqualTo(80f).Within(0.01f));
+        Assert.That(lobbyBest.rectTransform.sizeDelta, Is.EqualTo(LobbyMenuLayout.RecordLabelSize));
 
         var lobbySafeArea = lobby.transform.Find("SafeAreaRoot") as RectTransform;
         Assert.IsNotNull(lobbySafeArea);
@@ -437,7 +648,8 @@ public class FallingInkRockTests
         Assert.IsNotNull(lobbyContent);
         var lobbyLogo = lobbyContent.Find("Logo") as RectTransform;
         Assert.IsNotNull(lobbyLogo?.GetComponent<RawImage>());
-        Assert.That(lobbyLogo.anchoredPosition.x, Is.EqualTo(12f).Within(0.01f));
+        Assert.That(lobbyLogo.anchoredPosition.x,
+            Is.EqualTo(-LobbyMenuLayout.LogoVisibleCenterOffsetX * lobbyLogo.localScale.x).Within(0.01f));
         Assert.That(lobbyLogo.anchoredPosition.y, Is.EqualTo(79f).Within(0.01f));
         Assert.That(lobbyLogo.sizeDelta.x, Is.EqualTo(1281.776f).Within(0.01f));
         Assert.That(lobbyLogo.sizeDelta.y, Is.EqualTo(854.518f).Within(0.01f));
@@ -483,7 +695,7 @@ public class FallingInkRockTests
             Is.EqualTo(LobbyMenuLayout.RecordRailX).Within(0.001f));
         Assert.That(bestDisplay.anchorMax.x,
             Is.EqualTo(LobbyMenuLayout.RecordRailX).Within(0.001f));
-        Assert.That(bestDisplay.anchoredPosition.x, Is.EqualTo(89f).Within(0.01f));
+        Assert.That(bestDisplay.anchoredPosition.x, Is.EqualTo(LobbyMenuLayout.RecordPosition.x).Within(0.01f));
         Assert.That(bestDisplay.anchoredPosition.y, Is.EqualTo(-12f).Within(0.01f));
         Assert.That(bestDisplay.sizeDelta.x, Is.EqualTo(610.273f).Within(0.01f));
         Assert.That(bestDisplay.sizeDelta.y, Is.EqualTo(130.157f).Within(0.01f));
@@ -503,25 +715,25 @@ public class FallingInkRockTests
         Assert.That(topHud.sizeDelta.x, Is.EqualTo(900f).Within(0.01f));
         Assert.That(topHud.sizeDelta.y, Is.EqualTo(148f).Within(0.01f));
         Assert.IsNull(hudSerialized.FindProperty("heightCaption").objectReferenceValue);
-        Assert.IsNull(hudSerialized.FindProperty("bestCaption").objectReferenceValue);
+        Assert.IsNotNull(hudSerialized.FindProperty("bestCaption").objectReferenceValue);
         Assert.IsNull(topHud.Find("HeightCaption"));
-        Assert.IsNull(topHud.Find("BestCaption"));
+        Assert.AreEqual("최고", topHud.Find("BestCaption").GetComponent<Text>().text);
         var heightText = hudSerialized.FindProperty("heightText").objectReferenceValue as Text;
         var bestText = hudSerialized.FindProperty("bestText").objectReferenceValue as Text;
         Assert.IsNotNull(heightText);
         Assert.IsNotNull(bestText);
         Assert.AreEqual("고도 0m", heightText.text);
-        Assert.AreEqual("최고 0m", bestText.text);
-        Assert.AreEqual(60, heightText.fontSize);
-        Assert.AreEqual(50, bestText.fontSize);
+        Assert.AreEqual("0m", bestText.text);
+        Assert.AreEqual(64, heightText.fontSize);
+        Assert.AreEqual(42, bestText.fontSize);
         Assert.AreEqual(FontStyle.Bold, heightText.fontStyle);
         Assert.AreEqual(FontStyle.Bold, bestText.fontStyle);
-        Assert.GreaterOrEqual(heightText.rectTransform.sizeDelta.x, 315f);
-        Assert.GreaterOrEqual(bestText.rectTransform.sizeDelta.x, 235f);
+        Assert.GreaterOrEqual(heightText.rectTransform.sizeDelta.x, 290f);
+        Assert.GreaterOrEqual(bestText.rectTransform.sizeDelta.x, 180f);
         Assert.That(heightText.rectTransform.anchorMin.y, Is.EqualTo(0.5f).Within(0.001f));
         Assert.That(bestText.rectTransform.anchorMin.y, Is.EqualTo(0.5f).Within(0.001f));
-        Assert.IsTrue(heightText.resizeTextForBestFit);
-        Assert.IsTrue(bestText.resizeTextForBestFit);
+        Assert.IsFalse(heightText.resizeTextForBestFit);
+        Assert.IsFalse(bestText.resizeTextForBestFit);
         Assert.IsNotNull(heightText.GetComponent<Outline>());
         Assert.IsNotNull(bestText.GetComponent<Outline>());
 
@@ -538,14 +750,14 @@ public class FallingInkRockTests
         var windSerialized = new SerializedObject(windIndicator);
         var windState = windSerialized.FindProperty("stateText").objectReferenceValue as Text;
         Assert.IsNotNull(windState);
-        Assert.AreEqual(34, windState.fontSize);
+        Assert.AreEqual(28, windState.fontSize);
         Assert.AreEqual(FontStyle.Bold, windState.fontStyle);
         Assert.IsNotNull(windState.GetComponent<Outline>());
         Assert.AreSame(topHud, windIndicator.transform.parent);
         Assert.AreSame(topHud, newBestIndicator.transform.parent);
         Assert.IsNull(windIndicator.transform.Find("WindStrengthStroke1"));
         Assert.That(((RectTransform)newBestIndicator.transform).sizeDelta.x,
-            Is.LessThanOrEqualTo(50f));
+            Is.EqualTo(NewBestIndicatorView.BadgeSize));
         Assert.IsNotNull(FindFirstInScene<PauseMenuView>(builderTestScene));
 
         var importer = (TextureImporter)AssetImporter.GetAtPath(
@@ -669,10 +881,13 @@ public class FallingInkRockTests
         Assert.AreEqual(
             "Assets/Art/UI/muk_start_button.png",
             AssetDatabase.GetAssetPath(background.texture));
-        Assert.AreNotSame(
-            InkUiStyle.ActionButtonSprite?.texture,
-            background.texture,
-            "로비 네 메뉴 버튼은 공용 행동 버튼 붓획으로 교체하면 안 됩니다.");
+        Assert.That(background.color.r, Is.EqualTo(1f).Within(0.001f));
+        Assert.That(background.color.g, Is.EqualTo(1f).Within(0.001f));
+        Assert.That(background.color.b, Is.EqualTo(1f).Within(0.001f));
+        Assert.That(
+            button.GetComponentsInChildren<InkActionButtonVisual>(false),
+            Is.Empty,
+            "로비의 시작·성장·옵션만은 공통 한지 버튼을 사용하면 안 됩니다.");
         Assert.That(rect.sizeDelta.x, Is.EqualTo(610.273f).Within(0.01f));
         Assert.That(rect.sizeDelta.y, Is.EqualTo(130.157f).Within(0.01f));
         Assert.That(
@@ -684,13 +899,14 @@ public class FallingInkRockTests
         Assert.AreEqual(TextAnchor.MiddleCenter, label.alignment);
         Assert.IsFalse(label.resizeTextForBestFit);
         Assert.That(label.rectTransform.anchoredPosition.x,
-            Is.EqualTo(-87f).Within(0.01f));
+            Is.EqualTo(LobbyMenuLayout.LabelPosition.x).Within(0.01f));
         Assert.That(label.rectTransform.anchoredPosition.y,
             Is.EqualTo(-5f).Within(0.01f));
         Assert.That(label.rectTransform.sizeDelta.x,
             Is.EqualTo(400f).Within(0.01f));
         Assert.That(label.rectTransform.sizeDelta.y,
             Is.EqualTo(80f).Within(0.01f));
+        Assert.That(label.color, Is.EqualTo(InkPalette.TextLight));
         Assert.IsNotNull(button.GetComponent<InkUiPressFeedback>());
     }
 
@@ -698,6 +914,15 @@ public class FallingInkRockTests
     {
         target.GetType().GetField(fieldName,
             BindingFlags.Instance | BindingFlags.NonPublic)?.SetValue(target, value);
+    }
+
+    static void SetProperty(object target, string propertyName, object value)
+    {
+        target.GetType().GetProperty(
+                propertyName,
+                BindingFlags.Instance | BindingFlags.Public |
+                BindingFlags.NonPublic)
+            ?.SetValue(target, value);
     }
 
     static object GetField(object target, string fieldName)

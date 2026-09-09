@@ -25,7 +25,11 @@ namespace MukJump.Core
             long cumulativeGrowthDistanceMeters = 0L,
             long previousGrowthRewardDistanceMeters = 0L,
             long nextGrowthRewardDistanceMeters = 0L,
-            bool growthDistanceJourneyComplete = false)
+            bool growthDistanceJourneyComplete = false,
+            long growthDistanceBeforeMeters = -1L,
+            bool isGrowthPreview = false,
+            int previewGrowthCurrency = 0,
+            long growthDistanceRewardOffsetMeters = 0L)
         {
             Height = height;
             Best = best;
@@ -39,6 +43,10 @@ namespace MukJump.Core
             PreviousGrowthRewardDistanceMeters = previousGrowthRewardDistanceMeters;
             NextGrowthRewardDistanceMeters = nextGrowthRewardDistanceMeters;
             GrowthDistanceJourneyComplete = growthDistanceJourneyComplete;
+            GrowthDistanceBeforeMeters = growthDistanceBeforeMeters;
+            IsGrowthPreview = isGrowthPreview;
+            PreviewGrowthCurrency = previewGrowthCurrency;
+            GrowthDistanceRewardOffsetMeters = growthDistanceRewardOffsetMeters;
             PersistenceState = persistenceState !=
                                GameOverPersistenceState.Complete
                 ? persistenceState
@@ -61,6 +69,10 @@ namespace MukJump.Core
         public long PreviousGrowthRewardDistanceMeters { get; }
         public long NextGrowthRewardDistanceMeters { get; }
         public bool GrowthDistanceJourneyComplete { get; }
+        public long GrowthDistanceBeforeMeters { get; }
+        public bool IsGrowthPreview { get; }
+        public int PreviewGrowthCurrency { get; }
+        public long GrowthDistanceRewardOffsetMeters { get; }
         public GameOverPersistenceState PersistenceState { get; }
     }
 }

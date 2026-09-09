@@ -3,7 +3,7 @@
 
 실행:
   /Users/seungyeoning/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3.12 \
-    tools/generate_nan2026_pdfs.py
+    tools/generate_nan2026_pdfs.py --only game
 
 문서의 상세 원문은 docs/submission/*.md에 보존한다. 이 스크립트는 제출용 편집 디자인과
 요약 문구를 담당하며, 실제 게임 스크린샷과 저장소의 프로젝트 자산만 사용한다.
@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import argparse
 from io import BytesIO
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -50,6 +51,10 @@ GAME_OVER = ASSET / "game_over_phone.png"
 LOGO = ROOT / "Assets" / "Art" / "UI" / "muk_logo.png"
 PLAYER = ROOT / "Assets" / "Art" / "Character" / "Player" / "character_muk_bangul_v3.png"
 MAP_0 = ROOT / "Assets" / "Art" / "Background" / "Maps" / "map_00_quiet_mountain.png"
+MAP_1 = ROOT / "Assets" / "Art" / "Background" / "Maps" / "map_01_wind_ridge.png"
+MAP_2 = ROOT / "Assets" / "Art" / "Background" / "Maps" / "map_02_ink_rain_valley.png"
+MAP_3 = ROOT / "Assets" / "Art" / "Background" / "Maps" / "map_03_black_cliff.png"
+MAP_ENDLESS = ROOT / "Assets" / "Resources" / "MukJump" / "Background" / "Endless" / "map_04_ink_galaxy_gate.png"
 TREE = ROOT / "Assets" / "Resources" / "MukJump" / "UI" / "PermanentGrowth" / "pg_tree_background_v3.png"
 GAUGE_TRACK = ROOT / "Assets" / "Art" / "UI" / "muk_gauge_track.png"
 GAUGE_FILL = ROOT / "Assets" / "Art" / "UI" / "muk_gauge_fill.png"
@@ -61,6 +66,7 @@ ITEMS = [
 ]
 DRAGON = ROOT / "Assets" / "Resources" / "MukJump" / "Obstacles" / "child_ink_dragon_4frame_v3.png"
 HAETAE = ROOT / "Assets" / "Resources" / "MukJump" / "Obstacles" / "child_ink_haetae_4frame_v2.png"
+INK_ROCK = ROOT / "Assets" / "Art" / "Character" / "Obstacles" / "anermy_02.png"
 
 _image_cache: dict[tuple, ImageReader] = {}
 
@@ -352,14 +358,14 @@ def setup_doc(c: canvas.Canvas, title: str, subject: str) -> None:
 
 
 def build_game_pdf(path: Path) -> None:
-    total = 6
+    total = 8
     label = "게임 소개 및 설명"
     c = canvas.Canvas(str(path), pagesize=A4, pageCompression=1)
     setup_doc(c, "먹점프 — 게임 소개 및 설명", "NAN 2026 게임 개요·플레이 방법·실행 방법")
 
     # 1 — 표지
     page_base(c, dark=True, label=label, page=1, total=total)
-    draw_phone(c, GAMEPLAY, 330, 58, 222, 724)
+    draw_phone(c, GAMEPLAY, 326, 58, 226, 724)
     draw_kicker(c, "NAN 2026 GAME INTRODUCTION", M, 750, dark=True)
     draw_image_contain(c, LOGO, 42, 565, 235, 145, tint=WHITE)
     draw_text(
@@ -375,12 +381,21 @@ def build_game_pdf(path: Path) -> None:
     draw_rule(c, M, 415, 210, dark=True, red=True)
     draw_text(
         c,
-        "선을 그려 발판을 만들고,\n먹방울을 지키며 오르는\n수묵 클라이밍.",
+        "손끝의 한 획이 발판이 되는\n세로형 드로잉 클라이밍.",
         M,
         380,
         230,
-        size=11.5,
-        leading=18,
+        size=12.5,
+        leading=20,
+        color=LIGHT_MUTED,
+    )
+    draw_text(
+        c,
+        "Android · Unity 6000.3.10f1 · 오프라인 플레이",
+        M,
+        302,
+        230,
+        size=8.7,
         color=LIGHT_MUTED,
     )
     draw_cover_meta(c, M, 112, dark=True)
@@ -389,10 +404,10 @@ def build_game_pdf(path: Path) -> None:
     # 2 — 조작
     page_base(c, dark=False, label=label, page=2, total=total)
     draw_kicker(c, "그리는 것이 곧 조작", M, 785, dark=False)
-    draw_title(c, "캐릭터 대신 길을 움직인다", M, 742, W - 2 * M, dark=False, size=30)
+    draw_title(c, "본다. 긋는다. 오른다.", M, 742, W - 2 * M, dark=False, size=31)
     draw_text(
         c,
-        "먹방울은 약 1초마다 스스로 뛴다. 플레이어는 점프 버튼 대신 다음 착지점을 그린다.",
+        "먹방울은 약 1초마다 스스로 뛴다. 플레이어는 캐릭터 대신 다음 착지점을 움직인다.",
         M,
         690,
         W - 2 * M,
@@ -400,19 +415,20 @@ def build_game_pdf(path: Path) -> None:
         leading=17,
         color=MUTED,
     )
-    draw_image_cover(c, GAMEPLAY, M, 365, W - 2 * M, 285, focal=(0.5, 0.58), contrast=1.05)
-    draw_step(c, "01", "본다", "먹방울의 궤적과 다음 위험을 읽는다.", M, 300, 150)
-    draw_step(c, "02", "긋는다", "손가락을 끌고 떼어 수묵 발판을 만든다.", 220, 300, 155)
-    draw_step(c, "03", "오른다", "기울기와 길이가 다음 점프를 바꾼다.", 395, 300, 155)
-    draw_rule(c, M, 194, W - 2 * M, dark=False, red=True)
+    draw_image_cover(c, GAMEPLAY, M, 386, W - 2 * M, 265, focal=(0.5, 0.57), contrast=1.05)
+    draw_step(c, "01", "관찰", "낙하 궤적과 다음 위험을 읽는다.", M, 322, 130)
+    draw_step(c, "02", "드래그", "착지할 자리에 한 획을 긋는다.", 175, 322, 130)
+    draw_step(c, "03", "손 떼기", "먹선이 실제 물리 발판이 된다.", 304, 322, 130)
+    draw_step(c, "04", "자동 점프", "기울기와 길이가 다음 도약을 바꾼다.", 433, 322, 120)
+    draw_rule(c, M, 205, W - 2 * M, dark=False, red=True)
     draw_text(
         c,
-        "짧고 평평한 획은 안전하다. 길고 기운 획은 더 멀리 보내지만 착지가 어렵다.",
+        "이동 버튼도 점프 버튼도 없다. 짧고 평평한 획은 안전하고, 길고 기운 획은 더 멀리 보낸다. 캐릭터 바로 곁과 0.6m 미만의 선은 발판이 되지 않는다.",
         M,
-        162,
+        170,
         W - 2 * M,
-        size=13,
-        leading=19,
+        size=11.4,
+        leading=18,
         color=INK,
         align="center",
     )
@@ -420,52 +436,52 @@ def build_game_pdf(path: Path) -> None:
 
     # 3 — 먹 예산
     page_base(c, dark=True, label=label, page=3, total=total)
-    draw_kicker(c, "먹은 자원이고 시간이다", M, 785, dark=True)
-    draw_title(c, "처음 쓸 수 있는 먹은 4.8m", M, 740, 380, dark=True, size=30)
+    draw_kicker(c, "먹 게이지의 정확한 의미", M, 785, dark=True)
+    draw_title(c, "먹은 횟수가 아니라 총 길이다", M, 740, W - 2 * M, dark=True, size=29)
     draw_text(
         c,
-        "하단 게이지는 지금부터 더 그릴 수 있는 남은 용량이다.\n선이 마르면 그 길이만큼 다시 찬다.",
+        "기본 4.8m 안에서 현재 획과 남아 있는 모든 먹선이 같은 장부를 쓴다. 하단 게이지는 지금 더 그릴 수 있는 길이를 보여 준다.",
         M,
         682,
-        410,
+        W - 2 * M,
         size=11.2,
         leading=17.5,
         color=LIGHT_MUTED,
     )
     c.setFillColor(PAPER_2)
-    c.roundRect(M, 470, W - 2 * M, 120, 20, fill=1, stroke=0)
-    draw_image_contain(c, GAUGE_TRACK, M + 20, 502, W - 2 * M - 40, 55, tint=INK)
-    draw_image_contain(c, GAUGE_FILL, M + 20, 502, (W - 2 * M - 40) * 0.62, 55, tint=RED)
+    c.roundRect(M, 472, W - 2 * M, 118, 20, fill=1, stroke=0)
+    draw_image_contain(c, GAUGE_TRACK, M + 20, 505, W - 2 * M - 40, 52, tint=INK)
+    draw_image_contain(c, GAUGE_FILL, M + 20, 505, (W - 2 * M - 40) * 0.62, 52, tint=RED)
     c.setFillColor(INK)
     c.setFont(FONT, 9)
     c.drawRightString(W - M - 22, 482, "남은 먹 62%")
     statements = [
-        ("3.4초", "선명하게 유지"),
-        ("1.1초", "처음 그린 쪽부터 건조"),
-        ("동시에", "붓자국과 충돌 판정 제거"),
+        ("4.8m", "처음 사용할 수 있는 총량"),
+        ("3.4초", "먹선이 선명한 시간"),
+        ("1.1초", "오래된 쪽부터 마르는 시간"),
     ]
     for index, (value, text_value) in enumerate(statements):
         x = M + index * 168
         draw_metric(c, value, text_value, x, 390, dark=True)
-    draw_rule(c, M, 324, W - 2 * M, dark=True, red=True)
+    draw_rule(c, M, 322, W - 2 * M, dark=True, red=True)
     draw_text(
         c,
-        "새 선이 용량을 넘기면 가장 오래된 획부터 사라진다. 황금 붓은 8초 동안 용량 초과 퇴출만 미루며 자연 건조는 계속된다.",
+        "자연 만료나 용량 초과 소멸이 시작되면 먹 비용은 즉시 다시 쓸 수 있다. 화면의 붓자국과 충돌 판정은 이후 같은 비율로 함께 줄어든다.",
         M,
-        290,
+        286,
         W - 2 * M,
-        size=12,
+        size=11.5,
         leading=19,
         color=WHITE,
     )
     draw_text(
         c,
-        "많이 그리는 기술보다, 지금 남겨야 할 한 획을 고르는 판단이 중요하다.",
+        "용량을 넘기면 가장 오래된 획부터 사라진다. 황금 붓은 8초 동안 용량 초과 퇴출만 미루며 자연 건조는 계속된다.",
         M,
-        178,
+        188,
         W - 2 * M,
-        size=15.5,
-        leading=23,
+        size=13.8,
+        leading=21,
         color=RED,
     )
     c.showPage()
@@ -473,22 +489,22 @@ def build_game_pdf(path: Path) -> None:
     # 4 — 먹떼
     page_base(c, dark=False, label=label, page=4, total=total)
     draw_kicker(c, "개별 체력 · 공동 생존", M, 785, dark=False)
-    draw_title(c, "한 마리가 아니라 먹떼를 살린다", M, 742, W - 2 * M, dark=False, size=29)
-    draw_image_cover(c, GAMEPLAY, M, 342, 284, 340, focal=(0.5, 0.48), contrast=1.06)
+    draw_title(c, "한 마리만 살아 있어도 계속된다", M, 742, W - 2 * M, dark=False, size=28)
+    draw_image_cover(c, GAMEPLAY, M, 338, 285, 342, focal=(0.5, 0.49), contrast=1.06)
     draw_text(
         c,
-        "첫 12m에는 먹분신이 반드시 나온다. 새 분신은 아이템을 먹은 개체 바로 옆에서 태어나며, 한 마리만 살아 있어도 도전은 끝나지 않는다.",
+        "첫 12m에는 먹분신이 반드시 나온다. 본체와 분신은 체력·방어막·물리·사망이 모두 독립적이다.",
         355,
         650,
         195,
-        size=10.7,
+        size=10.8,
         leading=17,
         color=INK,
     )
     draw_rule(c, 355, 548, 195, dark=False)
     draw_text(
         c,
-        "체력은 각 캐릭터 머리 위에 따로 표시된다. 추락하면 방어막 또는 체력 한 칸을 쓰고, 살아 있으면 35m를 복귀 상승한다.",
+        "추락하면 방어막 또는 체력 한 칸을 쓴다. 살아 있으면 화면 안으로 돌아와 35m를 회복 상승한다.",
         355,
         515,
         195,
@@ -497,12 +513,14 @@ def build_game_pdf(path: Path) -> None:
         color=MUTED,
     )
     draw_rule(c, M, 292, W - 2 * M, dark=False, red=True)
-    draw_text(c, "카메라는 가장 높은 생존자를 따라간다.", M, 250, W - 2 * M, size=18, color=INK)
+    draw_metric(c, "1칸", "본체·분신 기본 체력", M, 250, dark=False)
+    draw_metric(c, "24", "전체 생존 개체 상한", 220, 250, dark=False)
+    draw_metric(c, "35m", "추락 뒤 생존 복귀", 395, 250, dark=False)
     draw_text(
         c,
-        "선두가 죽으면 남은 먹떼가 다시 보이도록 한 번 재구도한다. 장애물과 맵 진행만 하위 중앙값을 사용해 혼자 튀어 오른 분신이 난도를 앞당기지 않게 했다.",
+        "카메라는 가장 높은 생존자를 따라간다. 맵 구간과 낙묵석 난도는 먹떼의 하위 중앙값으로 계산해 한 분신의 돌발 상승이 전체 난도를 앞당기지 않게 했다.",
         M,
-        210,
+        172,
         W - 2 * M,
         size=10.5,
         leading=16.5,
@@ -510,87 +528,217 @@ def build_game_pdf(path: Path) -> None:
     )
     c.showPage()
 
-    # 5 — 변수
+    # 5 — 아이템
     page_base(c, dark=True, label=label, page=5, total=total)
-    draw_kicker(c, "한 판을 흔드는 것들", M, 785, dark=True)
-    draw_title(c, "도구는 네 개, 위험은 고도와 함께 늘어난다", M, 742, W - 2 * M, dark=True, size=27)
-    c.setFillColor(PAPER_2)
-    c.rect(0, 465, W, 185, fill=1, stroke=0)
-    slot_w = W / 4
-    for index, (icon, name, effect) in enumerate(ITEMS):
-        x = index * slot_w
-        draw_image_contain(c, icon, x + 22, 520, slot_w - 44, 95)
-        c.setFillColor(INK)
-        c.setFont(FONT, 10.5)
-        c.drawCentredString(x + slot_w / 2, 497, name)
-        c.setFillColor(MUTED)
-        c.setFont(FONT, 7.7)
-        c.drawCentredString(x + slot_w / 2, 480, effect)
+    draw_kicker(c, "한 판의 변수", M, 785, dark=True)
+    draw_title(c, "아이템은 네 가지다", M, 742, W - 2 * M, dark=True, size=31)
     draw_text(
         c,
-        "30m까지는 공격 장애물이 없다. 이후 먹가시와 낙묵석, 어린 동양 용이 등장하고 320m부터 벽을 따라 내려오는 먹해태가 합류한다.",
+        "아이콘은 단순하지만 효과는 먹떼의 위치와 생존 방식을 크게 바꾼다.",
         M,
-        410,
+        690,
         W - 2 * M,
-        size=11.2,
-        leading=18,
-        color=WHITE,
+        size=11,
+        color=LIGHT_MUTED,
     )
-    draw_image_contain(c, DRAGON, 46, 215, 300, 150, tint=RED, opacity=0.92)
-    draw_image_contain(c, HAETAE, 370, 220, 150, 150, tint=RED, opacity=0.92)
-    draw_rule(c, M, 185, W - 2 * M, dark=True)
+    card_gap = 14
+    card_w = (W - 2 * M - card_gap) / 2
+    for index, (icon, name, effect) in enumerate(ITEMS):
+        col = index % 2
+        row = index // 2
+        x = M + col * (card_w + card_gap)
+        y = 430 - row * 225
+        c.setFillColor(PAPER_2)
+        c.roundRect(x, y, card_w, 195, 18, fill=1, stroke=0)
+        draw_image_contain(c, icon, x + 18, y + 55, 92, 115)
+        draw_text(c, name, x + 125, y + 145, card_w - 143, size=15, color=INK)
+        body = {
+            "먹물방울": "모든 생존자를 50m 올린다.\n상승 중에는 장애물 피해를 받지 않는다.",
+            "황금 붓": "8초 동안 최대 용량 초과로 인한\n오래된 먹선 퇴출을 미룬다.",
+            "먹 방어막": "장애물 피해 또는 화면 하단 추락을\n한 번 막는다. 중첩되지는 않는다.",
+            "먹분신": "획득한 개체 바로 옆에\n새 생존자 한 마리를 만든다.",
+        }[name]
+        draw_text(c, body, x + 125, y + 110, card_w - 143, size=9.5, leading=15, color=MUTED)
     draw_text(
         c,
-        "산길 → 바람 능선 → 먹비 계곡 → 검은 절벽 → 수묵 우주",
+        "첫 아이템은 12m의 먹분신이다. 이후 아이템은 10~16m 간격으로 카메라 앞에 등장한다.",
         M,
-        150,
+        142,
         W - 2 * M,
-        size=13.5,
-        leading=20,
+        size=10.5,
         color=LIGHT_MUTED,
         align="center",
     )
     c.showPage()
 
-    # 6 — 성장·실행
+    # 6 — 위험과 맵
     page_base(c, dark=False, label=label, page=6, total=total)
-    draw_kicker(c, "판 밖에서 정하는 빌드", M, 785, dark=False)
-    draw_title(c, "세 계보, 각 한 줄기만", M, 742, 320, dark=False, size=30)
+    draw_kicker(c, "높이 오를수록 달라지는 규칙", M, 785, dark=False)
+    draw_title(c, "위험과 풍경이 함께 변한다", M, 742, W - 2 * M, dark=False, size=29)
     draw_text(
         c,
-        "먹빛으로 산 노드는 남고, 실제 도전에는 생존·도약·먹 운용에서 고른 한 갈래씩만 적용된다.",
+        "30m부터 먹가시와 낙묵석, 60m부터 어린 용, 320m부터 먹해태가 등장한다.",
         M,
         690,
-        330,
+        W - 2 * M,
+        size=11,
+        color=MUTED,
+    )
+    hazard_y = 475
+    hazard_w = 148
+    for index, (icon, title, height, body) in enumerate([
+        (INK_ROCK, "낙묵석", "30m", "일반 먹 발판도 부순다"),
+        (DRAGON, "어린 동양 용", "60m", "좌우로 흔들리며 길을 막는다"),
+        (HAETAE, "먹해태", "320m", "경고 뒤 한쪽 벽을 따라 내려온다"),
+    ]):
+        x = M + index * 168
+        c.setFillColor(WHITE)
+        c.roundRect(x, hazard_y, hazard_w, 170, 16, fill=1, stroke=0)
+        draw_image_contain(c, icon, x + 12, hazard_y + 62, hazard_w - 24, 88, tint=RED, opacity=0.92)
+        draw_text(c, height, x + 12, hazard_y + 47, hazard_w - 24, size=9, color=RED)
+        draw_text(c, title, x + 12, hazard_y + 29, hazard_w - 24, size=12.5, color=INK)
+        draw_text(c, body, x + 12, hazard_y + 11, hazard_w - 24, size=7.6, color=MUTED, max_lines=1)
+    draw_text(
+        c,
+        "횡풍과 상승기류는 착지 계획을 바꾼다. 큰 위험의 경고는 서로 겹치지 않는다.",
+        M,
+        438,
+        W - 2 * M,
+        size=9.8,
+        leading=15,
+        color=INK,
+    )
+    draw_text(
+        c,
+        "좌우 벽은 기본적으로 안쪽으로 강하게 튕긴다. ‘돋는 먹발’을 선택하면 잠시 붙었다 다시 도약한다.",
+        M,
+        408,
+        W - 2 * M,
+        size=9.4,
+        leading=14,
+        color=RED,
+    )
+    map_specs = [
+        (MAP_0, "고요한 산길"),
+        (MAP_1, "바람 고개"),
+        (MAP_2, "먹비 골짜기"),
+        (MAP_3, "낙묵 협곡"),
+        (MAP_ENDLESS, "1000m+ 수묵 우주"),
+    ]
+    map_gap = 7
+    map_w = (W - 2 * M - map_gap * 4) / 5
+    for index, (map_path, map_label) in enumerate(map_specs):
+        x = M + index * (map_w + map_gap)
+        draw_image_cover(c, map_path, x, 156, map_w, 205, focal=(0.5, 0.48), contrast=1.02)
+        c.setFillColor(Color(0.11, 0.105, 0.1, 0.82))
+        c.rect(x, 156, map_w, 32, fill=1, stroke=0)
+        draw_text(c, map_label, x + 4, 169, map_w - 8, size=7.2, color=WHITE, align="center", max_lines=1)
+    draw_text(
+        c,
+        "250m마다 환경 규칙이 바뀌고, 1000m 이후 먹빛 성문·월련 성해·천하수가 반복된다.",
+        M,
+        120,
+        W - 2 * M,
+        size=9.8,
+        color=MUTED,
+        align="center",
+    )
+    c.showPage()
+
+    # 7 — 영구 성장
+    page_base(c, dark=False, label=label, page=7, total=total)
+    draw_kicker(c, "도전 밖에서 고르는 빌드", M, 785, dark=False)
+    draw_title(c, "모두 사도, 한 판에는 한 줄기만", M, 742, W - 2 * M, dark=False, size=27)
+    draw_text(
+        c,
+        "한 판 최고 고도가 누적 거리에 더해지고, 거리 문턱마다 먹빛 1개를 얻는다. 3750m까지 총 39개의 먹빛과 39개 노드가 열린다.",
+        M,
+        690,
+        W - 2 * M,
         size=10.8,
         leading=17,
         color=MUTED,
     )
-    draw_image_contain(c, TREE, 5, 230, 355, 445, opacity=0.34)
-    for x, y, color in [(105, 336, RED), (178, 410, INK_SOFT), (248, 322, GOLD), (155, 520, RED), (270, 520, INK_SOFT)]:
+    draw_image_contain(c, TREE, 12, 185, 350, 475, opacity=0.32)
+    node_specs = [
+        (105, 315, RED), (153, 388, RED), (210, 460, RED),
+        (175, 315, INK_SOFT), (240, 375, INK_SOFT), (284, 445, INK_SOFT),
+        (245, 300, GOLD), (305, 350, GOLD), (326, 430, GOLD),
+    ]
+    for x, y, color in node_specs:
         c.setFillColor(color)
-        c.circle(x, y, 10, fill=1, stroke=0)
-    draw_text(c, "생존", 380, 620, 160, size=15, color=RED)
-    draw_text(c, "본체 1회 부활 · 50m 상승", 380, 592, 165, size=9.4, color=MUTED)
-    draw_text(c, "도약", 380, 535, 160, size=15, color=INK)
-    draw_text(c, "매 자동점프 2단 도약", 380, 507, 165, size=9.4, color=MUTED)
-    draw_text(c, "먹 운용", 380, 450, 160, size=15, color=GOLD)
-    draw_text(c, "현재 최대 먹 용량 2배", 380, 422, 165, size=9.4, color=MUTED)
-    draw_rule(c, M, 205, W - 2 * M, dark=False, red=True)
-    draw_text(c, "실행", M, 170, 100, size=17, color=INK)
-    draw_text(c, "Android 7.1(API 25) 이상 ARM64 기기에서 APK 설치 후 실행", 128, 171, 415, size=9.2, color=MUTED)
-    draw_text(c, "Unity", M, 132, 100, size=17, color=INK)
-    draw_text(c, "Unity 6000.3.10f1 → Assets/Scenes/Main.unity → Play", 128, 133, 415, size=9.2, color=MUTED)
-    c.setFillColor(INK)
-    c.rect(0, 45, W, 52, fill=1, stroke=0)
+        c.circle(x, y, 9.5, fill=1, stroke=0)
+        c.setStrokeColor(PAPER)
+        c.setLineWidth(1.2)
+        c.circle(x, y, 9.5, fill=0, stroke=1)
+    draw_metric(c, "39", "전체 노드 · 모두 비용 1", 382, 612, dark=False)
+    draw_metric(c, "3", "생존 · 도약 · 먹 운용", 382, 525, dark=False)
+    draw_metric(c, "1", "계보마다 적용할 줄기", 382, 438, dark=False)
+    draw_rule(c, 382, 382, 165, dark=False, red=True)
+    draw_text(c, "생존", 382, 350, 165, size=14, color=RED)
+    draw_text(c, "체력·부활·분신 빌드", 382, 326, 165, size=9.2, color=MUTED)
+    draw_text(c, "도약", 382, 286, 165, size=14, color=INK)
+    draw_text(c, "준비·벽 점프·2단 도약", 382, 262, 165, size=9.2, color=MUTED)
+    draw_text(c, "먹 운용", 382, 222, 165, size=14, color=GOLD)
+    draw_text(c, "용량·소모·회복 빌드", 382, 198, 165, size=9.2, color=MUTED)
     draw_text(
         c,
-        "로그인 없음 · API 키 없음 · 네트워크 없이 플레이 가능",
+        "구매한 줄기는 영구 보존되고 로비에서 무료로 선택을 바꿀 수 있다. 게임을 시작하면 선택이 스냅샷으로 고정돼 그 판이 끝날 때까지 바뀌지 않는다.",
         M,
-        64,
+        130,
         W - 2 * M,
-        size=10.5,
+        size=10.2,
+        leading=16,
+        color=INK,
+        align="center",
+    )
+    c.showPage()
+
+    # 8 — 최초 실행·결과·실행 방법
+    page_base(c, dark=True, label=label, page=8, total=total)
+    draw_kicker(c, "처음부터 끝까지", M, 785, dark=True)
+    draw_title(c, "설치하면 바로 시작한다", M, 742, W - 2 * M, dark=True, size=30)
+    draw_text(
+        c,
+        "최초 실행에서는 게임 화면 위에 5장 튜토리얼이 열린다. 읽는 동안 게임은 완전히 멈추며, 이후 로비의 옵션에서 다시 볼 수 있다.",
+        M,
+        690,
+        W - 2 * M,
+        size=10.8,
+        leading=17,
+        color=LIGHT_MUTED,
+    )
+    draw_phone(c, TUTORIAL, M, 275, 180, 390)
+    draw_phone(c, GAME_OVER, 241, 275, 180, 390)
+    draw_text(c, "최초 1회 튜토리얼", M, 252, 180, size=9.3, color=LIGHT_MUTED, align="center")
+    draw_text(c, "전멸 뒤 결과 두루마리", 241, 252, 180, size=9.3, color=LIGHT_MUTED, align="center")
+    draw_text(c, "Android", 450, 628, 100, size=15, color=WHITE)
+    draw_text(c, "Android 7.1(API 25) 이상\nARM64 · 세로 화면\n제출 APK 설치 후 실행", 450, 596, 100, size=8.7, leading=14, color=LIGHT_MUTED)
+    draw_rule(c, 450, 522, 100, dark=True)
+    draw_text(c, "Unity", 450, 492, 100, size=15, color=WHITE)
+    draw_text(c, "Unity 6000.3.10f1\nMain.unity 열기\nPlay", 450, 460, 100, size=8.7, leading=14, color=LIGHT_MUTED)
+    draw_rule(c, 450, 386, 100, dark=True)
+    draw_text(c, "한 판의 끝", 450, 356, 100, size=15, color=WHITE)
+    draw_text(c, "모든 먹방울 전멸\n결과·먹빛 정산\n터치하면 로비", 450, 324, 100, size=8.7, leading=14, color=LIGHT_MUTED)
+    draw_rule(c, M, 196, W - 2 * M, dark=True, red=True)
+    draw_text(
+        c,
+        "회원가입 없음 · 로그인 없음 · API 키 없음 · 네트워크 없이 플레이 가능",
+        M,
+        158,
+        W - 2 * M,
+        size=11,
         color=WHITE,
+        align="center",
+    )
+    draw_text(
+        c,
+        "GitHub  github.com/Team-Swooord/muk-jump",
+        M,
+        112,
+        W - 2 * M,
+        size=9.2,
+        color=LIGHT_MUTED,
         align="center",
     )
     c.save()
@@ -1010,18 +1158,52 @@ def build_team_pdf(path: Path) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="NAN 2026 제출용 PDF를 생성한다.")
+    parser.add_argument(
+        "--only",
+        choices=("all", "game", "ai", "team"),
+        default="all",
+        help="지정한 문서만 생성한다. 기본값은 전체 문서다.",
+    )
+    args = parser.parse_args()
+
     register_fonts()
     OUT.mkdir(parents=True, exist_ok=True)
-    required = [GAMEPLAY, TUTORIAL, GAME_OVER, LOGO, PLAYER, MAP_0, TREE, GAUGE_TRACK, GAUGE_FILL, DRAGON, HAETAE]
-    required.extend(icon for icon, _, _ in ITEMS)
+    required: list[Path] = []
+    if args.only in ("all", "game"):
+        required.extend(
+            [
+                GAMEPLAY,
+                TUTORIAL,
+                GAME_OVER,
+                LOGO,
+                MAP_0,
+                MAP_1,
+                MAP_2,
+                MAP_3,
+                MAP_ENDLESS,
+                TREE,
+                GAUGE_TRACK,
+                GAUGE_FILL,
+                DRAGON,
+                HAETAE,
+                INK_ROCK,
+            ]
+        )
+        required.extend(icon for icon, _, _ in ITEMS)
+    if args.only in ("all", "ai", "team"):
+        required.extend([GAMEPLAY, TUTORIAL, GAME_OVER, LOGO, PLAYER, MAP_0, TREE])
     missing = [str(path) for path in required if not path.exists()]
     if missing:
         raise FileNotFoundError("Missing submission assets:\n" + "\n".join(missing))
 
-    build_game_pdf(OUT / "NAN2026_MukJump_Game_Introduction.pdf")
-    build_ai_pdf(OUT / "NAN2026_MukJump_AI_Utilization.pdf")
-    build_team_pdf(OUT / "NAN2026_MukJump_Team_Roles.pdf")
-    print(f"Generated NAN 2026 PDFs in {OUT}")
+    if args.only in ("all", "game"):
+        build_game_pdf(OUT / "NAN2026_MukJump_Game_Introduction.pdf")
+    if args.only in ("all", "ai"):
+        build_ai_pdf(OUT / "NAN2026_MukJump_AI_Utilization.pdf")
+    if args.only in ("all", "team"):
+        build_team_pdf(OUT / "NAN2026_MukJump_Team_Roles.pdf")
+    print(f"Generated NAN 2026 {args.only} PDF selection in {OUT}")
 
 
 if __name__ == "__main__":

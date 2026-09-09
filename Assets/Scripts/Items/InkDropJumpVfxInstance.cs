@@ -39,7 +39,7 @@ namespace MukJump.Items
         }
 
         const int AfterimageCount = 3;
-        const float SequenceDuration = 3.55f;
+        const float SequenceDuration = 2.1f;
         static readonly Color Ink = new(0.09f, 0.086f, 0.071f, 1f);
         static readonly Color Paper = new(0.933f, 0.894f, 0.804f, 1f);
 
@@ -94,6 +94,8 @@ namespace MukJump.Items
         Vector3 ground;
         float height;
         float maximumStrokeLength;
+        float highestTipY;
+        uint visualSeed = 0x63DA812B;
         bool built;
 
         public event Action<InkDropJumpVfxInstance> ReleaseRequested;
@@ -112,7 +114,7 @@ namespace MukJump.Items
             ResetPlaybackState();
         }
 
-        /// 현재 플레이어와 지면 위치를 기준으로 3.55초 연출을 시작한다.
+        /// 판정과 동시에 출발 먹 튐 → 붓 꼬리 → 갈필 잔향을 재생한다.
         public void Play(Transform player, SpriteRenderer sourceRenderer, Vector3 groundPosition,
             float effectHeight, float strokeLength)
         {
@@ -124,6 +126,7 @@ namespace MukJump.Items
             trackedPlayer = player;
             playerRenderer = sourceRenderer;
             ground = groundPosition;
+            highestTipY = ground.y;
             height = Mathf.Max(0.25f, effectHeight);
             maximumStrokeLength = Mathf.Max(0.5f, strokeLength);
 
@@ -174,18 +177,19 @@ namespace MukJump.Items
 
         IEnumerator PlaySequence()
         {
-            ConfigureRenderer(flash, assets.SoftFlash, Paper, 8);
+            bool reduced = LobbySettingsProfile.ReducedMotionEnabled;
+            ConfigureRenderer(flash, reduced ? null : assets.SoftFlash, Paper, 8);
             ConfigureRenderer(blob, assets.GroundBlob, Ink, 5);
             ConfigureRenderer(splash, assets.InkSplash, Ink, 6);
             ConfigureRenderer(inkRing, assets.ShockRing, Ink, 5);
             ConfigureRenderer(paperRing,
-                VfxQualityRuntime.Tier >= VfxQualityTier.Medium
+                !reduced && VfxQualityRuntime.Tier >= VfxQualityTier.Medium
                     ? assets.ShockRing
                     : null,
                 new Color(Paper.r, Paper.g, Paper.b, 0.4f), 4);
             ConfigureRenderer(brush, assets.VerticalBrush, Ink, 3);
             ConfigureRenderer(fibers,
-                VfxQualityRuntime.Tier >= VfxQualityTier.Medium
+                !reduced && VfxQualityRuntime.Tier >= VfxQualityTier.Medium
                     ? assets.BrushFibers
                     : null,
                 new Color(Paper.r, Paper.g, Paper.b, 0.24f), 4);
@@ -196,17 +200,24 @@ namespace MukJump.Items
             SetScale(inkRing, height * 0.2f, height * 0.06f);
             SetScale(paperRing, height * 0.18f, height * 0.05f);
             splash.transform.localRotation =
-                Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(-12f, 12f));
+                Quaternion.Euler(0f, 0f, Range(-12f, 12f));
             inkRing.transform.localRotation =
-                Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(-7f, 7f));
+                Quaternion.Euler(0f, 0f, Range(-7f, 7f));
 
             PrepareMotionStates();
 
             float elapsed = 0f;
-            while (elapsed < SequenceDuration)
+            while (elapsed < (reduced ? 0.65f : SequenceDuration))
             {
-                float delta = Time.deltaTime;
+                float delta = Mathf.Min(Time.deltaTime, 0.05f);
                 elapsed += delta;
+                reduced = LobbySettingsProfile.ReducedMotionEnabled;
+                if (reduced)
+                {
+                    flash.enabled = paperRing.enabled = fibers.enabled = false;
+                }
+                else if (VfxQualityRuntime.Tier == VfxQualityTier.Low)
+                    paperRing.enabled = fibers.enabled = false;
                 float impactT = Mathf.Clamp01(elapsed / 0.6f);
                 float quickT = Mathf.Clamp01(elapsed / 0.28f);
 
@@ -218,7 +229,8 @@ namespace MukJump.Items
                 SetScale(splash, height * Mathf.Lerp(0.25f, 1.15f, EaseOut(quickT)),
                     height * 0.48f);
                 SetAlpha(splash, 1f - Mathf.Clamp01(elapsed / 0.26f));
-                SetScale(inkRing, height * Mathf.Lerp(0.2f, 2.45f, EaseOut(impactT)),
+                SetScale(inkRing, height * Mathf.Lerp(reduced ? 0.8f : 0.2f,
+                        reduced ? 1.05f : 2.45f, EaseOut(impactT)),
                     height * 0.27f);
                 SetScale(paperRing, height * Mathf.Lerp(0.18f, 2.15f, EaseOut(impactT)),
                     height * 0.24f);
@@ -238,7 +250,8 @@ namespace MukJump.Items
         void PrepareMotionStates()
         {
             var profile = VfxQualityRuntime.Profile;
-            int activeSprayCount = profile.ScaleDecorativeCount(
+            bool reduced = LobbySettingsProfile.ReducedMotionEnabled;
+            int activeSprayCount = reduced ? 0 : profile.ScaleDecorativeCount(
                 sprays.Length,
                 Mathf.Min(8, sprays.Length));
             for (int i = 0; i < sprays.Length; i++)
@@ -252,24 +265,25 @@ namespace MukJump.Items
                 }
 
                 ConfigureRenderer(sprite, assets.InkStreak, Ink, 6);
-                float speed = UnityEngine.Random.Range(1.8f, 5.5f) * height;
-                float angle = UnityEngine.Random.Range(-28f, 28f) * Mathf.Deg2Rad;
-                float size = UnityEngine.Random.Range(0.025f, 0.075f) * height;
+                bool heavy = i % 3 == 0;
+                float speed = Range(heavy ? 2.8f : 4.2f, heavy ? 5.8f : 8f) * height;
+                float angle = Range(-38f, 38f) * Mathf.Deg2Rad;
+                float size = Range(heavy ? 0.09f : 0.035f, heavy ? 0.16f : 0.065f) * height;
                 sprite.transform.localPosition =
                     new Vector3((i % 3 - 1) * 0.04f * height, 0f, 0f);
-                SetScale(sprite, size, size * UnityEngine.Random.Range(2.5f, 5f));
+                SetScale(sprite, size, size * Range(heavy ? 1.3f : 3f, heavy ? 2.1f : 5f));
                 sprayMotions[i] = new SprayMotion
                 {
                     Velocity = new Vector3(
                         Mathf.Sin(angle) * speed * 0.35f,
                         Mathf.Cos(angle) * speed,
                         0f),
-                    Duration = UnityEngine.Random.Range(0.55f, 1.25f),
+                    Duration = Range(heavy ? 0.55f : 0.28f, heavy ? 0.85f : 0.52f),
                     Active = true,
                 };
             }
 
-            int activeResidualCount = profile.ScaleDecorativeCount(
+            int activeResidualCount = reduced ? 0 : profile.ScaleDecorativeCount(
                 residualDrops.Length,
                 Mathf.Min(6, residualDrops.Length));
             for (int i = 0; i < residualDrops.Length; i++)
@@ -287,12 +301,13 @@ namespace MukJump.Items
                 {
                     selectedSprite =
                         assets.DropletFrames[
-                            UnityEngine.Random.Range(0, assets.DropletFrames.Length)];
+                            Mathf.Min(assets.DropletFrames.Length - 1,
+                                (int)Range(0f, assets.DropletFrames.Length))];
                 }
 
-                float angle = UnityEngine.Random.Range(55f, 125f) * Mathf.Deg2Rad;
-                float speed = UnityEngine.Random.Range(0.45f, 1.6f) * height;
-                float size = UnityEngine.Random.Range(0.018f, 0.055f) * height;
+                float angle = Range(55f, 125f) * Mathf.Deg2Rad;
+                float speed = Range(0.45f, 1.6f) * height;
+                float size = Range(0.055f, 0.11f) * height;
                 residualMotions[i] = new ResidualMotion
                 {
                     Velocity = new Vector3(
@@ -303,9 +318,9 @@ namespace MukJump.Items
                         new Vector3((i % 5 - 2) * 0.035f * height, 0f, 0f),
                     Sprite = selectedSprite,
                     Width = size,
-                    Height = size * UnityEngine.Random.Range(0.8f, 1.5f),
-                    StartTime = UnityEngine.Random.Range(0.03f, 0.22f),
-                    Duration = UnityEngine.Random.Range(1f, 2.3f),
+                    Height = size * Range(0.8f, 1.5f),
+                    StartTime = Range(0.08f, 0.24f),
+                    Duration = Range(0.55f, 1f),
                     Active = true,
                 };
             }
@@ -316,13 +331,14 @@ namespace MukJump.Items
                 VfxQualityTier.Medium => 2,
                 _ => afterimages.Length,
             };
+            if (reduced) activeAfterimageCount = 0;
             for (int i = 0; i < afterimages.Length; i++)
             {
                 afterimages[i].enabled = false;
                 afterimageMotions[i] = i < activeAfterimageCount
                     ? new AfterimageMotion
                     {
-                        StartTime = 0.1f + i * 0.13f,
+                        StartTime = 0.08f + i * 0.09f,
                         Active = true,
                     }
                     : default;
@@ -335,11 +351,18 @@ namespace MukJump.Items
             {
                 var motion = sprayMotions[i];
                 if (!motion.Active) continue;
+                if (SuppressDecoration(i, sprays.Length, 8))
+                {
+                    sprays[i].enabled = false;
+                    sprayMotions[i] = default;
+                    continue;
+                }
                 motion.Age += delta;
-                motion.Velocity *= Mathf.Exp(-3.9f * delta);
-                motion.Velocity += Vector3.down * (1.4f * height * delta);
-                sprays[i].transform.position += motion.Velocity * delta;
-                SetAlpha(sprays[i], 1f - Mathf.Clamp01(motion.Age / motion.Duration));
+                Vector3 position = sprays[i].transform.position;
+                InkVfxMotion.Integrate(ref position, ref motion.Velocity,
+                    Vector3.down * (1.4f * height), 3.9f, delta);
+                sprays[i].transform.position = position;
+                SetAlpha(sprays[i], InkVfxMotion.TailAlpha(motion.Age / motion.Duration, 0.1f));
                 if (motion.Age >= motion.Duration)
                 {
                     motion.Active = false;
@@ -356,22 +379,35 @@ namespace MukJump.Items
                 var motion = residualMotions[i];
                 if (!motion.Active) continue;
                 var sprite = residualDrops[i];
+                if (SuppressDecoration(i, residualDrops.Length, 6))
+                {
+                    sprite.enabled = false;
+                    residualMotions[i] = default;
+                    continue;
+                }
                 if (!motion.Started)
                 {
                     if (sequenceElapsed < motion.StartTime) continue;
                     motion.Started = true;
                     ConfigureRenderer(sprite, motion.Sprite, Ink, 5);
-                    sprite.transform.localPosition = motion.LocalPosition;
+                    // 늦게 맺히는 먹방울은 출발점이 아닌 현재 붓 꼬리에서 떨어진다.
+                    sprite.transform.position = (trackedPlayer != null
+                        ? trackedPlayer.position - Vector3.up * height * 0.55f : ground) + motion.LocalPosition;
                     SetScale(sprite, motion.Width, motion.Height);
                 }
 
                 motion.Age += delta;
-                motion.Velocity *= Mathf.Exp(-2.7f * delta);
-                motion.Velocity += Vector3.down * (0.18f * height * delta);
-                sprite.transform.position += motion.Velocity * delta;
+                Vector3 position = sprite.transform.position;
+                InkVfxMotion.Integrate(ref position, ref motion.Velocity,
+                    Vector3.down * (0.18f * height), 2.7f, delta);
+                sprite.transform.position = position;
+                float progress = Mathf.Clamp01(motion.Age / motion.Duration);
+                float taper = Mathf.Lerp(1f, 0.25f, progress * progress);
+                SetScale(sprite, motion.Width * taper, motion.Height * taper);
                 SetAlpha(
                     sprite,
-                    Mathf.Sin(Mathf.Clamp01(motion.Age / motion.Duration) * Mathf.PI));
+                    Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / 0.12f)) *
+                    InkVfxMotion.TailAlpha(progress, 0.2f));
                 if (motion.Age >= motion.Duration)
                 {
                     motion.Active = false;
@@ -388,6 +424,12 @@ namespace MukJump.Items
                 var motion = afterimageMotions[i];
                 if (!motion.Active) continue;
                 var afterimage = afterimages[i];
+                if (LobbySettingsProfile.ReducedMotionEnabled || i > (int)VfxQualityRuntime.Tier)
+                {
+                    afterimage.enabled = false;
+                    afterimageMotions[i] = default;
+                    continue;
+                }
                 if (!motion.Started)
                 {
                     if (sequenceElapsed < motion.StartTime) continue;
@@ -402,7 +444,7 @@ namespace MukJump.Items
                     ConfigureRenderer(
                         afterimage,
                         playerRenderer.sprite,
-                        new Color(Ink.r, Ink.g, Ink.b, 0.13f),
+                        new Color(Ink.r, Ink.g, Ink.b, 0.22f),
                         playerRenderer.sortingOrder - 1);
                     afterimage.flipX = playerRenderer.flipX;
                     afterimage.flipY = playerRenderer.flipY;
@@ -413,8 +455,8 @@ namespace MukJump.Items
                 motion.Age += delta;
                 SetAlpha(
                     afterimage,
-                    0.13f * (1f - Mathf.Clamp01(motion.Age / 0.42f)));
-                if (motion.Age >= 0.42f)
+                    0.22f * (1f - Mathf.Clamp01(motion.Age / 0.28f)));
+                if (motion.Age >= 0.28f)
                 {
                     motion.Active = false;
                     afterimage.enabled = false;
@@ -427,19 +469,26 @@ namespace MukJump.Items
         {
             if (brush == null || fibers == null) return;
             float playerY = trackedPlayer != null ? trackedPlayer.position.y : ground.y;
-            float targetY = Mathf.Max(ground.y + 0.05f, playerY - height * 0.45f);
-            float length = Mathf.Min(maximumStrokeLength, targetY - ground.y);
-            float grow = EaseOut(Mathf.Clamp01(elapsed / 0.43f));
+            highestTipY = Mathf.Max(highestTipY, playerY - height * 0.55f);
+            float targetY = Mathf.Max(ground.y + 0.05f, highestTipY);
+            // 길고 가는 막대가 아니라 몸 바로 뒤의 짧은 붓 꼬리로 속도를 읽게 한다.
+            float length = Mathf.Min(Mathf.Min(maximumStrokeLength, height * 3.8f), targetY - ground.y);
+            float grow = EaseOut(Mathf.Clamp01(elapsed / 0.18f));
             float shownLength = Mathf.Max(0.01f, length * grow);
-            float alpha = elapsed < 1.45f
-                ? 1f
-                : 1f - Mathf.Clamp01((elapsed - 1.45f) / 2.1f);
-            Vector3 center = new(ground.x, ground.y + shownLength * 0.5f, ground.z);
+            float alpha = 0.78f * InkVfxMotion.TailAlpha(elapsed / 1.5f, 0.2f);
+            if (LobbySettingsProfile.ReducedMotionEnabled)
+            {
+                shownLength = Mathf.Min(shownLength, height * 0.8f);
+                alpha = 0.6f * (1f - Mathf.Clamp01(elapsed / 0.4f));
+            }
+            Vector3 center = new(trackedPlayer != null ? trackedPlayer.position.x : ground.x,
+                targetY - shownLength * 0.5f, ground.z);
 
             brush.transform.position = center;
             fibers.transform.position = center;
-            SetScale(brush, height * 0.28f, shownLength);
-            SetScale(fibers, height * 0.28f, shownLength);
+            float width = height * Mathf.Lerp(0.64f, 0.22f, Mathf.Clamp01(elapsed / 1.5f));
+            SetScale(brush, width, shownLength);
+            SetScale(fibers, width * 0.85f, shownLength);
             SetAlpha(brush, alpha);
             SetAlpha(fibers, alpha * 0.24f);
         }
@@ -469,9 +518,13 @@ namespace MukJump.Items
             trackedPlayer = null;
             playerRenderer = null;
             ground = Vector3.zero;
+            highestTipY = 0f;
             height = 1f;
             maximumStrokeLength = 1f;
             ResetRenderers();
+            Array.Clear(sprayMotions, 0, sprayMotions.Length);
+            Array.Clear(residualMotions, 0, residualMotions.Length);
+            Array.Clear(afterimageMotions, 0, afterimageMotions.Length);
 
             transform.SetParent(poolParent, false);
             transform.localPosition = Vector3.zero;
@@ -515,6 +568,19 @@ namespace MukJump.Items
         }
 
         static float EaseOut(float value) => 1f - (1f - value) * (1f - value);
+
+        static bool SuppressDecoration(int index, int count, int minimum) =>
+            LobbySettingsProfile.ReducedMotionEnabled || index >=
+            VfxQualityRuntime.Profile.ScaleDecorativeCount(count, Mathf.Min(minimum, count));
+
+        float Range(float min, float max)
+        {
+            // 상승 VFX의 반복 횟수는 장애물·아이템 생성 난수에 영향을 주지 않는다.
+            visualSeed ^= visualSeed << 13;
+            visualSeed ^= visualSeed >> 17;
+            visualSeed ^= visualSeed << 5;
+            return Mathf.Lerp(min, max, (visualSeed & 0xFFFFFF) / 16777216f);
+        }
 
         void OnDisable()
         {

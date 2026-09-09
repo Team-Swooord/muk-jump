@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using MukJump.Core;
 using MukJump.Core.Pooling;
+using MukJump.Drawing;
 using MukJump.Player;
 
 namespace MukJump.Obstacles
@@ -71,7 +72,7 @@ namespace MukJump.Obstacles
             // 구형 Main 씬의 8m 직렬화 값보다 30m 안전 구간이 항상 우선한다.
             startHeight = Mathf.Max(30f, startHeight);
             if (worldCamera == null) worldCamera = Camera.main;
-            if (player == null) player = FindFirstObjectByType<PlayerController>();
+            if (player == null) player = FindAnyObjectByType<PlayerController>();
             if (collisionMask.value == 0)
                 collisionMask = LayerMask.GetMask("Default", "Platform", "Player");
             else
@@ -97,9 +98,7 @@ namespace MukJump.Obstacles
             GameState state = manager != null ? manager.State : GameState.Lobby;
             if (state != previousState)
             {
-                if (state != GameState.Playing)
-                    ClearActive();
-                ResetSchedule();
+                HandleStateTransition(previousState, state);
                 previousState = state;
             }
 
@@ -127,9 +126,57 @@ namespace MukJump.Obstacles
             spawnTimer = NextInterval(height);
         }
 
+        void HandleStateTransition(GameState previous, GameState next)
+        {
+            // GameOver→Playing은 광고 부활 뒤 같은 런의 재개다. 화면에 있던
+            // 경고/낙하와 다음 생성까지 남은 시간을 보존한다. 실제 새 화면인
+            // Lobby에서만 풀과 일정을 초기화한다.
+            if (next == GameState.Lobby)
+            {
+                ClearActive();
+                ResetSchedule();
+            }
+            else if (previous == GameState.Lobby && next == GameState.Playing)
+            {
+                ResetSchedule();
+            }
+        }
+
         bool IsSpawnBlockedByConcurrentHazard()
         {
-            return HazardConcurrencyGate.HasHaetaeReservation;
+            if (HazardConcurrencyGate.HasHaetaeReservation)
+                return true;
+            if (RestPlatformSpawner.Instance == null)
+                return false;
+
+            // 화면 전체 높이를 비교하면 28~38m 간격의 안전지대가
+            // 서로 연결되어 낙묵석이 영원히 멈춘다. 현재 진행 고도가
+            // 안전지대 주변에 들어온 동안만 새 경고를 미룬다.
+            float progressHeight = ResolveCurrentHazardProgressHeight();
+            return RestPlatformSpawner.Instance.IsHazardHeightBlocked(
+                progressHeight);
+        }
+
+        /// 최고기록은 선두가 죽어도 내려가지 않는다. 안전지대 위험 차단은 현재 살아 있는
+        /// 먹떼가 실제로 머무는 높이를 봐야 선두 사망·재구도 중 새 경고가 열리지 않는다.
+        float ResolveCurrentHazardProgressHeight()
+        {
+            GameManager manager = GameManager.Instance;
+            if (manager != null &&
+                manager.TryGetSwarmAnchor(out _, out float swarmWorldY) &&
+                !float.IsNaN(swarmWorldY) &&
+                !float.IsInfinity(swarmWorldY))
+            {
+                return ScoreManager.Instance != null
+                    ? Mathf.Max(0f, ScoreManager.Instance.HeightAt(swarmWorldY))
+                    : Mathf.Max(0f, swarmWorldY);
+            }
+
+            if (manager != null)
+                return manager.SwarmProgressHeight;
+            return ScoreManager.Instance != null
+                ? ScoreManager.Instance.Height
+                : 0f;
         }
 
         void Spawn()
@@ -269,7 +316,7 @@ namespace MukJump.Obstacles
             {
                 player = GameManager.Instance != null
                     ? GameManager.Instance.HighestLivingPlayer
-                    : FindFirstObjectByType<PlayerController>();
+                    : FindAnyObjectByType<PlayerController>();
             }
 
             bool valid = fallingInkRockSprite != null && worldCamera != null && player != null;

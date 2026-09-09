@@ -69,7 +69,8 @@ namespace MukJump.Player
         };
         static Sprite[] cachedDamageStageOneFrames;
         static Sprite[] cachedDamageStageTwoFrames;
-        static readonly Dictionary<long, Sprite> enlargedDamageSprites = new();
+        static readonly Dictionary<(EntityId source, int stage), Sprite>
+            enlargedDamageSprites = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetRuntimeFrameCache()
@@ -203,14 +204,16 @@ namespace MukJump.Player
         public static float DamageVisualScaleForStage(int damageStage) =>
             damageStage <= 2
                 ? 1f
-                : Mathf.Pow(ExtraDamageGrowthPerStage, damageStage - 2);
+                : Mathf.Pow(ExtraDamageGrowthPerStage, Mathf.Min(3, damageStage - 2));
 
         static Sprite ResolveEnlargedDamageSprite(Sprite source, int extraStages)
         {
             if (source == null || source.texture == null || extraStages <= 0)
                 return source;
 
-            long key = ((long)source.GetInstanceID() << 32) ^ (uint)extraStages;
+            // 체력 8단계 확장 뒤에도 피격 외형은 종전 최대 크기를 넘기지 않는다.
+            extraStages = Mathf.Min(3, extraStages);
+            var key = (source.GetEntityId(), extraStages);
             if (enlargedDamageSprites.TryGetValue(key, out Sprite cached) && cached != null)
                 return cached;
 

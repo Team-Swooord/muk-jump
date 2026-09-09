@@ -2,6 +2,28 @@
 
 대상: 먹점프 1.0 / 뒤끝 로그인·저장·리더보드 + Google Mobile Ads 11.4.0
 
+## Firebase Analytics 추가 후 재검토 필요 (2026-09-08)
+
+이번 소스에는 Firebase Unity App/Analytics 13.16.0이 추가됐다. 아래 기존 제출 답변을
+그대로 재사용하지 말고 최종 Archive의 SDK privacy manifest와 실제 Firebase 설정을 다시 대조한다.
+아직 Firebase 구성 파일·서버 수신 확인·공개 개인정보처리방침 개정은 완료되지 않았다.
+
+- 기기/설치 식별자, 앱 상호작용·게임 플레이 분석, SDK 기술 정보의 수집 목적에 분석을 반영한다.
+- Analytics는 명시적 선택 후 수집하므로 분석 흐름 자체는 선택형이다. 별도 계정/광고 SDK 수집의
+  필수·선택 여부까지 분석 동의 하나로 바뀌었다고 답하지 않는다.
+- 게임이 UUID·닉네임을 `SetUserId`나 이벤트로 전달하지 않아도 SDK의 설치 식별자 처리가 있으므로
+  `개인정보를 수집하지 않음` 또는 완전 익명이라고 답하지 않는다.
+- Analytics의 광고 관련 consent는 거부하며 iOS는 `FirebaseAnalytics/Core`, IDFV 차단을 적용한다.
+  기존 AdMob의 ATT/추적 고지는 별도로 유지하고 최종 개인정보 보고서로 확정한다.
+- 서버 보관기간과 사용자 삭제 처리 방법은 Firebase/GA4 콘솔 설정을 확인한 후 고지한다.
+- `docs/legal/privacy-policy.md`는 수정 초안이며 현재 공개 `privacy.html`을 자동 갱신하지 않는다.
+- UMP 개인정보 재선택 메뉴는 현재 UI에서 빠져 있다. 아래 기존 경로 설명과 실제 빌드가 다르므로
+  해당 요구가 있는 배포는 별도 재진입 동선을 준비하기 전 출시 검수 미완료다.
+
+구현·이벤트·검증 절차: [Firebase Analytics 안내](../firebase-analytics.md).
+
+---
+
 이 문서는 콘솔 입력용 기준이다. SDK나 광고 정책을 바꾸면 실제 빌드를 다시 확인한 뒤
 응답도 함께 수정한다.
 
@@ -21,17 +43,17 @@
 | 이름 | 예 | 예 | 아니요 | 앱 기능 | Google Sign-In 매니페스트 |
 | 이메일 주소 | 예 | 예 | 아니요 | 앱 기능 | Google·Apple 인증 |
 | 전화번호 | 예 | 예 | 아니요 | 앱 기능 | Google Sign-In 매니페스트의 보수적 공개 |
-| 사용자 ID | 예 | 예 | 아니요 | 앱 기능 | 뒤끝 계정·순위 및 Google Sign-In |
+| 사용자 ID | 예 | 예 | 아니요 | 앱 기능, 분석 | 뒤끝 계정·순위 및 Google Sign-In |
 | 게임 플레이 콘텐츠 | 예 | 예 | 아니요 | 앱 기능 | 최고 고도·성장·설정 동기화 |
-| 제품 상호 작용 | 예 | 예 | 아니요 | 타사 광고, 분석 | Google Mobile Ads 매니페스트 |
-| 광고 데이터 | 예 | 예 | 아니요 | 타사 광고, 분석 | Google Mobile Ads 매니페스트 |
-| 기기 ID | 예 | 예 | 예 | 타사 광고, 분석 | Google Mobile Ads·Google Sign-In, iOS ATT |
-| 대략적인 위치 | 예 | 예 | 아니요 | 타사 광고, 분석, 앱 기능 | 광고 SDK와 Google Sign-In |
+| 제품 상호 작용 | 예 | 예 | 아니요 | 타사 광고, 개발자의 광고 또는 마케팅, 분석, 앱 기능 | Google Mobile Ads·UMP 매니페스트 |
+| 광고 데이터 | 예 | 예 | 아니요 | 타사 광고, 개발자의 광고 또는 마케팅, 분석 | Google Mobile Ads 매니페스트 |
+| 기기 ID | 예 | 예 | 예 | 타사 광고, 개발자의 광고 또는 마케팅, 분석 | Google Mobile Ads·Google Sign-In, iOS ATT |
+| 대략적인 위치 | 예 | 예 | 아니요 | 타사 광고, 개발자의 광고 또는 마케팅, 분석, 앱 기능 | 광고 SDK·UMP·Google Sign-In |
 | 충돌 데이터 | 예 | 아니요 | 아니요 | 분석 | Google Mobile Ads 매니페스트 |
-| 성능 데이터 | 예 | 아니요 | 아니요 | 타사 광고, 분석 | Google Mobile Ads·UMP 매니페스트 |
-| 기타 진단 데이터 | 예 | 아니요 | 아니요 | 타사 광고, 분석 | Google Mobile Ads 매니페스트 |
+| 성능 데이터 | 예 | 아니요 | 아니요 | 타사 광고, 개발자의 광고 또는 마케팅, 분석, 앱 기능 | Google Mobile Ads·UMP 매니페스트 |
+| 기타 진단 데이터 | 예 | 아니요 | 아니요 | 타사 광고, 개발자의 광고 또는 마케팅, 분석 | Google Mobile Ads 매니페스트 |
 | 기타 사용 데이터 | 예 | 예 | 아니요 | 분석 | Google Sign-In 매니페스트 |
-| 기타 데이터 | 예 | 예 | 아니요 | 앱 기능 | Google Sign-In 매니페스트 |
+| 기타 데이터 | 예 | 예 | 아니요 | 앱 기능, 분석 | Google Sign-In 매니페스트 |
 
 핵심 게임 흐름에서는 주소·정확한 위치·연락처 목록·사진·오디오·건강·금융·결제·검색
 기록을 수집하지 않는다. 다만 고객지원 이메일의 주소·문의 내용과 사용자가 선택해 보낸
@@ -95,16 +117,15 @@ Google Mobile Ads가 자동 수집·공유하는 IP 주소, 제품 상호작용,
 식별자는 빠뜨리지 않는다. 보상형 광고는 선택 사항이지만 SDK의 데이터 처리는 지속적으로
 발생할 수 있으므로 선택적 공개로 제외하지 않는다.
 
-## 콘솔에 넣을 URL — 공개 확인 전 입력 금지
+## 콘솔에 넣을 URL — 공개 확인 완료
 
-- 개인정보처리방침 URL: `https://github.com/Team-Swooord/muk-jump/blob/main/docs/legal/privacy-policy.md`
+- 개인정보처리방침 URL: `https://storage.thebackend.io/27f4347cc58b6eca8349b49f00b25a0a9f7c92836f10ec5f6385356867184326/privacy.html`
 - 계정 삭제 URL: `https://github.com/Team-Swooord/muk-jump/blob/main/docs/legal/account-deletion.md`
 - 고객지원 URL: `https://github.com/Team-Swooord/muk-jump#고객지원`
 
-2026-08-27 현재 첫 두 문서는 원격 `main`에 없어 404이므로 아직 콘솔에 입력하지 않는다.
-관련 커밋을 공개 저장소에 push한 뒤 비로그인 브라우저에서 세 URL이 모두 200으로 열리고
-먹점프·운영자·문의처가 표시되는지 확인한다. 로컬 파일 경로나 GitHub 편집 화면은 스토어
-제출 URL로 사용하지 않는다.
+2026-08-27~28 비로그인 HTTPS 요청으로 세 URL이 모두 HTTP 200이며 먹점프·운영자·문의처가
+표시되는 것을 확인했다. 위 공개 URL을 App Store Connect에 입력한다. 로컬 파일 경로나
+GitHub 편집 화면은 스토어 제출 URL로 사용하지 않는다.
 
 ## 확인 근거
 

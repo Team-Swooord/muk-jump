@@ -3,6 +3,12 @@ import path from "node:path";
 
 const sampleRate = 44100;
 const outputDir = path.resolve("Assets/Resources/MukJump/Audio/SFX");
+// 개별 효과음 수정 시 다른 작업자가 바꾼 WAV를 덮어쓰지 않는다.
+const only = process.argv.slice(2);
+const supported = ["SFX_Brush_Draw_Loop.wav", "SFX_Brush_Transition.wav",
+  "SFX_Wall_Hit.wav", "SFX_Character_Death.wav", "SFX_Game_Over.wav"];
+if (only.some((name) => !supported.includes(name)))
+  throw new Error(`Unknown SFX: ${only.join(", ")}`);
 fs.mkdirSync(outputDir, { recursive: true });
 
 let seed = 0x4d554b;
@@ -12,7 +18,7 @@ function random() {
 }
 
 function writeWav(name, duration, generator) {
-  const count = Math.ceil(duration * sampleRate);
+  const count = Math.round(duration * sampleRate);
   const pcm = Buffer.alloc(count * 2);
   let phase = 0;
   let filtered = 0;
@@ -24,6 +30,9 @@ function writeWav(name, duration, generator) {
     const value = Math.max(-1, Math.min(1, result.value));
     pcm.writeInt16LE(Math.round(value * 32767), i * 2);
   }
+
+  // 앞선 파형의 난수 진행은 유지해 개별 생성과 전체 생성 결과도 같게 한다.
+  if (only.length && !only.includes(name)) return;
 
   const header = Buffer.alloc(44);
   header.write("RIFF", 0);
@@ -66,12 +75,23 @@ writeWav("SFX_Wall_Hit.wav", 0.18, (t, p, phase, filtered) => {
   return { value: (Math.sin(phase) * 0.76 + filtered * 0.38) * envelope * 0.9, phase, filtered };
 });
 
-writeWav("SFX_Character_Death.wav", 0.19, (t, p, phase) => {
-  const frequency = 940 * (1 - p) ** 1.7 + 210;
+// GameFeedbackController.BuildDeathPopSamples와 같은 자체 생성 '찍·팍' 파형.
+// 길게 미끄러지는 전자음 대신 짧은 고음, 먹방울 몸통, 파열 잡음을 함께 감쇠한다.
+let deathSeed = 0x4d554b;
+let bodyPhase = 0;
+writeWav("SFX_Character_Death.wav", 0.17, (t, p, phase, filtered) => {
+  deathSeed = (Math.imul(deathSeed, 1664525) + 1013904223) >>> 0;
+  const grain = deathSeed / 0xffffffff * 2 - 1;
+  filtered += (grain - filtered) * 0.28;
+  const frequency = 330 + 1550 * Math.exp(-t / 0.011);
   phase += frequency / sampleRate * Math.PI * 2;
-  const attack = Math.min(1, p / 0.045);
-  const envelope = attack * Math.exp(-p * 4.8);
-  return { value: Math.sin(phase) * envelope * 0.94, phase };
+  bodyPhase += (130 + 170 * Math.exp(-t / 0.018)) / sampleRate * Math.PI * 2;
+  const squeak = Math.sin(phase) * Math.exp(-t / 0.016) * 0.38;
+  const body = Math.sin(bodyPhase) * Math.exp(-t / 0.023) * 0.48;
+  const crack = (grain - filtered) * Math.exp(-t / 0.012) * 0.43;
+  const inkTexture = filtered * Math.exp(-t / 0.032) * 0.3;
+  const envelope = Math.min(1, t / 0.0015) * Math.min(1, (1 - p) / 0.12);
+  return { value: (squeak + body + crack + inkTexture) * envelope, phase, filtered };
 });
 
 writeWav("SFX_Game_Over.wav", 0.78, (t, p, phase) => {
@@ -82,5 +102,5 @@ writeWav("SFX_Game_Over.wav", 0.78, (t, p, phase) => {
   return { value: (Math.sin(phase) * 0.72 + Math.sin(phase * 0.5) * 0.16) * envelope * 0.72, phase };
 });
 
-for (const file of fs.readdirSync(outputDir).filter((name) => name.endsWith(".wav")))
+for (const file of supported.filter((name) => !only.length || only.includes(name)))
   console.log(path.join(outputDir, file));

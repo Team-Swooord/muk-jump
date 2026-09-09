@@ -11,12 +11,13 @@ namespace MukJump.Drawing
     /// 손을 떼면 BezierSmoother로 다듬어 PlatformCollider 발판을 생성한다.
     public class StrokeCapture : MonoBehaviour
     {
-        public const float DefaultInkCapacity = 4.8f;
+        public const float DefaultInkCapacity = 5.2f;
         const float LegacyInkCapacityV0 = 12f;
         const float LegacyInkCapacityV1 = 18f;
         const float LegacyInkCapacityV2 = 24f;
         const float LegacyInkCapacityV3 = 3.2f;
-        public const int CurrentInkCapacityTuningVersion = 3;
+        const float LegacyInkCapacityV4Baseline = 4.8f;
+        public const int CurrentInkCapacityTuningVersion = 4;
 
         [Tooltip("이 간격(월드 단위) 이상 움직였을 때만 점 추가")]
         [SerializeField] float minPointDistance = 0.15f;
@@ -27,8 +28,6 @@ namespace MukJump.Drawing
         [SerializeField] float previewWidth = 0.4f;
         [Tooltip("LineSprite 프리팹의 600px 붓획 텍스처")]
         [SerializeField] Texture2D lineSpriteTexture;
-        [Tooltip("캐릭터에서 이 거리 안의 획 부분만 잘라낸다 (물리 밀어내기 악용 방지)")]
-        [SerializeField] float playerClearance = 0.55f;
 
         [Header("최대 먹 용량 — 화면에 유지되는 총 먹선 길이")]
         [Tooltip("동시에 유지할 수 있는 먹선의 기본 월드 길이")]
@@ -39,7 +38,7 @@ namespace MukJump.Drawing
         [SerializeField] float naturalHoldDuration =
             PlatformCollider.DefaultNaturalHoldDuration;
         // 기존 Main 씬에는 이 필드가 없으므로 0을 유지해야 구 12/18/24m 값과
-        // 이전 3.2m 튜닝을 재생 시 현재 4.8m 기준으로 바꿀 수 있다.
+        // 이전 3.2m를 v3 4.8m로 정규한 뒤, v4 5.2m로 단계 이관할 수 있다.
         // 새 씬은 빌더가 현재 버전을 명시한다.
         [SerializeField, HideInInspector] int inkCapacityTuningVersion;
 
@@ -53,12 +52,13 @@ namespace MukJump.Drawing
 #endif
         float strokeLength;
         LineRenderer preview;
-        float unlimitedInkUntil;
+        float unlimitedInkRemaining;
+        float unlimitedInkDuration;
         RunGrowthController growthController;
+        bool growthControllerBound;
         Player.ScreenSideWalls screenSideWalls;
         float appliedInkCapacity;
         bool unlimitedInkWasActive;
-        readonly List<Player.PlayerController> livingPlayers = new();
         readonly List<Vector2> safeSegment = new();
         readonly List<Vector2> safeSegmentCandidate = new();
 
@@ -68,7 +68,12 @@ namespace MukJump.Drawing
 
         /// HUD 먹 게이지용. 아직 화면에 남은 소멸 잔상이 아니라,
         /// 지금 실제로 다시 그릴 수 있는 총 먹 예산을 표시한다.
-        public bool HasUnlimitedInk => Time.time < unlimitedInkUntil;
+        public bool HasUnlimitedInk => unlimitedInkRemaining > 0f;
+        /// 같은 프레임 재획득도 HUD가 시간 변화와 무관하게 관찰한다. 게임 판정에는 사용하지 않는다.
+        public uint UnlimitedInkActivationRevision { get; private set; }
+        public float UnlimitedInkRemainingSeconds => Mathf.Max(0f, unlimitedInkRemaining);
+        public float UnlimitedInkRemaining01 => unlimitedInkDuration > 0f
+            ? Mathf.Clamp01(unlimitedInkRemaining / unlimitedInkDuration) : 0f;
         public float PendingStrokeBudgetCost => drawing
             ? StrokeBudgetCost(
                 strokeLength,
@@ -120,9 +125,15 @@ namespace MukJump.Drawing
 
         public void ActivateUnlimitedInk(float duration)
         {
-            unlimitedInkUntil = Mathf.Max(
-                unlimitedInkUntil,
-                Time.time + Mathf.Max(0f, duration));
+            if (duration <= 0f || float.IsNaN(duration) || float.IsInfinity(duration)) return;
+            unchecked { UnlimitedInkActivationRevision++; }
+            float nextRemaining = Mathf.Max(
+                unlimitedInkRemaining,
+                Mathf.Max(0f, duration));
+            // 재획득으로 시간이 실제 연장될 때만 링을 가득 채운다.
+            if (nextRemaining > unlimitedInkRemaining)
+                unlimitedInkDuration = nextRemaining;
+            unlimitedInkRemaining = nextRemaining;
             unlimitedInkWasActive = HasUnlimitedInk;
         }
 
@@ -170,8 +181,7 @@ namespace MukJump.Drawing
                 return;
             }
 
-            var rawImages = FindObjectsByType<RawImage>(FindObjectsInactive.Include,
-                FindObjectsSortMode.None);
+            var rawImages = FindObjectsByType<RawImage>(FindObjectsInactive.Include);
             for (int i = 0; i < rawImages.Length; i++)
             {
                 if (!rawImages[i].name.Equals("LineSprite", System.StringComparison.OrdinalIgnoreCase))
@@ -191,7 +201,7 @@ namespace MukJump.Drawing
                 return;
             }
 
-            var images = FindObjectsByType<Image>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var images = FindObjectsByType<Image>(FindObjectsInactive.Include);
             for (int i = 0; i < images.Length; i++)
             {
                 if (!images[i].name.Equals("LineSprite", System.StringComparison.OrdinalIgnoreCase) ||
@@ -205,8 +215,7 @@ namespace MukJump.Drawing
 
         static void HideLineSpriteTemplates()
         {
-            var rawImages = FindObjectsByType<RawImage>(FindObjectsInactive.Include,
-                FindObjectsSortMode.None);
+            var rawImages = FindObjectsByType<RawImage>(FindObjectsInactive.Include);
             for (int i = 0; i < rawImages.Length; i++)
             {
                 if (rawImages[i].name.Equals("LineSprite", System.StringComparison.OrdinalIgnoreCase))
@@ -246,6 +255,7 @@ namespace MukJump.Drawing
                 return;
             }
 
+            AdvanceUnlimitedInk(Time.deltaTime);
             RefreshInkBudget();
 
 #if UNITY_EDITOR
@@ -255,6 +265,12 @@ namespace MukJump.Drawing
 
             if (PointerInput.TryGetPressed(out var screenPos))
             {
+                if (LobbyAdLayout.IsPointerInBannerSlot(screenPos))
+                {
+                    if (drawing) CancelStroke();
+                    PointerInput.SuppressUntilRelease();
+                    return;
+                }
                 if (GameplayHudView.IsPointerOverItemTestControls(screenPos) ||
                     PauseMenuView.IsPointerOverControls(screenPos) ||
                     FirstRunTutorialController.IsPointerOverControls(screenPos))
@@ -270,6 +286,9 @@ namespace MukJump.Drawing
             }
             else if (drawing)
             {
+                if (PointerInput.TryGetReleased(out var releasePosition) &&
+                    !LobbyAdLayout.IsPointerInBannerSlot(releasePosition))
+                    AppendWorldSampleWithTail(ToWorld(releasePosition), true);
                 EndStroke();
             }
         }
@@ -299,12 +318,15 @@ namespace MukJump.Drawing
         /// 한 프레임의 큰 포인터 이동도 30m 경계에서 정확히 보간한다.
         /// 경계 뒤의 잔여 구간은 같은 프레임에 다음 획으로 넘겨 틈을 만들지 않는다.
         void AppendWorldSample(Vector2 requestedWorld)
+            => AppendWorldSampleWithTail(requestedWorld, false);
+
+        void AppendWorldSampleWithTail(Vector2 requestedWorld, bool includeShortTail)
         {
             while (drawing && points.Count > 0)
             {
                 Vector2 segmentStart = points[^1];
                 float requestedStep = Vector2.Distance(segmentStart, requestedWorld);
-                if (requestedStep < minPointDistance)
+                if (requestedStep < (includeShortTail ? 0.0001f : minPointDistance))
                     return;
 
                 float remainingStroke = Mathf.Max(
@@ -375,8 +397,8 @@ namespace MukJump.Drawing
                 return;
             }
 
-            // 캐릭터와 너무 가까운 부분 및 화면 먹벽 띠만 잘라내 콜라이더 밀어내기와
-            // 측벽 사이 상승 래칫을 막되, 나머지 유효한 획은 발판으로 살린다.
+            // 캐릭터가 지나와도 그린 획은 보존한다. 화면 양옆 먹벽 띠만 제외하고,
+            // 생성 순간 겹친 몸체의 충돌은 PlatformCollider에서 개별 유예한다.
             smoothed = LongestSafeSegment(smoothed);
             float validLength = BezierSmoother.PolylineLength(smoothed);
             if (smoothed.Count < 2 || validLength < minStrokeLength)
@@ -397,6 +419,7 @@ namespace MukJump.Drawing
                 naturalHoldSeconds: EffectiveNaturalHoldDuration);
             if (!HasUnlimitedInk)
                 PlatformCollider.ReconcileActiveInkBudget(EffectiveInkCapacity);
+            MukJumpAnalytics.Stroke(validLength);
             ValidStrokeCreated?.Invoke(platform, validLength, budgetCost);
             GameFeedbackController.Instance?.PlayStrokeResolved(feedbackPosition, true);
         }
@@ -473,14 +496,16 @@ namespace MukJump.Drawing
         void TryBindGrowthController()
         {
             var next = RunGrowthController.Instance;
-            if (growthController != null && growthController != next)
-                growthController.RunReset -= HandleGrowthRunReset;
-            growthController = next;
-            if (growthController == null) return;
+            if (growthController == next && growthControllerBound)
+                return;
 
-            // 같은 컴포넌트 참조가 복원돼도 이벤트 구독은 사라질 수 있다.
-            growthController.RunReset -= HandleGrowthRunReset;
+            UnbindGrowthController();
+            growthController = next;
+            if (growthController == null)
+                return;
+
             growthController.RunReset += HandleGrowthRunReset;
+            growthControllerBound = true;
             if (appliedInkCapacity <= 0f)
                 appliedInkCapacity = EffectiveInkCapacity;
         }
@@ -495,8 +520,9 @@ namespace MukJump.Drawing
 
         void UnbindGrowthController()
         {
-            if (growthController != null)
+            if (growthController != null && growthControllerBound)
                 growthController.RunReset -= HandleGrowthRunReset;
+            growthControllerBound = false;
             growthController = null;
         }
 
@@ -518,21 +544,28 @@ namespace MukJump.Drawing
             unlimitedInkWasActive = unlimited;
         }
 
+        void AdvanceUnlimitedInk(float deltaTime)
+        {
+            if (unlimitedInkRemaining <= 0f)
+                return;
+            unlimitedInkRemaining = Mathf.Max(
+                0f,
+                unlimitedInkRemaining - Mathf.Max(0f, deltaTime));
+        }
+
         void HandleGrowthRunReset()
         {
             CancelActiveStroke();
-            unlimitedInkUntil = 0f;
+            unlimitedInkRemaining = 0f;
+            unlimitedInkDuration = 0f;
             appliedInkCapacity = EffectiveInkCapacity;
             unlimitedInkWasActive = false;
             PlatformCollider.ReconcileActiveInkBudget(appliedInkCapacity);
         }
 
-        /// 캐릭터·화면 먹벽과 겹치는 부분만 잘라내고 가장 긴 안전 구간은 살린다.
-        /// 획 전체를 취소해 입력이 먹히지 않은 것처럼 보이던 불편을 줄인다.
+        /// 화면 먹벽 띠만 제외한다. 캐릭터의 현재 위치·그림 크기는 획을 자르지 않는다.
         List<Vector2> LongestSafeSegment(List<Vector2> strokePoints)
         {
-            livingPlayers.Clear();
-            GameManager.Instance?.GetLivingPlayersNonAlloc(livingPlayers);
             if (screenSideWalls == null && cam != null)
                 screenSideWalls = cam.GetComponent<Player.ScreenSideWalls>();
 
@@ -542,45 +575,14 @@ namespace MukJump.Drawing
 
             return SelectLongestPlayableSegment(
                 strokePoints,
-                livingPlayers,
-                playerClearance,
                 minimumX,
                 maximumX,
                 safeSegment,
                 safeSegmentCandidate);
         }
 
-        /// 실제 캐릭터 콜라이더 바깥에서 발판 Edge 반경 0.06m까지 포함한 여백이다.
-        /// 먹떼가 커져도 물리 겹침이 생기지 않는 0.08m 아래로는 줄이지 않는다.
-        static float ResolvePlayerSurfacePadding(int livingCount)
-        {
-            return Mathf.Lerp(
-                0.15f,
-                0.08f,
-                Mathf.InverseLerp(1f, GameManager.MaxLivingPlayers, livingCount));
-        }
-
-        static List<Vector2> SelectLongestSafeSegment(
-            IReadOnlyList<Vector2> strokePoints,
-            IReadOnlyList<Player.PlayerController> players,
-            float clearance,
-            List<Vector2> longest,
-            List<Vector2> current)
-        {
-            return SelectLongestPlayableSegment(
-                strokePoints,
-                players,
-                clearance,
-                float.NegativeInfinity,
-                float.PositiveInfinity,
-                longest,
-                current);
-        }
-
         static List<Vector2> SelectLongestPlayableSegment(
             IReadOnlyList<Vector2> strokePoints,
-            IReadOnlyList<Player.PlayerController> players,
-            float clearance,
             float minimumX,
             float maximumX,
             List<Vector2> longest,
@@ -590,49 +592,11 @@ namespace MukJump.Drawing
             current.Clear();
             float longestLength = 0f;
             float currentLength = 0f;
-            float clearanceSquared = Mathf.Max(0f, clearance);
-            clearanceSquared *= clearanceSquared;
-            float surfacePadding = ResolvePlayerSurfacePadding(players.Count);
-            float surfacePaddingSquared = surfacePadding * surfacePadding;
 
             for (int pointIndex = 0; pointIndex < strokePoints.Count; pointIndex++)
             {
                 Vector2 point = strokePoints[pointIndex];
                 bool blocked = point.x < minimumX || point.x > maximumX;
-                for (int playerIndex = 0; playerIndex < players.Count; playerIndex++)
-                {
-                    if (blocked) break;
-                    var player = players[playerIndex];
-                    if (player == null || player.IsDead) continue;
-                    var bodyShape = player.PrimaryCollider;
-                    bool overlapsPlayer;
-                    if (bodyShape != null && bodyShape.enabled)
-                    {
-                        Vector2 closest = bodyShape.ClosestPoint(point);
-                        overlapsPlayer =
-                            (point - closest).sqrMagnitude < surfacePaddingSquared;
-                    }
-                    else
-                    {
-                        Vector2 playerPosition = player.transform.position;
-                        overlapsPlayer =
-                            (point - playerPosition).sqrMagnitude < clearanceSquared;
-                    }
-                    if (!overlapsPlayer)
-                    {
-                        var visual = player.GetComponent<SpriteRenderer>();
-                        if (visual != null && visual.sprite != null)
-                            overlapsPlayer = ContainsExpandedVisualBounds(
-                                visual.bounds,
-                                point,
-                                surfacePadding);
-                    }
-                    if (overlapsPlayer)
-                    {
-                        blocked = true;
-                        break;
-                    }
-                }
 
                 if (!blocked)
                 {
@@ -649,18 +613,6 @@ namespace MukJump.Drawing
 
             KeepLongerSegment(current, currentLength, longest, ref longestLength);
             return longest;
-        }
-
-        static bool ContainsExpandedVisualBounds(
-            Bounds visualBounds,
-            Vector2 point,
-            float padding)
-        {
-            padding = Mathf.Max(0f, padding);
-            return point.x >= visualBounds.min.x - padding &&
-                   point.x <= visualBounds.max.x + padding &&
-                   point.y >= visualBounds.min.y - padding &&
-                   point.y <= visualBounds.max.y + padding;
         }
 
         static void KeepLongerSegment(
@@ -733,7 +685,6 @@ namespace MukJump.Drawing
             maxContinuousStrokeLength = Mathf.Max(minPointDistance, maxContinuousStrokeLength);
             minStrokeLength = Mathf.Max(minPointDistance, minStrokeLength);
             previewWidth = Mathf.Max(0.01f, previewWidth);
-            playerClearance = Mathf.Max(0f, playerClearance);
             inkCapacity = Mathf.Max(0.001f, inkCapacity);
             evictionFadeDuration = Mathf.Max(0.15f, evictionFadeDuration);
             naturalHoldDuration = Mathf.Max(0.1f, naturalHoldDuration);
@@ -744,13 +695,38 @@ namespace MukJump.Drawing
             if (inkCapacityTuningVersion >= CurrentInkCapacityTuningVersion)
                 return;
 
-            // 현재 Main의 24m와 이전 설계의 12/18/3.2m를 모두 씬 재생성 전부터
-            // 새 4.8m 밸런스로 바꾼다. 사용자가 별도로 조정한 다른 값은 보존한다.
-            if (Mathf.Approximately(inkCapacity, LegacyInkCapacityV0) ||
-                Mathf.Approximately(inkCapacity, LegacyInkCapacityV1) ||
-                Mathf.Approximately(inkCapacity, LegacyInkCapacityV2) ||
-                Mathf.Approximately(inkCapacity, LegacyInkCapacityV3))
-                inkCapacity = DefaultInkCapacity;
+            int sourceVersion = inkCapacityTuningVersion;
+            bool promoteV3Baseline =
+                sourceVersion == 3 &&
+                Mathf.Approximately(
+                    inkCapacity,
+                    LegacyInkCapacityV4Baseline);
+
+            // v3 이전의 씬 기본값만 먼저 4.8m로 정규화한다. 별도로 조정한 값은
+            // 어느 세대에서도 덮지 않아야 하므로 버전 단계를 건너뛰지 않는다.
+            if (inkCapacityTuningVersion < 3)
+            {
+                bool knownLegacyDefault =
+                    Mathf.Approximately(inkCapacity, LegacyInkCapacityV0) ||
+                    Mathf.Approximately(inkCapacity, LegacyInkCapacityV1) ||
+                    Mathf.Approximately(inkCapacity, LegacyInkCapacityV2) ||
+                    Mathf.Approximately(inkCapacity, LegacyInkCapacityV3);
+                if (knownLegacyDefault)
+                {
+                    inkCapacity = LegacyInkCapacityV4Baseline;
+                    promoteV3Baseline = true;
+                }
+                inkCapacityTuningVersion = 3;
+            }
+
+            // v3에서 실제 기본값이던 4.8m만 5.2m로 올린다. v3의 사용자 지정값과
+            // 이미 v4로 저장된 4.8m는 의도된 값일 수 있으므로 그대로 보존한다.
+            if (inkCapacityTuningVersion == 3)
+            {
+                if (promoteV3Baseline)
+                    inkCapacity = DefaultInkCapacity;
+                inkCapacityTuningVersion = 4;
+            }
             inkCapacityTuningVersion = CurrentInkCapacityTuningVersion;
         }
     }

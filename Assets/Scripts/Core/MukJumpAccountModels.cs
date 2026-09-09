@@ -22,6 +22,16 @@ namespace MukJump.Core
         Error,
     }
 
+    /// 인증 전환 복구 시 이전 소유자와 현재 서버 소유자의 관계.
+    /// 현재 소유자를 아직 읽지 못한 상태를 같은 계정으로 간주하면 복구 표식이
+    /// 조기에 사라질 수 있으므로 Unknown을 명시적으로 분리한다.
+    public enum MukJumpAccountScopeRelation
+    {
+        Unknown,
+        Same,
+        Changed,
+    }
+
     [Serializable]
     public sealed class MukJumpCloudSnapshot
     {
@@ -80,11 +90,40 @@ namespace MukJump.Core
     {
         public int Rank { get; }
         public int Height { get; }
+        public string DisplayName { get; }
+        public string Source { get; }
 
-        public MukJumpLeaderboardEntry(int rank, int height)
+        public MukJumpLeaderboardEntry(int rank, int height, string displayName = null,
+            string source = "BACKND")
         {
             Rank = Mathf.Max(1, rank);
             Height = Mathf.Max(0, height);
+            DisplayName = CleanDisplayName(displayName);
+            // 출처는 실제 공급자만 표시한다. 로그인 수단으로 OS를 추측하지 않는다.
+            Source = source == "APPLE" || source == "TOSS" ? source : "BACKND";
+        }
+
+        public static string CleanDisplayName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "이름 없는 먹방울";
+            var clean = new System.Text.StringBuilder();
+            var elements = System.Globalization.StringInfo.GetTextElementEnumerator(value.Trim());
+            int count = 0;
+            while (elements.MoveNext())
+            {
+                string element = elements.GetTextElement();
+                var category = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(element, 0);
+                if (category == System.Globalization.UnicodeCategory.Control ||
+                    category == System.Globalization.UnicodeCategory.Format ||
+                    category == System.Globalization.UnicodeCategory.LineSeparator ||
+                    category == System.Globalization.UnicodeCategory.ParagraphSeparator)
+                    continue;
+                // 정상 닉네임 최대 20자는 보존하고, 화면 폭에 따른 생략은 뷰가 맡는다.
+                // 여섯 글자로 먼저 자르면 모든 guest(난수)가 같은 이름으로 보인다.
+                if (count++ == 20) { clean.Append('…'); break; }
+                clean.Append(element);
+            }
+            return clean.Length == 0 ? "이름 없는 먹방울" : clean.ToString();
         }
     }
 }

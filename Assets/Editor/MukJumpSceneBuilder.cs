@@ -1,5 +1,8 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Linq;
+using System.Text;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -17,12 +20,32 @@ using MukJump.Obstacles;
 
 namespace MukJump.EditorTools
 {
-    /// 메뉴 "MukJump > Build Main Scene" 한 번으로 플레이 가능한 Main 씬을 구성한다.
+    /// 메뉴 "MukJump > Build Main Scene" 한 번으로 Splash와 Main 씬을 구성한다.
     /// (씬 구성을 코드로 남겨 두면 협업 시 씬 머지 충돌을 피하고 재현 가능)
     public static class MukJumpSceneBuilder
     {
         const string ScenePath = "Assets/Scenes/Main.unity";
+        internal const string SceneAttestationPath =
+            "ProjectSettings/MukJumpSceneAttestation.json";
+        const string BuilderSourcePath =
+            "Assets/Editor/MukJumpSceneBuilder.cs";
+        const string SplashBuilderSourcePath =
+            "Assets/Editor/MukJumpSplashSceneBuilder.cs";
+        internal const string SceneSourceStampPrefix =
+            "@MukJumpSceneSource_";
         const string BgPath = "Assets/Art/Background/background_ink_landscape.png";
+        internal const string AmbientCloudAtlasPath =
+            "Assets/Resources/MukJump/Background/ambient_cloud_atlas_v1.png";
+        internal static readonly string[] AmbientThemeAtlasPaths =
+        {
+            AmbientCloudAtlasPath,
+            "Assets/Resources/MukJump/Background/ambient_01_wind_ribbons_v1.png",
+            "Assets/Resources/MukJump/Background/ambient_02_rain_veil_v1.png",
+            "Assets/Resources/MukJump/Background/ambient_03_cliff_haze_v1.png",
+            "Assets/Resources/MukJump/Background/ambient_04_gate_stardust_v1.png",
+            "Assets/Resources/MukJump/Background/ambient_05_lotus_mist_v1.png",
+            "Assets/Resources/MukJump/Background/ambient_06_river_current_v1.png",
+        };
         static readonly string[] MapBackgroundPaths =
         {
             "Assets/Art/Background/Maps/map_00_quiet_mountain.png",
@@ -53,16 +76,23 @@ namespace MukJump.EditorTools
         const string StartButtonPath = "Assets/Art/UI/muk_start_button.png";
         const string GaugeFillPath = "Assets/Art/UI/muk_gauge_fill.png";
         const string GaugeTrackPath = "Assets/Art/UI/muk_gauge_track.png";
+        const string GaugeBrushIconPath = "Assets/Art/UI/muk_brush_icon.png";
         const string LineSpritePrefabPath = "Assets/Art/UI/LineSprite.prefab";
         const string InkDropItemPath = "Assets/Art/UI/ink_drop.png";
         const string GoldenBrushItemPath = "Assets/Art/UI/golden_brush.png";
         const string InkShieldItemPath = "Assets/Art/UI/ink_shield.png";
         const string InkCloneItemPath = "Assets/Art/UI/ink_clone.png";
         const string ActionButtonPath =
-            "Assets/Resources/MukJump/UI/Common/action_button_brush.png";
-        // 유기적인 붓획은 9-slice 시 작은 버튼에서 모서리만 남아 먹 얼룩처럼
-        // 깨진다. 전체 실루엣을 축소·확대하도록 테두리를 사용하지 않는다.
-        static readonly Vector4 ActionButtonBorder = Vector4.zero;
+            "Assets/Resources/MukJump/UI/Common/action_button_hanji_v1.png";
+        internal const string HanjiScrollRollPath =
+            "Assets/Resources/MukJump/UI/Common/scroll_roll_hanji_v2.png";
+        internal static readonly string[] SettingsIconKeys =
+        {
+            "music", "sound", "haptics", "motion", "language", "support", "tutorial", "nickname", "account", "rank"
+        };
+        // 뜯긴 한지 가장자리와 모서리는 고정하고 깨끗한 중앙부만 늘린다.
+        static readonly Vector4 ActionButtonBorder =
+            new Vector4(64f, 48f, 64f, 48f);
         const string PermanentGrowthUiRoot =
             "Assets/Resources/MukJump/UI/PermanentGrowth/";
         static readonly string[] PermanentGrowthUiPaths =
@@ -82,13 +112,16 @@ namespace MukJump.EditorTools
             PermanentGrowthUiRoot + "pg_selected_ring.png",
             PermanentGrowthUiRoot + "pg_hanji_card.png",
             PermanentGrowthUiRoot + "pg_root_emblem.png",
+            PermanentGrowthUiRoot + "pg_inklight_sumukhwa_v1.png",
+            PermanentGrowthUiRoot + "pg_title_growth_ko_v1.png",
             PermanentGrowthUiRoot + "pg_icon_capacity.png",
             PermanentGrowthUiRoot + "pg_icon_recovery.png",
             PermanentGrowthUiRoot + "pg_icon_platform.png",
             PermanentGrowthUiRoot + "pg_icon_jump.png",
+            "Assets/Resources/" + PermanentGrowthView.BrushIconResourcePath + ".png",
         };
         const string UiFontPath =
-            "Assets/Resources/MukJump/Fonts/HealthsetJoritdaeStd.otf";
+            "Assets/Resources/MukJump/Fonts/NanumBrushScript-Regular.ttf";
         const string DeathSplashPath = "Assets/Art/Character/Death/ink_death_splash.png";
         const string InkDropVfxRoot = "Assets/MukJump/VFX/InkDropJump";
         const string InkDropVfxTextureRoot = InkDropVfxRoot + "/Textures/";
@@ -96,7 +129,7 @@ namespace MukJump.EditorTools
         // 14a6141의 사용자 수동 로비 배치를 빌더의 공식 값으로 고정한다.
         // Main 씬을 다시 생성해도 로고와 최고 기록 칸이 초기 배치로 돌아가면 안 된다.
         static readonly Vector2 LobbyLogoAnchor = new(0.5f, 0.68f);
-        static readonly Vector2 LobbyLogoPosition = new(12f, 79f);
+        static readonly Vector2 LobbyLogoPosition = new(-LobbyMenuLayout.LogoVisibleCenterOffsetX, 79f);
         static readonly Vector2 LobbyLogoSize = new(1281.776f, 854.518f);
         static readonly string[] DeathFramePaths =
         {
@@ -111,6 +144,8 @@ namespace MukJump.EditorTools
         };
         const int CharFrameSize = 1024;
         const int CharSheetColumns = 4;
+        internal const int CharacterSheetWidth = 4096;
+        internal const int CharacterSheetHeight = 2048;
         // 루트 Transform·물리 콜라이더는 그대로 두고 시각 크기만 기존보다 약 15% 키운다.
         const float CharPpu = 780f;
         // 먹방울이는 피해를 입을수록 먹이 불어난 듯 조금씩 커진다. PPU만 낮춰
@@ -138,11 +173,25 @@ namespace MukJump.EditorTools
         [MenuItem("MukJump/Build Main Scene")]
         public static void Build()
         {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                Debug.LogWarning(
+                    "[MukJump] 컴파일·에셋 갱신이 끝난 뒤 Main 씬을 생성하세요.");
+                return;
+            }
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Debug.LogWarning(
+                    "[MukJump] Play Mode를 종료한 뒤 Main 씬을 생성하세요.");
+                return;
+            }
+
             EnsureLayer("Platform");
             EnsureLayer("Obstacle");
             EnsureLayer("Item");
             EnsureLayer("Player");
             ConfigureBackground();
+            foreach (string atlasPath in AmbientThemeAtlasPaths) ConfigureAmbientCloudAtlas(atlasPath);
             ConfigureCharacterSheets();
             ConfigureDeathSprites();
             ConfigureObstacleSprite();
@@ -152,10 +201,21 @@ namespace MukJump.EditorTools
             ConfigureItemSprites();
             ConfigurePermanentGrowthSprites();
             ConfigureActionButtonSprite();
+            ConfigureHanjiScrollRoll();
+            ConfigureSettingsIcons();
+            ConfigureWindIcon();
+            ConfigureLobbySky();
             ConfigureInkDropJumpVfxAssets();
             if (AssetDatabase.LoadAssetAtPath<Font>(UiFontPath) == null)
                 Debug.LogWarning($"[MukJump] UI 폰트를 찾을 수 없음: {UiFontPath}");
 
+            string[] assetIssues = CollectRequiredSceneAssetIssues();
+            if (assetIssues.Length > 0)
+                throw new System.InvalidOperationException(
+                    "Main 씬 필수 에셋 검증에 실패했습니다:\n" +
+                    string.Join("\n", assetIssues));
+
+            MukJumpSplashSceneBuilder.BuildSceneFile();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             BuildSceneContents(configureUiImporters: true);
@@ -166,10 +226,15 @@ namespace MukJump.EditorTools
             PlayerSettings.allowedAutorotateToLandscapeLeft = false;
             PlayerSettings.allowedAutorotateToLandscapeRight = false;
 
-            EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            if (!EditorSceneManager.SaveScene(scene, ScenePath))
+                throw new System.InvalidOperationException(
+                    $"Main 씬을 저장하지 못했습니다: {ScenePath}");
+            MukJumpSplashSceneBuilder.ConfigureBuildSettings();
+            WriteCurrentSceneAttestation();
 
-            Debug.Log("[MukJump] Main 씬 구성 완료 — Game 뷰를 9:16으로 두고 Play 하세요.");
+            Debug.Log(
+                "[MukJump] Splash·Main 씬 구성 완료 — " +
+                "Game 뷰를 9:16으로 두고 Play 하세요.");
         }
 
         [MenuItem("MukJump/Configure Dragon Obstacle Sprites")]
@@ -238,6 +303,136 @@ namespace MukJump.EditorTools
             AssetDatabase.SaveAssets();
         }
 
+        [MenuItem("MukJump/Configure Hanji Scroll Roll")]
+        public static void ConfigureHanjiScrollRoll()
+        {
+            AssetDatabase.ImportAsset(HanjiScrollRollPath);
+            var importer = AssetImporter.GetAtPath(HanjiScrollRollPath) as TextureImporter;
+            if (importer == null) throw new System.InvalidOperationException("두루마리 롤 원화 없음");
+            // 원본 PNG를 가공하지 않고 투명 여백만 임포터 슬라이스로 제외한다.
+            var source = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            Rect bounds;
+            try
+            {
+                if (!source.LoadImage(File.ReadAllBytes(HanjiScrollRollPath)))
+                    throw new System.InvalidOperationException("두루마리 롤 PNG 해석 실패");
+                var pixels = source.GetPixels32();
+                int minX = source.width, minY = source.height, maxX = -1, maxY = -1;
+                for (int y = 0; y < source.height; y++)
+                for (int x = 0; x < source.width; x++)
+                {
+                    if (pixels[y * source.width + x].a < 8) continue;
+                    minX = Mathf.Min(minX, x); minY = Mathf.Min(minY, y);
+                    maxX = Mathf.Max(maxX, x); maxY = Mathf.Max(maxY, y);
+                }
+                if (maxX < minX) throw new System.InvalidOperationException("두루마리 롤이 비어 있음");
+                minX = Mathf.Max(0, minX - 2); minY = Mathf.Max(0, minY - 2);
+                maxX = Mathf.Min(source.width - 1, maxX + 2);
+                maxY = Mathf.Min(source.height - 1, maxY + 2);
+                bounds = new Rect(minX, minY, maxX - minX + 1, maxY - minY + 1);
+            }
+            finally { Object.DestroyImmediate(source); }
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Multiple;
+            importer.spritePixelsPerUnit = 100f;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.isReadable = false;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.maxTextureSize = 2048;
+            importer.textureCompression = TextureImporterCompression.CompressedHQ;
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            settings.spriteMeshType = SpriteMeshType.FullRect;
+            importer.SetTextureSettings(settings);
+#pragma warning disable CS0618
+            importer.spritesheet = new[] { new SpriteMetaData
+            {
+                name = "scroll_roll_hanji_v2", rect = bounds,
+                alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f)
+            } };
+#pragma warning restore CS0618
+            importer.SaveAndReimport();
+        }
+
+        [MenuItem("MukJump/Configure Settings Icons")]
+        public static void ConfigureSettingsIcons()
+        {
+            foreach (string key in SettingsIconKeys)
+            {
+                string path = $"Assets/Resources/MukJump/UI/Common/settings_icon_{key}_v1.png";
+                if (!File.Exists(path)) continue;
+                AssetDatabase.ImportAsset(path);
+                var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+                if (importer == null) continue;
+                if (importer.textureType == TextureImporterType.Sprite &&
+                    importer.spriteImportMode == SpriteImportMode.Single &&
+                    importer.maxTextureSize == 256 && importer.alphaIsTransparency &&
+                    !importer.mipmapEnabled && !importer.isReadable &&
+                    importer.wrapMode == TextureWrapMode.Clamp && importer.filterMode == FilterMode.Bilinear &&
+                    importer.textureCompression == TextureImporterCompression.CompressedHQ)
+                    continue;
+                // 런타임 최대 148px. 원본 알파·붓결은 보존하고 모바일에는 256px만 올린다.
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.spritePixelsPerUnit = 100f;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = false;
+                importer.isReadable = false;
+                importer.maxTextureSize = 256;
+                importer.npotScale = TextureImporterNPOTScale.None;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.textureCompression = TextureImporterCompression.CompressedHQ;
+                importer.compressionQuality = 100;
+                importer.spriteBorder = Vector4.zero;
+                var settings = new TextureImporterSettings();
+                importer.ReadTextureSettings(settings);
+                settings.spriteMeshType = SpriteMeshType.FullRect;
+                importer.SetTextureSettings(settings);
+                importer.SaveAndReimport();
+            }
+        }
+
+        [MenuItem("MukJump/Configure Wind Icon")]
+        public static void ConfigureWindIcon()
+        {
+            string path = "Assets/Resources/" + WindIndicatorView.WindIconResourcePath + ".png";
+            if (!File.Exists(path)) return;
+            AssetDatabase.ImportAsset(path);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) return;
+            if (importer.textureType == TextureImporterType.Sprite &&
+                importer.spriteImportMode == SpriteImportMode.Single &&
+                importer.maxTextureSize == 256 && importer.alphaIsTransparency &&
+                !importer.mipmapEnabled && !importer.isReadable &&
+                importer.wrapMode == TextureWrapMode.Clamp &&
+                importer.filterMode == FilterMode.Bilinear &&
+                importer.textureCompression == TextureImporterCompression.Uncompressed)
+                return;
+
+            // 44×44 HUD용 작은 투명 아이콘. 압축 블록 없이 여백·붓결을 보존한다.
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.spritePixelsPerUnit = 100f;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.isReadable = false;
+            importer.maxTextureSize = 256;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.spriteBorder = Vector4.zero;
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            settings.spriteMeshType = SpriteMeshType.FullRect;
+            importer.SetTextureSettings(settings);
+            importer.SaveAndReimport();
+        }
+
         [MenuItem("MukJump/Configure Shared Action Button Sprite")]
         public static void ConfigureActionButtonSprite()
         {
@@ -265,7 +460,7 @@ namespace MukJump.EditorTools
             importer.npotScale = TextureImporterNPOTScale.None;
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.filterMode = FilterMode.Bilinear;
-            importer.maxTextureSize = 1024;
+            importer.maxTextureSize = 2048;
             importer.textureCompression =
                 TextureImporterCompression.CompressedHQ;
             importer.compressionQuality = 100;
@@ -285,6 +480,9 @@ namespace MukJump.EditorTools
                     ConfigurePermanentGrowthSprites();
                 if (NeedsActionButtonSpriteConfiguration())
                     ConfigureActionButtonSprite();
+                ConfigureSettingsIcons();
+                ConfigureWindIcon();
+                ConfigureLobbySky();
                 if (NeedsCharacterVisualConfiguration())
                 {
                     ConfigureCharacterSheets();
@@ -306,6 +504,10 @@ namespace MukJump.EditorTools
                 var importer =
                     AssetImporter.GetAtPath(liveSheets[i].path) as TextureImporter;
                 if (importer == null ||
+                    !IsCharacterSheetConfigured(
+                        liveSheets[i].path,
+                        liveSheets[i].ppu,
+                        importer) ||
                     !Mathf.Approximately(
                         importer.spritePixelsPerUnit,
                         liveSheets[i].ppu))
@@ -320,6 +522,169 @@ namespace MukJump.EditorTools
                     return true;
             }
             return false;
+        }
+
+        static bool IsCharacterSheetConfigured(
+            string path,
+            float expectedPpu,
+            TextureImporter importer)
+        {
+            if (importer == null)
+                return false;
+            importer.GetSourceTextureWidthAndHeight(
+                out int sourceWidth,
+                out int sourceHeight);
+            if (!IsExpectedCharacterSheetDimensions(
+                    sourceWidth,
+                    sourceHeight) ||
+                importer.textureType != TextureImporterType.Sprite ||
+                importer.spriteImportMode != SpriteImportMode.Multiple ||
+                !Mathf.Approximately(
+                    importer.spritePixelsPerUnit,
+                    expectedPpu) ||
+                importer.mipmapEnabled ||
+                importer.maxTextureSize < CharacterSheetWidth ||
+                !HasCharacterSheetPlatformSettings(
+                    importer,
+                    "iPhone",
+                    TextureImporterFormat.ASTC_4x4) ||
+                !HasCharacterSheetPlatformSettings(
+                    importer,
+                    "WebGL",
+                    TextureImporterFormat.ASTC_4x4) ||
+                !HasCharacterSheetPlatformSettings(
+                    importer,
+                    "Android",
+                    TextureImporterFormat.Automatic))
+                return false;
+
+            var assets = AssetDatabase.LoadAllAssetsAtPath(path);
+            for (int frameIndex = 0;
+                 frameIndex < CharFrameNames.Length;
+                 frameIndex++)
+            {
+                Sprite match = assets.OfType<Sprite>().FirstOrDefault(sprite =>
+                    string.Equals(
+                        sprite.name,
+                        CharFrameNames[frameIndex],
+                        System.StringComparison.Ordinal));
+                if (match == null ||
+                    !Mathf.Approximately(match.rect.width, CharFrameSize) ||
+                    !Mathf.Approximately(match.rect.height, CharFrameSize))
+                    return false;
+            }
+            return assets.OfType<Sprite>().Count(sprite =>
+                CharFrameNames.Contains(sprite.name)) == CharFrameNames.Length;
+        }
+
+        static bool HasCharacterSheetPlatformSettings(
+            TextureImporter importer,
+            string platform,
+            TextureImporterFormat format)
+        {
+            TextureImporterPlatformSettings settings =
+                importer.GetPlatformTextureSettings(platform);
+            return settings.overridden &&
+                   settings.maxTextureSize >= CharacterSheetWidth &&
+                   settings.format == format;
+        }
+
+        internal static bool IsExpectedCharacterSheetDimensions(
+            int width,
+            int height) =>
+            width == CharacterSheetWidth && height == CharacterSheetHeight;
+
+        internal static string[] CollectRequiredSceneAssetIssues()
+        {
+            var issues = new List<string>();
+            foreach (string path in MapBackgroundPaths.Concat(
+                         EndlessMapBackgroundPaths).Append(BgPath))
+                RequireAsset<Sprite>(issues, path, "배경 스프라이트");
+            foreach (string atlasPath in AmbientThemeAtlasPaths)
+                if (AssetDatabase.LoadAllAssetsAtPath(atlasPath).OfType<Sprite>().Count() != 3)
+                    issues.Add("맵별 배경 효과 atlas가 3개로 슬라이스되지 않았습니다: " + atlasPath);
+
+            (string path, float ppu)[] sheets =
+            {
+                (CharSheetPath, CharPpu),
+                (CharHitOneSheetPath, CharHitOnePpu),
+                (CharHitTwoSheetPath, CharHitTwoPpu),
+            };
+            for (int i = 0; i < sheets.Length; i++)
+            {
+                var importer = AssetImporter.GetAtPath(sheets[i].path) as
+                    TextureImporter;
+                if (!IsCharacterSheetConfigured(
+                        sheets[i].path,
+                        sheets[i].ppu,
+                        importer))
+                    issues.Add(
+                        "캐릭터 시트가 4096×2048·8프레임·모바일 4096 " +
+                        $"설정을 충족하지 않습니다: {sheets[i].path}");
+            }
+
+            foreach (string path in DeathFramePaths.Append(DeathSplashPath))
+                RequireAsset<Sprite>(issues, path, "사망 스프라이트");
+            foreach (string path in new[]
+                     {
+                         ObstaclePath,
+                         DragonObstaclePath,
+                         DragonObstacleSheetPath,
+                         HaetaeObstacleSheetPath,
+                         FallingInkRockPath,
+                         InkDropItemPath,
+                         GoldenBrushItemPath,
+                         InkShieldItemPath,
+                         InkCloneItemPath,
+                         ActionButtonPath,
+                     })
+                RequireAsset<Sprite>(issues, path, "게임 스프라이트");
+            foreach (string path in PermanentGrowthUiPaths)
+                RequireAsset<Sprite>(issues, path, "성장 UI 스프라이트");
+            foreach (string path in RequiredHudTexturePaths())
+                RequireAsset<Texture2D>(issues, path, "HUD 텍스처");
+            RequireAsset<Sprite>(issues, HanjiScrollRollPath, "두루마리 롤");
+            RequireAsset<Texture2D>(issues,
+                "Assets/Resources/" + LobbyNightSkyView.CleanSkyResourcePath + ".png", "로비 해 분리용 하늘");
+            RequireAsset<Shader>(issues,
+                "Assets/Resources/MukJump/Shaders/BackgroundNight.shader", "밤 배경 셰이더");
+            RequireAsset<Sprite>(issues,
+                "Assets/Resources/" + WindIndicatorView.WindIconResourcePath + ".png", "풍향 수묵 아이콘");
+            foreach (string key in SettingsIconKeys)
+                RequireAsset<Sprite>(issues,
+                    $"Assets/Resources/MukJump/UI/Common/settings_icon_{key}_v1.png", "설정 수묵 아이콘");
+
+            RequireAsset<GameObject>(
+                issues,
+                LineSpritePrefabPath,
+                "먹선 프리팹");
+            RequireAsset<Font>(issues, UiFontPath, "UI 폰트");
+            RequireAsset<Sprite>(
+                issues,
+                MukJumpSplashSceneBuilder.LogoPath,
+                "CYSBand 스플래시 로고");
+            return issues.ToArray();
+        }
+
+        internal static string[] RequiredHudTexturePaths() =>
+            new[]
+            {
+                LobbyLogoPath,
+                InkLocalizedGameLogo.EnglishAssetPath,
+                StartButtonPath,
+                GaugeFillPath,
+                GaugeTrackPath,
+                GaugeBrushIconPath,
+            };
+
+        static void RequireAsset<T>(
+            ICollection<string> issues,
+            string path,
+            string label)
+            where T : Object
+        {
+            if (AssetDatabase.LoadAssetAtPath<T>(path) == null)
+                issues.Add($"{label}을 불러올 수 없습니다: {path}");
         }
 
         static bool NeedsPermanentGrowthSpriteConfiguration()
@@ -378,7 +743,7 @@ namespace MukJump.EditorTools
                    importer.npotScale != TextureImporterNPOTScale.None ||
                    importer.wrapMode != TextureWrapMode.Clamp ||
                    importer.filterMode != FilterMode.Bilinear ||
-                   importer.maxTextureSize != 1024 ||
+                   importer.maxTextureSize != 2048 ||
                    importer.textureCompression !=
                        TextureImporterCompression.CompressedHQ ||
                    importer.compressionQuality != 100;
@@ -390,12 +755,12 @@ namespace MukJump.EditorTools
         {
             Scene previousScene = SceneManager.GetActiveScene();
             Scene testScene = default;
-            var existingRootIds = new HashSet<int>();
+            var existingRootIds = new HashSet<EntityId>();
             if (!previousScene.IsValid() || !previousScene.isLoaded)
                 throw new System.InvalidOperationException(
                     "빌더 테스트를 실행할 활성 씬이 없습니다.");
             foreach (var root in previousScene.GetRootGameObjects())
-                existingRootIds.Add(root.GetInstanceID());
+                existingRootIds.Add(root.GetEntityId());
 
             try
             {
@@ -409,7 +774,7 @@ namespace MukJump.EditorTools
                 for (int i = 0; i < rootsAfterBuild.Length; i++)
                 {
                     var root = rootsAfterBuild[i];
-                    if (!existingRootIds.Contains(root.GetInstanceID()))
+                    if (!existingRootIds.Contains(root.GetEntityId()))
                         SceneManager.MoveGameObjectToScene(root, testScene);
                 }
                 return testScene;
@@ -420,7 +785,7 @@ namespace MukJump.EditorTools
                     EditorSceneManager.ClosePreviewScene(testScene);
                 foreach (var root in previousScene.GetRootGameObjects())
                 {
-                    if (!existingRootIds.Contains(root.GetInstanceID()))
+                    if (!existingRootIds.Contains(root.GetEntityId()))
                         Object.DestroyImmediate(root);
                 }
                 throw;
@@ -456,6 +821,212 @@ namespace MukJump.EditorTools
             so.FindProperty("survivorReframeDuration").floatValue =
                 CameraFollow.SurvivorReframeSeconds;
             so.ApplyModifiedPropertiesWithoutUndo();
+
+            // UI 생성 중 importer가 바뀔 수 있으므로 모든 변형이 끝난 다음
+            // 최종 meta까지 해시해 저장 직후에도 같은 세대로 판정되게 한다.
+            new GameObject(CurrentSceneSourceStampName());
+        }
+
+        internal static string CurrentSceneSourceStampName()
+        {
+            string[] sourceInputs = CurrentSceneSourceInputPaths();
+            var sourceManifest = new StringBuilder();
+            for (int i = 0; i < sourceInputs.Length; i++)
+            {
+                string path = sourceInputs[i];
+                string source = File.ReadAllText(path)
+                    .Replace("\r\n", "\n")
+                    .Replace('\r', '\n');
+                AppendManifestField(sourceManifest, path);
+                AppendManifestField(sourceManifest, source);
+            }
+            return SceneSourceStampPrefix +
+                   Hash128.Compute(sourceManifest.ToString()).ToString();
+        }
+
+        internal static string[] CurrentSceneSourceInputPaths()
+        {
+            var inputs = new HashSet<string>(System.StringComparer.Ordinal)
+            {
+                NormalizeProjectPath(BuilderSourcePath),
+                NormalizeProjectPath(SplashBuilderSourcePath),
+                "ProjectSettings/TagManager.asset",
+                "ProjectSettings/ProjectVersion.txt",
+                "Packages/manifest.json",
+                "Packages/packages-lock.json",
+            };
+
+            AddExistingFiles(inputs, "Assets/Scripts", "*.cs");
+            // 씬이 참조하는 에셋 GUID와 임포트 설정도 생성 코드의 일부다.
+            // meta가 바뀌었는데 과거 씬이 통과하면 잘못된 참조가 출시될 수 있다.
+            AddExistingFiles(inputs, "Assets", "*.meta");
+
+            string[] result = inputs
+                .Where(File.Exists)
+                .OrderBy(path => path, System.StringComparer.Ordinal)
+                .ToArray();
+            if (!result.Contains(
+                    NormalizeProjectPath(BuilderSourcePath),
+                    System.StringComparer.Ordinal))
+                throw new FileNotFoundException(
+                    "Main 씬 빌더 원본을 찾을 수 없습니다.",
+                    BuilderSourcePath);
+            return result;
+        }
+
+        static void AddExistingFiles(
+            ISet<string> destination,
+            string root,
+            string pattern)
+        {
+            if (!Directory.Exists(root))
+                return;
+            string[] paths = Directory.GetFiles(
+                root,
+                pattern,
+                SearchOption.AllDirectories);
+            for (int i = 0; i < paths.Length; i++)
+                destination.Add(NormalizeProjectPath(paths[i]));
+        }
+
+        static string NormalizeProjectPath(string path) =>
+            path?.Replace('\\', '/');
+
+        static void AppendManifestField(StringBuilder manifest, string value)
+        {
+            string field = value ?? string.Empty;
+            manifest.Append(field.Length.ToString(CultureInfo.InvariantCulture))
+                .Append(':')
+                .Append(field)
+                .Append('\n');
+        }
+
+        internal static bool SavedMainSceneMatchesCurrentSource()
+        {
+            if (!File.Exists(ScenePath))
+                return false;
+            string mainSceneText = File.ReadAllText(ScenePath);
+            if (!SceneTextContainsCurrentSourceStamp(mainSceneText) ||
+                !File.Exists(MukJumpSplashSceneBuilder.ScenePath) ||
+                !File.Exists(SceneAttestationPath))
+                return false;
+            try
+            {
+                SceneAttestation attestation = JsonUtility.FromJson<
+                    SceneAttestation>(File.ReadAllText(SceneAttestationPath));
+                return SceneTextsMatchAttestation(
+                    mainSceneText,
+                    File.ReadAllText(MukJumpSplashSceneBuilder.ScenePath),
+                    attestation);
+            }
+            catch (System.Exception)
+            {
+                return false;
+            }
+        }
+
+        internal static void WriteCurrentSceneAttestation()
+        {
+            if (!File.Exists(ScenePath) ||
+                !File.Exists(MukJumpSplashSceneBuilder.ScenePath))
+                throw new FileNotFoundException(
+                    "Main·Splash 씬을 모두 저장한 뒤 증명 파일을 만들 수 있습니다.");
+            string mainSceneText = File.ReadAllText(ScenePath);
+            if (!SceneTextContainsCurrentSourceStamp(mainSceneText))
+                throw new System.InvalidOperationException(
+                    "현재 생성 코드 표식이 없는 Main 씬은 증명할 수 없습니다.");
+            SceneAttestation attestation = CreateSceneAttestation(
+                mainSceneText,
+                File.ReadAllText(MukJumpSplashSceneBuilder.ScenePath));
+            File.WriteAllText(
+                SceneAttestationPath,
+                JsonUtility.ToJson(attestation, true) + "\n");
+        }
+
+        internal static SceneAttestation CreateSceneAttestation(
+            string mainSceneText,
+            string splashSceneText) =>
+            new()
+            {
+                schemaVersion = 1,
+                sourceStamp = CurrentSceneSourceStampName(),
+                mainSceneHash = HashSceneText(mainSceneText),
+                splashSceneHash = HashSceneText(splashSceneText),
+            };
+
+        internal static bool SceneTextsMatchAttestation(
+            string mainSceneText,
+            string splashSceneText,
+            SceneAttestation attestation)
+        {
+            if (attestation == null ||
+                attestation.schemaVersion != 1 ||
+                !string.Equals(
+                    attestation.sourceStamp,
+                    CurrentSceneSourceStampName(),
+                    System.StringComparison.Ordinal))
+                return false;
+            return string.Equals(
+                       attestation.mainSceneHash,
+                       HashSceneText(mainSceneText),
+                       System.StringComparison.Ordinal) &&
+                   string.Equals(
+                       attestation.splashSceneHash,
+                       HashSceneText(splashSceneText),
+                       System.StringComparison.Ordinal);
+        }
+
+        static string HashSceneText(string sceneText)
+        {
+            string normalized = (sceneText ?? string.Empty)
+                .Replace("\r\n", "\n")
+                .Replace('\r', '\n');
+            return Hash128.Compute(normalized).ToString();
+        }
+
+        [System.Serializable]
+        internal sealed class SceneAttestation
+        {
+            public int schemaVersion;
+            public string sourceStamp;
+            public string mainSceneHash;
+            public string splashSceneHash;
+        }
+
+        internal static bool SceneTextContainsCurrentSourceStamp(
+            string sceneText)
+        {
+            if (string.IsNullOrEmpty(sceneText))
+                return false;
+            string stamp = CurrentSceneSourceStampName();
+            int markerCount = 0;
+            bool containsCurrent = false;
+            using var reader = new StringReader(sceneText);
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                string trimmed = line.Trim();
+                const string namePrefix = "m_Name: ";
+                if (!trimmed.StartsWith(
+                        namePrefix,
+                        System.StringComparison.Ordinal))
+                    continue;
+                string objectName = trimmed.Substring(namePrefix.Length);
+                if (objectName.Length >= 2 &&
+                    (objectName[0] == '\'' && objectName[^1] == '\'' ||
+                     objectName[0] == '\"' && objectName[^1] == '\"'))
+                    objectName = objectName.Substring(1, objectName.Length - 2);
+                if (!objectName.StartsWith(
+                        SceneSourceStampPrefix,
+                        System.StringComparison.Ordinal))
+                    continue;
+                markerCount++;
+                containsCurrent |= string.Equals(
+                    objectName,
+                    stamp,
+                    System.StringComparison.Ordinal);
+            }
+            return markerCount == 1 && containsCurrent;
         }
 
         static Camera BuildCamera()
@@ -516,6 +1087,46 @@ namespace MukJump.EditorTools
                 endlessStages.GetArrayElementAtIndex(i).objectReferenceValue =
                     AssetDatabase.LoadAssetAtPath<Sprite>(EndlessMapBackgroundPaths[i]);
             so.ApplyModifiedPropertiesWithoutUndo();
+
+            var clouds = new GameObject("AmbientClouds");
+            clouds.transform.SetParent(go.transform, false);
+            var sprites = AssetDatabase.LoadAllAssetsAtPath(AmbientCloudAtlasPath)
+                .OfType<Sprite>().OrderBy(sprite => sprite.name).ToArray();
+            var renderers = new SpriteRenderer[AmbientCloudView.MaximumLayers];
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                var layer = new GameObject($"CloudLayer_{i:00}");
+                layer.transform.SetParent(clouds.transform, false);
+                var renderer = layer.AddComponent<SpriteRenderer>();
+                renderer.sprite = sprites.Length == 0 ? null : sprites[i % sprites.Length];
+                renderer.flipX = i % 2 != 0;
+                renderer.sortingOrder = AmbientCloudView.SortingOrder;
+                renderers[i] = renderer;
+            }
+            var cloudView = clouds.AddComponent<AmbientCloudView>();
+            cloudView.Configure(cameraTransform.GetComponent<Camera>(), renderers, BuildAmbientThemes());
+            so.Update();
+            so.FindProperty("ambientClouds").objectReferenceValue = cloudView;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            var night = go.AddComponent<LobbyNightSkyView>();
+            night.Configure(cameraTransform.GetComponent<Camera>(), new[] { current, next }, current.sprite,
+                AssetDatabase.LoadAssetAtPath<Texture2D>(
+                    "Assets/Resources/" + LobbyNightSkyView.CleanSkyResourcePath + ".png"));
+        }
+
+        internal static AmbientCloudTheme[] BuildAmbientThemes()
+        {
+            var paths = MapBackgroundPaths.Concat(EndlessMapBackgroundPaths).ToArray();
+            var result = new AmbientCloudTheme[AmbientThemeAtlasPaths.Length];
+            for (int i = 0; i < result.Length; i++)
+                result[i] = new AmbientCloudTheme
+                {
+                    background = AssetDatabase.LoadAssetAtPath<Sprite>(paths[i]),
+                    sprites = AssetDatabase.LoadAllAssetsAtPath(AmbientThemeAtlasPaths[i])
+                        .OfType<Sprite>().OrderBy(sprite => sprite.name).ToArray(),
+                    motion = (AmbientCloudMotion)i,
+                };
+            return result;
         }
 
         static GameObject BuildPlayer()
@@ -694,7 +1305,11 @@ namespace MukJump.EditorTools
             go.AddComponent<GameOverPopupView>();
             go.AddComponent<PauseMenuView>();
             go.AddComponent<RunGrowthController>();
-            go.AddComponent<PermanentGrowthView>();
+            var growthView = go.AddComponent<PermanentGrowthView>();
+            var growthSettings = new SerializedObject(growthView);
+            growthSettings.FindProperty("purchaseButtonTexture").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
+            growthSettings.ApplyModifiedPropertiesWithoutUndo();
             go.AddComponent<LobbyOptionsView>();
             go.AddComponent<FirstRunTutorialController>();
             go.AddComponent<LobbyScreenNavigator>();
@@ -706,11 +1321,29 @@ namespace MukJump.EditorTools
             CreateFeedbackAudioChild(go.transform, "PriorityAccentAudio", loop: false, priority: 32);
             go.AddComponent<VfxAudioManager>();
             go.AddComponent<VfxRuntimeMonitor>();
-            go.AddComponent<GameFeedbackController>();
+            var feedback = go.AddComponent<GameFeedbackController>();
+            var feedbackSo = new SerializedObject(feedback);
+            feedbackSo.FindProperty("contactDropletAtlas").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Texture2D>(InkDropVfxTextureRoot + "T_VFX_InkDropletAtlas_512.png");
+            feedbackSo.FindProperty("contactSplash").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Texture2D>(InkDropVfxTextureRoot + "T_VFX_InkSplash_512.png");
+            feedbackSo.ApplyModifiedPropertiesWithoutUndo();
             go.AddComponent<HeightZoneController>();
             var windWeatherController = go.AddComponent<WindWeatherController>();
             go.AddComponent<WindWeatherView>();
-            go.AddComponent<RestPlatformSpawner>();
+            var restPlatformSpawner = go.AddComponent<RestPlatformSpawner>();
+            var restPlatformSo = new SerializedObject(restPlatformSpawner);
+            restPlatformSo.FindProperty("firstRestHeightRange").vector2Value =
+                new Vector2(22f, 28f);
+            restPlatformSo.FindProperty("restHeightIntervalRange").vector2Value =
+                new Vector2(28f, 38f);
+            restPlatformSo.FindProperty("restPlatformWidth").floatValue =
+                RestPlatformSpawner.DefaultMapRestWidth;
+            restPlatformSo.FindProperty("restHorizontalOffsetRange").vector2Value =
+                new Vector2(-0.9f, 0.9f);
+            restPlatformSo.FindProperty("restHazardClearance").floatValue =
+                RestPlatformSpawner.DefaultMapRestHazardClearance;
+            restPlatformSo.ApplyModifiedPropertiesWithoutUndo();
             go.AddComponent<SketchToInkService>();
             var strokeCapture = go.AddComponent<StrokeCapture>();
             var strokeSo = new SerializedObject(strokeCapture);
@@ -822,11 +1455,11 @@ namespace MukJump.EditorTools
 
             var hud = go.AddComponent<PrototypeHud>();
             var so = new SerializedObject(hud);
-            AssignHudTexture(so, "inkGaugeFill", "Assets/Art/UI/muk_gauge_fill.png",
+            AssignHudTexture(so, "inkGaugeFill", GaugeFillPath,
                 configureUiImporters);
-            AssignHudTexture(so, "inkGaugeTrack", "Assets/Art/UI/muk_gauge_track.png",
+            AssignHudTexture(so, "inkGaugeTrack", GaugeTrackPath,
                 configureUiImporters);
-            AssignHudTexture(so, "inkBrushIcon", "Assets/Art/UI/muk_brush_icon.png",
+            AssignHudTexture(so, "inkBrushIcon", GaugeBrushIconPath,
                 configureUiImporters);
             so.ApplyModifiedPropertiesWithoutUndo();
         }
@@ -888,6 +1521,8 @@ namespace MukJump.EditorTools
             contentRoot.offsetMax = Vector2.zero;
 
             Texture2D logoTexture = null;
+            if (configureUiImporters)
+                MukJumpSplashSceneBuilder.ConfigureLocalizedLogoArtwork();
             if (AssetDatabase.GetMainAssetTypeAtPath(LobbyLogoPath) != null)
             {
                 if (configureUiImporters)
@@ -905,14 +1540,17 @@ namespace MukJump.EditorTools
                 logo.anchoredPosition = LobbyLogoPosition;
                 var image = logo.gameObject.AddComponent<RawImage>();
                 image.texture = logoTexture;
-                image.raycastTarget = false;
+                image.raycastTarget = true;
+                logo.gameObject.AddComponent<LobbyLogoTapTarget>();
                 image.uvRect = new Rect(0f, 0f, 1f, 1f);
+                InkLocalizedGameLogo.Bind(image, logoTexture);
             }
             else
             {
                 var logo = CreateText("Logo", contentRoot, "먹점프", 112, FontStyle.Bold,
                     LobbyLogoAnchor, LobbyLogoSize, InkPalette.Ink);
                 logo.rectTransform.anchoredPosition = LobbyLogoPosition;
+                logo.gameObject.AddComponent<LobbyLogoTapTarget>();
             }
 
             if (configureUiImporters)
@@ -956,8 +1594,8 @@ namespace MukJump.EditorTools
             string label,
             Vector2 anchor)
         {
-            // 비대칭 붓 PNG는 배경을 오른쪽, 글자를 왼쪽으로 같은 양만큼 보정해야
-            // 최고 기록 칸처럼 실제 화면 중앙에 반듯하게 보인다. 모든 로비 메뉴의 기본 규칙.
+            // 시작·성장·옵션은 사용자가 지정한 예전 검정 먹물 붓 PNG를 유지한다.
+            // 비대칭 원본은 배경과 글자를 반대로 보정해 화면 중앙에 맞춘다.
             var rect = CreateUiObject(
                 name,
                 parent,
@@ -1003,15 +1641,17 @@ namespace MukJump.EditorTools
                 LobbyMenuLayout.FontSize,
                 FontStyle.Bold,
                 new Vector2(0.5f, 0.5f),
-                LobbyMenuLayout.LabelSize,
+                LobbyMenuLayout.RecordLabelSize,
                 Color.white);
-            label.rectTransform.anchoredPosition = LobbyMenuLayout.LabelPosition;
+            label.rectTransform.anchoredPosition =
+                LobbyMenuLayout.RecordLabelPosition;
             label.fontSize = LobbyMenuLayout.FontSize;
             label.fontStyle = FontStyle.Bold;
             label.color = Color.white;
             label.resizeTextForBestFit = false;
             label.alignByGeometry = true;
             LobbyMenuLayout.ApplyRecord(label);
+            LobbyMenuLayout.EnsureLeaderboardShortcut(label);
             return label;
         }
 
@@ -1030,31 +1670,26 @@ namespace MukJump.EditorTools
             var scaler = root.GetComponent<CanvasScaler>();
             MobileUiLayout.ConfigurePortraitScaler(scaler);
 
-            if (configureUiImporters)
-                ConfigureUiTexture(GaugeTrackPath);
-            var paperTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeTrackPath);
             var topHudRoot = CreateUiObject("TopHudRoot", root.transform, new Vector2(0.5f, 1f),
                 new Vector2(900f, 148f));
             topHudRoot.pivot = new Vector2(0.5f, 1f);
-            topHudRoot.anchoredPosition = new Vector2(0f, -52f);
-            var topHudBackground = topHudRoot.gameObject.AddComponent<RawImage>();
-            topHudBackground.texture = paperTexture;
-            topHudBackground.color = new Color(
-                InkPalette.Paper.r, InkPalette.Paper.g, InkPalette.Paper.b, 0.9f);
-            topHudBackground.raycastTarget = false;
+            Rect initialHud = GameplayHudView.CalculateTopHudRect(
+                new Rect(0f, 0f, 1080f, 1920f), 1080, 1920);
+            topHudRoot.anchoredPosition = new Vector2(initialHud.center.x, initialHud.yMax);
+            InkHudSurface.Ensure(topHudRoot, false);
 
             var display = CreateUiObject("HeightDisplay", topHudRoot, new Vector2(0.5f, 0.5f),
                 new Vector2(320f, 118f));
             var label = CreateText("HeightText", display, "고도 0m", 60, FontStyle.Bold,
-                new Vector2(0.5f, 0.5f), new Vector2(315f, 84f), InkPalette.Ink);
+                new Vector2(0.5f, 0.5f), new Vector2(290f, 84f), InkPalette.Ink);
             label.resizeTextForBestFit = true;
             label.resizeTextMinSize = 46;
             label.resizeTextMaxSize = 60;
             label.alignByGeometry = true;
             AddReadableTextWeight(label, 0.25f);
 
-            var bestLabel = CreateText("BestText", topHudRoot, "최고 0m", 50, FontStyle.Bold,
-                new Vector2(0.805f, 0.5f), new Vector2(235f, 76f), InkPalette.Ink);
+            var bestLabel = CreateText("BestText", topHudRoot, "0m", 42, FontStyle.Bold,
+                new Vector2(0.785f, 0.5f), new Vector2(208f, 76f), InkPalette.Ink);
             bestLabel.resizeTextForBestFit = true;
             bestLabel.resizeTextMinSize = 38;
             bestLabel.resizeTextMaxSize = 50;
@@ -1156,6 +1791,7 @@ namespace MukJump.EditorTools
             so.FindProperty("windIndicator").objectReferenceValue = windIndicator;
             so.FindProperty("newBestIndicator").objectReferenceValue = newBestIndicator;
             so.ApplyModifiedPropertiesWithoutUndo();
+            view.ApplySharedPaperLayout();
 
             // LineSprite 프리팹은 StrokeCapture의 붓결 텍스처 원본으로만 사용한다.
             // GameplayCanvas에 표시 인스턴스를 만들면 화면 중앙에 불필요한 획이 남는다.
@@ -1163,20 +1799,20 @@ namespace MukJump.EditorTools
 
         static NewBestIndicatorView CreateNewBestIndicator(Transform parent)
         {
-            var root = CreateUiObject("NewBestInkSeal", parent, new Vector2(0.97f, 0.5f),
-                new Vector2(50f, 50f));
+            var root = CreateUiObject("NewBestInkSeal", parent, new Vector2(0.5f, 0.5f),
+                new Vector2(NewBestIndicatorView.BadgeSize, NewBestIndicatorView.BadgeHeight));
+            root.anchoredPosition = new Vector2(0, NewBestIndicatorView.BadgeCenterOffsetY);
             var group = root.gameObject.AddComponent<CanvasGroup>();
             group.interactable = false;
             group.blocksRaycasts = false;
 
             var sealRoot = CreateUiObject("RecordSeal", root, new Vector2(0.5f, 0.5f),
-                new Vector2(50f, 50f));
-            sealRoot.localRotation = Quaternion.Euler(0f, 0f, -4f);
+                new Vector2(NewBestIndicatorView.BadgeSize, NewBestIndicatorView.BadgeHeight));
             var seal = sealRoot.gameObject.AddComponent<Image>();
             seal.color = InkPalette.Red;
             seal.raycastTarget = false;
-            var sealText = CreateText("SealText", sealRoot, "신", 26, FontStyle.Bold,
-                new Vector2(0.5f, 0.5f), new Vector2(42f, 40f), InkPalette.Paper);
+            var sealText = CreateText("SealText", sealRoot, "NEW!", NewBestIndicatorView.BadgeFontSize, FontStyle.Bold,
+                new Vector2(0.5f, 0.5f), new Vector2(78f, 32f), InkPalette.Red);
             sealText.resizeTextForBestFit = false;
 
             var view = root.gameObject.AddComponent<NewBestIndicatorView>();
@@ -1186,13 +1822,17 @@ namespace MukJump.EditorTools
             viewSo.FindProperty("sealImage").objectReferenceValue = seal;
             viewSo.FindProperty("sealText").objectReferenceValue = sealText;
             viewSo.ApplyModifiedPropertiesWithoutUndo();
+            view.ApplyPolishedLayout();
             return view;
         }
 
         static WindIndicatorView CreateWindIndicator(Transform parent, bool configureUiImporters)
         {
             if (configureUiImporters)
+            {
                 ConfigureUiTexture(GaugeFillPath);
+                ConfigureWindIcon();
+            }
             var brushTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(GaugeFillPath);
 
             var root = CreateUiObject("WindInkIndicator", parent, new Vector2(0.165f, 0.5f),
@@ -1203,15 +1843,15 @@ namespace MukJump.EditorTools
             group.blocksRaycasts = false;
 
             var sealRect = CreateUiObject("WindAlertSeal", root, new Vector2(0.09f, 0.5f),
-                new Vector2(40f, 40f));
-            sealRect.localRotation = Quaternion.Euler(0f, 0f, -4f);
+                new Vector2(44f, 44f));
+            sealRect.localRotation = Quaternion.identity;
             var alertSeal = sealRect.gameObject.AddComponent<Image>();
-            alertSeal.color = new Color(
-                InkPalette.Red.r, InkPalette.Red.g, InkPalette.Red.b, 0.62f);
+            alertSeal.sprite = Resources.Load<Sprite>(WindIndicatorView.WindIconResourcePath);
+            alertSeal.type = Image.Type.Simple;
+            alertSeal.preserveAspect = true;
+            alertSeal.color = Color.white;
             alertSeal.raycastTarget = false;
-            var sealText = CreateText("SealText", sealRect, "풍", 26, FontStyle.Bold,
-                new Vector2(0.5f, 0.5f), new Vector2(32f, 32f), InkPalette.Paper);
-            sealText.resizeTextForBestFit = false;
+            alertSeal.enabled = alertSeal.sprite != null;
 
             var arrow = CreateUiObject("DirectionArrow", root, new Vector2(0.4f, 0.5f),
                 new Vector2(84f, 42f));
@@ -1242,8 +1882,8 @@ namespace MukJump.EditorTools
             arrowGraphics.GetArrayElementAtIndex(1).objectReferenceValue = upper;
             arrowGraphics.GetArrayElementAtIndex(2).objectReferenceValue = lower;
             viewSo.FindProperty("alertSeal").objectReferenceValue = alertSeal;
-            viewSo.FindProperty("sealText").objectReferenceValue = sealText;
             viewSo.ApplyModifiedPropertiesWithoutUndo();
+            view.ApplyPolishedLayout();
             return view;
         }
 
@@ -1343,6 +1983,7 @@ namespace MukJump.EditorTools
             text.resizeTextForBestFit = true;
             text.resizeTextMinSize = 24;
             text.resizeTextMaxSize = fontSize;
+            InkLocalizedText.Bind(text);
             return text;
         }
 
@@ -1745,6 +2386,72 @@ namespace MukJump.EditorTools
             ConfigureBackgroundSet(EndlessMapBackgroundPaths);
         }
 
+        static void ConfigureAmbientCloudAtlas(string path)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) return;
+            importer.GetSourceTextureWidthAndHeight(out int width, out int height);
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Multiple;
+            importer.spritePixelsPerUnit = 100f;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.alphaIsTransparency = true;
+            importer.isReadable = false;
+            importer.mipmapEnabled = false;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.maxTextureSize = 2048;
+            importer.textureCompression = TextureImporterCompression.CompressedHQ;
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            settings.spriteMeshType = SpriteMeshType.FullRect;
+            importer.SetTextureSettings(settings);
+            // 원화의 실제 투명 여백에서 나눠 옅은 꼬리와 별가루가 잘리지 않게 합니다.
+            int[] boundaries = path == AmbientThemeAtlasPaths[3] ? new[] { 0, 360, 710, height } :
+                path == AmbientThemeAtlasPaths[4] ? new[] { 0, 350, 665, height } :
+                new[] { 0, height / 3, height * 2 / 3, height };
+            var rows = new SpriteMetaData[3];
+            for (int i = 0; i < rows.Length; i++)
+                rows[i] = new SpriteMetaData
+                {
+                    name = $"ambient_cloud_{i:00}",
+                    rect = new Rect(0, height - boundaries[i + 1], width, boundaries[i + 1] - boundaries[i]),
+                    alignment = (int)SpriteAlignment.Center,
+                    pivot = new Vector2(0.5f, 0.5f),
+                };
+#pragma warning disable CS0618
+            importer.spritesheet = rows;
+#pragma warning restore CS0618
+            importer.SaveAndReimport();
+        }
+
+        [MenuItem("MukJump/Configure Lobby Sky")]
+        public static void ConfigureLobbySky()
+        {
+            string path = "Assets/Resources/" + LobbyNightSkyView.CleanSkyResourcePath + ".png";
+            if (!File.Exists(path)) return;
+            AssetDatabase.ImportAsset(path);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) return;
+            if (importer.textureType == TextureImporterType.Default && importer.maxTextureSize == 2048 &&
+                !importer.isReadable && !importer.mipmapEnabled && !importer.alphaIsTransparency &&
+                importer.wrapMode == TextureWrapMode.Clamp && importer.filterMode == FilterMode.Bilinear &&
+                importer.npotScale == TextureImporterNPOTScale.None &&
+                importer.textureCompression == TextureImporterCompression.CompressedHQ)
+                return;
+            // 원래 산수화는 그대로 두고 해 주변의 작은 영역만 이 텍스처에서 읽는다.
+            importer.textureType = TextureImporterType.Default;
+            importer.maxTextureSize = 2048;
+            importer.isReadable = false;
+            importer.mipmapEnabled = false;
+            importer.alphaIsTransparency = false;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.textureCompression = TextureImporterCompression.CompressedHQ;
+            importer.SaveAndReimport();
+        }
+
         static void ConfigureBackgroundSet(string[] paths)
         {
             for (int i = 0; i < paths.Length; i++)
@@ -1800,6 +2507,16 @@ namespace MukJump.EditorTools
                 return;
             }
 
+            importer.GetSourceTextureWidthAndHeight(
+                out int sourceWidth,
+                out int sourceHeight);
+            if (!IsExpectedCharacterSheetDimensions(
+                    sourceWidth,
+                    sourceHeight))
+                throw new System.InvalidOperationException(
+                    "캐릭터 시트는 정확히 4096×2048이어야 합니다: " +
+                    $"{sheetPath} ({sourceWidth}×{sourceHeight})");
+
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Multiple;
             importer.spritePixelsPerUnit = pixelsPerUnit;
@@ -1807,11 +2524,24 @@ namespace MukJump.EditorTools
             importer.mipmapEnabled = false;
 
             // 텍스처 좌표는 좌하단이 원점이므로, 이미지 위쪽 줄일수록 y가 커진다
-            int rows = Mathf.CeilToInt(CharFrameNames.Length / (float)CharSheetColumns);
+            int rows = Mathf.CeilToInt(
+                CharFrameNames.Length / (float)CharSheetColumns);
 
             // 기본 Max Size(2048)보다 시트가 크면(4096폭) 임포트 시 축소되어 픽셀 슬라이스
             // 좌표가 틀어진다 — 시트 실제 크기 이상으로 명시
-            importer.maxTextureSize = Mathf.Max(CharSheetColumns * CharFrameSize, rows * CharFrameSize);
+            importer.maxTextureSize = CharacterSheetWidth;
+            ConfigureCharacterSheetPlatform(
+                importer,
+                "iPhone",
+                TextureImporterFormat.ASTC_4x4);
+            ConfigureCharacterSheetPlatform(
+                importer,
+                "WebGL",
+                TextureImporterFormat.ASTC_4x4);
+            ConfigureCharacterSheetPlatform(
+                importer,
+                "Android",
+                TextureImporterFormat.Automatic);
             var metas = new SpriteMetaData[CharFrameNames.Length];
             for (int i = 0; i < CharFrameNames.Length; i++)
             {
@@ -1830,6 +2560,24 @@ namespace MukJump.EditorTools
             importer.spritesheet = metas;
 #pragma warning restore CS0618
             importer.SaveAndReimport();
+        }
+
+        static void ConfigureCharacterSheetPlatform(
+            TextureImporter importer,
+            string platform,
+            TextureImporterFormat format)
+        {
+            TextureImporterPlatformSettings settings =
+                importer.GetPlatformTextureSettings(platform);
+            settings.name = platform;
+            settings.overridden = true;
+            settings.maxTextureSize = CharacterSheetWidth;
+            settings.format = format;
+            settings.textureCompression =
+                TextureImporterCompression.CompressedHQ;
+            settings.compressionQuality = 100;
+            settings.crunchedCompression = false;
+            importer.SetPlatformTextureSettings(settings);
         }
 
         /// 개별 1024×1024 프레임을 모두 같은 PPU와 중앙 피벗으로 임포트한다.

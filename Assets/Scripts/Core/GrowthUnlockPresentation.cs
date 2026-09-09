@@ -28,6 +28,7 @@ namespace MukJump.Core
         readonly float[] nodeDropRotations =
             new float[MaxNodeDrops];
 
+        [SerializeField] RectTransform canvasOwner;
         RectTransform presentationRoot;
         CanvasGroup presentationGroup;
         Image wash;
@@ -85,12 +86,39 @@ namespace MukJump.Core
             ringTexture = null;
         }
 
+        void OnEnable()
+        {
+            // 스크립트 리로드는 UI를 남기지만 readonly 관리 배열은 비운다.
+            // 이전 연출을 이어서 접근하지 않고 같은 계층을 복구한 뒤 취소한다.
+            RectTransform owner = canvasOwner != null ? canvasOwner
+                : presentationRoot != null ? presentationRoot.parent as RectTransform : null;
+            if (owner != null) Initialize(owner);
+            ResetPresentation();
+        }
+
+        bool HasValidReferences()
+        {
+            if (presentationRoot == null || presentationGroup == null || wash == null
+                || upperBrush == null || lowerBrush == null || splash == null
+                || outerRing == null || innerRing == null || slashPrimary == null
+                || slashSecondary == null || lockPlate == null || unlockedIconPlate == null
+                || unlockedIcon == null || nodeFeedbackRoot == null || nodeFruitGlow == null
+                || nodeFruit == null || lockText == null || titleText == null || subtitleText == null)
+                return false;
+            for (int i = 0; i < drops.Length; i++)
+                if (drops[i] == null) return false;
+            for (int i = 0; i < nodeDrops.Length; i++)
+                if (nodeDrops[i] == null) return false;
+            return true;
+        }
+
         public void Initialize(RectTransform canvasRoot)
         {
             if (canvasRoot == null)
                 return;
 
-            if (presentationRoot != null)
+            canvasOwner = canvasRoot;
+            if (HasValidReferences())
             {
                 if (presentationRoot.parent != canvasRoot)
                     presentationRoot.SetParent(canvasRoot, false);
@@ -98,10 +126,11 @@ namespace MukJump.Core
                 return;
             }
 
-            var root = new GameObject(
-                "GrowthUnlockPresentation",
-                typeof(RectTransform),
-                typeof(CanvasGroup));
+            ResetPresentation();
+            Transform existing = presentationRoot != null ? presentationRoot
+                : canvasRoot.Find("GrowthUnlockPresentation");
+            var root = existing != null ? existing.gameObject : new GameObject(
+                "GrowthUnlockPresentation", typeof(RectTransform), typeof(CanvasGroup));
             presentationRoot = root.GetComponent<RectTransform>();
             presentationRoot.SetParent(canvasRoot, false);
             presentationRoot.anchorMin = Vector2.zero;
@@ -111,6 +140,7 @@ namespace MukJump.Core
             presentationRoot.SetAsFirstSibling();
 
             presentationGroup = root.GetComponent<CanvasGroup>();
+            if (presentationGroup == null) presentationGroup = root.AddComponent<CanvasGroup>();
             presentationGroup.alpha = 0f;
             presentationGroup.interactable = false;
             presentationGroup.blocksRaycasts = false;
@@ -330,10 +360,23 @@ namespace MukJump.Core
             Vector2 nodePosition,
             Sprite fruitSprite)
         {
-            if (presentationRoot == null)
+            if (!isActiveAndEnabled)
                 return;
+            if (!HasValidReferences())
+            {
+                RectTransform owner = canvasOwner != null ? canvasOwner
+                    : presentationRoot != null ? presentationRoot.parent as RectTransform : null;
+                if (owner != null) Initialize(owner);
+                if (!HasValidReferences()) { ResetPresentation(); return; }
+            }
+            if (LobbySettingsProfile.ReducedMotionEnabled)
+            {
+                ResetPresentation();
+                return;
+            }
 
             playSerial++;
+            presentationRoot.gameObject.SetActive(true);
             elapsed = 0f;
             upgradeMode = isUpgrade;
             activeDuration = isUpgrade
@@ -360,16 +403,12 @@ namespace MukJump.Core
             unlockedIcon.sprite = growthIcon;
             unlockedIconPlate.gameObject.SetActive(growthIcon != null);
             unlockedIcon.gameObject.SetActive(growthIcon != null);
-            lockText.text = isUpgrade
-                ? $"Lv. {level}"
-                : "잠금";
-            titleText.text = isUpgrade
-                ? "성장 강화"
-                : "성장 해금";
-            subtitleText.text = BuildSubtitle(
+            InkLocalizedText.SetSource(lockText, isUpgrade ? "더 자람" : "새 힘");
+            InkLocalizedText.SetSource(titleText, "힘이 자랐어요");
+            InkLocalizedText.SetSource(subtitleText, BuildSubtitle(
                 growthName,
                 level,
-                isUpgrade);
+                isUpgrade));
             PrepareDrops();
             PrepareNodeDrops();
             presentationGroup.alpha = 1f;
@@ -385,12 +424,18 @@ namespace MukJump.Core
             upgradeMode = false;
             hasNodeFeedback = false;
             activeDuration = SequenceDuration;
+            if (presentationRoot == null && canvasOwner != null)
+                presentationRoot = canvasOwner.Find("GrowthUnlockPresentation") as RectTransform;
+            if (presentationGroup == null && presentationRoot != null)
+                presentationGroup = presentationRoot.GetComponent<CanvasGroup>();
             if (presentationGroup != null)
             {
                 presentationGroup.alpha = 0f;
                 presentationGroup.interactable = false;
                 presentationGroup.blocksRaycasts = false;
             }
+            else if (presentationRoot != null)
+                presentationRoot.gameObject.SetActive(false);
 
             for (int i = 0; i < drops.Length; i++)
                 if (drops[i] != null)
@@ -415,6 +460,11 @@ namespace MukJump.Core
         {
             if (!playing)
                 return;
+            if (LobbySettingsProfile.ReducedMotionEnabled)
+            {
+                ResetPresentation();
+                return;
+            }
 
             // 프레임 수가 아니라 실제 비정지 시간을 따라가야 저사양 기기에서
             // 암막 연출이 두 배 이상 길어지지 않는다.
@@ -464,8 +514,13 @@ namespace MukJump.Core
 
         void ApplyFrame(float seconds)
         {
-            if (presentationGroup == null)
+            // 재생 도중 UI가 사라지면 프레임마다 다시 만들지 않고 안전하게 종료한다.
+            // 다음 Play/Initialize에서 누락된 부분만 다시 연결하거나 생성한다.
+            if (!HasValidReferences())
+            {
+                ResetPresentation();
                 return;
+            }
 
             float enter = SmoothRange(0f, 0.18f, seconds);
             float exit = SmoothRange(0.96f, SequenceDuration, seconds);
@@ -765,16 +820,9 @@ namespace MukJump.Core
             int level,
             bool isUpgrade)
         {
-            if (isUpgrade)
-            {
-                return string.IsNullOrWhiteSpace(growthName)
-                    ? $"먹결 · Lv. {level} 완성"
-                    : $"{growthName} · Lv. {level} 완성";
-            }
-
             return string.IsNullOrWhiteSpace(growthName)
-                ? "새 먹결이 열렸습니다"
-                : $"{growthName} · 새 먹결이 열렸습니다";
+                ? "먹빛이 힘으로 남았어요"
+                : growthName;
         }
 
         static Sprite CreateRingSprite()
@@ -835,19 +883,23 @@ namespace MukJump.Core
             Vector2 size,
             Vector3 rotation)
         {
-            var go = new GameObject(
+            Transform existing = parent.Find(objectName);
+            var go = existing != null ? existing.gameObject : new GameObject(
                 objectName,
                 typeof(RectTransform),
                 typeof(CanvasRenderer),
                 typeof(Image));
             var rect = go.GetComponent<RectTransform>();
             rect.SetParent(parent, false);
+            rect.SetAsLastSibling();
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = position;
             rect.sizeDelta = size;
             rect.localEulerAngles = rotation;
+            rect.localScale = Vector3.one;
             var image = go.GetComponent<Image>();
+            if (image == null) image = go.AddComponent<Image>();
             image.sprite = sprite;
             image.raycastTarget = false;
             image.color = Color.clear;
@@ -860,13 +912,16 @@ namespace MukJump.Core
             Vector2 position,
             Vector2 size)
         {
-            var go = new GameObject(objectName, typeof(RectTransform));
+            Transform existing = parent.Find(objectName);
+            var go = existing != null ? existing.gameObject : new GameObject(objectName, typeof(RectTransform));
             var rect = go.GetComponent<RectTransform>();
             rect.SetParent(parent, false);
+            rect.SetAsLastSibling();
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = position;
             rect.sizeDelta = size;
+            rect.localScale = Vector3.one;
             return rect;
         }
 
@@ -879,19 +934,23 @@ namespace MukJump.Core
             Vector2 size,
             FontStyle style)
         {
-            var go = new GameObject(
+            Transform existing = parent.Find(objectName);
+            var go = existing != null ? existing.gameObject : new GameObject(
                 objectName,
                 typeof(RectTransform),
                 typeof(CanvasRenderer),
                 typeof(Text));
             var rect = go.GetComponent<RectTransform>();
             rect.SetParent(parent, false);
+            rect.SetAsLastSibling();
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = position;
             rect.sizeDelta = size;
+            rect.localScale = Vector3.one;
             var text = go.GetComponent<Text>();
-            text.text = value;
+            if (text == null) text = go.AddComponent<Text>();
+            InkLocalizedText.SetSource(text, value);
             text.font = InkPalette.UiFont;
             text.fontSize = fontSize;
             text.fontStyle = style;
@@ -900,6 +959,7 @@ namespace MukJump.Core
             text.verticalOverflow = VerticalWrapMode.Truncate;
             text.raycastTarget = false;
             text.color = Color.clear;
+            InkLocalizedText.Bind(text);
             return text;
         }
 

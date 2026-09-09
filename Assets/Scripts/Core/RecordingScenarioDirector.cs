@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -130,20 +131,34 @@ namespace MukJump.EditorTools
             if (!SessionState.GetBool(ArmSessionKey, false))
                 return;
 
-            var lobbyStore = new MemoryLobbySettingsStore();
-            lobbyStore.SetFloat("MukJump.Settings.BgmVolume", 1f);
-            lobbyStore.SetFloat("MukJump.Settings.SfxVolume", 1f);
-            lobbyStore.SetInt("MukJump.Settings.TutorialSeen", 1);
-            lobbyStore.SetInt(
-                "MukJump.Settings.GameplayTutorialVersion",
-                LobbySettingsProfile.CurrentGameplayTutorialVersion);
-            lobbyStore.SetString("MukJump.Settings.PlayerUid", "MUK-RECORD");
-
-            LobbySettingsProfile.UseStoreForTests(lobbyStore);
-            PermanentGrowthProfile.UseStoreForTests(
-                new MemoryPermanentGrowthStore());
-            ScoreManager.UseStoreForTests(new MemoryScoreStore { Best = 12 });
             isolatedStoresInstalled = true;
+            try
+            {
+                var lobbyStore = new MemoryLobbySettingsStore();
+                lobbyStore.SetFloat("MukJump.Settings.BgmVolume", 1f);
+                lobbyStore.SetFloat("MukJump.Settings.SfxVolume", 1f);
+                lobbyStore.SetInt("MukJump.Settings.TutorialSeen", 1);
+                lobbyStore.SetInt(
+                    "MukJump.Settings.GameplayTutorialVersion",
+                    LobbySettingsProfile.CurrentGameplayTutorialVersion);
+                lobbyStore.SetString(
+                    "MukJump.Settings.PlayerUid",
+                    "MUK-RECORD");
+
+                LobbySettingsProfile.UseStoreForTests(lobbyStore);
+                PermanentGrowthProfile.UseStoreForTests(
+                    new MemoryPermanentGrowthStore());
+                ScoreManager.UseStoreForTests(
+                    new MemoryScoreStore { Best = 12 });
+            }
+            catch (Exception exception)
+            {
+                SessionState.SetBool(ArmSessionKey, false);
+                RestoreIsolatedRecordingStores();
+                Debug.LogError(
+                    "[MukJump] 촬영용 격리 저장소를 준비하지 못했습니다: " +
+                    exception.Message);
+            }
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -153,9 +168,28 @@ namespace MukJump.EditorTools
                 return;
 
             SessionState.SetBool(ArmSessionKey, false);
-            var host = new GameObject("RecordingScenarioDirector_EDITOR_ONLY");
-            DontDestroyOnLoad(host);
-            host.AddComponent<RecordingScenarioDirector>().Begin();
+            GameObject host = null;
+            try
+            {
+                host = new GameObject(
+                    "RecordingScenarioDirector_EDITOR_ONLY");
+                DontDestroyOnLoad(host);
+                RecordingScenarioDirector director =
+                    host.AddComponent<RecordingScenarioDirector>();
+                if (director == null)
+                    throw new InvalidOperationException(
+                        "촬영 감독 MonoBehaviour를 생성하지 못했습니다.");
+                director.Begin();
+            }
+            catch (Exception exception)
+            {
+                RestoreIsolatedRecordingStores();
+                if (host != null)
+                    Destroy(host);
+                Debug.LogError(
+                    "[MukJump] 촬영 시나리오를 시작하지 못했습니다: " +
+                    exception.Message);
+            }
         }
 
         void Awake()
@@ -173,9 +207,13 @@ namespace MukJump.EditorTools
             FinishActiveStroke();
             if (Instance == this)
                 Instance = null;
+            RestoreIsolatedRecordingStores();
+        }
+
+        static void RestoreIsolatedRecordingStores()
+        {
             if (!isolatedStoresInstalled)
                 return;
-
             LobbySettingsProfile.RestoreDefaultStoreForTests();
             PermanentGrowthProfile.RestoreDefaultStoreForTests();
             ScoreManager.RestoreDefaultStoreForTests();
@@ -306,7 +344,7 @@ namespace MukJump.EditorTools
                     windCueApplied = false;
                     GrantSwarmShields();
                     (ObstacleSpawner.Instance ??
-                     FindFirstObjectByType<ObstacleSpawner>())?
+                     FindAnyObjectByType<ObstacleSpawner>())?
                         .DebugSpawnHaetae();
                     return true;
 
@@ -463,7 +501,7 @@ namespace MukJump.EditorTools
         void BeginStrokeMotion(bool reverseSlope)
         {
             FinishActiveStroke();
-            strokeCapture ??= FindFirstObjectByType<StrokeCapture>();
+            strokeCapture ??= FindAnyObjectByType<StrokeCapture>();
             worldCamera ??= Camera.main;
             if (strokeCapture == null || worldCamera == null)
                 return;
@@ -508,10 +546,10 @@ namespace MukJump.EditorTools
 
         void ResolveRuntimeReferences()
         {
-            manager ??= GameManager.Instance ?? FindFirstObjectByType<GameManager>();
+            manager ??= GameManager.Instance ?? FindAnyObjectByType<GameManager>();
             navigator ??= LobbyScreenNavigator.Instance ??
-                          FindFirstObjectByType<LobbyScreenNavigator>();
-            strokeCapture ??= FindFirstObjectByType<StrokeCapture>();
+                          FindAnyObjectByType<LobbyScreenNavigator>();
+            strokeCapture ??= FindAnyObjectByType<StrokeCapture>();
             worldCamera ??= Camera.main;
         }
 

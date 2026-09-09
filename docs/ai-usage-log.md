@@ -2,6 +2,99 @@
 
 > 제출물 4번(AI 활용 기술 문서)의 원본 자료. 개발 중 AI 도구를 사용할 때마다 즉시 기록한다.
 
+### 2026-08-23 — 앱인토스 로고·사용자 식별·최소 설정
+
+- 사용 도구: OpenAI Codex, OpenAI ImageGen, 앱인토스 공식 Unity SDK·개발자 문서,
+  Unity EditMode 테스트
+- 목적: 실제 앱인토스 출시용 불투명 앱 로고를 만들고, 게임 사용자 식별키와
+  고객센터가 준비된 최소 설정 화면을 구성
+- 주요 프롬프트/지시: 기존 먹방울의 불규칙한 먹 몸통·흰 눈·두 다리를 유지하고
+  `#EAE3D2` 한지 배경과 먹 그림자를 넣은 글자 없는 정사각형 로고를 만든다.
+  `AIT.GetUserKeyForGame()` 결과는 게임을 막지 않고 저장하며 옵션에는 BGM/SFX,
+  고객센터 `cysbandcs@gmail.com`, 튜토리얼만 남긴다.
+- 결과물: `Assets/Art/Brand/mukjump_app_logo_600.png`,
+  `AppsInTossPlatformBridge.cs`, `LobbySettingsProfile.cs`, `LobbyOptionsView.cs`와
+  관련 EditMode 회귀 테스트·문서
+- 사람의 수정/검토 내용: 로고를 600×600 RGB 불투명 PNG로 변환하고 작은 아이콘에서도
+  캐릭터 실루엣과 그림자가 읽히는지 확인했다. 사용자 식별키 원문은 로그·설정 UI에
+  노출하지 않고 빈 값과 오류 문자열이 기존 키를 덮어쓰지 않게 했다.
+- 검증: 관련 `LobbyMenuTests` 11/11과 `LobbyWorldSetupTests` 2/2가 각각 통과했다.
+  전체 EditMode는 491개 중 477개 통과·14개 실패였으며, 기존 기준 실패 13개와
+  전체 묶음에서만 재현되는 로비 정적 상태 누수 1개다. Unity 6000.5.9f1 프로덕션
+  WebGL 패키징에 성공했고 `muk-jump.ait`는 압축 40.84MiB·압축 해제 58.24MiB,
+  SHA-256 `7dd520afebd344704df6ec89c761f1139570b2cd9d1bf4a43520a78272b88268`이다.
+- 외부 에셋/오픈소스: 새 외부 에셋 없음. 기존 자체 제작 먹방울과 한지 배경을
+  ImageGen 참고 이미지로 사용했다.
+
+### 2026-08-23 — 공개 배포용 README 정리
+
+- 사용 도구: OpenAI Codex, 앱인토스 공식 Unity SDK·출시 가이드
+- 목적: 종료된 대회 심사용 안내를 제거하고 실제 게임 프로젝트와 Apps in Toss
+  WebGL 배포 흐름을 기준으로 저장소 첫 화면을 정리
+- 주요 프롬프트/지시: README에서 이전 심사 관련 내용을 모두 삭제하고 일반 앱처럼
+  게임 소개, 실행 방법, 기술 정보와 Apps in Toss 제출 준비 사항을 작성한다.
+- 결과물: `README.md`의 심사용 APK·대회·제출 문구를 제거하고 Unity 6000.5.9f1,
+  Apps in Toss SDK 2.4.5, 단방향 발판과 현재 게임 기능을 반영했다.
+- 사람의 수정/검토 내용: 아직 출시되지 않은 배포 링크는 만들지 않았고, 콘솔 심사
+  서류 대신 개발자가 재현할 수 있는 Dev Server·Production Server·`.ait` 빌드 순서와
+  100MB 제한만 README에 남겼다.
+- 외부 에셋/오픈소스: 새 외부 에셋 없음.
+
+### 2026-08-23 — Unity 6000.5 최신 안정판·WebGL 독립 마이그레이션
+
+- 사용 도구: OpenAI Codex, Unity 공식 릴리스 아카이브, Unity Hub CLI,
+  Unity 배치모드 컴파일
+- 목적: 다른 Unity 프로젝트의 편집기 설치와 실행 상태를 유지하면서 먹점프만
+  최신 안정판과 WebGL 환경으로 분리해 앱인토스 빌드 기반을 고정
+- 주요 프롬프트/지시: Unity 최신 안정판과 WebGL Build Support를 설치하되,
+  NHN 심사 중이므로 커밋하지 않고 다른 프로젝트는 변경하지 않는다.
+- 결과물: Unity `6000.5.9f1`과 WebGL Build Support를 기존 `6000.2.8f1`,
+  `6000.3.10f1` 옆에 별도 설치하고 먹점프의 `ProjectVersion.txt`와 Unity 기본
+  패키지를 새 버전으로 마이그레이션했다. Unity 6000.5에서 컴파일 금지된
+  `GetInstanceID()` 식별 경로를 `GetEntityId()`로 교체했다.
+- 사람의 수정/검토 내용: 알파·베타인 6000.7/6000.6은 제외하고 최신 안정판만
+  선택했다. 실행 중인 SHIFT의 Unity 6000.3.10f1 프로세스와 다른 Hub 프로젝트는
+  닫거나 업그레이드하지 않았다.
+- 검증: Unity 6000.5.9f1에서 C# 컴파일과 Apps in Toss 배치 설정에 성공했다.
+  전체 EditMode는 `491개 중 478개 통과, 13개 실패`로, 실패는 기존 전역 상태 누수,
+  Recorder 런타임 경계와 먹 게이지 회수 테스트에 남아 있다. 새 Unity/WebGL로
+  `ait-build/muk-jump.ait`를 재생성했으며 압축 40.85MiB·압축 해제 58.25MiB로
+  100MB 제한보다 41.75MiB 여유가 있다.
+- 외부 에셋/오픈소스: 새 외부 에셋 없음. 기존 Apps in Toss Unity SDK 2.4.5 유지.
+
+### 2026-08-22 — 전체 먹선 발판 단방향 충돌
+
+- 사용 도구: OpenAI Codex, Unity EditMode 테스트
+- 목적: 먹방울이 상승할 때 일반 드로잉 발판과 시작 발판의 밑면에 부딪히지 않고,
+  내려올 때 윗면에서만 착지하도록 조작 감각을 단순화
+- 주요 프롬프트/지시: 모든 발판을 아래에서 통과 가능하게 변경하고 커밋하지 않는다.
+- 결과물: `PlatformCollider`의 일반·영구·특수 먹선에 단일
+  `PlatformEffector2D`를 적용하고, `PlayerController`가 윗면 접촉만 착지로 인정하도록 변경
+- 사람의 수정/검토 내용: 기존 풍맥·성장 발판의 165도 표면 호 규칙을 일반 발판에도
+  재사용하고, 수직 먹선을 벽처럼 붙잡던 양방향 접착 동작은 제거했다.
+- 외부 에셋/오픈소스: 없음
+
+### 2026-08-22 — 앱인토스 Unity WebGL 포팅 기반
+
+- 사용 도구: OpenAI Codex, 앱인토스 공식 Unity SDK·개발자 문서, Unity Hub CLI
+- 목적: NHN 심사 중인 Android/iOS 게임 동작을 보존하면서 먹점프를 앱인토스
+  바이브코딩 챌린지용 WebGL 미니앱으로 별도 패키징할 수 있는 기반을 추가
+- 주요 프롬프트/지시: 커밋·push 없이 WebGL Build Support와 공식 SDK를 설치하고,
+  토스 Safe Area·가시성·세로 화면·햅틱을 기존 모바일 경로와 분리한다. 첫 WebGL
+  세션은 핵심 튜토리얼 한 장만 보여 주고 낮은 고도 결과에는 짧은 실패 문구를 쓴다.
+- 결과물: `Packages/manifest.json`, `Assets/Scripts/Core/AppsInTossPlatformBridge.cs`,
+  `Assets/Editor/AppsInTossBuildAutomation.cs`, Safe Area·백그라운드·햅틱·첫 세션 UI
+  연동 코드와 회귀 테스트. Unity WebGL 전용 컴파일과 공식 SDK 패키징을 통과해
+  `ait-build/muk-jump.ait`를 생성했으며, 압축 43.23MiB·압축 해제 60.68MiB로
+  100MB 제한을 통과했다. 로컬 세로 브라우저에서 로딩 1.96초, 한 장 안내 종료 후
+  자동 점프와 8m 도달까지 확인했다.
+- 사람의 수정/검토 내용: 앱인토스 CSS 픽셀을 Unity 픽셀로 변환한 뒤 기존
+  `Screen.safeArea`와 교집합으로 합쳤다. 사용자 메뉴·첫 튜토리얼·플랫폼 백그라운드의
+  일시정지 소유권을 분리해 복귀가 다른 모달을 임의로 재개하지 않도록 했다. 콘솔의
+  실제 `appName`과 정식 아이콘 URL은 아직 전달되지 않아 로컬 빌드용 기본값만 두었다.
+- 외부 에셋/오픈소스: Apps in Toss Unity SDK 2.4.5
+  (`toss/apps-in-toss-unity-sdk`, 패키지 라이선스 기준). 새 외부 이미지·음원 없음.
+
 ### 2026-08-07 — 다른 개발자·AI 인수인계용 마스터 게임 바이블
 
 - 사용 도구: OpenAI Codex, 멀티에이전트 읽기 전용 코드·UI·아키텍처 감사

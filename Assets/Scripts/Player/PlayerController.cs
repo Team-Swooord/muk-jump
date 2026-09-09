@@ -68,10 +68,10 @@ namespace MukJump.Player
         [Tooltip("발판에서 미끄러지지 않도록 표면 쪽으로 누르는 약한 힘")]
         [SerializeField, Min(0f)] float adhesionSpeed = 0.18f;
 
-        public const int DefaultMaxHealth = 1;
-        public const int MaximumHealth = 5;
-        public const int RuntimeCloneMaxHealth = 2;
-        public const int MaximumRuntimeCloneHealth = 3;
+        public const int DefaultMaxHealth = 3;
+        public const int MaximumHealth = 11;
+        public const int RuntimeCloneMaxHealth = 1;
+        public const int MaximumRuntimeCloneHealth = 2;
 
         public bool IsGrounded { get; private set; }
         public bool IsDead { get; private set; }
@@ -85,7 +85,7 @@ namespace MukJump.Player
         public bool CanAutomaticJumpFromCurrentSurface =>
             !IsWallClinging || Time.time >= wallClingReleaseAllowedAt;
         /// 일반 먹피 성장은 본체에만 적용한다. 다만 마지막 먹피 결실을 열면
-        /// 모든 런타임 분신은 기본 2칸으로 시작하고 먹피 결실로 3칸이 된다.
+        /// 모든 런타임 분신은 기본 1칸으로 시작하고 먹피 결실로 2칸이 된다.
         public int MaxHealth => isRuntimeClone
             ? Mathf.Clamp(
                 RuntimeCloneMaxHealth + ActivePermanentGrowth.InkCloneMaxHealthBonus,
@@ -130,6 +130,8 @@ namespace MukJump.Player
         float wallClingReleaseAllowedAt;
         float wallRelatchAllowedAt;
         float nextSideWallBounceAt;
+        bool centeringAfterFall;
+        float fallRecoveryCenterX;
         float sideWallRiseGraceUntil;
         [SerializeField, HideInInspector] bool isRuntimeClone;
         static DeathInkStainPool deathStainPool;
@@ -209,7 +211,11 @@ namespace MukJump.Player
             if (IsDead) return;
             ResetWallTraversalState(true);
             DetachFromPlatform();
-            rb.position += offset;
+            Vector2 destination = rb.position + offset;
+            // 보간 중인 Transform은 이전 프레임 위치일 수 있다. 같은 호출에서 점수
+            // 원점·카메라가 새 고도를 읽도록 물리와 표시 좌표를 함께 이동한다.
+            transform.position = new Vector3(destination.x, destination.y, transform.position.z);
+            rb.position = destination;
             rb.linearVelocity = Vector2.zero;
             rb.angularVelocity = 0f;
             damageInvulnerableUntil = Time.time + 0.5f;
@@ -270,6 +276,8 @@ namespace MukJump.Player
         void FixedUpdate()
         {
             if (IsDead) return;
+            // 점프 연출·기기 화면 비율로 카메라 크기가 달라져도 보이는 하단과 일치시킨다.
+            if (cam != null) camHalfHeight = cam.orthographicSize;
 
             MaintainWallCling();
 
@@ -281,12 +289,23 @@ namespace MukJump.Player
                     ? Mathf.Atan2(GroundNormal.y, GroundNormal.x) * Mathf.Rad2Deg - 90f
                     : Mathf.Clamp(-rb.linearVelocity.x * 0.45f,
                         -maxVisualRollAngle, maxVisualRollAngle);
+                var weather = WindWeatherController.Instance;
+                bool tumbling = weather != null && weather.IsGaleActive &&
+                    !IsGrounded && CurrentPlatform == null && !IsWallClinging && !IsInkDropBoosted;
+                if (tumbling)
+                {
+                    float phase = (GetEntityId().GetHashCode() & 1023) * .618034f;
+                    float t = weather.UpdraftMotionTime;
+                    targetAngle = Mathf.Sin(t * 3.4f + phase) * 68f +
+                        Mathf.Sin(t * 6.1f + phase * .7f) * 22f;
+                }
                 rb.rotation = Mathf.MoveTowardsAngle(rb.rotation, targetAngle,
-                    visualRollSpeed * Time.fixedDeltaTime);
+                    (tumbling ? 420f : visualRollSpeed) * Time.fixedDeltaTime);
 
                 ApplyPermanentAirControl();
             }
 
+            UpdateFallRecoveryDirection();
             // 접지 플래그는 매 물리 스텝 초기화 → OnCollisionStay2D가 다시 세운다
             IsGrounded = IsWallClinging;
 
@@ -306,8 +325,9 @@ namespace MukJump.Player
             }
 
             if (cam != null && GameManager.Instance != null &&
-                GameManager.Instance.State == GameState.Playing &&
-                transform.position.y < cam.transform.position.y - camHalfHeight - deathEdgeMargin)
+                GameManager.Instance.IsGameplayTicking &&
+                !IsInkDropBoosted &&
+                rb.position.y < cam.transform.position.y - camHalfHeight - deathEdgeMargin)
             {
                 HandleFallBelowView();
             }
@@ -326,6 +346,14 @@ namespace MukJump.Player
                 return;
             }
 
+            // 장애물·방어막 직후 같은 물리 스텝에 하단 경계까지 내려가도
+            // 한 번의 접촉으로 보호막과 체력이 연달아 소모되면 안 된다.
+            if (Time.time < damageInvulnerableUntil)
+            {
+                RecoverFromFall();
+                return;
+            }
+
             if (ConsumeShield())
             {
                 RecoverFromFall();
@@ -333,9 +361,9 @@ namespace MukJump.Player
             }
 
             GameFeedbackController.Instance?.PlayHitStop();
-            CurrentHealth = Mathf.Max(0, CurrentHealth - 1);
-            HealthChanged?.Invoke(CurrentHealth, MaxHealth);
-            if (CurrentHealth <= 0)
+            int nextHealth = Mathf.Max(0, CurrentHealth - 1);
+            MukJumpAnalytics.Damage(fall: true);
+            if (nextHealth <= 0)
             {
                 if (RunGrowthController.Instance != null &&
                     RunGrowthController.Instance.TryReviveOriginalPlayer(this))
@@ -343,9 +371,11 @@ namespace MukJump.Player
                     ApplyLastBreathRevive(recoverFromFall: true);
                     return;
                 }
-                Kill();
+                KillWithCause(AnalyticsDeathCause.Fall);
                 return;
             }
+            CurrentHealth = nextHealth;
+            NotifyHealthChanged();
 
             damageInvulnerableUntil = Mathf.Max(
                 damageInvulnerableUntil,
@@ -393,6 +423,7 @@ namespace MukJump.Player
                 ApplyObstacleHitRecovery(shieldHitGraceDuration, false);
                 return true;
             }
+            GameFeedbackController.Instance?.PlayDamageSound();
             if (CurrentHealth <= 1 &&
                 RunGrowthController.Instance != null &&
                 RunGrowthController.Instance.TryReviveOriginalPlayer(this))
@@ -401,12 +432,14 @@ namespace MukJump.Player
                 return true;
             }
 
-            CurrentHealth = Mathf.Max(0, CurrentHealth - 1);
-            HealthChanged?.Invoke(CurrentHealth, MaxHealth);
-            if (CurrentHealth <= 0)
-                Kill();
+            MukJumpAnalytics.Damage(fall: false);
+            int nextHealth = Mathf.Max(0, CurrentHealth - 1);
+            if (nextHealth <= 0)
+                KillWithCause(AnalyticsDeathCause.Obstacle);
             else
             {
+                CurrentHealth = nextHealth;
+                NotifyHealthChanged();
                 RunGrowthController growth = RunGrowthController.Instance;
                 bool preserveMotion = growth != null &&
                                       growth.TryPreserveHitMotion();
@@ -453,7 +486,7 @@ namespace MukJump.Player
             if (playInkPuff)
             {
                 GetComponent<ItemEffectView>()?.PlayVitalityHit();
-                GameFeedbackController.Instance?.PlayDamageHit(transform.position);
+                GameFeedbackController.Instance?.PlayDamageHit(transform.position, playSound: false);
             }
         }
 
@@ -472,7 +505,7 @@ namespace MukJump.Player
             if (IsDead || amount <= 0 || CurrentHealth >= MaxHealth)
                 return false;
             CurrentHealth = Mathf.Min(MaxHealth, CurrentHealth + amount);
-            HealthChanged?.Invoke(CurrentHealth, MaxHealth);
+            NotifyHealthChanged();
             return true;
         }
 
@@ -497,9 +530,17 @@ namespace MukJump.Player
                 !IsGrounded && CurrentPlatform == null && !IsInkDropBoosted;
             if (isNaturalAirborne)
             {
-                rb.gravityScale = Time.time < apexGravityUntil
+                float baseGravity = Time.time < apexGravityUntil
                     ? normalGravityScale * 0.8f
                     : normalGravityScale;
+                var weather = WindWeatherController.Instance;
+                rb.gravityScale = baseGravity * (1f - (weather != null ? weather.GravitySuppression : 0f));
+                // 부유 중의 느린 하향 흐름을 추락으로 취급해 자동 낙하 비기를 소모하지 않는다.
+                // 올라가는 동안만 중력 부담을 줄여 점프 높이를 약 1.5배로 늘린다.
+                // 낙하를 강제 상승시키거나 한 높이에 붙잡아 두지 않는다.
+                if (weather != null && rb.linearVelocity.y > 0f)
+                    rb.gravityScale *= weather.RisingGravityMultiplier;
+                if (weather != null && weather.IsGaleActive) return;
             }
 
             // 접착된 대각선 발판의 하강 접선 속도나 먹물방울 상승을 낙하로
@@ -535,6 +576,7 @@ namespace MukJump.Player
         public void LaunchToHeight(float height)
         {
             if (!EnsureBody()) return;
+            centeringAfterFall = false;
             GetComponent<AutoJump>()?.CancelForSpecialLaunch();
             automaticJumpInFlight = false;
             // 대각선 발판 접착 중에는 gravityScale이 0이므로 먼저 접착을 풀어야
@@ -569,6 +611,7 @@ namespace MukJump.Player
         /// AutoJump가 만든 상승만 정점·낙하 영구 성장의 대상으로 표시한다.
         public void BeginAutomaticJumpFlight()
         {
+            centeringAfterFall = false;
             if (!IsDead)
                 automaticJumpInFlight = true;
         }
@@ -577,7 +620,7 @@ namespace MukJump.Player
         {
             inkDropEndShieldArmed = false;
             CurrentHealth = MaxHealth;
-            HealthChanged?.Invoke(CurrentHealth, MaxHealth);
+            NotifyHealthChanged();
         }
 
         bool ConsumeShield()
@@ -585,7 +628,7 @@ namespace MukJump.Player
             if (!HasShield) return false;
             HasShield = false;
             damageInvulnerableUntil = Time.time + shieldHitGraceDuration;
-            ShieldConsumed?.Invoke();
+            NotifyShieldConsumed();
             GameFeedbackController.Instance?.PlayShieldBreak(transform.position);
             return true;
         }
@@ -596,7 +639,6 @@ namespace MukJump.Player
         void ApplyLastBreathRevive(bool recoverFromFall)
         {
             CurrentHealth = 1;
-            HealthChanged?.Invoke(CurrentHealth, MaxHealth);
             damageInvulnerableUntil = Mathf.Max(
                 damageInvulnerableUntil,
                 Time.time + LastBreathInvulnerabilityDuration);
@@ -609,6 +651,8 @@ namespace MukJump.Player
 
             inkDropEndShieldArmed = false;
             LaunchInkDrop(LastBreathReviveHeight);
+            if (recoverFromFall) AimFallRecoveryAtCenter();
+            NotifyHealthChanged();
             GetComponent<InkDropJumpVfx>()?.Play();
         }
 
@@ -618,19 +662,51 @@ namespace MukJump.Player
             float safeY = cam.transform.position.y - camHalfHeight + 0.8f;
             rb.position = new Vector2(rb.position.x, safeY);
             LaunchToHeight(shieldRecoveryHeight);
+            AimFallRecoveryAtCenter();
+        }
+
+        void AimFallRecoveryAtCenter()
+        {
+            if (cam == null || rb == null) return;
+            fallRecoveryCenterX = cam.transform.position.x;
+            centeringAfterFall = true;
+            UpdateFallRecoveryDirection();
+        }
+
+        void UpdateFallRecoveryDirection()
+        {
+            if (!centeringAfterFall || rb == null) return;
+            if (CurrentPlatform != null || IsWallClinging || IsGrounded)
+            {
+                centeringAfterFall = false;
+                return;
+            }
+            Vector2 velocity = rb.linearVelocity;
+            float delta = fallRecoveryCenterX - rb.position.x;
+            if (velocity.y <= 0f || Mathf.Abs(delta) < 0.06f)
+            {
+                rb.linearVelocity = new Vector2(0f, velocity.y);
+                centeringAfterFall = false;
+                return;
+            }
+            // 남은 상승 시간에 맞춰 중앙으로 향한다. 이전 벽 방향 관성은 유지하지 않는다.
+            float gravity = Mathf.Abs(Physics2D.gravity.y * rb.gravityScale);
+            float remainingRise = gravity > 0.01f ? velocity.y / gravity : 1f;
+            velocity.x = Mathf.Clamp(delta / Mathf.Max(0.25f, remainingRise), -4f, 4f);
+            rb.linearVelocity = velocity;
         }
 
         /// 추락 또는 장애물 충돌의 공통 사망 진입점.
         /// 캐릭터를 숨기고 먹 번짐이 퍼졌다 사라지는 연출을 재생한다.
-        public void Kill()
+        public void Kill() => KillWithCause(AnalyticsDeathCause.Other);
+
+        void KillWithCause(AnalyticsDeathCause cause)
         {
             if (IsDead) return;
+            MukJumpAnalytics.PlayerDied(cause);
 
-            if (CurrentHealth != 0)
-            {
-                CurrentHealth = 0;
-                HealthChanged?.Invoke(CurrentHealth, MaxHealth);
-            }
+            bool healthChanged = CurrentHealth != 0;
+            CurrentHealth = 0;
             IsDead = true;
             ClearWallCling(false);
             IsInkDropBoosted = false;
@@ -641,6 +717,9 @@ namespace MukJump.Player
             foreach (var col in GetComponents<Collider2D>())
                 col.enabled = false;
 
+            if (healthChanged)
+                NotifyHealthChanged();
+
             bool isLastPlayer = GameManager.Instance == null ||
                                 GameManager.Instance.NotifyPlayerDied(this);
             GameFeedbackController.Instance?.PlayDeath(
@@ -649,11 +728,22 @@ namespace MukJump.Player
         }
 
         /// 보상형 광고를 끝까지 본 뒤 게임오버 직전 먹방울을 체력 1로 복구한다.
-        /// 이미 끝난 사망 연출도 되돌릴 수 있도록 렌더러·충돌·물리를 모두 복원한다.
+        /// 이미 끝난 사망 연출도 되돌리고 50m 상승과 방어막 1개를 함께 지급한다.
         public bool ReviveFromRewardedAd()
         {
             if (!IsDead || !EnsureBody())
                 return false;
+
+            Camera reviveCamera = cam != null ? cam : Camera.main;
+            if (reviveCamera == null)
+            {
+                Debug.LogWarning(
+                    "[MukJump] 부활 안전 위치를 계산할 MainCamera가 없어 보상을 보류합니다.",
+                    this);
+                return false;
+            }
+            cam = reviveCamera;
+            camHalfHeight = cam.orthographicSize;
 
             if (deathSequenceRoutine != null)
             {
@@ -663,14 +753,16 @@ namespace MukJump.Player
 
             IsDead = false;
             CurrentHealth = 1;
-            HealthChanged?.Invoke(CurrentHealth, MaxHealth);
             ResetWallTraversalState(true);
             IsGrounded = false;
             CurrentPlatform = null;
             GroundNormal = Vector2.up;
             HasShield = false;
-            damageInvulnerableUntil = Time.time +
-                                      LastBreathInvulnerabilityDuration;
+            inkDropEndShieldArmed = false;
+            TryGrantShield();
+            damageInvulnerableUntil = Mathf.Max(
+                damageInvulnerableUntil,
+                Time.time + LastBreathInvulnerabilityDuration);
 
             foreach (var col in GetComponents<Collider2D>())
                 col.enabled = true;
@@ -684,17 +776,58 @@ namespace MukJump.Player
             rb.gravityScale = normalGravityScale;
             rb.linearVelocity = Vector2.zero;
             rb.angularVelocity = 0f;
-            if (cam != null)
-            {
-                float safeY = cam.transform.position.y - camHalfHeight + 1.1f;
-                rb.position = new Vector2(rb.position.x, safeY);
-            }
+            float safeY = cam.transform.position.y - camHalfHeight + 1.1f;
+            rb.position = new Vector2(rb.position.x, safeY);
             rb.WakeUp();
 
-            inkDropEndShieldArmed = false;
             LaunchInkDrop(LastBreathReviveHeight);
+            NotifyHealthChanged();
             GetComponent<InkDropJumpVfx>()?.Play();
             return true;
+        }
+
+        void NotifyHealthChanged()
+        {
+            Action<int, int> listeners = HealthChanged;
+            if (listeners == null)
+                return;
+
+            foreach (Action<int, int> listener in listeners.GetInvocationList())
+            {
+                try
+                {
+                    listener(CurrentHealth, MaxHealth);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning(
+                        "[MukJump] 체력 변경 알림 구독자 예외를 격리했습니다: " +
+                        exception.Message,
+                        this);
+                }
+            }
+        }
+
+        void NotifyShieldConsumed()
+        {
+            Action listeners = ShieldConsumed;
+            if (listeners == null)
+                return;
+
+            foreach (Action listener in listeners.GetInvocationList())
+            {
+                try
+                {
+                    listener();
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning(
+                        "[MukJump] 방어막 소모 알림 구독자 예외를 격리했습니다: " +
+                        exception.Message,
+                        this);
+                }
+            }
         }
 
         System.Collections.IEnumerator DeathSequence(bool isLastPlayer)
@@ -741,10 +874,35 @@ namespace MukJump.Player
 
             if (playerRenderer != null) playerRenderer.enabled = false;
 
-            // 마지막 캐릭터는 게임오버 씬이 유지하므로 숨긴 채 남기고,
-            // 먹분신이 살아 있으면 죽은 개체만 정리한다.
-            if (!isLastPlayer) Destroy(gameObject);
+            // 광고 부활은 항상 원본 먹방울을 되살린다. 원본이 분신보다 먼저
+            // 죽어도 숨긴 사체를 판 종료까지 보존하고, 분신만 즉시 정리한다.
+            if (ShouldDestroyAfterDeathSequence(isLastPlayer, isRuntimeClone))
+                Destroy(gameObject);
             deathSequenceRoutine = null;
+        }
+
+        public static bool ShouldDestroyAfterDeathSequence(
+            bool isLastPlayer,
+            bool isRuntimeClone) => !isLastPlayer && isRuntimeClone;
+
+        bool TryHandleOffscreenLanding(Collision2D collision)
+        {
+            var manager = GameManager.Instance;
+            if (cam == null || manager == null || !manager.IsGameplayTicking || IsInkDropBoosted)
+                return false;
+
+            camHalfHeight = cam.orthographicSize;
+            float bottom = cam.transform.position.y - camHalfHeight;
+            for (int i = 0; i < collision.contactCount; i++)
+            {
+                var contact = collision.GetContact(i);
+                if (contact.normal.y < groundNormalMinY || contact.point.y >= bottom) continue;
+                // 화면 밖 발판이 몸체 중심의 추락선을 넘기 전에 받쳐 주면 무한 점프가 된다.
+                // 착지·풍맥·자동 점프보다 먼저 기존의 방어막/체력 소모와 복귀 경로로 보낸다.
+                HandleFallBelowView();
+                return true;
+            }
+            return false;
         }
 
         void OnDestroy()
@@ -754,7 +912,10 @@ namespace MukJump.Player
 
         void OnCollisionStay2D(Collision2D collision)
         {
+            if (IsDead || TryHandleOffscreenLanding(collision)) return;
             var sideWall = collision.collider.GetComponent<ScreenSideWall>();
+            if (sideWall != null && TryHandleFallRecoveryWallContact(sideWall.IsLeft ? 1f : -1f))
+                return;
             if (IsWallClinging && sideWall != null && sideWall == clingingWall)
             {
                 MaintainWallCling();
@@ -837,7 +998,7 @@ namespace MukJump.Player
 
         void OnCollisionEnter2D(Collision2D collision)
         {
-            if (IsDead) return;
+            if (IsDead || TryHandleOffscreenLanding(collision)) return;
 
             var platform = collision.collider.GetComponentInParent<PlatformCollider>();
             bool hasTopContact = false;
@@ -850,11 +1011,15 @@ namespace MukJump.Player
 
             if (hasTopContact && platform != null && platform.TryUseWindCurrent(this))
             {
+                PlayerController feedbackPlayer = this;
                 if (GameManager.Instance != null)
-                    GameManager.Instance.LaunchSwarmInkDrop(this, 36f);
+                {
+                    if (GameManager.Instance.LaunchSwarmInkDrop(this, 36f, out var representative))
+                        feedbackPlayer = representative;
+                }
                 else
                     LaunchInkDrop(36f);
-                GetComponent<InkDropJumpVfx>()?.Play();
+                feedbackPlayer.GetComponent<InkDropJumpVfx>()?.Play();
                 GameFeedbackController.Instance?.ShowZone("풍맥 상승", "바람길이 먹방울을 밀어 올립니다");
                 return;
             }
@@ -865,7 +1030,10 @@ namespace MukJump.Player
                 if (IsWallClinging)
                     ClearWallCling(true);
                 automaticJumpInFlight = false;
-                GameFeedbackController.Instance?.PlayLanding(transform.position,
+                Vector3 landingPoint = PrimaryCollider != null
+                    ? new Vector3(transform.position.x, PrimaryCollider.bounds.min.y, transform.position.z)
+                    : transform.position;
+                GameFeedbackController.Instance?.PlayLanding(landingPoint,
                     Mathf.Abs(collision.relativeVelocity.y));
                 bool drawnPlatform = platform != null &&
                                      platform.IsTemporaryDrawnPlatform;
@@ -878,6 +1046,8 @@ namespace MukJump.Player
             if (sideWall == null) return;
 
             float inwardDirection = sideWall.IsLeft ? 1f : -1f;
+            if (TryHandleFallRecoveryWallContact(inwardDirection))
+                return;
             if (TryBeginWallCling(sideWall, inwardDirection))
             {
                 GameFeedbackController.Instance?.PlayWallHit(transform.position, inwardDirection);
@@ -919,6 +1089,15 @@ namespace MukJump.Player
 
         /// 벽 충돌 한 번을 화면 안쪽의 짧은 트램펄린 반동으로 바꾼다. 수평 방향은
         /// 항상 예측 가능하게 안쪽이고, 수직 높이만 좁은 범위에서 달라진다.
+        bool TryHandleFallRecoveryWallContact(float inwardDirection)
+        {
+            if (!centeringAfterFall || rb == null) return false;
+            ClearWallCling(false);
+            SeparateFromSideWall(inwardDirection);
+            UpdateFallRecoveryDirection();
+            return true;
+        }
+
         static Vector2 ResolveSideWallBounceVelocity(
             Vector2 currentVelocity,
             float inwardDirection,

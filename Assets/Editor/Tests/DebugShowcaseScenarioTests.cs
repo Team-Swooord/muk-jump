@@ -15,7 +15,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void FourScenariosUseDistinctMapsSwarmsAndGrowthBuilds()
+        public void FiveScenariosUseDistinctMapsAndMaximumCurrentGrowth()
         {
             IReadOnlyList<DebugShowcaseScenarioDefinition> definitions =
                 DebugShowcaseScenarioProfile.Definitions;
@@ -32,7 +32,7 @@ namespace MukJump.EditorTests
                     $"{definition.SurvivalPath}/" +
                     $"{definition.LeapPath}/{definition.InkPath}"), Is.True);
                 Assert.That(definition.CreateGrowthSnapshot().OwnedNodeCount,
-                    Is.EqualTo(15));
+                    Is.EqualTo(PermanentGrowthCatalog.Nodes.Count));
             }
         }
 

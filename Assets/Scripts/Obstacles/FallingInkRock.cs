@@ -93,14 +93,15 @@ namespace MukJump.Obstacles
         {
             if (State == FallingInkRockState.Resolved) return;
 
-            if (GameManager.Instance == null ||
-                GameManager.Instance.State != GameState.Playing)
+            GameManager manager = GameManager.Instance;
+            if (manager == null || manager.State == GameState.Lobby)
             {
                 ResolveImmediately();
                 return;
             }
-            // 일시정지·화면 전환 동안에는 활성 낙묵석의 예고/낙하 상태를 보존한다.
-            if (!GameManager.Instance.IsGameplayTicking)
+            // GameOver는 광고 부활 전까지 같은 판이다. 일시정지·화면 전환과
+            // 마찬가지로 예고/낙하/수명을 그대로 보존하고 로비에서만 반납한다.
+            if (!manager.IsGameplayTicking)
                 return;
 
             lifetimeElapsed += Time.deltaTime;
@@ -123,6 +124,9 @@ namespace MukJump.Obstacles
         void FixedUpdate()
         {
             if (State != FallingInkRockState.Falling) return;
+            GameManager manager = GameManager.Instance;
+            if (manager != null && !manager.IsGameplayTicking)
+                return;
 
             fallSpeed = Mathf.Min(maxFallSpeed,
                 fallSpeed + fallAcceleration * Time.fixedDeltaTime);
@@ -168,6 +172,9 @@ namespace MukJump.Obstacles
         bool ResolveCollision(Collider2D other)
         {
             if (State != FallingInkRockState.Falling) return false;
+            GameManager manager = GameManager.Instance;
+            if (manager != null && !manager.IsGameplayTicking)
+                return false;
 
             var player = other.GetComponentInParent<PlayerController>();
             if (player != null)
@@ -334,8 +341,14 @@ namespace MukJump.Obstacles
             if (worldCamera == null) return;
             EnsureWarningVisuals();
             float cameraDistance = -worldCamera.transform.position.z;
-            float markerY = worldCamera.ViewportToWorldPoint(
-                new Vector3(0.5f, 0.09f, cameraDistance)).y;
+            // 붉은 원 전체가 게이지 위에 있어야 한다. 낙하 X·예고 시간·충돌은 바꾸지 않는다.
+            const float outerRadius = 0.42f * 0.58f * 1.06f + 0.065f * 0.5f;
+            float markerExtentPixels = Mathf.Abs(worldCamera.WorldToScreenPoint(Vector3.up * outerRadius).y -
+                worldCamera.WorldToScreenPoint(Vector3.zero).y);
+            float markerScreenY = CalculateWarningMarkerScreenY(MobileUiLayout.CurrentSafeArea,
+                Screen.width, Screen.height, Application.platform, markerExtentPixels);
+            float markerY = worldCamera.ScreenToWorldPoint(
+                new Vector3(Screen.width * 0.5f, markerScreenY, cameraDistance)).y;
             Vector3 markerCenter = new(transform.position.x, markerY, 0f);
             float pulse = Mathf.Lerp(0.3f, 0.42f, wave);
             for (int i = 0; i < warningMarker.positionCount; i++)
@@ -361,6 +374,14 @@ namespace MukJump.Obstacles
             warningGuide.startColor = warningGuide.endColor = guideColor;
             warningGuide.SetPosition(0, markerCenter + Vector3.up * 0.35f);
             warningGuide.SetPosition(1, transform.position + Vector3.down * WorldRadius);
+        }
+
+        public static float CalculateWarningMarkerScreenY(Rect safeArea, int width, int height,
+            RuntimePlatform platform, float markerExtentPixels)
+        {
+            float hudTop = PrototypeHud.CalculateGaugeTopScreenY(safeArea, width, height, platform);
+            return Mathf.Max(height * 0.09f,
+                hudTop + Mathf.Max(16f, width * 0.025f) + Mathf.Max(0f, markerExtentPixels));
         }
 
         void SetWarningVisible(bool visible)

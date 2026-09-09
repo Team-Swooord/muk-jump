@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using MukJump.Core;
 using MukJump.Drawing;
 using MukJump.Items;
@@ -112,6 +113,7 @@ public sealed class ItemSpawnerBalanceTests
     [TestCase(18f, 0)]
     [TestCase(24f, 1)]
     [TestCase(3.2f, 2)]
+    [TestCase(4.8f, 3)]
     public void LegacySceneInkCapacityUpgradesToCurrentBalance(
         float legacyCapacity,
         int legacyTuningVersion)
@@ -131,30 +133,54 @@ public sealed class ItemSpawnerBalanceTests
             (int)GetField(capture, "inkCapacityTuningVersion"));
     }
 
-    [Test]
-    public void InkGaugeTrackRepresentsFullTwoPointFiveCapacityGrowth()
+    [TestCase(6f, 3, 6f)]
+    [TestCase(4.8f, 0, 4.8f)]
+    [TestCase(4.8f, 1, 4.8f)]
+    [TestCase(4.8f, 2, 4.8f)]
+    [TestCase(4.8f, 4, 4.8f)]
+    [TestCase(6f, 4, 6f)]
+    public void InkCapacityMigrationPreservesCustomAndAlreadyCurrentValues(
+        float savedCapacity,
+        int savedTuningVersion,
+        float expectedCapacity)
     {
-        MethodInfo method = typeof(PrototypeHud).GetMethod(
-            "CalculateGaugeTrackWidth",
+        var capture = Track(new GameObject("CustomStrokeCapture"))
+            .AddComponent<StrokeCapture>();
+        SetField(capture, "inkCapacity", savedCapacity);
+        SetField(capture, "inkCapacityTuningVersion", savedTuningVersion);
+
+        Invoke(capture, "UpgradeInkCapacityTuning");
+
+        Assert.That(
+            (float)GetField(capture, "inkCapacity"),
+            Is.EqualTo(expectedCapacity).Within(0.0001f));
+        Assert.AreEqual(
+            StrokeCapture.CurrentInkCapacityTuningVersion,
+            (int)GetField(capture, "inkCapacityTuningVersion"));
+    }
+
+    [TestCase(0f, 1000f)]
+    [TestCase(20f, 1080f)]
+    [TestCase(57f, 1179f)]
+    public void PortraitInkGaugeKeepsEightPercentMarginOnBothSides(
+        float safeXMin,
+        float safeWidth)
+    {
+        MethodInfo boundsMethod = typeof(PrototypeHud).GetMethod(
+            "CalculatePortraitHorizontalBounds",
             BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.That(method, Is.Not.Null);
-
-        const float safeWidth = 1000f;
-        const float horizontalMargin = 40f;
-        float baseWidth = (float)method.Invoke(
+        Assert.That(boundsMethod, Is.Not.Null);
+        Rect bounds = (Rect)boundsMethod.Invoke(
             null,
-            new object[] { safeWidth, horizontalMargin, 1f });
-        float fullGrowthWidth = (float)method.Invoke(
-            null,
-            new object[] { safeWidth, horizontalMargin, 2.5f });
+            new object[] { safeXMin, safeWidth });
 
-        Assert.That(baseWidth, Is.EqualTo(330f).Within(0.001f));
-        Assert.That(fullGrowthWidth, Is.EqualTo(825f).Within(0.001f));
-        Assert.That(fullGrowthWidth / baseWidth,
-            Is.EqualTo(2.5f).Within(0.001f));
+        Assert.That(bounds.xMin,
+            Is.EqualTo(safeXMin + safeWidth * .08f).Within(0.001f));
+        Assert.That(bounds.xMax,
+            Is.EqualTo(safeXMin + safeWidth * .92f).Within(0.001f));
 
-        // 용량은 길이만 바꾸고, 두께와 붓은 기기 폭에 고정한다. 최대 성장에서도
-        // 붓 겹침을 포함한 전체가 좌우 4% 여백 안에 들어가야 합니다.
+        // 트랙과 붓 아이콘이 겹친 후의 전체 폭이 같은 경계에
+        // 정확히 맞아야 실기기에서 붓만 밖으로 빠지지 않는다.
         MethodInfo heightMethod = typeof(PrototypeHud).GetMethod(
             "CalculateGaugeVisualHeight",
             BindingFlags.Static | BindingFlags.NonPublic);
@@ -163,19 +189,273 @@ public sealed class ItemSpawnerBalanceTests
             BindingFlags.Static | BindingFlags.NonPublic);
         Assert.That(heightMethod, Is.Not.Null);
         Assert.That(iconMethod, Is.Not.Null);
-        float gaugeHeight = (float)heightMethod.Invoke(
-            null, new object[] { safeWidth });
         float iconSize = (float)iconMethod.Invoke(
             null, new object[] { safeWidth });
-        float unfitClusterWidth =
-            fullGrowthWidth + iconSize - iconSize * 0.32f;
-        float maximumClusterWidth = safeWidth - horizontalMargin * 2f;
-        float fit = Mathf.Min(1f, maximumClusterWidth / unfitClusterWidth);
-        float clusterWidth = unfitClusterWidth * fit;
-        Assert.That(gaugeHeight, Is.EqualTo(120f).Within(0.001f));
-        Assert.That(iconSize, Is.EqualTo(140f).Within(0.001f));
-        Assert.That(clusterWidth,
-            Is.LessThanOrEqualTo(maximumClusterWidth));
+        float overlap = iconSize * 0.62f;
+        float trackWidth = bounds.width - iconSize + overlap;
+        Assert.That(trackWidth + iconSize - overlap,
+            Is.EqualTo(bounds.width).Within(0.001f));
+    }
+
+    [TestCase(540f)]
+    [TestCase(1000f)]
+    [TestCase(1080f)]
+    [TestCase(1179f)]
+    [TestCase(1440f)]
+    [TestCase(876.75f)]
+    public void InkGaugeEntersBrushCenterAtEveryRemainingAmount(float layoutWidth)
+    {
+        float iconSize = layoutWidth * 0.14f;
+        float height = layoutWidth * 0.12f;
+        float overlapRatio = (float)typeof(PrototypeHud).GetField("BrushOverlapRatio",
+            BindingFlags.Static | BindingFlags.NonPublic).GetRawConstantValue();
+        Assert.That(overlapRatio, Is.EqualTo(0.62f));
+        float width = layoutWidth - 60f - iconSize + iconSize * overlapRatio;
+        var method = typeof(PrototypeHud).GetMethod("CalculateBrushConnectedTrackRect",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var fillMethod = typeof(PrototypeHud).GetMethod("CalculateGaugeFillRect",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Rect track = (Rect)method.Invoke(null, new object[] { 30f, width, height, 500f, iconSize });
+        var brush = new Rect(track.xMax - iconSize * overlapRatio,
+            500f - iconSize * 0.5f, iconSize, iconSize);
+        Assert.That(track.center.y, Is.EqualTo(brush.center.y).Within(0.001f));
+        Assert.That(track.xMax, Is.GreaterThan(brush.center.x), "붓의 중앙을 살짝 지나도록 끝을 겹친다");
+        Assert.That(brush.xMax, Is.EqualTo(layoutWidth - 30f).Within(0.001f));
+        foreach (float ratio in new[] { 0f, 0.1f, 0.5f, 1f })
+        foreach (bool golden in new[] { false, true })
+        {
+            Rect fill = (Rect)fillMethod.Invoke(null, new object[] { track, ratio, golden });
+            Assert.That(fill.xMax, Is.EqualTo(track.xMax).Within(0.001f));
+            Assert.That(fill.center.y, Is.EqualTo(track.center.y).Within(0.001f));
+            Assert.That(fill.height, Is.EqualTo(height).Within(0.001f));
+            Assert.That(fill.width, Is.EqualTo(track.width * (golden ? 1f : ratio)).Within(0.001f));
+        }
+    }
+
+    [TestCase("muk_gauge_fill.png")]
+    [TestCase("muk_gauge_track.png")]
+    public void GaugeAndBrushArtworkActuallyOverlapBeyondTransparentImageBounds(string gaugeFile)
+    {
+        Texture2D gauge = Track(new Texture2D(2, 2));
+        Texture2D brush = Track(new Texture2D(2, 2));
+        Assert.That(gauge.LoadImage(System.IO.File.ReadAllBytes("Assets/Art/UI/" + gaugeFile)), Is.True);
+        Assert.That(brush.LoadImage(System.IO.File.ReadAllBytes("Assets/Art/UI/muk_brush_icon.png")), Is.True);
+        const float iconSize = 140f;
+        var method = typeof(PrototypeHud).GetMethod("CalculateBrushConnectedTrackRect",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Rect track = (Rect)method.Invoke(null, new object[] { 30f, 844.8f, 120f, 500f, iconSize });
+        var icon = new Rect(track.xMax - iconSize * 0.62f, 430f, iconSize, iconSize);
+        float cap = Mathf.Clamp(gauge.height / (float)gauge.width, 0.08f, 0.25f);
+        int opaqueOverlap = 0;
+        // 3-slice의 오른쪽 캡과 실제 붓털 알파를 같은 GUI 위치에서 비교한다.
+        for (int y = 0; y < 32; y++)
+        for (int x = 0; x < 32; x++)
+        {
+            float px = Mathf.Lerp(icon.x, track.xMax, (x + 0.5f) / 32f);
+            float py = Mathf.Lerp(track.y, track.yMax, (y + 0.5f) / 32f);
+            if (!icon.Contains(new Vector2(px, py))) continue;
+            float u = 1f - (track.xMax - px) / track.height * cap;
+            float v = 1f - (py - track.y) / track.height;
+            float brushU = (px - icon.x) / icon.width;
+            float brushV = 1f - (py - icon.y) / icon.height;
+            if (gauge.GetPixelBilinear(u, v).a > 0.5f &&
+                brush.GetPixelBilinear(brushU, brushV).a > 0.5f) opaqueOverlap++;
+        }
+        Assert.That(opaqueOverlap, Is.GreaterThan(20),
+            "Rect만 겹치고 투명 여백 때문에 실제 게이지와 붓이 떨어져 있으면 안 됩니다.");
+    }
+
+    [Test]
+    public void FreshRunSnapsFullInkButRewardedRevivePreservesDisplay()
+    {
+        var capture = Track(new GameObject("HudStrokeCapture"))
+            .AddComponent<StrokeCapture>();
+        var hud = Track(new GameObject("PrototypeHud"))
+            .AddComponent<PrototypeHud>();
+        SetField(hud, "strokeCapture", capture);
+        SetField(hud, "displayedInkRatio", 0.25f);
+        SetField(hud, "displayedInkRatioInitialized", true);
+
+        Invoke(
+            hud,
+            "HandleGameStateChanged",
+            GameState.Lobby,
+            GameState.Playing);
+
+        Assert.That(capture.InkRemaining01, Is.EqualTo(1f).Within(0.0001f));
+        Assert.That(
+            (float)GetField(hud, "displayedInkRatio"),
+            Is.EqualTo(1f).Within(0.0001f));
+
+        SetField(hud, "displayedInkRatio", 0.25f);
+        Invoke(
+            hud,
+            "HandleGameStateChanged",
+            GameState.GameOver,
+            GameState.Playing);
+
+        Assert.That(
+            (float)GetField(hud, "displayedInkRatio"),
+            Is.EqualTo(0.25f).Within(0.0001f),
+            "광고 부활은 같은 판이므로 기존 먹 표시를 보존해야 합니다.");
+    }
+
+    [Test]
+    public void GoldenBrushRingTracksRealTimeRefreshAndReset()
+    {
+        var capture = Track(new GameObject("GoldenTimerClock")).AddComponent<StrokeCapture>();
+        Assert.That(capture.UnlimitedInkRemaining01, Is.Zero);
+        capture.ActivateUnlimitedInk(8);
+        Assert.That(capture.UnlimitedInkRemaining01, Is.EqualTo(1));
+        Invoke(capture, "AdvanceUnlimitedInk", 2f);
+        Assert.That(capture.UnlimitedInkRemainingSeconds, Is.EqualTo(6));
+        Assert.That(capture.UnlimitedInkRemaining01, Is.EqualTo(0.75f));
+        capture.ActivateUnlimitedInk(4);
+        Assert.That(capture.UnlimitedInkRemaining01, Is.EqualTo(0.75f), "짧은 재획득은 남은 시간을 줄이거나 링을 재설정하지 않는다");
+        capture.ActivateUnlimitedInk(8);
+        Assert.That(capture.UnlimitedInkRemaining01, Is.EqualTo(1));
+        Invoke(capture, "AdvanceUnlimitedInk", 8f);
+        Assert.That(capture.UnlimitedInkRemaining01, Is.Zero);
+        Assert.That(capture.HasUnlimitedInk, Is.False);
+        capture.ActivateUnlimitedInk(8);
+        Invoke(capture, "HandleGrowthRunReset");
+        Assert.That(capture.UnlimitedInkRemainingSeconds, Is.Zero);
+        Assert.That(capture.UnlimitedInkRemaining01, Is.Zero);
+    }
+
+    [Test]
+    public void GoldenBrushRingFreezesWithPausedGameplay()
+    {
+        var manager = Track(new GameObject("GoldenTimerPause")).AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+        Invoke(manager, "SetState", GameState.Playing);
+        var capture = Track(new GameObject("GoldenTimerCapture")).AddComponent<StrokeCapture>();
+        capture.ActivateUnlimitedInk(8);
+        Invoke(capture, "AdvanceUnlimitedInk", 2f);
+        Assert.That(manager.PauseGame(), Is.True);
+        Invoke(capture, "Update");
+        Assert.That(capture.UnlimitedInkRemainingSeconds, Is.EqualTo(6));
+        Assert.That(capture.UnlimitedInkRemaining01, Is.EqualTo(0.75f));
+    }
+
+    [TestCase(390f, 844f)]
+    [TestCase(1179f, 2556f)]
+    [TestCase(1518f, 835f)]
+    public void GoldenBrushRingIsSmallRoundAndInsideSafeArea(float width, float height)
+    {
+        var safe = new Rect(0, 48, width, height - 96);
+        var body = new Rect(width * .45f, height * .45f, width * .07f, width * .07f);
+        var method = typeof(PrototypeHud).GetMethod("TryCalculateGoldenTimerRect", BindingFlags.Static | BindingFlags.NonPublic);
+        object[] arguments = { body, default(Rect), safe, default(Rect) };
+        Assert.That((bool)method.Invoke(null, arguments), Is.True);
+        var rect = (Rect)arguments[3];
+        Assert.That(rect.width, Is.EqualTo(rect.height));
+        Assert.That(rect.width, Is.InRange(20f, 60f));
+        Assert.That(rect.xMin, Is.GreaterThanOrEqualTo(safe.xMin + 8));
+        Assert.That(rect.yMin, Is.GreaterThanOrEqualTo(safe.yMin + 8));
+        Assert.That(rect.xMax, Is.LessThanOrEqualTo(safe.xMax - 8));
+        Assert.That(rect.yMax, Is.LessThanOrEqualTo(safe.yMax - 8));
+        Assert.That(rect.xMin, Is.GreaterThan(body.xMax), "붓이 아닌 캐릭터 오른쪽에 붙입니다.");
+        Assert.That(rect.yMin, Is.LessThan(body.center.y), "머리 옆 위쪽에 가깝게 붙입니다.");
+        Assert.That(rect.Overlaps(body), Is.False);
+    }
+
+    [Test]
+    public void GoldenTimerShaderRendersHollowClockwiseDrainAndReleasesMaterial()
+    {
+        var shader = Resources.Load<Shader>("MukJump/Shaders/GoldenBrushTimer");
+        Assert.That(shader, Is.Not.Null);
+        Assert.That(UnityEditor.ShaderUtil.ShaderHasError(shader), Is.False);
+        Assert.That(shader.isSupported, Is.True);
+        var hud = Track(new GameObject("GoldenTimerMaterial")).AddComponent<PrototypeHud>();
+        Invoke(hud, "OnEnable");
+        var material = (Material)GetField(hud, "goldenTimerMaterial");
+        Assert.That(material, Is.Not.Null);
+        var texture = Track(new Texture2D(128, 128, TextureFormat.RGBA32, false, true));
+        var target = RenderTexture.GetTemporary(128, 128, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+        var previous = RenderTexture.active;
+        try
+        {
+            RenderTexture.active = target;
+            GL.Clear(true, true, Color.clear);
+            material.SetFloat("_Remaining", 0.5f);
+            Graphics.Blit(Texture2D.whiteTexture, target, material);
+            texture.ReadPixels(new Rect(0, 0, 128, 128), 0, 0);
+            texture.Apply();
+            Assert.That(texture.GetPixel(64, 64).a, Is.LessThan(0.01f), "링 가운데는 투명하게 비운다");
+            Assert.That(texture.GetPixel(14, 64).r, Is.GreaterThan(texture.GetPixel(114, 64).r + 0.2f),
+                "남은 시간이 절반이면 오른쪽이 비고 왼쪽은 노란색으로 남는다");
+            GL.Clear(true, true, Color.clear);
+            material.SetFloat("_Remaining", 0);
+            Graphics.Blit(Texture2D.whiteTexture, target, material);
+            texture.ReadPixels(new Rect(0, 0, 128, 128), 0, 0);
+            texture.Apply();
+            Assert.That(texture.GetPixel(14, 64).a, Is.LessThan(0.01f));
+        }
+        finally
+        {
+            RenderTexture.active = previous;
+            RenderTexture.ReleaseTemporary(target);
+        }
+        Invoke(hud, "OnDisable");
+        Assert.That(material == null, Is.True, "HUD 종료 때 재사용 머티리얼을 해제한다");
+    }
+
+    [Test]
+    public void RewardedRevivePreservesSameRunGrowthInkLedgerAndUnlimitedInk()
+    {
+        var root = Track(new GameObject("RewardedReviveRunRoot"));
+        var manager = root.AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+        var growth = root.AddComponent<RunGrowthController>();
+        Invoke(growth, "OnEnable");
+
+        var capture = Track(new GameObject("RewardedReviveStrokeCapture"))
+            .AddComponent<StrokeCapture>();
+        Invoke(capture, "OnEnable");
+
+        int resetCount = 0;
+        growth.RunReset += () => resetCount++;
+        Invoke(manager, "SetState", GameState.Playing);
+        Assert.That(resetCount, Is.EqualTo(1),
+            "로비에서 시작한 새 판은 성장 상태를 한 번 초기화해야 합니다.");
+
+        var platform = PlatformCollider.Spawn(new List<Vector2>
+        {
+            new(100f, 100f),
+            new(101f, 100f),
+        }, 1f);
+        Track(platform.gameObject);
+        capture.ActivateUnlimitedInk(30f);
+        float retainedInk = PlatformCollider.ActiveInkCost;
+
+        Invoke(manager, "SetState", GameState.GameOver);
+        Invoke(manager, "SetState", GameState.Playing);
+
+        Assert.That(resetCount, Is.EqualTo(1),
+            "광고 부활은 같은 판이므로 RunReset을 다시 보내면 안 됩니다.");
+        Assert.That(capture.HasUnlimitedInk, Is.True,
+            "광고 부활이 같은 판의 무한 먹 상태를 지우면 안 됩니다.");
+        Assert.That(PlatformCollider.ActiveInkCost,
+            Is.EqualTo(retainedInk).Within(0.0001f),
+            "광고 부활이 남아 있던 먹선 장부를 재정산하면 안 됩니다.");
+    }
+
+    [Test]
+    public void RewardedRevivePreservesMonotonicSwarmProgressForTheSameRun()
+    {
+        var manager = Track(new GameObject("RewardedReviveProgressManager"))
+            .AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+        Invoke(manager, "SetState", GameState.Playing);
+        SetField(manager, "maxSwarmProgressHeight", 74f);
+
+        Invoke(manager, "SetState", GameState.GameOver);
+        Invoke(manager, "SetState", GameState.Playing);
+
+        Assert.That(manager.SwarmProgressHeight,
+            Is.EqualTo(74f).Within(0.0001f),
+            "광고 부활은 같은 판이므로 성장 정산용 진행 높이를 초기화하면 안 됩니다.");
     }
 
     [Test]
@@ -187,16 +467,81 @@ public sealed class ItemSpawnerBalanceTests
         MethodInfo iconMethod = typeof(PrototypeHud).GetMethod(
             "CalculateBrushIconSize",
             BindingFlags.Static | BindingFlags.NonPublic);
+        MethodInfo bottomMarginMethod = typeof(PrototypeHud).GetMethod(
+            "CalculateGaugeBottomMargin",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        MethodInfo bottomMethod = typeof(PrototypeHud).GetMethod(
+            "CalculateGaugeBottom",
+            BindingFlags.Static | BindingFlags.NonPublic);
 
         const float iphoneWidth = 1179f;
         float gaugeHeight = (float)heightMethod.Invoke(
             null, new object[] { iphoneWidth });
         float iconSize = (float)iconMethod.Invoke(
             null, new object[] { iphoneWidth });
+        float bottomMargin = (float)bottomMarginMethod.Invoke(
+            null, new object[] { iphoneWidth });
+        float gaugeBottom = (float)bottomMethod.Invoke(
+            null, new object[] { 2350f, 2556f });
 
         Assert.That(gaugeHeight, Is.EqualTo(141.48f).Within(0.01f));
         Assert.That(iconSize, Is.EqualTo(165.06f).Within(0.01f));
         Assert.That(iconSize, Is.GreaterThan(gaugeHeight));
+        Assert.That(bottomMargin, Is.EqualTo(9.432f).Within(0.01f),
+            "세로 화면 높이가 아니라 폭을 기준으로 하단 여백을 잡아 붓을 아래에 둡니다.");
+        Assert.That(gaugeBottom, Is.EqualTo(2453f).Within(0.01f),
+            "비터치 HUD는 하단 안전영역의 절반까지 내려 첫 캐릭터와 겹치지 않게 합니다.");
+    }
+
+    [Test]
+    public void WideWebInkGaugeUsesCompactHeightBasedLayoutOnlyOnWebGl()
+    {
+        MethodInfo compactMethod = typeof(PrototypeHud).GetMethod(
+            "ShouldUseCompactWideWebLayout",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        MethodInfo layoutWidthMethod = typeof(PrototypeHud).GetMethod(
+            "CalculateGaugeLayoutWidth",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        MethodInfo heightMethod = typeof(PrototypeHud).GetMethod(
+            "CalculateGaugeVisualHeight",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        MethodInfo iconMethod = typeof(PrototypeHud).GetMethod(
+            "CalculateBrushIconSize",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.That(compactMethod, Is.Not.Null);
+        Assert.That(layoutWidthMethod, Is.Not.Null);
+
+        bool wideWeb = (bool)compactMethod.Invoke(
+            null,
+            new object[] { RuntimePlatform.WebGLPlayer, 1518, 835 });
+        bool portraitWeb = (bool)compactMethod.Invoke(
+            null,
+            new object[] { RuntimePlatform.WebGLPlayer, 1080, 1920 });
+        bool landscapeIos = (bool)compactMethod.Invoke(
+            null,
+            new object[] { RuntimePlatform.IPhonePlayer, 1518, 835 });
+        float compactWidth = (float)layoutWidthMethod.Invoke(
+            null,
+            new object[] { 1518f, 835f, wideWeb });
+        float mobileWidth = (float)layoutWidthMethod.Invoke(
+            null,
+            new object[] { 1179f, 2361f, portraitWeb });
+        float compactGaugeHeight = (float)heightMethod.Invoke(
+            null,
+            new object[] { compactWidth });
+        float compactBrushSize = (float)iconMethod.Invoke(
+            null,
+            new object[] { compactWidth });
+
+        Assert.That(wideWeb, Is.True);
+        Assert.That(portraitWeb, Is.False,
+            "앱인토스의 세로 WebGL은 모바일 레이아웃을 유지해야 합니다.");
+        Assert.That(landscapeIos, Is.False,
+            "iOS 네이티브 레이아웃은 WebGL 보정의 영향을 받으면 안 됩니다.");
+        Assert.That(compactWidth, Is.EqualTo(876.75f).Within(0.01f));
+        Assert.That(mobileWidth, Is.EqualTo(1179f).Within(0.01f));
+        Assert.That(compactGaugeHeight, Is.EqualTo(105.21f).Within(0.01f));
+        Assert.That(compactBrushSize, Is.EqualTo(122.745f).Within(0.01f));
     }
 
     [Test]
@@ -399,9 +744,69 @@ public sealed class ItemSpawnerBalanceTests
                     "새 분신은 팝콘처럼 눈에 보이는 상향 속도로 튀어야 합니다.");
                 Assert.That(living[i].MaxHealth,
                     Is.EqualTo(PlayerController.RuntimeCloneMaxHealth));
-                Assert.That(living[i].CurrentHealth, Is.EqualTo(2));
+                Assert.That(living[i].CurrentHealth,
+                    Is.EqualTo(PlayerController.RuntimeCloneMaxHealth),
+                    "성장을 찍지 않은 새 먹분신은 기본 1/1로 시작해야 합니다.");
                 Track(living[i].gameObject);
             }
+    }
+
+    [Test]
+    public void ClonePreparationFailureRestoresEveryAttemptedHookAndAddsNoClone()
+    {
+        var manager = Track(new GameObject("CloneFailureManager"))
+            .AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+        Invoke(manager, "SetState", GameState.Playing);
+
+        var sourceObject = Track(new GameObject("CloneFailureSource"));
+        sourceObject.AddComponent<Rigidbody2D>();
+        sourceObject.AddComponent<CircleCollider2D>().radius = 0.4f;
+        var source = sourceObject.AddComponent<PlayerController>();
+        var first = sourceObject.AddComponent<CloneLifecycleProbe>();
+        var failing = sourceObject.AddComponent<CloneLifecycleProbe>();
+        failing.ThrowOnPrepare = true;
+        manager.RegisterPlayer(source);
+
+        LogAssert.Expect(LogType.Exception, "InvalidOperationException: clone prepare failed");
+        Assert.IsFalse(manager.TryCreateInkClone(source));
+        Assert.AreEqual(1, first.PrepareCount);
+        Assert.AreEqual(1, first.RestoreCount,
+            "앞 훅은 뒤 훅의 준비 실패와 무관하게 반드시 복구되어야 합니다.");
+        Assert.AreEqual(1, failing.RestoreCount,
+            "예외를 낸 훅도 부분 변경 가능성이 있어 복구를 시도해야 합니다.");
+        Assert.AreEqual(1, manager.LivingPlayerCount,
+            "실패한 복제는 먹분신 수나 아이템 결과를 바꾸면 안 됩니다.");
+    }
+
+    [Test]
+    public void CloneRestoreFailureDoesNotSkipEarlierHookOrRegisterClone()
+    {
+        var manager = Track(new GameObject("CloneRestoreFailureManager"))
+            .AddComponent<GameManager>();
+        Invoke(manager, "OnEnable");
+        Invoke(manager, "SetState", GameState.Playing);
+
+        var sourceObject = Track(new GameObject("CloneRestoreFailureSource"));
+        sourceObject.AddComponent<Rigidbody2D>();
+        sourceObject.AddComponent<CircleCollider2D>().radius = 0.4f;
+        var source = sourceObject.AddComponent<PlayerController>();
+        var first = sourceObject.AddComponent<CloneLifecycleProbe>();
+        var failing = sourceObject.AddComponent<CloneLifecycleProbe>();
+        failing.ThrowOnRestore = true;
+        manager.RegisterPlayer(source);
+
+        LogAssert.Expect(LogType.Exception, "InvalidOperationException: clone restore failed");
+        Assert.IsFalse(manager.TryCreateInkClone(source));
+        Assert.AreEqual(1, first.RestoreCount,
+            "뒤 훅의 복구 실패 뒤에도 앞 훅 복구를 계속해야 합니다.");
+        Assert.AreEqual(1, manager.LivingPlayerCount,
+            "복구가 완전하지 않은 복제는 등록하면 안 됩니다.");
+        Assert.That(System.Array.Exists(
+            Object.FindObjectsByType<PlayerController>(
+                FindObjectsInactive.Include),
+            player => player.name == "CloneRestoreFailureSource(Clone)"), Is.False,
+            "실패한 복제가 남아 다음 로비·물리 검증을 오염시키면 안 됩니다.");
     }
 
     [Test]
@@ -515,23 +920,14 @@ public sealed class ItemSpawnerBalanceTests
     }
 
     [Test]
-    public void DrawingSurfacePaddingShrinksWithoutOverlappingPlayerPhysics()
+    public void DrawingOverlapDefersContactInsteadOfDeletingTheLine()
     {
-        var capture = Track(new GameObject("StrokeCapture"))
-            .AddComponent<MukJump.Drawing.StrokeCapture>();
-
-        float single = (float)Invoke(capture, "ResolvePlayerSurfacePadding", 1);
-        float full = (float)Invoke(capture, "ResolvePlayerSurfacePadding", 24);
-
-        Assert.AreEqual(0.15f, single, 0.001f);
-        Assert.AreEqual(0.08f, full, 0.001f);
-
         var playerObject = Track(new GameObject("ClearancePlayer"));
         var playerCollider = playerObject.AddComponent<CircleCollider2D>();
         playerCollider.radius = 0.4f;
         playerCollider.offset = new Vector2(0f, 0.1f);
-        playerObject.AddComponent<PlayerController>();
-        float platformY = playerCollider.offset.y + playerCollider.radius + full;
+        var player = playerObject.AddComponent<PlayerController>();
+        float platformY = playerCollider.offset.y;
         var platform = Track(MukJump.Drawing.PlatformCollider.Spawn(
             new List<Vector2>
             {
@@ -539,10 +935,11 @@ public sealed class ItemSpawnerBalanceTests
                 new(1f, platformY),
             }));
         Physics2D.SyncTransforms();
-
-        Assert.IsFalse(playerCollider.Distance(
-            platform.GetComponent<EdgeCollider2D>()).isOverlapped,
-            "먹떼용 최소 안전거리에서도 발판 물리가 캐릭터 안쪽에 생기면 안 됩니다.");
+        platform.DeferInitialPlayerContacts(new[] { player });
+        Assert.That(Physics2D.GetIgnoreCollision(playerCollider,
+            platform.GetComponent<EdgeCollider2D>()), Is.True);
+        Assert.That(platform.Length, Is.EqualTo(2f).Within(0.001f),
+            "겹친 캐릭터와 충돌만 유예하고 선 전체를 보존해야 합니다.");
     }
 
     [Test]
@@ -654,8 +1051,7 @@ public sealed class ItemSpawnerBalanceTests
     void RetagExistingMainCameras()
     {
         var cameras = Object.FindObjectsByType<Camera>(
-            FindObjectsInactive.Include,
-            FindObjectsSortMode.None);
+            FindObjectsInactive.Include);
         for (int i = 0; i < cameras.Length; i++)
         {
             Camera candidate = cameras[i];
@@ -691,6 +1087,31 @@ public sealed class ItemSpawnerBalanceTests
         return target.GetType().GetMethod(methodName,
             BindingFlags.Instance | BindingFlags.Static |
             BindingFlags.NonPublic)?.Invoke(target, arguments);
+    }
+
+    public sealed class CloneLifecycleProbe : MonoBehaviour,
+        IRuntimeCloneLifecycle
+    {
+        public int PrepareCount { get; private set; }
+        public int RestoreCount { get; private set; }
+        public bool ThrowOnPrepare { get; set; }
+        public bool ThrowOnRestore { get; set; }
+
+        public void PrepareForRuntimeClone()
+        {
+            PrepareCount++;
+            if (ThrowOnPrepare)
+                throw new System.InvalidOperationException(
+                    "clone prepare failed");
+        }
+
+        public void RestoreAfterRuntimeClone()
+        {
+            RestoreCount++;
+            if (ThrowOnRestore)
+                throw new System.InvalidOperationException(
+                    "clone restore failed");
+        }
     }
 
 }

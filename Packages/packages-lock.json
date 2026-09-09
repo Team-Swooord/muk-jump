@@ -17,6 +17,22 @@
       "dependencies": {},
       "url": "https://package.openupm.com"
     },
+    "com.google.firebase.analytics": {
+      "version": "file:Firebase/com.google.firebase.analytics-13.16.0.tgz",
+      "depth": 0,
+      "source": "local-tarball",
+      "dependencies": {
+        "com.google.firebase.app": "13.16.0"
+      }
+    },
+    "com.google.firebase.app": {
+      "version": "file:Firebase/com.google.firebase.app-13.16.0.tgz",
+      "depth": 0,
+      "source": "local-tarball",
+      "dependencies": {
+        "com.google.external-dependency-manager": "1.2.186"
+      }
+    },
     "com.lupidan.apple-signin-unity": {
       "version": "https://github.com/lupidan/apple-signin-unity.git?path=Source#1.5.0",
       "depth": 0,

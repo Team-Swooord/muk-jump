@@ -4,7 +4,10 @@ using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 using MukJump.Core;
+using MukJump.EditorTools;
+using MukJump.Player;
 
 namespace MukJump.EditorTests
 {
@@ -67,6 +70,78 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void UnconfirmedBestBlocksRunUntilRecoveredBaselineIsKnown()
+        {
+            var store = new MemoryScoreStore
+            {
+                Best = 100,
+                ThrowOnLoad = true,
+            };
+            ScoreManager.UseStoreForTests(store);
+            root = new GameObject("RunBaselineRecoveryTest");
+            var score = root.AddComponent<ScoreManager>();
+            Invoke(score, "OnEnable");
+            Invoke(score, "Awake");
+            var manager = root.AddComponent<GameManager>();
+            Invoke(manager, "OnEnable");
+
+            manager.StartGameFromMenu();
+
+            Assert.That(manager.State, Is.EqualTo(GameState.Lobby),
+                "기존 최고 기록을 확인하지 못한 상태에서 0m 기준으로 판을 시작하면 안 됩니다.");
+            store.ThrowOnLoad = false;
+            Assert.That(score.TryEnsureBestLoaded(), Is.True);
+            score.ResetOrigin(0f);
+            score.SampleWorldHeight(50f);
+            Assert.That(score.Best, Is.EqualTo(100));
+            Assert.That(score.RunBestToBeat, Is.EqualTo(100));
+            Assert.That(score.IsNewBestThisRun, Is.False);
+        }
+
+        [Test]
+        public void PendingBestRewriteBlocksNextRunUntilVerified()
+        {
+            var store = new MemoryScoreStore
+            {
+                Best = 25,
+                ThrowOnSave = true,
+            };
+            ScoreManager.UseStoreForTests(store);
+            root = new GameObject("PendingBestRunBaselineTest");
+            var score = root.AddComponent<ScoreManager>();
+            Invoke(score, "OnEnable");
+            Invoke(score, "Awake");
+            score.ResetOrigin(0f);
+            score.SampleWorldHeight(74f);
+            Assert.That(score.TrySaveBest(), Is.False);
+            Assert.That(score.HasPendingBestSaveRetry, Is.True);
+            var manager = root.AddComponent<GameManager>();
+            Invoke(manager, "OnEnable");
+            var playerObject = new GameObject("PendingBestBaselinePlayer");
+            playerObject.transform.SetParent(root.transform, false);
+            playerObject.AddComponent<SpriteRenderer>();
+            var body = playerObject.AddComponent<Rigidbody2D>();
+            playerObject.AddComponent<CircleCollider2D>();
+            var player = playerObject.AddComponent<PlayerController>();
+            Invoke(player, "Awake");
+            body.bodyType = RigidbodyType2D.Kinematic;
+            manager.RegisterPlayer(player);
+
+            manager.StartGameFromMenu();
+
+            Assert.That(manager.State, Is.EqualTo(GameState.Lobby));
+            Assert.That(score.HasPendingBestSaveRetry, Is.True);
+            store.ThrowOnSave = false;
+
+            manager.StartGameFromMenu();
+
+            Assert.That(manager.State, Is.EqualTo(GameState.Playing));
+            Assert.That(score.HasPendingBestSaveRetry, Is.False);
+            Assert.That(score.Best, Is.EqualTo(74));
+            Assert.That(score.RunBestToBeat, Is.EqualTo(74));
+        }
+
+        [Test]
         public void PersistentBestReadFailureBlocksRecordWrite()
         {
             var store = new MemoryScoreStore
@@ -91,7 +166,7 @@ namespace MukJump.EditorTests
         {
             var store = new MemoryScoreStore
             {
-                Best = 100,
+                Best = 25,
                 ThrowOnSave = true,
                 ApplyBeforeThrow = true,
             };
@@ -100,16 +175,136 @@ namespace MukJump.EditorTests
             var score = root.AddComponent<ScoreManager>();
             Invoke(score, "OnEnable");
             Invoke(score, "Awake");
-            SetProperty(score, "Height", 200);
+            score.ResetOrigin(0f);
+            score.SampleWorldHeight(200f);
 
             Assert.That(score.TrySaveBest(), Is.False,
                 "flush 예외 뒤 같은 프로세스 readback만으로 내구 저장을 확정하면 안 됩니다.");
             Assert.That(store.Best, Is.EqualTo(200));
+            Assert.That(score.RunBestToBeat, Is.EqualTo(25));
+            Assert.That(score.IsNewBestThisRun, Is.True);
 
             store.ThrowOnSave = false;
             Assert.That(score.TrySaveBest(), Is.True);
             Assert.That(score.Best, Is.EqualTo(200));
             Assert.That(store.Best, Is.EqualTo(200));
+            Assert.That(score.RunBestToBeat, Is.EqualTo(25),
+                "재시도 성공이 광고 부활로 이어질 현재 판의 기준 기록을 바꾸면 안 됩니다.");
+            Assert.That(score.IsNewBestThisRun, Is.True);
+        }
+
+        [Test]
+        public void LowerReadbackKeepsCandidateForTheNextVerifiedRetry()
+        {
+            var store = new MemoryScoreStore { Best = 25 };
+            ScoreManager.UseStoreForTests(store);
+            root = new GameObject("LowerReadbackScoreRetryTest");
+            var score = root.AddComponent<ScoreManager>();
+            Invoke(score, "OnEnable");
+            Invoke(score, "Awake");
+            score.ResetOrigin(0f);
+            score.SampleWorldHeight(74f);
+            store.ForcedLoadBest = 25;
+
+            Assert.That(score.TrySaveBest(), Is.False);
+            Assert.That(store.Best, Is.EqualTo(74));
+            Assert.That(store.SaveCount, Is.EqualTo(1));
+            Assert.That(score.Best, Is.EqualTo(25));
+            Assert.That(score.RunBestToBeat, Is.EqualTo(25));
+
+            store.ForcedLoadBest = null;
+            Assert.That(score.TryCommitBestCandidate(0), Is.True,
+                "호출 후보가 낮아도 확인되지 않은 74m 후보를 다시 저장해야 합니다.");
+            Assert.That(store.SaveCount, Is.EqualTo(2));
+            Assert.That(score.Best, Is.EqualTo(74));
+            Assert.That(score.RunBestToBeat, Is.EqualTo(25));
+        }
+
+        [Test]
+        public void CommittingExplicitCandidatePreservesLiveRunStateAndNotifiesOnce()
+        {
+            var store = new MemoryScoreStore { Best = 25 };
+            ScoreManager.UseStoreForTests(store);
+            root = new GameObject("ExplicitScoreCommitTest");
+            var score = root.AddComponent<ScoreManager>();
+            Invoke(score, "OnEnable");
+            Invoke(score, "Awake");
+            score.ResetOrigin(0f);
+            SetProperty(score, "Height", 74);
+            int committed = -1;
+            int notifications = 0;
+            score.BestCommitted += value =>
+            {
+                committed = value;
+                notifications++;
+            };
+
+            Assert.That(score.TryCommitBestCandidate(74), Is.True);
+
+            Assert.That(store.Best, Is.EqualTo(74));
+            Assert.That(score.Best, Is.EqualTo(74));
+            Assert.That(score.Height, Is.EqualTo(74));
+            Assert.That(score.RunBestToBeat, Is.EqualTo(25),
+                "광고 부활로 같은 판을 이어갈 때 판 시작 기록 기준은 바뀌면 안 됩니다.");
+            Assert.That(committed, Is.EqualTo(74));
+            Assert.That(notifications, Is.EqualTo(1));
+
+            Assert.That(score.TryCommitBestCandidate(60), Is.True);
+            Assert.That(notifications, Is.EqualTo(1),
+                "낮은 후보를 다시 확인하는 동작은 UI·클라우드 갱신을 중복 발생시키면 안 됩니다.");
+        }
+
+        [Test]
+        public void ThrowingBestCommittedListenerCannotInvalidateDurableSave()
+        {
+            var store = new MemoryScoreStore { Best = 25 };
+            ScoreManager.UseStoreForTests(store);
+            root = new GameObject("ThrowingBestCommittedListenerTest");
+            var score = root.AddComponent<ScoreManager>();
+            Invoke(score, "OnEnable");
+            Invoke(score, "Awake");
+            int laterCommitted = -1;
+            score.BestCommitted += _ =>
+                throw new System.InvalidOperationException("best observer failed");
+            score.BestCommitted += value => laterCommitted = value;
+            LogAssert.Expect(
+                LogType.Warning,
+                "[MukJump] 최고 기록 완료 알림 구독자 예외를 격리했습니다: " +
+                "best observer failed");
+
+            Assert.That(score.TryCommitBestCandidate(74), Is.True);
+
+            Assert.That(store.Best, Is.EqualTo(74));
+            Assert.That(score.Best, Is.EqualTo(74));
+            Assert.That(score.HasConfirmedBest, Is.True);
+            Assert.That(score.HasPendingBestSaveRetry, Is.False);
+            Assert.That(laterCommitted, Is.EqualTo(74));
+        }
+
+        [Test]
+        public void ThrowingNewBestListenerCannotInterruptSamplingOrLaterListener()
+        {
+            var store = new MemoryScoreStore { Best = 25 };
+            ScoreManager.UseStoreForTests(store);
+            root = new GameObject("ThrowingNewBestListenerTest");
+            var score = root.AddComponent<ScoreManager>();
+            Invoke(score, "OnEnable");
+            Invoke(score, "Awake");
+            score.ResetOrigin(0f);
+            int laterHeight = -1;
+            score.NewBestReached += (_, _) =>
+                throw new System.InvalidOperationException("new best observer failed");
+            score.NewBestReached += (height, _) => laterHeight = height;
+            LogAssert.Expect(
+                LogType.Warning,
+                "[MukJump] 신기록 알림 구독자 예외를 격리했습니다: " +
+                "new best observer failed");
+
+            score.SampleWorldHeight(74f);
+
+            Assert.That(score.Height, Is.EqualTo(74));
+            Assert.That(score.IsNewBestThisRun, Is.True);
+            Assert.That(laterHeight, Is.EqualTo(74));
         }
 
         [Test]
@@ -266,14 +461,41 @@ namespace MukJump.EditorTests
         [Test]
         public void WebGlTemplateCoversViewportWithoutBlackFallback()
         {
-            const string templatePath =
-                "Assets/WebGLTemplates/AITTemplate/index.html";
-            string source = File.ReadAllText(templatePath);
+            const string sdkTemplate =
+                "<html><head><!-- USER_HEAD_START -->\n" +
+                "<!-- USER_HEAD_END --></head><body></body></html>";
+            Assert.That(
+                MukJumpAppsInTossSetup.TryApplyFullscreenTemplate(
+                    sdkTemplate,
+                    out string source,
+                    out string error),
+                Is.True,
+                error);
 
             Assert.That(source, Does.Contain("id=\"mukjump-fullscreen-webgl\""));
             Assert.That(source, Does.Contain("width: 100vw;"));
             Assert.That(source, Does.Contain("height: 100dvh;"));
             Assert.That(source, Does.Contain("background: #EAE3D2 !important;"));
+        }
+
+        [Test]
+        public void InGameLegalUrlsUseExactAnonymousBackendPages()
+        {
+            Assert.That(
+                MukJumpLegalUrls.TermsOfService,
+                Is.EqualTo(
+                    "https://storage.thebackend.io/" +
+                    "27f4347cc58b6eca8349b49f00b25a0a9f7c92836f10ec5f6385356867184326/" +
+                    "terms.html"));
+            Assert.That(
+                MukJumpLegalUrls.PrivacyPolicy,
+                Is.EqualTo(
+                    "https://storage.thebackend.io/" +
+                    "27f4347cc58b6eca8349b49f00b25a0a9f7c92836f10ec5f6385356867184326/" +
+                    "privacy.html"));
+            Assert.That(
+                MukJumpLegalUrls.PrivacyPolicy,
+                Does.Not.Contain("github.com"));
         }
 
         static object Invoke(object target, string methodName)

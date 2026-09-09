@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// UI 탭과 영구 성장 성공을 한지 위 먹 번짐으로 알려주는 고정 크기 풀.
+    /// 화면 전체의 클릭·터치와 영구 성장 성공을 한지 위 먹 번짐으로 알려주는 고정 크기 풀.
     /// 매 클릭마다 오브젝트를 생성하지 않고 transform·opacity만 애니메이션한다.
     [DisallowMultipleComponent]
     public sealed class InkUiFeedbackController : MonoBehaviour
@@ -29,6 +29,7 @@ namespace MukJump.Core
         public static InkUiFeedbackController Instance { get; private set; }
 
         readonly InkMark[] marks = new InkMark[PoolSize];
+        readonly Vector2[] pressPositions = new Vector2[16];
         RectTransform canvasRoot;
         GrowthUnlockPresentation unlockPresentation;
         int nextMark;
@@ -54,27 +55,55 @@ namespace MukJump.Core
             }
             Instance = this;
             EnsureInitialized();
+            ClearMarks();
+            if (unlockPresentation != null) unlockPresentation.ResetPresentation();
         }
 
         void OnDisable()
         {
             if (Instance == this) Instance = null;
+            ClearMarks();
+            if (unlockPresentation != null) unlockPresentation.ResetPresentation();
+        }
+
+        void ClearMarks()
+        {
             for (int i = 0; i < marks.Length; i++)
             {
                 if (marks[i] == null) continue;
                 marks[i].Active = false;
-                marks[i].Rect.gameObject.SetActive(false);
+                if (marks[i].Rect != null) marks[i].Rect.gameObject.SetActive(false);
             }
-            unlockPresentation?.ResetPresentation();
         }
+
+        static bool IsMarkReady(InkMark mark) =>
+            mark != null && mark.Rect != null && mark.Image != null;
 
         void Update()
         {
+            if (!LobbySettingsProfile.ReducedMotionEnabled)
+            {
+                int count = PointerInput.CollectVisualPressStarts(pressPositions);
+                for (int i = 0; i < count; i++)
+                {
+                    Vector2 position = pressPositions[i];
+                    // 에디터 Game 뷰 바깥 클릭은 그리지 않는다. UI/게임 상태는 제한하지 않는다.
+                    if (position.x >= 0f && position.x < Screen.width &&
+                        position.y >= 0f && position.y < Screen.height)
+                        EmitTap(position);
+                }
+            }
             float now = Time.unscaledTime;
             for (int i = 0; i < marks.Length; i++)
             {
                 InkMark mark = marks[i];
                 if (mark?.Active != true) continue;
+                if (!IsMarkReady(mark))
+                {
+                    mark.Active = false;
+                    if (mark.Rect != null) mark.Rect.gameObject.SetActive(false);
+                    continue;
+                }
                 float t = Mathf.Clamp01((now - mark.StartedAt) /
                                         Mathf.Max(0.01f, mark.Duration));
                 float eased = 1f - Mathf.Pow(1f - t, 3f);
@@ -93,6 +122,8 @@ namespace MukJump.Core
 
         public static void PlayTap(Vector2 screenPosition)
         {
+            if (LobbySettingsProfile.ReducedMotionEnabled)
+                return;
             Resolve()?.EmitTap(screenPosition);
         }
 
@@ -100,6 +131,8 @@ namespace MukJump.Core
             string growthName,
             Sprite growthIcon)
         {
+            if (LobbySettingsProfile.ReducedMotionEnabled)
+                return;
             Resolve()?.EmitGrowthUnlock(
                 growthName,
                 growthIcon);
@@ -111,6 +144,8 @@ namespace MukJump.Core
             Vector2 screenPosition,
             Sprite fruitSprite)
         {
+            if (LobbySettingsProfile.ReducedMotionEnabled)
+                return;
             Resolve()?.EmitGrowthUnlock(
                 growthName,
                 growthIcon,
@@ -123,6 +158,8 @@ namespace MukJump.Core
             Sprite growthIcon,
             int level)
         {
+            if (LobbySettingsProfile.ReducedMotionEnabled)
+                return;
             Resolve()?.EmitGrowthUpgrade(
                 growthName,
                 growthIcon,
@@ -135,16 +172,19 @@ namespace MukJump.Core
             InkUiFeedbackController controller =
                 Instance != null
                     ? Instance
-                    : FindFirstObjectByType<InkUiFeedbackController>();
+                    : FindAnyObjectByType<InkUiFeedbackController>();
             if (controller == null)
                 return;
-            controller.unlockPresentation?.ResetPresentation();
+            if (controller.unlockPresentation == null)
+                controller.unlockPresentation = controller.GetComponent<GrowthUnlockPresentation>();
+            if (controller.unlockPresentation != null)
+                controller.unlockPresentation.ResetPresentation();
         }
 
         static InkUiFeedbackController Resolve()
         {
             if (Instance != null) return Instance;
-            var found = FindFirstObjectByType<InkUiFeedbackController>();
+            var found = FindAnyObjectByType<InkUiFeedbackController>();
             if (found != null)
             {
                 // EditMode 테스트·Play 중 재컴파일로 static만 초기화된 경우에도
@@ -161,25 +201,29 @@ namespace MukJump.Core
 
         void EnsureInitialized()
         {
-            if (canvasRoot != null) return;
-            var root = new GameObject(
-                "InkUiFeedbackCanvas",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(CanvasScaler));
-            root.transform.SetParent(transform, false);
-            var canvas = root.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = CanvasSortingOrder;
-            canvas.pixelPerfect = true;
-            var scaler = root.GetComponent<CanvasScaler>();
-            MobileUiLayout.ConfigurePortraitScaler(scaler);
+            // 캔버스가 남아 있어도 리로드로 관리 풀만 비었을 수 있다.
+            // 같은 이름의 UI를 재연결하고 실제로 없어진 슬롯만 보충한다.
+            if (canvasRoot == null)
+            {
+                Transform existing = transform.Find("InkUiFeedbackCanvas");
+                var root = existing != null ? existing.gameObject : new GameObject(
+                    "InkUiFeedbackCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+                root.transform.SetParent(transform, false);
+                var canvas = root.GetComponent<Canvas>();
+                if (canvas == null) canvas = root.AddComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                canvas.sortingOrder = CanvasSortingOrder;
+                canvas.pixelPerfect = true;
+                var scaler = root.GetComponent<CanvasScaler>();
+                if (scaler == null) scaler = root.AddComponent<CanvasScaler>();
+                MobileUiLayout.ConfigurePortraitScaler(scaler);
 
-            canvasRoot = root.GetComponent<RectTransform>();
-            canvasRoot.anchorMin = Vector2.zero;
-            canvasRoot.anchorMax = Vector2.one;
-            canvasRoot.offsetMin = Vector2.zero;
-            canvasRoot.offsetMax = Vector2.zero;
+                canvasRoot = root.GetComponent<RectTransform>();
+                canvasRoot.anchorMin = Vector2.zero;
+                canvasRoot.anchorMax = Vector2.one;
+                canvasRoot.offsetMin = Vector2.zero;
+                canvasRoot.offsetMax = Vector2.zero;
+            }
 
             unlockPresentation =
                 GetComponent<GrowthUnlockPresentation>();
@@ -188,11 +232,15 @@ namespace MukJump.Core
                     gameObject.AddComponent<GrowthUnlockPresentation>();
             unlockPresentation.Initialize(canvasRoot);
 
-            Sprite blob = InkUiTextureFactory.CreateBlobSprite();
+            Sprite blob = null;
             for (int i = 0; i < marks.Length; i++)
             {
-                var markObject = new GameObject(
-                    $"InkTapMark{i + 1:00}",
+                if (IsMarkReady(marks[i]) && marks[i].Rect.parent == canvasRoot) continue;
+                if (blob == null) blob = InkUiTextureFactory.CreateBlobSprite();
+                string name = $"InkTapMark{i + 1:00}";
+                Transform existing = canvasRoot.Find(name);
+                var markObject = existing != null ? existing.gameObject : new GameObject(
+                    name,
                     typeof(RectTransform),
                     typeof(CanvasRenderer),
                     typeof(Image));
@@ -201,11 +249,13 @@ namespace MukJump.Core
                 rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
                 rect.pivot = new Vector2(0.5f, 0.5f);
                 var image = markObject.GetComponent<Image>();
+                if (image == null) image = markObject.AddComponent<Image>();
                 image.sprite = blob;
                 image.raycastTarget = false;
                 markObject.SetActive(false);
                 marks[i] = new InkMark { Rect = rect, Image = image };
             }
+            nextMark = Mathf.Clamp(nextMark, 0, marks.Length - 1);
         }
 
         void EmitTap(Vector2 screenPosition)
@@ -233,7 +283,7 @@ namespace MukJump.Core
             Sprite growthIcon)
         {
             EnsureInitialized();
-            unlockPresentation?.Play(growthName, growthIcon);
+            if (unlockPresentation != null) unlockPresentation.Play(growthName, growthIcon);
         }
 
         void EmitGrowthUnlock(
@@ -243,7 +293,7 @@ namespace MukJump.Core
             Sprite fruitSprite)
         {
             EnsureInitialized();
-            unlockPresentation?.PlayAtNode(
+            if (unlockPresentation != null) unlockPresentation.PlayAtNode(
                 growthName,
                 growthIcon,
                 ScreenToLocal(screenPosition),
@@ -256,7 +306,7 @@ namespace MukJump.Core
             int level)
         {
             EnsureInitialized();
-            unlockPresentation?.PlayUpgrade(
+            if (unlockPresentation != null) unlockPresentation.PlayUpgrade(
                 growthName,
                 growthIcon,
                 level);
@@ -274,6 +324,7 @@ namespace MukJump.Core
         {
             InkMark mark = marks[nextMark];
             nextMark = (nextMark + 1) % marks.Length;
+            if (!IsMarkReady(mark)) return;
             mark.Start = start;
             mark.Velocity = velocity;
             mark.Size = size;

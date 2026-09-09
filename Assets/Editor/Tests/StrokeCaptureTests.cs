@@ -12,7 +12,7 @@ namespace MukJump.EditorTests
     {
         GameObject playerObject;
         GameObject strokeObject;
-        readonly HashSet<int> existingPlatformIds = new();
+        readonly HashSet<EntityId> existingPlatformIds = new();
 
         [SetUp]
         public void SetUp()
@@ -21,10 +21,9 @@ namespace MukJump.EditorTests
                 new MemoryPermanentGrowthStore());
             existingPlatformIds.Clear();
             PlatformCollider[] platforms = Object.FindObjectsByType<PlatformCollider>(
-                FindObjectsInactive.Include,
-                FindObjectsSortMode.None);
+                FindObjectsInactive.Include);
             for (int i = 0; i < platforms.Length; i++)
-                existingPlatformIds.Add(platforms[i].GetInstanceID());
+                existingPlatformIds.Add(platforms[i].GetEntityId());
         }
 
         [TearDown]
@@ -41,10 +40,9 @@ namespace MukJump.EditorTests
                 Object.DestroyImmediate(preview.gameObject);
 
             PlatformCollider[] platforms = Object.FindObjectsByType<PlatformCollider>(
-                FindObjectsInactive.Include,
-                FindObjectsSortMode.None);
+                FindObjectsInactive.Include);
             for (int i = 0; i < platforms.Length; i++)
-                if (!existingPlatformIds.Contains(platforms[i].GetInstanceID()))
+                if (!existingPlatformIds.Contains(platforms[i].GetEntityId()))
                     Object.DestroyImmediate(platforms[i].gameObject);
 
             if (playerObject != null)
@@ -53,7 +51,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void SafeSegmentSelectionReturnsLongestReusableSegment()
+        public void StrokeThroughPlayerKeepsTheWholeReusableSegment()
         {
             playerObject = new GameObject("Player");
             var player = playerObject.AddComponent<PlayerController>();
@@ -72,31 +70,26 @@ namespace MukJump.EditorTests
             var longest = new List<Vector2>();
             var candidate = new List<Vector2>();
             var method = typeof(StrokeCapture).GetMethod(
-                "SelectLongestSafeSegment",
+                "SelectLongestPlayableSegment",
                 BindingFlags.Static | BindingFlags.NonPublic);
 
             Assert.That(method, Is.Not.Null);
             var result = (List<Vector2>)method.Invoke(null, new object[]
             {
                 points,
-                players,
-                0.75f,
+                float.NegativeInfinity,
+                float.PositiveInfinity,
                 longest,
                 candidate,
             });
 
             Assert.AreSame(longest, result,
                 "선분 결과 버퍼를 재사용해 매 스트로크 할당을 만들지 않아야 합니다.");
-            Assert.That(result, Is.EqualTo(new[]
-            {
-                new Vector2(1.5f, 0f),
-                new Vector2(2.5f, 0f),
-                new Vector2(3.5f, 0f),
-            }));
+            Assert.That(result, Is.EqualTo(points), "몸과 겹쳐도 선은 양쪽 모두 남아야 합니다.");
         }
 
         [Test]
-        public void EnlargedVisualBoundsBlockStrokeOutsidePhysicsCollider()
+        public void EnlargedVisualBoundsDoNotEraseTheStroke()
         {
             playerObject = new GameObject("EnlargedVisualPlayer");
             var renderer = playerObject.AddComponent<SpriteRenderer>();
@@ -113,7 +106,7 @@ namespace MukJump.EditorTests
             var player = playerObject.AddComponent<PlayerController>();
 
             MethodInfo method = typeof(StrokeCapture).GetMethod(
-                "SelectLongestSafeSegment",
+                "SelectLongestPlayableSegment",
                 BindingFlags.Static | BindingFlags.NonPublic);
             var result = (List<Vector2>)method.Invoke(null, new object[]
             {
@@ -125,17 +118,20 @@ namespace MukJump.EditorTests
                     new(1.3f, 0f),
                     new(2.2f, 0f),
                 },
-                new List<PlayerController> { player },
-                0.75f,
+                float.NegativeInfinity,
+                float.PositiveInfinity,
                 new List<Vector2>(),
                 new List<Vector2>(),
             });
 
             Assert.That(result, Is.EqualTo(new[]
             {
+                new Vector2(-2f, 0f),
+                new Vector2(-1.25f, 0f),
+                new Vector2(0.9f, 0f),
                 new Vector2(1.3f, 0f),
                 new Vector2(2.2f, 0f),
-            }), "콜라이더 밖이어도 커진 캐릭터 스프라이트와 겹치면 획에서 제외해야 합니다.");
+            }), "피격으로 커진 그림 영역은 발판 삭제 조건이 아닙니다.");
 
             Object.DestroyImmediate(renderer.sprite);
             Object.DestroyImmediate(texture);
@@ -164,8 +160,6 @@ namespace MukJump.EditorTests
                     new(3.8f, 1f),
                     new(5f, 1f),
                 },
-                new List<PlayerController>(),
-                0.55f,
                 -4.45f,
                 4.45f,
                 longest,
@@ -182,7 +176,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void PlayerClearanceAndEdgeWallShareOneReusableSelectionPass()
+        public void OnlyEdgeWallClipsTheStrokeNotThePlayerAtCenter()
         {
             playerObject = new GameObject("PlayerAtCenter");
             var player = playerObject.AddComponent<PlayerController>();
@@ -204,8 +198,6 @@ namespace MukJump.EditorTests
                     new(3f, 0f),
                     new(5f, 0f),
                 },
-                new List<PlayerController> { player },
-                0.75f,
                 -4f,
                 4f,
                 longest,
@@ -214,6 +206,9 @@ namespace MukJump.EditorTests
 
             Assert.That(result, Is.EqualTo(new[]
             {
+                new Vector2(-3f, 0f),
+                new Vector2(-2f, 0f),
+                Vector2.zero,
                 new Vector2(1.5f, 0f),
                 new Vector2(3f, 0f),
             }));
@@ -234,8 +229,6 @@ namespace MukJump.EditorTests
                     new(-5f, 1f),
                     new(-4.7f, 2f),
                 },
-                new List<PlayerController>(),
-                0.55f,
                 -4.45f,
                 4.45f,
                 new List<Vector2>(),
@@ -288,7 +281,7 @@ namespace MukJump.EditorTests
             strokeObject = new GameObject("StrokeCaptureTailTest");
             var capture = strokeObject.AddComponent<StrokeCapture>();
             SetField(capture, "maxContinuousStrokeLength", 1f);
-            SetField(capture, "unlimitedInkUntil", Time.time + 30f);
+            SetField(capture, "unlimitedInkRemaining", 30f);
             Vector2 start = new(10000f, 10000f);
             GetMethod("BeginStrokeAtWorld").Invoke(capture, new object[] { start });
 
@@ -303,6 +296,23 @@ namespace MukJump.EditorTests
             Assert.That(points[1].x, Is.EqualTo(start.x + 2.5f).Within(0.001f));
             Assert.That(GetField<float>(capture, "strokeLength"),
                 Is.EqualTo(0.5f).Within(0.001f));
+        }
+
+        [Test]
+        public void UnlimitedInkUsesExplicitGameplayTimeInsteadOfWallClockDeadline()
+        {
+            strokeObject = new GameObject("UnlimitedInkGameplayClockTest");
+            var capture = strokeObject.AddComponent<StrokeCapture>();
+            capture.ActivateUnlimitedInk(10f);
+
+            GetMethod("AdvanceUnlimitedInk").Invoke(capture, new object[] { 4f });
+
+            Assert.That(capture.HasUnlimitedInk, Is.True);
+            Assert.That(GetField<float>(capture, "unlimitedInkRemaining"),
+                Is.EqualTo(6f).Within(0.001f));
+
+            GetMethod("AdvanceUnlimitedInk").Invoke(capture, new object[] { 6f });
+            Assert.That(capture.HasUnlimitedInk, Is.False);
         }
 
         [TestCase(10f, 1f, 1f, 10f)]
@@ -372,10 +382,9 @@ namespace MukJump.EditorTests
         {
             int count = 0;
             PlatformCollider[] platforms = Object.FindObjectsByType<PlatformCollider>(
-                FindObjectsInactive.Include,
-                FindObjectsSortMode.None);
+                FindObjectsInactive.Include);
             for (int i = 0; i < platforms.Length; i++)
-                if (!existingPlatformIds.Contains(platforms[i].GetInstanceID()))
+                if (!existingPlatformIds.Contains(platforms[i].GetEntityId()))
                     count++;
             return count;
         }

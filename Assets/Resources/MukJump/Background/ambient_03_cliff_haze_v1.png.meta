@@ -1,0 +1,318 @@
+fileFormatVersion: 2
+guid: 8562caa9b1eaa4333b1dac53d008ee15
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 9061170515120237395
+    second: ambient_03_cliff_haze_v1_0
+  - first:
+      213: 6627344221522599878
+    second: ambient_03_cliff_haze_v1_1
+  - first:
+      213: 2662354558959180478
+    second: ambient_03_cliff_haze_v1_2
+  - first:
+      213: 6711044931446060303
+    second: ambient_03_cliff_haze_v1_3
+  - first:
+      213: 4063610531548786074
+    second: ambient_03_cliff_haze_v1_4
+  - first:
+      213: 3499711708597389649
+    second: ambient_03_cliff_haze_v1_5
+  - first:
+      213: -2830113161388747811
+    second: ambient_03_cliff_haze_v1_6
+  - first:
+      213: -2139564318386025075
+    second: ambient_03_cliff_haze_v1_7
+  - first:
+      213: 3435526811971736117
+    second: ambient_03_cliff_haze_v1_8
+  - first:
+      213: -9217000153656047093
+    second: ambient_03_cliff_haze_v1_9
+  - first:
+      213: 7405261935985726281
+    second: ambient_03_cliff_haze_v1_10
+  - first:
+      213: 4981427287542253038
+    second: ambient_03_cliff_haze_v1_11
+  - first:
+      213: -8791529705866981384
+    second: ambient_03_cliff_haze_v1_12
+  - first:
+      213: 6605382954030131716
+    second: ambient_03_cliff_haze_v1_13
+  - first:
+      213: 8156723638016191107
+    second: ambient_03_cliff_haze_v1_14
+  - first:
+      213: -7205780360009843712
+    second: ambient_03_cliff_haze_v1_15
+  - first:
+      213: 4104558842887162505
+    second: ambient_03_cliff_haze_v1_16
+  - first:
+      213: -9154294857471573630
+    second: ambient_03_cliff_haze_v1_17
+  - first:
+      213: 8623941183263754394
+    second: ambient_03_cliff_haze_v1_18
+  - first:
+      213: 5019208511598411268
+    second: ambient_03_cliff_haze_v1_19
+  - first:
+      213: -1834733377507691504
+    second: ambient_03_cliff_haze_v1_20
+  - first:
+      213: -8419556836502093758
+    second: ambient_cloud_00
+  - first:
+      213: 5747637220178057290
+    second: ambient_cloud_01
+  - first:
+      213: 6248322176128233947
+    second: ambient_cloud_02
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 0
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 2
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: iOS
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: ambient_cloud_00
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 664
+        width: 1536
+        height: 360
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 240c41a7aa9b72b80800000000000000
+      internalID: -8419556836502093758
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ambient_cloud_01
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 314
+        width: 1536
+        height: 350
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a48d6867995b3cf40800000000000000
+      internalID: 5747637220178057290
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ambient_cloud_02
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 1536
+        height: 314
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bd1b1560aef76b650800000000000000
+      internalID: 6248322176128233947
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      ambient_03_cliff_haze_v1_0: 9061170515120237395
+      ambient_03_cliff_haze_v1_1: 6627344221522599878
+      ambient_03_cliff_haze_v1_10: 7405261935985726281
+      ambient_03_cliff_haze_v1_11: 4981427287542253038
+      ambient_03_cliff_haze_v1_12: -8791529705866981384
+      ambient_03_cliff_haze_v1_13: 6605382954030131716
+      ambient_03_cliff_haze_v1_14: 8156723638016191107
+      ambient_03_cliff_haze_v1_15: -7205780360009843712
+      ambient_03_cliff_haze_v1_16: 4104558842887162505
+      ambient_03_cliff_haze_v1_17: -9154294857471573630
+      ambient_03_cliff_haze_v1_18: 8623941183263754394
+      ambient_03_cliff_haze_v1_19: 5019208511598411268
+      ambient_03_cliff_haze_v1_2: 2662354558959180478
+      ambient_03_cliff_haze_v1_20: -1834733377507691504
+      ambient_03_cliff_haze_v1_3: 6711044931446060303
+      ambient_03_cliff_haze_v1_4: 4063610531548786074
+      ambient_03_cliff_haze_v1_5: 3499711708597389649
+      ambient_03_cliff_haze_v1_6: -2830113161388747811
+      ambient_03_cliff_haze_v1_7: -2139564318386025075
+      ambient_03_cliff_haze_v1_8: 3435526811971736117
+      ambient_03_cliff_haze_v1_9: -9217000153656047093
+      ambient_cloud_00: -8419556836502093758
+      ambient_cloud_01: 5747637220178057290
+      ambient_cloud_02: 6248322176128233947
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -30,7 +30,8 @@ requested. The choice is optional and does not restrict gameplay. Version 1.0 se
 non-personalized ad requests only. The UMP privacy choices can be reopened from Settings > Play &
 Ads > Ad Privacy.
 
-Support: cysbandcs@gmail.com
+Public customer support: cysbandcs@gmail.com
+Developer account contact: choiysband@gmail.com
 
 ## 심사 재현 순서
 

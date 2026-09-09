@@ -27,9 +27,12 @@ namespace MukJump.Items
         SpriteRenderer[] shieldMotes;
         SpriteRenderer[] shieldShards;
         Vector3[] shieldShardVelocity;
+        Vector3[] shieldShardPosition;
         SpriteRenderer playerRenderer;
         SpriteRenderer vitalityHitPuff;
         bool shieldWasVisible;
+        bool shieldShattering;
+        uint visualSeed = 0x198DA73F;
         float shieldPulseTime;
         float shieldShardTime;
         float vitalityHitTime;
@@ -63,6 +66,14 @@ namespace MukJump.Items
             if (player != null) player.ShieldConsumed -= OnShieldConsumed;
             if (vitalityHitPuff != null) vitalityHitPuff.enabled = false;
             vitalityHitTime = 0f;
+            shieldWasVisible = false;
+            shieldShattering = false;
+            shieldPulseTime = shieldShardTime = 0f;
+            if (outerRing != null) outerRing.enabled = false;
+            if (innerRing != null) innerRing.enabled = false;
+            if (shieldPulse != null) shieldPulse.enabled = false;
+            HideMotes(shieldMotes);
+            HideMotes(shieldShards);
         }
 
         void Update()
@@ -76,13 +87,15 @@ namespace MukJump.Items
             if (innerRing != null) innerRing.enabled = visible;
             if (visible)
             {
-                UpdateRing(outerRing, ringRadius, Time.time * 2.2f);
-                UpdateRing(innerRing, ringRadius * 0.88f, -Time.time * 1.7f);
+                bool reduced = LobbySettingsProfile.ReducedMotionEnabled;
+                UpdateRing(outerRing, ringRadius, reduced ? 0f : Time.time * 2.2f);
+                UpdateRing(innerRing, ringRadius * 0.88f, reduced ? 0f : -Time.time * 1.7f);
             }
 
             if (visible && !shieldWasVisible)
             {
                 shieldPulseTime = 0.42f;
+                shieldShattering = false;
                 VfxAudioManager.Instance?.PlayOneShot(shieldAnticipationClip);
             }
             shieldWasVisible = visible;
@@ -102,13 +115,19 @@ namespace MukJump.Items
                 return;
             }
 
-            shieldPulseTime -= Time.deltaTime;
+            shieldPulseTime = Mathf.Max(0f, shieldPulseTime - Mathf.Min(Time.deltaTime, 0.05f));
             float progress = 1f - Mathf.Clamp01(shieldPulseTime / 0.42f);
             shieldPulse.enabled = true;
-            UpdateRing(shieldPulse, Mathf.Lerp(ringRadius * 0.7f, ringRadius * 1.45f, progress),
-                Time.time * 3f);
+            bool reduced = LobbySettingsProfile.ReducedMotionEnabled;
+            UpdateRing(shieldPulse, reduced ? ringRadius :
+                ringRadius * (shieldShattering
+                    ? Mathf.Lerp(1f, 1.65f, 1f - (1f - progress) * (1f - progress))
+                    : Mathf.Lerp(1.7f, 1f, 1f - Mathf.Pow(1f - progress, 3f))),
+                reduced ? 0f : Time.time * 3f);
             Color color = InkPalette.Ink;
-            color.a = (1f - progress) * 0.75f;
+            color.a = InkVfxMotion.TailAlpha(progress, 0.08f) * 0.75f;
+            shieldPulse.startWidth = shieldPulse.endWidth =
+                0.085f * Mathf.Lerp(1f, 0.16f, progress * progress);
             shieldPulse.startColor = shieldPulse.endColor = color;
         }
 
@@ -188,28 +207,53 @@ namespace MukJump.Items
             }
             if (vitalityHitTime <= 0f)
                 vitalityHitPuff.enabled = false;
+            if (LobbySettingsProfile.ReducedMotionEnabled)
+            {
+                vitalityHitPuff.transform.localScale = Vector3.one;
+                vitalityHitPuff.sortingOrder = playerRenderer.sortingOrder + 1;
+                Color quietHit = InkPalette.Red;
+                quietHit.a = 0.55f * (1f - progress);
+                vitalityHitPuff.color = quietHit;
+            }
         }
 
         void UpdateShieldMotes(bool visible)
         {
             if (shieldMotes == null) return;
 
+            bool gathering = !shieldShattering && shieldPulseTime > 0.08f;
             int visibleCount = VfxQualityRuntime.Profile.ScaleDecorativeCount(
-                shieldMotes.Length,
+                gathering ? shieldMotes.Length : Mathf.Min(player.IsRuntimeClone ? 2 : 5, shieldMotes.Length),
                 Mathf.Min(2, shieldMotes.Length));
             for (int i = 0; i < shieldMotes.Length; i++)
             {
                 var mote = shieldMotes[i];
                 if (mote == null) continue;
-                bool showMote = visible && i < visibleCount;
+                bool showMote = visible && i < visibleCount &&
+                    !LobbySettingsProfile.ReducedMotionEnabled;
                 mote.enabled = showMote;
                 if (!showMote) continue;
-                float angle = i * Mathf.PI * 2f / visibleCount +
+                // 품질 강등·획득 종료로 개수가 줄어도 살아남은 알갱이의 위치는 유지한다.
+                float angle = i * 2.399963f +
                               Time.time * (0.6f + i % 2 * 0.14f);
                 float radius = ringRadius + Mathf.Sin(Time.time * 1.8f + i) * 0.08f;
+                float gather = Mathf.Clamp01(1f - shieldPulseTime / 0.42f);
+                if (gathering)
+                {
+                    float eased = 1f - Mathf.Pow(1f - gather, 3f);
+                    radius = ringRadius * Mathf.Lerp(1.85f, 1f, eased);
+                    angle += (1f - eased) * 0.5f;
+                }
                 mote.transform.localPosition = new Vector3(Mathf.Cos(angle) * radius,
                     Mathf.Sin(angle) * radius * 0.9f, 0f);
-                mote.transform.localScale = Vector3.one * (0.055f + i % 3 * 0.018f);
+                float size = gathering ? 0.13f + i % 3 * 0.025f : 0.09f;
+                SetMoteSize(mote, size, size);
+                Color color = InkPalette.Ink;
+                color.a = gathering ? 0.8f : 0.42f;
+                if (gathering && i >= VfxQualityRuntime.Profile.ScaleDecorativeCount(
+                    Mathf.Min(player.IsRuntimeClone ? 2 : 5, shieldMotes.Length), 2))
+                    color.a *= Mathf.InverseLerp(0.08f, 0.18f, shieldPulseTime);
+                mote.color = color;
             }
         }
 
@@ -218,7 +262,9 @@ namespace MukJump.Items
             EnsureShieldVisuals();
             shieldPulseTime = 0.42f;
             shieldShardTime = 0.7f;
-            int visibleShardCount = VfxQualityRuntime.Profile.ScaleDecorativeCount(
+            shieldShattering = true;
+            int visibleShardCount = LobbySettingsProfile.ReducedMotionEnabled ? 0 :
+                VfxQualityRuntime.Profile.ScaleDecorativeCount(
                 shieldShards.Length,
                 Mathf.Min(4, shieldShards.Length));
             for (int i = 0; i < shieldShards.Length; i++)
@@ -229,41 +275,54 @@ namespace MukJump.Items
                     shieldShards[i].enabled = false;
                     continue;
                 }
-                float angle = Random.Range(-25f, 205f) * Mathf.Deg2Rad;
-                float speed = Random.Range(1.8f, 4.8f);
+                float angle = (i * 360f / Mathf.Max(1, visibleShardCount) + Range(-12f, 12f)) * Mathf.Deg2Rad;
+                float speed = Range(1.5f, 3.6f);
                 shieldShardVelocity[i] = new Vector3(Mathf.Cos(angle) * speed,
-                    Mathf.Sin(angle) * speed, 0f);
-                shieldShards[i].transform.localPosition = Vector3.zero;
-                shieldShards[i].transform.localScale = new Vector3(
-                    Random.Range(0.05f, 0.11f), Random.Range(0.025f, 0.055f), 1f);
+                    Mathf.Sin(angle) * speed + 0.65f, 0f);
+                shieldShardPosition[i] = transform.TransformPoint(new Vector3(
+                    Mathf.Cos(angle) * ringRadius, Mathf.Sin(angle) * ringRadius, 0f));
+                shieldShards[i].transform.position = shieldShardPosition[i];
+                SetMoteSize(shieldShards[i], Range(0.18f, 0.3f), Range(0.08f, 0.14f));
+                shieldShards[i].transform.localRotation = Quaternion.Euler(0f, 0f,
+                    angle * Mathf.Rad2Deg + 90f);
+                shieldShards[i].color = InkPalette.Ink;
                 shieldShards[i].enabled = true;
             }
-            VfxAudioManager.Instance?.PlayOneShot(shieldImpactClip);
-            VfxAudioManager.Instance?.PlayOneShot(shieldTailClip, 0.72f);
+            VfxAudioManager.Instance?.PlayOneShot(shieldImpactClip != null
+                ? shieldImpactClip : shieldTailClip);
         }
 
         void UpdateShieldShards()
+            => AdvanceShieldShards(Mathf.Min(Time.deltaTime, 0.05f));
+
+        void AdvanceShieldShards(float delta)
         {
             if (shieldShards == null || shieldShardVelocity == null) return;
 
-            if (shieldShardTime <= 0f)
+            if (shieldShardTime <= 0f || LobbySettingsProfile.ReducedMotionEnabled)
             {
-                for (int i = 0; i < shieldShards.Length; i++)
-                    if (shieldShards[i] != null)
-                        shieldShards[i].enabled = false;
+                shieldShardTime = 0f;
+                HideMotes(shieldShards);
                 return;
             }
 
-            shieldShardTime -= Time.deltaTime;
-            float alpha = Mathf.Clamp01(shieldShardTime / 0.7f);
+            shieldShardTime = Mathf.Max(0f, shieldShardTime - delta);
+            float progress = 1f - Mathf.Clamp01(shieldShardTime / 0.7f);
+            int limit = VfxQualityRuntime.Profile.ScaleDecorativeCount(shieldShards.Length, Mathf.Min(4, shieldShards.Length));
             for (int i = 0; i < shieldShards.Length; i++)
             {
                 if (shieldShards[i] == null) continue;
-                shieldShardVelocity[i] += Vector3.down * (2.2f * Time.deltaTime);
-                shieldShardVelocity[i] *= Mathf.Exp(-2.8f * Time.deltaTime);
-                shieldShards[i].transform.localPosition += shieldShardVelocity[i] * Time.deltaTime;
+                if (i >= limit) shieldShards[i].enabled = false;
+                if (!shieldShards[i].enabled) continue;
+                // 부모 계층은 복제 수명 관리용으로 유지하되 파편 자체는 월드에 남긴다.
+                InkVfxMotion.Integrate(ref shieldShardPosition[i], ref shieldShardVelocity[i],
+                    Vector3.down * 2.2f, 2.8f, delta);
+                shieldShards[i].transform.position = shieldShardPosition[i];
+                shieldShards[i].transform.rotation = Quaternion.Euler(0f, 0f,
+                    Mathf.Atan2(shieldShardVelocity[i].y, shieldShardVelocity[i].x) * Mathf.Rad2Deg);
                 Color color = InkPalette.Ink;
-                color.a = alpha;
+                // 조각별 마지막 박자를 조금씩 달리해 고리 전체가 한 번에 꺼지지 않게 한다.
+                color.a = InkVfxMotion.TailAlpha(Mathf.Clamp01(progress / (0.78f + i % 4 * 0.073f)), 0.12f);
                 shieldShards[i].color = color;
             }
         }
@@ -286,6 +345,8 @@ namespace MukJump.Items
             if (shieldShardVelocity == null ||
                 shieldShardVelocity.Length != shieldShards.Length)
                 shieldShardVelocity = new Vector3[shieldShards.Length];
+            if (shieldShardPosition == null || shieldShardPosition.Length != shieldShards.Length)
+                shieldShardPosition = new Vector3[shieldShards.Length];
         }
 
         /// 이미 효과가 만들어진 원본을 복제한 경우 자식 렌더러 참조만 되찾는다.
@@ -399,6 +460,28 @@ namespace MukJump.Items
                 if (renderers[i] == null)
                     return true;
             return false;
+        }
+
+        static void HideMotes(SpriteRenderer[] renderers)
+        {
+            if (renderers == null) return;
+            foreach (var value in renderers)
+                if (value != null) value.enabled = false;
+        }
+
+        void SetMoteSize(SpriteRenderer renderer, float width, float height)
+        {
+            Vector2 art = renderer.sprite != null ? (Vector2)renderer.sprite.bounds.size : Vector2.one;
+            Vector3 parentScale = transform.lossyScale;
+            renderer.transform.localScale = new Vector3(
+                width / Mathf.Max(0.001f, art.x * Mathf.Abs(parentScale.x)),
+                height / Mathf.Max(0.001f, art.y * Mathf.Abs(parentScale.y)), 1f);
+        }
+
+        float Range(float min, float max)
+        {
+            visualSeed ^= visualSeed << 13; visualSeed ^= visualSeed >> 17; visualSeed ^= visualSeed << 5;
+            return Mathf.Lerp(min, max, (visualSeed & 0xFFFFFF) / 16777216f);
         }
 
         void EnsureVitalityHitVisual()

@@ -14,6 +14,13 @@ namespace MukJump.EditorTests
     {
         readonly List<GameObject> created = new();
 
+        [SetUp]
+        public void SetUp()
+        {
+            // 개발자의 실제 구매 레벨이 먹 용량 기대값에 섞이지 않게 격리한다.
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -21,6 +28,23 @@ namespace MukJump.EditorTests
                 if (created[i] != null)
                     Object.DestroyImmediate(created[i]);
             created.Clear();
+            PermanentGrowthProfile.RestoreDefaultStoreForTests();
+        }
+
+        [Test]
+        public void DrawnPlatformLifetimeStopsOutsideActiveGameplay()
+        {
+            var managerObject = new GameObject("PlatformLifetimeManager");
+            created.Add(managerObject);
+            var manager = managerObject.AddComponent<GameManager>();
+            SetAutoProperty(manager, "State", GameState.GameOver);
+
+            Assert.That(PlatformCollider.ShouldAdvanceLifetime(manager), Is.False,
+                "광고 부활 선택 중에는 먹선 수명이 흐르면 안 됩니다.");
+            SetAutoProperty(manager, "State", GameState.Playing);
+            Assert.That(PlatformCollider.ShouldAdvanceLifetime(manager), Is.True);
+            Assert.That(PlatformCollider.ShouldAdvanceLifetime(null), Is.True,
+                "씬 빌더와 고립 테스트는 GameManager 없이도 수명 로직을 검증할 수 있어야 합니다.");
         }
 
         [Test]
@@ -301,6 +325,16 @@ namespace MukJump.EditorTests
                 name, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, name);
             field.SetValue(target, value);
+        }
+
+        static void SetAutoProperty(object target, string name, object value)
+        {
+            PropertyInfo property = target.GetType().GetProperty(
+                name,
+                BindingFlags.Instance | BindingFlags.Public |
+                BindingFlags.NonPublic);
+            Assert.That(property, Is.Not.Null, name);
+            property.SetValue(target, value);
         }
 
         static List<Vector2> CreateDetailedStrokePoints()

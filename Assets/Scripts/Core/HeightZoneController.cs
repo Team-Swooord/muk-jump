@@ -45,9 +45,9 @@ namespace MukJump.Core
 
         void Start()
         {
-            rockSpawner = FindFirstObjectByType<FallingInkRockSpawner>();
+            rockSpawner = FindAnyObjectByType<FallingInkRockSpawner>();
             worldCamera = Camera.main;
-            backgroundView = FindFirstObjectByType<MapBackgroundView>();
+            backgroundView = FindAnyObjectByType<MapBackgroundView>();
             ApplyZone(0);
         }
 
@@ -69,7 +69,7 @@ namespace MukJump.Core
             currentBand = band;
             currentZone = (Zone)(band % 4);
             if (backgroundView == null)
-                backgroundView = FindFirstObjectByType<MapBackgroundView>();
+                backgroundView = FindAnyObjectByType<MapBackgroundView>();
             int baseMapCount = backgroundView != null
                 ? Mathf.Max(1, backgroundView.BaseStageCount)
                 : DefaultBaseMapCount;
@@ -85,7 +85,7 @@ namespace MukJump.Core
                 CreateGorgeLines();
             PlatformCollider.RuntimeInkCapacityMultiplier =
                 currentZone == Zone.InkRain ? rainInkCapacityMultiplier : 1f;
-            if (rockSpawner == null) rockSpawner = FindFirstObjectByType<FallingInkRockSpawner>();
+            if (rockSpawner == null) rockSpawner = FindAnyObjectByType<FallingInkRockSpawner>();
             if (rockSpawner != null)
                 rockSpawner.RuntimeIntervalMultiplier =
                     currentZone == Zone.RockGorge ? gorgeRockIntervalMultiplier : 1f;
@@ -133,7 +133,7 @@ namespace MukJump.Core
 
         void ApplyMapStage(int stage, bool mirrorX = false)
         {
-            if (backgroundView == null) backgroundView = FindFirstObjectByType<MapBackgroundView>();
+            if (backgroundView == null) backgroundView = FindAnyObjectByType<MapBackgroundView>();
             backgroundView?.SetStage(stage, false, mirrorX);
             if (worldCamera != null)
             {

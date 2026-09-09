@@ -173,8 +173,10 @@ namespace MukJump.Player
             if (sharedSprites.TryGetValue(key, out Sprite sprite) && sprite != null)
                 return sprite;
 
+            // 체력이 늘어도 셀 안쪽이 2~3px로 찌그러지지 않게 폭을 확보한다.
+            int width = Mathf.Max(TextureWidth, maximum * 12 + 2);
             var texture = new Texture2D(
-                TextureWidth,
+                width,
                 TextureHeight,
                 TextureFormat.RGBA32,
                 false)
@@ -184,14 +186,14 @@ namespace MukJump.Player
                 wrapMode = TextureWrapMode.Clamp,
                 hideFlags = HideFlags.HideAndDontSave,
             };
-            Color[] pixels = new Color[TextureWidth * TextureHeight];
-            PaintHealthPixels(pixels, TextureWidth, TextureHeight, current, maximum);
+            Color[] pixels = new Color[width * TextureHeight];
+            PaintHealthPixels(pixels, width, TextureHeight, current, maximum);
             texture.SetPixels(pixels);
             texture.Apply(false, true);
 
             sprite = Sprite.Create(
                 texture,
-                new Rect(0f, 0f, TextureWidth, TextureHeight),
+                new Rect(0f, 0f, width, TextureHeight),
                 new Vector2(0.5f, 0.5f),
                 TexturePixelsPerUnit,
                 0u,

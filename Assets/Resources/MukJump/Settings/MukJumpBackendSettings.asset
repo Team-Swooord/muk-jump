@@ -18,6 +18,6 @@ MonoBehaviour:
   allTimeRankUuid: 01a04198-3705-7286-bce6-651ddcd17e2f
   androidGoogleWebClientId:
   androidAppleServiceId:
-  appleRevocationConfigurationVerified: 0
-  appleAccountChangeWebhookVerified: 0
+  appleRevocationConfigurationVerified: 1
+  appleAccountChangeWebhookVerified: 1
   androidSigningHashesVerified: 0

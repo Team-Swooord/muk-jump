@@ -4,6 +4,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 using MukJump.Core;
 using MukJump.Items;
 using MukJump.Player;
@@ -14,12 +15,15 @@ namespace MukJump.EditorTests
     {
         readonly List<Object> cleanup = new();
         RunGrowthController growth;
+        GameManager manager;
 
         [SetUp]
         public void SetUp()
         {
+            // 에디터 사용자의 실제 성장 저장이 기본 체력 테스트에 섞이지 않게 한다.
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
             var managerObject = Track(new GameObject("PlayerHealthManager"));
-            var manager = managerObject.AddComponent<GameManager>();
+            manager = managerObject.AddComponent<GameManager>();
             SetAutoProperty(manager, "State", GameState.Playing);
             growth = managerObject.GetComponent<RunGrowthController>() ??
                      managerObject.AddComponent<RunGrowthController>();
@@ -33,10 +37,11 @@ namespace MukJump.EditorTests
                 if (cleanup[i] != null)
                     Object.DestroyImmediate(cleanup[i]);
             cleanup.Clear();
+            PermanentGrowthProfile.RestoreDefaultStoreForTests();
         }
 
         [Test]
-        public void BaseHealthOneDiesOnFirstUnprotectedHitWithoutPhysicsScaling()
+        public void BaseHealthThreeDiesOnThirdUnprotectedHitWithoutPhysicsScaling()
         {
             var player = CreatePlayer("OneHitTarget");
             var collider = player.GetComponent<CircleCollider2D>();
@@ -44,14 +49,26 @@ namespace MukJump.EditorTests
             float colliderRadius = collider.radius;
             Vector2 colliderOffset = collider.offset;
 
-            Assert.That(player.MaxHealth, Is.EqualTo(1));
-            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.MaxHealth, Is.EqualTo(3));
+            Assert.That(player.CurrentHealth, Is.EqualTo(3));
             Assert.That((float)GetField(player, "damageHitGraceDuration"),
                 Is.EqualTo(0.55f).Within(0.001f));
 
             Assert.That(player.TakeHit(), Is.True);
-            Assert.That(player.CurrentHealth, Is.Zero);
+            Assert.That(player.CurrentHealth, Is.EqualTo(2));
             Assert.That(player.DamageStage, Is.EqualTo(1));
+            Assert.That(player.IsDead, Is.False);
+
+            ExpireDamageGrace(player);
+            Assert.That(player.TakeHit(), Is.True);
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.DamageStage, Is.EqualTo(2));
+            Assert.That(player.IsDead, Is.False);
+
+            ExpireDamageGrace(player);
+            Assert.That(player.TakeHit(), Is.True);
+            Assert.That(player.CurrentHealth, Is.Zero);
+            Assert.That(player.DamageStage, Is.EqualTo(3));
             Assert.That(player.IsDead, Is.True);
 
             Assert.That(player.transform.localScale, Is.EqualTo(rootScale));
@@ -60,32 +77,48 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ShieldIsConsumedBeforeHealthAndRuntimeCloneStartsAtTwo()
+        public void EightBodyStagesSurviveTenHitsAndKeepPhysicsSize()
+        {
+            SetAutoProperty(growth, "PermanentSnapshot",
+                new PermanentGrowthRunSnapshot(
+                    Enumerable.Range(1, 8).Select(i => $"body.{i}"), null));
+            var player = CreatePlayer("ElevenHealthTarget");
+            var collider = player.GetComponent<CircleCollider2D>();
+            Vector3 rootScale = player.transform.localScale;
+            float radius = collider.radius;
+            Assert.That(player.MaxHealth, Is.EqualTo(11));
+            for (int remaining = 10; remaining >= 0; remaining--)
+            {
+                ExpireDamageGrace(player);
+                Assert.That(player.TakeHit(), Is.True);
+                Assert.That(player.CurrentHealth, Is.EqualTo(remaining));
+                Assert.That(player.IsDead, Is.EqualTo(remaining == 0));
+                Assert.That(player.transform.localScale, Is.EqualTo(rootScale));
+                Assert.That(collider.radius, Is.EqualTo(radius));
+            }
+        }
+
+        [Test]
+        public void ShieldIsConsumedBeforeHealthAndRuntimeCloneStartsAtOne()
         {
             var player = CreatePlayer("ShieldAndCloneTarget");
             player.GrantShield();
 
             Assert.That(player.TakeHit(), Is.True);
             Assert.That(player.HasShield, Is.False);
-            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.CurrentHealth, Is.EqualTo(3));
 
             player.ConfigureAsClone(1f);
 
             Assert.That(player.IsRuntimeClone, Is.True);
-            Assert.That(player.CurrentHealth, Is.EqualTo(2));
-            Assert.That(player.DamageStage, Is.Zero);
-
-            ExpireDamageGrace(player);
-            Assert.That(player.TakeHit(), Is.True);
             Assert.That(player.CurrentHealth, Is.EqualTo(1));
-            Assert.That(player.IsDead, Is.False,
-                "기본 먹분신은 첫 피해를 받고도 한 칸으로 생존해야 합니다.");
+            Assert.That(player.DamageStage, Is.Zero);
 
             ExpireDamageGrace(player);
             Assert.That(player.TakeHit(), Is.True);
             Assert.That(player.CurrentHealth, Is.Zero);
             Assert.That(player.IsDead, Is.True,
-                "기본 먹분신은 방어막이 없으면 두 번째 피해에 사망해야 합니다.");
+                "기본 먹분신은 방어막이 없으면 첫 피해에 사망해야 합니다.");
         }
 
         [Test]
@@ -95,12 +128,12 @@ namespace MukJump.EditorTests
             player.LaunchInkDrop(1f, false);
 
             Assert.That(player.TakeHit(), Is.False);
-            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.CurrentHealth, Is.EqualTo(3));
 
             SetField(player, "IsInkDropBoosted", false);
             SetField(player, "damageInvulnerableUntil", Time.time + 10f);
             Assert.That(player.TakeHit(), Is.False);
-            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.CurrentHealth, Is.EqualTo(3));
         }
 
         [Test]
@@ -120,15 +153,102 @@ namespace MukJump.EditorTests
             Assert.That(player.IsDead, Is.True);
             Assert.That(player.CurrentHealth, Is.Zero);
             Assert.That(notifiedCurrent, Is.Zero);
-            Assert.That(notifiedMax, Is.EqualTo(1));
+            Assert.That(notifiedMax, Is.EqualTo(3));
         }
 
         [Test]
-        public void RewardedAdReviveRestoresOneHealthCollisionAndUpwardMotion()
+        public void ThrowingHealthListenerCannotInterruptLethalHitOrLaterListener()
+        {
+            var player = CreatePlayer("ThrowingHealthListenerTarget");
+            SetField(player, "CurrentHealth", 1);
+            bool laterListenerCalled = false;
+            player.HealthChanged += (_, _) =>
+                throw new System.InvalidOperationException("health observer failed");
+            player.HealthChanged += (current, maximum) =>
+            {
+                laterListenerCalled = current == 0 && maximum == 3;
+            };
+            LogAssert.Expect(
+                LogType.Warning,
+                "[MukJump] 체력 변경 알림 구독자 예외를 격리했습니다: " +
+                "health observer failed");
+
+            Assert.That(player.TakeHit(), Is.True);
+
+            Assert.That(player.IsDead, Is.True);
+            Assert.That(player.CurrentHealth, Is.Zero);
+            Assert.That(player.GetComponent<Collider2D>().enabled, Is.False);
+            Assert.That(laterListenerCalled, Is.True,
+                "먼저 등록된 UI 구독자가 실패해도 다음 구독자까지 알려야 합니다.");
+        }
+
+        [Test]
+        public void ThrowingHealthListenerCannotInterruptRewardedReviveState()
+        {
+            var player = CreatePlayer("ThrowingRewardReviveListenerTarget");
+            var cameraObject = Track(new GameObject("ThrowingRewardReviveCamera"));
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.transform.position = new Vector3(0f, 10f, -10f);
+            camera.orthographicSize = 5f;
+            SetField(player, "cam", camera);
+            SetField(player, "camHalfHeight", camera.orthographicSize);
+            player.Kill();
+            player.HealthChanged += (_, _) =>
+                throw new System.InvalidOperationException("revive observer failed");
+            LogAssert.Expect(
+                LogType.Warning,
+                "[MukJump] 체력 변경 알림 구독자 예외를 격리했습니다: " +
+                "revive observer failed");
+
+            Assert.That(player.ReviveFromRewardedAd(), Is.True);
+
+            Assert.That(player.IsDead, Is.False);
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.HasShield, Is.True);
+            Assert.That(player.Body.simulated, Is.True);
+            Assert.That(player.GetComponent<Collider2D>().enabled, Is.True);
+            Assert.That(player.GetComponent<SpriteRenderer>().enabled, Is.True);
+            Assert.That(player.IsInkDropBoosted, Is.True);
+        }
+
+        [Test]
+        public void ThrowingShieldListenerCannotInterruptProtectedHitRecovery()
+        {
+            var player = CreatePlayer("ThrowingShieldListenerTarget");
+            player.GrantShield();
+            bool laterListenerCalled = false;
+            player.ShieldConsumed += () =>
+                throw new System.InvalidOperationException("shield observer failed");
+            player.ShieldConsumed += () => laterListenerCalled = true;
+            LogAssert.Expect(
+                LogType.Warning,
+                "[MukJump] 방어막 소모 알림 구독자 예외를 격리했습니다: " +
+                "shield observer failed");
+
+            Assert.That(player.TakeHit(), Is.True);
+
+            Assert.That(player.HasShield, Is.False);
+            Assert.That(player.CurrentHealth, Is.EqualTo(player.MaxHealth));
+            Assert.That(player.IsDead, Is.False);
+            Assert.That(player.Body.simulated, Is.True);
+            Assert.That(laterListenerCalled, Is.True);
+        }
+
+        [Test]
+        public void RewardedAdReviveRestoresOneHealthFiftyMeterRiseAndShield()
         {
             var player = CreatePlayer("RewardedAdReviveTarget");
             var collider = player.GetComponent<CircleCollider2D>();
             var renderer = player.GetComponent<SpriteRenderer>();
+            var cameraObject = Track(new GameObject("RewardedAdReviveCamera"));
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.transform.position = new Vector3(0f, 10f, -10f);
+            camera.orthographicSize = 5f;
+            SetField(player, "cam", camera);
+            SetField(player, "camHalfHeight", camera.orthographicSize);
+            player.transform.position = new Vector3(1.5f, -20f, 0f);
+            player.Body.position = new Vector2(1.5f, -20f);
+            Physics2D.SyncTransforms();
 
             player.Kill();
             Assert.That(player.IsDead, Is.True);
@@ -141,14 +261,57 @@ namespace MukJump.EditorTests
             Assert.That(collider.enabled, Is.True);
             Assert.That(renderer.enabled, Is.True);
             Assert.That(player.Body.simulated, Is.True);
-            Assert.That(player.Body.linearVelocity.y, Is.GreaterThan(0f));
+            Assert.That(player.Body.position.x,
+                Is.EqualTo(1.5f).Within(0.001f));
+            Assert.That(player.Body.position.y,
+                Is.EqualTo(6.1f).Within(0.001f));
+            float expectedRiseSpeed = Mathf.Sqrt(
+                2f * Mathf.Abs(Physics2D.gravity.y * player.NormalGravityScale) *
+                PlayerController.LastBreathReviveHeight);
+            Assert.That(player.Body.linearVelocity.y,
+                Is.EqualTo(expectedRiseSpeed).Within(0.001f));
             Assert.That(player.IsInkDropBoosted, Is.True);
+            Assert.That(player.HasShield, Is.True);
+            Assert.That(player.TryGrantShield(), Is.False,
+                "광고 부활 방어막은 중첩되지 않고 정확히 1개여야 합니다.");
+
+            player.Body.position = new Vector2(1.5f, -20f);
+            Invoke(player, "FixedUpdate");
+            Assert.That(player.IsDead, Is.False,
+                "광고 부활 상승 중에는 화면 하단 판정으로 즉시 재사망하면 안 됩니다.");
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.HasShield, Is.True,
+                "부활 상승 중 하단 판정은 지급한 방어막도 소모하면 안 됩니다.");
+            player.Body.position = new Vector2(1.5f, 6.1f);
+
+            Assert.That(player.TakeHit(), Is.False,
+                "광고 부활 상승 중 장애물 접촉도 방어막을 소모하면 안 됩니다.");
+            Assert.That(player.HasShield, Is.True);
+            SetField(player, "inkDropHasRisen", true);
+            player.Body.linearVelocity = Vector2.zero;
+            Invoke(player, "FixedUpdate");
+            Assert.That(player.IsInkDropBoosted, Is.False);
+            Assert.That(player.HasShield, Is.True,
+                "50m 상승 종료가 광고 부활 방어막을 지우면 안 됩니다.");
+            Assert.That(player.TakeHit(), Is.False,
+                "상승 직후 남은 짧은 무적 시간에는 방어막을 보존해야 합니다.");
+
+            SetField(player, "shieldHitGraceDuration", 0.35f);
+            ExpireDamageGrace(player);
+            Assert.That(player.TakeHit(), Is.True);
+            Assert.That(player.HasShield, Is.False,
+                "광고 부활 방어막은 첫 피해 한 번을 막아야 합니다.");
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.IsDead, Is.False);
+            Assert.That(player.TakeHit(), Is.False,
+                "같은 물리 접촉의 연속 판정이 방어막 직후 체력을 다시 깎으면 안 됩니다.");
+            Assert.That(player.CurrentHealth, Is.EqualTo(1));
             Assert.That(player.ReviveFromRewardedAd(), Is.False,
                 "살아 있는 동안 같은 부활 보상을 다시 적용하면 안 됩니다.");
         }
 
         [Test]
-        public void BaseHealthOneFallConsumesTheLastPointAndKills()
+        public void BaseHealthThreeFallsRecoverTwiceThenKill()
         {
             var player = CreatePlayer("FallRecoveryTarget");
             var cameraObject = Track(new GameObject("FallRecoveryCamera"));
@@ -158,13 +321,21 @@ namespace MukJump.EditorTests
             SetField(player, "cam", camera);
             SetField(player, "camHalfHeight", camera.orthographicSize);
 
-            player.Body.position = new Vector2(1.5f, -20f);
-            Invoke(player, "HandleFallBelowView");
+            for (int expected = 2; expected >= 0; expected--)
+            {
+                player.Body.position = new Vector2(1.5f, -20f);
+                ExpireDamageGrace(player);
+                Invoke(player, "HandleFallBelowView");
 
-            Assert.That(player.CurrentHealth, Is.Zero);
-            Assert.That(player.IsDead, Is.True);
-            Assert.That(player.Body.position.x, Is.EqualTo(1.5f).Within(0.001f));
-            Assert.That(player.Body.position.y, Is.EqualTo(-20f).Within(0.001f));
+                Assert.That(player.CurrentHealth, Is.EqualTo(expected));
+                Assert.That(player.IsDead, Is.EqualTo(expected == 0));
+                Assert.That(player.Body.position.x,
+                    Is.EqualTo(1.5f).Within(0.001f));
+                Assert.That(player.Body.position.y,
+                    expected > 0
+                        ? Is.EqualTo(5.8f).Within(0.001f)
+                        : Is.EqualTo(-20f).Within(0.001f));
+            }
         }
 
         [Test]
@@ -183,10 +354,137 @@ namespace MukJump.EditorTests
             Invoke(player, "HandleFallBelowView");
 
             Assert.That(player.HasShield, Is.False);
-            Assert.That(player.CurrentHealth, Is.EqualTo(1));
+            Assert.That(player.CurrentHealth, Is.EqualTo(3));
             Assert.That(player.IsDead, Is.False);
             Assert.That(player.Body.position.y, Is.EqualTo(3.8f).Within(0.001f));
             Assert.That(player.Body.linearVelocity.y, Is.GreaterThan(0f));
+        }
+
+        [TestCase(-4f, -8f)]
+        [TestCase(4f, 8f)]
+        [TestCase(0f, 8f)]
+        public void FallRecoveryReplacesWallwardMomentumWithCenterwardLaunch(float x, float previousSpeed)
+        {
+            var player = CreatePlayer("CenterwardRecovery");
+            var camera = Track(new GameObject("RecoveryCamera")).AddComponent<Camera>();
+            camera.transform.position = new Vector3(0, 10, -10);
+            camera.orthographicSize = 5;
+            SetField(player, "cam", camera);
+            SetField(player, "camHalfHeight", 5f);
+            player.Body.position = new Vector2(x, -20);
+            player.Body.linearVelocity = new Vector2(previousSpeed, -10);
+            Invoke(player, "HandleFallBelowView");
+            Assert.That(player.Body.linearVelocity.y, Is.GreaterThan(0));
+            Assert.That(Mathf.Abs(player.Body.linearVelocity.x), Is.LessThanOrEqualTo(4f));
+            if (x == 0) Assert.That(player.Body.linearVelocity.x, Is.Zero);
+            else Assert.That(player.Body.linearVelocity.x * x, Is.LessThan(0));
+            if (x != 0)
+            {
+                var wallPolicy = typeof(PlayerController).GetMethod("TryHandleFallRecoveryWallContact",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                for (int contact = 0; contact < 3; contact++)
+                {
+                    Assert.That(wallPolicy.Invoke(player, new object[] { -Mathf.Sign(x) }), Is.EqualTo(true));
+                    Assert.That(Mathf.Abs(player.Body.linearVelocity.x), Is.LessThanOrEqualTo(4f));
+                    Assert.That(player.Body.linearVelocity.x * x, Is.LessThan(0));
+                    Assert.That(player.IsWallClinging, Is.False);
+                }
+            }
+            player.Body.linearVelocity = new Vector2(player.Body.linearVelocity.x, -0.1f);
+            Invoke(player, "UpdateFallRecoveryDirection");
+            Assert.That(player.Body.linearVelocity.x, Is.Zero);
+        }
+
+        [Test]
+        public void ObstacleDamageGracePreventsImmediateSecondFallDamage()
+        {
+            var player = CreatePlayer("ObstacleThenFallTarget");
+            var cameraObject = Track(new GameObject("ObstacleThenFallCamera"));
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.transform.position = new Vector3(0f, 8f, -10f);
+            camera.orthographicSize = 5f;
+            SetField(player, "cam", camera);
+            SetField(player, "camHalfHeight", camera.orthographicSize);
+
+            Assert.That(player.TakeHit(), Is.True);
+            Assert.That(player.CurrentHealth, Is.EqualTo(2));
+            player.Body.position = new Vector2(-1f, -20f);
+
+            Invoke(player, "HandleFallBelowView");
+
+            Assert.That(player.CurrentHealth, Is.EqualTo(2),
+                "한 접촉 직후 하단 경계 판정이 체력을 한 번 더 깎으면 안 됩니다.");
+            Assert.That(player.IsDead, Is.False);
+            Assert.That(player.Body.position.y, Is.EqualTo(3.8f).Within(0.001f));
+        }
+
+        [Test]
+        public void OriginalCorpseIsRetainedWhileOnlyNonLastClonesAreReclaimed()
+        {
+            Assert.That(
+                PlayerController.ShouldDestroyAfterDeathSequence(
+                    isLastPlayer: false,
+                    isRuntimeClone: false),
+                Is.False,
+                "분신이 살아 있어도 원본은 광고 부활 대상으로 남아야 합니다.");
+            Assert.That(
+                PlayerController.ShouldDestroyAfterDeathSequence(
+                    isLastPlayer: false,
+                    isRuntimeClone: true),
+                Is.True,
+                "먼저 죽은 분신은 런타임 객체 상한을 위해 정리해야 합니다.");
+            Assert.That(
+                PlayerController.ShouldDestroyAfterDeathSequence(
+                    isLastPlayer: true,
+                    isRuntimeClone: true),
+                Is.False,
+                "마지막 사망자는 게임오버 화면이 참조하는 동안 남아야 합니다.");
+        }
+
+        [Test]
+        public void RewardedReviveSelectsOriginalAfterCloneDiesLast()
+        {
+            var cameraObject = Track(new GameObject("RewardReviveCamera"));
+            cameraObject.tag = "MainCamera";
+            var reviveCamera = cameraObject.AddComponent<Camera>();
+            reviveCamera.orthographic = true;
+            reviveCamera.orthographicSize = 9.6f;
+
+            PlayerController original = CreatePlayer("RewardOriginal");
+            PlayerController clone = CreatePlayer("RewardLastClone");
+            clone.ConfigureAsClone(1f);
+            SetField(original, "cam", reviveCamera);
+            SetField(original, "camHalfHeight", reviveCamera.orthographicSize);
+            manager.RegisterPlayer(original);
+            manager.RegisterPlayer(clone);
+            SetAutoProperty(original, "IsDead", true);
+            SetAutoProperty(original, "CurrentHealth", 0);
+            SetAutoProperty(clone, "IsDead", true);
+            SetAutoProperty(clone, "CurrentHealth", 0);
+            SetField(manager, "lastDeadPlayer", clone);
+            SetAutoProperty(manager, "State", GameState.GameOver);
+
+            MethodInfo resolve = typeof(GameManager).GetMethod(
+                "ResolveRewardRevivePlayer",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(resolve?.Invoke(manager, null), Is.SameAs(original),
+                "마지막 사망자가 분신이어도 광고 보상은 보존한 원본을 선택해야 합니다.");
+
+            const int requestGeneration = 17;
+            SetField(manager, "reviveRequestInFlight", true);
+            SetField(manager, "activeReviveRequestGeneration", requestGeneration);
+            MethodInfo complete = typeof(GameManager).GetMethod(
+                "FinishGameOverReviveAdCompletedForRequest",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            complete?.Invoke(
+                manager,
+                new object[] { requestGeneration, true });
+
+            Assert.That(original.IsDead, Is.False);
+            Assert.That(original.CurrentHealth, Is.EqualTo(1));
+            Assert.That(original.HasShield, Is.True);
+            Assert.That(clone.IsDead, Is.True);
+            Assert.That(manager.State, Is.EqualTo(GameState.Playing));
         }
 
         [Test]
@@ -247,7 +545,7 @@ namespace MukJump.EditorTests
         [Test]
         public void CharacterAnimatorUsesMatchingDamagePoseWithoutScalingRoot()
         {
-            ConfigureFourHealthGrowth();
+            ConfigureSixHealthGrowth();
             var player = CreatePlayer("DamageAnimatorTarget");
             var animator = player.gameObject.AddComponent<CharacterAnimator>();
             var baseFrames = CreateFrames("base");
@@ -262,12 +560,12 @@ namespace MukJump.EditorTests
             float colliderRadius = player.GetComponent<CircleCollider2D>().radius;
             var renderer = player.GetComponent<SpriteRenderer>();
 
-            SetAutoProperty(player, "CurrentHealth", 3);
+            SetAutoProperty(player, "CurrentHealth", 5);
             Invoke(animator, "LateUpdate");
             Assert.That(renderer.sprite, Is.SameAs(firstHitFrames[4]),
                 "정점 상태는 피격 1단계 시트의 같은 apex 프레임을 사용해야 합니다.");
 
-            SetAutoProperty(player, "CurrentHealth", 2);
+            SetAutoProperty(player, "CurrentHealth", 4);
             Invoke(animator, "LateUpdate");
             Assert.That(renderer.sprite, Is.SameAs(secondHitFrames[4]),
                 "정점 상태는 피격 2단계 시트의 같은 apex 프레임을 사용해야 합니다.");
@@ -278,12 +576,12 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void FourHealthPathAddsThirdVisibleGrowthStage()
+        public void SixHealthPathAddsThirdVisibleGrowthStage()
         {
-            ConfigureFourHealthGrowth();
-            var player = CreatePlayer("FourHealthDamageAnimatorTarget");
-            SetAutoProperty(player, "CurrentHealth", 1);
-            Assert.That(player.MaxHealth, Is.EqualTo(4));
+            ConfigureSixHealthGrowth();
+            var player = CreatePlayer("SixHealthDamageAnimatorTarget");
+            SetAutoProperty(player, "CurrentHealth", 3);
+            Assert.That(player.MaxHealth, Is.EqualTo(6));
             Assert.That(player.DamageStage, Is.EqualTo(3));
 
             var animator = player.gameObject.AddComponent<CharacterAnimator>();
@@ -359,6 +657,21 @@ namespace MukJump.EditorTests
             Assert.That(importer.spritePixelsPerUnit,
                 Is.EqualTo(expectedPpu).Within(0.001f));
             Assert.That(importer.maxTextureSize, Is.GreaterThanOrEqualTo(4096));
+
+            foreach ((string platform, TextureImporterFormat format) in new[]
+                     {
+                         ("iPhone", TextureImporterFormat.ASTC_4x4),
+                         ("WebGL", TextureImporterFormat.ASTC_4x4),
+                         ("Android", TextureImporterFormat.Automatic),
+                     })
+            {
+                TextureImporterPlatformSettings settings =
+                    importer.GetPlatformTextureSettings(platform);
+                Assert.That(settings.overridden, Is.True, platform);
+                Assert.That(settings.maxTextureSize,
+                    Is.GreaterThanOrEqualTo(4096), platform);
+                Assert.That(settings.format, Is.EqualTo(format), platform);
+            }
 
             string[] expectedStates =
             {
@@ -464,10 +777,11 @@ namespace MukJump.EditorTests
         [TestCase(1)]
         [TestCase(3)]
         [TestCase(5)]
+        [TestCase(11)]
         public void HealthBillboardPaintsEachHealthPointAsAnIndependentCell(
             int maximum)
         {
-            const int width = 96;
+            int width = Mathf.Max(96, maximum * 12 + 2);
             const int height = 14;
             var pixels = new Color[width * height];
             MethodInfo paintMethod = typeof(PlayerHealthBillboard).GetMethod(
@@ -500,9 +814,23 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void ElevenHealthUsesWideBillboardAndBoundedDamageVisuals()
+        {
+            MethodInfo spriteMethod = typeof(PlayerHealthBillboard).GetMethod(
+                "GetOrCreateHealthSprite", BindingFlags.Static | BindingFlags.NonPublic);
+            var sprite = (Sprite)spriteMethod.Invoke(null, new object[] { 11, 11 });
+            Assert.That(sprite.rect.width, Is.EqualTo(134f));
+            Assert.That(sprite.bounds.size.x, Is.EqualTo(1.34f).Within(0.001f));
+            float maximumScale = CharacterAnimator.DamageVisualScaleForStage(5);
+            Assert.That(maximumScale, Is.LessThan(1.21f));
+            for (int stage = 6; stage <= 10; stage++)
+                Assert.That(CharacterAnimator.DamageVisualScaleForStage(stage), Is.EqualTo(maximumScale));
+        }
+
+        [Test]
         public void OriginalAndCloneOwnIndependentGrowthHealthRenderers()
         {
-            ConfigureFourHealthGrowth();
+            ConfigureSixHealthGrowth();
             PlayerController original = CreatePlayer("HealthBarOriginal");
             original.GetComponent<SpriteRenderer>().sprite = CreateTestSprite();
             var originalBillboard =
@@ -523,22 +851,12 @@ namespace MukJump.EditorTests
                 clone.transform, "PlayerHealthBillboard"), Is.EqualTo(1));
             Assert.That(cloneBillboard.HealthRenderer,
                 Is.Not.SameAs(originalBillboard.HealthRenderer));
-            Assert.That(original.MaxHealth, Is.EqualTo(4));
+            Assert.That(original.MaxHealth, Is.EqualTo(6));
             Assert.That(clone.CurrentHealth, Is.EqualTo(clone.MaxHealth));
             Assert.That(clone.MaxHealth,
-                Is.EqualTo(PlayerController.MaximumRuntimeCloneHealth));
-            Assert.That(clone.CurrentHealth, Is.EqualTo(3),
-                "먹피 결실을 열면 새 먹분신은 정확히 3/3으로 생성되어야 합니다.");
-
-            ExpireDamageGrace(clone);
-            Assert.That(clone.TakeHit(), Is.True);
-            Assert.That(clone.CurrentHealth, Is.EqualTo(2));
-            Assert.That(clone.IsDead, Is.False);
-
-            ExpireDamageGrace(clone);
-            Assert.That(clone.TakeHit(), Is.True);
-            Assert.That(clone.CurrentHealth, Is.EqualTo(1));
-            Assert.That(clone.IsDead, Is.False);
+                Is.EqualTo(PlayerController.RuntimeCloneMaxHealth));
+            Assert.That(clone.CurrentHealth, Is.EqualTo(1),
+                "튼튼한 몸은 본체에만 적용되고 새 먹분신은 정확히 1/1이어야 합니다.");
 
             ExpireDamageGrace(clone);
             Assert.That(clone.TakeHit(), Is.True);
@@ -559,12 +877,12 @@ namespace MukJump.EditorTests
             return player;
         }
 
-        void ConfigureFourHealthGrowth()
+        void ConfigureSixHealthGrowth()
         {
             Assert.That(growth, Is.Not.Null);
             SetAutoProperty(growth, "PermanentSnapshot",
                 new PermanentGrowthRunSnapshot(
-                    new[] { "S00", "S-A1", "S-A2", "S-A3", "S-KA" },
+                    new[] { "body.1", "body.2", "body.3" },
                     null));
         }
 

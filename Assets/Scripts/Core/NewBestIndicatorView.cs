@@ -8,12 +8,17 @@ namespace MukJump.Core
     {
         const float StampDuration = 0.24f;
         const float FullEmphasisHold = 0.7f;
-        const float RestingAlpha = 0.78f;
+        const float RestingAlpha = 0.94f;
+        public const float BadgeSize = 96f;
+        public const float BadgeHeight = 28f;
+        public const float BadgeCenterOffsetY = 21f;
+        public const int BadgeFontSize = 28;
 
         [SerializeField] CanvasGroup rootGroup;
         [SerializeField] RectTransform stampRoot;
         [SerializeField] Image sealImage;
         [SerializeField] Text sealText;
+        Image impactWash;
 
         ScoreManager boundScore;
         bool gameplayVisible = true;
@@ -33,6 +38,7 @@ namespace MukJump.Core
         void OnEnable()
         {
             ConfigureVisuals();
+            InkLocalizedText.BindTree(transform);
             BindScoreManager();
             ApplyVisibility();
         }
@@ -96,20 +102,19 @@ namespace MukJump.Core
                 typeof(CanvasGroup));
             var root = rootObject.GetComponent<RectTransform>();
             root.SetParent(parent, false);
-            root.anchorMin = root.anchorMax = new Vector2(0.97f, 0.5f);
+            root.anchorMin = root.anchorMax = new Vector2(0.5f, 0.5f);
             root.pivot = new Vector2(0.5f, 0.5f);
-            root.sizeDelta = new Vector2(50f, 50f);
-            root.anchoredPosition = Vector2.zero;
+            root.sizeDelta = new Vector2(BadgeSize, BadgeHeight);
+            root.anchoredPosition = new Vector2(0f, BadgeCenterOffsetY);
 
             var sealRoot = CreateRect(
-                "RecordSeal", root, new Vector2(0.5f, 0.5f), new Vector2(50f, 50f));
-            sealRoot.localRotation = Quaternion.Euler(0f, 0f, -4f);
+                "RecordSeal", root, new Vector2(0.5f, 0.5f), new Vector2(BadgeSize, BadgeHeight));
             var seal = sealRoot.gameObject.AddComponent<Image>();
             seal.sprite = InkUiTextureFactory.CreateBlobSprite();
             seal.color = InkPalette.Red;
             seal.raycastTarget = false;
-            var recordText = CreateText("SealText", sealRoot, "신", 26, InkPalette.Paper,
-                new Vector2(0.5f, 0.5f), new Vector2(42f, 40f));
+            var recordText = CreateText("SealText", sealRoot, "NEW!", BadgeFontSize, InkPalette.Red,
+                new Vector2(0.5f, 0.5f), new Vector2(78f, 32f));
 
             var view = rootObject.AddComponent<NewBestIndicatorView>();
             view.rootGroup = rootObject.GetComponent<CanvasGroup>();
@@ -124,7 +129,7 @@ namespace MukJump.Core
 
         public void ApplyPolishedLayout()
         {
-            ApplyCompactRuntimeLayout();
+            ConfigureVisuals();
         }
 
         void BindScoreManager()
@@ -134,11 +139,13 @@ namespace MukJump.Core
 
             UnbindScoreManager();
             boundScore = score;
-            if (boundScore == null) return;
+            if (boundScore == null) { HideRecord(); return; }
 
             boundScore.NewBestReached += HandleNewBestReached;
             if (boundScore.IsNewBestThisRun)
                 ShowRecord(false);
+            else
+                HideRecord();
         }
 
         void UnbindScoreManager()
@@ -163,11 +170,12 @@ namespace MukJump.Core
             visualAlpha = animate ? 0f : RestingAlpha;
             if (stampRoot != null)
             {
-                stampRoot.localScale = animate ? Vector3.one * 1.18f : Vector3.one;
+                stampRoot.localScale = animate ? Vector3.one * 1.12f : Vector3.one;
                 stampRoot.localRotation = animate
                     ? Quaternion.Euler(0f, 0f, -8f)
-                    : Quaternion.Euler(0f, 0f, -4f);
+                    : Quaternion.identity;
             }
+            ResetImpactWash();
             ApplyVisibility();
         }
 
@@ -178,6 +186,7 @@ namespace MukJump.Core
             stampElapsed = 0f;
             visibleElapsed = 0f;
             visualAlpha = RestingAlpha;
+            ResetImpactWash();
             ApplyVisibility();
         }
 
@@ -187,24 +196,38 @@ namespace MukJump.Core
 
             stampElapsed += Time.unscaledDeltaTime;
             float progress = Mathf.Clamp01(stampElapsed / StampDuration);
+            ApplyStampProgress(progress);
+            if (progress >= 1f)
+                stampAnimating = false;
+        }
+
+        void ApplyStampProgress(float progress)
+        {
+            progress = Mathf.Clamp01(progress);
             float scale;
             if (progress < 0.58f)
             {
                 float strike = EaseOutCubic(progress / 0.58f);
-                scale = Mathf.Lerp(1.18f, 0.94f, strike);
+                scale = Mathf.Lerp(1.12f, 0.96f, strike);
             }
             else
             {
                 float settle = Mathf.SmoothStep(0f, 1f, (progress - 0.58f) / 0.42f);
-                scale = Mathf.Lerp(0.94f, 1f, settle);
+                scale = Mathf.Lerp(0.96f, 1f, settle);
             }
 
             visualAlpha = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / 0.58f));
             stampRoot.localScale = Vector3.one * scale;
             stampRoot.localRotation = Quaternion.Euler(
-                0f, 0f, Mathf.Lerp(-8f, -4f, EaseOutCubic(progress)));
-            if (progress >= 1f)
-                stampAnimating = false;
+                0f, 0f, Mathf.Lerp(-8f, 0f, EaseOutCubic(progress)));
+            if (impactWash != null)
+            {
+                impactWash.rectTransform.localScale = Vector3.one *
+                    Mathf.Lerp(0.9f, 1.46f, EaseOutCubic(progress));
+                Color color = InkPalette.Red;
+                color.a = 0.26f * (1f - progress) * (1f - progress);
+                impactWash.color = color;
+            }
         }
 
         void UpdateRestingEmphasis()
@@ -226,25 +249,32 @@ namespace MukJump.Core
                 if (Application.isPlaying && sealImage.sprite == null)
                     sealImage.sprite = InkUiTextureFactory.CreateBlobSprite();
                 sealImage.color = InkPalette.Red;
+                // 광고 아래 점수칸 안에서 짧은 붉은 글자만 찍는다. 큰 원형 받침은 공간을 차지하지 않는다.
+                sealImage.enabled = false;
                 sealImage.raycastTarget = false;
             }
             if (sealText != null)
             {
-                sealText.text = "신";
+                // 한국어/영어 모두 짧은 NEW! 표식을 쓴다. 1글자용 '신' 칸을 번역하지 않는다.
+                InkLocalizedText.SetSource(sealText, "NEW!");
                 sealText.font = InkPalette.UiFont;
-                sealText.fontSize = 26;
+                sealText.fontSize = BadgeFontSize;
                 sealText.fontStyle = FontStyle.Bold;
                 sealText.alignment = TextAnchor.MiddleCenter;
-                sealText.color = InkPalette.Paper;
+                sealText.color = InkPalette.Red;
                 sealText.raycastTarget = false;
+                sealText.resizeTextForBestFit = false;
+                sealText.horizontalOverflow = HorizontalWrapMode.Overflow;
+                sealText.verticalOverflow = VerticalWrapMode.Truncate;
+                sealText.alignByGeometry = true;
             }
             if (rootGroup != null)
             {
                 rootGroup.interactable = false;
                 rootGroup.blocksRaycasts = false;
             }
-            if (Application.isPlaying)
-                ApplyCompactRuntimeLayout();
+            EnsureImpactWash();
+            ApplyRecordLayout();
         }
 
         void ApplyVisibility()
@@ -258,14 +288,14 @@ namespace MukJump.Core
             rootGroup.blocksRaycasts = false;
         }
 
-        void ApplyCompactRuntimeLayout()
+        void ApplyRecordLayout()
         {
             if (transform is RectTransform root)
             {
-                root.anchorMin = root.anchorMax = new Vector2(0.97f, 0.5f);
+                root.anchorMin = root.anchorMax = new Vector2(0.5f, 0.5f);
                 root.pivot = new Vector2(0.5f, 0.5f);
-                root.anchoredPosition = Vector2.zero;
-                root.sizeDelta = new Vector2(50f, 50f);
+                root.anchoredPosition = new Vector2(0f, BadgeCenterOffsetY);
+                root.sizeDelta = new Vector2(BadgeSize, BadgeHeight);
             }
 
             var legacyBackground = GetComponent<Graphic>();
@@ -275,7 +305,43 @@ namespace MukJump.Core
             stampRoot.anchorMin = stampRoot.anchorMax = new Vector2(0.5f, 0.5f);
             stampRoot.pivot = new Vector2(0.5f, 0.5f);
             stampRoot.anchoredPosition = Vector2.zero;
-            stampRoot.sizeDelta = new Vector2(50f, 50f);
+            stampRoot.sizeDelta = new Vector2(BadgeSize, BadgeHeight);
+            if (!stampAnimating) stampRoot.localRotation = Quaternion.identity;
+            if (sealText != null)
+            {
+                sealText.rectTransform.anchorMin = sealText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                sealText.rectTransform.anchoredPosition = Vector2.zero;
+                sealText.rectTransform.sizeDelta = new Vector2(78f, 32f);
+            }
+        }
+
+        void EnsureImpactWash()
+        {
+            if (stampRoot == null) return;
+            if (impactWash == null)
+            {
+                var existing = transform.Find("ImpactWash");
+                impactWash = existing != null ? existing.GetComponent<Image>() : null;
+                if (impactWash == null)
+                {
+                    var rect = CreateRect("ImpactWash", transform, new Vector2(0.5f, 0.5f),
+                        new Vector2(BadgeSize, BadgeHeight));
+                    rect.SetAsFirstSibling();
+                    impactWash = rect.gameObject.AddComponent<Image>();
+                }
+                ResetImpactWash();
+            }
+            // 최초 생성 때 준비한 한 장을 재사용한다. 신기록 이벤트에서 생성/파괴하지 않는다.
+            impactWash.sprite = sealImage != null ? sealImage.sprite : null;
+            impactWash.rectTransform.sizeDelta = new Vector2(BadgeSize, BadgeHeight);
+            impactWash.raycastTarget = false;
+        }
+
+        void ResetImpactWash()
+        {
+            if (impactWash == null) return;
+            impactWash.color = Color.clear;
+            impactWash.rectTransform.localScale = Vector3.one;
         }
 
         static float EaseOutCubic(float value)
@@ -303,7 +369,7 @@ namespace MukJump.Core
         {
             var rect = CreateRect(name, parent, anchor, size);
             var text = rect.gameObject.AddComponent<Text>();
-            text.text = value;
+            InkLocalizedText.SetSource(text, value);
             text.font = InkPalette.UiFont;
             text.fontSize = fontSize;
             text.fontStyle = FontStyle.Bold;
@@ -312,6 +378,7 @@ namespace MukJump.Core
             text.resizeTextForBestFit = false;
             text.alignByGeometry = true;
             text.raycastTarget = false;
+            InkLocalizedText.Bind(text);
             return text;
         }
     }

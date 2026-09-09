@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using MukJump.AI;
 using MukJump.Core;
 
@@ -32,18 +33,24 @@ namespace MukJump.Drawing
         [SerializeField] float fadeDuration = 0.8f;
         [SerializeField] bool windCurrentPlatform;
         [SerializeField] bool growthSafetyPlatform;
+        [SerializeField] bool mapRestPlatform;
 
         public float Length { get; private set; }
         public LineRenderer Line { get; private set; }
         public bool IsWindCurrentPlatform => windCurrentPlatform;
         public bool IsGrowthSafetyPlatform => growthSafetyPlatform;
+        public bool IsMapRestPlatform => mapRestPlatform;
+        /// 플레이 중 그린 먹선과 특수 발판은 아래에서 통과하고 위에서 착지한다.
+        /// 씬에 영구 배치된 시작 지형만 양방향 충돌을 유지한다.
         public bool IsOneWayPlatform =>
-            windCurrentPlatform || growthSafetyPlatform;
+            runtimeDrawnPlatform || windCurrentPlatform ||
+            growthSafetyPlatform || mapRestPlatform;
         /// 런타임에서 플레이어가 그린 유한 수명 먹선만 해태 돌진과 상호작용한다.
         /// 시작 지형과 풍맥처럼 영구 배치된 발판은 수문장을 자동으로 제거하지 않는다.
         public bool IsTemporaryDrawnPlatform =>
             (runtimeDrawnPlatform || lifetime > 0f) &&
-            !windCurrentPlatform && !growthSafetyPlatform && !removalRequested;
+            !windCurrentPlatform && !growthSafetyPlatform &&
+            !mapRestPlatform && !removalRequested;
         public float RetainedInkCost => retainedInkCost;
         /// HUD가 실제 화면에 남은 먹 길이를 표시할 때 사용하는 값이다.
         /// 예산 장부는 새 획을 위해 즉시 반환할 수 있지만, 화면의 먹선은
@@ -103,7 +110,11 @@ namespace MukJump.Drawing
             }
         }
         EdgeCollider2D edge;
-        readonly HashSet<int> windUsers = new();
+        // 선은 보존하고 생성 순간 겹친 몸체 쌍만 유예한다. 전역 레이어는 변경하지 않는다.
+        public const float InitialContactSeparation = 0.08f;
+        readonly List<Player.PlayerController> contactPlayers = new();
+        [SerializeField, HideInInspector] List<Collider2D> deferredContacts = new();
+        readonly HashSet<EntityId> windUsers = new();
         readonly Gradient fadeGradient = new();
         readonly Gradient outlineFadeGradient = new();
         readonly GradientColorKey[] fadeColorKeys = new GradientColorKey[2];
@@ -154,6 +165,7 @@ namespace MukJump.Drawing
             platform.evictionFadeDuration = Mathf.Max(0.15f, evictionFadeSeconds);
             platform.evictionDelay = Mathf.Max(0f, evictionDelaySeconds);
             platform.naturalHoldDuration = Mathf.Max(0.1f, naturalHoldSeconds);
+            platform.DeferCurrentPlayerContacts();
 
             active.Add(platform);
             runtimeDrawn.Add(platform);
@@ -217,6 +229,30 @@ namespace MukJump.Drawing
             return platform;
         }
 
+        /// 맵 진행 중 자연스럽게 나타나는 영구 쉬터 발판.
+        /// 플레이어가 그린 횝이 아니므로 먹 장부와 환급에서 완전히 제외한다.
+        public static PlatformCollider SpawnMapRestPlatform(
+            List<Vector2> worldPoints)
+        {
+            if (worldPoints == null || worldPoints.Count < 2)
+                return null;
+
+            var go = new GameObject("MapRestPlatform")
+            {
+                layer = LayerMask.NameToLayer("Platform"),
+            };
+            var platform = go.AddComponent<PlatformCollider>();
+            platform.lifetime = 0f;
+            platform.mapRestPlatform = true;
+            platform.Build(worldPoints);
+            platform.ConfigureOneWay();
+            SketchToInkService.Instance?.Stylize(platform);
+            if (SketchToInkService.Instance == null)
+                FallbackInkStyle.Apply(platform.Line, platform.Length);
+            platform.ApplyMapRestVisual();
+            return platform;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetRuntimeState()
         {
@@ -261,12 +297,95 @@ namespace MukJump.Drawing
                 return;
 
             RegisterRuntimeDrawnPlatform(this);
+            DeferCurrentPlayerContacts();
         }
 
         void OnDisable()
         {
+            RestoreDeferredContacts();
             active.Remove(this);
             runtimeDrawn.Remove(this);
+        }
+
+        void DeferCurrentPlayerContacts()
+        {
+            contactPlayers.Clear();
+            GameManager.Instance?.GetLivingPlayersNonAlloc(contactPlayers);
+            DeferInitialPlayerContacts(contactPlayers);
+            contactPlayers.Clear();
+        }
+
+        /// 새 먹선과 겹친 본체·분신만 통과시킨다. 다른 개체는 즉시 착지할 수 있다.
+        public void DeferInitialPlayerContacts(IReadOnlyList<Player.PlayerController> players)
+        {
+            if (!runtimeDrawnPlatform || removalRequested || players == null ||
+                players.Count == 0 || edge == null || !edge.enabled)
+                return;
+
+            // 손을 뗀 Update에서 새 Edge와 이동한 캐릭터 좌표를 물리 월드에 반영한다.
+            Physics2D.SyncTransforms();
+            for (int i = 0; i < players.Count; i++)
+            {
+                var player = players[i];
+                if (player == null || player.IsDead) continue;
+                Collider2D body = player.PrimaryCollider;
+                if (!IsActiveShape(body) || deferredContacts.Contains(body) ||
+                    body.gameObject.scene.GetPhysicsScene2D() != gameObject.scene.GetPhysicsScene2D())
+                    continue;
+                ColliderDistance2D separation = edge.Distance(body);
+                if (!separation.isValid || separation.distance > InitialContactSeparation)
+                    continue;
+                // 다른 시스템이 소유한 무시 상태를 나중에 임의로 복구하지 않는다.
+                if (Physics2D.GetIgnoreCollision(edge, body)) continue;
+                Physics2D.IgnoreCollision(edge, body, true);
+                deferredContacts.Add(body);
+            }
+        }
+
+        void FixedUpdate()
+        {
+            RefreshDeferredContacts();
+        }
+
+        void RefreshDeferredContacts()
+        {
+            for (int i = deferredContacts.Count - 1; i >= 0; i--)
+            {
+                Collider2D body = deferredContacts[i];
+                if (!IsActiveShape(edge) || !IsActiveShape(body) || removalRequested)
+                {
+                    RestoreContact(body);
+                    deferredContacts.RemoveAt(i);
+                    continue;
+                }
+                ColliderDistance2D separation = edge.Distance(body);
+                // 일정 시간이 지나도 몸이 아직 겹치면 켜지 않는다. 밀어내기 점프를 방지한다.
+                if (separation.isValid && separation.distance > InitialContactSeparation)
+                {
+                    RestoreContact(body);
+                    deferredContacts.RemoveAt(i);
+                }
+                else if (!Physics2D.GetIgnoreCollision(edge, body))
+                    Physics2D.IgnoreCollision(edge, body, true);
+            }
+        }
+
+        static bool IsActiveShape(Collider2D shape) =>
+            shape != null && shape.enabled && shape.gameObject.activeInHierarchy &&
+            (shape.attachedRigidbody == null || shape.attachedRigidbody.simulated);
+
+        void RestoreContact(Collider2D body)
+        {
+            if (edge != null && body != null &&
+                edge.gameObject.activeInHierarchy && body.gameObject.activeInHierarchy)
+                Physics2D.IgnoreCollision(edge, body, false);
+        }
+
+        void RestoreDeferredContacts()
+        {
+            for (int i = deferredContacts.Count - 1; i >= 0; i--)
+                RestoreContact(deferredContacts[i]);
+            deferredContacts.Clear();
         }
 
         void RecoverRuntimeComponents()
@@ -282,7 +401,8 @@ namespace MukJump.Drawing
             // 보존하지 못했을 수 있다. 전용 오브젝트 이름으로 기존 먹선을 한 번 복구한다.
             if (Application.isPlaying && !runtimeDrawnPlatform &&
                 name == "InkPlatform" && lifetime <= 0f &&
-                !windCurrentPlatform && !growthSafetyPlatform)
+                !windCurrentPlatform && !growthSafetyPlatform &&
+                !mapRestPlatform)
             {
                 runtimeDrawnPlatform = true;
                 naturalHoldDuration = DefaultNaturalHoldDuration;
@@ -313,6 +433,10 @@ namespace MukJump.Drawing
                     !naturalExpiryRequested && !removalRequested)
                     retainedInkCost = initialInkCost;
             }
+
+            // 이름 기반 구 Play 세션 복구가 runtimeDrawnPlatform을 되살린 뒤에
+            // 충돌 모드를 계산해야 먹선이 solid로 남지 않는다.
+            ConfigureCollisionMode();
         }
 
         static void RegisterRuntimeDrawnPlatform(PlatformCollider platform)
@@ -340,7 +464,7 @@ namespace MukJump.Drawing
             int ageOrder = right.naturalAge.CompareTo(left.naturalAge);
             return ageOrder != 0
                 ? ageOrder
-                : left.GetInstanceID().CompareTo(right.GetInstanceID());
+                : left.GetEntityId().CompareTo(right.GetEntityId());
         }
 
         void Start()
@@ -371,6 +495,8 @@ namespace MukJump.Drawing
             age = 0f;
             removalRequested = false;
             growthSafetyPlatform = false;
+            mapRestPlatform = false;
+            windCurrentPlatform = false;
             runtimeDrawnPlatform = false;
             initialInkCost = 0f;
             retainedInkCost = 0f;
@@ -384,6 +510,7 @@ namespace MukJump.Drawing
             lastColliderCutoff = -1;
             Length = BezierSmoother.PolylineLength(points);
             ApplyVisual(points);
+            ConfigureCollisionMode();
 
             if (SketchToInkService.Instance != null)
                 SketchToInkService.Instance.Stylize(this);
@@ -408,12 +535,21 @@ namespace MukJump.Drawing
             edge.points = local.ToArray();
             edge.edgeRadius = 0.06f;
             lastColliderCutoff = -1;
+            ConfigureCollisionMode();
 
             ApplyVisual(local);
             lastEffectiveLifetime = EffectiveLifetime;
         }
 
-        /// 풍맥·성장 안전 발판을 아래에서 통과하도록 단방향 Effector를 설정한다.
+        void ConfigureCollisionMode()
+        {
+            if (IsOneWayPlatform)
+                ConfigureOneWay();
+            else
+                ConfigureSolidCollision();
+        }
+
+        /// 런타임 먹선과 특수 발판을 아래에서 통과하도록 단방향 Effector를 설정한다.
         /// 풀에서 다시 활성화해도 Effector가 중복 추가되지 않도록 기존 컴포넌트를 재사용한다.
         void ConfigureOneWay()
         {
@@ -426,14 +562,29 @@ namespace MukJump.Drawing
 
             effector.enabled = true;
             effector.useOneWay = true;
+            effector.useOneWayGrouping = false;
             effector.surfaceArc = 165f;
             effector.useColliderMask = false;
+        }
+
+        /// 시작 지형에 구 씬의 단방향 Effector가 남아 있어도 양방향 충돌로 복구한다.
+        void ConfigureSolidCollision()
+        {
+            edge ??= GetComponent<EdgeCollider2D>();
+            edge.usedByEffector = false;
+
+            var effector = GetComponent<PlatformEffector2D>();
+            if (effector == null)
+                return;
+            effector.useOneWay = false;
+            effector.useOneWayGrouping = false;
+            effector.enabled = false;
         }
 
         /// 같은 캐릭터가 같은 풍맥 발판에서 연속 충돌해 중복 발사되지 않게 한 번만 허용한다.
         public bool TryUseWindCurrent(Component player)
         {
-            return windCurrentPlatform && player != null && windUsers.Add(player.GetInstanceID());
+            return windCurrentPlatform && player != null && windUsers.Add(player.GetEntityId());
         }
 
         void ApplyVisual(List<Vector2> localPoints)
@@ -485,9 +636,54 @@ namespace MukJump.Drawing
             outline.startColor = outline.endColor = ink;
         }
 
+        void ApplyMapRestVisual()
+        {
+            if (Line == null || Line.positionCount < 2)
+                return;
+
+            Line.sharedMaterial = FallbackInkStyle.SharedRestPlatformMaterial;
+            // 쉼터는 붓을 떼는 꼬리 없이 양 끝이 같은 두께로 끝나는 지형이다.
+            // 검정 원화 대신 흰색 알파 결을 써 담녹색을 그대로 보존한다.
+            Line.widthCurve = AnimationCurve.Linear(0f, 1f, 1f, 1f);
+            Line.widthMultiplier = 0.7f;
+            Line.numCapVertices = 0;
+            Line.textureMode = LineTextureMode.Stretch;
+            Line.sortingOrder = 2;
+            var restColor = InkPalette.MapRestPlatform;
+            restColor.a = 0.98f;
+            Line.startColor = Line.endColor = restColor;
+            fadeColorKeys[0] = new GradientColorKey(restColor, 0f);
+            fadeColorKeys[1] = new GradientColorKey(restColor, 1f);
+
+            // 한지 받침도 짧게 번지는 같은 끝마감을 사용한다. 충돌 위치는 바꾸지 않는다.
+            var supportObject = new GameObject("HanjiSupport");
+            supportObject.transform.SetParent(transform, false);
+            supportObject.transform.localPosition = new Vector3(0f, -0.1f, 0f);
+            var support = supportObject.AddComponent<LineRenderer>();
+            support.useWorldSpace = false;
+            support.positionCount = Line.positionCount;
+            var positions = new Vector3[Line.positionCount];
+            Line.GetPositions(positions);
+            support.SetPositions(positions);
+            support.sharedMaterial = FallbackInkStyle.SharedRestPlatformMaterial;
+            support.textureMode = Line.textureMode;
+            support.numCapVertices = Line.numCapVertices;
+            support.numCornerVertices = Line.numCornerVertices;
+            support.widthCurve = new AnimationCurve(Line.widthCurve.keys);
+            support.widthMultiplier = 0.92f;
+            support.sortingLayerID = Line.sortingLayerID;
+            support.sortingOrder = Line.sortingOrder - 1;
+            var paper = InkPalette.Paper2;
+            paper.a = 0.82f;
+            support.startColor = support.endColor = paper;
+        }
+
         void Update()
         {
             if (removalRequested) return;
+            // 게임오버의 광고 선택과 일시정지는 같은 판의 정지 화면이다.
+            // 이 시간에 발판의 유지·FIFO 소멸 시간이 흐르면 부활 직후 지형이 사라진다.
+            if (!ShouldAdvanceLifetime(GameManager.Instance)) return;
             if (runtimeDrawnPlatform)
             {
                 UpdateRuntimeDrawnPlatform(Time.deltaTime, Time.time);
@@ -528,6 +724,9 @@ namespace MukJump.Drawing
             }
         }
 
+        public static bool ShouldAdvanceLifetime(GameManager manager) =>
+            manager == null || manager.IsGameplayTicking;
+
         void SynchronizeLifetimeProgress(float effectiveLifetime)
         {
             if (lastEffectiveLifetime > 0f &&
@@ -541,10 +740,12 @@ namespace MukJump.Drawing
             lastEffectiveLifetime = effectiveLifetime;
         }
 
-        /// 풍맥 발판은 유지하고, 낙하 위험물에 맞은 일반 먹 발판만 등록 해제 후 제거한다.
+        /// 풍맥·성장·맵 쉬터 발판은 유지하고, 낙하 위험물에 맞은
+        /// 일반 먹 발판만 등록 해제 후 제거한다.
         public bool BreakFromHazard()
         {
-            if (windCurrentPlatform || growthSafetyPlatform) return false;
+            if (windCurrentPlatform || growthSafetyPlatform || mapRestPlatform)
+                return false;
             if (removalRequested) return false;
             if (!TryBeginHazardRemoval()) return false;
             // 런타임에서는 물리 콜백 안전을 위해 프레임 끝에 제거한다.

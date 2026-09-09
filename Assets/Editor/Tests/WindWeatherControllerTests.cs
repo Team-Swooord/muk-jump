@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using System.Reflection;
 using UnityEngine;
 using MukJump.Core;
 
@@ -6,6 +7,70 @@ namespace MukJump.EditorTests
 {
     public sealed class WindWeatherControllerTests
     {
+        [Test]
+        public void UpdraftAndGaleHaveSeparateGravityAndRecovery()
+        {
+            var go = new GameObject("WeatherPhaseTest");
+            try
+            {
+                var weather = go.AddComponent<WindWeatherController>();
+                var setPhase = typeof(WindWeatherController).GetMethod("SetPhase",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                setPhase.Invoke(weather, new object[] { WindWeatherPhase.Updraft });
+                Assert.That(weather.IsUpdraftActive, Is.True);
+                Assert.That(weather.GravitySuppression, Is.Zero);
+                Assert.That(weather.RisingGravityMultiplier, Is.EqualTo(.65f));
+                setPhase.Invoke(weather, new object[] { WindWeatherPhase.Downdraft });
+                Assert.That(weather.RisingGravityMultiplier, Is.EqualTo(1.35f));
+                Assert.That(weather.GravitySuppression, Is.Zero);
+                setPhase.Invoke(weather, new object[] { WindWeatherPhase.Gale });
+                Assert.That(weather.IsUpdraftActive, Is.False);
+                Assert.That(weather.IsGaleActive, Is.True);
+                Assert.That(weather.GravitySuppression, Is.EqualTo(1f));
+                setPhase.Invoke(weather, new object[] { WindWeatherPhase.Recovery });
+                Assert.That(weather.GravitySuppression, Is.EqualTo(1f));
+                setPhase.Invoke(weather, new object[] { WindWeatherPhase.Updraft });
+                setPhase.Invoke(weather, new object[] { WindWeatherPhase.Recovery });
+                Assert.That(weather.GravitySuppression, Is.Zero);
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void UpdraftDriftMovesInBothAxesAndChangesDirection()
+        {
+            Vector2 velocity = Vector2.zero;
+            float minX = 0, maxX = 0, minY = 0, maxY = 0;
+            for (int frame = 0; frame < 275; frame++)
+            {
+                velocity = WindWeatherController.CalculateDriftVelocity(velocity, frame * .02f,
+                    0f, new Vector2(.5f, .5f), .02f);
+                minX = Mathf.Min(minX, velocity.x); maxX = Mathf.Max(maxX, velocity.x);
+                minY = Mathf.Min(minY, velocity.y); maxY = Mathf.Max(maxY, velocity.y);
+                Assert.That(velocity.magnitude, Is.LessThan(8f));
+            }
+            Assert.That(minX, Is.LessThan(-3f)); Assert.That(maxX, Is.GreaterThan(3f));
+            Assert.That(minY, Is.LessThan(-2f)); Assert.That(maxY, Is.GreaterThan(2f));
+        }
+
+        [Test]
+        public void DriftSteersAwayFromEdgesAndDoesNotAdvanceWhenPaused()
+        {
+            Vector2 velocity = new(1f, -1f);
+            Assert.That(WindWeatherController.CalculateDriftVelocity(velocity, 2f, 1f, Vector2.zero, 0f),
+                Is.EqualTo(velocity));
+            for (int step = 0; step < 40; step++)
+            {
+                float phase = step * .2f;
+                Vector2 left = WindWeatherController.CalculateDriftVelocity(Vector2.zero, 2f, phase,
+                    new Vector2(.02f, .1f), .02f);
+                Vector2 right = WindWeatherController.CalculateDriftVelocity(Vector2.zero, 2f, phase,
+                    new Vector2(.98f, .95f), .02f);
+                Assert.That(left.x, Is.GreaterThan(0)); Assert.That(left.y, Is.GreaterThan(0));
+                Assert.That(right.x, Is.LessThan(0)); Assert.That(right.y, Is.LessThan(0));
+            }
+        }
+
         [Test]
         public void CalculateVelocity_약한_바람은_수평_속도만_서서히_민다()
         {
@@ -93,6 +158,133 @@ namespace MukJump.EditorTests
             Assert.That(
                 WindWeatherController.GetZoneStrengthMultiplier(zone),
                 Is.GreaterThan(0f));
+        }
+
+        [TestCase(WindWeatherPhase.Breeze)]
+        [TestCase(WindWeatherPhase.Warning)]
+        [TestCase(WindWeatherPhase.Updraft)]
+        [TestCase(WindWeatherPhase.Recovery)]
+        public void 광고부활은_같은_날씨_세션과_예약을_보존한다(
+            WindWeatherPhase phase)
+        {
+            var host = new GameObject("WindReviveStateTests");
+            host.SetActive(false);
+            var weather = host.AddComponent<WindWeatherController>();
+            try
+            {
+                SetField(weather, "sessionActive", true);
+                SetField(weather, "phaseElapsed", 0.73f);
+                SetField(weather, "directionHoldRemaining", 17f);
+                SetProperty(weather, "Phase", phase);
+                SetProperty(weather, "DirectionSign", -1);
+                SetProperty(weather, "DirectionBlend", -0.65f);
+                SetProperty(weather, "NextUpdraftHeight", 612);
+                SetProperty(weather, "Strength01", 0.9f);
+
+                InvokeStateChanged(
+                    weather,
+                    GameState.Playing,
+                    GameState.GameOver);
+                Assert.That(weather.Strength01, Is.Zero);
+                AssertWeatherStatePreserved(weather, phase);
+
+                InvokeStateChanged(
+                    weather,
+                    GameState.GameOver,
+                    GameState.Playing);
+                AssertWeatherStatePreserved(weather, phase);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void 로비에서_시작할_때만_첫_풍맥_구간을_새로_예약한다()
+        {
+            var host = new GameObject("WindNewRunStateTests");
+            host.SetActive(false);
+            var weather = host.AddComponent<WindWeatherController>();
+            try
+            {
+                SetField(weather, "sessionActive", true);
+                SetProperty(weather, "Phase", WindWeatherPhase.Updraft);
+                SetProperty(weather, "NextUpdraftHeight", 999);
+
+                InvokeStateChanged(
+                    weather,
+                    GameState.Playing,
+                    GameState.Lobby);
+                Assert.That(GetField<bool>(weather, "sessionActive"), Is.False);
+                Assert.That(weather.NextUpdraftHeight, Is.Zero);
+
+                InvokeStateChanged(
+                    weather,
+                    GameState.Lobby,
+                    GameState.Playing);
+                Assert.That(GetField<bool>(weather, "sessionActive"), Is.True);
+                Assert.That(weather.Phase, Is.EqualTo(WindWeatherPhase.Breeze));
+                Assert.That(weather.NextUpdraftHeight, Is.InRange(180, 260));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
+        static void AssertWeatherStatePreserved(
+            WindWeatherController weather,
+            WindWeatherPhase phase)
+        {
+            Assert.That(GetField<bool>(weather, "sessionActive"), Is.True);
+            Assert.That(weather.Phase, Is.EqualTo(phase));
+            Assert.That(weather.NextUpdraftHeight, Is.EqualTo(612));
+            Assert.That(weather.DirectionSign, Is.EqualTo(-1));
+            Assert.That(weather.DirectionBlend, Is.EqualTo(-0.65f));
+            Assert.That(GetField<float>(weather, "phaseElapsed"),
+                Is.EqualTo(0.73f));
+            Assert.That(GetField<float>(weather, "directionHoldRemaining"),
+                Is.EqualTo(17f));
+        }
+
+        static void InvokeStateChanged(
+            WindWeatherController target,
+            GameState previous,
+            GameState next)
+        {
+            MethodInfo method = typeof(WindWeatherController).GetMethod(
+                "HandleStateChanged",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(target, new object[] { previous, next });
+        }
+
+        static void SetField<T>(object target, string name, T value)
+        {
+            FieldInfo field = target.GetType().GetField(
+                name,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, name);
+            field.SetValue(target, value);
+        }
+
+        static T GetField<T>(object target, string name)
+        {
+            FieldInfo field = target.GetType().GetField(
+                name,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, name);
+            return (T)field.GetValue(target);
+        }
+
+        static void SetProperty<T>(object target, string name, T value)
+        {
+            PropertyInfo property = target.GetType().GetProperty(
+                name,
+                BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(property, Is.Not.Null, name);
+            property.SetValue(target, value);
         }
     }
 

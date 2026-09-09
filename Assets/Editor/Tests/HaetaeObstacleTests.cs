@@ -234,10 +234,44 @@ public sealed class HaetaeObstacleTests
             "예고를 본 뒤 플레이어가 움직여도 벽의 수직 경로가 바뀌면 안 됩니다.");
         Assert.IsFalse(haetae.IsHitboxEnabled);
 
+        cameraObject.transform.position += Vector3.up * 12f;
         Invoke(haetae, "AdvanceState", 0.61f);
+        Assert.That(haetae.LockedStart.y, Is.EqualTo(lockedStart.y + 12f).Within(.001f),
+            "출발 전에 카메라가 상승하면 현재 화면 위에서 출발해야 합니다.");
+        Assert.That(haetae.LockedStart.x, Is.EqualTo(lockedStart.x).Within(.001f));
         Assert.AreEqual(HaetaeObstacleState.Pounce, haetae.State);
         Assert.AreEqual(2, haetae.CurrentFrameIndex);
         Assert.IsTrue(haetae.IsHitboxEnabled);
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void EveryFrameFacesDownWithFeetTowardSelectedWall(bool fromLeft)
+    {
+        var haetae = CreateConfiguredHaetae("WallFacingHaetae");
+        var renderer = haetae.GetComponent<SpriteRenderer>();
+        var collider = haetae.GetComponent<CapsuleCollider2D>();
+        Vector2 colliderSize = collider.size;
+        Vector2 colliderOffset = collider.offset;
+        float wallX = fromLeft ? -4f : 4f;
+        haetae.Activate(new Vector2(wallX, 6f), new Vector2(wallX, -6f), fromLeft);
+
+        for (int frame = 0; frame < 4; frame++)
+        {
+            Invoke(haetae, "SetFrame", frame);
+            Assert.IsFalse(renderer.flipX, "머리는 양쪽 모두 아래를 향해야 합니다.");
+            Assert.AreEqual(fromLeft, renderer.flipY);
+            Vector3 feetDirection = haetae.transform.TransformDirection(
+                renderer.flipY ? Vector3.up : Vector3.down);
+            Vector3 headDirection = haetae.transform.TransformDirection(Vector3.left);
+            Assert.That(Vector3.Dot(feetDirection,
+                fromLeft ? Vector3.left : Vector3.right), Is.GreaterThan(0.999f));
+            Assert.That(Vector3.Dot(headDirection, Vector3.down), Is.GreaterThan(0.999f));
+            Assert.That(collider.size, Is.EqualTo(colliderSize));
+            Assert.That(collider.offset, Is.EqualTo(colliderOffset));
+            Assert.That(haetae.LockedStart, Is.EqualTo(new Vector2(wallX, 6f)));
+            Assert.That(haetae.LockedTarget, Is.EqualTo(new Vector2(wallX, -6f)));
+        }
     }
 
     [Test]
@@ -430,7 +464,7 @@ public sealed class HaetaeObstacleTests
         Assert.IsFalse((bool)Invoke(
             rockSpawner, "IsSpawnBlockedByConcurrentHazard"));
         Invoke(weather, "UpdateWeatherPhase", 0.1f);
-        Assert.AreEqual(WindWeatherPhase.Warning, weather.Phase);
+        Assert.That(weather.Phase, Is.EqualTo(WindWeatherPhase.Warning).Or.EqualTo(WindWeatherPhase.DowndraftWarning));
     }
 
     [Test]
@@ -543,6 +577,7 @@ public sealed class HaetaeObstacleTests
         Assert.AreEqual(HaetaeObstacleState.Pounce, first.State);
         Assert.AreEqual(2, first.CurrentFrameIndex);
         Assert.IsFalse(first.GetComponent<SpriteRenderer>().flipX);
+        Assert.IsFalse(first.GetComponent<SpriteRenderer>().flipY);
         Assert.That(
             Mathf.DeltaAngle(first.transform.eulerAngles.z, 90f),
             Is.EqualTo(0f).Within(0.01f));
@@ -565,6 +600,7 @@ public sealed class HaetaeObstacleTests
         Assert.IsFalse(second.IsReleaseRequested);
         Assert.AreEqual(0, second.CurrentFrameIndex);
         Assert.IsFalse(second.GetComponent<SpriteRenderer>().flipX);
+        Assert.IsFalse(second.GetComponent<SpriteRenderer>().flipY);
         Assert.IsFalse(second.IsMaterializeSealVisible);
         Assert.IsFalse(second.IsSideWarningVisible);
         Assert.IsFalse(second.IsExclamationVisible);
@@ -581,7 +617,17 @@ public sealed class HaetaeObstacleTests
             CountNamedSpriteRenderers(second, "HaetaeMaterializeSeal"),
             "풀 재사용 뒤에도 낙관 자식은 정확히 하나여야 합니다.");
 
+        second.Activate(new Vector2(-4f, 6f), new Vector2(-4f, -6f), true);
+        Assert.IsTrue(second.GetComponent<SpriteRenderer>().flipY);
         pool.Release(second);
+        Assert.IsFalse(second.GetComponent<SpriteRenderer>().flipY,
+            "왼쪽 해태를 반납하면 발 방향 반전도 초기화해야 합니다.");
+        var third = pool.Acquire();
+        Assert.AreSame(second, third);
+        third.Activate(new Vector2(4f, 6f), new Vector2(4f, -6f), false);
+        Assert.IsFalse(third.GetComponent<SpriteRenderer>().flipY,
+            "왼쪽에서 쓰던 해태를 오른쪽에 재사용해도 발은 오른쪽 벽을 향해야 합니다.");
+        pool.Release(third);
     }
 
     [Test]
@@ -772,8 +818,8 @@ public sealed class HaetaeObstacleTests
 
         Assert.That(source, Does.Contain("haetaeFrames:"));
         Assert.That(source, Does.Contain("haetaeUnlockHeight: 320"));
-        Assert.That(source, Does.Contain("haetaeChance: 0.12"));
-        Assert.That(source, Does.Contain("dragonChanceBeforeHaetae: 0.28"));
+        Assert.That(source, Does.Contain("haetaeChance: 0.08"));
+        Assert.That(source, Does.Contain("dragonChanceBeforeHaetae: 0.2"));
         Assert.That(source, Does.Contain("fallingInkRockSpawner:"));
         Assert.That(source, Does.Contain("windWeatherController:"));
         Assert.That(source, Does.Contain("m_Name: HaetaeButton"));

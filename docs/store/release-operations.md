@@ -67,7 +67,9 @@ xcodebuild -workspace Unity-iPhone.xcworkspace -scheme Unity-iPhone \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
 ```
 
-- 최종 제출은 배포용 워크스페이스에서 Team `8AU359WZZ2`를 확인하고 Archive, TestFlight
+- 최종 제출은 배포용 워크스페이스에서 Seongbin Choi의 CYSBand Team `8AU359WZZ2`를
+  확인한다. 같은 이름의 Nvibe Corporation Team `4QY9W8JDW6` 인증서·프로파일은 사용하지
+  않고, 8AU 팀의 유효한 Apple Development·Apple Distribution 자산으로 Archive, TestFlight
   설치, Apple·Google·게스트 로그인, 배너·보상형 광고, 계정 삭제를 실기기에서 통과해야 한다.
 
 ## Android 빌드와 서명

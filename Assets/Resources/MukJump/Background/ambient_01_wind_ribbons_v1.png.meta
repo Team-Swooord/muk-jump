@@ -1,0 +1,274 @@
+fileFormatVersion: 2
+guid: e57f00a5ba6544e2c89b3f23a6abce4a
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -1648275515367598391
+    second: ambient_01_wind_ribbons_v1_0
+  - first:
+      213: 3912995331919569229
+    second: ambient_01_wind_ribbons_v1_1
+  - first:
+      213: 5697750449630617438
+    second: ambient_01_wind_ribbons_v1_2
+  - first:
+      213: 2501692575369207979
+    second: ambient_01_wind_ribbons_v1_3
+  - first:
+      213: 5066359165167336041
+    second: ambient_01_wind_ribbons_v1_4
+  - first:
+      213: 3349701640026534091
+    second: ambient_01_wind_ribbons_v1_5
+  - first:
+      213: 1218739889697857505
+    second: ambient_01_wind_ribbons_v1_6
+  - first:
+      213: -8147525332423118624
+    second: ambient_01_wind_ribbons_v1_7
+  - first:
+      213: 7342742026246531613
+    second: ambient_01_wind_ribbons_v1_8
+  - first:
+      213: -2606010498142407049
+    second: ambient_01_wind_ribbons_v1_9
+  - first:
+      213: -8419556836502093758
+    second: ambient_cloud_00
+  - first:
+      213: 5747637220178057290
+    second: ambient_cloud_01
+  - first:
+      213: 6248322176128233947
+    second: ambient_cloud_02
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 0
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 2
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: iOS
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: ambient_cloud_00
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 683
+        width: 1536
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 240c41a7aa9b72b80800000000000000
+      internalID: -8419556836502093758
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ambient_cloud_01
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 342
+        width: 1536
+        height: 341
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a48d6867995b3cf40800000000000000
+      internalID: 5747637220178057290
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ambient_cloud_02
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 1536
+        height: 342
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bd1b1560aef76b650800000000000000
+      internalID: 6248322176128233947
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      ambient_01_wind_ribbons_v1_0: -1648275515367598391
+      ambient_01_wind_ribbons_v1_1: 3912995331919569229
+      ambient_01_wind_ribbons_v1_2: 5697750449630617438
+      ambient_01_wind_ribbons_v1_3: 2501692575369207979
+      ambient_01_wind_ribbons_v1_4: 5066359165167336041
+      ambient_01_wind_ribbons_v1_5: 3349701640026534091
+      ambient_01_wind_ribbons_v1_6: 1218739889697857505
+      ambient_01_wind_ribbons_v1_7: -8147525332423118624
+      ambient_01_wind_ribbons_v1_8: 7342742026246531613
+      ambient_01_wind_ribbons_v1_9: -2606010498142407049
+      ambient_cloud_00: -8419556836502093758
+      ambient_cloud_01: 5747637220178057290
+      ambient_cloud_02: 6248322176128233947
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

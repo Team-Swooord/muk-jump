@@ -30,6 +30,10 @@ namespace MukJump.Core
         public LobbySection PendingSection { get; private set; } =
             LobbySection.Lobby;
         public bool IsTransitioning { get; private set; }
+        public bool CanShowTopBanner => !IsTransitioning &&
+            (CurrentSection == LobbySection.Lobby ||
+             CurrentSection == LobbySection.PermanentGrowth &&
+             (growthView == null || !growthView.HasBlockingOverlay));
         public bool CanStartGame =>
             !IsTransitioning &&
             CurrentSection == LobbySection.Lobby &&
@@ -89,17 +93,17 @@ namespace MukJump.Core
             if (transitionView == null)
                 transitionView = GetComponent<BrushTransitionView>();
             if (transitionView == null)
-                transitionView = FindFirstObjectByType<BrushTransitionView>();
+                transitionView = FindAnyObjectByType<BrushTransitionView>();
             if (lobbyView == null)
-                lobbyView = FindFirstObjectByType<LobbyView>();
+                lobbyView = FindAnyObjectByType<LobbyView>();
             if (growthView == null)
                 growthView = GetComponent<PermanentGrowthView>();
             if (growthView == null)
-                growthView = FindFirstObjectByType<PermanentGrowthView>();
+                growthView = FindAnyObjectByType<PermanentGrowthView>();
             if (optionsView == null)
                 optionsView = GetComponent<LobbyOptionsView>();
             if (optionsView == null)
-                optionsView = FindFirstObjectByType<LobbyOptionsView>();
+                optionsView = FindAnyObjectByType<LobbyOptionsView>();
         }
 
         void BindManager()
@@ -248,6 +252,7 @@ namespace MukJump.Core
 
         void ApplySection(LobbySection section, bool interactive)
         {
+            if (interactive) MukJumpAnalytics.Screen(section == LobbySection.Lobby ? AnalyticsScreen.Lobby : AnalyticsScreen.Growth);
             ApplyMenuSelection(section);
             bool showLobby = section == LobbySection.Lobby;
             bool showGrowth = section == LobbySection.PermanentGrowth;

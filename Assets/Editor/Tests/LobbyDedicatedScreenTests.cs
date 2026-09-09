@@ -58,10 +58,10 @@ namespace MukJump.EditorTests
                 growth.ScreenRoot,
                 growth.BackButton,
                 "PermanentGrowthScreen");
-            AssertSemanticSelectionSurface(
+            AssertOpenSelectionSurface(
                 growth.ScreenRoot.Find(
-                        "TreeLayerRoot/TreeViewport/TreeCanvas/" +
-                        "GrowthNode_I00")
+                        "SafeAreaRoot/PermanentGrowthScreen/" +
+                        "ChoiceGrid/GrowthCard1")
                     ?.GetComponent<Button>());
 
             Assert.That(
@@ -227,7 +227,7 @@ namespace MukJump.EditorTests
             Assert.That(
                 growth.ResetGrowthSaveButton
                     .GetComponentInChildren<Text>(true).text,
-                Is.EqualTo("초기화 확인"));
+                Is.EqualTo(GameLocalization.Translate("초기화 확인")));
 
             SetField(growth, "recoveryResetArmedAt", -1f);
             growth.ResetGrowthSaveButton.onClick.Invoke();
@@ -235,7 +235,7 @@ namespace MukJump.EditorTests
             Assert.That(growth.IsRecoveryPromptOpen, Is.False);
             PermanentGrowthSettlement settlement =
                 PermanentGrowthProfile.SettleRun(
-                    "ui-reset-settlement", 0, 20, 0, 0f, true);
+                    "ui-reset-settlement", 0, (int)RunRewardCalculator.GetNextRewardDistance(0), 0, 0f, true);
             Assert.That(settlement.Accepted, Is.True);
             Assert.That(settlement.Earned, Is.EqualTo(1));
             PermanentGrowthProfile.ResetCacheForTests();
@@ -302,9 +302,17 @@ namespace MukJump.EditorTests
             string contentName)
         {
             Assert.That(screenRoot, Is.Not.Null);
-            Assert.That(
-                screenRoot.Find("OpaqueHanjiBackground"),
-                Is.Not.Null);
+            Image backgroundBlocker = screenRoot
+                .Find("LobbyBackgroundInputBlocker")
+                ?.GetComponent<Image>();
+            Assert.That(backgroundBlocker, Is.Not.Null);
+            Assert.That(backgroundBlocker.color.a, Is.Zero.Within(0.001f),
+                "성장 화면은 로비 월드 배경을 가리면 안 됩니다.");
+            Assert.That(backgroundBlocker.raycastTarget, Is.True,
+                "투명 배경은 숨은 로비 입력을 차단해야 합니다.");
+            Assert.That(screenRoot.Find("OpaqueHanjiBackground"), Is.Null);
+            Assert.That(screenRoot.Find("LeftInkWash"), Is.Null);
+            Assert.That(screenRoot.Find("RightInkWash"), Is.Null);
             Assert.That(
                 screenRoot.Find($"SafeAreaRoot/{contentName}"),
                 Is.Not.Null);
@@ -313,35 +321,50 @@ namespace MukJump.EditorTests
                 backButton.GetComponent<RectTransform>().sizeDelta.y,
                 Is.GreaterThanOrEqualTo(InkUiStyle.MinimumTapHeight));
             Assert.That(backButton.targetGraphic, Is.Not.Null);
-            Assert.That(backButton.targetGraphic.raycastTarget, Is.True);
-            AssertSharedActionButton(backButton);
+            Assert.That(backButton.targetGraphic.raycastTarget, Is.False);
+            Image hit = backButton.GetComponent<Image>();
+            Image icon = backButton.transform.Find("Icon").GetComponent<Image>();
+            Assert.That(hit.sprite, Is.Null);
+            Assert.That(hit.color.a, Is.Zero);
+            Assert.That(hit.raycastTarget, Is.True);
+            Assert.That(icon.sprite, Is.Not.Null);
+            Assert.That(icon.rectTransform.sizeDelta, Is.EqualTo(new Vector2(84, 84)));
+            Assert.That(icon.preserveAspect, Is.True);
+            Assert.That(backButton.targetGraphic, Is.SameAs(icon));
             Assert.That(backButton.navigation.mode,
                 Is.EqualTo(Navigation.Mode.None));
-            Text label = backButton.GetComponentInChildren<Text>(true);
-            Assert.That(label, Is.Not.Null);
-            Assert.That(label.text, Is.EqualTo("로비"));
-            Assert.That(label.fontSize,
-                Is.GreaterThanOrEqualTo(InkUiStyle.BodySize));
+            Assert.That(backButton.GetComponentsInChildren<Text>(true), Is.Empty);
         }
 
-        static void AssertSharedActionButton(Button button)
+        static void AssertHanjiNavigationButton(Button button)
         {
             Assert.That(button, Is.Not.Null);
             Assert.That(button.targetGraphic, Is.TypeOf<Image>());
-            Assert.That(
-                InkUiStyle.UsesActionButtonSprite(
-                    button.targetGraphic as Image),
-                Is.True);
+            Image hitArea = button.targetGraphic as Image;
+            Assert.That(InkUiStyle.UsesActionButtonSprite(hitArea), Is.True);
+            Assert.That(hitArea.sprite, Is.SameAs(InkUiStyle.ActionButtonSprite));
+            Assert.That(hitArea.type, Is.EqualTo(Image.Type.Sliced));
+            Assert.That(hitArea.color.a, Is.EqualTo(1f).Within(0.001f));
+            Assert.That(button.transform.Find("PrimaryAccent"), Is.Null);
         }
 
-        static void AssertSemanticSelectionSurface(Button button)
+        static void AssertOpenSelectionSurface(Button button)
         {
             Assert.That(button, Is.Not.Null);
-            Assert.That(
-                InkUiStyle.UsesActionButtonSprite(
-                    button.targetGraphic as Image),
-                Is.False,
-                "카드·성장 가지 선택 영역은 텍스트 행동 버튼 스킨 대상이 아닙니다.");
+            var paper = button.transform.Find("Paper")?.GetComponent<Image>();
+            Assert.That(paper, Is.Not.Null, "성장 선택지는 각각 독립된 한지 카드입니다.");
+            Assert.That(paper.raycastTarget, Is.False);
+            Assert.That(paper.sprite, Is.SameAs(InkUiTextureFactory.CreateGrowthPaperRibbonSprite()));
+            Image icon = button.transform.Find("Icon")?.GetComponent<Image>();
+            Assert.That(icon, Is.SameAs(button.targetGraphic));
+            Assert.That(icon.raycastTarget, Is.False);
+            Assert.That(button.transform.Find("SelectionWash"), Is.Not.Null);
+            Image hitArea = button.GetComponent<Image>();
+            Assert.That(hitArea.raycastTarget, Is.True);
+            Assert.That(hitArea.color.a, Is.Zero, "입력 영역은 투명하게 유지한다.");
+            Assert.That(button.transform.Find("Icon"), Is.Not.Null);
+            Assert.That(button.transform.Find("TabEffectSummary"), Is.Not.Null);
+            Assert.That(button.transform.Find("SelectionInk"), Is.Not.Null);
         }
 
         static object Invoke(

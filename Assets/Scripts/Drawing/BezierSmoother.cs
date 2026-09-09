@@ -106,7 +106,9 @@ namespace MukJump.Drawing
                 carried = segment - (d - spacing);
             }
 
-            if (Vector2.Distance(result[^1], points[^1]) > spacing * 0.25f)
+            // 해제 좌표 근처의 짧은 꼬리도 보존한다. 끝점 생략으로 최소 유효 길이 아래로
+            // 줄거나, 빠른 획의 마지막 착지 구간이 사라지지 않게 한다.
+            if (Vector2.Distance(result[^1], points[^1]) > 0.0001f)
             {
                 if (result.Count >= MaxGeneratedPoints)
                     throw new ArgumentOutOfRangeException(nameof(spacing), spacing,

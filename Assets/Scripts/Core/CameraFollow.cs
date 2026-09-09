@@ -56,10 +56,20 @@ namespace MukJump.Core
         public void PlayJumpImpulse(Transform source, float strength)
         {
             if (source == null) return;
-            if (impulseLeader == null && GameManager.Instance != null)
+            if (LobbySettingsProfile.ReducedMotionEnabled)
             {
-                GameManager.Instance.TryGetSwarmAnchor(
-                    out var representative, out _);
+                impulseRemaining = 0f;
+                impulseStrength = 0f;
+                visualShake = Vector2.zero;
+                EnsureCameraMetrics();
+                if (worldCamera != null && baseOrthographicSize > 0f)
+                    worldCamera.orthographicSize = baseOrthographicSize;
+                return;
+            }
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.TryGetSwarmCameraFrame(
+                    out var representative, out _, out _);
                 impulseLeader = representative != null
                     ? representative.transform
                     : null;
@@ -285,6 +295,14 @@ namespace MukJump.Core
         void UpdateJumpImpulse()
         {
             if (worldCamera == null) return;
+            if (LobbySettingsProfile.ReducedMotionEnabled)
+            {
+                impulseRemaining = 0f;
+                impulseStrength = 0f;
+                visualShake = Vector2.zero;
+                worldCamera.orthographicSize = baseOrthographicSize;
+                return;
+            }
             if (impulseRemaining <= 0f)
             {
                 visualShake = Vector2.zero;

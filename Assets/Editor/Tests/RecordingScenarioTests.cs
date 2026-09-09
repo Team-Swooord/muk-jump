@@ -2,6 +2,7 @@
 using NUnit.Framework;
 using MukJump.Drawing;
 using MukJump.EditorTools;
+using UnityEngine;
 
 namespace MukJump.EditorTests
 {
@@ -44,6 +45,30 @@ namespace MukJump.EditorTests
             Assert.That(
                 StrokeCapture.ShouldProcessLivePointer(recorderOwnsStroke: false),
                 Is.True);
+        }
+
+        [Test]
+        public void RecordingDirectorIsAttachableDuringEditorPlayMode()
+        {
+            Assert.That(
+                typeof(RecordingScenarioDirector).Assembly.GetName().Name,
+                Does.Not.EndWith("-Editor"),
+                "MonoBehaviour 본체가 Editor 어셈블리에 있으면 AddComponent가 실패합니다.");
+
+            var host = new GameObject("RecordingDirectorAttachTest");
+            try
+            {
+                Assert.DoesNotThrow(() =>
+                {
+                    RecordingScenarioDirector director =
+                        host.AddComponent<RecordingScenarioDirector>();
+                    Assert.That(director, Is.Not.Null);
+                });
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
         }
     }
 }

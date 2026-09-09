@@ -16,6 +16,10 @@ namespace MukJump.Core
         const float TopHudWidth = 900f;
         const float TopHudHeight = 148f;
         const float TopHudSideMargin = 48f;
+        public const float BannerGapPixels = 10f;
+        public const float RecordScoreOffsetY = -16f;
+        public const float RecordScoreHeight = 48f;
+        public const float PauseSlotAnchorX = 0.94f;
 
         [SerializeField] Canvas canvas;
         [SerializeField] RectTransform topHudRoot;
@@ -55,6 +59,7 @@ namespace MukJump.Core
         int lastScreenWidth;
         int lastScreenHeight;
         Rect lastSafeArea;
+        float lastBannerInset = -1f;
         float nextVfxStatsRefreshTime;
         bool playerHealthBootstrapComplete;
         readonly List<PlayerController> playerHealthScratch =
@@ -62,6 +67,10 @@ namespace MukJump.Core
 
         void OnEnable()
         {
+            InkLocalizedText.Bind(heightText);
+            InkLocalizedText.Bind(bestText);
+            InkLocalizedText.Bind(heightCaption);
+            InkLocalizedText.Bind(bestCaption);
             Instance = this;
             lastHeight = int.MinValue;
             lastBest = int.MinValue;
@@ -70,9 +79,8 @@ namespace MukJump.Core
             if (Application.isPlaying && GameManager.DebugToolsAvailable)
                 EnsureVfxDebugControls();
             ApplyCrispTextSettings();
-            // 제출 화면에는 개발용 서랍을 노출하지 않는다. 내부 디버그 API는
-            // 회귀 테스트에서만 사용하고 HUD 계층은 항상 닫아 둔다.
-            SetDebugToolsAvailable(false);
+            // 에디터/개발 빌드에서는 직접 상황을 시험할 수 있도록 열고, 출시 빌드는 숨긴다.
+            SetDebugToolsAvailable(Application.isPlaying && GameManager.DebugToolsAvailable);
             if (!Application.isPlaying) return;
             if (windIndicator == null)
                 windIndicator = GetComponentInChildren<WindIndicatorView>(true);
@@ -197,12 +205,13 @@ namespace MukJump.Core
                 ScoreManager.Instance?.InvalidateCurrentRunForRecords();
         }
 
-        void SetDebugToolsAvailable(bool _)
+        void SetDebugToolsAvailable(bool available)
         {
+            available &= GameManager.DebugToolsAvailable;
             if (itemTestControls != null)
-                itemTestControls.gameObject.SetActive(false);
+                itemTestControls.gameObject.SetActive(available);
             if (debugPanel != null)
-                debugPanel.gameObject.SetActive(false);
+                debugPanel.gameObject.SetActive(available);
         }
 
         void ToggleDebugPanel()
@@ -225,7 +234,7 @@ namespace MukJump.Core
         {
             bool enabled = GameManager.Instance != null && GameManager.Instance.DebugInvincible;
             if (invincibleLabel != null)
-                invincibleLabel.text = enabled ? "무적 ON" : "무적 OFF";
+                InkLocalizedText.SetSource(invincibleLabel, enabled ? "무적 ON" : "무적 OFF");
             if (invincibleButton != null && invincibleButton.targetGraphic is Image image)
                 image.color = enabled
                     ? new Color(0.95f, 0.72f, 0.2f, 0.96f)
@@ -346,6 +355,8 @@ namespace MukJump.Core
             return playerHealthScratch.Count > 0;
         }
 
+        public void ApplySharedPaperLayout() => ApplyPolishedRuntimeLayout();
+
         void ApplyPolishedRuntimeLayout()
         {
             if (topHudRoot == null) return;
@@ -354,14 +365,12 @@ namespace MukJump.Core
             var background = topHudRoot.GetComponent<Graphic>();
             if (background != null)
             {
-                Color paper = InkPalette.Paper;
-                paper.a = 0.9f;
-                background.color = paper;
+                background.enabled = false;
                 background.raycastTarget = false;
             }
+            InkHudSurface.Ensure(topHudRoot, false);
 
             SetCaptionHidden(heightCaption);
-            SetCaptionHidden(bestCaption);
 
             if (heightText != null)
             {
@@ -380,7 +389,8 @@ namespace MukJump.Core
 
                 ConfigurePrimaryHudText(
                     heightText, new Vector2(0.5f, 0.5f),
-                    new Vector2(315f, 84f), 60, 46);
+                    new Vector2(290f, 84f), 64, 64);
+                ApplyRecordScoreLayout(ScoreManager.Instance != null && ScoreManager.Instance.IsNewBestThisRun);
             }
 
             if (bestText != null)
@@ -388,8 +398,26 @@ namespace MukJump.Core
                 var bestRect = bestText.rectTransform;
                 bestRect.SetParent(topHudRoot, false);
                 ConfigurePrimaryHudText(
-                    bestText, new Vector2(0.805f, 0.5f),
-                    new Vector2(235f, 76f), 50, 38);
+                    bestText, new Vector2(0.77f, 0.5f),
+                    new Vector2(180f, 46f), 42, 42);
+                bestRect.anchoredPosition = new Vector2(0f, -16f);
+                if (bestCaption == null)
+                {
+                    bestCaption = topHudRoot.Find("BestCaption")?.GetComponent<Text>();
+                    if (bestCaption == null)
+                    {
+                        var go = new GameObject("BestCaption", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                        go.transform.SetParent(topHudRoot, false);
+                        bestCaption = go.GetComponent<Text>();
+                    }
+                }
+                bestCaption.transform.SetParent(topHudRoot, false);
+                ConfigurePrimaryHudText(bestCaption, new Vector2(.77f, .5f), new Vector2(180f, 30f), 28, 28);
+                bestCaption.rectTransform.anchoredPosition = new Vector2(0f, 22f);
+                bestCaption.color = InkPalette.TextMuted;
+                InkLocalizedText.SetSource(bestCaption, "최고");
+                var captionOutline = bestCaption.GetComponent<Outline>();
+                if (captionOutline != null) captionOutline.enabled = false;
             }
 
             if (windIndicator != null)
@@ -429,10 +457,14 @@ namespace MukJump.Core
             text.alignment = TextAnchor.MiddleCenter;
             text.color = InkPalette.Ink;
             text.raycastTarget = false;
-            text.resizeTextForBestFit = true;
+            text.resizeTextForBestFit = false;
             text.resizeTextMinSize = minimumFontSize;
             text.resizeTextMaxSize = fontSize;
             text.alignByGeometry = true;
+
+            // 붓글씨의 위아래 여획을 짧은 단일 행 Rect에서 잘라내지 않는다.
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
 
             var outline = text.GetComponent<Outline>();
             if (outline == null)
@@ -457,21 +489,12 @@ namespace MukJump.Core
                     safe,
                     Screen.width,
                     Screen.height);
-            float topInset = MobileUiLayout.GetLogicalTopInset(
-                safe,
-                Screen.width,
-                Screen.height);
-            float hudScale = Mathf.Clamp(
-                (logicalSafeSize.x - TopHudSideMargin * 2f) / TopHudWidth,
-                0.01f,
-                1f);
+            Rect hudRect = CalculateTopHudRect(safe, Screen.width, Screen.height);
             topHudRoot.anchorMin = topHudRoot.anchorMax = new Vector2(0.5f, 1f);
             topHudRoot.pivot = new Vector2(0.5f, 1f);
-            topHudRoot.anchoredPosition = new Vector2(
-                safeCenterOffset.x,
-                -(topInset + 52f));
+            topHudRoot.anchoredPosition = new Vector2(hudRect.center.x, hudRect.yMax);
             topHudRoot.sizeDelta = new Vector2(TopHudWidth, TopHudHeight);
-            topHudRoot.localScale = Vector3.one * hudScale;
+            topHudRoot.localScale = Vector3.one * (hudRect.width / TopHudWidth);
 
             if (itemTestControls != null)
             {
@@ -491,13 +514,72 @@ namespace MukJump.Core
             }
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
-            lastSafeArea = Screen.safeArea;
+            lastSafeArea = safe;
+            lastBannerInset = LobbyAdLayout.GameplayTopInsetFraction;
         }
+
+        /// 서로 다른 Canvas의 점수 띠와 일시정지가 같은 안전 영역/축척을 사용한다.
+        /// 좌표 원점은 Canvas 상단 가운데. 보이는 한지 띠와 실제 광고 하단 사이가 10 화면 px다.
+        public static Rect CalculateTopHudRect(Rect safe, int screenWidth, int screenHeight)
+        {
+            Vector2 logicalSize = MobileUiLayout.GetLogicalSafeSize(safe, screenWidth, screenHeight);
+            Vector2 center = MobileUiLayout.GetLogicalSafeCenterOffset(safe, screenWidth, screenHeight);
+            float topInset = MobileUiLayout.GetLogicalTopInset(safe, screenWidth, screenHeight);
+            topInset += LobbyAdLayout.CalculateCanvasInset(MobileUiLayout.ReferenceHeight,
+                LobbyAdLayout.GameplayTopInsetFraction);
+            float scale = Mathf.Clamp((logicalSize.x - TopHudSideMargin * 2f) / TopHudWidth, 0.01f, 1f);
+            float gap = BannerGapPixels * MobileUiLayout.ReferenceHeight / Mathf.Max(1, screenHeight);
+            // 148 높이의 배치 루트 안에서 실제 82 높이 띠 위에 남는 투명 여백도 보정한다.
+            float transparentTop = (TopHudHeight - InkHudSurface.BandHeight) * 0.5f * scale;
+            return new Rect(center.x - TopHudWidth * scale * 0.5f,
+                -topInset - gap + transparentTop - TopHudHeight * scale,
+                TopHudWidth * scale, TopHudHeight * scale);
+        }
+
+        public static Rect CalculateVisibleHudRect(Rect safe, int screenWidth, int screenHeight)
+        {
+            Rect hud = CalculateTopHudRect(safe, screenWidth, screenHeight);
+            float bandHeight = InkHudSurface.BandHeight * hud.width / TopHudWidth;
+            return new Rect(hud.xMin, hud.center.y - bandHeight * 0.5f, hud.width, bandHeight);
+        }
+
+        public static Vector2 CalculatePauseButtonPosition(Rect safe, int screenWidth, int screenHeight)
+        {
+            Rect hud = CalculateTopHudRect(safe, screenWidth, screenHeight);
+            return new Vector2(hud.xMin + hud.width * PauseSlotAnchorX, hud.center.y);
+        }
+
+        public static Rect CalculatePauseTouchRect(Rect safe, int screenWidth, int screenHeight)
+        {
+            Vector2 icon = CalculatePauseButtonPosition(safe, screenWidth, screenHeight);
+            float adBottom = -MobileUiLayout.GetLogicalTopInset(safe, screenWidth, screenHeight) -
+                LobbyAdLayout.CalculateCanvasInset(MobileUiLayout.ReferenceHeight,
+                    LobbyAdLayout.GameplayTopInsetFraction);
+            float size = InkUiStyle.MinimumTapHeight;
+            // 투명 터치 영역만 필요한 만큼 내리고 아이콘은 원래 띠 중심에 둔다.
+            // 작은 배너 간격에서도 최소 터치 크기를 줄이거나 광고를 덮지 않는다.
+            float touchTop = Mathf.Min(icon.y + size * 0.5f, adBottom);
+            return new Rect(icon.x - size * 0.5f, touchTop - size, size, size);
+        }
+
+        public static float CalculateTopHudScale(Rect safe, int screenWidth, int screenHeight) =>
+            CalculateTopHudRect(safe, screenWidth, screenHeight).width / TopHudWidth;
 
         static void ConfigureText(Text text)
         {
             if (text == null) return;
             text.alignByGeometry = true;
+        }
+
+        void ApplyRecordScoreLayout(bool newBest)
+        {
+            if (heightText == null) return;
+            var rect = heightText.rectTransform;
+            rect.anchoredPosition = new Vector2(0f, newBest ? RecordScoreOffsetY : 0f);
+            rect.sizeDelta = new Vector2(290f, newBest ? RecordScoreHeight : 84f);
+            heightText.fontSize = newBest ? 44 : 64;
+            heightText.resizeTextMaxSize = heightText.fontSize;
+            heightText.resizeTextMinSize = newBest ? 38 : 46;
         }
 
         static void SetItemIconNativeSize(Button button)
@@ -513,7 +595,7 @@ namespace MukJump.Core
         {
             var text = button != null ? button.transform.Find("Label")?.GetComponent<Text>() : null;
             if (text == null) return;
-            if (!string.IsNullOrEmpty(label)) text.text = label;
+            if (!string.IsNullOrEmpty(label)) InkLocalizedText.SetSource(text, label);
             text.font = InkPalette.UiFont;
             text.fontSize = fontSize;
             text.fontStyle = FontStyle.Bold;
@@ -550,6 +632,16 @@ namespace MukJump.Core
         void EnsureVfxDebugControls()
         {
             if (debugPanel == null) return;
+            var downTransform = debugPanel.Find("DowndraftButton");
+            var downButton = downTransform != null ? downTransform.GetComponent<Button>() :
+                CreateRuntimeDebugButton("DowndraftButton", "하강기류", new Vector2(22f, -410f), new Vector2(145f, 64f));
+            downButton.onClick.RemoveListener(TriggerDowndraft);
+            downButton.onClick.AddListener(TriggerDowndraft);
+            var galeTransform = debugPanel.Find("GaleButton");
+            var galeButton = galeTransform != null ? galeTransform.GetComponent<Button>() :
+                CreateRuntimeDebugButton("GaleButton", "광풍", new Vector2(22f, -490f), new Vector2(145f, 64f));
+            galeButton.onClick.RemoveListener(TriggerGale);
+            galeButton.onClick.AddListener(TriggerGale);
             if (haetaeButton == null)
                 haetaeButton = debugPanel.Find("HaetaeButton")?.GetComponent<Button>();
             if (vfxQualityButton == null)
@@ -590,7 +682,7 @@ namespace MukJump.Core
                 labelRect.anchorMin = labelRect.anchorMax = new Vector2(0.5f, 0.5f);
                 labelRect.sizeDelta = new Vector2(163f, 62f);
                 vfxQualityLabel = labelObject.GetComponent<Text>();
-                vfxQualityLabel.text = "VFX 자동";
+                InkLocalizedText.SetSource(vfxQualityLabel, "VFX 자동");
                 vfxQualityLabel.alignment = TextAnchor.MiddleCenter;
                 vfxQualityLabel.raycastTarget = false;
             }
@@ -616,7 +708,7 @@ namespace MukJump.Core
             statsRect.anchorMin = statsRect.anchorMax = new Vector2(0.74f, 0.035f);
             statsRect.sizeDelta = new Vector2(180f, 72f);
             vfxStatsText = statsObject.GetComponent<Text>();
-            vfxStatsText.text = "VFX 통계 준비 중";
+            InkLocalizedText.SetSource(vfxStatsText, "VFX 통계 준비 중");
             vfxStatsText.alignment = TextAnchor.MiddleCenter;
             vfxStatsText.raycastTarget = false;
         }
@@ -651,11 +743,23 @@ namespace MukJump.Core
             labelRect.anchorMin = labelRect.anchorMax = new Vector2(0.5f, 0.5f);
             labelRect.sizeDelta = size - new Vector2(12f, 10f);
             var labelText = labelObject.GetComponent<Text>();
-            labelText.text = label;
+            InkLocalizedText.SetSource(labelText, label);
             labelText.alignment = TextAnchor.MiddleCenter;
             labelText.raycastTarget = false;
             ConfigureDebugButton(button, label, 27);
             return button;
+        }
+
+        void TriggerGale()
+        {
+            MarkDebugRun();
+            WindWeatherController.Instance?.DebugTriggerGale();
+        }
+
+        void TriggerDowndraft()
+        {
+            MarkDebugRun();
+            WindWeatherController.Instance?.DebugTriggerDowndraft();
         }
 
         void Update()
@@ -670,7 +774,8 @@ namespace MukJump.Core
 
             if (lastScreenWidth != Screen.width ||
                 lastScreenHeight != Screen.height ||
-                lastSafeArea != Screen.safeArea)
+                lastSafeArea != MobileUiLayout.CurrentSafeArea ||
+                lastBannerInset != LobbyAdLayout.GameplayTopInsetFraction)
                 ApplySafeAreaLayout();
 
             bool visible = GameManager.Instance != null &&
@@ -690,10 +795,12 @@ namespace MukJump.Core
             if (height != lastHeight)
             {
                 lastHeight = height;
-                heightText.text = $"고도 {FormatHeight(height)}";
+                InkLocalizedText.SetSource(heightText, $"고도 {FormatHeight(height)}");
             }
 
             bool newBest = score != null && score.IsNewBestThisRun;
+            if (newBest != lastNewBest)
+                ApplyRecordScoreLayout(newBest);
             int best = score != null
                 ? (newBest ? score.DisplayBest : score.Best)
                 : 0;
@@ -702,7 +809,7 @@ namespace MukJump.Core
             {
                 lastBest = best;
                 lastNewBest = newBest;
-                bestText.text = $"최고 {FormatHeight(best)}";
+                InkLocalizedText.SetSource(bestText, FormatHeight(best));
                 bestText.color = newBest ? InkPalette.Red : InkPalette.Ink;
             }
         }
@@ -726,12 +833,12 @@ namespace MukJump.Core
                 ? "자동 "
                 : string.Empty;
             if (vfxQualityLabel != null)
-                vfxQualityLabel.text = $"VFX {automatic}{VfxQualityRuntime.Tier}";
+                InkLocalizedText.SetSource(vfxQualityLabel, $"VFX {automatic}{VfxQualityRuntime.Tier}");
 
             if (vfxStatsText == null) return;
             if (monitor == null)
             {
-                vfxStatsText.text = "VFX 통계 준비 중";
+                InkLocalizedText.SetSource(vfxStatsText, "VFX 통계 준비 중");
                 return;
             }
 

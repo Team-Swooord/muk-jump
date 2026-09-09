@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using MukJump.Core;
 using MukJump.Core.Pooling;
+using MukJump.Drawing;
 using MukJump.Player;
 
 namespace MukJump.Obstacles
@@ -110,7 +111,7 @@ namespace MukJump.Obstacles
             if (windWeatherController == null)
                 windWeatherController = WindWeatherController.Instance != null
                     ? WindWeatherController.Instance
-                    : FindFirstObjectByType<WindWeatherController>();
+                    : FindAnyObjectByType<WindWeatherController>();
             LoadDragonVisuals();
             LoadHaetaeVisuals();
             EnsurePool();
@@ -179,6 +180,12 @@ namespace MukJump.Obstacles
 
         void Spawn(float courseHeight)
         {
+            // 맵 쉬터의 전후는 다음 착지를 준비하는 쉬운 구간으로
+            // 남긴다. 예약만 건너뛰어 첫 용·해태 보장은 소비하지 않는다.
+            if (RestPlatformSpawner.Instance != null &&
+                RestPlatformSpawner.Instance.IsHazardHeightBlocked(courseHeight))
+                return;
+
             EnsurePool();
             bool isGuaranteedHaetaeSlot =
                 courseHeight >= haetaeUnlockHeight && firstHaetaePending;
@@ -461,7 +468,7 @@ namespace MukJump.Obstacles
             var manager = GameManager.Instance;
             if (manager != null && manager.HighestLivingPlayer != null)
                 return manager.HighestLivingPlayer;
-            return FindFirstObjectByType<PlayerController>();
+            return FindAnyObjectByType<PlayerController>();
         }
 
         bool CanBeginHaetaeTelegraph()

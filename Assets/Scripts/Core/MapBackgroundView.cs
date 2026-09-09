@@ -12,6 +12,7 @@ namespace MukJump.Core
         [SerializeField] SpriteRenderer nextRenderer;
         [SerializeField] Sprite[] stageSprites;
         [SerializeField] Sprite[] endlessStageSprites;
+        [SerializeField] AmbientCloudView ambientClouds;
         [SerializeField, Min(0.2f)] float transitionDuration = 1f;
 
         const string EndlessResourcePath = "MukJump/Background/Endless";
@@ -64,6 +65,8 @@ namespace MukJump.Core
 
             int clamped = Mathf.Clamp(stage, 0, resolvedStageSprites.Length - 1);
             bool resolvedMirror = clamped >= resolvedBaseStageCount && mirrorX;
+            ambientClouds?.SetBackground(resolvedStageSprites[clamped],
+                immediate || currentStage < 0, resolvedMirror);
             if (transitionRoutine == null &&
                 clamped == currentStage &&
                 resolvedMirror == currentMirrored &&
@@ -77,6 +80,8 @@ namespace MukJump.Core
 
             if (immediate || currentStage < 0)
             {
+                transitionTargetStage = -1;
+                transitionTargetMirrored = false;
                 currentStage = clamped;
                 currentMirrored = resolvedMirror;
                 currentRenderer.sprite = resolvedStageSprites[clamped];
@@ -147,6 +152,7 @@ namespace MukJump.Core
 
             if (currentRenderer != null)
             {
+                ambientClouds?.SetBackground(currentRenderer.sprite, true, currentMirrored);
                 currentRenderer.color = Color.white;
                 currentRenderer.sortingOrder = -10;
             }

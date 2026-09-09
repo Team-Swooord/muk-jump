@@ -49,7 +49,7 @@ namespace MukJump.Player
                 return;
 
             CancelArrival();
-            if (!Application.isPlaying)
+            if (!Application.isPlaying || LobbySettingsProfile.ReducedMotionEnabled)
             {
                 playerRenderer.enabled = true;
                 arrivalRenderer.enabled = false;
@@ -81,13 +81,15 @@ namespace MukJump.Player
             arrivalRenderer.color = InkPalette.Ink;
             arrivalRenderer.enabled = true;
 
-            float phaseStartedAt = Time.time;
-            while (Time.time - phaseStartedAt < SafeBodyOnlyDuration)
+            // 생성 연출은 짧은 히트스톱이나 일시정지 프레임에도 반드시 끝나야
+            // 본체 렌더러가 숨은 채 남지 않는다.
+            float phaseStartedAt = Time.unscaledTime;
+            while (Time.unscaledTime - phaseStartedAt < SafeBodyOnlyDuration)
             {
-                if (player == null || player.IsDead)
+                if (player == null || player.IsDead || LobbySettingsProfile.ReducedMotionEnabled)
                     break;
 
-                float elapsed = Time.time - phaseStartedAt;
+                float elapsed = Time.unscaledTime - phaseStartedAt;
                 float t = Mathf.Clamp01(elapsed / SafeBodyOnlyDuration);
                 float eased = 1f - Mathf.Pow(1f - t, 3f);
                 float scale = Mathf.Lerp(bodyStartScale, bodyEndScale, eased) *
@@ -96,15 +98,15 @@ namespace MukJump.Player
                 yield return null;
             }
 
-            if (player != null && !player.IsDead)
+            if (player != null && !player.IsDead && !LobbySettingsProfile.ReducedMotionEnabled)
             {
-                phaseStartedAt = Time.time;
-                while (Time.time - phaseStartedAt < SafeCharacterPopDuration)
+                phaseStartedAt = Time.unscaledTime;
+                while (Time.unscaledTime - phaseStartedAt < SafeCharacterPopDuration)
                 {
-                    if (player == null || player.IsDead)
+                    if (player == null || player.IsDead || LobbySettingsProfile.ReducedMotionEnabled)
                         break;
 
-                    float elapsed = Time.time - phaseStartedAt;
+                    float elapsed = Time.unscaledTime - phaseStartedAt;
                     float t = Mathf.Clamp01(elapsed / SafeCharacterPopDuration);
                     SyncCharacterFrame();
                     float scale = t < 0.58f

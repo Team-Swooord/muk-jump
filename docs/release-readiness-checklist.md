@@ -42,8 +42,8 @@
 ### 게임 규칙과 복구
 
 - [x] 그린 발판을 아래에서 통과하고 내려올 때 윗면에만 착지하는가?
-- [x] 성장 미선택 상태에서 본체는 1 HP, 분신은 2 HP로 시작하는가?
-- [x] 먹피 결실 뒤에만 분신이 3 HP가 되는가?
+- [x] 성장 미선택 상태에서 본체는 3 HP, 분신은 1 HP로 시작하는가?
+- [x] 먹피 결실 뒤에만 분신이 2 HP가 되는가?
 - [x] 모든 먹방울이 죽었을 때만 게임오버가 되는가?
 - [~] 게임오버 → 광고 부활 → 원본 1 HP 복귀 → 카메라 재구도가 실기기에서도 이어지는가?
 - [~] 광고 중 앱이 백그라운드로 갔다 돌아와도 게임·오디오가 먼저 재개되지 않는가?
@@ -83,7 +83,7 @@
 
 ### 개인정보와 스토어 정책
 
-- [ ] 고객지원 URL은 공개됐다. 개인정보처리방침·계정 삭제 파일은 로컬에 작성됐지만 현재 공개 URL이 404이므로 저장소 반영 또는 별도 HTTPS 배포가 필요한가?
+- [x] 고객지원·뒤끝 이용약관·뒤끝 개인정보처리방침·계정 삭제 공개 URL이 비로그인 상태에서 모두 HTTP 200으로 열리고 먹점프·운영자·문의처가 표시되는가?
 - [x] 뒤끝, Apple/Google 로그인, AdMob 수집 항목을 개인정보처리방침 원문에 적었는가?
 - [x] App Store 개인정보 응답과 Google Play 데이터 보안 응답 초안이 실제 SDK와 일치하는가?
 - [x] iOS는 Google Mobile Ads 초기화 전에 ATT를 요청하고, 응답 뒤 UMP 동의 절차를
@@ -96,7 +96,10 @@
 ### 빌드와 서명
 
 - [x] Google Ads 11.4.0과 네이티브 의존성이 해석된 뒤 새 iOS 워크스페이스의 서명 없는 Release 컴파일이 성공하는가?
-- [ ] Xcode Archive, 서명, TestFlight 설치와 로그인·광고 실기기 테스트가 통과하는가?
+- [~] Xcode Release Archive와 CYSBand 배포 서명 IPA 내보내기·App Store Connect 업로드·
+  TestFlight `1.0.0 (1)`, `(2)` 처리와 검증은 통과했다. OAuth 반영 `1.0.0 (3)`의 로컬
+  Archive와 배포 서명 IPA 검증도 통과했다. 빌드 3 업로드와 TestFlight 설치·로그인·광고 실기기
+  테스트가 통과하는가?
 - [~] Android Build Support·SDK/NDK·OpenJDK 설치와 API 36·ARM64 검증 APK 빌드는
   끝났다. 먹점프 전용 keystore, 64-bit AAB, Play 내부 테스트가 준비됐는가?
 - [x] Google Play 새 앱 제출 기준에 맞춰 대상 API 36, ARM64 AAB를 빌드 설정에서 강제하는가?
@@ -113,7 +116,7 @@
 
 - [ ] 신규 사용자 10명 이상이 설명 없이 첫 발판을 만들고 30m까지 갈 수 있는가?
 - [ ] 15~30판 실제 로그로 100m·250m·1,000m 도달률과 한 판 시간이 의도와 맞는가?
-- [ ] 분신 2 HP가 본체 1 HP보다 지나치게 강해 초반 긴장감을 없애지 않는가?
+- [ ] 분신 1 HP가 너무 쉽게 사라지거나, 먹피 결실의 2 HP가 초반 긴장감을 지나치게 낮추지 않는가?
 - [ ] 첫 12m 분신 보장이 실패 직후 학습과 재미를 높이는가?
 - [ ] 39개 성장의 첫 구매 시간, 완성 시간, 갈래별 선택률이 한쪽으로 쏠리지 않는가?
 - [ ] 부활 광고가 영구 성장 부활의 가치를 훼손하거나 무한 플레이를 만들지 않는가?
@@ -155,19 +158,37 @@
 2. 게스트·Apple·Google 로그인, 안전한 동기화, 2단계 탈퇴, TOP 10 코드와 UI는 구현됐다.
    먹점프 전용 뒤끝 앱 ID·서명키, 비공개 플레이어 테이블, 초기화·보상 없는 최고 고도
    리더보드, Android/iOS 식별자와 Apple Team ID까지 연결했다. 같은 개발자 계정의
-   던던던 설정 구조는 참고하되, 번들 ID가 다른 먹점프 전용 Google OAuth Client를
-   만들어야 한다. 운영 AdMob 게시자 계정은 사용자가 확인한 `cysbandcs@gmail.com`이고,
-   OAuth는 현재 다른 창에 로그인된 Google 계정에서 확인한다. 먹점프 전용 Cloud 프로젝트
-   생성 또는 던던던 프로젝트가 보이는 계정 확인, Apple 토큰 철회용 Key 이름·p8, Apple
-   계정 변경 웹훅, Android 서명 해시 입력과 실기기 검증이 남았다.
-3. 개인정보처리방침·삭제 안내·스토어 데이터 답변 원문은 작성됐다. 고객지원 저장소는
-   공개됐지만 두 법적 문서 URL은 현재 404다. 저장소 반영 또는 별도 HTTPS 배포와
-   App Store Connect·Play Console 최종 입력이 남았다.
-4. 2026-08-27 최신 iOS Unity 검증본과 `Unity-iPhone.xcworkspace`의 서명 없는 Release
-   컴파일은 성공했다. 생성된 앱은 번들 ID `com.CYSB.MukJump`, 버전 `1.0.0`(1), 실제
-   iOS AdMob 앱 ID, `ITSAppUsesNonExemptEncryption=NO`, ATT 안내 문구와 Apple 로그인
-   entitlement를 포함한다. 로컬 검증본은 제출용이 아니며 Xcode Archive·TestFlight·
-   로그인·광고 실기기 검증이 남아 있다.
+   던던던 설정 구조는 참고하되 OAuth 값은 복사하지 않는다. Google 개발자 계정
+   `choiysband@gmail.com`의 먹점프 전용 Cloud 프로젝트 `mukjump`에서 2026-08-30 Bundle
+   ID `com.CYSB.MukJump`, Team ID `8AU359WZZ2`용 iOS OAuth Client를 만들고 Unity iOS
+   Settings에 반영했다. Android Google Web OAuth·서명 해시, 실제 Apple 토큰 철회와
+   iOS Google 로그인 실기기 검증이 남았다. Apple 철회용 Team ID·Key ID·p8와 계정 변경
+   웹훅은 2026-08-28 콘솔 저장 후 재조회로 확인했다.
+3. 개인정보처리방침·삭제 안내·스토어 데이터 답변 원문은 작성됐고, 2026-08-27
+   비로그인 확인에서 세 공개 URL이 모두 HTTP 200으로 열렸다. App Store Connect·
+   Play Console의 최종 입력과 Archive Privacy Report 대조가 남았다.
+4. 2026-08-29 최신 iOS Unity 검증본과 `Unity-iPhone.xcworkspace`의 서명 없는 Release
+   컴파일·정적 분석·Archive 패키징은 성공했다. 생성된 앱은 arm64, 번들 ID
+   `com.CYSB.MukJump`, 버전 `1.0.0`(1), 최소 iOS 15.0, 실제 iOS AdMob 앱 ID,
+   `ITSAppUsesNonExemptEncryption=NO`, ATT 안내 문구, Apple 로그인 entitlement와 개인정보
+   매니페스트를 포함한다. 앱과 UnityFramework의 dSYM UUID도 실행 파일과 각각 일치한다.
+   CYSBand 팀 `8AU359WZZ2`의 유효한 배포 인증서와 Apple 로그인 권한을 포함한
+   `MukJump App Store Connect` 프로파일로 최신 소스의 로컬 검증 Archive·IPA 내보내기,
+   엄격한 코드서명 검증도 성공했다. 이 서명 산출물은 iOS OAuth 반영 전 검증본이고 빌드
+   번호 1과 2는 이미 사용됐으므로 제출본이 아니다. 2026-08-30 App Store Connect에서 두
+   빌드가 모두 처리 완료 상태임을 재확인하고 다음 미사용 빌드 번호를 3으로 확정했다.
+   OAuth 반영 후 빌드 번호 3으로 Unity iOS 검증 빌드를 새로 생성해 `CFBundleVersion=3`,
+   `GIDClientID`, 뒤집은 URL Scheme, CYSBand Team `8AU359WZZ2`,
+   GoogleSignIn 7.1.0을 확인했다. OAuth·iOS 출시 검증 테스트 21개가 모두 통과했고,
+   전체 EditMode 748개 중 그래픽 장치 없이 실행한 747개가 통과했다. 그래픽 장치 초기화
+   때문에 실패한 물리 통합 테스트 1개는 그래픽 사용 상태로 재실행해 통과했으며 컴파일
+   오류는 없었다. 빌드 3의 Release Archive와 `MukJump App Store Connect` 프로파일을 쓴
+   배포 서명 IPA 내보내기, `codesign --verify --deep --strict`, Apple 로그인 entitlement,
+   `get-task-allow=false`, 앱·UnityFramework dSYM UUID 일치까지 통과했다.
+   당시 제출 후보는 `output/ios/MukJump-1.0.0-3.ipa`이며 SHA-256은
+   `a6563f8162170ea5dea1882955b9078e08b73b0b90b32bfc6c817c0230a72b38`이다. 빌드 3을 업로드한 뒤
+   TestFlight 설치와 로그인·탈퇴·광고 실기기 검증이 남아 있다. 이 IPA는 이후 반영된
+   스플래시·배너 안정화 변경 전 산출물이므로 현재 소스의 최종 제출본으로 재사용하지 않는다.
 5. Apps in Toss는 공식 게임센터 연동, WebGL 전용 플랫폼 분리, 32.57MB 사전 용량 검증까지
    완료했다. 공개 HTTPS 아이콘 URL과 토스 배너·보상형 광고 그룹 ID를 입력한 뒤 최종 `.ait`
    생성, 콘솔 업로드, QR 실기기 검증이 남았다.
@@ -180,11 +201,21 @@
 
 ## 현재 자동 검증 기준
 
-- 2026-08-27 Unity EditMode 기준선: **674/674 통과**, 실패·건너뜀 0
-- iOS: 2026-08-27 Unity 6000.5.9f1 검증 빌드 생성 후 Xcode 26.2·iPhoneOS 26.2에서
+- 2026-08-29 Unity EditMode 기준선: 최종 컴파일 소스에서 **747/747 연속 2회 통과**,
+  실패·건너뜀 0. 분신 생성 연출 테스트는 에디터 일시정지·물리 생명주기와 분리해
+  안정된 종료 상태를 검증한다.
+- 2026-08-30 18:19 최신 소스 전체 EditMode는 **746/750 통과**, 실패 4, 건너뜀 0이다.
+  Apple·OAuth·계정·광고·배너·스플래시 픽스처는 모두 통과했지만 성장 UI의 글자 크기,
+  상태 버튼 위치, 결실 터치 폭, 봉오리 받침 알파 규격이 불일치하므로 전체 회귀 게이트는
+  아직 통과하지 않았다.
+- 2026-08-30 Google iOS OAuth 설정 검증은 `BackendReleaseValidatorTests` **5/5**와
+  `IosReleaseBuildTests` **16/16** 통과. Unity 6000.5.9f1 실제 iOS Xcode 검증 빌드도
+  성공했고 생성 `Info.plist`의 Client ID와 URL Scheme이 발급값과 정확히 일치한다.
+- iOS: 2026-08-29 Unity 6000.5.9f1 검증 빌드 생성 후 Xcode 26.2·iPhoneOS 26.2에서
   `Unity-iPhone.xcworkspace` Release 서명 없는 컴파일 성공. Google Mobile Ads 13.7.0,
   Google Sign-In 7.1.0, UMP 3.1.0 해석 확인. 최종 검증 앱에서 ATT 안내 문구,
-  `ITSAppUsesNonExemptEncryption=NO`, 실제 iOS AdMob 앱 ID, 번들·버전을 확인
+  `ITSAppUsesNonExemptEncryption=NO`, 실제 iOS AdMob 앱 ID, 번들·버전을 확인.
+  App Store 스크린샷은 6.9인치 1320×2868과 6.5인치 1284×2778 각각 최종 PNG 6장이다.
 - Android: Unity Hub 모듈 설치와 실제 Gradle 검증 APK 빌드 완료. API 36·ARM64,
   Google 공식 테스트 광고, GMA·UMP·Google 로그인·뒤끝 포함을 자동·수동 확인. 환경 변수
   기반 먹점프 전용 keystore와 Release AAB, Play 내부 테스트가 남음

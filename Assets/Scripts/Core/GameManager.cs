@@ -24,9 +24,106 @@ namespace MukJump.Core
         ApplicationBackground,
     }
 
+    [Serializable]
+    public sealed class PendingGameOverSettlementSnapshot
+    {
+        public int version = 1;
+        public string runId = string.Empty;
+        public int swarmProgressHeight;
+        public int scoreHeight;
+        public int previousBest;
+        public float activeGameplaySeconds;
+        public bool eligible;
+    }
+
+    /// 게임오버 정산 복구본 저장을 격리해 기기 저장소 오류가 게임 흐름까지
+    /// 중단하지 않게 하고, 실패 경로를 자동 테스트할 수 있게 한다.
+    public interface IPendingGameOverSettlementStore
+    {
+        bool HasSnapshot();
+        string Load();
+        void Save(string json);
+        void Clear();
+    }
+
+    sealed class PlayerPrefsPendingGameOverSettlementStore :
+        IPendingGameOverSettlementStore
+    {
+        public bool HasSnapshot() =>
+            PlayerPrefs.HasKey(GameManager.PendingGameOverSettlementKey);
+
+        public string Load() => PlayerPrefs.GetString(
+            GameManager.PendingGameOverSettlementKey,
+            string.Empty);
+
+        public void Save(string json)
+        {
+            PlayerPrefs.SetString(
+                GameManager.PendingGameOverSettlementKey,
+                json ?? string.Empty);
+            PlayerPrefs.Save();
+        }
+
+        public void Clear()
+        {
+            PlayerPrefs.DeleteKey(GameManager.PendingGameOverSettlementKey);
+            PlayerPrefs.Save();
+        }
+    }
+
+#if UNITY_EDITOR
+    public sealed class MemoryPendingGameOverSettlementStore :
+        IPendingGameOverSettlementStore
+    {
+        public string Json { get; set; } = string.Empty;
+        public bool ThrowOnHas { get; set; }
+        public bool ThrowOnLoad { get; set; }
+        public bool ThrowOnSave { get; set; }
+        public bool ThrowOnClear { get; set; }
+        public int SaveCount { get; private set; }
+        public int ClearCount { get; private set; }
+
+        public bool HasSnapshot()
+        {
+            if (ThrowOnHas)
+                throw new InvalidOperationException(
+                    "Injected pending settlement existence read failure");
+            return !string.IsNullOrEmpty(Json);
+        }
+
+        public string Load()
+        {
+            if (ThrowOnLoad)
+                throw new InvalidOperationException(
+                    "Injected pending settlement read failure");
+            return Json;
+        }
+
+        public void Save(string json)
+        {
+            if (ThrowOnSave)
+                throw new InvalidOperationException(
+                    "Injected pending settlement write failure");
+            Json = json ?? string.Empty;
+            SaveCount++;
+        }
+
+        public void Clear()
+        {
+            if (ThrowOnClear)
+                throw new InvalidOperationException(
+                    "Injected pending settlement delete failure");
+            Json = string.Empty;
+            ClearCount++;
+        }
+    }
+#endif
+
     /// 게임 상태(로비/플레이/게임오버)와 시작·재도전 흐름을 관리한다.
     public class GameManager : MonoBehaviour
     {
+        public const string PendingGameOverSettlementKey =
+            "MukJump.GameOver.PendingSettlement.v1";
         /// 먹분신은 각각 물리·애니메이션을 가진 실제 목숨이다. 모바일에서 한 판이
         /// 무한히 무거워지지 않으면서도 화면을 먹떼로 채울 수 있는 안전 상한이다.
         public const int MaxLivingPlayers = 24;
@@ -38,8 +135,12 @@ namespace MukJump.Core
         public const float ClonePopVerticalSpeed = 4.8f;
         public const float ClonePopRisingBoost = 1.2f;
         public const float ClonePopMaximumVerticalSpeed = 18f;
+        const float ReviveAvailabilityPollInterval = 0.5f;
+        const float ReviveAdRequestTimeoutSeconds = 120f;
 
         public static GameManager Instance { get; private set; }
+        static IPendingGameOverSettlementStore pendingSettlementStore =
+            new PlayerPrefsPendingGameOverSettlementStore();
 
         /// 치트성 검증 도구는 에디터와 Development Build에서만 사용할 수 있다.
         public static bool DebugToolsAvailable
@@ -74,13 +175,18 @@ namespace MukJump.Core
         public event Action<int> WorldHeightTeleported;
 
         // 게임오버 직후 오터치로 바로 재시작되는 것을 막는 대기 시간
-        [SerializeField] float restartDelay = 0.8f;
 
         float gameOverTime;
         float nextScoreSettlementRetryTime;
+        float nextReviveAvailabilityPollTime;
         GameOverResult latestGameOverResult;
         bool pendingRestartConfirmationArmed;
         bool gameOverPersistenceAbandoned;
+        bool hasActivePendingGameOverSettlement;
+        // 첫 복구본 쓰기가 실패했더라도 광고 부활로 이어진 같은 판은
+        // 백그라운드/종료 시점에 다시 저장해야 한다. 위 active 플래그는
+        // 실제 저장 성공만 뜻하므로 정산 책임 여부를 별도로 기억한다.
+        bool requiresPendingGameOverSettlementRefresh;
         BrushTransitionView transitionView;
         GameOverPopupView gameOverPopupView;
         bool transitionInProgress;
@@ -94,6 +200,9 @@ namespace MukJump.Core
         bool reviveRequestInFlight;
         bool reviveCompletionPendingForeground;
         bool pendingReviveRewardEarned;
+        int reviveRequestGeneration;
+        int activeReviveRequestGeneration;
+        float reviveRequestDeadline;
         bool gameOverResultSettled;
         [SerializeField, HideInInspector] string currentRunId;
         readonly List<PlayerController> players = new();
@@ -159,12 +268,23 @@ namespace MukJump.Core
             Instance = this;
             EnsureLobbyWorldSetup();
             RefreshPlayerRegistry();
+            gameOverPopupView ??= GetComponent<GameOverPopupView>();
+            gameOverPopupView?.ConfigureActions(
+                HandleGameOverReviveRequested,
+                HandleGameOverLobbyRequested);
         }
 
         void Awake()
         {
+#if UNITY_EDITOR
+            if (Application.isPlaying)
+                EditorTestAdsRuntime.EnsureExists();
+#endif
             Application.targetFrameRate = 60;
             State = GameState.Lobby;
+            if (!TryRecoverPendingGameOverSettlement())
+                Debug.LogWarning(
+                    "[MukJump] 이전 판 성장 정산을 아직 저장하지 못했습니다. 다음 진입 때 다시 시도합니다.");
             // 이전 버전의 Main 씬을 열어도 새 피드백·구간 시스템이 즉시 동작한다.
             EnsureLobbyWorldSetup();
             if (GetComponent<VfxRuntimeMonitor>() == null)
@@ -180,7 +300,7 @@ namespace MukJump.Core
             if (GetComponent<RestPlatformSpawner>() == null)
                 gameObject.AddComponent<RestPlatformSpawner>();
             if (BackgroundMusicController.Instance == null &&
-                FindFirstObjectByType<BackgroundMusicController>() == null)
+                FindAnyObjectByType<BackgroundMusicController>() == null)
             {
                 var musicObject = new GameObject("BackgroundMusic");
                 musicObject.AddComponent<BackgroundMusicController>();
@@ -210,7 +330,7 @@ namespace MukJump.Core
             if (GetComponent<InkUiFeedbackController>() == null)
                 gameObject.AddComponent<InkUiFeedbackController>();
             var eventSystem =
-                FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
+                FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>();
             if (eventSystem != null &&
                 eventSystem.GetComponent<UiInputDeviceGuard>() == null)
             {
@@ -227,23 +347,54 @@ namespace MukJump.Core
 
         void OnDisable()
         {
+            if (reviveRequestInFlight)
+                SetReviveAdAudioActive(false);
             transitionInProgress = false;
+            reviveRequestInFlight = false;
             reviveCompletionPendingForeground = false;
             pendingReviveRewardEarned = false;
+            activeReviveRequestGeneration = 0;
+            reviveRequestDeadline = 0f;
             gameOverPopupView?.ConfigureActions(null, null);
             if (Instance != this) return;
-            RestorePausedWorld(false);
+            RestorePausedWorld(false, preserveBackgroundPause: false);
             Instance = null;
+        }
+
+        void OnApplicationPause(bool paused)
+        {
+            if (paused && !gameOverResultSettled &&
+                requiresPendingGameOverSettlementRefresh)
+                PersistPendingGameOverSettlement();
+        }
+
+        void OnApplicationQuit()
+        {
+            if (!gameOverResultSettled &&
+                requiresPendingGameOverSettlementRefresh)
+                PersistPendingGameOverSettlement();
         }
 
         void Update()
         {
+            // 복귀 콜백이 화면 전환 도중 도착해 보류됐다면 전환 종료 뒤 재개한다.
+            // 사용자 메뉴·튜토리얼이 소유한 일시정지는 여기서 건드리지 않는다.
+            if (PauseReason == GameplayPauseReason.ApplicationBackground &&
+                MobileApplicationLifecycle.IsApplicationActive && !IsTransitioning)
+                ResumeFromApplicationBackground();
+
             if (State == GameState.Playing)
             {
                 // 일시정지·화면 전환 시간을 제외한 실제 조작 가능 시간만
                 // 영구 성장 보상 판정에 사용한다.
                 if (IsGameplayTicking)
+                {
                     SampleActiveGameplayTime();
+                    if (DebugInvincible || ScoreManager.Instance != null && !ScoreManager.Instance.RecordsAllowed)
+                        MukJumpAnalytics.ExcludeDebugRun();
+                    else if (MukJumpAnalytics.IsCollecting)
+                        MukJumpAnalytics.Progress(ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0, LivingPlayerCount);
+                }
                 return;
             }
 
@@ -255,34 +406,55 @@ namespace MukJump.Core
                 MobileApplicationLifecycle.IsApplicationActive)
             {
                 bool rewardEarned = pendingReviveRewardEarned;
+                int requestGeneration = activeReviveRequestGeneration;
                 reviveCompletionPendingForeground = false;
                 pendingReviveRewardEarned = false;
-                FinishGameOverReviveAdCompleted(rewardEarned);
+                FinishGameOverReviveAdCompletedForRequest(
+                    requestGeneration,
+                    rewardEarned);
                 if (State != GameState.GameOver)
                     return;
+            }
+            if (reviveRequestInFlight &&
+                MobileApplicationLifecycle.IsApplicationActive &&
+                Time.unscaledTime >= reviveRequestDeadline)
+            {
+                int requestGeneration = activeReviveRequestGeneration;
+                Debug.LogWarning(
+                    "[MukJump] 부활 광고 완료 응답이 없어 입력과 오디오를 복구합니다.");
+                FinishGameOverReviveAdCompletedForRequest(
+                    requestGeneration,
+                    false);
             }
             bool persistenceRetryPending =
                 latestGameOverResult.PersistenceState ==
                     GameOverPersistenceState.ScoreBaselinePending ||
                 latestGameOverResult.PersistenceState ==
                     GameOverPersistenceState.RecordWritePending;
-            if (gameOverResultSettled &&
-                !transitionInProgress &&
+            if (!transitionInProgress &&
                 !gameOverPersistenceAbandoned &&
                 persistenceRetryPending &&
                 Time.unscaledTime >= nextScoreSettlementRetryTime)
             {
                 nextScoreSettlementRetryTime = Time.unscaledTime + 0.5f;
-                RetryPendingGameOverPersistence();
+                if (gameOverResultSettled)
+                    RetryPendingGameOverPersistence();
+                else
+                    RetryUnsettledBestCommit();
             }
-
             if (!gameOverResultSettled &&
                 !reviveUsedThisRun &&
-                !reviveRequestInFlight)
+                !reviveRequestInFlight &&
+                Time.unscaledTime >= nextReviveAvailabilityPollTime)
             {
-                bool ready = MonetizationAds.Provider.IsReady(
+                nextReviveAvailabilityPollTime =
+                    Time.unscaledTime + ReviveAvailabilityPollInterval;
+                bool ready = SafeIsAdReady(
+                    MonetizationAds.Provider,
                     FullScreenAdPlacement.GameOverReviveReward);
-                gameOverPopupView?.SetReviveOffer(ready);
+                gameOverPopupView?.SetReviveOffer(
+                    ready,
+                    waitingForAvailability: true);
             }
         }
 
@@ -305,7 +477,11 @@ namespace MukJump.Core
         {
             if (State != GameState.Playing || player == null || player.IsDead)
                 return;
-            PlayerLanded?.Invoke(player, platform);
+            NotifyListenersSafely(
+                PlayerLanded,
+                player,
+                platform,
+                "착지");
         }
 
         /// 바람·카메라 같은 읽기 전용 시스템이 매 프레임 FindObjects 배열을 만들지 않도록
@@ -434,7 +610,7 @@ namespace MukJump.Core
         public bool ResumeFromApplicationBackground()
         {
             if (PauseReason != GameplayPauseReason.ApplicationBackground ||
-                IsTransitioning)
+                IsTransitioning || !MobileApplicationLifecycle.IsApplicationActive)
                 return false;
             PointerInput.SuppressUntilRelease();
             RestorePausedWorld(true);
@@ -465,12 +641,20 @@ namespace MukJump.Core
                 IsTransitioning)
                 return false;
 
+            // 광고 부활 뒤에도 첫 사망의 crash-safe 복구본은 남아 있다.
+            // 사용자가 명시적으로 판을 포기하고 로비로 가면 그 복구본을 먼저
+            // 폐기해야 다음 실행에서 거리·먹빛이 뒤늦게 정산되지 않는다.
+            if (!TryAbandonPendingGameOverSettlement())
+                return false;
             transitionInProgress = true;
             PointerInput.SuppressUntilRelease();
             // 붓 전환음은 들리되 물리는 화면이 완전히 덮일 때까지 멈춘 상태를 유지한다.
             AudioListener.pause = false;
             void ReloadLobby()
             {
+                MukJumpAnalytics.EndRun(currentRunId, ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0,
+                    activeGameplaySeconds, abandoned: true, newBest: false);
+                MukJumpAnalytics.Screen(AnalyticsScreen.Lobby);
                 RestorePausedWorld(true);
                 BrushTransitionView.RequestRevealAfterSceneLoad();
                 SceneManager.LoadScene(SceneManager.GetActiveScene().name);
@@ -519,8 +703,18 @@ namespace MukJump.Core
             SampleActiveGameplayTime();
 
             lastDeadPlayer = player;
+            // 광고 선택창에서 앱을 닫거나 버튼 입력이 실패해도 이 판의 새 기록은
+            // 이미 저장돼 있어야 한다. 부활 후 더 높게 죽으면 같은 API가 다시 올린다.
+            CommitCurrentBestBeforeGameOver();
             EnterGameOver();
             return true;
+        }
+
+        bool CommitCurrentBestBeforeGameOver()
+        {
+            ScoreManager score = ScoreManager.Instance;
+            return score == null || !score.RecordsAllowed ||
+                   score.TryCommitBestCandidate(score.Height);
         }
 
         void SampleSwarmProgressIncluding(PlayerController dyingPlayer)
@@ -548,18 +742,23 @@ namespace MukJump.Core
         void EnterGameOver()
         {
             if (State == GameState.GameOver) return;
+            MukJumpAnalytics.GameOver(ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0, activeGameplaySeconds);
             SetState(GameState.GameOver);
             var feedback = GameFeedbackController.Instance;
             float revealDelay = feedback != null ? feedback.GameOverRevealDelay : 0.62f;
             feedback?.PlayGameOver();
             gameOverTime = float.PositiveInfinity;
             bool canWaitForRevive = !reviveUsedThisRun &&
-                                    MonetizationAds.HasProvider;
+                                    MonetizationAds.RuntimeProviderExpected;
             bool canOfferRevive = MonetizationPolicy.CanOfferGameOverRevive(
                 true,
                 reviveUsedThisRun,
-                MonetizationAds.Provider.IsReady(
+                SafeIsAdReady(
+                    MonetizationAds.Provider,
                     FullScreenAdPlacement.GameOverReviveReward));
+            nextReviveAvailabilityPollTime =
+                Time.unscaledTime + ReviveAvailabilityPollInterval;
+            PersistPendingGameOverSettlement();
             gameOverResultSettled = !canWaitForRevive;
             latestGameOverResult = canWaitForRevive
                 ? CreateUnsettledGameOverPreview()
@@ -577,15 +776,61 @@ namespace MukJump.Core
         {
             ScoreManager score = ScoreManager.Instance;
             int height = score != null ? score.Height : 0;
-            int previousBest = score != null ? score.Best : 0;
+            int previousBest = score != null ? score.RunBestToBeat : 0;
+            int committedBest = score != null ? score.Best : 0;
             bool rewardsAllowed = score == null || score.RecordsAllowed;
+            bool baselineConfirmed = score == null || score.HasConfirmedBest;
+            long distanceBefore = PermanentGrowthProfile.CumulativeDistanceMeters;
+            var growthPreview = PermanentGrowthProfile.PreviewRun(height, rewardsAllowed && baselineConfirmed);
+            bool recordSaved = baselineConfirmed &&
+                               (score == null ||
+                                !score.HasPendingBestSaveRetry) &&
+                               (score == null || !score.RecordsAllowed ||
+                                committedBest >= height);
             return new GameOverResult(
                 height,
-                Mathf.Max(previousBest, height),
-                rewardsAllowed && height > previousBest,
+                Mathf.Max(committedBest, height),
+                rewardsAllowed && baselineConfirmed && height > previousBest,
                 0,
                 PermanentGrowthProfile.Currency,
-                rewardsAllowed);
+                rewardsAllowed,
+                growthRewardSaved: growthPreview.Accepted,
+                recordSaved: recordSaved,
+                persistenceState: !baselineConfirmed
+                    ? GameOverPersistenceState.ScoreBaselinePending
+                    : recordSaved
+                        ? GameOverPersistenceState.Complete
+                        : GameOverPersistenceState.RecordWritePending,
+                cumulativeGrowthDistanceMeters: growthPreview.CumulativeDistanceMeters,
+                previousGrowthRewardDistanceMeters: growthPreview.PreviousRewardDistanceMeters,
+                nextGrowthRewardDistanceMeters: growthPreview.NextRewardDistanceMeters,
+                growthDistanceJourneyComplete: growthPreview.DistanceJourneyComplete,
+                growthDistanceBeforeMeters: distanceBefore,
+                isGrowthPreview: true,
+                previewGrowthCurrency: growthPreview.Earned,
+                growthDistanceRewardOffsetMeters: growthPreview.DistanceRewardOffsetMeters);
+        }
+
+        /// 광고 선택을 기다리는 동안에는 먹빛 정산을 시작하지 않고 최고 기록만
+        /// 재시도한다. 광고 부활로 판을 이어가면 정산은 다음 사망까지 보류된다.
+        void RetryUnsettledBestCommit()
+        {
+            if (gameOverResultSettled)
+                return;
+
+            ScoreManager score = ScoreManager.Instance;
+            if (score == null)
+                return;
+
+            bool ready = latestGameOverResult.PersistenceState ==
+                    GameOverPersistenceState.ScoreBaselinePending
+                ? score.TryEnsureBestLoaded()
+                : score.TryCommitBestCandidate(latestGameOverResult.Height);
+            if (!ready)
+                return;
+
+            latestGameOverResult = CreateUnsettledGameOverPreview();
+            gameOverPopupView?.RefreshResult(latestGameOverResult);
         }
 
         void HandleGameOverReviveRequested()
@@ -600,68 +845,175 @@ namespace MukJump.Core
             if (!MonetizationPolicy.CanOfferGameOverRevive(
                     true,
                     reviveUsedThisRun,
-                    ads.IsReady(FullScreenAdPlacement.GameOverReviveReward)))
+                    SafeIsAdReady(
+                        ads,
+                        FullScreenAdPlacement.GameOverReviveReward)))
             {
-                gameOverPopupView?.SetReviveOffer(false);
-                ads.Preload(FullScreenAdPlacement.GameOverReviveReward);
+                gameOverPopupView?.SetReviveOffer(
+                    false,
+                    waitingForAvailability: true);
+                SafePreloadAd(
+                    ads,
+                    FullScreenAdPlacement.GameOverReviveReward);
                 return;
             }
 
+            int requestGeneration = ++reviveRequestGeneration;
+            MukJumpAnalytics.Ad(AnalyticsAdStage.ShowRequested);
+            activeReviveRequestGeneration = requestGeneration;
             reviveRequestInFlight = true;
+            reviveRequestDeadline =
+                Time.unscaledTime + ReviveAdRequestTimeoutSeconds;
+            reviveCompletionPendingForeground = false;
+            pendingReviveRewardEarned = false;
             gameOverPopupView?.SetReviveRequestInFlight(true);
-            AudioListener.pause = true;
-            ads.Show(
-                FullScreenAdPlacement.GameOverReviveReward,
-                HandleGameOverReviveAdCompleted);
+            SetReviveAdAudioActive(true);
+            try
+            {
+                ads.Show(
+                    FullScreenAdPlacement.GameOverReviveReward,
+                    rewardEarned =>
+                        HandleGameOverReviveAdCompletedForRequest(
+                            requestGeneration,
+                            rewardEarned));
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"[MukJump] 부활 광고 열기에 실패했습니다: {exception.Message}");
+                HandleGameOverReviveAdCompletedForRequest(
+                    requestGeneration,
+                    false);
+            }
         }
 
-        void HandleGameOverReviveAdCompleted(bool rewardEarned)
+        void HandleGameOverReviveAdCompletedForRequest(
+            int requestGeneration,
+            bool rewardEarned)
         {
-            if (this == null)
+            if (this == null ||
+                !reviveRequestInFlight ||
+                requestGeneration != activeReviveRequestGeneration)
                 return;
 
+            // 완료 콜백이 전경·백그라운드 경계에서 중복되어도 보상 true는 단조롭게
+            // 유지한다. 전경 복귀 직후 Update가 소비하기 전에 false 콜백이 와도
+            // 이미 획득한 보상이 취소되면 안 된다.
+            pendingReviveRewardEarned |= rewardEarned;
             if (!MobileApplicationLifecycle.IsApplicationActive)
             {
                 reviveCompletionPendingForeground = true;
-                pendingReviveRewardEarned = rewardEarned;
                 return;
             }
 
-            FinishGameOverReviveAdCompleted(rewardEarned);
+            FinishGameOverReviveAdCompletedForRequest(
+                requestGeneration,
+                pendingReviveRewardEarned);
         }
 
-        void FinishGameOverReviveAdCompleted(bool rewardEarned)
+        void FinishGameOverReviveAdCompletedForRequest(
+            int requestGeneration,
+            bool rewardEarned)
         {
-            AudioListener.pause = false;
+            if (!reviveRequestInFlight ||
+                requestGeneration != activeReviveRequestGeneration)
+                return;
+
+            activeReviveRequestGeneration = 0;
+            reviveRequestDeadline = 0f;
+            reviveCompletionPendingForeground = false;
+            pendingReviveRewardEarned = false;
+            SetReviveAdAudioActive(false);
             reviveRequestInFlight = false;
+            // 공급자의 IsReady가 실패해도 두 버튼의 입력 잠금은 먼저 해제한다.
+            gameOverPopupView?.SetReviveRequestInFlight(false);
             if (State != GameState.GameOver || !rewardEarned)
             {
                 bool ready = State == GameState.GameOver &&
-                             MonetizationAds.Provider.IsReady(
+                             SafeIsAdReady(
+                                 MonetizationAds.Provider,
                                  FullScreenAdPlacement.GameOverReviveReward);
-                gameOverPopupView?.SetReviveRequestInFlight(false);
-                gameOverPopupView?.SetReviveOffer(ready);
+                gameOverPopupView?.SetReviveOffer(
+                    ready,
+                    waitingForAvailability: !gameOverResultSettled);
                 return;
             }
 
             PlayerController reviveTarget = ResolveRewardRevivePlayer();
-            if (reviveTarget == null || !reviveTarget.ReviveFromRewardedAd())
+            if (reviveTarget == null)
             {
-                gameOverPopupView?.SetReviveRequestInFlight(false);
                 gameOverPopupView?.SetReviveOffer(false);
                 return;
             }
 
+            // 광고 보상은 확정된 상태지만 물리 재개는 결과 두루마리가 감긴 뒤다.
+            if (gameOverPopupView != null)
+                gameOverPopupView.Close(() => CompleteRewardedRevive(reviveTarget));
+            else
+                CompleteRewardedRevive(reviveTarget);
+        }
+
+        void CompleteRewardedRevive(PlayerController reviveTarget)
+        {
+            if (this == null || !isActiveAndEnabled || State != GameState.GameOver)
+                return;
+            if (reviveTarget == null || !reviveTarget.ReviveFromRewardedAd())
+            {
+                gameOverPopupView?.Show(latestGameOverResult, false, false);
+                return;
+            }
+
             reviveUsedThisRun = true;
+            MukJumpAnalytics.Revive();
             lastDeadPlayer = null;
             gameOverTime = float.PositiveInfinity;
             pendingRestartConfirmationArmed = false;
             gameOverPersistenceAbandoned = false;
             SetState(GameState.Playing);
-            gameOverPopupView?.Hide();
             Camera.main?.GetComponent<CameraFollow>()?
                 .RequestSurvivorReframe();
             PointerInput.SuppressUntilRelease();
+        }
+
+        static void SetReviveAdAudioActive(bool active)
+        {
+            AudioListener.pause = active;
+            BackgroundMusicController.Instance?.SetFullScreenAdActive(active);
+        }
+
+        static bool SafeIsAdReady(
+            IFullScreenAdProvider provider,
+            FullScreenAdPlacement placement)
+        {
+            if (provider == null)
+                return false;
+            try
+            {
+                return provider.IsReady(placement);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"[MukJump] 광고 준비 상태 확인에 실패했습니다: {exception.Message}");
+                return false;
+            }
+        }
+
+        static void SafePreloadAd(
+            IFullScreenAdProvider provider,
+            FullScreenAdPlacement placement)
+        {
+            if (provider == null)
+                return;
+            try
+            {
+                provider.Preload(placement);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"[MukJump] 광고 미리 불러오기에 실패했습니다: {exception.Message}");
+            }
         }
 
         PlayerController ResolveRewardRevivePlayer()
@@ -683,8 +1035,7 @@ namespace MukJump.Core
         {
             if (State != GameState.GameOver ||
                 transitionInProgress ||
-                reviveRequestInFlight ||
-                Time.unscaledTime - gameOverTime < restartDelay)
+                reviveRequestInFlight)
                 return;
 
             if (!gameOverResultSettled)
@@ -694,26 +1045,36 @@ namespace MukJump.Core
                 gameOverPopupView?.RefreshResult(latestGameOverResult);
             }
 
-            if (latestGameOverResult.PersistenceState ==
-                    GameOverPersistenceState.ScoreBaselinePending &&
-                !pendingRestartConfirmationArmed)
+            bool recordPending =
+                latestGameOverResult.PersistenceState ==
+                    GameOverPersistenceState.ScoreBaselinePending ||
+                latestGameOverResult.PersistenceState ==
+                    GameOverPersistenceState.RecordWritePending;
+            if (recordPending)
             {
-                pendingRestartConfirmationArmed = true;
-                gameOverPopupView?.ShowPendingAbandonConfirmation();
-                return;
+                RetryPendingGameOverPersistence();
+                recordPending =
+                    latestGameOverResult.PersistenceState ==
+                        GameOverPersistenceState.ScoreBaselinePending ||
+                    latestGameOverResult.PersistenceState ==
+                        GameOverPersistenceState.RecordWritePending;
+                if (recordPending && !pendingRestartConfirmationArmed)
+                {
+                    pendingRestartConfirmationArmed = true;
+                    gameOverPopupView?.ShowPendingAbandonConfirmation();
+                    return;
+                }
             }
-            if (latestGameOverResult.PersistenceState ==
-                GameOverPersistenceState.RecordWritePending)
+            if (recordPending)
             {
-                gameOverPersistenceAbandoned = true;
+                if (!TryAbandonPendingGameOverSettlement())
+                    return;
                 ScoreManager.Instance?.StopPendingBestSaveRetry();
             }
-            else if (latestGameOverResult.PersistenceState ==
-                     GameOverPersistenceState.ScoreBaselinePending)
-            {
-                gameOverPersistenceAbandoned = true;
-            }
-            Restart();
+            if (gameOverPopupView != null)
+                gameOverPopupView.Close(Restart);
+            else
+                Restart();
         }
 
         /// 결과 표시보다 먼저 최고 기록과 영구 성장 보상을 한 번에 확정한다.
@@ -727,7 +1088,7 @@ namespace MukJump.Core
             bool scoreBaselineReady = score == null ||
                 !score.RecordsAllowed ||
                 score.TryEnsureBestLoaded();
-            int previousBest = score != null ? score.Best : 0;
+            int previousBest = score != null ? score.RunBestToBeat : 0;
             bool reachedNewBest = recordsAllowed &&
                 height > previousBest;
             if (string.IsNullOrEmpty(currentRunId))
@@ -735,6 +1096,7 @@ namespace MukJump.Core
             bool rewardsAllowed =
                 score != null && score.RecordsAllowed;
             bool growthProfileHealthy = !PermanentGrowthProfile.RequiresRecovery;
+            long distanceBefore = PermanentGrowthProfile.CumulativeDistanceMeters;
             PermanentGrowthSettlement settlement = rewardsAllowed && scoreBaselineReady
                 ? PermanentGrowthProfile.SettleRun(
                     currentRunId,
@@ -752,19 +1114,27 @@ namespace MukJump.Core
                     PermanentGrowthProfile.PreviousDistanceRewardMeters,
                     PermanentGrowthProfile.NextDistanceRewardMeters,
                     PermanentGrowthProfile.IsDistanceJourneyComplete);
-            // 성장 정산이 실패한 판은 누적 거리와 runId가 확정되지 않았다.
-            // 성장 저장 성공 뒤에만 기록을 저장해 결과 재시도 순서를 한 방향으로 둔다.
+            bool growthSaved = !rewardsAllowed || settlement.Accepted ||
+                PermanentGrowthProfile.IsRunSettled(currentRunId);
+            // 최고 기록은 광고·성장 정산과 독립된 단조 데이터다. 성장 저장이
+            // 복구 상태여도 현재 판의 새 기록만큼은 잃지 않는다.
             bool recordNeedsSave = score != null && score.RecordsAllowed &&
-                height > previousBest;
+                (height > score.Best || score.HasPendingBestSaveRetry);
             bool recordSaved = scoreBaselineReady &&
                 (!recordNeedsSave ||
-                 settlement.Accepted && score.TrySaveBest());
+                 score.TryCommitBestCandidate(height));
+            if (growthSaved && recordSaved &&
+                ClearPendingGameOverSettlement())
+            {
+                hasActivePendingGameOverSettlement = false;
+                requiresPendingGameOverSettlementRefresh = false;
+            }
             GameOverPersistenceState persistenceState = !scoreBaselineReady
                 ? GameOverPersistenceState.ScoreBaselinePending
-                : rewardsAllowed && !settlement.Accepted
-                    ? GameOverPersistenceState.GrowthRecoveryRequired
-                    : !recordSaved
+                : !recordSaved
                         ? GameOverPersistenceState.RecordWritePending
+                    : !growthSaved
+                        ? GameOverPersistenceState.GrowthRecoveryRequired
                         : GameOverPersistenceState.Complete;
             int best = score != null ? score.Best : previousBest;
             var result = new GameOverResult(
@@ -774,21 +1144,52 @@ namespace MukJump.Core
                 settlement.Earned,
                 settlement.Balance,
                 rewardsAllowed,
-                settlement.Accepted,
+                growthSaved,
                 recordSaved,
                 persistenceState,
                 settlement.CumulativeDistanceMeters,
                 settlement.PreviousRewardDistanceMeters,
                 settlement.NextRewardDistanceMeters,
-                settlement.DistanceJourneyComplete);
+                settlement.DistanceJourneyComplete,
+                distanceBefore,
+                growthDistanceRewardOffsetMeters: settlement.DistanceRewardOffsetMeters);
             PublishCompletedRun(result);
+            if (growthSaved && recordSaved)
+                MukJumpAnalytics.EndRun(currentRunId, height, activeGameplaySeconds, abandoned: false, newBest: reachedNewBest);
             return result;
         }
 
         static void PublishCompletedRun(GameOverResult result)
         {
-            MukJumpAccountRuntime.Instance?.NotifyRunSettled(result);
-            AppsInTossGameCenterRuntime.SubmitCompletedRun(result);
+            InvokeReleaseNotificationSafely(
+                "계정 동기화",
+                () => MukJumpAccountRuntime.Instance?.NotifyRunSettled(result));
+            InvokeReleaseNotificationSafely(
+                "앱인토스 순위 제출",
+                () => AppsInTossGameCenterRuntime.SubmitCompletedRun(result));
+            InvokeReleaseNotificationSafely(
+                "Game Center 순위 제출",
+                () => AppleGameCenterRuntime.SubmitCompletedRun(result));
+        }
+
+        static bool InvokeReleaseNotificationSafely(
+            string label,
+            Action notification)
+        {
+            try
+            {
+                notification?.Invoke();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                // 외부 동기화/순위 제출은 정산 뒤의 부가 알림이다. 로컬 저장과
+                // 결과창을 이미 확정한 흐름까지 실패시키면 재시작 버튼이 사라진다.
+                Debug.LogWarning(
+                    $"[MukJump] {label} 알림을 다음 기회로 미룹니다: " +
+                    exception.Message);
+                return false;
+            }
         }
 
         void RetryPendingGameOverPersistence()
@@ -812,7 +1213,7 @@ namespace MukJump.Core
 
             if (latestGameOverResult.PersistenceState !=
                     GameOverPersistenceState.RecordWritePending ||
-                !score.TrySaveBest())
+                !score.TryCommitBestCandidate(latestGameOverResult.Height))
                 return;
 
             GameOverResult previous = latestGameOverResult;
@@ -826,11 +1227,17 @@ namespace MukJump.Core
                 previous.RewardsAllowed,
                 previous.GrowthRewardSaved,
                 true,
-                GameOverPersistenceState.Complete,
+                previous.GrowthRewardSaved
+                    ? GameOverPersistenceState.Complete
+                    : GameOverPersistenceState.GrowthRecoveryRequired,
                 previous.CumulativeGrowthDistanceMeters,
                 previous.PreviousGrowthRewardDistanceMeters,
                 previous.NextGrowthRewardDistanceMeters,
-                previous.GrowthDistanceJourneyComplete);
+                previous.GrowthDistanceJourneyComplete,
+                previous.GrowthDistanceBeforeMeters,
+                previous.IsGrowthPreview,
+                previous.PreviewGrowthCurrency,
+                previous.GrowthDistanceRewardOffsetMeters);
             pendingRestartConfirmationArmed = false;
             gameOverPopupView?.RefreshResult(latestGameOverResult);
             // 최초 정산은 기록 저장 실패 상태라 클라우드와 순위 제출이
@@ -848,7 +1255,8 @@ namespace MukJump.Core
                 latestGameOverResult,
                 canOfferRevive,
                 settlementPending);
-            // 팝업이 나타난 뒤 restartDelay 동안은 오터치 재시작을 막는다.
+            // 팝업이 나타나기 전 포인터 다운은 Canvas가 받지 못하므로, 표시된
+            // 명시적 버튼은 즉시 동작시킨다. 무반응 시간창을 만들지 않는다.
             gameOverTime = Time.unscaledTime;
         }
 
@@ -878,26 +1286,56 @@ namespace MukJump.Core
                 if (cloneHookBehaviours[i] is IRuntimeCloneLifecycle hook)
                     cloneHooks.Add(hook);
 
-            GameObject cloneObject;
+            GameObject cloneObject = null;
+            Exception cloneFailure = null;
+            int restoreHookCount = 0;
             try
             {
                 for (int i = 0; i < cloneHooks.Count; i++)
+                {
+                    // Prepare가 중간에 예외를 내더라도 해당 훅이 일부 상태를
+                    // 바꿨을 수 있으므로 현재 훅까지 복구를 시도한다.
+                    restoreHookCount = i + 1;
                     cloneHooks[i].PrepareForRuntimeClone();
+                }
                 cloneObject = Instantiate(source.gameObject, spawnPosition,
                     source.transform.rotation);
             }
+            catch (Exception exception)
+            {
+                cloneFailure = exception;
+                Debug.LogException(exception, source);
+            }
             finally
             {
-                for (int i = cloneHooks.Count - 1; i >= 0; i--)
-                    cloneHooks[i].RestoreAfterRuntimeClone();
+                for (int i = restoreHookCount - 1; i >= 0; i--)
+                {
+                    try
+                    {
+                        cloneHooks[i].RestoreAfterRuntimeClone();
+                    }
+                    catch (Exception exception)
+                    {
+                        // 한 훅의 복구 실패가 앞서 준비된 다른 훅의 복구를
+                        // 막지 않게 끝까지 정리한다.
+                        cloneFailure ??= exception;
+                        Debug.LogException(exception, source);
+                    }
+                }
                 cloneHooks.Clear();
                 cloneHookBehaviours.Clear();
+            }
+            if (cloneFailure != null || cloneObject == null)
+            {
+                if (cloneObject != null)
+                    DiscardFailedClone(cloneObject);
+                return false;
             }
             cloneObject.name = "Player (먹분신)";
             var clone = cloneObject.GetComponent<PlayerController>();
             if (clone == null)
             {
-                Destroy(cloneObject);
+                DiscardFailedClone(cloneObject);
                 return false;
             }
 
@@ -919,8 +1357,23 @@ namespace MukJump.Core
 
             RegisterPlayer(clone);
             clone.GetComponent<InkCloneArrivalView>()?.Play();
-            GameFeedbackController.Instance?.PlayCloneArrival(clone.transform.position);
+            GameFeedbackController.Instance?.PlayCloneArrival(clone.transform.position,
+                cloneBody != null ? cloneBody.linearVelocity : Vector2.zero);
             return true;
+        }
+
+        void DiscardFailedClone(GameObject cloneObject)
+        {
+            // Instantiate의 OnEnable에서 이미 등록됐을 수 있다. 프레임 끝의
+            // Destroy까지 실패한 분신이 생존자 수·카메라에 잡히지 않게 정리한다.
+            var clone = cloneObject.GetComponent<PlayerController>();
+            if (clone != null)
+                UnregisterPlayer(clone);
+            cloneObject.SetActive(false);
+            if (Application.isPlaying)
+                Destroy(cloneObject);
+            else
+                DestroyImmediate(cloneObject);
         }
 
         /// 먹분신이 원본 옆에 딱딱하게 서지 않고 팝콘처럼 좌우로 퍼져 오르게 한다.
@@ -990,7 +1443,12 @@ namespace MukJump.Core
         /// 먹물방울은 한 마리만 화면 밖으로 이탈하지 않도록 현재 먹떼 전체에 같은
         /// 상승 속도를 적용한다. 카메라는 상승 후 가장 높은 생존자를 이어서 추적한다.
         public bool LaunchSwarmInkDrop(PlayerController collector, float height)
+            => LaunchSwarmInkDrop(collector, height, out _);
+
+        public bool LaunchSwarmInkDrop(PlayerController collector, float height,
+            out PlayerController feedbackPlayer)
         {
+            feedbackPlayer = null;
             if (!IsGameplayTicking || collector == null || collector.IsDead)
                 return false;
 
@@ -1001,8 +1459,9 @@ namespace MukJump.Core
             for (int i = 0; i < swarmScratch.Count; i++)
                 swarmScratch[i].LaunchInkDrop(height, playCameraImpulse: false);
 
-            TryGetSwarmAnchor(out var representative, out _);
+            TryGetSwarmCameraFrame(out var representative, out _, out _);
             var impulseSource = representative != null ? representative : collector;
+            feedbackPlayer = impulseSource;
             Camera.main?.GetComponent<CameraFollow>()?.PlayJumpImpulse(
                 impulseSource.transform,
                 Mathf.Lerp(1f, 1.5f, Mathf.InverseLerp(25f, 50f, height)));
@@ -1233,7 +1692,10 @@ namespace MukJump.Core
                 ? primary.transform
                 : null);
             RestPlatformSpawner.Instance?.DebugResetSchedule(targetHeight);
-            WorldHeightTeleported?.Invoke(Mathf.Max(0, targetHeight));
+            NotifyListenersSafely(
+                WorldHeightTeleported,
+                Mathf.Max(0, targetHeight),
+                "고도 순간이동");
         }
 
         static void ConfigurePlayerCollisionLayer(PlayerController player)
@@ -1267,7 +1729,7 @@ namespace MukJump.Core
 
         void RefreshPlayerRegistry()
         {
-            var scenePlayers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            var scenePlayers = FindObjectsByType<PlayerController>();
             for (int i = 0; i < scenePlayers.Length; i++)
                 RegisterPlayer(scenePlayers[i]);
         }
@@ -1276,6 +1738,18 @@ namespace MukJump.Core
         /// 씬 빌더가 준비한 영구 시작 발판 위에서 물리를 풀어 첫 자동 점프를 준비한다.
         public void StartGameFromMenu()
         {
+            TryStartGame(false);
+        }
+
+        internal void StartFirstRunFromStartup()
+        {
+            if (LobbySettingsProfile.NeedsGameplayTutorial) TryStartGame(true);
+        }
+
+        void TryStartGame(bool behindStartupBrand)
+        {
+            if (StartupBrandSplash.IsBlockingInput && !behindStartupBrand)
+                return;
             var navigator = LobbyScreenNavigator.Instance;
             if (navigator == null)
                 navigator = GetComponent<LobbyScreenNavigator>();
@@ -1286,7 +1760,7 @@ namespace MukJump.Core
             {
                 LobbyOptionsView options = GetComponent<LobbyOptionsView>();
                 if (options == null)
-                    options = FindFirstObjectByType<LobbyOptionsView>();
+                    options = FindAnyObjectByType<LobbyOptionsView>();
                 options?.OpenAccountForRequiredSync();
                 return;
             }
@@ -1295,22 +1769,270 @@ namespace MukJump.Core
                 PermanentGrowthProfile.RequiresRecovery ||
                 navigator != null && !navigator.CanStartGame)
                 return;
+            if (!TryRecoverPendingGameOverSettlement())
+            {
+                Debug.LogWarning(
+                    "이전 판 성장 정산을 저장하지 못해 새 도전을 시작하지 않았습니다.");
+                return;
+            }
+            ScoreManager score = ScoreManager.Instance;
+            if (score != null && !score.TryPrepareRunBaseline())
+            {
+                Debug.LogWarning(
+                    "최고 기록을 확인하지 못해 새 도전을 시작하지 않았습니다. 잠시 후 다시 시도해 주세요.");
+                return;
+            }
             GetComponent<FirstRunTutorialController>()?
                 .PrepareForGameStart();
             PointerInput.SuppressUntilRelease();
-            BeginPlayingAfterCover();
+            // 첫 설치 안내는 이미 제작사 화면 아래에서 준비된다. 일반 시작만
+            // 성장 왕복·로비 복귀와 같은 먹붓→완전 암전→드러남을 거친다.
+            if (behindStartupBrand || !Application.isPlaying || transitionView == null)
+            {
+                BeginPlayingAfterCover();
+                return;
+            }
+            transitionInProgress = true;
+            if (!transitionView.TryPlay(() =>
+                {
+                    BeginPlayingAfterCover();
+                    transitionInProgress = false;
+                }, HandleTransitionFailure))
+                HandleTransitionFailure();
         }
 
         /// 이전 씬·테스트와의 호환을 위한 별칭. 로비 드로잉은 더 이상 이 경로를 호출하지 않는다.
         public void StartGameFromStroke() => StartGameFromMenu();
 
+        bool PersistPendingGameOverSettlement()
+        {
+            ScoreManager score = ScoreManager.Instance;
+            if (string.IsNullOrEmpty(currentRunId) || score == null)
+                return false;
+
+            // 저장소가 첫 시도에서 예외를 내도 이 판이 실제 게임오버를
+            // 거쳤다는 사실은 남긴다. 광고 부활 뒤에는 State가 Playing이라
+            // 상태값만으로 정상 플레이와 구분할 수 없다.
+            requiresPendingGameOverSettlementRefresh = true;
+
+            var snapshot = new PendingGameOverSettlementSnapshot
+            {
+                runId = currentRunId,
+                swarmProgressHeight = Mathf.FloorToInt(SwarmProgressHeight),
+                scoreHeight = Mathf.Max(0, score.Height),
+                previousBest = Mathf.Max(0, score.RunBestToBeat),
+                activeGameplaySeconds = Mathf.Max(0f, activeGameplaySeconds),
+                eligible = score.RecordsAllowed,
+            };
+            try
+            {
+                pendingSettlementStore.Save(JsonUtility.ToJson(snapshot));
+                hasActivePendingGameOverSettlement = true;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    "[MukJump] 게임오버 정산 복구본을 저장하지 못했습니다. " +
+                    "현재 결과 화면은 계속 진행합니다: " + exception.Message);
+                return false;
+            }
+        }
+
+        bool TryAbandonPendingGameOverSettlement()
+        {
+            if (!TryHasPendingGameOverSettlement(out bool hasPending))
+                return false;
+            if (hasPending)
+            {
+                bool belongsToCurrentRun = hasActivePendingGameOverSettlement;
+                try
+                {
+                    PendingGameOverSettlementSnapshot snapshot =
+                        JsonUtility.FromJson<PendingGameOverSettlementSnapshot>(
+                            pendingSettlementStore.Load());
+                    belongsToCurrentRun |=
+                        IsValidPendingGameOverSettlement(snapshot) &&
+                        !string.IsNullOrEmpty(currentRunId) &&
+                        string.Equals(
+                            snapshot.runId,
+                            currentRunId,
+                            StringComparison.Ordinal);
+                }
+                catch (Exception exception)
+                {
+                    // 현재 판의 write-after-apply 예외일 수 있으므로 읽을 수 없는
+                    // 복구본은 안전하게 구분될 때까지 로비 전환을 막는다.
+                    Debug.LogWarning(
+                        "[MukJump] 포기할 게임오버 복구본을 확인하지 못했습니다: " +
+                        exception.Message);
+                    return false;
+                }
+
+                bool cleared = ClearPendingGameOverSettlement();
+                if (!cleared && belongsToCurrentRun)
+                    return false;
+                // 이미 복구·정산된 다른 run 또는 손상 key는 멱등/무효다.
+                // 삭제 실패만으로 새 판의 명시적 로비 복귀를 가로막지 않는다.
+            }
+
+            gameOverPersistenceAbandoned = true;
+            gameOverResultSettled = true;
+            pendingRestartConfirmationArmed = false;
+            hasActivePendingGameOverSettlement = false;
+            requiresPendingGameOverSettlementRefresh = false;
+            return true;
+        }
+
+        static bool TryHasPendingGameOverSettlement(out bool hasPending)
+        {
+            try
+            {
+                hasPending = pendingSettlementStore.HasSnapshot();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                hasPending = false;
+                Debug.LogWarning(
+                    "[MukJump] 게임오버 정산 복구본 존재 여부를 확인하지 " +
+                    "못했습니다: " + exception.Message);
+                return false;
+            }
+        }
+
+        static bool ClearPendingGameOverSettlement()
+        {
+            try
+            {
+                pendingSettlementStore.Clear();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                // 이미 정산된 run ID는 성장 프로필에서도 멱등 처리되므로, 삭제
+                // 실패가 게임오버 UI나 다음 판 시작을 중단하게 만들지 않는다.
+                Debug.LogWarning(
+                    "[MukJump] 게임오버 정산 복구본을 삭제하지 못했습니다: " +
+                    exception.Message);
+                return false;
+            }
+        }
+
+        public static bool TryRecoverPendingGameOverSettlement()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // Apps in Toss 사용자 소유권을 확인하기 전에 이전 브라우저 사용자의
+            // 정산 복구본을 성장·최고 기록에 반영하지 않는다. 식별 완료 직후와
+            // 시작 버튼 경계에서 다시 호출한다.
+            if (!AppsInTossIdentityPolicy.HasVerifiedIdentity)
+                return true;
+#endif
+            if (!TryHasPendingGameOverSettlement(out bool hasPending))
+                return false;
+            if (!hasPending)
+                return true;
+
+            string json;
+            try
+            {
+                json = pendingSettlementStore.Load();
+            }
+            catch (Exception exception)
+            {
+                // 읽기 실패는 손상으로 단정해 삭제하지 않는다. 다음 실행에서
+                // 다시 복구할 수 있도록 원본을 그대로 보존한다.
+                Debug.LogWarning(
+                    "[MukJump] 게임오버 정산 복구본을 읽지 못했습니다: " +
+                    exception.Message);
+                return false;
+            }
+            PendingGameOverSettlementSnapshot snapshot;
+            try
+            {
+                snapshot = JsonUtility.FromJson<
+                    PendingGameOverSettlementSnapshot>(json);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    "[MukJump] 이전 판 정산 복구본을 읽지 못해 격리합니다: " +
+                    exception.Message);
+                ClearPendingGameOverSettlement();
+                return true;
+            }
+
+            if (!IsValidPendingGameOverSettlement(snapshot))
+            {
+                Debug.LogWarning(
+                    "[MukJump] 이전 판 정산 복구본이 손상되어 격리합니다.");
+                ClearPendingGameOverSettlement();
+                return true;
+            }
+
+            PermanentGrowthSettlement settlement =
+                PermanentGrowthProfile.SettleRun(
+                    snapshot.runId,
+                    snapshot.swarmProgressHeight,
+                    snapshot.scoreHeight,
+                    snapshot.previousBest,
+                    snapshot.activeGameplaySeconds,
+                    snapshot.eligible);
+            bool growthSaved = !snapshot.eligible || settlement.Accepted ||
+                PermanentGrowthProfile.IsRunSettled(snapshot.runId);
+            if (!growthSaved)
+                return false;
+
+            bool recordSaved = !snapshot.eligible ||
+                (ScoreManager.Instance != null
+                    ? ScoreManager.Instance.TryMergeVerifiedBest(
+                        snapshot.scoreHeight)
+                    : ScoreManager.TryMergeVerifiedBestIntoStore(
+                        snapshot.scoreHeight));
+            if (!recordSaved)
+                return false;
+
+            ClearPendingGameOverSettlement();
+            return true;
+        }
+
+#if UNITY_EDITOR
+        public static void UsePendingGameOverSettlementStoreForTests(
+            IPendingGameOverSettlementStore store)
+        {
+            pendingSettlementStore = store ??
+                new PlayerPrefsPendingGameOverSettlementStore();
+        }
+
+        public static void RestorePendingGameOverSettlementStoreForTests()
+        {
+            pendingSettlementStore =
+                new PlayerPrefsPendingGameOverSettlementStore();
+        }
+#endif
+
+        public static bool IsValidPendingGameOverSettlement(
+            PendingGameOverSettlementSnapshot snapshot)
+        {
+            return snapshot != null && snapshot.version == 1 &&
+                   Guid.TryParseExact(snapshot.runId, "N", out _) &&
+                   snapshot.swarmProgressHeight >= 0 &&
+                   snapshot.scoreHeight >= 0 &&
+                   snapshot.previousBest >= 0 &&
+                   !float.IsNaN(snapshot.activeGameplaySeconds) &&
+                   !float.IsInfinity(snapshot.activeGameplaySeconds) &&
+                   snapshot.activeGameplaySeconds >= 0f;
+        }
+
         void BeginPlayingAfterCover()
         {
             if (State != GameState.Lobby) return;
+            LobbySettingsProfile.MarkGameplayStartedThisSession();
 
             // 연출 난수와 분리된 게임 규칙 스트림을 판 시작 직전에 함께 초기화한다.
             GameplayRandom.ResetSession();
             currentRunId = Guid.NewGuid().ToString("N");
+            AppleGameCenterRuntime.BeginRun();
             activeGameplaySeconds = 0f;
             lastActiveTimeSampleFrame = -1;
             lastDeadPlayer = null;
@@ -1318,8 +2040,16 @@ namespace MukJump.Core
             reviveRequestInFlight = false;
             reviveCompletionPendingForeground = false;
             pendingReviveRewardEarned = false;
+            activeReviveRequestGeneration = 0;
+            reviveRequestDeadline = 0f;
             gameOverResultSettled = false;
-            MonetizationAds.Provider.Preload(
+            hasActivePendingGameOverSettlement = false;
+            requiresPendingGameOverSettlementRefresh = false;
+            // 새 도전에서만 진행 기준을 초기화한다. 광고 부활의
+            // GameOver -> Playing 전환은 같은 run을 이어 가므로 보존해야 한다.
+            maxSwarmProgressHeight = 0f;
+            SafePreloadAd(
+                MonetizationAds.Provider,
                 FullScreenAdPlacement.GameOverReviveReward);
             SetState(GameState.Playing);
             var debugScenario = DebugToolsAvailable
@@ -1335,6 +2065,9 @@ namespace MukJump.Core
             if (player != null)
                 ScoreManager.Instance?.ResetOrigin(player.transform.position.y);
             debugScenario?.BeginPreparedRun();
+            MukJumpAnalytics.BeginRun(currentRunId,
+                !DebugInvincible && ScoreManager.Instance != null && ScoreManager.Instance.RecordsAllowed,
+                PermanentGrowthProfile.OwnedNodeCount);
             PointerInput.SuppressUntilRelease();
         }
 
@@ -1355,20 +2088,37 @@ namespace MukJump.Core
         void HandleTransitionFailure()
         {
             transitionInProgress = false;
+            // 씬 정리의 OnDisable 취소는 UI를 다시 여는 복구 상황이 아니다.
+            if (!isActiveAndEnabled) return;
             if (IsPaused)
                 AudioListener.pause = true;
+            // 닫힌 결과창 뒤 씬 전환이 실패해도 메인 버튼을 다시 사용할 수 있어야 한다.
+            if (State == GameState.GameOver && gameOverPopupView != null && gameOverPopupView.isActiveAndEnabled)
+                gameOverPopupView.Show(latestGameOverResult, false, false);
         }
 
         bool BeginPause(GameplayPauseReason reason)
         {
             if (reason == GameplayPauseReason.None ||
-                State != GameState.Playing ||
-                IsPaused ||
-                IsTransitioning)
+                State != GameState.Playing)
+                return false;
+
+            // 숨겨진 상태에서 시작 안내가 열리면 안내가 정지 소유권을 이어받는다.
+            // 따라서 앱 복귀만으로 아직 열린 안내/메뉴 아래의 게임이 움직이지 않는다.
+            if (IsPaused)
+            {
+                if (PauseReason != GameplayPauseReason.ApplicationBackground ||
+                    reason == GameplayPauseReason.ApplicationBackground)
+                    return false;
+                PauseReason = reason;
+                NotifyListenersSafely(PauseChanged, true, "일시정지");
+                return true;
+            }
+            if (IsTransitioning && reason != GameplayPauseReason.ApplicationBackground)
                 return false;
 
             PointerInput.SuppressUntilRelease();
-            FindFirstObjectByType<StrokeCapture>()?.CancelActiveStroke();
+            FindAnyObjectByType<StrokeCapture>()?.CancelActiveStroke();
             GameFeedbackController.Instance?.PrepareForPause();
             timeScaleBeforePause = Mathf.Max(0.01f, Time.timeScale);
             fixedDeltaBeforePause = Mathf.Max(0.001f, Time.fixedDeltaTime);
@@ -1376,13 +2126,24 @@ namespace MukJump.Core
             IsPaused = true;
             Time.timeScale = 0f;
             AudioListener.pause = true;
-            PauseChanged?.Invoke(true);
+            if (reason == GameplayPauseReason.UserMenu) MukJumpAnalytics.Pause(true);
+            NotifyListenersSafely(PauseChanged, true, "일시정지");
             return true;
         }
 
-        void RestorePausedWorld(bool notify)
+        void RestorePausedWorld(bool notify, bool preserveBackgroundPause = true)
         {
             bool wasPaused = IsPaused;
+            // 늦게 도착한 계속하기/튜토리얼 완료 콜백은 백그라운드의 물리를 풀지 않는다.
+            if (preserveBackgroundPause && State == GameState.Playing &&
+                !MobileApplicationLifecycle.IsApplicationActive)
+            {
+                IsPaused = true;
+                PauseReason = GameplayPauseReason.ApplicationBackground;
+                Time.timeScale = 0f;
+                AudioListener.pause = true;
+                return;
+            }
             AudioListener.pause = false;
             if (!wasPaused)
             {
@@ -1393,12 +2154,13 @@ namespace MukJump.Core
                 !Mathf.Approximately(Time.fixedDeltaTime, fixedDeltaBeforePause))
                 Time.fixedDeltaTime = fixedDeltaBeforePause;
             Time.timeScale = Mathf.Max(0.01f, timeScaleBeforePause);
+            if (PauseReason == GameplayPauseReason.UserMenu) MukJumpAnalytics.Pause(false);
             IsPaused = false;
             PauseReason = GameplayPauseReason.None;
             timeScaleBeforePause = 1f;
             fixedDeltaBeforePause = 0.02f;
             if (notify && wasPaused)
-                PauseChanged?.Invoke(false);
+                NotifyListenersSafely(PauseChanged, false, "일시정지");
         }
 
         void SetState(GameState nextState)
@@ -1406,9 +2168,65 @@ namespace MukJump.Core
             if (State == nextState) return;
             GameState previousState = State;
             State = nextState;
-            if (nextState == GameState.Playing)
-                maxSwarmProgressHeight = 0f;
-            StateChanged?.Invoke(previousState, nextState);
+            // 로비에서 이미 앱이 가려졌다면 이전 visibility 콜백은 Playing에 전달되지
+            // 않았다. 상태 진입 시 즉시 반영하고 그다음 튜토리얼 등에 알린다.
+            if (nextState == GameState.Playing && !MobileApplicationLifecycle.IsApplicationActive)
+                PauseForApplicationBackground();
+            NotifyListenersSafely(
+                StateChanged,
+                previousState,
+                nextState,
+                "게임 상태");
+        }
+
+        void NotifyListenersSafely<T>(
+            Action<T> listeners,
+            T value,
+            string signalName)
+        {
+            if (listeners == null)
+                return;
+
+            foreach (Action<T> listener in listeners.GetInvocationList())
+            {
+                try
+                {
+                    listener(value);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning(
+                        $"[MukJump] {signalName} 알림 구독자 예외를 격리했습니다: " +
+                        exception.Message,
+                        this);
+                }
+            }
+        }
+
+        void NotifyListenersSafely<TFirst, TSecond>(
+            Action<TFirst, TSecond> listeners,
+            TFirst first,
+            TSecond second,
+            string signalName)
+        {
+            if (listeners == null)
+                return;
+
+            foreach (Action<TFirst, TSecond> listener in
+                     listeners.GetInvocationList())
+            {
+                try
+                {
+                    listener(first, second);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning(
+                        $"[MukJump] {signalName} 알림 구독자 예외를 격리했습니다: " +
+                        exception.Message,
+                        this);
+                }
+            }
         }
     }
 }

@@ -21,6 +21,20 @@ namespace MukJump.Core
         };
 
         GameManager boundManager;
+        bool starterConsumed;
+
+        public static void NotifyStarterTakeoff(PlatformCollider support)
+        {
+            if (support == null || support.name != StarterPlatformObjectName) return;
+            foreach (var setup in FindObjectsByType<LobbyWorldSetup>(FindObjectsInactive.Exclude))
+            {
+                if (!setup.BelongsToSetupScene(support.gameObject)) continue;
+                setup.starterConsumed = true;
+                foreach (var collider in support.GetComponents<Collider2D>()) collider.enabled = false;
+                var line = support.GetComponent<LineRenderer>();
+                if (line != null) line.enabled = false;
+            }
+        }
 
         void OnEnable()
         {
@@ -44,8 +58,7 @@ namespace MukJump.Core
         {
             PlayerController firstPlayer = null;
             var players = FindObjectsByType<PlayerController>(
-                FindObjectsInactive.Exclude,
-                FindObjectsSortMode.None);
+                FindObjectsInactive.Exclude);
             for (int i = 0; i < players.Length; i++)
             {
                 var player = players[i];
@@ -112,10 +125,10 @@ namespace MukJump.Core
 
         void ApplyPresentation(GameState state)
         {
+            if (state == GameState.Lobby) starterConsumed = false;
             bool showGameplayWorld = state != GameState.Lobby;
             var players = FindObjectsByType<PlayerController>(
-                FindObjectsInactive.Exclude,
-                FindObjectsSortMode.None);
+                FindObjectsInactive.Exclude);
             for (int i = 0; i < players.Length; i++)
             {
                 var player = players[i];
@@ -132,7 +145,9 @@ namespace MukJump.Core
                 return;
             var line = starter.GetComponent<LineRenderer>();
             if (line != null)
-                line.enabled = showGameplayWorld;
+                line.enabled = showGameplayWorld && !starterConsumed;
+            foreach (var collider in starter.GetComponents<Collider2D>())
+                collider.enabled = !starterConsumed;
         }
 
         void ResetLobbyPlayersToStarter(Vector3 starterPosition)
@@ -140,8 +155,7 @@ namespace MukJump.Core
             Vector2 playerPosition = starterPosition +
                                      Vector3.up * StarterPlatformYOffset;
             var players = FindObjectsByType<PlayerController>(
-                FindObjectsInactive.Exclude,
-                FindObjectsSortMode.None);
+                FindObjectsInactive.Exclude);
             for (int i = 0; i < players.Length; i++)
             {
                 var player = players[i];
@@ -175,8 +189,7 @@ namespace MukJump.Core
         GameObject FindStarterPlatform()
         {
             var platforms = FindObjectsByType<PlatformCollider>(
-                FindObjectsInactive.Exclude,
-                FindObjectsSortMode.None);
+                FindObjectsInactive.Exclude);
             for (int i = 0; i < platforms.Length; i++)
             {
                 var candidate = platforms[i];
