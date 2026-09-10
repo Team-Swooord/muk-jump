@@ -53,7 +53,7 @@ public class SettingsScrollTests
             Assert.That(text.text, Does.Not.Contain("DEBUG"));
             Assert.That(text.resizeTextForBestFit, Is.EqualTo(text.name == "Nickname"));
             Canvas.ForceUpdateCanvases();
-            Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1), text.name);
+            Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1), $"{text.name}: {text.text}, {text.font?.name}, {text.fontSize}");
         }
     }
 
@@ -336,6 +336,7 @@ public class SettingsScrollTests
 
     [TestCase(GameLanguage.Korean)]
     [TestCase(GameLanguage.English)]
+    [TestCase(GameLanguage.Japanese)]
     public void LanguagePageReturnsThroughDimWithoutClosingSettingsOrChangingLanguage(GameLanguage language)
     {
         GameLanguage original = GameLocalization.Language;
@@ -349,7 +350,7 @@ public class SettingsScrollTests
             page.Find("LanguageButton").GetComponent<Button>().onClick.Invoke();
             var chooser = panel.Find("LanguagePage").GetComponent<CanvasGroup>();
             Assert.That(chooser.transform.Find("LanguageBack"), Is.Null);
-            Assert.That(chooser.GetComponentsInChildren<Button>(true).Length, Is.EqualTo(2));
+            Assert.That(chooser.GetComponentsInChildren<Button>(true).Length, Is.EqualTo(3));
             var dim = host.transform.Find("LobbyOptionsCanvas/InkDim").GetComponent<EventTrigger>();
             Canvas.ForceUpdateCanvases();
             var pointer = new PointerEventData(null)
@@ -1041,7 +1042,7 @@ public class SettingsScrollTests
             Assert.That(root.color.a, Is.Zero, names[i] + " must not draw a square");
             Assert.That(root.GetComponent<Outline>(), Is.Null);
             Assert.That(root.raycastTarget, Is.True);
-            Assert.That(root.rectTransform.sizeDelta, Is.EqualTo(new Vector2(220, 256)));
+            Assert.That(root.rectTransform.sizeDelta, Is.EqualTo(new Vector2(220, 260)));
             Assert.That(root.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(-240 + 240 * i, 298)));
             Assert.That(paper.sprite, Is.EqualTo(InkUiStyle.ActionButtonSprite));
             Assert.That(paper.type, Is.EqualTo(Image.Type.Sliced));

@@ -513,7 +513,7 @@ namespace MukJump.Core
             if (!UsesTossSettings)
             {
                 settingsNicknameText = CreateReadableText("Nickname", panel, string.Empty, 34,
-                    new Vector2(180, 490), new Vector2(340, 40), InkPalette.TextDark, strong: true, wrap: false);
+                    new Vector2(180, 490), new Vector2(340, 46), InkPalette.TextDark, strong: true, wrap: false);
                 settingsNicknameText.supportRichText = false;
                 settingsNicknameText.resizeTextForBestFit = true;
                 settingsNicknameText.resizeTextMinSize = 24;
@@ -719,18 +719,18 @@ namespace MukJump.Core
             // 사각 hit rect는 보이지 않게 유지하고 한지 한 장만 그린다.
             // 작은 타일에 CTA용 굵은 외곽선을 더하지 않아 종이 결이 먼저 보이게 한다.
             var hit = CreateImage(name, parent, null,
-                new Vector2(x, 298), new Vector2(220, 256), Color.clear);
+                new Vector2(x, 298), new Vector2(220, 260), Color.clear);
             hit.raycastTarget = true;
-            var paper = CreateHanjiPaper("Paper", hit.transform, new Vector2(220, 256));
+            var paper = CreateHanjiPaper("Paper", hit.transform, new Vector2(220, 260));
             var button = hit.gameObject.AddComponent<Button>();
             InkUiStyle.ConfigureButton(button, paper);
             button.colors = InkUiStyle.ActionButtonColors();
             paper.raycastTarget = false;
             Transform face = paper.transform;
             // 종이 위아래에 24px 이상 여백을 남기고 세 내용 영역을 분리한다.
-            CreateReadableText("Name", face, label, 44, new Vector2(0, -20),
-                new Vector2(176, 52), InkPalette.TextDark, TextAnchor.MiddleCenter, strong: true);
-            status = CreateReadableText("State", face, "켜짐", 40, new Vector2(0, -80),
+            CreateReadableText("Name", face, label, 40, new Vector2(0, -20),
+                new Vector2(176, 56), InkPalette.TextDark, TextAnchor.MiddleCenter, strong: true);
+            status = CreateReadableText("State", face, "켜짐", 40, new Vector2(0, -82),
                 new Vector2(164, 48), InkPalette.TextDark, TextAnchor.MiddleCenter, strong: true);
             string key = glyph == 0 ? "music" : glyph == 1 ? "sound" : glyph == 2 ? "haptics" : "motion";
             CreateIcon("Icon", face, key, new Vector2(0, 64), 80);

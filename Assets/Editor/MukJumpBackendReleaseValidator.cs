@@ -24,7 +24,7 @@ namespace MukJump.EditorTools
         public const string ExpectedPlayerTableName = "MukJumpPlayer";
         public const string ExpectedBestHeightColumn = "bestHeight";
         public const string ExpectedAllTimeRankUuid =
-            "01a04198-3705-7286-bce6-651ddcd17e2f";
+            "01a08afd-b237-7723-9e6a-b8d7950285fd";
         public const string ExpectedIosGoogleClientId =
             "58212920281-bm72q2dnoc79ee4214e3k9fojb636u2e" +
             ".apps.googleusercontent.com";

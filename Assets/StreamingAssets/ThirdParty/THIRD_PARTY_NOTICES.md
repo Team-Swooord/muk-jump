@@ -1,5 +1,21 @@
 # 먹점프 외부 에셋 고지
 
+## Kaisei Decol 일본어 서체
+
+- Copyright 2020 The Kaisei Project Authors (https://github.com/Font-Kai/Kaisei).
+- 원본: https://github.com/google/fonts/tree/main/ofl/kaiseidecol
+- `KaiseiDecol-Regular.ttf`를 수정 없이 일본어 UI와 닉네임 표시용으로 사용한다.
+- SIL Open Font License 1.1. 배포 원문: `Assets/StreamingAssets/ThirdParty/KaiseiDecol-OFL.txt`.
+
+## Twemoji 지역 아이콘
+
+- Copyright Twitter, Inc. and other contributors. Twemoji v14.0.2.
+- 원본: https://github.com/twitter/twemoji/tree/v14.0.2/assets/72x72
+- 국가·지역 깃발 258개와 지구 아이콘(1f310)을 수정 없이 사용한다.
+- 라이선스: CC BY 4.0 https://creativecommons.org/licenses/by/4.0/
+- 원문 및 배포 고지: `Assets/StreamingAssets/ThirdParty/Twemoji/`.
+- 아이콘은 기기 지역 설정을 나타내며 실제 국적·현재 위치를 인증하지 않는다.
+
 ## DOTween
 
 - DOTween 1.3.030 — Copyright (c) 2014–2026 Daniele Giardini / Demigiant.
