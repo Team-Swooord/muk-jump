@@ -102,6 +102,10 @@ namespace MukJump.Core
             v["Sign-in stopped: account linking recovery could not be saved."] = "連携の復元情報を保存できず、ログインを中止しました。";
             v["Guest progress linked to your account."] = "ゲストの記録をアカウントに連携しました。";
             v["Account already exists. Switching will not merge your guest progress."] = "既存アカウントです。切り替えてもゲスト記録は統合されません。";
+            v["Account Already in Use"] = "登録済みのアカウント";
+            v["Got It"] = "わかりました";
+            v["Continue as Local Guest"] = "ローカルゲストで続ける";
+            v["Tap Got It to switch to your existing Apple account.\nYour guest progress will be kept separately, not merged."] = "既存のAppleアカウントに切り替えます。\nゲスト記録は別に保存し、統合しません。";
             v["Your sign-in expired. Sign in again."] = "認証が失効しました。再ログインしてください。";
             v["Only guest accounts can link a sign-in provider."] = "連携できるのはゲストアカウントのみです。";
             v["Sign-in stopped: account switch recovery could not be saved."] = "切替の復元情報を保存できず、ログインを中止しました。";

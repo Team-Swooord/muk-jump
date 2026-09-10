@@ -847,38 +847,39 @@ namespace MukJump.Core
             HanjiScrollFrame.Attach(accountConflictRoot, new Vector2(764, 1450));
             CreateReadableText(
                 "ConflictTitle", accountConflictRoot,
-                "계정 선택이 필요합니다",
+                "이미 사용 중인 계정",
                 InkUiStyle.ScreenTitleSize,
-                new Vector2(0f, 300f), new Vector2(680f, 90f),
-                InkPalette.TextDark, TextAnchor.MiddleCenter,
+                new Vector2(0f, 250f), new Vector2(680f, 130f),
+                InkPalette.Red, TextAnchor.MiddleCenter,
                 strong: true);
             CreateReadableText(
                 "ConflictCaption", accountConflictRoot,
-                "사용할 계정을 선택하세요\n기록은 합쳐지지 않아요",
-                InkUiStyle.CaptionSize,
-                new Vector2(0f, 115f), new Vector2(680f, 130f),
-                InkPalette.Red, TextAnchor.MiddleCenter,
-                strong: true);
+                "알겠습니다를 누르면 기존 Apple 계정으로 전환합니다.\n현재 게스트 기록은 따로 보관하며 합쳐지지 않습니다.",
+                InkUiStyle.BodySize,
+                new Vector2(0f, 65f), new Vector2(660f, 140f),
+                InkPalette.TextDark, TextAnchor.MiddleCenter);
             var useExisting = CreatePaperButton(
                 "UseExistingAccount", accountConflictRoot,
-                "기존 계정으로 전환",
-                new Vector2(-180f, -75f),
-                new Vector2(340f, InkUiStyle.MinimumTapHeight),
-                InkUiStyle.CaptionSize,
+                "알겠습니다",
+                new Vector2(0f, -115f),
+                new Vector2(600f, 156f),
+                InkUiStyle.ActionButtonLabelSize,
                 useHanji: true);
             useExisting.onClick.AddListener(
                 () => MukJumpAccountRuntime.Instance?
                     .UseExistingAccountAfterConflict());
+            InkUiStyle.SetActionButtonRole(
+                useExisting.GetComponent<Image>(), ActionButtonRole.Primary);
             var keepGuest = CreatePaperButton(
                 "KeepGuestAccount", accountConflictRoot,
-                "현재 게스트 유지",
-                new Vector2(180f, -75f),
-                new Vector2(340f, InkUiStyle.MinimumTapHeight),
+                "로컬 게스트로 진행하기",
+                new Vector2(0f, -305f),
+                new Vector2(600f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.CaptionSize,
                 useHanji: true);
             keepGuest.onClick.AddListener(
                 () => MukJumpAccountRuntime.Instance?
-                    .KeepCurrentGuestAfterConflict());
+                    .ReturnToLocalGuestDuringAccountSync());
 
             syncConflictRoot = CreateRect(
                 "SyncConflict",
@@ -1380,7 +1381,11 @@ namespace MukJump.Core
             if (accountSyncPendingRoot != null)
             {
                 bool active = runtime != null &&
-                              runtime.BlocksGameplayForAccountSync;
+                              runtime.BlocksGameplayForAccountSync &&
+                              !runtime.HasPendingAccountConflict &&
+                              !runtime.HasPendingSyncConflict;
+                // 계정/기록 선택은 전용 버튼으로만 진행한다. 일반 재시도 창이
+                // 위를 덮으면 아직 전환하지 않은 게스트를 잘못된 소유자로 판정한다.
                 bool deleting = runtime != null &&
                                 runtime.HasPendingAccountDeletionCleanup;
                 bool canReturnToLocal = !deleting && runtime != null &&

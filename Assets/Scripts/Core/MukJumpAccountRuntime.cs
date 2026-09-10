@@ -98,7 +98,7 @@ namespace MukJump.Core
         public bool IsTemporaryBackendPaused => temporaryBackendPause;
         public bool HasVerifiedAppsInTossIdentity => false;
         public bool CanReturnToLocalGuestDuringAccountSync =>
-            !accountDeletionCleanupPending;
+            !accountDeletionCleanupPending && !federationRequestInFlight;
         public bool HasPendingAuthorizedTransition =>
             PlayerPrefs.HasKey(PendingAuthorizedTransitionKindKey);
         public bool BlocksGameplayForAccountSync
@@ -247,7 +247,7 @@ namespace MukJump.Core
         Action<Action<BackendReturnObject>> authorizeFederationForTests;
         Action<Action<BackendReturnObject>> logoutForTests;
         Action<Action<BackendReturnObject>> withdrawAccountForTests;
-        Action clearDeletedGuestInfoForTests;
+        Action clearGuestInfoForTests;
         Action pumpAppleAuthenticationForTests;
         Action<Action<BackEnd.Leaderboard.BackendUserLeaderboardReturnObject>>
             getLeaderboardForTests;
@@ -3738,6 +3738,14 @@ namespace MukJump.Core
         {
             if (!BlocksGameplayForAccountSync)
                 return;
+            // 사용자가 계정 또는 기록을 고르기 전에는 일반 복구 경로로
+            // 들어가지 않는다. 특히 409 직후에는 아직 게스트 세션이다.
+            if (HasPendingAccountConflict || HasPendingSyncConflict)
+                return;
+            // 인증 응답이 오기 전의 게스트 UID로 전환 결과를 복구하지 않는다.
+            // 요청 감시 시간이 끝난 뒤에만 중단된 전환을 다시 확인할 수 있다.
+            if (federationRequestInFlight)
+                return;
             if (accountDeletionCleanupPending)
             {
                 if (accountDeletionRemoteConfirmed)
@@ -3846,7 +3854,7 @@ namespace MukJump.Core
 
         public void ReturnToLocalGuestDuringAccountSync()
         {
-            if (!BlocksGameplayForAccountSync)
+            if (!BlocksGameplayForAccountSync || federationRequestInFlight)
                 return;
             if (accountDeletionCleanupPending)
             {
@@ -4074,6 +4082,18 @@ namespace MukJump.Core
             CompleteLocalLogout();
         }
 
+        void ClearBackendGuestInfo()
+        {
+#if UNITY_EDITOR
+            if (clearGuestInfoForTests != null)
+            {
+                clearGuestInfoForTests();
+                return;
+            }
+#endif
+            Backend.BMember.DeleteGuestInfo();
+        }
+
         void CompleteLocalLogout()
         {
             localLogoutFinalizationGeneration++;
@@ -4086,7 +4106,7 @@ namespace MukJump.Core
                 {
                     // 서버의 익명 계정은 삭제하지 않고 이 기기의 자동 로그인
                     // 자격만 제거한다. 저장한 스냅샷은 곧 로컬 게스트로 복원한다.
-                    Backend.BMember.DeleteGuestInfo();
+                    ClearBackendGuestInfo();
                 }
                 catch (Exception exception)
                 {
@@ -4140,6 +4160,10 @@ namespace MukJump.Core
             ClearPendingGuestUpgrade();
             ClearPendingProfileResolution();
             ClearPendingLocalGuestImport();
+            ClearPendingFederation();
+            // 원격 로그아웃과 로컬 복원이 확인된 뒤에만 포기한 계정 전환을
+            // 정리한다. 남겨 두면 새 게스트도 전환 대기 상태로 계속 잠긴다.
+            ClearPendingAuthorizedTransition();
             AccountKind = MukJumpAccountKind.LocalGuest;
             StoreKind();
             ClearStoredAccountScope();
@@ -5045,12 +5069,7 @@ namespace MukJump.Core
             {
                 // WithdrawAccount 성공 시 서버 토큰은 이미 폐기된다. SDK가
                 // 보관한 게스트 인증 정보도 지워 다음 실행의 자동 재가입을 막는다.
-#if UNITY_EDITOR
-                if (clearDeletedGuestInfoForTests != null)
-                    clearDeletedGuestInfoForTests();
-                else
-#endif
-                Backend.BMember.DeleteGuestInfo();
+                ClearBackendGuestInfo();
             }
             catch (Exception exception)
             {

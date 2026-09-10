@@ -330,7 +330,7 @@ namespace MukJump.EditorTests
             PlayerPrefs.SetInt("MukJump.Account.PendingLocalAccountDeletionCleanup", 1);
             PlayerPrefs.SetString(DeletionOwnerKey, "deleted-owner");
             int cleanups = 0, restarts = 0;
-            SetPrivateField(account, "clearDeletedGuestInfoForTests", new System.Action(() =>
+            SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() =>
             {
                 cleanups++;
                 if (failFirstCleanup && cleanups == 1)
@@ -1114,6 +1114,342 @@ namespace MukJump.EditorTests
 
             Assert.That(account.LeaderboardLoading, Is.False);
             Assert.That(account.LeaderboardStatus, Does.Contain("다시 시도"));
+        }
+
+        [TestCase(MukJumpAccountPhase.NeedsAccountChoice)]
+        [TestCase(MukJumpAccountPhase.NeedsSyncChoice)]
+        public void GenericRetryCannotBypassAnExplicitAccountOrRecordChoice(
+            MukJumpAccountPhase phase)
+        {
+            var account = CreateReadySaveRuntime();
+            SetPrivateField(account, "currentAccountScopeForTests",
+                new System.Func<string>(() => "guest-owner"));
+            SetPrivateField(account, "pendingFederationToken", "pending-apple-token");
+            var server = CreateValidCloudSnapshot(9);
+            SetPrivateField(account, "pendingServerSnapshot", server);
+            typeof(MukJumpAccountRuntime).GetProperty(nameof(account.Phase))
+                .SetValue(account, phase);
+            int requests = 0;
+            SetBackendRequestHook(account, "getMyDataForTests", _ => requests++);
+            SetBackendRequestHook(account, "authorizeFederationForTests", _ => requests++);
+
+            account.RetryPendingProfileResolution();
+            account.RetryPendingProfileResolution();
+
+            Assert.That(account.Phase, Is.EqualTo(phase),
+                "일반 재시도는 계정/기록 선택을 소유자 불일치 오류로 바꾸면 안 됩니다.");
+            Assert.That(requests, Is.Zero);
+            Assert.That(account.BlocksGameplayForAccountSync, Is.True);
+            Assert.That(typeof(MukJumpAccountRuntime).GetField("pendingFederationToken",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(account),
+                Is.EqualTo("pending-apple-token"));
+        }
+
+        [TestCase(MukJumpAccountPhase.NeedsAccountChoice, "AccountConflict")]
+        [TestCase(MukJumpAccountPhase.NeedsSyncChoice, "SyncConflict")]
+        public void ExplicitChoiceDialogIsNeverCoveredByGenericSyncRecovery(
+            MukJumpAccountPhase phase, string dialogName)
+        {
+            MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
+            LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            try
+            {
+                var account = CreateReadySaveRuntime();
+                SetPrivateField(account, "pendingServerSnapshot", CreateValidCloudSnapshot(9));
+                typeof(MukJumpAccountRuntime).GetProperty(nameof(account.Phase))
+                    .SetValue(account, phase);
+                var options = host.AddComponent<LobbyOptionsView>();
+                options.BuildForTests();
+                InvokeLifecycle(options, "RefreshAccountState");
+                Transform dialog = null;
+                Transform recovery = null;
+                foreach (Transform child in host.GetComponentsInChildren<Transform>(true))
+                {
+                    if (child.name == dialogName) dialog = child;
+                    if (child.name == "AccountSyncPending") recovery = child;
+                }
+                Assert.That(dialog, Is.Not.Null);
+                Assert.That(recovery, Is.Not.Null);
+                Assert.That(dialog.gameObject.activeSelf, Is.True);
+                Assert.That(recovery.gameObject.activeSelf, Is.False,
+                    "선택 창 위에 '다시 확인' 복구 창이 겹치면 잘못된 로그인 경로가 실행됩니다.");
+                Assert.That(dialog.GetSiblingIndex(), Is.EqualTo(dialog.parent.childCount - 1));
+            }
+            finally { MukJumpIdentityProfile.UseStoreForTests(null); }
+        }
+
+        [TestCase(GameLanguage.Korean)]
+        [TestCase(GameLanguage.English)]
+        [TestCase(GameLanguage.Japanese)]
+        public void ExistingAppleAccountDialogHasEmphasizedTitleAndStackedActions(GameLanguage language)
+        {
+            MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
+            LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            try
+            {
+                GameLocalization.SetLanguage(language);
+                var account = CreateReadySaveRuntime();
+                Transform dialog = BuildExistingAppleAccountDialog(account);
+                var title = dialog.Find("ConflictTitle").GetComponent<UnityEngine.UI.Text>();
+                var caption = dialog.Find("ConflictCaption").GetComponent<UnityEngine.UI.Text>();
+                var primary = dialog.Find("UseExistingAccount").GetComponent<RectTransform>();
+                var secondary = dialog.Find("KeepGuestAccount").GetComponent<RectTransform>();
+                Assert.That(title.text, Is.EqualTo(GameLocalization.Translate("이미 사용 중인 계정")));
+                Assert.That(title.color, Is.EqualTo(InkPalette.Red));
+                Assert.That(title.fontStyle, Is.EqualTo(FontStyle.Bold));
+                Assert.That(title.fontSize, Is.GreaterThan(caption.fontSize));
+                Assert.That(primary.anchoredPosition.x, Is.Zero);
+                Assert.That(secondary.anchoredPosition.x, Is.Zero);
+                Assert.That(primary.sizeDelta.x, Is.GreaterThanOrEqualTo(600f));
+                Assert.That(primary.sizeDelta.y, Is.GreaterThan(InkUiStyle.MinimumTapHeight));
+                Assert.That(primary.anchoredPosition.y - primary.sizeDelta.y / 2f,
+                    Is.GreaterThan(secondary.anchoredPosition.y + secondary.sizeDelta.y / 2f + 24f));
+                Assert.That(primary.GetComponentInChildren<UnityEngine.UI.Text>(true).text,
+                    Is.EqualTo(GameLocalization.Translate("알겠습니다")));
+                Assert.That(secondary.GetComponentInChildren<UnityEngine.UI.Text>(true).text,
+                    Is.EqualTo(GameLocalization.Translate("로컬 게스트로 진행하기")));
+                foreach (var text in dialog.GetComponentsInChildren<UnityEngine.UI.Text>(true))
+                    Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1f),
+                        language + ": " + text.name + " 글자가 영역 밖으로 잘리지 않아야 합니다.");
+                RenderAccountChoiceDialog(language);
+            }
+            finally
+            {
+                GameLocalization.SetLanguage(GameLanguage.Korean);
+                MukJumpIdentityProfile.UseStoreForTests(null);
+            }
+        }
+
+        [Test]
+        public void AppleConflictConfirmationAuthorizesOnceAndLoadsOnlyTheExistingAccountRecord()
+        {
+            MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
+            LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore { Best = 237 });
+            try
+            {
+                var account = CreateReadySaveRuntime();
+                var score = host.AddComponent<ScoreManager>();
+                InvokeLifecycle(score, "OnEnable");
+                InvokeLifecycle(score, "Awake");
+                string owner = "guest-owner";
+                SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => owner));
+                Transform dialog = BuildExistingAppleAccountDialog(account);
+                System.Action<BackEnd.BackendReturnObject> authorize = null;
+                System.Action<BackEnd.BackendReturnObject> cloud = null;
+                int authorizations = 0;
+                int logouts = 0;
+                SetBackendRequestHook(account, "authorizeFederationForTests", callback =>
+                { authorizations++; authorize = callback; });
+                SetBackendRequestHook(account, "getMyDataForTests", callback => cloud = callback);
+                SetBackendRequestHook(account, "getUserInfoForTests", _ => { });
+                SetBackendRequestHook(account, "logoutForTests", _ => logouts++);
+                var button = dialog.Find("UseExistingAccount").GetComponent<UnityEngine.UI.Button>();
+
+                button.onClick.Invoke();
+                button.onClick.Invoke();
+                account.RetryPendingProfileResolution();
+                Assert.That(account.CanReturnToLocalGuestDuringAccountSync, Is.False);
+                account.ReturnToLocalGuestDuringAccountSync();
+                Assert.That(logouts, Is.Zero, "인증과 로그아웃을 동시에 실행하면 SDK 세션이 뒤바뀔 수 있습니다.");
+                Assert.That(authorizations, Is.EqualTo(1));
+                Assert.That(account.Phase, Is.EqualTo(MukJumpAccountPhase.Connecting));
+                Assert.That(account.HasPendingAuthorizedTransition, Is.True);
+                Assert.That(cloud, Is.Null, "인증 응답 전에 게스트 계정에서 기존 계정 기록을 읽으면 안 됩니다.");
+                Assert.That(score.Best, Is.EqualTo(237));
+                var backup = JsonUtility.FromJson<MukJumpCloudSnapshot>(
+                    PlayerPrefs.GetString("MukJump.Account.LocalGuestSnapshot"));
+                Assert.That(backup.bestHeight, Is.EqualTo(237));
+
+                owner = "apple-owner";
+                authorize(BackendResult(200));
+                Assert.That(account.AccountKind, Is.EqualTo(MukJumpAccountKind.Apple));
+                Assert.That(account.BlocksGameplayForAccountSync, Is.True);
+                Assert.That(cloud, Is.Not.Null);
+                Assert.That(score.Best, Is.EqualTo(237), "서버 조회 중 원본 기록을 먼저 지우지 않습니다.");
+                string json = "{\"rows\":[{\"inDate\":{\"S\":\"apple-row\"}," +
+                    "\"schemaVersion\":{\"N\":\"1\"},\"bestHeight\":{\"N\":\"43\"}," +
+                    "\"revision\":{\"N\":\"9\"},\"growthJson\":{\"S\":\"" +
+                    ValidGrowthJson.Replace("\"", "\\\"") + "\"}}]}";
+                cloud(BackendResult(200, json));
+                Assert.That(score.Best, Is.EqualTo(43), "전환을 승인한 기존 계정 기록만 적용합니다.");
+                Assert.That(account.BlocksGameplayForAccountSync, Is.False);
+                Assert.That(account.HasPendingAccountConflict, Is.False);
+                Assert.That(PlayerPrefs.GetString("MukJump.Account.LocalGuestSnapshot"),
+                    Does.Contain("\"bestHeight\":237"), "게스트 기록은 별도로 복귀할 수 있게 유지합니다.");
+            }
+            finally { MukJumpIdentityProfile.UseStoreForTests(null); }
+        }
+
+        [Test]
+        public void AppleConflictLocalGuestActionBacksUpProgressBeforeLoggingOut()
+        {
+            MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
+            LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore { Best = 237 });
+            try
+            {
+                var account = CreateReadySaveRuntime();
+                var score = host.AddComponent<ScoreManager>();
+                InvokeLifecycle(score, "OnEnable");
+                InvokeLifecycle(score, "Awake");
+                SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => "guest-owner"));
+                Transform dialog = BuildExistingAppleAccountDialog(account);
+                int authorizations = 0;
+                int logouts = 0;
+                SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() => { }));
+                SetBackendRequestHook(account, "authorizeFederationForTests", _ => authorizations++);
+                SetBackendRequestHook(account, "logoutForTests", callback =>
+                {
+                    logouts++;
+                    Assert.That(PlayerPrefs.GetString("MukJump.Account.LocalGuestSnapshot"),
+                        Does.Contain("\"bestHeight\":237"));
+                    callback(BackendResult(204));
+                });
+                dialog.Find("KeepGuestAccount").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                Assert.That(logouts, Is.EqualTo(1));
+                Assert.That(authorizations, Is.Zero);
+                Assert.That(account.AccountKind, Is.EqualTo(MukJumpAccountKind.LocalGuest));
+                Assert.That(account.IsOnlineAuthenticated, Is.False);
+                Assert.That(account.BlocksGameplayForAccountSync, Is.False);
+                Assert.That(score.Best, Is.EqualTo(237));
+                Assert.That(typeof(MukJumpAccountRuntime).GetField("pendingFederationToken",
+                    BindingFlags.Instance | BindingFlags.NonPublic).GetValue(account), Is.Empty);
+            }
+            finally { MukJumpIdentityProfile.UseStoreForTests(null); }
+        }
+
+        [Test]
+        public void AbandonedAppleTransitionIsClearedOnlyAfterConfirmedLocalGuestReturn()
+        {
+            MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
+            LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore { Best = 237 });
+            try
+            {
+                var account = CreateReadySaveRuntime();
+                var score = host.AddComponent<ScoreManager>();
+                InvokeLifecycle(score, "OnEnable");
+                InvokeLifecycle(score, "Awake");
+                SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => "guest-owner"));
+                BuildExistingAppleAccountDialog(account);
+                Assert.That(InvokePrivate<bool>(account, "BeginPendingAuthorizedTransition",
+                    "guest-owner", MukJumpAccountKind.Apple, true, false), Is.True);
+                typeof(MukJumpAccountRuntime).GetProperty(nameof(account.Phase))
+                    .SetValue(account, MukJumpAccountPhase.Error);
+                SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() => { }));
+                System.Action<BackEnd.BackendReturnObject> logout = null;
+                SetBackendRequestHook(account, "logoutForTests", callback => logout = callback);
+
+                Assert.That(account.CanReturnToLocalGuestDuringAccountSync, Is.True);
+                account.ReturnToLocalGuestDuringAccountSync();
+                Assert.That(logout, Is.Not.Null);
+                Assert.That(account.HasPendingAuthorizedTransition, Is.True,
+                    "로그아웃 응답 전에 복구 표식을 지우면 안 됩니다.");
+                Assert.That(account.BlocksGameplayForAccountSync, Is.True);
+                logout(BackendResult(204));
+
+                Assert.That(account.AccountKind, Is.EqualTo(MukJumpAccountKind.LocalGuest));
+                Assert.That(account.IsOnlineAuthenticated, Is.False);
+                Assert.That(account.HasPendingAuthorizedTransition, Is.False);
+                Assert.That(account.BlocksGameplayForAccountSync, Is.False);
+                Assert.That(score.Best, Is.EqualTo(237));
+            }
+            finally { MukJumpIdentityProfile.UseStoreForTests(null); }
+        }
+
+        Transform BuildExistingAppleAccountDialog(MukJumpAccountRuntime account)
+        {
+            typeof(MukJumpAccountRuntime).GetProperty(nameof(account.AccountKind))
+                .SetValue(account, MukJumpAccountKind.BackendGuest);
+            SetBackendRequestHook(account, "changeFederationForTests", callback => callback(BackendResult(409)));
+            InvokeLifecycle(account, "UpgradeGuestFederation", "apple-test-token",
+                BackEnd.FederationType.Apple, MukJumpAccountKind.Apple, "로그인 실패", 0);
+            Assert.That(account.HasPendingAccountConflict, Is.True);
+            var options = host.AddComponent<LobbyOptionsView>();
+            options.BuildForTests();
+            InvokeLifecycle(options, "RefreshAccountState");
+            foreach (Transform child in host.GetComponentsInChildren<Transform>(true))
+                if (child.name == "AccountConflict") return child;
+            Assert.Fail("기존 Apple 계정 선택 창이 없습니다.");
+            return null;
+        }
+
+        void RenderAccountChoiceDialog(GameLanguage language)
+        {
+            var options = host.GetComponent<LobbyOptionsView>();
+            options.SetDisplayMetricsForTests(1080, 2340, new Rect(0, 90, 1080, 2100));
+            InvokeLifecycle(options, "ShowAccountPageImmediate");
+            InvokeLifecycle(options, "SetVisible", true);
+            var canvas = host.GetComponentInChildren<Canvas>(true);
+            canvas.GetComponent<UnityEngine.UI.CanvasScaler>().enabled = false;
+            canvas.renderMode = RenderMode.WorldSpace;
+            var rect = (RectTransform)canvas.transform;
+            rect.sizeDelta = new Vector2(1080, 2340);
+            rect.position = Vector3.zero;
+            rect.localScale = Vector3.one;
+            foreach (Transform node in host.GetComponentsInChildren<Transform>(true))
+                node.gameObject.layer = 31;
+            var panel = canvas.transform.Find("SafeAreaRoot/OptionsScroll");
+            panel.GetComponent<CanvasGroup>().alpha = 1;
+            foreach (var frame in host.GetComponentsInChildren<HanjiScrollFrame>(true))
+            {
+                frame.SetPose(1, 0, false);
+                frame.GetComponent<CanvasGroup>().alpha = 1;
+                frame.GetComponent<CanvasGroup>().interactable = true;
+                frame.transform.Find("HanjiScrollArt").GetComponent<CanvasGroup>().alpha = 1;
+            }
+            foreach (var button in host.GetComponentsInChildren<UnityEngine.UI.Button>(true))
+            {
+                button.enabled = false;
+                button.enabled = true;
+            }
+            var cameraHost = new GameObject("AccountChoiceRenderCamera");
+            var camera = cameraHost.AddComponent<Camera>();
+            camera.scene = host.scene;
+            camera.enabled = false;
+            camera.orthographic = true;
+            camera.orthographicSize = 1170;
+            camera.transform.position = new Vector3(0, 0, -10);
+            camera.cullingMask = 1 << 31;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = InkPalette.Paper;
+            RenderTexture previous = RenderTexture.active;
+            var target = new RenderTexture(540, 1170, 24, RenderTextureFormat.ARGB32);
+            Texture2D capture = null;
+            try
+            {
+                target.Create();
+                camera.targetTexture = target;
+                canvas.worldCamera = camera;
+                canvas.enabled = false;
+                canvas.enabled = true;
+                InkLocalizedText.RefreshAll();
+                Canvas.ForceUpdateCanvases();
+                camera.Render();
+                RenderTexture.active = target;
+                capture = new Texture2D(540, 1170, TextureFormat.RGB24, false);
+                capture.ReadPixels(new Rect(0, 0, 540, 1170), 0, 0);
+                capture.Apply();
+                const string folder = "output/quality-polish/account-choice";
+                System.IO.Directory.CreateDirectory(folder);
+                System.IO.File.WriteAllBytes($"{folder}/{language}.png", capture.EncodeToPNG());
+                int inkPixels = 0;
+                foreach (var pixel in capture.GetPixels32())
+                    if (pixel.r < 100 && pixel.g < 100 && pixel.b < 100) inkPixels++;
+                Assert.That(inkPixels, Is.GreaterThan(500), "빈 렌더는 UI 검증으로 인정하지 않습니다.");
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                camera.targetTexture = null;
+                if (capture != null) Object.DestroyImmediate(capture);
+                target.Release();
+                Object.DestroyImmediate(target);
+                Object.DestroyImmediate(cameraHost);
+            }
         }
 
         [Test]

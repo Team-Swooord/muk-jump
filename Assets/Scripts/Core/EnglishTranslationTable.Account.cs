@@ -118,6 +118,10 @@ namespace MukJump.Core
             values["계정 연결 복구 상태를 저장하지 못해 로그인을 중단했습니다"] = "Sign-in stopped: account linking recovery could not be saved.";
             values["게스트 기록을 계정에 연결했습니다"] = "Guest progress linked to your account.";
             values["이미 사용 중인 계정입니다. 기존 계정으로 전환하면 현재 게스트 기록은 합쳐지지 않습니다"] = "Account already exists. Switching will not merge your guest progress.";
+            values["이미 사용 중인 계정"] = "Account Already in Use";
+            values["알겠습니다"] = "Got It";
+            values["로컬 게스트로 진행하기"] = "Continue as Local Guest";
+            values["알겠습니다를 누르면 기존 Apple 계정으로 전환합니다.\n현재 게스트 기록은 따로 보관하며 합쳐지지 않습니다."] = "Tap Got It to switch to your existing Apple account.\nYour guest progress will be kept separately, not merged.";
             values["로그인 정보가 만료되었습니다. 다시 로그인해 주세요"] = "Your sign-in expired. Sign in again.";
             values["게스트 계정에서만 계정을 연결할 수 있습니다"] = "Only guest accounts can link a sign-in provider.";
             values["현재 게스트 기록을 안전하게 백업하지 못했습니다. 다시 시도해 주세요"] = "Could not back up guest progress safely. Try again.";
