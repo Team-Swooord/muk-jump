@@ -23,7 +23,8 @@ namespace MukJump.EditorTests
 {
     public sealed class ReleaseGameplayAuditTests
     {
-        static string Evidence => Path.Combine("output/release-qa",
+        // 실행 도중 자정을 넘어도 생성한 증거 폴더와 캡처 경로가 달라지지 않는다.
+        static readonly string Evidence = Path.Combine("output/release-qa",
             "compatibility-" + DateTime.Now.ToString("yyyy-MM-dd"));
         const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
         static readonly List<string> problems = new();
