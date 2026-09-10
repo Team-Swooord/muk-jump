@@ -1,5 +1,12 @@
 # 먹점프 외부 에셋 고지
 
+## Unity Pipeline
+
+- com.unity.pipeline 0.6.0-exp.1 — Copyright © 2026 Unity Technologies.
+- 공식 Unity Package Manager 레지스트리 의존성. 패키지 원본 소스는 이 저장소에 재배포하지 않는다.
+- Unity Package Distribution License: https://unity.com/legal/licenses/unity-package-distribution-license
+- 먹점프는 Player용 원격 제어를 비활성화한다. 포함되는 바이너리에는 패키지에 동봉된 고지와 라이선스 조건이 적용된다.
+
 ## Kaisei Decol 일본어 서체
 
 - Copyright 2020 The Kaisei Project Authors (https://github.com/Font-Kai/Kaisei).

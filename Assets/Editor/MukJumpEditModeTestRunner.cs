@@ -298,6 +298,12 @@ namespace MukJump.EditorTools
             @"^(MukJump\.EditorTests\.)?(ApplicationPauseBoundaryTests|GameplayLoopAuditTests|StrokeOverlapRegressionTests|PauseMenuViewTests|AmbientCloudRuntimeTests)\."
         });
 
+        [MenuItem("MukJump/Diagnostics/Run Agent Tooling Regression")]
+        public static void RunAgentToolingRegression() => Run(new[]
+        {
+            @"^MukJump\.EditorTests\.(AgentTooling|StartupBrandSplash|FirstRunTutorial|NicknameIdentity|CloudSaveFailure|JapaneseLocalization|DeviceRegion|IosReleaseBuild|IosLocalizationBuild|CodeBoundaryRegression|ReleaseGameplayAudit)Tests\."
+        });
+
         static void Run(string[] groups)
         {
             if (runner != null || File.Exists(ActiveRunPath))

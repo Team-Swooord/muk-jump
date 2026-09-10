@@ -11,6 +11,9 @@
 /[Uu]ser[Ss]ettings/
 /.utmp/
 
+# Codex의 로컬 Unity 실행 경로는 기기별 설정이다. 토큰/연결 정보를 저장소에 넣지 않는다.
+/.codex/config.toml
+
 # MemoryCaptures can get excessive in size.
 /[Mm]emoryCaptures/
 

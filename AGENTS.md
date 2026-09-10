@@ -50,6 +50,13 @@
 
 ## 4. 검증 습관
 
+- Unity 플러그인/CLI 연결과 자동 검증은 `docs/UNITY_AGENT_WORKFLOW.md`를 먼저 참고한다.
+  모든 Unity 명령에 먹점프의 `--project-path`를 지정한다. SHIFT 에디터와 혼동하지 않는다.
+  재컴파일 후 `recompile_status`의 내부 `failed=false`까지 확인하고 `mukjump_audit`를 실행한다.
+  CLI 통신 성공이나 검사 시작 응답은 테스트 통과가 아니다.
+  Pipeline은 에디터 제어에만 사용한다. Player용 `enableInBuilds`·`autoStart`를 켜지 않는다.
+  UI 촬영은 Play Mode에서 `mukjump_capture_ui`를 사용하고 다음 프레임에 생성된 PNG를 확인한다.
+  기본 `screenshot`/카메라 캡처는 Overlay Canvas가 빠지므로 UI 검증에 사용하지 않는다.
 - 스크립트 수정 후 사용자에게 테스트를 요청하기 전에
   `~/Library/Logs/Unity/Editor.log`를 grep(`error CS|Exception`)해서 먼저 확인.
 - Unity 에디터가 열려 있는 동안 배치모드(-batchmode) 실행 불가 (프로젝트 잠금).

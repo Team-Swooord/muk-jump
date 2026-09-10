@@ -322,6 +322,7 @@ namespace MukJump.EditorTools
 
         internal static void ValidateCommonStoreBuildInputs()
         {
+            MukJumpAgentSafety.Validate();
             string projectSettings = File.Exists(ProjectSettingsPath)
                 ? File.ReadAllText(ProjectSettingsPath)
                 : null;
