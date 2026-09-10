@@ -127,6 +127,20 @@ namespace MukJump.Core
         /// 브랜드가 걷히기 전에 새 설치의 게임 월드를 준비해 로비가 번쩍 보이지 않게 한다.
         public void PrepareBeforeStartupReveal() => TryAutoStartFirstVisit(true);
 
+        /// 서버 탈퇴와 기기 정리가 모두 성공한 새 게스트에만 호출한다.
+        internal void PrepareAfterAccountDeletion()
+        {
+            if (active) EndWithoutCompletion();
+            pendingFirstRun = closing = awaitingNickname = false;
+            autoStartAttempted = false;
+            autoStartFirstVisit = LobbySettingsProfile.ShouldAutoStartGameplayTutorial;
+            autoStartEarliestFrame = Time.frameCount + 1;
+            var options = GetComponent<LobbyOptionsView>();
+            if (options == null) options = FindAnyObjectByType<LobbyOptionsView>();
+            options?.Close();
+            PointerInput.SuppressUntilRelease();
+        }
+
         void TryAutoStartFirstVisit(bool behindBrand)
         {
             // OnEnable 당시의 미완료 캐시로 로비 복귀 후 새 판을 시작하지 않는다.
@@ -146,6 +160,8 @@ namespace MukJump.Core
                 MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync) return;
             var navigator = LobbyScreenNavigator.Instance;
             if (navigator != null && !navigator.CanStartGame) return;
+            var options = GetComponent<LobbyOptionsView>();
+            if (options != null && options.IsOpen) return;
             if (behindBrand) manager.StartFirstRunFromStartup();
             else manager.StartGameFromMenu();
             // 인증·저장 확인으로 시작이 거절됐다면 다음 프레임에 다시 시도한다.

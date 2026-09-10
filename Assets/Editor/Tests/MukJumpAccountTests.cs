@@ -308,7 +308,7 @@ namespace MukJump.EditorTests
             Assert.That(LobbySettingsProfile.SfxVolume, Is.EqualTo(1f));
             Assert.That(LobbySettingsProfile.HapticsEnabled, Is.True);
             Assert.That(LobbySettingsProfile.ReducedMotionEnabled, Is.False);
-            Assert.That(LobbySettingsProfile.GameplayTutorialVersion, Is.EqualTo(LobbySettingsProfile.CurrentGameplayTutorialVersion));
+            Assert.That(LobbySettingsProfile.GameplayTutorialVersion, Is.Zero);
             Assert.That(LobbySettingsProfile.PlayerUid, Is.Not.EqualTo(previousUid));
         }
 

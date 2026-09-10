@@ -5178,6 +5178,7 @@ namespace MukJump.Core
             accountDeletionFederationCleared = false;
             accountDeletionAppleRevokeRequired = false;
             SetLocalReady("계정과 연결된 서버·기기 데이터를 삭제했습니다");
+            FirstRunTutorialController.Instance?.PrepareAfterAccountDeletion();
         }
 
         void SetAutomaticAuthenticationSuppressed(bool suppressed)

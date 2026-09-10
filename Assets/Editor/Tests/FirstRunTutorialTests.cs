@@ -139,7 +139,34 @@ namespace MukJump.EditorTests
             LobbySettingsProfile.TryRestoreCloudSettings(beforeCompletion);
             Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.False);
             LobbySettingsProfile.TryResetForAccountDeletion();
-            Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.False);
+            Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.True);
+        }
+
+        [Test]
+        public void AccountDeletionRearmsCompletedControllerAndPersistsFreshTutorial()
+        {
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            host = new GameObject("DeletedAccountTutorial");
+            var tutorial = host.AddComponent<FirstRunTutorialController>();
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            typeof(LobbySettingsProfile).GetMethod("MarkGameplayStartedThisSession",
+                BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, null);
+            typeof(FirstRunTutorialController).GetField("autoStartAttempted", flags)
+                .SetValue(tutorial, true);
+            Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.False);
+
+            Assert.That(LobbySettingsProfile.TryResetForAccountDeletion(), Is.True);
+            typeof(FirstRunTutorialController).GetMethod("PrepareAfterAccountDeletion", flags)
+                .Invoke(tutorial, null);
+            Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.True);
+            Assert.That(typeof(FirstRunTutorialController).GetField("autoStartAttempted", flags)
+                .GetValue(tutorial), Is.False);
+            Assert.That(typeof(FirstRunTutorialController).GetField("autoStartFirstVisit", flags)
+                .GetValue(tutorial), Is.True);
+            Assert.That(LobbySettingsProfile.TutorialSeen, Is.False);
+            LobbySettingsProfile.UseStoreForTests(store);
+            Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.True,
+                "삭제 직후 앱을 종료해도 새 게스트의 첫 안내가 남아야 합니다.");
         }
 
         [Test]

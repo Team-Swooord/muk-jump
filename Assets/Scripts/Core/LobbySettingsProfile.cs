@@ -463,6 +463,8 @@ namespace MukJump.Core
                 sfxResumeVolume = 1f;
                 hapticsEnabled = true;
                 reducedMotionEnabled = false;
+                tutorialSeen = false;
+                gameplayTutorialVersion = 0;
                 playerUid = "MUK-" +
                             Guid.NewGuid().ToString("N")
                                 .Substring(0, 8)
@@ -478,6 +480,8 @@ namespace MukJump.Core
                 store.SetInt(ReducedMotionEnabledKey, 0);
                 store.SetString(PlayerUidKey, playerUid);
                 store.Save();
+                // 명시적인 탈퇴로 만든 새 게스트에만 첫 안내를 다시 허용한다.
+                gameplayStartedThisSession = false;
                 NotifyChangedSafely();
                 return true;
             }
