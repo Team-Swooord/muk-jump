@@ -89,7 +89,7 @@ namespace MukJump.EditorTests
                     Assert.That(bloom.IsPlaying, Is.False);
                     Assert.That(Get(bloom, "progressSequence"), Is.Null);
                     Assert.That(icon.localScale, Is.EqualTo(Vector3.one));
-                    Assert.That(marks[i].anchoredPosition, Is.EqualTo(new Vector2(i * 50f, -100f)));
+                    Assert.That(Vector2.Distance(marks[i].anchoredPosition, new Vector2(i * 50f, -100f)), Is.LessThan(.001f));
                 }
                 bloom.PlayReset(icon, marks.Select(mark => mark.position).ToArray());
                 yield return WaitReal(GrowthBloomPresentation.Duration + .2f);

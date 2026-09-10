@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 한 번 그어지며 끝이 가늘어지는 금분 먹고리. 텍스처·전용 머티리얼은 만들지 않는다.
+    /// 화면 평면에서 번지는 수묵 파동. 텍스처·전용 머티리얼은 만들지 않는다.
     public sealed class GrowthBloomArc : MaskableGraphic
     {
         float reveal;
@@ -31,7 +31,7 @@ namespace MukJump.Core
                 tint.a *= Mathf.Clamp01((reveal - t) * segments) * Mathf.Clamp01(t * 24f)
                     * (.70f + .30f * Mathf.Abs(Mathf.Sin(i * 1.71f)));
                 if (IsWaterRipple)
-                    tint.a *= Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(
+                    tint.a *= .35f + .65f * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(
                         (Mathf.Sin(angle * 3f + .8f) + .45f * Mathf.Sin(angle * 7f) + .35f) * 1.6f));
                 mesh.AddVert(normal * (contour - thickness), tint, Vector2.zero);
                 mesh.AddVert(normal * (contour + thickness), tint, Vector2.zero);

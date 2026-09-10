@@ -208,9 +208,10 @@ namespace MukJump.Core
                 float expand = 1f - Mathf.Pow(1f - r, 3f);
                 Set(ripples[i], center, InkPalette.Ink,
                     reduced ? 0f : Smooth(0f, .12f, r) * Mathf.Pow(1f - r, 1.6f) * (.32f - i * .055f), 1f);
-                ripples[i].rectTransform.localScale = new Vector3(Mathf.Lerp(.72f, 2.65f - i * .13f, expand),
-                    Mathf.Lerp(.20f, .68f + i * .03f, expand), 1f);
-                ripples[i].rectTransform.localEulerAngles = new Vector3(0f, 0f, (i - 1) * 2.5f);
+                // 화면 XY 평면의 동심 파동. Y를 압축하면 물 표면을 비스듬히 보는 원근감이 생긴다.
+                float radiusScale = Mathf.Lerp(.72f, 2.1f - i * .16f, expand);
+                ripples[i].rectTransform.localScale = new Vector3(radiusScale, radiusScale, 1f);
+                ripples[i].rectTransform.localEulerAngles = new Vector3(0f, 0f, i * 47f);
                 ripples[i].Reveal = 1f;
             }
             time = reduced ? time : Mathf.Max(0f, time - ImpactTime);
@@ -222,7 +223,7 @@ namespace MukJump.Core
                 reduced ? 1f : Mathf.Lerp(.91f, 1.08f, spread));
             Set(inkRing, center, Color.white, .64f * enter * fade,
                 reduced ? 1f : Mathf.Lerp(.89f, 1.06f, spread));
-            Set(goldRing, center, InkPalette.Gold, .76f * Smooth(.08f, .20f, time) * fade,
+            Set(goldRing, center, InkPalette.Gold, 0f,
                 reduced ? 1f : Mathf.Lerp(.95f, 1.10f, spread));
             goldRing.Reveal = reduced ? 1f : Smooth(.07f, .43f, time);
 
