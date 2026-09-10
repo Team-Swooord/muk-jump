@@ -7,6 +7,7 @@ namespace MukJump.Core
         static partial void AddAccount(Dictionary<string, string> values)
         {
             values["닉네임"] = "Nickname";
+            values["계정 기록을 안전하게 교체하지 못했습니다. 로컬 기록은 보존됩니다"] = "Could not switch account saves safely. Your device save is preserved.";
             values["닉네임 변경"] = "Change Nickname";
             values["닉네임 설정"] = "Choose a Nickname";
             values["닉네임 미설정"] = "No nickname";

@@ -34,6 +34,9 @@ namespace MukJump.Core
             {
                 string scope = IdentityScope;
                 if (scope == MukJumpIdentityProfile.LocalScope) return MukJumpIdentityProfile.GuestNickname;
+                // 저장된 계정 이름은 인증 증거가 아니다. 삭제·만료된 계정의
+                // 이전 이름을 새 실행에서 연동 완료처럼 표시하지 않는다.
+                if (!IsOnlineAuthenticated) return MukJumpIdentityProfile.GuestNickname;
                 string cached = identityLoaded && identityLoadedScope == scope
                     ? identityNickname : MukJumpIdentityProfile.ReadNickname(scope);
                 if (AccountKind == MukJumpAccountKind.BackendGuest &&
@@ -50,7 +53,7 @@ namespace MukJump.Core
         {
             get
             {
-                if (AccountKind == MukJumpAccountKind.LocalGuest) return string.Empty;
+                if (AccountKind == MukJumpAccountKind.LocalGuest || !IsOnlineAuthenticated) return string.Empty;
                 string scope = IdentityScope;
                 if (string.IsNullOrWhiteSpace(scope)) return string.Empty;
                 string live = IsOnlineAuthenticated ? ReadNativeBackendUid() : string.Empty;

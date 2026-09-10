@@ -70,7 +70,6 @@ namespace MukJump.Core
         Text accountSyncPendingStatusText;
         Text accountSyncPendingCaptionText;
         Text accountDeleteLabel;
-        Text leaderboardStatusText;
         Text accountPlayerIdText;
         Button accountAppleButton;
         Button accountLogoutButton;
@@ -1039,9 +1038,6 @@ namespace MukJump.Core
             CreateReadableText("LeaderboardTitle", panel, "명예의 기록", 64,
                 new Vector2(0f, 555f), new Vector2(600f, 82f),
                 InkPalette.TextDark, TextAnchor.MiddleCenter, strong: true);
-            leaderboardStatusText = CreateReadableText("LeaderboardStatus", panel, "", 30,
-                new Vector2(0f, 482f), new Vector2(680f, 48f),
-                InkPalette.TextMuted, TextAnchor.MiddleCenter);
             Text rankHeading = CreateReadableText("RankHeading", panel, "순위", 36, new Vector2(-292f, 430f),
                 new Vector2(96f, 50f), InkPalette.TextDark, TextAnchor.MiddleLeft, strong: true);
             InkLocalizedText.OverrideEnglish(rankHeading, "Rank");
@@ -1177,21 +1173,16 @@ namespace MukJump.Core
             if (appleLeaderboardLabel != null) appleLeaderboardLabel.color =
                 showingAppleLeaderboard ? InkPalette.Red : InkPalette.TextDark;
             MukJumpAccountRuntime runtime = MukJumpAccountRuntime.Instance;
-            if (leaderboardStatusText != null)
-                InkLocalizedText.SetSource(leaderboardStatusText, runtime == null ? "순위에 연결하지 못했어요" :
-                    runtime.LeaderboardStatus == "전체 최고 고도 TOP 10" ? string.Empty : runtime.LeaderboardStatus);
 
             IReadOnlyList<MukJumpLeaderboardEntry> entries =
                 runtime?.LeaderboardEntries;
             if (showingAppleLeaderboard)
             {
                 entries = AppleGameCenterRuntime.Entries;
-                if (leaderboardStatusText != null) InkLocalizedText.SetSource(leaderboardStatusText, AppleGameCenterRuntime.Status);
             }
             if (UsesTossSettings)
             {
                 entries = null;
-                if (leaderboardStatusText != null) InkLocalizedText.SetSource(leaderboardStatusText, "토스 공식 순위에서 확인할 수 있어요");
             }
             if (leaderboardRefresh != null)
                 leaderboardRefresh.interactable = showingAppleLeaderboard
@@ -1344,7 +1335,7 @@ namespace MukJump.Core
                 accountPlayerIdText.text = string.IsNullOrWhiteSpace(playerId) ? string.Empty : "UID " + playerId;
             }
             if (settingsAccountLabel != null)
-                InkLocalizedText.SetSource(settingsAccountLabel, HasLinkedProvider(kind) ? "연동 계정" : "계정 연동");
+                InkLocalizedText.SetSource(settingsAccountLabel, online && HasLinkedProvider(kind) ? "연동 계정" : "계정 연동");
             if (accountSupportButton != null)
                 accountSupportButton.gameObject.SetActive(!string.IsNullOrWhiteSpace(runtime?.SupportCode));
 

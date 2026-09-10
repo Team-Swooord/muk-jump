@@ -483,7 +483,7 @@ public class SettingsScrollTests
             foreach (string removed in new[] { "AppleLeaderboard", "GlobalLeaderboard", "LeaderboardBack",
                 "LeaderboardDone", "LeaderboardRefresh", "SourceHeading" })
                 Assert.That(ranking.Find(removed), Is.Null, removed);
-            Assert.That(ranking.Find("LeaderboardStatus"), Is.Not.Null);
+            Assert.That(ranking.Find("LeaderboardStatus"), Is.Null);
             var account = ranking.parent.Find("AccountPage");
             var appleLogin = account.Find("AppleLoginButton");
             if (platform == RuntimePlatform.WebGLPlayer)

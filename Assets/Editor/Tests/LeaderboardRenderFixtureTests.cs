@@ -75,7 +75,6 @@ namespace MukJump.EditorTools
                 typeof(LobbyOptionsView).GetMethod("SetPageVisible",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(view, new object[] { ranking.GetComponent<CanvasGroup>(), true });
-                ranking.Find("LeaderboardStatus").GetComponent<Text>().text = "";
                 string[] names = { "WWWWWW", "가나다라마바…", "이름 없는 먹방울", "먹방울", "👨‍👩‍👧‍👦먹방울" };
                 for (int i = 1; i <= 10; i++)
                 {

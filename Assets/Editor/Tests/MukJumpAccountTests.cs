@@ -53,6 +53,11 @@ namespace MukJump.EditorTests
                 "MukJump.Account.Kind",
                 "MukJump.Account.AutomaticAuthenticationSuppressed",
                 "MukJump.Account.LegacyGuestCredentialCleanup",
+                "MukJump.Account.PendingLocalGuestImport",
+                "MukJump.Account.PendingAuthorizedTransitionKind",
+                "MukJump.Account.PendingAuthorizedTransitionReplaceLocal",
+                "MukJump.Account.PendingAuthorizedTransitionRestoreGuest",
+                "MukJump.Account.PendingGuestUpgradeKind",
                 AppleDeletionMarkerKey })
             {
                 deletionPrefs.Add(key, (PlayerPrefs.HasKey(key), PlayerPrefs.GetInt(key, 0)));
@@ -60,7 +65,10 @@ namespace MukJump.EditorTests
             }
             deletionStringPrefs.Clear();
             foreach (string key in new[] { DeletionOwnerKey, "MukJump.Account.LastAuthenticatedOwner", "MukJump.Cloud.PendingLeaderboardOwner",
-                "MukJump.Cloud.Revision", "MukJump.Cloud.PendingOperationId" })
+                "MukJump.Cloud.Revision", "MukJump.Cloud.PendingOperationId",
+                "MukJump.Account.LocalGuestSnapshot", "MukJump.Account.PendingLocalGuestImportOwner",
+                "MukJump.Account.PendingLocalGuestImportRestoredOwner", "MukJump.Account.PendingProfileResolutionOwner",
+                "MukJump.Account.PendingAuthorizedTransitionPreviousOwner" })
             {
                 deletionStringPrefs.Add(key, (PlayerPrefs.HasKey(key), PlayerPrefs.GetString(key, string.Empty)));
                 PlayerPrefs.DeleteKey(key);
@@ -2176,6 +2184,9 @@ namespace MukJump.EditorTests
         [TestCase(false, MukJumpAccountKind.LocalGuest, true)]
         [TestCase(true, MukJumpAccountKind.LocalGuest, false)]
         [TestCase(false, MukJumpAccountKind.BackendGuest, true)]
+        [TestCase(false, MukJumpAccountKind.Apple, true)]
+        [TestCase(false, MukJumpAccountKind.Google, true)]
+        [TestCase(true, MukJumpAccountKind.Apple, false)]
         public void OfflineLocalGuestIsBackedUpBeforeSocialAuthorization(
             bool online,
             MukJumpAccountKind kind,
@@ -2186,6 +2197,52 @@ namespace MukJump.EditorTests
                     online,
                     kind),
                 Is.EqualTo(expected));
+        }
+
+        [TestCase(200, false, false)]
+        [TestCase(500, false, false)]
+        [TestCase(200, true, false)]
+        [TestCase(200, true, true)]
+        public void RecreatedAppleAccountKeeps43MetersWhileLoadingAndImportsIntoEmptyServer(int status, bool serverExists, bool chooseServer)
+        {
+            var account = CreateReadySaveRuntime();
+            LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore { Best = 43 });
+            var score = host.AddComponent<ScoreManager>();
+            InvokeLifecycle(score, "OnEnable");
+            InvokeLifecycle(score, "Awake");
+            PermanentGrowthProfile.SettleRun("preserved-43m", 43, 0, true);
+            SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => "new-apple-owner"));
+            System.Action<BackEnd.BackendReturnObject> response = null;
+            int inserts = 0;
+            SetBackendRequestHook(account, "getMyDataForTests", callback => response = callback);
+            SetBackendRequestHook(account, "insertGameDataForTests", _ => inserts++);
+            InvokeLifecycle(account, "SaveCurrentProfileAsLocalGuest");
+            InvokeLifecycle(account, "BeginPendingLocalGuestImport");
+            InvokeLifecycle(account, "FinishAuthorizedAccountTransition", MukJumpAccountKind.Apple, true, true, "test");
+            Assert.That(score.Best, Is.EqualTo(43), "서버 조회 전에 기록을 지우면 안 됩니다.");
+            Assert.That(account.BlocksGameplayForAccountSync, Is.True);
+            Assert.That(response, Is.Not.Null);
+            string serverJson = serverExists
+                ? "{\"rows\":[{\"inDate\":{\"S\":\"row-1\"},\"revision\":{\"N\":\"1\"}," +
+                  "\"schemaVersion\":{\"N\":\"1\"},\"bestHeight\":{\"N\":\"0\"}," +
+                  "\"growthJson\":{\"S\":\"" + ValidGrowthJson.Replace("\"", "\\\"") + "\"}}]}"
+                : "{\"rows\":[]}";
+            response(BackendResult(status, serverJson));
+            Assert.That(score.Best, Is.EqualTo(43));
+            Assert.That(inserts, Is.EqualTo(status == 200 && !serverExists ? 1 : 0));
+            Assert.That(account.HasPendingSyncConflict, Is.EqualTo(serverExists));
+            Assert.That(PermanentGrowthProfile.HasCompletedRun, Is.True);
+            if (serverExists)
+            {
+                Assert.That(PlayerPrefs.GetInt("MukJump.Account.PendingLocalGuestImport"), Is.EqualTo(1),
+                    "기록 선택 전 재실행해도 가져오기 의도를 보존합니다.");
+                if (chooseServer) account.UseServerAfterSyncConflict();
+                else account.KeepThisDeviceAfterSyncConflict();
+                Assert.That(account.BlocksGameplayForAccountSync, Is.False);
+                Assert.That(score.Best, Is.EqualTo(chooseServer ? 0 : 43));
+                Assert.That(PlayerPrefs.HasKey("MukJump.Account.PendingLocalGuestImport"), Is.False);
+            }
         }
 
         [TestCase("guest-a", "social-b", true)]

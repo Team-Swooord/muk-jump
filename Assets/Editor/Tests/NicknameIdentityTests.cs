@@ -141,6 +141,20 @@ namespace MukJump.EditorTests
             Assert.That(MukJumpIdentityProfile.ReadNickname("apple-a"), Is.Empty);
         }
 
+        [Test] public void UnverifiedSavedAppleIdentityIsNotDisplayedAsCurrentAccount()
+        {
+            CreateAccount(MukJumpAccountKind.Apple);
+            Set(account, "backendUidForTests", new Func<string>(() => "1234567"));
+            Set(account, "identityInfoForTests", new Action<Action<BackendReturnObject>>(callback => callback(UserInfo("애플테스트"))));
+            Call(account, "RefreshAuthenticatedIdentity");
+            Assert.That(account.Nickname, Is.EqualTo("애플테스트"));
+            Property(account, "IsOnlineAuthenticated", false);
+            Assert.That(account.BackendUid, Is.Empty);
+            Assert.That(account.Nickname, Is.EqualTo(MukJumpIdentityProfile.GuestNickname));
+            Assert.That(MukJumpIdentityProfile.ReadNickname("apple-a"), Is.EqualTo("애플테스트"),
+                "오프라인 표시는 숨기되 재인증용 저장을 삭제하지 않습니다.");
+        }
+
         [Test] public void SettingsUseFullBackendCouponUidAndNeverExposeALocalFallback()
         {
             CreateAccount(MukJumpAccountKind.Apple);

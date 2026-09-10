@@ -2174,7 +2174,10 @@ namespace MukJump.Core
                 restoreLocalGuestIfServerEmptyOnNextLoad =
                     restoreLocalIfServerEmpty;
                 revision = 0L;
-                if (!TryClearAccountProgressForSwitch())
+                // 서버 응답 전에는 화면의 기록도 원본 저장도 비우지 않는다.
+                // profileResolutionPending이 플레이·저장을 잠그며, 검증된
+                // 서버 기록 적용 또는 빈 계정 확인 이후에만 교체한다.
+                if (GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby)
                 {
                     EnterFatalSyncBlock(
                         "플레이 중에는 계정 기록을 교체할 수 없습니다. 현재 도전을 마친 뒤 다시 시도해 주세요");
@@ -2224,6 +2227,8 @@ namespace MukJump.Core
                 PlayerPrefs.SetString(
                     PendingProfileResolutionOwnerKey,
                     normalizedScope);
+                PlayerPrefs.DeleteKey(RevisionKey);
+                PlayerPrefs.DeleteKey(PendingOperationIdKey);
             }
             if (restoreLocalIfServerEmpty)
             {
@@ -2511,6 +2516,14 @@ namespace MukJump.Core
                                             PendingLocalGuestImportRestoredOwnerKey,
                                             string.Empty),
                                         currentAccountScope);
+                                if (replaceLocalFromServerOnNextLoad &&
+                                    !restoreLocalGuestIfServerEmptyOnNextLoad &&
+                                    !TryClearAccountProgressForSwitch())
+                                {
+                                    EnterFatalSyncBlock(
+                                        "계정 기록을 안전하게 교체하지 못했습니다. 로컬 기록은 보존됩니다");
+                                    return;
+                                }
                                 if (ShouldRestorePendingLocalGuestImport(
                                         restoreLocalGuestIfServerEmptyOnNextLoad,
                                         guestImportAlreadyRestored))
@@ -2555,7 +2568,16 @@ namespace MukJump.Core
                             }
 
                             if (restoreLocalGuestIfServerEmptyOnNextLoad)
+                            {
+                                if (PermanentGrowthProfile.HasCompletedRun)
+                                {
+                                    // 기기에 실제 판 기록이 있고 대상 서버에도 행이
+                                    // 있으면 자동 덮어쓰기 대신 기존 기록 선택을 쓴다.
+                                    BeginSyncConflict(server, rowInDate);
+                                    return;
+                                }
                                 ClearPendingLocalGuestImport();
+                            }
 
                             AcknowledgePreviouslyCommittedWrite(server);
 
@@ -2653,7 +2675,7 @@ namespace MukJump.Core
                 if (!TryApplyCloudSnapshot(
                         server,
                         keepPendingLocalProfile: false,
-                        mergeLocalBestHeight: true))
+                        mergeLocalBestHeight: !replaceLocalFromServerOnNextLoad))
                     rowInDate = previousRowInDate;
             }
             catch (Exception exception)
@@ -2746,13 +2768,27 @@ namespace MukJump.Core
             PlayerPrefs.DeleteKey(PendingOperationIdKey);
             PlayerPrefs.SetString(RevisionKey, revision.ToString());
             PlayerPrefs.SetInt(PendingSaveKey, 1);
+            PlayerPrefs.DeleteKey(PendingProfileResolutionOwnerKey);
+            PlayerPrefs.DeleteKey(PendingLocalGuestImportKey);
+            PlayerPrefs.DeleteKey(PendingLocalGuestImportOwnerKey);
+            PlayerPrefs.DeleteKey(PendingLocalGuestImportRestoredOwnerKey);
             PlayerPrefs.Save();
+            profileResolutionPending = false;
+            replaceLocalFromServerOnNextLoad = false;
+            restoreLocalGuestIfServerEmptyOnNextLoad = false;
         }
 
-        static void TryRestoreDeviceConflictMarkers(long previousRevision)
+        void TryRestoreDeviceConflictMarkers(long previousRevision)
         {
             try
             {
+                if (profileResolutionPending)
+                    PlayerPrefs.SetString(PendingProfileResolutionOwnerKey, CurrentAccountScope());
+                if (restoreLocalGuestIfServerEmptyOnNextLoad)
+                {
+                    PlayerPrefs.SetInt(PendingLocalGuestImportKey, 1);
+                    PlayerPrefs.SetString(PendingLocalGuestImportOwnerKey, CurrentAccountScope());
+                }
                 PlayerPrefs.SetString(
                     RevisionKey,
                     Math.Max(0L, previousRevision).ToString());
@@ -2918,7 +2954,10 @@ namespace MukJump.Core
                 }
                 replaceLocalFromServerOnNextLoad = false;
                 if (profileResolutionPending)
+                {
                     ClearPendingProfileResolution();
+                    ClearPendingLocalGuestImport();
+                }
             }
             catch (Exception exception)
             {
@@ -3372,7 +3411,9 @@ namespace MukJump.Core
             MukJumpAccountKind accountKind) =>
             !isOnlineAuthenticated &&
             (accountKind == MukJumpAccountKind.LocalGuest ||
-             accountKind == MukJumpAccountKind.BackendGuest);
+             accountKind == MukJumpAccountKind.BackendGuest ||
+             accountKind == MukJumpAccountKind.Apple ||
+             accountKind == MukJumpAccountKind.Google);
 
         void UpgradeGuestFederation(
             string token,
