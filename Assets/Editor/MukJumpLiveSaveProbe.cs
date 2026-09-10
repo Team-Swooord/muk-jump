@@ -23,6 +23,7 @@ namespace MukJump.EditorTools
                 initial.Add("revision", 1L);
                 initial.Add("lastOperationId", "probe-initial");
                 initial.Add(settings.BestHeightColumn, 0);
+                initial.Add(DeviceRegion.Column, DeviceRegion.Current);
                 var inserted = Backend.GameData.Insert(settings.PlayerTableName, initial);
                 Require("insert", inserted);
                 var where = new Where();
@@ -51,8 +52,24 @@ namespace MukJump.EditorTools
                 rankData.Add(DeviceRegion.Column, DeviceRegion.Current);
                 Require("leaderboard-update", Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
                     settings.AllTimeRankUuid, settings.PlayerTableName, inserted.GetInDate(), rankData));
+                var leaderboard = Backend.Leaderboard.User.GetLeaderboard(settings.AllTimeRankUuid, 10);
+                if (!leaderboard.IsSuccess()) throw new InvalidOperationException("Leaderboard read failed");
+                bool matched = false;
+                foreach (var item in leaderboard.GetUserLeaderboardList())
+                    if (item.nickname == "p" + id.Substring(id.Length - 9))
+                    {
+                        Debug.Log("SAVE_PROBE rank-height=" + item.score + " region=" + item.extraData);
+                        matched = item.score == "237" && item.extraData == DeviceRegion.Current;
+                    }
+                if (!matched) throw new InvalidOperationException("Leaderboard height/region mismatch");
             }
-            finally { Require("withdraw-probe-only", Backend.BMember.WithdrawAccount()); }
+            finally
+            {
+                // 콘솔의 스키마 미정의 필드 탐색을 위한 명시적 시험 데이터만 잠시 유지한다.
+                if (Environment.GetEnvironmentVariable("MUKJUMP_PROBE_KEEP_ACCOUNT") == "1")
+                    Debug.Log("SAVE_PROBE console-cleanup-required account=" + id);
+                else Require("withdraw-probe-only", Backend.BMember.WithdrawAccount());
+            }
         }
 
         static void Require(string stage, BackendReturnObject result)
