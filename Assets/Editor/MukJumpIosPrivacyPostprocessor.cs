@@ -23,7 +23,32 @@ namespace MukJump.EditorTools
                 return;
 
             ApplyToInfoPlist(buildPath);
+            ApplyLocalizedTrackingDescriptions(buildPath);
             ApplyUserDefaultsReason(buildPath);
+        }
+
+        public static void ApplyLocalizedTrackingDescriptions(string buildPath)
+        {
+            string projectPath = PBXProject.GetPBXProjectPath(buildPath);
+            var project = new PBXProject();
+            project.ReadFromFile(projectPath);
+            string[] languages = { "ko", "en", "ja" };
+            string[] descriptions = {
+                MukJumpGoogleMobileAdsSetup.TrackingUsageDescription,
+                "Allow tracking to deliver ads and measure advertising performance.",
+                "広告の配信と広告効果の測定のため、トラッキングの許可をお願いします。"
+            };
+            for (int i = 0; i < languages.Length; i++)
+            {
+                string relative = languages[i] + ".lproj/InfoPlist.strings";
+                string path = Path.Combine(buildPath, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, "\"" + TrackingUsageKey + "\" = \"" + descriptions[i] + "\";\n");
+                string guid = project.FindFileGuidByProjectPath(relative);
+                if (string.IsNullOrEmpty(guid)) guid = project.AddFile(relative, relative, PBXSourceTree.Source);
+                project.AddFileToBuild(project.GetUnityMainTargetGuid(), guid);
+            }
+            project.WriteToFile(projectPath);
         }
 
         public static void ApplyUserDefaultsReason(string buildPath)
@@ -70,6 +95,8 @@ namespace MukJump.EditorTools
             // 구현하지 않는다. App Store Connect의 면제 암호화 선언을
             // 빌드마다 동일하게 유지한다.
             plist.root.SetBoolean(NonExemptEncryptionKey, false);
+            var languages = plist.root.CreateArray("CFBundleLocalizations");
+            foreach (string language in new[] { "ko", "en", "ja" }) languages.AddString(language);
             File.WriteAllText(plistPath, plist.WriteToString());
         }
     }

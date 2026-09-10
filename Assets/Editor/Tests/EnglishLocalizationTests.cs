@@ -413,6 +413,38 @@ namespace MukJump.EditorTests
             Assert.That(page.Find("Title").GetComponent<Text>().text, Is.EqualTo("설정"));
         }
 
+        [Test]
+        public void JapaneseSettingsAndGrowthAreReadable()
+        {
+            GameLocalization.SetLanguage(GameLanguage.Japanese);
+            var options = NewHost("JapaneseOptions").AddComponent<LobbyOptionsView>();
+            options.BuildForTests();
+            var page = options.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/OptionsPage");
+            foreach (Text label in page.GetComponentsInChildren<Text>(true)) AssertFits(label);
+            var view = NewHost("JapaneseGrowth").AddComponent<PermanentGrowthView>();
+            view.BuildForTests();
+            view.SelectGrowthForTests(0);
+            var screen = view.transform.Find("PermanentGrowthCanvas/ScreenRoot/SafeAreaRoot/PermanentGrowthScreen");
+            foreach (Text label in screen.GetComponentsInChildren<Text>(true)) AssertFits(label);
+        }
+
+        [TestCase(0)] [TestCase(1)] [TestCase(2)] [TestCase(3)]
+        public void JapaneseTutorialFits(int pageIndex)
+        {
+            GameLocalization.SetLanguage(GameLanguage.Japanese);
+            var first = NewHost("JapaneseFirstTutorial").AddComponent<FirstRunTutorialController>();
+            first.BuildForTests();
+            first.BeginForTests();
+            for (int i = 0; i < pageIndex; i++) first.AdvanceForTests();
+            var firstPanel = first.transform.Find("FirstRunTutorialCanvas/SafeAreaRoot/TutorialPanel");
+            foreach (Text label in firstPanel.GetComponentsInChildren<Text>(true)) AssertFits(label);
+            var options = NewHost("JapaneseTutorialReplay").AddComponent<LobbyOptionsView>();
+            options.BuildForTests();
+            Invoke(options, "ShowTutorialPage", pageIndex);
+            var replay = options.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/TutorialPage");
+            foreach (Text label in replay.GetComponentsInChildren<Text>(true)) AssertFits(label);
+        }
+
         [TestCase(0)]
         [TestCase(1)]
         [TestCase(2)]
@@ -507,8 +539,20 @@ namespace MukJump.EditorTests
         [TestCase("growth-reset")]
         public void RenderEnglishUiFixture(string pageName)
         {
+            RenderLocalizedUiFixture(pageName, GameLanguage.English);
+        }
+
+        [TestCase("settings")] [TestCase("language")] [TestCase("account")]
+        [TestCase("tutorial")] [TestCase("growth")] [TestCase("growth-reset")]
+        public void RenderJapaneseUiFixture(string pageName)
+        {
+            RenderLocalizedUiFixture(pageName, GameLanguage.Japanese);
+        }
+
+        void RenderLocalizedUiFixture(string pageName, GameLanguage language)
+        {
             // 실제 uGUI를 격리된 EditMode 카메라로 렌더한다. 실기기/서버 검증 자료는 아니다.
-            GameLocalization.SetLanguage(GameLanguage.English);
+            GameLocalization.SetLanguage(language);
             GameObject host = NewHost("EnglishRender");
             if (pageName == "growth" || pageName == "growth-reset")
             {
@@ -560,7 +604,7 @@ namespace MukJump.EditorTests
                     Invoke(view, "AdvanceAccountToast", .2f, true);
                 }
             }
-            RenderCanvas(host, pageName);
+            RenderCanvas(host, language == GameLanguage.Japanese ? "ja-" + pageName : pageName);
         }
 
         [Test]

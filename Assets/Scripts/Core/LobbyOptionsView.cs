@@ -1914,7 +1914,15 @@ namespace MukJump.Core
             korean.onClick.AddListener(() => SelectLanguage(GameLanguage.Korean));
             Button english = CreatePaperButton("EnglishButton", panel, "English",
                 new Vector2(0, -100), new Vector2(560, 140), 56);
+            foreach (Text label in english.GetComponentsInChildren<Text>(true))
+            {
+                InkLocalizedText.Exclude(label);
+                label.text = "English";
+            }
             english.onClick.AddListener(() => SelectLanguage(GameLanguage.English));
+            Button japanese = CreatePaperButton("JapaneseButton", panel, "日本語",
+                new Vector2(0, -280), new Vector2(560, 140), 56);
+            japanese.onClick.AddListener(() => SelectLanguage(GameLanguage.Japanese));
         }
 
         void SelectLanguage(GameLanguage language)

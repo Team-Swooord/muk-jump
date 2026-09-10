@@ -504,7 +504,7 @@ namespace MukJump.Core
         {
             if (screenTitleText == null) return;
             // 원화는 글자만 담는다. 영문·원화 누락 시에는 기존 번역 제목을 즉시 사용한다.
-            bool showArtwork = !GameLocalization.IsEnglish && screenTitleArtwork != null &&
+            bool showArtwork = GameLocalization.Language == GameLanguage.Korean && screenTitleArtwork != null &&
                 screenTitleArtwork.texture != null;
             screenTitleText.enabled = !showArtwork;
             if (screenTitleArtwork != null) screenTitleArtwork.enabled = showArtwork;

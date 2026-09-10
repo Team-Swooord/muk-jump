@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace MukJump.Core
 {
-    public enum GameLanguage { Korean, English }
+    public enum GameLanguage { Korean, English, Japanese }
 
     /// 원문은 게임 로직에 남기고 표시 경계에서만 번역한다. 계정·저장 키는 번역하지 않는다.
     public static class GameLocalization
@@ -19,6 +19,7 @@ namespace MukJump.Core
             }
         }
         public static bool IsEnglish => Language == GameLanguage.English;
+        public static bool IsJapanese => Language == GameLanguage.Japanese;
         public static event Action Changed;
 
         public static bool SetLanguage(GameLanguage language) =>
@@ -53,8 +54,8 @@ namespace MukJump.Core
 
         public static string Translate(string source)
         {
-            if (string.IsNullOrEmpty(source) || !IsEnglish) return source ?? string.Empty;
-            return English(source);
+            if (string.IsNullOrEmpty(source) || Language == GameLanguage.Korean) return source ?? string.Empty;
+            return IsJapanese ? JapaneseTranslationTable.Translate(source, English(source)) : English(source);
         }
 
         static string English(string source)

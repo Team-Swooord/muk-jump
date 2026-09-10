@@ -25,6 +25,7 @@ namespace MukJump.Core
         public static void Bind(Text text)
         {
             if (text == null) return;
+            InkLocalizedFont.Bind(text);
             var binding = text.GetComponent<InkLocalizedText>() ?? text.gameObject.AddComponent<InkLocalizedText>();
             binding.Connect();
         }
@@ -61,6 +62,7 @@ namespace MukJump.Core
         public static void Exclude(Text text)
         {
             if (text == null) return;
+            InkLocalizedFont.Bind(text);
             var binding = text.GetComponent<InkLocalizedText>();
             if (binding == null)
             {
@@ -129,6 +131,7 @@ namespace MukJump.Core
                 rendered = GameLocalization.IsEnglish && !string.IsNullOrEmpty(englishOverride)
                     ? englishOverride : GameLocalization.Translate(source);
                 target.text = rendered;
+                InkLocalizedFont.Bind(target);
                 pending = false;
             }
             finally { applying = false; }

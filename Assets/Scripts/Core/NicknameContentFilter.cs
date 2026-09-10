@@ -30,6 +30,12 @@ namespace MukJump.Core
 
         // 짧은 영단어는 전체 이름으로만 비교해 assassin, classic, Essex 같은 정상 이름을 보존한다.
         static readonly string[] ExactEnglishTerms = { "ass", "sex", "cum", "dick", "cock", "rape", "tit", "tits", "fag", "kys", "stfu", "wtf" };
+        static readonly string[] JapaneseTerms =
+        {
+            "しね", "死ね", "殺す", "ころす", "くたばれ", "きちがい", "キチガイ",
+            "まんこ", "ちんこ", "ちんぽ", "せっくす", "ぽるの", "れいぷ", "強姦", "輪姦",
+            "おなにー", "ふぇら", "精液", "性奴隷"
+        };
 
         public static bool ContainsDisallowedContent(string value)
         {
@@ -37,6 +43,15 @@ namespace MukJump.Core
             string decomposed;
             try { decomposed = value.Normalize(NormalizationForm.FormKD).ToLowerInvariant(); }
             catch (ArgumentException) { return true; }
+
+            var japanese = new StringBuilder();
+            foreach (char original in value.Normalize(NormalizationForm.FormKC))
+            {
+                char c = original >= '\u30a1' && original <= '\u30f6' ? (char)(original - 0x60) : original;
+                if (char.IsLetter(c)) japanese.Append(c);
+            }
+            foreach (string term in JapaneseTerms)
+                if (japanese.ToString().Contains(term)) return true;
 
             string korean = KoreanKey(decomposed);
             foreach (string term in KoreanTerms)

@@ -58,7 +58,7 @@ namespace MukJump.Core
             if (englishTexture == null)
                 englishTexture = Resources.Load<Texture2D>(EnglishResourcePath);
 #endif
-            bool english = GameLocalization.IsEnglish && englishTexture != null;
+            bool english = GameLocalization.Language != GameLanguage.Korean && englishTexture != null;
             target.texture = english ? englishTexture : koreanTexture;
             target.uvRect = english ? EnglishUvRect : koreanUvRect;
         }

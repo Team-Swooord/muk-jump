@@ -1,5 +1,12 @@
 # 먹점프 외부 에셋 고지
 
+## Kaisei Decol 일본어 서체
+
+- Copyright 2020 The Kaisei Project Authors (https://github.com/Font-Kai/Kaisei).
+- 원본: https://github.com/google/fonts/tree/main/ofl/kaiseidecol
+- `KaiseiDecol-Regular.ttf`를 수정 없이 일본어 UI와 닉네임 표시용으로 사용한다.
+- SIL Open Font License 1.1. 배포 원문: `Assets/StreamingAssets/ThirdParty/KaiseiDecol-OFL.txt`.
+
 ## Twemoji 지역 아이콘
 
 - Copyright Twitter, Inc. and other contributors. Twemoji v14.0.2.

@@ -92,6 +92,16 @@ namespace MukJump.Core
 
         public static GameLanguage Language { get { EnsureLoaded(); return language; } }
 
+        public static GameLanguage DetectLanguage(SystemLanguage systemLanguage) => systemLanguage switch
+        {
+            SystemLanguage.Korean => GameLanguage.Korean,
+            SystemLanguage.Japanese => GameLanguage.Japanese,
+            _ => GameLanguage.English
+        };
+
+        static string LanguageCode(GameLanguage value) => value == GameLanguage.Japanese ? "ja"
+            : value == GameLanguage.English ? "en" : "ko";
+
         // 언어는 기기별 선택이다. 클라우드 설정 적용·계정 전환 때 덮어쓰지 않는다.
         public static bool TrySetLanguage(GameLanguage next)
         {
@@ -101,16 +111,16 @@ namespace MukJump.Core
                 Debug.LogWarning("[MukJump] 언어 설정 읽기 실패: " + exception.Message);
                 return false;
             }
-            if (next != GameLanguage.Korean && next != GameLanguage.English) return false;
+            if (next != GameLanguage.Korean && next != GameLanguage.English && next != GameLanguage.Japanese) return false;
             if (language == next)
             {
                 GameLocalization.NotifyChanged();
                 return true;
             }
-            string previous = language == GameLanguage.English ? "en" : "ko";
+            string previous = LanguageCode(language);
             try
             {
-                store.SetString(LanguageKey, next == GameLanguage.English ? "en" : "ko");
+                store.SetString(LanguageKey, LanguageCode(next));
                 store.Save();
             }
             catch (Exception exception)
@@ -547,8 +557,10 @@ namespace MukJump.Core
             hapticsEnabled = store.GetInt(HapticsEnabledKey, 1) != 0;
             reducedMotionEnabled =
                 store.GetInt(ReducedMotionEnabledKey, 0) != 0;
-            language = store.GetString(LanguageKey, "ko") == "en"
-                ? GameLanguage.English : GameLanguage.Korean;
+            string savedLanguage = store.GetString(LanguageKey, string.Empty);
+            language = savedLanguage == "ja" ? GameLanguage.Japanese : savedLanguage == "en"
+                ? GameLanguage.English : savedLanguage == "ko" ? GameLanguage.Korean
+                : DetectLanguage(Application.systemLanguage);
             playerUid = store.GetString(PlayerUidKey, string.Empty);
             if (string.IsNullOrWhiteSpace(playerUid))
             {
