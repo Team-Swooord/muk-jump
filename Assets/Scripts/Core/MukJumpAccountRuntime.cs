@@ -6039,7 +6039,14 @@ namespace MukJump.Core
                                     LoadCloudSnapshot();
                                 }
                                 else
-                                    KeepSavePending("서버 저장을 다시 시도합니다");
+                                {
+                                    // 원문 응답에는 사용자 데이터가 포함될 수 있어 출력하지 않는다.
+                                    // 상태/오류 식별자만 보존해 영구 오류와 일시 실패를 구분한다.
+                                    string failure = FormatCloudSaveFailure(
+                                        statusCode, bro?.GetErrorCode());
+                                    Debug.LogWarning("[MukJump] " + failure);
+                                    KeepSavePending(failure);
+                                }
                             }
                         }
                         catch (Exception exception)
@@ -6388,6 +6395,23 @@ namespace MukJump.Core
             long capturedMutationVersion,
             long currentMutationVersion) =>
             currentMutationVersion != capturedMutationVersion;
+
+        public static string FormatCloudSaveFailure(string statusCode, string errorCode)
+        {
+            bool validStatus = statusCode != null && statusCode.Length == 3 &&
+                int.TryParse(statusCode, out int status) && status >= 100 && status <= 599;
+            string safeStatus = validStatus ? statusCode : "NO_RESPONSE";
+            string safeError = string.Empty;
+            if (!string.IsNullOrEmpty(errorCode) && errorCode.Length <= 64)
+            {
+                bool valid = true;
+                foreach (char c in errorCode)
+                    valid &= c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' ||
+                             c >= '0' && c <= '9' || c == '_';
+                if (valid) safeError = "/" + errorCode;
+            }
+            return "서버 저장을 다시 시도합니다 (" + safeStatus + safeError + ")";
+        }
 
         void KeepSavePending(string message)
         {

@@ -59,6 +59,9 @@ namespace MukJump.Core
 
         static string English(string source)
         {
+            const string saveRetryPrefix = "서버 저장을 다시 시도합니다 (";
+            if (source.StartsWith(saveRetryPrefix, StringComparison.Ordinal))
+                return "Retrying cloud save (" + source.Substring(saveRetryPrefix.Length);
             if (EnglishTranslationTable.Values.TryGetValue(source, out string value)) return value;
             Match retry = LeaderboardRetry.Match(source);
             if (retry.Success)
