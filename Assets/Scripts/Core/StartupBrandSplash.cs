@@ -5,15 +5,21 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// SHIFT와 같은 엔진 제작사 스플래시 뒤 메인으로 연결하는 기존 부트스트랩.
+    /// SHIFT 원본 제작사 로고·등장 클립을 같은 화면 평면에서 재생한다.
     /// 씬 로딩만 기다리며 광고·원격 로그인 성공을 로딩 완료 조건으로 삼지 않는다.
     public sealed class StartupBrandSplash : MonoBehaviour
     {
         public const string SceneName = "Splash";
         public const string NextSceneName = "Main";
         public const float FadeOutDuration = 0.3f;
+        public const float LogoFadeDuration = 1f;
+        public const float LogoHoldDuration = 1f;
+        // SHIFT의 기존 SplashScene(4bac34d0^) 원본 Canvas/로고 크기. 투명 여백도 보존한다.
+        public static Vector2 ReferenceResolution => new Vector2(960f, 540f);
+        public const float LogoSize = 396.6099f;
         public static Color BackgroundColor => new Color32(35, 31, 32, 255);
 
+        [SerializeField] AnimationClip logoFadeClip;
         CanvasGroup rootGroup;
         CanvasGroup logoGroup;
         Image logoImage;
@@ -22,8 +28,6 @@ namespace MukJump.Core
         Text retryText;
         AsyncOperation mainLoad;
         bool waitingForRetry;
-        bool ownsNativeSplash;
-        static bool replayRequested;
 
         public static bool IsBlockingInput { get; private set; }
 
@@ -40,10 +44,11 @@ namespace MukJump.Core
 #if UNITY_EDITOR
             if (!Application.isPlaying && restartSceneForTests == null) return true;
 #endif
-            FirstRunTutorialController.Instance?.PrepareForStartupReturn();
+            // 씬 교체/재컴파일 뒤 남은 Unity 객체는 ?.로 걸러지지 않는다.
+            var tutorial = FirstRunTutorialController.Instance;
+            if (tutorial != null) tutorial.PrepareForStartupReturn();
             PointerInput.SuppressUntilRelease();
             IsBlockingInput = true;
-            replayRequested = true;
             try
             {
 #if UNITY_EDITOR
@@ -59,7 +64,6 @@ namespace MukJump.Core
             }
             catch (System.Exception exception)
             {
-                replayRequested = false;
                 IsBlockingInput = false;
                 Debug.LogWarning("[MukJump] 계정 삭제 후 시작 화면 복귀 실패: " + exception.Message);
                 return false;
@@ -81,12 +85,6 @@ namespace MukJump.Core
         void OnDisable()
         {
             IsBlockingInput = false;
-            if (ownsNativeSplash)
-            {
-                UnityEngine.Rendering.SplashScreen.Stop(
-                    UnityEngine.Rendering.SplashScreen.StopBehavior.StopImmediate);
-                ownsNativeSplash = false;
-            }
             // Unity는 activation=false 작업 뒤의 로딩 큐를 멈춘다. 중단 때 반드시 해제한다.
             if (mainLoad != null && !mainLoad.isDone)
                 mainLoad.allowSceneActivation = true;
@@ -149,7 +147,7 @@ namespace MukJump.Core
             Canvas canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-            MobileUiLayout.ConfigurePortraitScaler(scaler);
+            ConfigureScaler(scaler);
 
             rootGroup = canvasObject.GetComponent<CanvasGroup>();
 
@@ -164,7 +162,7 @@ namespace MukJump.Core
                 "Logo",
                 canvasObject.transform,
                 Vector2.zero,
-                new Vector2(1200f, 1200f));
+                new Vector2(LogoSize, LogoSize));
             logoImage = logoRect.gameObject.AddComponent<Image>();
             logoImage.color = Color.white;
             logoImage.preserveAspect = true;
@@ -174,58 +172,96 @@ namespace MukJump.Core
 
         void ConfigureFadeGroups()
         {
-            // 정상 로고는 엔진이 그린다. 기존 Canvas는 장면 준비 중 이음새/입력만 막고,
-            // Image는 실제 로드 실패의 복구 안내에서만 사용한다.
+            // 첫 렌더부터 투명하게 시작한다. 플랫폼별 엔진 스플래시 확대/컷에 의존하지 않는다.
             rootGroup.GetComponent<Canvas>().sortingOrder = 30000;
+            ConfigureScaler(rootGroup.GetComponent<CanvasScaler>());
             rootGroup.alpha = 1f;
             rootGroup.interactable = false;
-            rootGroup.blocksRaycasts = false;
+            rootGroup.blocksRaycasts = true;
 
             logoGroup = logoImage.GetComponent<CanvasGroup>();
             if (logoGroup == null)
                 logoGroup = logoImage.gameObject.AddComponent<CanvasGroup>();
-            logoGroup.alpha = 0f;
+            logoGroup.alpha = 1f;
             logoGroup.interactable = false;
             logoGroup.blocksRaycasts = false;
             logoImage.raycastTarget = false;
-            logoImage.enabled = false;
+            logoImage.rectTransform.sizeDelta = new Vector2(LogoSize, LogoSize);
+            logoImage.rectTransform.localScale = Vector3.one;
+            logoImage.color = new Color(1f, 1f, 1f, 0f);
+            logoImage.enabled = logoImage.sprite != null;
         }
 
-        public void SetLogo(Sprite sprite)
+        static void ConfigureScaler(CanvasScaler scaler)
+        {
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = ReferenceResolution;
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+        }
+
+        public void SetLogo(Sprite sprite, AnimationClip fadeClip = null)
         {
             BuildIfNeeded();
             if (logoImage == null)
                 return;
             logoImage.sprite = sprite;
-            logoImage.enabled = false;
+            logoFadeClip = fadeClip;
+            logoImage.enabled = sprite != null;
         }
 
         IEnumerator PlaySequence()
         {
-            // cold start는 첫 씬 전 엔진이 이미 표시하므로 다시 Begin하지 않는다.
-            // 계정 삭제로 Splash에 돌아오거나 에디터에서 미리 볼 때만 동일 엔진 연출을 재생한다.
-            bool replay = ShouldReplayNativeSplash(Application.isEditor, replayRequested, Application.isBatchMode);
-            replayRequested = false;
+            // 최초 실행·삭제 후 복귀·에디터가 모두 같은 클립/크기를 사용한다.
+            // Main은 뒤에서 준비하되 빠른 로딩이 브랜드 연출을 잘라 버리지 않게 한다.
+            // OnEnable 중에는 자식 Image의 Awake가 아직 끝나지 않았을 수 있다.
+            // 초기 알파는 ConfigureFadeGroups에서 0으로 두고 클립 샘플링은 다음 프레임부터 한다.
+            yield return null;
+            SampleLogo(0f);
             BeginMainLoad();
-            if (replay)
-            {
-                UnityEngine.Rendering.SplashScreen.Begin();
-                ownsNativeSplash = true;
-            }
-            if (!Application.isBatchMode)
-            {
-                while (!UnityEngine.Rendering.SplashScreen.isFinished)
-                {
-                    if (ownsNativeSplash) UnityEngine.Rendering.SplashScreen.Draw();
-                    yield return null;
-                }
-            }
-            ownsNativeSplash = false;
+            yield return AnimateLogo(false);
+            yield return HoldLogo();
             yield return LoadLobby();
         }
 
-        internal static bool ShouldReplayNativeSplash(bool editor, bool accountDeleted, bool batchMode)
-            => !batchMode && (editor || accountDeleted);
+        IEnumerator AnimateLogo(bool reverse)
+        {
+            float elapsed = 0f;
+            SampleLogo(reverse ? 1f : 0f);
+            while (elapsed < LogoFadeDuration)
+            {
+                yield return null;
+                // 로딩 중 한 프레임이 길어져도 등장/퇴장을 한 번에 건너뛰지 않는다.
+                elapsed = AdvancePresentationTime(elapsed, Time.unscaledDeltaTime,
+                    MobileApplicationLifecycle.IsApplicationActive);
+                float t = Mathf.Clamp01(elapsed / LogoFadeDuration);
+                SampleLogo(reverse ? 1f - t : t);
+            }
+            SampleLogo(reverse ? 0f : 1f);
+        }
+
+        IEnumerator HoldLogo()
+        {
+            float elapsed = 0f;
+            while (elapsed < LogoHoldDuration)
+            {
+                yield return null;
+                elapsed = AdvancePresentationTime(elapsed, Time.unscaledDeltaTime,
+                    MobileApplicationLifecycle.IsApplicationActive);
+            }
+        }
+
+        static float AdvancePresentationTime(float elapsed, float deltaTime, bool active)
+            => elapsed + (active ? Mathf.Clamp(deltaTime, 0f, 1f / 30f) : 0f);
+
+        void SampleLogo(float normalizedTime)
+        {
+            float t = Mathf.Clamp01(normalizedTime);
+            if (logoFadeClip != null)
+                logoFadeClip.SampleAnimation(logoImage.gameObject, t * logoFadeClip.length);
+            else
+                logoImage.color = new Color(1f, 1f, 1f, Mathf.SmoothStep(0f, 1f, t));
+        }
 
         void BeginMainLoad()
         {
@@ -268,9 +304,12 @@ namespace MukJump.Core
 
             // 기존 브랜드만 걷어 메인을 바로 표시한다.
             yield return null;
-            FirstRunTutorialController.Instance?.PrepareBeforeStartupReveal();
+            var tutorial = FirstRunTutorialController.Instance;
+            if (tutorial != null) tutorial.PrepareBeforeStartupReveal();
             yield return null;
             Canvas.ForceUpdateCanvases();
+            // 로고를 먼저 원본 곡선의 역방향으로 걷는다. 배경은 끝까지 로딩 화면을 가린다.
+            yield return AnimateLogo(true);
             yield return Fade(rootGroup, 1f, 0f, FadeOutDuration);
             PointerInput.SuppressUntilRelease();
             IsBlockingInput = false;
@@ -283,10 +322,11 @@ namespace MukJump.Core
             // 정상 실행에는 문구를 만들지 않는다. 실제 실패 때만 재시도 길을 남긴다.
             logoImage.enabled = logoImage.sprite != null;
             logoGroup.alpha = 1f;
+            SampleLogo(1f);
             loadFailureText = ConfigureFailureLabel(loadFailureText, "LoadFailure",
-                "게임을 불러오지 못했어요", -340f, 46);
+                "게임을 불러오지 못했어요", -110f, 24);
             retryText = ConfigureFailureLabel(retryText, "RetryHint",
-                "화면을 눌러 다시 시도", -420f, 38);
+                "화면을 눌러 다시 시도", -160f, 20);
         }
 
         Text ConfigureFailureLabel(Text label, string name, string message, float y, int fontSize)
@@ -295,7 +335,7 @@ namespace MukJump.Core
                 label = rootGroup.transform.Find(name)?.GetComponent<Text>();
             if (label == null)
                 label = CreateRect(name, rootGroup.transform, new Vector2(0f, y),
-                    new Vector2(840f, 80f)).gameObject.AddComponent<Text>();
+                    new Vector2(440f, 64f)).gameObject.AddComponent<Text>();
             label.font = InkPalette.UiFont;
             label.fontSize = fontSize;
             label.fontStyle = FontStyle.Bold;
@@ -319,7 +359,8 @@ namespace MukJump.Core
             target.alpha = from;
             while (elapsed < duration)
             {
-                elapsed += Time.unscaledDeltaTime;
+                elapsed = AdvancePresentationTime(elapsed, Time.unscaledDeltaTime,
+                    MobileApplicationLifecycle.IsApplicationActive);
                 float t = EvaluateFadeProgress(elapsed / duration);
                 target.alpha = Mathf.LerpUnclamped(from, to, t);
                 yield return null;

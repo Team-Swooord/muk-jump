@@ -18,7 +18,7 @@ namespace MukJump.EditorTools
         public const string MainScenePath = "Assets/Scenes/Main.unity";
         public const string LogoPath = "Assets/Art/Brand/Logo_CYSBand.png";
         public const string LogoGuid = "6fd6fcc61df57486b9fe21a3fbad2e42";
-        public const float LogoDuration = 2f;
+        public const string LogoFadePath = "Assets/Art/Brand/CYSBand_Logo.anim";
         public const string GameLogoPath = "Assets/Art/UI/muk_logo.png";
         const string RequestPath = "Temp/MukJumpBuildSplashScene.request";
         const string ResultPath = "Temp/MukJumpBuildSplashScene.result";
@@ -98,9 +98,12 @@ namespace MukJump.EditorTools
         {
             ConfigureBrandPlayerSettings();
             Sprite logo = AssetDatabase.LoadAssetAtPath<Sprite>(LogoPath);
+            AnimationClip fade = AssetDatabase.LoadAssetAtPath<AnimationClip>(LogoFadePath);
             if (logo == null)
                 throw new InvalidOperationException(
                     $"CYSBand 스플래시 로고를 불러오지 못했습니다: {LogoPath}");
+            if (fade == null)
+                throw new InvalidOperationException("SHIFT 원본 로고 페이드 클립이 없습니다: " + LogoFadePath);
 
             Scene previousScene = SceneManager.GetActiveScene();
             Scene alreadyLoaded = SceneManager.GetSceneByPath(ScenePath);
@@ -126,7 +129,7 @@ namespace MukJump.EditorTools
 
                 var root = new GameObject("@SplashScene");
                 StartupBrandSplash splash = root.AddComponent<StartupBrandSplash>();
-                splash.SetLogo(logo);
+                splash.SetLogo(logo, fade);
 
                 if (!EditorSceneManager.SaveScene(splashScene, ScenePath))
                     throw new InvalidOperationException(
@@ -193,8 +196,8 @@ namespace MukJump.EditorTools
             return scenes.ToArray();
         }
 
-        /// SHIFT의 실제 엔진 스플래시만 이식한다. 앱/서명/게임 설정은 복사하지 않는다.
-        /// 빌드 때도 같은 경로를 호출해 설정이 다시 꺼지거나 다른 로고가 끼지 않게 한다.
+        /// 제작사 연출은 Splash 씬에서 한 번만 재생한다. 엔진 로고와 중복하지 않는다.
+        /// 앱/서명/게임 설정은 복사하지 않는다.
         public static void ConfigureBrandPlayerSettings()
         {
             // PNG와 .meta는 원본 한 쌍으로 보존한다. 예전 로고 임포터 보정으로 덮지 않는다.
@@ -203,7 +206,7 @@ namespace MukJump.EditorTools
             if (logo == null || AssetDatabase.AssetPathToGUID(LogoPath) != LogoGuid)
                 throw new InvalidOperationException("SHIFT 원본 CYSBand 로고/GUID가 없습니다: " + LogoPath);
 
-            PlayerSettings.SplashScreen.show = true;
+            PlayerSettings.SplashScreen.show = false;
             PlayerSettings.SplashScreen.showUnityLogo = false;
             PlayerSettings.SplashScreen.backgroundColor = StartupBrandSplash.BackgroundColor;
             PlayerSettings.SplashScreen.overlayOpacity = 1f;
@@ -215,10 +218,10 @@ namespace MukJump.EditorTools
             PlayerSettings.SplashScreen.background = null;
             PlayerSettings.SplashScreen.backgroundPortrait = null;
             PlayerSettings.SplashScreen.blurBackgroundImage = true;
-            PlayerSettings.SplashScreen.logos = new[] { PlayerSettings.SplashScreenLogo.Create(LogoDuration, logo) };
+            PlayerSettings.SplashScreen.logos = Array.Empty<PlayerSettings.SplashScreenLogo>();
         }
 
-        /// 엔진 로고는 EditMode 테스트만으로 그려지지 않으므로 별도 로컬 실행 파일로 확인한다.
+        /// 프레임 기반 시작 연출을 필요할 때 별도 로컬 실행 파일로 확인한다.
         /// 스토어·계정 삭제 작업과 분리하며 기존 결과물은 덮어쓰지 않는다.
         public static void BuildNativeSplashValidationPlayer()
         {

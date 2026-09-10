@@ -23,8 +23,6 @@ namespace MukJump.EditorTests
             typeof(StartupBrandSplash).GetField("restartSceneForTests",
                 BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, null);
             typeof(StartupBrandSplash).GetProperty("IsBlockingInput").SetValue(null, false);
-            typeof(StartupBrandSplash).GetField("replayRequested",
-                BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, false);
             PointerInput.ResetSuppressionForTests();
             if (host != null)
                 Object.DestroyImmediate(host);
@@ -69,9 +67,32 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void NativeSplashUsesExactlyTheShiftBrandAndSettings()
+        public void DestroyedPreviousTutorialDoesNotBlockTheBrandRestart()
         {
-            Assert.That(PlayerSettings.SplashScreen.show, Is.True);
+            var property = typeof(FirstRunTutorialController).GetProperty("Instance");
+            var previous = FirstRunTutorialController.Instance;
+            var deletedHost = new GameObject("DeletedTutorialOwner");
+            deletedHost.SetActive(false);
+            var deleted = deletedHost.AddComponent<FirstRunTutorialController>();
+            Object.DestroyImmediate(deletedHost);
+            property.SetValue(null, deleted);
+            try
+            {
+                int calls = 0;
+                typeof(StartupBrandSplash).GetField("restartSceneForTests", BindingFlags.Static | BindingFlags.NonPublic)
+                    .SetValue(null, new System.Action<string>(_ => calls++));
+                var restart = typeof(StartupBrandSplash).GetMethod("TryRestartAfterAccountDeletion",
+                    BindingFlags.Static | BindingFlags.NonPublic);
+                Assert.That(restart.Invoke(null, null), Is.True);
+                Assert.That(calls, Is.EqualTo(1));
+            }
+            finally { property.SetValue(null, previous); }
+        }
+
+        [Test]
+        public void NativeSplashNeverDuplicatesTheAnimatedBrandScene()
+        {
+            Assert.That(PlayerSettings.SplashScreen.show, Is.False);
             Assert.That(PlayerSettings.SplashScreen.showUnityLogo, Is.False);
             Assert.That(PlayerSettings.SplashScreen.backgroundColor,
                 Is.EqualTo(StartupBrandSplash.BackgroundColor));
@@ -88,10 +109,7 @@ namespace MukJump.EditorTests
             Assert.That(PlayerSettings.SplashScreen.backgroundPortrait, Is.Null);
             Assert.That(PlayerSettings.SplashScreen.blurBackgroundImage, Is.True);
             var logos = PlayerSettings.SplashScreen.logos;
-            Assert.That(logos.Length, Is.EqualTo(1));
-            Assert.That(logos[0].duration, Is.EqualTo(2f));
-            Assert.That(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(logos[0].logo)),
-                Is.EqualTo(MukJumpSplashSceneBuilder.LogoGuid));
+            Assert.That(logos, Is.Empty);
         }
 
         [Test]
@@ -116,7 +134,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void BootstrapKeepsBrandBackgroundButNeverDuplicatesNativeLogo()
+        public void BrandStartsTransparentAtTheOriginalShiftSceneSize()
         {
             host = new GameObject("StartupBrandSplashTest");
             StartupBrandSplash splash =
@@ -139,16 +157,20 @@ namespace MukJump.EditorTests
             Assert.That(canvas.renderMode,
                 Is.EqualTo(RenderMode.ScreenSpaceOverlay));
             Assert.That(rootGroup.alpha, Is.EqualTo(1f));
-            Assert.That(rootGroup.blocksRaycasts, Is.False);
+            Assert.That(rootGroup.blocksRaycasts, Is.True);
             Assert.That(backdrop.color, Is.EqualTo(StartupBrandSplash.BackgroundColor));
             Assert.That(backdrop.raycastTarget, Is.True);
             Assert.That(logo, Is.Not.Null);
             Assert.That(logoGroup, Is.Not.Null);
-            Assert.That(logoGroup.alpha, Is.Zero);
+            Assert.That(logoGroup.alpha, Is.EqualTo(1f));
+            Assert.That(logo.color.a, Is.Zero);
             Assert.That(logoGroup.blocksRaycasts, Is.False);
             Assert.That(logo.rectTransform.anchoredPosition, Is.EqualTo(Vector2.zero));
             Assert.That(logo.rectTransform.sizeDelta,
-                Is.EqualTo(new Vector2(1200f, 1200f)));
+                Is.EqualTo(new Vector2(396.6099f, 396.6099f)));
+            var scaler = canvasRoot.GetComponent<CanvasScaler>();
+            Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(960f, 540f)));
+            Assert.That(scaler.matchWidthOrHeight, Is.EqualTo(0.5f));
             Assert.That(logo.preserveAspect, Is.True);
             Assert.That(logo.enabled, Is.False);
             Assert.That(logo.raycastTarget, Is.False);
@@ -172,7 +194,8 @@ namespace MukJump.EditorTests
             Transform canvasRoot = host.transform.Find("StartupBrandCanvas");
             Image logo = canvasRoot.Find("Logo").GetComponent<Image>();
             Assert.That(logo.sprite, Is.SameAs(logoSprite));
-            Assert.That(logo.enabled, Is.False);
+            Assert.That(logo.enabled, Is.True);
+            Assert.That(logo.color.a, Is.Zero);
             Assert.That(canvasRoot.GetComponentsInChildren<Text>(true), Is.Empty);
         }
 
@@ -224,18 +247,53 @@ namespace MukJump.EditorTests
             }
         }
 
-        [TestCase(false, false, false, false)]
-        [TestCase(false, true, false, true)]
-        [TestCase(true, false, false, true)]
-        [TestCase(true, true, false, true)]
-        [TestCase(true, true, true, false)]
-        public void NativeLogoReplaysOnlyForEditorOrAccountDeletion(
-            bool editor, bool accountDeleted, bool batchMode, bool expected)
+        [Test]
+        public void ColdStartAndDeletionUseTheSameRealAnimationWithoutNativeDrawCalls()
         {
-            var replay = typeof(StartupBrandSplash).GetMethod("ShouldReplayNativeSplash",
-                BindingFlags.Static | BindingFlags.NonPublic);
-            Assert.That(replay.Invoke(null, new object[] { editor, accountDeleted, batchMode }), Is.EqualTo(expected));
+            string source = File.ReadAllText("Assets/Scripts/Core/StartupBrandSplash.cs");
+            Assert.That(source, Does.Not.Contain("UnityEngine.Rendering.SplashScreen"));
+            Assert.That(source, Does.Not.Contain("Application.isBatchMode"));
+            Assert.That(source, Does.Contain("yield return AnimateLogo(false)"));
+            Assert.That(source, Does.Contain("yield return AnimateLogo(true)"));
             Assert.That(StartupBrandSplash.NextSceneName, Is.EqualTo("Main"));
+        }
+
+        [TestCase(0f, 0f)]
+        [TestCase(.25f, .15625f)]
+        [TestCase(.5f, .5f)]
+        [TestCase(.75f, .84375f)]
+        [TestCase(1f, 1f)]
+        public void OriginalShiftClipIsActuallyAppliedToTheLogo(float time, float alpha)
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(MukJumpSplashSceneBuilder.LogoFadePath);
+            Assert.That(clip, Is.Not.Null);
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            string hash = System.BitConverter.ToString(sha.ComputeHash(
+                File.ReadAllBytes(MukJumpSplashSceneBuilder.LogoFadePath))).Replace("-", "").ToLowerInvariant();
+            Assert.That(hash, Is.EqualTo("bf379cfcf2cab03d5c5c5bac68c6f6c181c33b11e2cf5b10d9ec16f9ac74072a"));
+            Assert.That(clip.length, Is.EqualTo(1f));
+            host = new GameObject("OriginalBrandCurveTest");
+            var splash = host.AddComponent<StartupBrandSplash>();
+            splash.SetLogo(AssetDatabase.LoadAssetAtPath<Sprite>(MukJumpSplashSceneBuilder.LogoPath), clip);
+            var sample = typeof(StartupBrandSplash).GetMethod("SampleLogo", BindingFlags.Instance | BindingFlags.NonPublic);
+            var logo = host.transform.Find("StartupBrandCanvas/Logo").GetComponent<Image>();
+            sample.Invoke(splash, new object[] { time });
+            Assert.That(logo.color.a, Is.EqualTo(alpha).Within(.0001f));
+            sample.Invoke(splash, new object[] { 1f - time });
+            Assert.That(logo.color.a, Is.EqualTo(1f - alpha).Within(.0001f), "퇴장도 같은 곡선을 역방향으로 쓴다.");
+            Assert.That(logo.rectTransform.localScale, Is.EqualTo(Vector3.one));
+        }
+
+        [TestCase(2f, 5f, true, 2.0333333f)]
+        [TestCase(2f, 5f, false, 2f)]
+        [TestCase(2f, .016f, true, 2.016f)]
+        [TestCase(2f, -1f, true, 2f)]
+        public void LoadingHitchesAndBackgroundCannotSkipTheFade(float elapsed, float delta, bool active, float expected)
+        {
+            var advance = typeof(StartupBrandSplash).GetMethod("AdvancePresentationTime",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That((float)advance.Invoke(null, new object[] { elapsed, delta, active }),
+                Is.EqualTo(expected).Within(.00001f));
         }
 
         [Test]

@@ -164,12 +164,47 @@ namespace MukJump.EditorTests
                 Assert.That(restart.Invoke(null, null), Is.True);
                 Assert.That(StartupBrandSplash.IsBlockingInput, Is.True);
                 Assert.That(oldManager.State, Is.EqualTo(GameState.Lobby));
+                int fadeInFrames = 0;
+                int fadeOutFrames = 0;
+                bool sawFullLogo = false;
+                string brandEvidence = Path.Combine(Evidence, "brand-motion-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(brandEvidence);
                 double deadline = Time.realtimeSinceStartupAsDouble + 20;
                 while (Time.realtimeSinceStartupAsDouble < deadline &&
                        (loaded.Count < 2 || StartupBrandSplash.IsBlockingInput ||
                         FirstRunTutorialController.Instance == null ||
                         !FirstRunTutorialController.Instance.IsActive))
-                    yield return WaitReal(.1f);
+                {
+                    var brand = Object.FindAnyObjectByType<StartupBrandSplash>();
+                    var logo = brand == null ? null : brand.transform.Find("StartupBrandCanvas/Logo")?.GetComponent<Image>();
+                    if (logo != null)
+                    {
+                        float alpha = logo.color.a;
+                        if (alpha > .05f && alpha < .95f)
+                        {
+                            if (sawFullLogo) fadeOutFrames++; else fadeInFrames++;
+                            if (alpha > .4f && alpha < .6f)
+                            {
+                                string filename = sawFullLogo ? "brand-fade-out.png" : "brand-fade-in.png";
+                                if (!File.Exists(Path.Combine(brandEvidence, filename)))
+                                    ScreenCapture.CaptureScreenshot(Path.GetFullPath(Path.Combine(brandEvidence, filename)));
+                            }
+                        }
+                        if (alpha >= .999f && !sawFullLogo)
+                        {
+                            sawFullLogo = true;
+                            ScreenCapture.CaptureScreenshot(Path.GetFullPath(Path.Combine(brandEvidence, "brand-hold.png")));
+                            var corners = new Vector3[4];
+                            logo.rectTransform.GetWorldCorners(corners);
+                            Assert.That(corners[3].x - corners[0].x, Is.LessThan(Screen.width * .8f),
+                                "투명 여백을 포함한 전체 원본 로고가 화면 폭을 넘지 않아야 합니다.");
+                        }
+                    }
+                    yield return null;
+                }
+                Assert.That(sawFullLogo, Is.True, "로딩이 빨라도 로고를 한 번 온전히 표시한다.");
+                Assert.That(fadeInFrames, Is.GreaterThan(4), "실제 프레임에 중간 알파가 있어야 한다.");
+                Assert.That(fadeOutFrames, Is.GreaterThan(4), "씬 활성화가 로고 퇴장을 잘라서는 안 된다.");
                 Assert.That(loaded, Is.EqualTo(new[] { "Splash", "Main" }));
                 Assert.That(GameManager.Instance, Is.Not.SameAs(oldManager));
                 Assert.That(FirstRunTutorialController.Instance.IsActive, Is.True);
