@@ -549,6 +549,7 @@ namespace MukJump.EditorTests
                 snapshot,
                 0L,
                 0L,
+                string.Empty,
                 string.Empty));
 
             Assert.That(ReadPrivateBool(account, "saveInFlight"), Is.False);

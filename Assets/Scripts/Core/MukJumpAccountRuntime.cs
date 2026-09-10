@@ -5961,7 +5961,8 @@ namespace MukJump.Core
                                 snapshot,
                                 capturedMutationVersion,
                                 capturedSessionGeneration,
-                                capturedAccountScope);
+                                capturedAccountScope,
+                                server.lastOperationId);
                         }
                         catch (Exception exception)
                         {
@@ -5992,13 +5993,12 @@ namespace MukJump.Core
             MukJumpCloudSnapshot snapshot,
             long capturedMutationVersion,
             long capturedSessionGeneration,
-            string capturedAccountScope)
+            string capturedAccountScope,
+            string expectedOperationId)
         {
             try
             {
-                var revisionWhere = new Where();
-                revisionWhere.Equal("inDate", rowInDate);
-                revisionWhere.Equal("revision", revision);
+                var revisionWhere = BuildCloudUpdateCondition(revision, expectedOperationId);
                 RequestUpdateGameData(
                     settings.PlayerTableName,
                     revisionWhere,
@@ -6395,6 +6395,17 @@ namespace MukJump.Core
             long capturedMutationVersion,
             long currentMutationVersion) =>
             currentMutationVersion != capturedMutationVersion;
+
+        public static Where BuildCloudUpdateCondition(long expectedRevision, string expectedOperationId)
+        {
+            // inDate는 서버 기본 키라 QueryFilter에 넣으면 실제 서버에서 400이 난다.
+            // 소유자의 단일 행/inDate를 직전 조회에서 검증하고 비기본 키로 변경 세대를 검사한다.
+            var where = new Where();
+            where.Equal("revision", expectedRevision);
+            if (!string.IsNullOrWhiteSpace(expectedOperationId))
+                where.Equal("lastOperationId", expectedOperationId);
+            return where;
+        }
 
         public static string FormatCloudSaveFailure(string statusCode, string errorCode)
         {
