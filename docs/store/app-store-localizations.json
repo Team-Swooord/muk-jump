@@ -1,0 +1,46 @@
+{
+  "appId": "6804614765",
+  "version": "1.0.0",
+  "primaryLocale": "ko",
+  "localizations": {
+    "ko": {
+      "name": "먹점프",
+      "subtitle": "붓으로 그리는 수묵 점프",
+      "promotionalText": "손가락으로 먹선을 그려 자동으로 뛰는 먹방울을 받쳐 주세요. 바람과 장애물을 지나 더 높은 곳에 도전하세요.",
+      "description": "먹점프는 손가락으로 발판을 그리는 세로형 수묵 점프 게임입니다.\n\n먹방울은 스스로 점프합니다. 선을 어디에, 얼마나 길게, 어떤 각도로 그리느냐에 따라 다음 점프가 달라집니다. 먹선은 시간이 지나면 사라지므로 남은 먹과 점프 궤적을 보며 길을 이어 주세요.\n\n• 손가락으로 그리는 수묵 발판\n• 고도에 따라 바뀌는 산수화 배경과 바람\n• 먹물방울, 황금 붓, 먹 방어막, 먹분신 아이템\n• 최대 24마리까지 늘어나는 먹떼\n• 한 판씩 모은 먹빛으로 먹·먹물·붓·도약 성장\n• 세계 최고 고도 순위와 기기 지역 아이콘\n• 한국어, 영어, 일본어 지원\n\n게스트로 바로 플레이할 수 있습니다. Apple 계정 연동은 기록 동기화를 위한 선택 기능입니다. 계정 삭제는 설정의 계정 화면에서 할 수 있습니다.\n\n배너 광고와 선택형 부활 보상 광고가 포함되어 있습니다. 인앱 구매는 없습니다.",
+      "keywords": "점프,수묵화,드로잉,아케이드,캐주얼,발판,붓,클라이밍",
+      "supportUrl": "https://github.com/Team-Swooord/muk-jump#고객지원",
+      "privacyPolicyUrl": "https://storage.thebackend.io/27f4347cc58b6eca8349b49f00b25a0a9f7c92836f10ec5f6385356867184326/privacy.html",
+      "whatsNew": "먹점프 첫 출시. 손가락으로 그리는 발판, 산수화 배경, 네 가지 아이템, 영구 성장과 세계 고도 순위를 제공합니다.",
+      "betaDescription": "발판을 그려 자동 점프하는 먹방울을 올리는 수묵 아케이드 게임입니다. 게스트로 시작하며 Apple 계정 연동은 선택입니다. 한국어·영어·일본어를 지원합니다.",
+      "betaFeedbackEmail": "cysbandcs@gmail.com",
+      "betaWhatToTest": "게스트 플레이 후 최고 고도가 세계 순위에 반영되는지, Apple 계정 연동 후 기록이 유지되는지 확인해 주세요. 계정 삭제 후 새 게스트 튜토리얼, 한국어·영어·일본어 전환, 기기 지역 아이콘과 성장 파동 연출도 확인해 주세요."
+    },
+    "en-US": {
+      "name": "MukJump",
+      "subtitle": "Draw your way through ink",
+      "promotionalText": "Draw ink platforms to guide an ever-jumping ink drop. Read the wind, avoid obstacles, and climb through an ink-wash landscape.",
+      "description": "MukJump is a portrait arcade game where you draw the platforms.\n\nYour ink drop jumps on its own. The position, length, and angle of each stroke shape the next jump. Ink platforms fade over time, so watch your remaining ink and keep drawing a path upward.\n\n• Draw ink platforms with one finger\n• Climb through changing ink-wash landscapes and shifting winds\n• Collect ink drops, golden brushes, shields, and ink clones\n• Grow your group to as many as 24 ink drops\n• Earn Ink Light through completed runs to upgrade Muk, Ink, Brush, and Jump\n• Compare best heights on a world leaderboard with device-region icons\n• Play in English, Korean, or Japanese\n\nStart playing as a guest. Linking an Apple account is optional and enables progress syncing. You can delete your account from the account screen in Settings.\n\nContains banner ads and optional rewarded ads for revival. No in-app purchases.",
+      "keywords": "drawing,jump,ink,platformer,arcade,climb,brush,casual,landscape",
+      "supportUrl": "https://github.com/Team-Swooord/muk-jump#고객지원",
+      "privacyPolicyUrl": "https://storage.thebackend.io/27f4347cc58b6eca8349b49f00b25a0a9f7c92836f10ec5f6385356867184326/privacy.html",
+      "whatsNew": "The first release of MukJump, featuring drawn platforms, ink-wash landscapes, four items, permanent upgrades, and a world height leaderboard.",
+      "betaDescription": "Draw platforms to guide an automatically jumping ink drop through an ink-wash arcade world. Start as a guest, with optional Apple account linking. Supports English, Korean, and Japanese.",
+      "betaFeedbackEmail": "cysbandcs@gmail.com",
+      "betaWhatToTest": "Check that completed guest runs appear on the world leaderboard and that progress is preserved after linking an Apple account. Also test the new-guest tutorial after account deletion, language switching, device-region icons, and the growth ripple animation."
+    },
+    "ja": {
+      "name": "MukJump",
+      "subtitle": "筆で足場を描く水墨ジャンプ",
+      "promotionalText": "指で墨の足場を描いて、自動で跳ねる墨のしずくを支えよう。風を読み、障害物を避けながら、水墨画の世界を登っていこう。",
+      "description": "MukJumpは、指で足場を描く縦画面の水墨ジャンプゲームです。\n\n墨のしずくは自動でジャンプします。線を描く位置、長さ、角度によって、次のジャンプが変わります。墨の足場は時間とともに消えていくので、残りの墨とジャンプの軌道を見ながら道をつなぎましょう。\n\n• 指一本で描く墨の足場\n• 高度に応じて変わる水墨画の風景と風\n• 墨のしずく、黄金の筆、墨の盾、墨分身のアイテム\n• 最大24体まで増える墨の仲間\n• プレイで集めた墨光を使って、墨・墨汁・筆・跳躍を強化\n• 端末の地域アイコン付き世界高度ランキング\n• 日本語、英語、韓国語に対応\n\nゲストですぐに遊べます。Appleアカウントの連携は任意で、プレイ記録の同期に利用します。アカウントは設定内のアカウント画面から削除できます。\n\nバナー広告と、任意で視聴する復活用のリワード広告が含まれます。アプリ内課金はありません。",
+      "keywords": "ジャンプ,水墨画,お絵描き,足場,アーケード,筆,カジュアル,クライミング",
+      "supportUrl": "https://github.com/Team-Swooord/muk-jump#고객지원",
+      "privacyPolicyUrl": "https://storage.thebackend.io/27f4347cc58b6eca8349b49f00b25a0a9f7c92836f10ec5f6385356867184326/privacy.html",
+      "whatsNew": "MukJumpの初回リリースです。指で描く足場、水墨画の風景、4種類のアイテム、永続的な強化、世界高度ランキングをお楽しみください。",
+      "betaDescription": "墨の足場を描いて、自動で跳ねる墨のしずくを導く水墨アーケードゲームです。ゲストで開始でき、Appleアカウントの連携は任意です。日本語・英語・韓国語に対応しています。",
+      "betaFeedbackEmail": "cysbandcs@gmail.com",
+      "betaWhatToTest": "ゲストでプレイした記録が世界ランキングに反映され、Appleアカウント連携後も保持されるかをご確認ください。アカウント削除後の新規ゲストのチュートリアル、言語切り替え、端末の地域アイコン、成長時の波紋もご確認ください。"
+    }
+  }
+}

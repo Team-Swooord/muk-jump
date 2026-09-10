@@ -1,12 +1,13 @@
 #if UNITY_IOS
 using System.IO;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEditor.iOS.Xcode;
 
 namespace MukJump.EditorTools
 {
-    /// ATT 설명과 면제 암호화 선언을 최종 Info.plist에 고정한다.
+    /// 지원 언어·앱 이름·ATT 설명과 면제 암호화 선언을 최종 iOS 결과물에 고정한다.
     public static class MukJumpIosPrivacyPostprocessor
     {
         const string TrackingUsageKey =
@@ -33,22 +34,44 @@ namespace MukJump.EditorTools
             var project = new PBXProject();
             project.ReadFromFile(projectPath);
             string[] languages = { "ko", "en", "ja" };
+            string[] displayNames = { "먹점프", "MukJump", "MukJump" };
             string[] descriptions = {
                 MukJumpGoogleMobileAdsSetup.TrackingUsageDescription,
                 "Allow tracking to deliver ads and measure advertising performance.",
                 "広告の配信と広告効果の測定のため、トラッキングの許可をお願いします。"
             };
+            // Unity 템플릿의 English/Japanese/French/German 잔여 목록 대신
+            // 실제 지원 언어를 Xcode의 Project > Info에도 표시한다.
+            string knownRegions = Regex.Match(project.WriteToString(), @"knownRegions\s*=\s*\(([^)]*)\)").Groups[1].Value;
+            bool hasBase = Regex.IsMatch(knownRegions, @"\bBase\b");
+            project.ClearKnownRegions();
+            project.SetDevelopmentRegion("en");
+            if (hasBase) project.AddKnownRegion("Base");
             for (int i = 0; i < languages.Length; i++)
             {
+                project.AddKnownRegion(languages[i]);
                 string relative = languages[i] + ".lproj/InfoPlist.strings";
                 string path = Path.Combine(buildPath, relative);
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(path, "\"" + TrackingUsageKey + "\" = \"" + descriptions[i] + "\";\n");
+                string contents = File.Exists(path) ? File.ReadAllText(path) : "";
+                contents = SetLocalizedValue(contents, TrackingUsageKey, descriptions[i]);
+                contents = SetLocalizedValue(contents, "CFBundleDisplayName", displayNames[i]);
+                File.WriteAllText(path, contents);
                 string guid = project.FindFileGuidByProjectPath(relative);
                 if (string.IsNullOrEmpty(guid)) guid = project.AddFile(relative, relative, PBXSourceTree.Source);
                 project.AddFileToBuild(project.GetUnityMainTargetGuid(), guid);
             }
             project.WriteToFile(projectPath);
+        }
+
+        static string SetLocalizedValue(string contents, string key, string value)
+        {
+            // 다른 네이티브 기능이 추가한 권한 문구와 주석은 보존한다.
+            string line = "\"" + key + "\" = \"" + value + "\";";
+            string pattern = "(?m)^\\s*\"" + Regex.Escape(key) + "\"\\s*=\\s*\"(?:\\\\.|[^\"\\\\])*\"\\s*;";
+            if (Regex.IsMatch(contents, pattern))
+                return Regex.Replace(contents, pattern, _ => line);
+            return contents.TrimEnd() + (contents.Length > 0 ? "\n" : "") + line + "\n";
         }
 
         public static void ApplyUserDefaultsReason(string buildPath)
@@ -95,6 +118,7 @@ namespace MukJump.EditorTools
             // 구현하지 않는다. App Store Connect의 면제 암호화 선언을
             // 빌드마다 동일하게 유지한다.
             plist.root.SetBoolean(NonExemptEncryptionKey, false);
+            plist.root.SetString("CFBundleDevelopmentRegion", "en");
             var languages = plist.root.CreateArray("CFBundleLocalizations");
             foreach (string language in new[] { "ko", "en", "ja" }) languages.AddString(language);
             File.WriteAllText(plistPath, plist.WriteToString());

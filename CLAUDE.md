@@ -53,6 +53,9 @@ Claude Code를 포함한 모든 코딩 에이전트는 다음 순서를 지킨�
 
 - 한국어·영어·일본어를 지원한다. 저장된 언어 선택이 없으면 기기 언어를 따르고 그 외 언어는 영어다.
   언어 선택은 계정/클라우드와 독립적이다. 일본어 UI·이름에는 Kaisei Decol(OFL)을 사용한다.
+  iOS 내보내기는 Xcode 지원 언어와 Info.plist를 `ko/en/ja`로 맞추고 기본 폴백을 영어로 둔다.
+  홈 화면 이름은 한국어 `먹점프`, 영어·일본어 `MukJump`이며 ATT 설명도 세 언어로 포함한다.
+  App Store Connect 등록 번역은 별도이며 `docs/store/app-store-localizations.json`을 입력 원본으로 쓴다.
 
 - 세계 순위 국기는 기기의 국가·지역(`deviceRegion`)을 표시한다. iOS NSLocale의 countryCode,
   Android Locale의 country를 읽으며 언어·GPS·IP와 무관하다. 미확인/기존 누락 행은 지구 아이콘이다.

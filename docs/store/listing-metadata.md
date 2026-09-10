@@ -3,6 +3,14 @@
 먹점프 1.0.0의 App Store Connect와 Google Play Console 입력 원본이다. 실제 기능보다
 앞선 표현, 순위·수상·가격 주장, 대회 출품 문구는 넣지 않는다.
 
+한국어·영어(미국)·일본어의 최신 App Store/TestFlight 입력 원본은
+[`app-store-localizations.json`](app-store-localizations.json)이다. 아래 구 문구보다 우선한다.
+기본 등록 언어는 한국어로 유지한다. 등록 번역과 실제 앱의 지원 언어는 별개이므로
+Xcode의 `knownRegions`, `CFBundleLocalizations`, 앱 이름·ATT 설명의 세 `InfoPlist.strings`를 함께 검증한다.
+Xcode 지원 언어는 `ko/en/ja`, 미지원 기기 언어의 앱 폴백은 영어다.
+영어·일본어 홈 화면 이름은 기존 영문 브랜드 `MukJump`를 유지한다.
+콘솔 로그인 전에는 이 파일의 존재를 App Store Connect 저장 완료로 간주하지 않는다.
+
 ## 공통 제품 정보
 
 | 항목 | 입력값 |
