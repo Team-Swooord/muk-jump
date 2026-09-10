@@ -82,6 +82,7 @@ namespace MukJump.Core
         readonly Text[] leaderboardRows = new Text[10];
         readonly Text[] leaderboardRanks = new Text[10];
         readonly Text[] leaderboardNames = new Text[10];
+        readonly Image[] leaderboardFlags = new Image[10];
         readonly Text[] leaderboardSources = new Text[10];
         readonly Image[] leaderboardSeals = new Image[10];
         Text globalLeaderboardLabel, appleLeaderboardLabel;
@@ -1053,10 +1054,16 @@ namespace MukJump.Core
                     new Vector2(-292f, y), new Vector2(96, 62),
                     i < 3 ? InkPalette.Red : InkPalette.TextDark, TextAnchor.MiddleLeft, strong: true);
                 var cell = CreateRect($"NameCell{i + 1}", panel,
-                    new Vector2(-65f, y), new Vector2(340f, 62f));
+                    new Vector2(-36f, y), new Vector2(282f, 62f));
+                leaderboardFlags[i] = CreateImage($"RegionFlag{i + 1}", panel,
+                    RegionFlagImages.Get(null), new Vector2(-213f, y),
+                    new Vector2(44f, 44f), Color.white);
+                leaderboardFlags[i].preserveAspect = true;
+                leaderboardFlags[i].raycastTarget = false;
+                leaderboardFlags[i].enabled = false;
                 cell.gameObject.AddComponent<RectMask2D>();
                 leaderboardNames[i] = CreateReadableText($"Name{i + 1}", cell, "", 40,
-                    Vector2.zero, new Vector2(340f, 62f), InkPalette.TextDark,
+                    Vector2.zero, new Vector2(282f, 62f), InkPalette.TextDark,
                     TextAnchor.MiddleLeft, strong: true);
                 leaderboardNames[i].supportRichText = false;
                 leaderboardNames[i].horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -1197,6 +1204,11 @@ namespace MukJump.Core
                 if (leaderboardRanks[i] != null)
                     leaderboardRanks[i].text = entries != null && i < entries.Count ? $"{entries[i].Rank}" : string.Empty;
                 bool hasEntry = entries != null && i < entries.Count;
+                if (leaderboardFlags[i] != null)
+                {
+                    leaderboardFlags[i].enabled = hasEntry;
+                    if (hasEntry) leaderboardFlags[i].sprite = RegionFlagImages.Get(entries[i].RegionCode);
+                }
                 if (leaderboardSeals[i] != null) leaderboardSeals[i].enabled = hasEntry;
                 if (leaderboardNames[i] != null)
                     FitLeaderboardName(leaderboardNames[i], hasEntry

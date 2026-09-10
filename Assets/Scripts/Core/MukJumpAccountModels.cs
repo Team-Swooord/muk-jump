@@ -92,13 +92,15 @@ namespace MukJump.Core
         public int Height { get; }
         public string DisplayName { get; }
         public string Source { get; }
+        public string RegionCode { get; }
 
         public MukJumpLeaderboardEntry(int rank, int height, string displayName = null,
-            string source = "BACKND")
+            string source = "BACKND", string regionCode = null)
         {
             Rank = Mathf.Max(1, rank);
             Height = Mathf.Max(0, height);
             DisplayName = CleanDisplayName(displayName);
+            RegionCode = DeviceRegion.Normalize(regionCode);
             // 출처는 실제 공급자만 표시한다. 로그인 수단으로 OS를 추측하지 않는다.
             Source = source == "APPLE" || source == "TOSS" ? source : "BACKND";
         }

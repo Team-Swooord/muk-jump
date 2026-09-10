@@ -51,6 +51,10 @@ Claude Code를 포함한 모든 코딩 에이전트는 다음 순서를 지킨�
 
 ## 0. 제품 기본 정보
 
+- 세계 순위 국기는 기기의 국가·지역(`deviceRegion`)을 표시한다. iOS NSLocale의 countryCode,
+  Android Locale의 country를 읽으며 언어·GPS·IP와 무관하다. 미확인/기존 누락 행은 지구 아이콘이다.
+  뒤끝 리더보드 추가 항목은 `deviceRegion` 열에 연결해야 한다. 국가 변경은 계정·점수를 초기화하지 않는다.
+
 - 제품명: 먹점프
 - 배포 대상: Apple App Store · Google Play · Apps in Toss 일반 서비스
 - 팀 구성: 2인 (김승연 + 최성빈) — Team-Swooord

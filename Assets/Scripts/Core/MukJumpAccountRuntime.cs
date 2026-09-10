@@ -5764,7 +5764,8 @@ namespace MukJump.Core
                                     ? parsedHeight
                                     : 0;
                                 loadedEntries.Add(
-                                    new MukJumpLeaderboardEntry(rank, height, item.nickname));
+                                    new MukJumpLeaderboardEntry(rank, height, item.nickname,
+                                        regionCode: item.extraData));
                             }
                         }
 
@@ -6214,6 +6215,7 @@ namespace MukJump.Core
 #endif
             var param = new Param();
             param.Add(settings.BestHeightColumn, bestHeight);
+            param.Add(DeviceRegion.Column, DeviceRegion.Current);
             Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
                 settings.AllTimeRankUuid, settings.PlayerTableName, rowInDate, param,
                 bro => callback(bro));
@@ -6313,6 +6315,7 @@ namespace MukJump.Core
         {
             var param = new Param();
             param.Add("schemaVersion", snapshot.schemaVersion);
+            param.Add(DeviceRegion.Column, DeviceRegion.Current);
             param.Add(settings.BestHeightColumn, snapshot.bestHeight);
             param.Add("growthJson", snapshot.growthJson);
             param.Add("bgmVolume", snapshot.bgmVolume);
