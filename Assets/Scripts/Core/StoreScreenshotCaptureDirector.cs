@@ -15,7 +15,7 @@ using MukJump.Player;
 namespace MukJump.EditorTools
 {
     /// 승인된 스토어 장면을 실제 PlayerLoop로 촬영한다. 배포 코드에는 포함되지 않는다.
-    [DefaultExecutionOrder(32000)]
+    [DefaultExecutionOrder(-32000)]
     public sealed class StoreScreenshotCaptureDirector : MonoBehaviour
     {
         const string Key = "MukJump.StoreCapture.";
@@ -33,6 +33,10 @@ namespace MukJump.EditorTools
         int previousRate;
         bool previousBackground;
         double deadline;
+        readonly List<(Vector2 center, float time)> drawnStrokes = new();
+        Vector2 drawingFrom, drawingTo;
+        int drawingStep;
+        bool drawing;
 
         sealed class IdentityStore : MukJumpIdentityProfile.IStore
         {
@@ -47,7 +51,7 @@ namespace MukJump.EditorTools
         [MenuItem("MukJump/스토어 촬영/영어 6장 원본과 영상 프레임")]
         static void ArmEnglish() => Arm(true);
 
-        static void Arm(bool english, bool remainingOnly = false)
+        static void Arm(bool english, bool remainingOnly = false, bool proofOnly = false)
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling ||
                 BuildPipeline.isBuildingPlayer)
@@ -60,6 +64,7 @@ namespace MukJump.EditorTools
             SessionState.SetBool(Key + "Armed", true);
             SessionState.SetBool(Key + "English", english);
             SessionState.SetBool(Key + "RemainingOnly", remainingOnly);
+            SessionState.SetBool(Key + "ProofOnly", proofOnly);
             EditorApplication.isPlaying = true;
         }
 
@@ -78,6 +83,7 @@ namespace MukJump.EditorTools
             GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
             MukJumpAnalytics.SetCollectionEnabled(false);
             installed = true;
+            SuspendDeviceSimulator();
             GameLocalization.SetLanguage(SessionState.GetBool(Key + "English", false)
                 ? GameLanguage.English : GameLanguage.Korean);
         }
@@ -111,10 +117,12 @@ namespace MukJump.EditorTools
                 EditorApplication.isPlayingOrWillChangePlaymode || BuildPipeline.isBuildingPlayer) return;
             if (File.Exists("Temp/MukJumpRunAllTests.request") || File.Exists("Temp/MukJumpRunAllTests.active")) return;
             string locale = File.ReadAllText(request).Trim();
-            if (locale != "ko" && locale != "en" && locale != "ko-remaining" && locale != "en-remaining") return;
+            if (locale != "ko" && locale != "en" && locale != "ko-remaining" && locale != "en-remaining" &&
+                locale != "ko-proof" && locale != "en-proof") return;
             // 명시적인 촬영 요청 한 건만 소비한다. 반복 예약은 만들지 않는다.
             File.Delete(request);
-            try { Arm(locale.StartsWith("en", StringComparison.Ordinal), locale.EndsWith("-remaining", StringComparison.Ordinal)); }
+            try { Arm(locale.StartsWith("en", StringComparison.Ordinal),
+                locale.EndsWith("-remaining", StringComparison.Ordinal), locale.EndsWith("-proof", StringComparison.Ordinal)); }
             catch (Exception ex)
             {
                 File.WriteAllText("Temp/MukJumpStoreCapture.failed", ex.ToString());
@@ -139,6 +147,7 @@ namespace MukJump.EditorTools
             MobileUiLayout.ClearPlatformSafeAreaOverride();
             installed = false;
             RestoreGameView();
+            RestoreDeviceSimulator();
         }
 
         IEnumerator Start()
@@ -180,6 +189,10 @@ namespace MukJump.EditorTools
             EditorApplication.isPlaying = false;
         }
 
+        // 각 UI의 Update가 안전 영역을 계산하기 전에 광고 예약 여백을 없앤다.
+        // 촬영 프레임만 교정하며 본체의 HUD/성장 배치 수치는 변경하지 않는다.
+        void Update() => HideCaptureOnlyUi();
+
         void LateUpdate()
         {
             HideCaptureOnlyUi();
@@ -192,6 +205,7 @@ namespace MukJump.EditorTools
 
         void HideCaptureOnlyUi()
         {
+            SuspendDeviceSimulator();
             if (MukJumpAccountRuntime.Instance != null) MukJumpAccountRuntime.Instance.gameObject.SetActive(false);
             MukJumpAnalytics.SetCollectionEnabled(false);
             foreach (var ads in FindObjectsByType<EditorTestAdsRuntime>())
@@ -209,6 +223,38 @@ namespace MukJump.EditorTools
             // iPhone 세로 안전영역만 흉내 낸다. 원본의 게임 UI를 잘라 내거나 그리지 않는다.
             if (Screen.width == Width && Screen.height == Height)
                 MobileUiLayout.SetPlatformSafeAreaOverride(new Rect(0, 102, Width, Height - 282));
+        }
+
+        static Type SimulatorWindowType() => Type.GetType(
+            "UnityEditor.DeviceSimulation.SimulatorWindow, UnityEditor.DeviceSimulatorModule", false);
+
+        static void SuspendDeviceSimulator()
+        {
+            var type = SimulatorWindowType();
+            if (type == null) return;
+            foreach (var window in Resources.FindObjectsOfTypeAll(type))
+            {
+                object main = type.GetProperty("main", PublicInstance)?.GetValue(window);
+                if (main == null) continue;
+                // 다른 크기의 Simulator가 남긴 Screen.safeArea shim만 촬영 중 해제한다.
+                // 창·기기 선택·ProjectSettings를 삭제하거나 변경하지 않는다.
+                main.GetType().GetMethod("Disable", PublicInstance).Invoke(main, null);
+                SessionState.SetBool(Key + "SimulatorSuspended", true);
+            }
+        }
+
+        static void RestoreDeviceSimulator()
+        {
+            if (!SessionState.GetBool(Key + "SimulatorSuspended", false)) return;
+            SessionState.SetBool(Key + "SimulatorSuspended", false);
+            var type = SimulatorWindowType();
+            if (type == null) return;
+            foreach (var window in Resources.FindObjectsOfTypeAll(type))
+            {
+                if (type.GetField("m_State", PrivateInstance)?.GetValue(window)?.ToString() != "Enabled") continue;
+                object main = type.GetProperty("main", PublicInstance)?.GetValue(window);
+                main?.GetType().GetMethod("Enable", PublicInstance)?.Invoke(main, null);
+            }
         }
 
         IEnumerator Ready(Func<bool> condition, string label)
@@ -237,29 +283,37 @@ namespace MukJump.EditorTools
                 for (int rank = 0; rank < ranks[type]; rank++)
                     if (!PermanentGrowthProfile.TryPurchase(types[type])) throw new InvalidOperationException("성장 예시 준비 실패");
             bool remainingOnly = SessionState.GetBool(Key + "RemainingOnly", false);
+            bool proofOnly = SessionState.GetBool(Key + "ProofOnly", false);
             if (!remainingOnly)
             {
                 if (!LobbyScreenNavigator.Instance.OpenGrowth()) throw new InvalidOperationException("성장 열기 실패");
                 yield return Ready(() => !LobbyScreenNavigator.Instance.IsTransitioning, "성장 전환");
                 yield return new WaitForSecondsRealtime(.5f);
-                yield return Capture("06-growth", 120, null, false);
+                yield return Capture("06-growth", proofOnly ? 3 : 120, null, false);
                 if (!LobbyScreenNavigator.Instance.ReturnToLobby()) throw new InvalidOperationException("로비 복귀 실패");
                 yield return Ready(() => LobbyScreenNavigator.Instance.CanStartGame, "로비 복귀");
             }
 
             int[] heights = { 0, 760, 1010, 1260, 1510 };
             string[] names = { "01-mountain-jump", "02-cliff-shield", "03-gate-clones", "04-lotus-golden", "05-river-boost" };
-            int firstScene = remainingOnly ? 2 : 0;
-            for (int scene = firstScene; scene < names.Length; scene++)
+            int firstScene = remainingOnly || proofOnly ? 2 : 0;
+            int lastScene = proofOnly ? 3 : names.Length;
+            for (int scene = firstScene; scene < lastScene; scene++)
             {
                 yield return PrepareRun(scene > firstScene);
                 manager.DebugTeleportToHeight(heights[scene]);
                 manager.HighestLivingPlayer.LaunchToHeight(8f);
                 Time.captureFramerate = Fps;
-                // 배경 교차 전환이 끝난 다음 촬영한다.
-                for (int frame = 0; frame < 36; frame++) { if (frame == 20) DrawUnderLeader(.12f); yield return frameEnd; }
-                int clones = scene == 2 ? 9 : scene == 4 ? 4 : 0;
-                if (clones > 0) CreateSwarm(clones + 1);
+                int targetCount = scene == 2 ? 10 : scene == 4 ? 5 : 1;
+                // 분신을 격자로 순간이동하거나 동시에 발사하지 않는다.
+                // 실제 아이템 분열의 시간차·팝 속도·물리·애니메이션을 그대로 사용한다.
+                for (int frame = 0; frame < 36; frame++)
+                {
+                    if (frame == 4) DrawUnderLeader(.22f);
+                    if (frame == 12 || frame == 25) TryAddNaturalClone(targetCount, frame);
+                    StepStroke();
+                    yield return frameEnd;
+                }
                 if (scene == 1) ItemEffect.Apply(ItemType.InkShield, manager.HighestLivingPlayer);
                 if (scene == 3) ItemEffect.Apply(ItemType.GoldenBrush, manager.HighestLivingPlayer);
                 int selectedScene = scene;
@@ -267,9 +321,12 @@ namespace MukJump.EditorTools
                 {
                     if (selectedScene == 1 && frame == 0) SpawnHaetae(heights[selectedScene]);
                     if (selectedScene == 4 && frame == 8) ItemEffect.Apply(ItemType.InkDrop, manager.HighestLivingPlayer);
-                    if (selectedScene == 3 && frame % 15 == 0)
-                        DrawAtViewport(.24f + .24f * (frame / 15 % 3), .28f + .16f * (frame / 15 % 3), 2.3f, frame % 30 == 0 ? .32f : -.25f);
-                    else if (selectedScene != 4 && frame % 30 == 0) DrawUnderLeader(selectedScene == 0 ? .25f : -.16f);
+                    if (frame % 13 == 5) TryAddNaturalClone(targetCount, frame);
+                    if (selectedScene == 3 && (frame == 20 || frame == 70))
+                        DrawAtViewport(frame == 20 ? .30f : .70f, frame == 20 ? .32f : .51f, 3.1f,
+                            frame == 20 ? .30f : -.25f);
+                    else if (selectedScene != 4 && (frame == 28 || frame == 88))
+                        DrawUnderFallingPlayer(selectedScene == 0 ? .25f : -.22f);
                 }, true);
             }
         }
@@ -284,6 +341,8 @@ namespace MukJump.EditorTools
                 yield return Ready(() => GameManager.Instance != null && GameManager.Instance != old, "씬 재시작");
             }
             manager = GameManager.Instance;
+            drawing = false;
+            drawnStrokes.Clear();
             foreach (var item in FindObjectsByType<ObstacleSpawner>()) item.enabled = false;
             foreach (var item in FindObjectsByType<FallingInkRockSpawner>()) item.enabled = false;
             foreach (var item in FindObjectsByType<ItemSpawner>()) item.enabled = false;
@@ -307,8 +366,10 @@ namespace MukJump.EditorTools
             {
                 if (gameplay && !manager.IsGameplayTicking) throw new InvalidOperationException(name + " 플레이 중단 " + i);
                 events?.Invoke(i);
+                if (gameplay) StepStroke();
                 HideCaptureOnlyUi();
                 yield return frameEnd;
+                if (i == 0 || i == count / 2) RecordLayout(name, i);
                 var texture = ScreenCapture.CaptureScreenshotAsTexture();
                 try
                 {
@@ -324,33 +385,12 @@ namespace MukJump.EditorTools
             Debug.Log("[StoreCapture] CAPTURED " + name);
         }
 
-        void CreateSwarm(int target)
+        void TryAddNaturalClone(int target, int sequence)
         {
-            // 세로 화면의 같은 높이에 안전하게 들어가는 수는 제한된다.
-            // 기존 쇼케이스처럼 여러 행으로 먼저 펼친 뒤 빈 공간에서 추가한다.
-            int attempts = 0;
-            while (manager.LivingPlayerCount < target && attempts++ < 24)
-            {
-                manager.GetLivingPlayersNonAlloc(players);
-                bool created = false;
-                for (int i = 0; i < players.Count; i++)
-                    if (manager.TryCreateInkClone(players[i])) { created = true; break; }
-                if (!created) ArrangeSwarm();
-            }
-            if (manager.LivingPlayerCount < target)
-                throw new InvalidOperationException($"분신 배치 실패: {manager.LivingPlayerCount}/{target}");
-            ArrangeSwarm();
-        }
-
-        void ArrangeSwarm()
-        {
+            if (manager.LivingPlayerCount >= target) return;
             manager.GetLivingPlayersNonAlloc(players);
             for (int i = 0; i < players.Count; i++)
-            {
-                var point = Viewport(.20f + (i % 4) * .20f, .27f + (i / 4) * .12f);
-                players[i].DebugTeleportBy(point - (Vector2)players[i].transform.position);
-                players[i].LaunchToHeight(3.5f + (i % 3));
-            }
+                if (manager.TryCreateInkClonesFromItem(players[(i + sequence) % players.Count])) return;
         }
 
         static Vector2 Viewport(float x, float y) => Camera.main.ViewportToWorldPoint(
@@ -366,13 +406,71 @@ namespace MukJump.EditorTools
 
         void DrawAtViewport(float x, float y, float length, float slope) => Draw(Viewport(x, y), length, slope);
 
+        void DrawUnderFallingPlayer(float slope)
+        {
+            manager.GetLivingPlayersNonAlloc(players);
+            foreach (var player in players)
+            {
+                var body = player.GetComponent<Rigidbody2D>();
+                Vector3 view = Camera.main.WorldToViewportPoint(player.transform.position);
+                if (body.linearVelocity.y >= -1f || view.y < .18f || view.y > .65f) continue;
+                Vector2 center = (Vector2)player.transform.position +
+                    new Vector2(Mathf.Clamp(body.linearVelocity.x * .15f, -.45f, .45f), -1.25f);
+                Draw(center, 3.1f, slope);
+                if (drawing) return;
+            }
+        }
+
         void Draw(Vector2 center, float length, float slope)
         {
-            var from = center + new Vector2(-length * .5f, -slope);
-            var to = center + new Vector2(length * .5f, slope);
-            if (!stroke.BeginRecordingStroke(from)) return;
-            for (int i = 1; i <= 30; i++) stroke.AppendRecordingStroke(Vector2.Lerp(from, to, i / 30f));
+            if (drawing) return;
+            foreach (var previous in drawnStrokes)
+                if (Time.time - previous.time < 5f &&
+                    Mathf.Abs(center.y - previous.center.y) < 2.1f &&
+                    Mathf.Abs(center.x - previous.center.x) < 3.4f) return;
+            drawingFrom = center + new Vector2(-length * .5f, -slope);
+            drawingTo = center + new Vector2(length * .5f, slope);
+            if (!stroke.BeginRecordingStroke(drawingFrom)) return;
+            drawnStrokes.Add((center, Time.time));
+            drawingStep = 0;
+            drawing = true;
+        }
+
+        void StepStroke()
+        {
+            if (!drawing) return;
+            // 한 번의 연속적인 손짓처럼 0.27초 동안 실제 입력 경로로 그린다.
+            float t = ++drawingStep / 8f;
+            stroke.AppendRecordingStroke(Vector2.Lerp(drawingFrom, drawingTo, t) +
+                Vector2.up * (Mathf.Sin(t * Mathf.PI) * .035f));
+            if (drawingStep < 8) return;
             stroke.EndRecordingStroke();
+            drawing = false;
+        }
+
+        void RecordLayout(string name, int frame)
+        {
+            Rect safe = MobileUiLayout.CurrentSafeArea;
+            if (Mathf.Abs(safe.width - Width) > 1f || Mathf.Abs(safe.yMax - (Height - 180)) > 1f)
+                throw new InvalidOperationException("다른 기기의 안전 영역이 촬영에 남아 있음: " + safe);
+            var lines = new List<string>
+            {
+                $"{name}/{frame}: nativeSafe={Screen.safeArea}; currentSafe={MobileUiLayout.CurrentSafeArea}; " +
+                $"banner={LobbyAdLayout.GameplayTopInsetFraction}; hud={GameplayHudView.CalculateVisibleHudRect(MobileUiLayout.CurrentSafeArea, Width, Height)}"
+            };
+            foreach (var rect in FindObjectsByType<RectTransform>())
+            {
+                if (rect.name != "TopHudRoot" && rect.name != "Title" && rect.name != "BackButton" &&
+                    rect.name != "NodeResetButton" && rect.name != "BalanceHud" && rect.name != "GrowthTabs") continue;
+                var corners = new Vector3[4];
+                rect.GetWorldCorners(corners);
+                lines.Add($"{rect.name}: bottomLeft={corners[0]}; topRight={corners[2]}");
+            }
+            manager.GetLivingPlayersNonAlloc(players);
+            foreach (var player in players)
+                lines.Add($"player: position={player.transform.position}; velocity={player.GetComponent<Rigidbody2D>().linearVelocity}; " +
+                    $"rotation={player.transform.eulerAngles.z}; grounded={player.IsGrounded}");
+            File.AppendAllLines(Path.Combine(directory, "layout-evidence.txt"), lines);
         }
 
         static void SpawnHaetae(int height)
