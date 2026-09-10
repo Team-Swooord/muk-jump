@@ -5,16 +5,14 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 제작사 워드마크에서 별도 로딩 화면 없이 메인 로비로 연결한다.
+    /// SHIFT와 같은 엔진 제작사 스플래시 뒤 메인으로 연결하는 기존 부트스트랩.
     /// 씬 로딩만 기다리며 광고·원격 로그인 성공을 로딩 완료 조건으로 삼지 않는다.
     public sealed class StartupBrandSplash : MonoBehaviour
     {
         public const string SceneName = "Splash";
         public const string NextSceneName = "Main";
-        public const float InitialDelay = 0.1f;
-        public const float FadeInDuration = 0.35f;
-        public const float HoldDuration = 0.8f;
         public const float FadeOutDuration = 0.3f;
+        public static Color BackgroundColor => new Color32(35, 31, 32, 255);
 
         CanvasGroup rootGroup;
         CanvasGroup logoGroup;
@@ -24,6 +22,8 @@ namespace MukJump.Core
         Text retryText;
         AsyncOperation mainLoad;
         bool waitingForRetry;
+        bool ownsNativeSplash;
+        static bool replayRequested;
 
         public static bool IsBlockingInput { get; private set; }
 
@@ -43,6 +43,7 @@ namespace MukJump.Core
             FirstRunTutorialController.Instance?.PrepareForStartupReturn();
             PointerInput.SuppressUntilRelease();
             IsBlockingInput = true;
+            replayRequested = true;
             try
             {
 #if UNITY_EDITOR
@@ -58,6 +59,7 @@ namespace MukJump.Core
             }
             catch (System.Exception exception)
             {
+                replayRequested = false;
                 IsBlockingInput = false;
                 Debug.LogWarning("[MukJump] 계정 삭제 후 시작 화면 복귀 실패: " + exception.Message);
                 return false;
@@ -79,6 +81,12 @@ namespace MukJump.Core
         void OnDisable()
         {
             IsBlockingInput = false;
+            if (ownsNativeSplash)
+            {
+                UnityEngine.Rendering.SplashScreen.Stop(
+                    UnityEngine.Rendering.SplashScreen.StopBehavior.StopImmediate);
+                ownsNativeSplash = false;
+            }
             // Unity는 activation=false 작업 뒤의 로딩 큐를 멈춘다. 중단 때 반드시 해제한다.
             if (mainLoad != null && !mainLoad.isDone)
                 mainLoad.allowSceneActivation = true;
@@ -149,7 +157,7 @@ namespace MukJump.Core
                 "BlackBackdrop",
                 canvasObject.transform);
             Image backdropImage = backdrop.gameObject.AddComponent<Image>();
-            backdropImage.color = Color.black;
+            backdropImage.color = BackgroundColor;
             backdropImage.raycastTarget = true;
 
             RectTransform logoRect = CreateRect(
@@ -159,15 +167,15 @@ namespace MukJump.Core
                 new Vector2(1200f, 1200f));
             logoImage = logoRect.gameObject.AddComponent<Image>();
             logoImage.color = Color.white;
-            logoImage.preserveAspect = false;
+            logoImage.preserveAspect = true;
             logoImage.raycastTarget = false;
             ConfigureFadeGroups();
         }
 
         void ConfigureFadeGroups()
         {
-            // 배경은 처음부터 검정으로 고정하고 브랜드만 나타났다 사라지게 한다.
-            // Main이 활성화된 첫 프레임도 브랜드 뒤에서 배치한 뒤 바로 드러낸다.
+            // 정상 로고는 엔진이 그린다. 기존 Canvas는 장면 준비 중 이음새/입력만 막고,
+            // Image는 실제 로드 실패의 복구 안내에서만 사용한다.
             rootGroup.GetComponent<Canvas>().sortingOrder = 30000;
             rootGroup.alpha = 1f;
             rootGroup.interactable = false;
@@ -180,6 +188,7 @@ namespace MukJump.Core
             logoGroup.interactable = false;
             logoGroup.blocksRaycasts = false;
             logoImage.raycastTarget = false;
+            logoImage.enabled = false;
         }
 
         public void SetLogo(Sprite sprite)
@@ -188,19 +197,35 @@ namespace MukJump.Core
             if (logoImage == null)
                 return;
             logoImage.sprite = sprite;
-            logoImage.enabled = sprite != null;
+            logoImage.enabled = false;
         }
 
         IEnumerator PlaySequence()
         {
-            yield return null;
-            yield return new WaitForSecondsRealtime(InitialDelay);
-            yield return Fade(logoGroup, 0f, 1f, FadeInDuration);
-            // 로고를 보여 주는 시간에 메인을 준비한다. 로딩 전용 화면·최소 대기는 없다.
+            // cold start는 첫 씬 전 엔진이 이미 표시하므로 다시 Begin하지 않는다.
+            // 계정 삭제로 Splash에 돌아오거나 에디터에서 미리 볼 때만 동일 엔진 연출을 재생한다.
+            bool replay = ShouldReplayNativeSplash(Application.isEditor, replayRequested, Application.isBatchMode);
+            replayRequested = false;
             BeginMainLoad();
-            yield return new WaitForSecondsRealtime(HoldDuration);
+            if (replay)
+            {
+                UnityEngine.Rendering.SplashScreen.Begin();
+                ownsNativeSplash = true;
+            }
+            if (!Application.isBatchMode)
+            {
+                while (!UnityEngine.Rendering.SplashScreen.isFinished)
+                {
+                    if (ownsNativeSplash) UnityEngine.Rendering.SplashScreen.Draw();
+                    yield return null;
+                }
+            }
+            ownsNativeSplash = false;
             yield return LoadLobby();
         }
+
+        internal static bool ShouldReplayNativeSplash(bool editor, bool accountDeleted, bool batchMode)
+            => !batchMode && (editor || accountDeleted);
 
         void BeginMainLoad()
         {
@@ -256,6 +281,7 @@ namespace MukJump.Core
         void ShowLoadFailure()
         {
             // 정상 실행에는 문구를 만들지 않는다. 실제 실패 때만 재시도 길을 남긴다.
+            logoImage.enabled = logoImage.sprite != null;
             logoGroup.alpha = 1f;
             loadFailureText = ConfigureFailureLabel(loadFailureText, "LoadFailure",
                 "게임을 불러오지 못했어요", -340f, 46);

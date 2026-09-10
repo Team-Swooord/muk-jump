@@ -16,8 +16,9 @@ namespace MukJump.EditorTools
     {
         public const string ScenePath = "Assets/Scenes/Splash.unity";
         public const string MainScenePath = "Assets/Scenes/Main.unity";
-        public const string LogoPath =
-            "Assets/Art/Brand/cysband_logo_white.png";
+        public const string LogoPath = "Assets/Art/Brand/Logo_CYSBand.png";
+        public const string LogoGuid = "6fd6fcc61df57486b9fe21a3fbad2e42";
+        public const float LogoDuration = 2f;
         public const string GameLogoPath = "Assets/Art/UI/muk_logo.png";
         const string RequestPath = "Temp/MukJumpBuildSplashScene.request";
         const string ResultPath = "Temp/MukJumpBuildSplashScene.result";
@@ -95,7 +96,7 @@ namespace MukJump.EditorTools
 
         internal static void BuildSceneFile()
         {
-            ConfigureLogoSprite();
+            ConfigureBrandPlayerSettings();
             Sprite logo = AssetDatabase.LoadAssetAtPath<Sprite>(LogoPath);
             if (logo == null)
                 throw new InvalidOperationException(
@@ -192,30 +193,52 @@ namespace MukJump.EditorTools
             return scenes.ToArray();
         }
 
-        static void ConfigureLogoSprite()
+        /// SHIFT의 실제 엔진 스플래시만 이식한다. 앱/서명/게임 설정은 복사하지 않는다.
+        /// 빌드 때도 같은 경로를 호출해 설정이 다시 꺼지거나 다른 로고가 끼지 않게 한다.
+        public static void ConfigureBrandPlayerSettings()
         {
-            if (AssetImporter.GetAtPath(LogoPath) is not TextureImporter importer)
-            {
-                AssetDatabase.ImportAsset(
-                    LogoPath,
-                    ImportAssetOptions.ForceSynchronousImport);
-                importer = AssetImporter.GetAtPath(LogoPath) as TextureImporter;
-            }
-            if (importer == null)
-                throw new InvalidOperationException(
-                    $"CYSBand 로고 임포터를 찾지 못했습니다: {LogoPath}");
+            // PNG와 .meta는 원본 한 쌍으로 보존한다. 예전 로고 임포터 보정으로 덮지 않는다.
+            AssetDatabase.ImportAsset(LogoPath, ImportAssetOptions.ForceSynchronousImport);
+            var logo = AssetDatabase.LoadAssetAtPath<Sprite>(LogoPath);
+            if (logo == null || AssetDatabase.AssetPathToGUID(LogoPath) != LogoGuid)
+                throw new InvalidOperationException("SHIFT 원본 CYSBand 로고/GUID가 없습니다: " + LogoPath);
 
-            importer.textureType = TextureImporterType.Sprite;
-            importer.spriteImportMode = SpriteImportMode.Single;
-            importer.spritePixelsPerUnit = 100f;
-            importer.alphaIsTransparency = true;
-            importer.mipmapEnabled = false;
-            importer.wrapMode = TextureWrapMode.Clamp;
-            importer.filterMode = FilterMode.Bilinear;
-            importer.maxTextureSize = 4096;
-            importer.textureCompression = TextureImporterCompression.CompressedHQ;
-            importer.compressionQuality = 100;
-            importer.SaveAndReimport();
+            PlayerSettings.SplashScreen.show = true;
+            PlayerSettings.SplashScreen.showUnityLogo = false;
+            PlayerSettings.SplashScreen.backgroundColor = StartupBrandSplash.BackgroundColor;
+            PlayerSettings.SplashScreen.overlayOpacity = 1f;
+            PlayerSettings.SplashScreen.animationMode = PlayerSettings.SplashScreen.AnimationMode.Dolly;
+            PlayerSettings.SplashScreen.animationBackgroundZoom = 1f;
+            PlayerSettings.SplashScreen.animationLogoZoom = 1f;
+            PlayerSettings.SplashScreen.unityLogoStyle = PlayerSettings.SplashScreen.UnityLogoStyle.LightOnDark;
+            PlayerSettings.SplashScreen.drawMode = PlayerSettings.SplashScreen.DrawMode.UnityLogoBelow;
+            PlayerSettings.SplashScreen.background = null;
+            PlayerSettings.SplashScreen.backgroundPortrait = null;
+            PlayerSettings.SplashScreen.blurBackgroundImage = true;
+            PlayerSettings.SplashScreen.logos = new[] { PlayerSettings.SplashScreenLogo.Create(LogoDuration, logo) };
+        }
+
+        /// 엔진 로고는 EditMode 테스트만으로 그려지지 않으므로 별도 로컬 실행 파일로 확인한다.
+        /// 스토어·계정 삭제 작업과 분리하며 기존 결과물은 덮어쓰지 않는다.
+        public static void BuildNativeSplashValidationPlayer()
+        {
+            string output = Path.GetFullPath("output/qa/brand-splash-" +
+                DateTime.Now.ToString("yyyyMMdd-HHmmss") + "/MukJumpBrandValidation.app");
+            if (Directory.Exists(output))
+                throw new InvalidOperationException("기존 검증 빌드는 덮어쓰지 않습니다: " + output);
+            ConfigureBrandPlayerSettings();
+            ConfigureBuildSettings();
+            AssetDatabase.SaveAssets();
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = EditorBuildSettings.scenes.Where(scene => scene.enabled).Select(scene => scene.path).ToArray(),
+                locationPathName = output,
+                target = BuildTarget.StandaloneOSX,
+                options = BuildOptions.Development,
+            });
+            if (report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
+                throw new UnityEditor.Build.BuildFailedException("네이티브 스플래시 검증 빌드 실패");
+            Debug.Log("[MukJump] 네이티브 스플래시 검증 빌드 완료: " + output);
         }
     }
 }

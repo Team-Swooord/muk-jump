@@ -23,6 +23,8 @@ namespace MukJump.EditorTests
             typeof(StartupBrandSplash).GetField("restartSceneForTests",
                 BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, null);
             typeof(StartupBrandSplash).GetProperty("IsBlockingInput").SetValue(null, false);
+            typeof(StartupBrandSplash).GetField("replayRequested",
+                BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, false);
             PointerInput.ResetSuppressionForTests();
             if (host != null)
                 Object.DestroyImmediate(host);
@@ -67,16 +69,54 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void UnitySplashIsDisabledInPlayerSettings()
+        public void NativeSplashUsesExactlyTheShiftBrandAndSettings()
         {
-            string settings = File.ReadAllText(
-                "ProjectSettings/ProjectSettings.asset");
-            StringAssert.Contains("m_ShowUnitySplashScreen: 0", settings);
-            StringAssert.Contains("m_ShowUnitySplashLogo: 0", settings);
+            Assert.That(PlayerSettings.SplashScreen.show, Is.True);
+            Assert.That(PlayerSettings.SplashScreen.showUnityLogo, Is.False);
+            Assert.That(PlayerSettings.SplashScreen.backgroundColor,
+                Is.EqualTo(StartupBrandSplash.BackgroundColor));
+            Assert.That(PlayerSettings.SplashScreen.overlayOpacity, Is.EqualTo(1f));
+            Assert.That(PlayerSettings.SplashScreen.animationMode,
+                Is.EqualTo(PlayerSettings.SplashScreen.AnimationMode.Dolly));
+            Assert.That(PlayerSettings.SplashScreen.animationBackgroundZoom, Is.EqualTo(1f));
+            Assert.That(PlayerSettings.SplashScreen.animationLogoZoom, Is.EqualTo(1f));
+            Assert.That(PlayerSettings.SplashScreen.unityLogoStyle,
+                Is.EqualTo(PlayerSettings.SplashScreen.UnityLogoStyle.LightOnDark));
+            Assert.That(PlayerSettings.SplashScreen.drawMode,
+                Is.EqualTo(PlayerSettings.SplashScreen.DrawMode.UnityLogoBelow));
+            Assert.That(PlayerSettings.SplashScreen.background, Is.Null);
+            Assert.That(PlayerSettings.SplashScreen.backgroundPortrait, Is.Null);
+            Assert.That(PlayerSettings.SplashScreen.blurBackgroundImage, Is.True);
+            var logos = PlayerSettings.SplashScreen.logos;
+            Assert.That(logos.Length, Is.EqualTo(1));
+            Assert.That(logos[0].duration, Is.EqualTo(2f));
+            Assert.That(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(logos[0].logo)),
+                Is.EqualTo(MukJumpSplashSceneBuilder.LogoGuid));
         }
 
         [Test]
-        public void CustomSplashKeepsBlackCanvasVisibleAndFadesOnlyLogo()
+        public void BrandOriginalBytesAndImporterArePreserved()
+        {
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            string hash = System.BitConverter.ToString(sha.ComputeHash(
+                File.ReadAllBytes(MukJumpSplashSceneBuilder.LogoPath))).Replace("-", "").ToLowerInvariant();
+            Assert.That(hash, Is.EqualTo("d114445ffa2df2c698d8d3dc9c7ca328c991225f430d0397f043833f2cc44861"));
+            var importer = AssetImporter.GetAtPath(MukJumpSplashSceneBuilder.LogoPath) as TextureImporter;
+            Assert.That(importer, Is.Not.Null);
+            Assert.That(importer.textureType, Is.EqualTo(TextureImporterType.Sprite));
+            Assert.That(importer.spriteImportMode, Is.EqualTo(SpriteImportMode.Single));
+            Assert.That(importer.spritePixelsPerUnit, Is.EqualTo(32f));
+            Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Point));
+            Assert.That(importer.wrapMode, Is.EqualTo(TextureWrapMode.Clamp));
+            Assert.That(importer.textureCompression, Is.EqualTo(TextureImporterCompression.Uncompressed));
+            Assert.That(importer.mipmapEnabled, Is.False);
+            Assert.That(importer.isReadable, Is.False);
+            Assert.That(importer.alphaIsTransparency, Is.True);
+            Assert.That(importer.sRGBTexture, Is.True);
+        }
+
+        [Test]
+        public void BootstrapKeepsBrandBackgroundButNeverDuplicatesNativeLogo()
         {
             host = new GameObject("StartupBrandSplashTest");
             StartupBrandSplash splash =
@@ -100,7 +140,7 @@ namespace MukJump.EditorTests
                 Is.EqualTo(RenderMode.ScreenSpaceOverlay));
             Assert.That(rootGroup.alpha, Is.EqualTo(1f));
             Assert.That(rootGroup.blocksRaycasts, Is.False);
-            Assert.That(backdrop.color, Is.EqualTo(Color.black));
+            Assert.That(backdrop.color, Is.EqualTo(StartupBrandSplash.BackgroundColor));
             Assert.That(backdrop.raycastTarget, Is.True);
             Assert.That(logo, Is.Not.Null);
             Assert.That(logoGroup, Is.Not.Null);
@@ -109,7 +149,8 @@ namespace MukJump.EditorTests
             Assert.That(logo.rectTransform.anchoredPosition, Is.EqualTo(Vector2.zero));
             Assert.That(logo.rectTransform.sizeDelta,
                 Is.EqualTo(new Vector2(1200f, 1200f)));
-            Assert.That(logo.preserveAspect, Is.False);
+            Assert.That(logo.preserveAspect, Is.True);
+            Assert.That(logo.enabled, Is.False);
             Assert.That(logo.raycastTarget, Is.False);
             Assert.That(canvasRoot.GetComponentsInChildren<Text>(true), Is.Empty);
         }
@@ -131,7 +172,7 @@ namespace MukJump.EditorTests
             Transform canvasRoot = host.transform.Find("StartupBrandCanvas");
             Image logo = canvasRoot.Find("Logo").GetComponent<Image>();
             Assert.That(logo.sprite, Is.SameAs(logoSprite));
-            Assert.That(logo.enabled, Is.True);
+            Assert.That(logo.enabled, Is.False);
             Assert.That(canvasRoot.GetComponentsInChildren<Text>(true), Is.Empty);
         }
 
@@ -183,20 +224,26 @@ namespace MukJump.EditorTests
             }
         }
 
-        [Test]
-        public void SplashUsesShortFadeTimelineAndLoadsMain()
+        [TestCase(false, false, false, false)]
+        [TestCase(false, true, false, true)]
+        [TestCase(true, false, false, true)]
+        [TestCase(true, true, false, true)]
+        [TestCase(true, true, true, false)]
+        public void NativeLogoReplaysOnlyForEditorOrAccountDeletion(
+            bool editor, bool accountDeleted, bool batchMode, bool expected)
         {
-            Assert.That(StartupBrandSplash.InitialDelay, Is.EqualTo(0.1f));
-            Assert.That(StartupBrandSplash.FadeInDuration, Is.EqualTo(0.35f));
-            Assert.That(StartupBrandSplash.HoldDuration, Is.EqualTo(0.8f));
-            Assert.That(StartupBrandSplash.FadeOutDuration, Is.EqualTo(0.3f));
-            Assert.That(
-                StartupBrandSplash.InitialDelay +
-                StartupBrandSplash.FadeInDuration +
-                StartupBrandSplash.HoldDuration +
-                StartupBrandSplash.FadeOutDuration,
-                Is.EqualTo(1.55f).Within(0.001f));
+            var replay = typeof(StartupBrandSplash).GetMethod("ShouldReplayNativeSplash",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(replay.Invoke(null, new object[] { editor, accountDeleted, batchMode }), Is.EqualTo(expected));
             Assert.That(StartupBrandSplash.NextSceneName, Is.EqualTo("Main"));
+        }
+
+        [Test]
+        public void StoreBuildCannotTurnOffBrandSplashAgain()
+        {
+            string source = File.ReadAllText("Assets/Editor/MukJumpStoreBuild.cs");
+            Assert.That(source, Does.Contain("MukJumpSplashSceneBuilder.ConfigureBrandPlayerSettings();"));
+            Assert.That(source, Does.Not.Contain("PlayerSettings.SplashScreen.show = false"));
         }
 
         [Test]

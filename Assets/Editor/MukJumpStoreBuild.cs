@@ -188,8 +188,7 @@ namespace MukJump.EditorTools
             PlayerSettings.allowedAutorotateToLandscapeRight = false;
             PlayerSettings.runInBackground = false;
             PlayerSettings.muteOtherAudioSources = false;
-            PlayerSettings.SplashScreen.show = false;
-            PlayerSettings.SplashScreen.showUnityLogo = false;
+            MukJumpSplashSceneBuilder.ConfigureBrandPlayerSettings();
 
             PlayerSettings.SetApplicationIdentifier(
                 NamedBuildTarget.iOS,
