@@ -42,7 +42,7 @@ namespace MukJump.Core
                 ["고객센터"] = "Support",
                 ["튜토리얼"] = "Tutorial",
                 ["순위"] = "Leaderboard",
-                ["명예의 기록"] = "Hall of Fame",
+                ["세계 최고의 먹"] = "World’s Finest Ink",
                 ["이용약관"] = "Terms of Use",
                 ["개인정보처리방침"] = "Privacy Policy",
                 ["플레이 분석"] = "Gameplay Analytics",

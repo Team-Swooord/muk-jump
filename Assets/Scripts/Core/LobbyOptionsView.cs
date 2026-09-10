@@ -1035,7 +1035,7 @@ namespace MukJump.Core
 
         void BuildLeaderboardPage(Transform panel)
         {
-            CreateReadableText("LeaderboardTitle", panel, "명예의 기록", 64,
+            CreateReadableText("LeaderboardTitle", panel, "세계 최고의 먹", 64,
                 new Vector2(0f, 555f), new Vector2(600f, 82f),
                 InkPalette.TextDark, TextAnchor.MiddleCenter, strong: true);
             Text rankHeading = CreateReadableText("RankHeading", panel, "순위", 36, new Vector2(-292f, 430f),
