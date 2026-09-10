@@ -9,6 +9,7 @@ namespace MukJump.Core
     /// 씬 로딩만 기다리며 광고·원격 로그인 성공을 로딩 완료 조건으로 삼지 않는다.
     public sealed class StartupBrandSplash : MonoBehaviour
     {
+        public const string SceneName = "Splash";
         public const string NextSceneName = "Main";
         public const float InitialDelay = 0.1f;
         public const float FadeInDuration = 0.35f;
@@ -25,6 +26,43 @@ namespace MukJump.Core
         bool waitingForRetry;
 
         public static bool IsBlockingInput { get; private set; }
+
+#if UNITY_EDITOR
+        static System.Action<string> restartSceneForTests;
+#endif
+
+        /// 서버·기기 삭제 성공 뒤에만 호출한다. 기존 Main의 자동 진입을 닫고
+        /// 제작사 씬을 다시 거쳐 새 Main의 첫 안내를 준비한다.
+        internal static bool TryRestartAfterAccountDeletion()
+        {
+            // 시작 화면 아래에서 중단된 탈퇴를 복구했다면 현재 Splash가 이어 맡는다.
+            if (IsBlockingInput) return true;
+#if UNITY_EDITOR
+            if (!Application.isPlaying && restartSceneForTests == null) return true;
+#endif
+            FirstRunTutorialController.Instance?.PrepareForStartupReturn();
+            PointerInput.SuppressUntilRelease();
+            IsBlockingInput = true;
+            try
+            {
+#if UNITY_EDITOR
+                if (restartSceneForTests != null)
+                {
+                    restartSceneForTests(SceneName);
+                    return true;
+                }
+#endif
+                if (SceneManager.LoadSceneAsync(SceneName, LoadSceneMode.Single) == null)
+                    throw new System.InvalidOperationException("Splash 씬 로드를 시작하지 못했습니다.");
+                return true;
+            }
+            catch (System.Exception exception)
+            {
+                IsBlockingInput = false;
+                Debug.LogWarning("[MukJump] 계정 삭제 후 시작 화면 복귀 실패: " + exception.Message);
+                return false;
+            }
+        }
 
         void OnEnable()
         {

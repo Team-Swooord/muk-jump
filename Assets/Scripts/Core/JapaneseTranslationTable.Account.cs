@@ -149,6 +149,7 @@ namespace MukJump.Core
             v["Clearing Google sign-in data on this device..."] = "端末のGoogleログイン情報を整理中…";
             v["Your online account was deleted. Retry deleting device data."] = "サーバーのアカウントは削除済みです。端末データの削除を再試行してください。";
             v["Your account and its cloud and device data were deleted."] = "アカウントとサーバー・端末のデータを削除しました。";
+            v["Your account was deleted. Reopen the app to start the tutorial."] = "アカウントを削除しました。チュートリアルを始めるにはアプリを再起動してください。";
             v["Could not save the pending leaderboard submission."] = "順位登録の再試行状態を保存できませんでした。";
             v["Available after connection and leaderboard setup."] = "接続とランキング設定の完了後に表示されます。";
             v["Loading the height leaderboard..."] = "高度ランキングを取得中…"; v["Submitting your saved best to the leaderboard..."] = "保存済みの最高記録をランキングに反映中…";

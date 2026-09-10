@@ -42,6 +42,18 @@ namespace MukJump.EditorTests
             .GetField("transitionInProgress", Private).SetValue(game, active);
 
         [Test]
+        public void TransitionBlocksUserMenuButAllowsFirstTutorialPause()
+        {
+            Transition(true);
+            Assert.That(game.PauseGame(), Is.False);
+            Assert.That(game.PauseForFirstRunTutorial(), Is.True);
+            Transition(false);
+            Invoke("Update");
+            Assert.That(game.PauseReason, Is.EqualTo(GameplayPauseReason.FirstRunTutorial));
+            Assert.That(game.IsGameplayTicking, Is.False);
+        }
+
+        [Test]
         public void BackgroundDuringScreenTransitionStillStopsPhysics()
         {
             Transition(true);

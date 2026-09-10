@@ -126,6 +126,88 @@ namespace MukJump.EditorTests
         }
 
         [UnityTest, Timeout(180000)]
+        public IEnumerator AccountDeletionReturnsThroughSplashBeforePausedTutorial()
+        {
+            yield return new EnterPlayMode();
+            yield return RunDeletionSplashFlow();
+            yield return new ExitPlayMode();
+        }
+
+        static IEnumerator RunDeletionSplashFlow()
+        {
+            bool oldBackground = Application.runInBackground;
+            Application.runInBackground = true;
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            var settings = new MemoryLobbySettingsStore();
+            LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            Time.timeScale = 1;
+            AudioListener.pause = false;
+            var loaded = new List<string>();
+            void OnLoaded(Scene scene, LoadSceneMode mode) => loaded.Add(scene.name);
+            SceneManager.sceneLoaded += OnLoaded;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main");
+                yield return WaitReal(.2f);
+                var oldManager = GameManager.Instance;
+                Assert.That(oldManager.State, Is.EqualTo(GameState.Lobby));
+                loaded.Clear();
+                // 서버를 삭제하지 않고, 검증된 삭제의 로컬 완료 경계부터 실제 씬 이동을 검사한다.
+                Assert.That(LobbySettingsProfile.TryResetForAccountDeletion(), Is.True);
+                var restart = typeof(StartupBrandSplash).GetMethod("TryRestartAfterAccountDeletion",
+                    BindingFlags.Static | BindingFlags.NonPublic);
+                Assert.That(restart.Invoke(null, null), Is.True);
+                Assert.That(StartupBrandSplash.IsBlockingInput, Is.True);
+                Assert.That(oldManager.State, Is.EqualTo(GameState.Lobby));
+                double deadline = Time.realtimeSinceStartupAsDouble + 20;
+                while (Time.realtimeSinceStartupAsDouble < deadline &&
+                       (loaded.Count < 2 || StartupBrandSplash.IsBlockingInput ||
+                        FirstRunTutorialController.Instance == null ||
+                        !FirstRunTutorialController.Instance.IsActive))
+                    yield return WaitReal(.1f);
+                Assert.That(loaded, Is.EqualTo(new[] { "Splash", "Main" }));
+                Assert.That(GameManager.Instance, Is.Not.SameAs(oldManager));
+                Assert.That(FirstRunTutorialController.Instance.IsActive, Is.True);
+                Assert.That(FirstRunTutorialController.Instance.CurrentStep, Is.Zero);
+                Assert.That(GameManager.Instance.PauseReason, Is.EqualTo(GameplayPauseReason.FirstRunTutorial));
+                yield return WaitReal(.5f);
+                Assert.That(GameManager.Instance.IsGameplayTicking, Is.False);
+                Assert.That(Time.timeScale, Is.Zero);
+
+                // 안내 완료 뒤 앱을 다시 켠 상황은 Splash를 지나도 자동으로 새 판을 시작하지 않는다.
+                Assert.That(LobbySettingsProfile.TryMarkGameplayTutorialCompleted(), Is.True);
+                LobbySettingsProfile.UseStoreForTests(settings);
+                loaded.Clear();
+                yield return SceneManager.LoadSceneAsync(StartupBrandSplash.SceneName);
+                deadline = Time.realtimeSinceStartupAsDouble + 20;
+                while (Time.realtimeSinceStartupAsDouble < deadline &&
+                       (loaded.Count < 2 || StartupBrandSplash.IsBlockingInput))
+                    yield return WaitReal(.1f);
+                Assert.That(loaded, Is.EqualTo(new[] { "Splash", "Main" }));
+                yield return WaitReal(1f);
+                Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby));
+                Assert.That(FirstRunTutorialController.Instance.IsActive, Is.False);
+            }
+            finally
+            {
+                SceneManager.sceneLoaded -= OnLoaded;
+                foreach (var root in SceneManager.GetActiveScene().GetRootGameObjects()) Object.DestroyImmediate(root);
+                PermanentGrowthProfile.RestoreDefaultStoreForTests();
+                ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+                LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PointerInput.ResetSuppressionForTests();
+                Time.timeScale = 1;
+                AudioListener.pause = false;
+                Application.runInBackground = oldBackground;
+            }
+        }
+
+        [UnityTest, Timeout(180000)]
         public IEnumerator IncompleteTutorialNeverAutoRestartsAfterResultOrPauseExit()
         {
             yield return new EnterPlayMode();
@@ -154,6 +236,9 @@ namespace MukJump.EditorTests
                     Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.False);
                     // 완료 저장이 없는 경우에도 로비를 강제로 다시 시작하면 안 된다.
                     var tutorial = Object.FindAnyObjectByType<FirstRunTutorialController>();
+                    Assert.That(tutorial.IsActive, Is.True,
+                        "로고 없이 진입해 붓 전환을 거쳐도 첫 안내를 생략하면 안 된다.");
+                    Assert.That(manager.PauseReason, Is.EqualTo(GameplayPauseReason.FirstRunTutorial));
                     typeof(FirstRunTutorialController).GetMethod("EndWithoutCompletion", Private).Invoke(tutorial, null);
                     Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.True);
                     yield return WaitForGameplay();

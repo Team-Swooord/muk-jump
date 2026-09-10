@@ -247,6 +247,7 @@ namespace MukJump.Core
         Action<Action<BackendReturnObject>> authorizeFederationForTests;
         Action<Action<BackendReturnObject>> logoutForTests;
         Action<Action<BackendReturnObject>> withdrawAccountForTests;
+        Action clearDeletedGuestInfoForTests;
         Action pumpAppleAuthenticationForTests;
         Action<Action<BackEnd.Leaderboard.BackendUserLeaderboardReturnObject>>
             getLeaderboardForTests;
@@ -5044,6 +5045,11 @@ namespace MukJump.Core
             {
                 // WithdrawAccount 성공 시 서버 토큰은 이미 폐기된다. SDK가
                 // 보관한 게스트 인증 정보도 지워 다음 실행의 자동 재가입을 막는다.
+#if UNITY_EDITOR
+                if (clearDeletedGuestInfoForTests != null)
+                    clearDeletedGuestInfoForTests();
+                else
+#endif
                 Backend.BMember.DeleteGuestInfo();
             }
             catch (Exception exception)
@@ -5058,6 +5064,7 @@ namespace MukJump.Core
             bool scoreCleared = false;
             bool growthCleared = false;
             bool settingsCleared = false;
+            bool identityCleared = false;
             try
             {
                 try
@@ -5093,6 +5100,8 @@ namespace MukJump.Core
                         "[MukJump] 설정 기록 삭제를 다시 시도합니다: " +
                         exception.Message);
                 }
+                identityCleared = MukJumpIdentityProfile.TryResetForAccountDeletion(
+                    PlayerPrefs.GetString(PendingLocalAccountDeletionOwnerKey, string.Empty));
             }
             finally
             {
@@ -5103,7 +5112,7 @@ namespace MukJump.Core
                 backendLocalAccountCleared &&
                 scoreCleared &&
                 growthCleared &&
-                settingsCleared;
+                settingsCleared && identityCleared;
             if (!localCleared)
             {
                 IsOnlineAuthenticated = false;
@@ -5178,7 +5187,12 @@ namespace MukJump.Core
             accountDeletionFederationCleared = false;
             accountDeletionAppleRevokeRequired = false;
             SetLocalReady("계정과 연결된 서버·기기 데이터를 삭제했습니다");
-            FirstRunTutorialController.Instance?.PrepareAfterAccountDeletion();
+            // 삭제 직후의 새 게스트 연결은 일반 오류 재시도 지연을 물려받지 않는다.
+            // Splash가 보이는 동안 연결을 시작하되 오프라인 플레이는 계속 허용한다.
+            guestReconnectDelaySeconds = InitialRetrySeconds;
+            guestReconnectAtRealtime = Time.realtimeSinceStartup;
+            if (!StartupBrandSplash.TryRestartAfterAccountDeletion())
+                SetStatus("계정은 삭제했습니다. 첫 안내를 시작하려면 앱을 다시 실행해 주세요");
         }
 
         void SetAutomaticAuthenticationSuppressed(bool suppressed)

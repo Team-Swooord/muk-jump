@@ -47,6 +47,37 @@ namespace MukJump.EditorTests
             Assert.That(name, Does.Match(@"^guest\d{5}$"));
             Assert.That(name.Length, Is.EqualTo(10));
         }
+
+        [TestCase("deleted-owner")]
+        [TestCase("")]
+        [TestCase(MukJumpIdentityProfile.LocalScope)]
+        public void DeletionRotatesLocalGuestAndOnlyClearsDeletedOwnersIdentity(string deletedScope)
+        {
+            var store = new MemoryIdentityStore();
+            MukJumpIdentityProfile.UseStoreForTests(store);
+            string oldUid = MukJumpIdentityProfile.LocalUid;
+            string oldNickname = MukJumpIdentityProfile.GuestNickname;
+            MukJumpIdentityProfile.SaveUid("deleted-owner", "123456");
+            MukJumpIdentityProfile.SaveNickname("deleted-owner", "삭제할이름");
+            MukJumpIdentityProfile.SaveUid("other-owner", "987654");
+            MukJumpIdentityProfile.SaveNickname("other-owner", "보존할이름");
+            Assert.That(MukJumpIdentityProfile.TryResetForAccountDeletion(deletedScope), Is.True);
+            string newUid = MukJumpIdentityProfile.LocalUid;
+            string newNickname = MukJumpIdentityProfile.GuestNickname;
+            Assert.That(newUid, Is.Not.EqualTo(oldUid));
+            Assert.That(newNickname, Is.Not.EqualTo(oldNickname));
+            Assert.That(newNickname, Does.Match(@"^guest\d{5}$"));
+            if (deletedScope == "deleted-owner")
+            {
+                Assert.That(MukJumpIdentityProfile.ReadUid(deletedScope), Is.Empty);
+                Assert.That(MukJumpIdentityProfile.ReadNickname(deletedScope), Is.Empty);
+            }
+            Assert.That(MukJumpIdentityProfile.ReadUid("other-owner"), Is.EqualTo("987654"));
+            Assert.That(MukJumpIdentityProfile.ReadNickname("other-owner"), Is.EqualTo("보존할이름"));
+            MukJumpIdentityProfile.UseStoreForTests(store);
+            Assert.That(MukJumpIdentityProfile.LocalUid, Is.EqualTo(newUid));
+            Assert.That(MukJumpIdentityProfile.GuestNickname, Is.EqualTo(newNickname));
+        }
         [TestCase(" 먹방울_1 ", true)]
         [TestCase("Muk-Jump", true)]
         [TestCase("a", false)]

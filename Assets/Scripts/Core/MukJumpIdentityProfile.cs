@@ -62,6 +62,37 @@ namespace MukJump.Core
             return "guest" + (value % 100000).ToString("D5", CultureInfo.InvariantCulture);
         }
 
+        /// 탈퇴한 계정의 표시 캐시만 비우고 새 오프라인 게스트를 만든다.
+        /// 재실행·로그아웃에서는 호출하지 않으며 다른 계정의 캐시는 보존한다.
+        public static bool TryResetForAccountDeletion(string deletedScope)
+        {
+            try
+            {
+                string previous = GuestNickname;
+                string nextUid = "local-" + Guid.NewGuid().ToString("N");
+                string nextNickname = CreateGuestNickname(nextUid);
+                // 5자리 난수가 우연히 같아도 삭제 전 이름을 다시 배정하지 않는다.
+                if (nextNickname == previous)
+                    nextNickname = "guest" + ((int.Parse(nextNickname.Substring(5),
+                        CultureInfo.InvariantCulture) + 1) % 100000).ToString("D5", CultureInfo.InvariantCulture);
+                store.Write("LocalUid", nextUid);
+                store.Write(Key(LocalScope, "Nickname"), nextNickname);
+                store.Write(Key(LocalScope, "Uid"), string.Empty);
+                if (!string.IsNullOrWhiteSpace(deletedScope) && deletedScope != LocalScope)
+                {
+                    store.Write(Key(deletedScope, "Uid"), string.Empty);
+                    store.Write(Key(deletedScope, "Nickname"), string.Empty);
+                }
+                store.Save();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning("[MukJump] 탈퇴 계정의 표시 정보 삭제를 다시 시도합니다: " + exception.Message);
+                return false;
+            }
+        }
+
         public static bool IsGeneratedNickname(string value)
         {
             if (value == null) return false;

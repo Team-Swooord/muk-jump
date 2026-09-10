@@ -7,6 +7,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.TestTools;
 
 namespace MukJump.EditorTests
 {
@@ -19,12 +20,50 @@ namespace MukJump.EditorTests
         [TearDown]
         public void TearDown()
         {
+            typeof(StartupBrandSplash).GetField("restartSceneForTests",
+                BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, null);
+            typeof(StartupBrandSplash).GetProperty("IsBlockingInput").SetValue(null, false);
+            PointerInput.ResetSuppressionForTests();
             if (host != null)
                 Object.DestroyImmediate(host);
             if (logoSprite != null)
                 Object.DestroyImmediate(logoSprite);
             if (logoTexture != null)
                 Object.DestroyImmediate(logoTexture);
+        }
+
+        [Test]
+        public void DeletionRestartsSplashOnceAndBlocksOldSceneInputImmediately()
+        {
+            int requests = 0;
+            string requestedScene = null;
+            typeof(StartupBrandSplash).GetField("restartSceneForTests",
+                BindingFlags.Static | BindingFlags.NonPublic).SetValue(null,
+                    new System.Action<string>(scene => { requests++; requestedScene = scene; }));
+            var restart = typeof(StartupBrandSplash).GetMethod("TryRestartAfterAccountDeletion",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(restart.Invoke(null, null), Is.True);
+            Assert.That(StartupBrandSplash.IsBlockingInput, Is.True);
+            Assert.That(restart.Invoke(null, null), Is.True);
+            Assert.That(requests, Is.EqualTo(1));
+            Assert.That(requestedScene, Is.EqualTo("Splash"));
+        }
+
+        [Test]
+        public void FailedSplashRequestReleasesInputAndCanBeRetriedWithoutDeletingAgain()
+        {
+            var hook = typeof(StartupBrandSplash).GetField("restartSceneForTests",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            hook.SetValue(null, new System.Action<string>(_ =>
+                throw new System.InvalidOperationException("scene unavailable")));
+            var restart = typeof(StartupBrandSplash).GetMethod("TryRestartAfterAccountDeletion",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            LogAssert.Expect(LogType.Warning,
+                "[MukJump] 계정 삭제 후 시작 화면 복귀 실패: scene unavailable");
+            Assert.That(restart.Invoke(null, null), Is.False);
+            Assert.That(StartupBrandSplash.IsBlockingInput, Is.False);
+            hook.SetValue(null, new System.Action<string>(_ => { }));
+            Assert.That(restart.Invoke(null, null), Is.True);
         }
 
         [Test]

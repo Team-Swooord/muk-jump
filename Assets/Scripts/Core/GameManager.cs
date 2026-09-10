@@ -2114,7 +2114,10 @@ namespace MukJump.Core
                 NotifyListenersSafely(PauseChanged, true, "일시정지");
                 return true;
             }
-            if (IsTransitioning && reason != GameplayPauseReason.ApplicationBackground)
+            // 첫 안내는 덮개가 걷히기 전 Playing 알림 안에서 열린다. 인증이
+            // 늦거나 탈퇴 후 재진입해도 전환 중 안내의 물리 정지는 반드시 허용한다.
+            // 사용자 메뉴만 전환 입력 잠금을 따른다.
+            if (IsTransitioning && reason == GameplayPauseReason.UserMenu)
                 return false;
 
             PointerInput.SuppressUntilRelease();

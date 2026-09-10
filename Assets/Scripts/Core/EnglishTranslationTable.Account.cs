@@ -174,6 +174,7 @@ namespace MukJump.Core
             values["Google 기기 로그인 정보를 정리하고 있습니다"] = "Clearing Google sign-in data on this device...";
             values["서버 계정은 삭제했습니다. 기기 데이터 삭제를 다시 시도해 주세요"] = "Your online account was deleted. Retry deleting device data.";
             values["계정과 연결된 서버·기기 데이터를 삭제했습니다"] = "Your account and its cloud and device data were deleted.";
+            values["계정은 삭제했습니다. 첫 안내를 시작하려면 앱을 다시 실행해 주세요"] = "Your account was deleted. Reopen the app to start the tutorial.";
             values["기록 순위 재시도 상태를 저장하지 못했습니다"] = "Could not save the pending leaderboard submission.";
             values["게스트 서버 연결과 리더보드 설정이 완료되면 표시됩니다"] = "Available after connection and leaderboard setup.";
             values["최고 고도 순위를 불러오는 중"] = "Loading the height leaderboard...";

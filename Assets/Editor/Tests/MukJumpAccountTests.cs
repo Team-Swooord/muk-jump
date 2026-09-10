@@ -312,6 +312,73 @@ namespace MukJump.EditorTests
             Assert.That(LobbySettingsProfile.PlayerUid, Is.Not.EqualTo(previousUid));
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void VerifiedDeletionRestartsSplashOnlyAfterAllLocalCleanupSucceeds(bool failFirstCleanup)
+        {
+            MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
+            LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore { Best = 237 });
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            string oldGuestName = MukJumpIdentityProfile.GuestNickname;
+            MukJumpIdentityProfile.SaveUid("deleted-owner", "123456");
+            MukJumpIdentityProfile.SaveNickname("deleted-owner", "삭제이름");
+            host = new GameObject("DeletionSplashBoundary");
+            var account = host.AddComponent<MukJumpAccountRuntime>();
+            ActivateAccountRuntime(account);
+            SetPrivateField(account, "accountDeletionCleanupPending", true);
+            PlayerPrefs.SetInt("MukJump.Account.PendingLocalAccountDeletionCleanup", 1);
+            PlayerPrefs.SetString(DeletionOwnerKey, "deleted-owner");
+            int cleanups = 0, restarts = 0;
+            SetPrivateField(account, "clearDeletedGuestInfoForTests", new System.Action(() =>
+            {
+                cleanups++;
+                if (failFirstCleanup && cleanups == 1)
+                    throw new System.InvalidOperationException("cleanup unavailable");
+            }));
+            var restartHook = typeof(StartupBrandSplash).GetField("restartSceneForTests",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            restartHook.SetValue(null, new System.Action<string>(scene =>
+            {
+                Assert.That(scene, Is.EqualTo("Splash"));
+                Assert.That(account.HasPendingAccountDeletionCleanup, Is.False);
+                Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.True);
+                restarts++;
+            }));
+            try
+            {
+                InvokeLifecycle(account, "FinishLocalAccountDeletion");
+                Assert.That(cleanups + restarts, Is.Zero, "서버 삭제 확인 전에는 기기 정리와 씬 이동을 하지 않는다.");
+                SetPrivateField(account, "accountDeletionRemoteConfirmed", true);
+                if (failFirstCleanup)
+                {
+                    LogAssert.Expect(LogType.Warning,
+                        "[MukJump] 뒤끝 기기 계정 정보 삭제를 다시 시도합니다: cleanup unavailable");
+                    InvokeLifecycle(account, "FinishLocalAccountDeletion");
+                    Assert.That(restarts, Is.Zero);
+                    Assert.That(account.HasPendingAccountDeletionCleanup, Is.True);
+                    Assert.That(account.BlocksGameplayForAccountSync, Is.True);
+                }
+                InvokeLifecycle(account, "FinishLocalAccountDeletion");
+                Assert.That(restarts, Is.EqualTo(1));
+                Assert.That(account.AccountKind, Is.EqualTo(MukJumpAccountKind.LocalGuest));
+                Assert.That(account.BlocksGameplayForAccountSync, Is.False);
+                Assert.That(PlayerPrefs.HasKey("MukJump.Account.PendingLocalAccountDeletionCleanup"), Is.False);
+                Assert.That(MukJumpIdentityProfile.ReadUid("deleted-owner"), Is.Empty);
+                Assert.That(MukJumpIdentityProfile.ReadNickname("deleted-owner"), Is.Empty);
+                Assert.That(MukJumpIdentityProfile.GuestNickname, Is.Not.EqualTo(oldGuestName));
+                Assert.That(account.BackendUid, Is.Empty, "새 서버 UID를 확인하기 전 옛 UID를 표시하지 않는다.");
+                InvokeLifecycle(account, "FinishLocalAccountDeletion");
+                Assert.That(restarts, Is.EqualTo(1), "중복 완료 콜백이 Splash를 다시 열면 안 된다.");
+            }
+            finally
+            {
+                restartHook.SetValue(null, null);
+                typeof(StartupBrandSplash).GetProperty("IsBlockingInput").SetValue(null, false);
+                MukJumpIdentityProfile.UseStoreForTests(null);
+            }
+        }
+
         [Test]
         public void ThrowingSettingsObserverCannotTurnDeletionResetIntoFailure()
         {

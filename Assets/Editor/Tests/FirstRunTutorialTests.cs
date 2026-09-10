@@ -143,7 +143,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void AccountDeletionRearmsCompletedControllerAndPersistsFreshTutorial()
+        public void AccountDeletionStopsOldControllerAndLeavesTutorialForNewScene()
         {
             LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
             host = new GameObject("DeletedAccountTutorial");
@@ -156,17 +156,55 @@ namespace MukJump.EditorTests
             Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.False);
 
             Assert.That(LobbySettingsProfile.TryResetForAccountDeletion(), Is.True);
-            typeof(FirstRunTutorialController).GetMethod("PrepareAfterAccountDeletion", flags)
+            typeof(FirstRunTutorialController).GetMethod("PrepareForStartupReturn", flags)
                 .Invoke(tutorial, null);
             Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.True);
             Assert.That(typeof(FirstRunTutorialController).GetField("autoStartAttempted", flags)
-                .GetValue(tutorial), Is.False);
-            Assert.That(typeof(FirstRunTutorialController).GetField("autoStartFirstVisit", flags)
                 .GetValue(tutorial), Is.True);
+            Assert.That(typeof(FirstRunTutorialController).GetField("autoStartFirstVisit", flags)
+                .GetValue(tutorial), Is.False,
+                "삭제 전 Main의 Update는 첫 판을 시작하지 않는다.");
             Assert.That(LobbySettingsProfile.TutorialSeen, Is.False);
             LobbySettingsProfile.UseStoreForTests(store);
             Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.True,
                 "삭제 직후 앱을 종료해도 새 게스트의 첫 안내가 남아야 합니다.");
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void FirstTutorialPausesBeforeStartupOrBrushCoverReveals(bool transitionStillPlaying)
+        {
+            float oldTimeScale = Time.timeScale;
+            bool oldAudioPause = AudioListener.pause;
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            host = new GameObject("CoveredTutorialEntry");
+            try
+            {
+                var game = host.AddComponent<GameManager>();
+                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(GameManager).GetMethod("OnEnable", flags).Invoke(game, null);
+                var tutorial = host.GetComponent<FirstRunTutorialController>() ??
+                    host.AddComponent<FirstRunTutorialController>();
+                typeof(FirstRunTutorialController).GetMethod("BindRuntimeSignals", flags)
+                    .Invoke(tutorial, null);
+                Assert.That(tutorial.PrepareForGameStart(), Is.True);
+                typeof(GameManager).GetField("transitionInProgress", flags)
+                    .SetValue(game, transitionStillPlaying);
+                typeof(GameManager).GetMethod("SetState", flags)
+                    .Invoke(game, new object[] { GameState.Playing });
+                typeof(GameManager).GetField("transitionInProgress", flags).SetValue(game, false);
+                Assert.That(tutorial.IsActive, Is.True);
+                Assert.That(game.PauseReason, Is.EqualTo(GameplayPauseReason.FirstRunTutorial));
+                Assert.That(game.IsGameplayTicking, Is.False);
+                Assert.That(Time.timeScale, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+                MobileApplicationLifecycle.SetPlatformVisibility(true);
+                Time.timeScale = oldTimeScale;
+                AudioListener.pause = oldAudioPause;
+            }
         }
 
         [Test]

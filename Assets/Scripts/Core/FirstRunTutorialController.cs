@@ -127,14 +127,13 @@ namespace MukJump.Core
         /// 브랜드가 걷히기 전에 새 설치의 게임 월드를 준비해 로비가 번쩍 보이지 않게 한다.
         public void PrepareBeforeStartupReveal() => TryAutoStartFirstVisit(true);
 
-        /// 서버 탈퇴와 기기 정리가 모두 성공한 새 게스트에만 호출한다.
-        internal void PrepareAfterAccountDeletion()
+        /// 탈퇴 뒤 현재 Main에서 자동 시작하지 않고 Splash로 돌아갈 준비만 한다.
+        internal void PrepareForStartupReturn()
         {
             if (active) EndWithoutCompletion();
             pendingFirstRun = closing = awaitingNickname = false;
-            autoStartAttempted = false;
-            autoStartFirstVisit = LobbySettingsProfile.ShouldAutoStartGameplayTutorial;
-            autoStartEarliestFrame = Time.frameCount + 1;
+            autoStartAttempted = true;
+            autoStartFirstVisit = false;
             var options = GetComponent<LobbyOptionsView>();
             if (options == null) options = FindAnyObjectByType<LobbyOptionsView>();
             options?.Close();
