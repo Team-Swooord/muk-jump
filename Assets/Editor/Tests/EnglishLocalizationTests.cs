@@ -61,6 +61,18 @@ namespace MukJump.EditorTests
             Assert.That(GameLocalization.Language, Is.EqualTo(GameLanguage.English));
         }
 
+        [TestCase("기록은 저장됐지만 순위 등록을 재시도 중입니다 (403)", "Progress saved. Retrying leaderboard submission (403)")]
+        [TestCase("기록은 저장됐지만 순위 등록을 재시도 중입니다 (응답 없음)", "Progress saved. Retrying leaderboard submission (no response)")]
+        [TestCase("저장된 최고 기록을 순위에 반영하는 중입니다", "Submitting your saved best to the leaderboard...")]
+        [TestCase("이전 저장을 확인했습니다. 최신 기록을 이어서 저장합니다", "Previous save confirmed. Saving your latest progress...")]
+        public void AccountRecoveryStatusPreservesMeaningAcrossLanguages(string source, string expected)
+        {
+            GameLocalization.SetLanguage(GameLanguage.English);
+            Assert.That(GameLocalization.Translate(source), Is.EqualTo(expected));
+            GameLocalization.SetLanguage(GameLanguage.Korean);
+            Assert.That(GameLocalization.Translate(source), Is.EqualTo(source));
+        }
+
         [Test]
         public void BoundTextUpdatesImmediatelyAndRetainsSourceAcrossLanguageChanges()
         {

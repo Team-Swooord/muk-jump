@@ -725,6 +725,26 @@ namespace MukJump.EditorTests
             Assert.That(account.BlocksGameplayForAccountSync, Is.False);
         }
 
+        [Test]
+        public void SaveTimeoutPreservesSameAccountLogoutIntent()
+        {
+            var account = CreateReadySaveRuntime();
+            SetPrivateField(account, "accountSessionGeneration", 12L);
+            SetPrivateField(account, "logoutAfterSaveRequested", true);
+            SetPrivateField(account, "logoutAfterSaveSession", 12L);
+            SetPrivateField(account, "saveInFlight", true);
+            SetPrivateField(account, "saveDeadlineRealtime", -1f);
+            LogAssert.Expect(LogType.Warning, "[MukJump] 클라우드 저장 응답 시간이 초과되어 다시 시도합니다.");
+            InvokeLifecycle(account, "ProcessAccountRequestWatchdogs");
+            InvokeLifecycle(account, "ContinueRequestedLogout");
+            Assert.That(ReadPrivateBool(account, "logoutAfterSaveRequested"), Is.True);
+            Assert.That(ReadPrivateBool(account, "dirty"), Is.True);
+            SetPrivateField(account, "accountSessionGeneration", 14L);
+            InvokeLifecycle(account, "ContinueRequestedLogout");
+            Assert.That(ReadPrivateBool(account, "logoutAfterSaveRequested"), Is.False,
+                "진짜 계정 변경에는 이전 계정의 로그아웃 요청을 실행하면 안 됩니다.");
+        }
+
         MukJumpAccountRuntime CreateLeaderboardRuntime()
         {
             var account = CreateReadySaveRuntime();
@@ -915,6 +935,41 @@ namespace MukJump.EditorTests
             account.SaveNow();
             Assert.That(calls, Is.Zero);
             Assert.That(ReadPrivateBool(account, "dirty"), Is.True);
+        }
+
+        [Test]
+        public void CloudLoadWaitsForRankWriteThenResumesWithoutDroppingTheRequest()
+        {
+            var account = CreateLeaderboardRuntime();
+            SetPrivateField(account, "leaderboardSaveInFlight", true);
+            SetPrivateField(account, "leaderboardSaveDeadlineRealtime", float.MaxValue);
+            int reads = 0;
+            SetBackendRequestHook(account, "getMyDataForTests", _ => reads++);
+            InvokeLifecycle(account, "LoadCloudSnapshot");
+            Assert.That(reads, Is.Zero);
+            Assert.That(ReadPrivateBool(account, "resumeCloudLoadPending"), Is.True);
+            SetPrivateField(account, "leaderboardSaveInFlight", false);
+            InvokeLifecycle(account, "Update");
+            Assert.That(reads, Is.EqualTo(1));
+            Assert.That(ReadPrivateBool(account, "cloudLoadInFlight"), Is.True);
+        }
+
+        [TestCase("profileResolutionPending")]
+        [TestCase("backendProviderVerificationInFlight")]
+        [TestCase("federationRequestInFlight")]
+        [TestCase("temporaryBackendPause")]
+        [TestCase("localLogoutCleanupPending")]
+        [TestCase("accountDeletionCleanupPending")]
+        public void CloudSaveDoesNotReadOrWriteWhileAccountTransitionIsUnresolved(string field)
+        {
+            var account = CreateReadySaveRuntime();
+            SetPrivateField(account, field, true);
+            int reads = 0;
+            SetBackendRequestHook(account, "getMyDataForTests", _ => reads++);
+            account.SaveNow();
+            Assert.That(reads, Is.Zero);
+            Assert.That(ReadPrivateBool(account, "dirty"), Is.True);
+            Assert.That(ReadPrivateBool(account, "saveInFlight"), Is.False);
         }
 
         [Test]
@@ -3071,6 +3126,31 @@ namespace MukJump.EditorTests
             account.SaveNow();
             Assert.That(responses.Count, Is.EqualTo(2));
             Assert.That(ReadPrivateBool(account, "saveInFlight"), Is.True);
+        }
+
+        [TestCase("own-write", 2, false)]
+        [TestCase("other-device-write", 2, true)]
+        [TestCase("own-write", 3, true)]
+        public void LostSaveResponseRecognizesOnlyItsOwnNextRevision(string operation, int serverRevision, bool conflict)
+        {
+            var account = CreateReadySaveRuntime();
+            SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => "owner-a"));
+            PlayerPrefs.SetString("MukJump.Cloud.PendingOperationId", "own-write");
+            SetSaveSnapshotHook(account, CreateValidCloudSnapshot(2));
+            string json = "{\"rows\":[{\"inDate\":{\"S\":\"row-1\"}," +
+                "\"schemaVersion\":{\"N\":\"1\"},\"bestHeight\":{\"N\":\"43\"}," +
+                "\"revision\":{\"N\":\"" + serverRevision + "\"}," +
+                "\"lastOperationId\":{\"S\":\"" + operation + "\"}," +
+                "\"growthJson\":{\"S\":\"" + ValidGrowthJson.Replace("\"", "\\\"") + "\"}}]}";
+            SetBackendRequestHook(account, "getMyDataForTests", cb => cb(BackendResult(200, json)));
+            int writes = 0;
+            SetBackendRequestHook(account, "updateGameDataForTests", _ => writes++);
+            account.SaveNow();
+            Assert.That(account.HasPendingSyncConflict, Is.EqualTo(conflict));
+            Assert.That(ReadPrivateBool(account, "dirty"), Is.True, "응답 유실 뒤 추가된 로컬 변경을 보존해야 합니다.");
+            Assert.That(writes, Is.Zero, "확인 전 캡처한 옛 revision으로 덮어쓰면 안 됩니다.");
+            Assert.That(PlayerPrefs.HasKey("MukJump.Cloud.PendingOperationId"), Is.EqualTo(conflict));
+            if (!conflict) Assert.That(PlayerPrefs.GetString("MukJump.Cloud.Revision"), Is.EqualTo("2"));
         }
 
         [Test]

@@ -49,6 +49,7 @@ namespace MukJump.Core
         static readonly Regex NextDistanceReward = new(@"^다음 먹빛까지 ([0-9,]+)m$");
         static readonly Regex ResultInklight = new(@"^(예상 )?먹빛 \+(\d+)$");
         static readonly Regex RichTag = new(@"(<[^>]+>)");
+        static readonly Regex LeaderboardRetry = new(@"^기록은 저장됐지만 순위 등록을 재시도 중입니다 \(([0-9]{3}|응답 없음)\)$");
 
         public static string Translate(string source)
         {
@@ -59,6 +60,10 @@ namespace MukJump.Core
         static string English(string source)
         {
             if (EnglishTranslationTable.Values.TryGetValue(source, out string value)) return value;
+            Match retry = LeaderboardRetry.Match(source);
+            if (retry.Success)
+                return "Progress saved. Retrying leaderboard submission (" +
+                    (retry.Groups[1].Value == "응답 없음" ? "no response" : retry.Groups[1].Value) + ")";
             Match match = InklightCost.Match(source);
             if (match.Success) return "Need " + match.Groups[1].Value + " Inklight";
             match = HeightLabel.Match(source);

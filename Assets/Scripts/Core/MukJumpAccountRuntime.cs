@@ -737,7 +737,12 @@ namespace MukJump.Core
             bool hadCloudOperation = cloudLoadInFlight || saveInFlight;
             bool hadLeaderboardSave = leaderboardSaveInFlight;
             bool hadLeaderboardLoad = LeaderboardLoading;
+            // 통신 timeout은 계정 변경이 아니다. 저장 뒤 로그아웃 요청은
+            // 같은 계정의 재시도 세대로 이어가되 실제 계정 전환 때는 계속 폐기한다.
+            if (logoutAfterSaveRequested && logoutAfterSaveSession == accountSessionGeneration)
+                logoutAfterSaveSession++;
             accountSessionGeneration++;
+            CancelIdentityRequest();
             cloudLoadInFlight = false;
             saveInFlight = false;
             leaderboardSaveInFlight = false;
@@ -2457,6 +2462,15 @@ namespace MukJump.Core
                 cloudLoadInFlight || saveInFlight)
                 return;
 
+            if (leaderboardSaveInFlight)
+            {
+                // 순위 갱신도 같은 게임 정보 행을 쓴다. 조회 예약을 버리지 말고
+                // 현재 계정 소유자와 함께 보존한 뒤 쓰기 완료 후 다시 읽는다.
+                cloudLoadAccountScope = CurrentAccountScope();
+                resumeCloudLoadPending = true;
+                return;
+            }
+
             long capturedSessionGeneration = accountSessionGeneration;
             string capturedAccountScope = CurrentAccountScope();
             cloudLoadAccountScope = capturedAccountScope;
@@ -2543,6 +2557,8 @@ namespace MukJump.Core
                             if (restoreLocalGuestIfServerEmptyOnNextLoad)
                                 ClearPendingLocalGuestImport();
 
+                            AcknowledgePreviouslyCommittedWrite(server);
+
                             bool keepPendingLocalProfile =
                                 dirty && !replaceLocalFromServerOnNextLoad;
                             if (ShouldRequireSyncChoice(
@@ -2587,6 +2603,24 @@ namespace MukJump.Core
             long localRevision,
             long serverRevision) =>
             hasPendingLocalProfile && localRevision != serverRevision;
+
+        // 저장 응답이 유실된 경우에도 같은 요청 ID와 바로 다음 revision이
+        // 확인되면 내 저장이다. 다른 요청·다른 세대는 기존 충돌 선택을 유지한다.
+        bool AcknowledgePreviouslyCommittedWrite(MukJumpCloudSnapshot server)
+        {
+            string pendingOperation = PlayerPrefs.GetString(PendingOperationIdKey, string.Empty);
+            if (server == null || revision == long.MaxValue || server.revision != revision + 1 ||
+                string.IsNullOrWhiteSpace(pendingOperation) ||
+                !string.Equals(pendingOperation, server.lastOperationId, StringComparison.Ordinal))
+                return false;
+            // 최신 로컬 변경과 dirty는 보존한다. 서버 원본을 재적용하거나 완료 처리하지
+            // 않고, 확인한 revision 이후 새 요청 ID로 다시 저장하도록 한다.
+            PlayerPrefs.SetString(RevisionKey, server.revision.ToString());
+            PlayerPrefs.DeleteKey(PendingOperationIdKey);
+            PlayerPrefs.Save();
+            revision = server.revision;
+            return true;
+        }
 
         void BeginSyncConflict(
             MukJumpCloudSnapshot server,
@@ -5780,7 +5814,7 @@ namespace MukJump.Core
             // 덮을 수 있다. 계정 읽기와 쓰기는 항상 하나씩 진행한다.
             if (!dirty || !IsOnlineAuthenticated || saveInFlight ||
                 cloudLoadInFlight || resumeCloudLoadPending || leaderboardSaveInFlight ||
-                syncWriteBlocked ||
+                syncWriteBlocked || temporaryBackendPause || BlocksGameplayForAccountSync ||
                 settings == null ||
                 Phase == MukJumpAccountPhase.Connecting ||
                 Phase == MukJumpAccountPhase.NeedsAccountChoice ||
@@ -5858,6 +5892,14 @@ namespace MukJump.Core
                                 saveInFlight = false;
                                 EnterFatalSyncBlock(
                                     "서버 저장 대상을 검증하지 못해 덮어쓰기를 중단했습니다");
+                                return;
+                            }
+
+                            if (string.Equals(rowInDate, verifiedRowInDate, StringComparison.Ordinal) &&
+                                AcknowledgePreviouslyCommittedWrite(server))
+                            {
+                                saveInFlight = false;
+                                KeepSavePending("이전 저장을 확인했습니다. 최신 기록을 이어서 저장합니다");
                                 return;
                             }
 

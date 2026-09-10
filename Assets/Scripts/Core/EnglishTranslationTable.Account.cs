@@ -176,6 +176,8 @@ namespace MukJump.Core
             values["기록 순위 재시도 상태를 저장하지 못했습니다"] = "Could not save the pending leaderboard submission.";
             values["게스트 서버 연결과 리더보드 설정이 완료되면 표시됩니다"] = "Available after connection and leaderboard setup.";
             values["최고 고도 순위를 불러오는 중"] = "Loading the height leaderboard...";
+            values["저장된 최고 기록을 순위에 반영하는 중입니다"] = "Submitting your saved best to the leaderboard...";
+            values["이전 저장을 확인했습니다. 최신 기록을 이어서 저장합니다"] = "Previous save confirmed. Saving your latest progress...";
             values["아직 등록된 최고 고도 기록이 없습니다"] = "No height records yet.";
             values["전체 최고 고도 TOP 10"] = "All-time Top 10 Heights";
             values["저장 전 서버 기록 확인을 다시 시도합니다"] = "Retrying the cloud save check before saving...";

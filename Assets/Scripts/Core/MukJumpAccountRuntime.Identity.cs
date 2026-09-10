@@ -62,7 +62,9 @@ namespace MukJump.Core
         public bool NeedsNicknameSetup => IsOnlineAuthenticated && AccountKind == MukJumpAccountKind.Apple &&
             identityLoaded && identityLoadedScope == CurrentAccountScope() &&
             (string.IsNullOrEmpty(identityNickname) || MukJumpIdentityProfile.IsGeneratedNickname(identityNickname));
-        public bool CanChangeNickname => !identityBusy && !localLogoutCleanupPending &&
+        public bool CanChangeNickname => !identityBusy && !backendProviderVerificationInFlight &&
+            !guestLoginInFlight && !HasPendingAuthorizedTransition &&
+            !localLogoutCleanupPending &&
             !accountDeletionCleanupPending && !federationRequestInFlight && !providerResolutionBlocked &&
             !temporaryBackendPause && Phase != MukJumpAccountPhase.Connecting &&
             Phase != MukJumpAccountPhase.Deleting && !HasPendingAccountConflict &&
@@ -102,8 +104,17 @@ namespace MukJump.Core
                 TryReconnectGuest();
                 return;
             }
-            if (AccountKind == MukJumpAccountKind.LocalGuest || identityBusy ||
-                !string.IsNullOrEmpty(BackendUid) || Time.realtimeSinceStartup < displayIdentityRetryAt)
+            bool verifiedIdentity = identityLoaded && identityLoadedScope == CurrentAccountScope();
+            bool guestNameMissing = AccountKind == MukJumpAccountKind.BackendGuest &&
+                (!MukJumpIdentityProfile.IsGeneratedNickname(identityNickname) ||
+                 identityNickname.Length > MukJumpIdentityProfile.MaxNicknameLength);
+            if (AccountKind == MukJumpAccountKind.LocalGuest || identityBusy || temporaryBackendPause ||
+                Phase == MukJumpAccountPhase.Connecting || Phase == MukJumpAccountPhase.Deleting ||
+                HasPendingAuthorizedTransition ||
+                backendProviderVerificationInFlight || federationRequestInFlight ||
+                localLogoutCleanupPending || accountDeletionCleanupPending ||
+                (verifiedIdentity && !guestNameMissing && !string.IsNullOrEmpty(BackendUid)) ||
+                Time.realtimeSinceStartup < displayIdentityRetryAt)
                 return;
             // 설정의 매 프레임 갱신이 서버 요청을 반복하지 않도록 제한한다.
             displayIdentityRetryAt = Time.realtimeSinceStartup + 5f;
@@ -116,6 +127,7 @@ namespace MukJump.Core
             if (!Application.isPlaying && identityInfoForTests == null) return;
 #endif
             if (!IsOnlineAuthenticated || identityBusy) return;
+            displayIdentityRetryAt = Time.realtimeSinceStartup + 5f;
             string scope = CurrentAccountScope();
             long session = accountSessionGeneration;
             long request = BeginIdentityRequest(null);
@@ -270,6 +282,7 @@ namespace MukJump.Core
         }
         void CancelIdentityRequest()
         {
+            displayIdentityRetryAt = 0f;
             identityRequest++;
             identityLoaded = false;
             identityLoadedScope = string.Empty;
@@ -284,6 +297,12 @@ namespace MukJump.Core
                 identityRequest++;
                 FinishIdentityRequest(false, "닉네임 확인 시간이 초과됐어요. 다시 시도해 주세요");
             }
+            // UID 수신 여부와 닉네임 확인 성공은 별개다. 최초 조회가 실패해도
+            // 계정 창을 다시 열거나 앱을 재실행할 필요 없이 제한된 간격으로 복구한다.
+            if (!identityLoaded || (AccountKind == MukJumpAccountKind.BackendGuest &&
+                (!MukJumpIdentityProfile.IsGeneratedNickname(identityNickname) ||
+                 identityNickname.Length > MukJumpIdentityProfile.MaxNicknameLength)))
+                RefreshDisplayIdentity();
         }
         void RequestIdentityInfo(Action<BackendReturnObject> completed)
         {

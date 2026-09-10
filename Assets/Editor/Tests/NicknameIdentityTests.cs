@@ -218,6 +218,48 @@ namespace MukJump.EditorTests
             Assert.That(account.BackendUid, Is.Empty);
         }
 
+        [Test]
+        public void CachedUidDoesNotSuppressFailedNicknameLookupRetry()
+        {
+            CreateAccount(MukJumpAccountKind.Apple);
+            Set(account, "backendUidForTests", new Func<string>(() => "1234567"));
+            int calls = 0;
+            Set(account, "identityInfoForTests", new Action<Action<BackendReturnObject>>(cb =>
+            { calls++; cb(calls == 1 ? Result(503) : UserInfo("guest12345")); }));
+            Call(account, "RefreshAuthenticatedIdentity");
+            Assert.That(account.BackendUid, Is.EqualTo("1234567"));
+            Assert.That(account.NeedsNicknameSetup, Is.False);
+            Set(account, "displayIdentityRetryAt", -1f);
+            account.RefreshDisplayIdentity();
+            Assert.That(calls, Is.EqualTo(2));
+            Assert.That(account.NeedsNicknameSetup, Is.True);
+        }
+
+        [Test]
+        public void GuestNicknameWriteFailureCanRetryEvenWithLoadedIdentityAndUid()
+        {
+            CreateAccount(MukJumpAccountKind.BackendGuest);
+            Set(account, "backendUidForTests", new Func<string>(() => "1234567"));
+            Set(account, "identityInfoForTests", new Action<Action<BackendReturnObject>>(cb => cb(UserInfo(null))));
+            int writes = 0;
+            Set(account, "nicknameUpdateForTests", new Action<string, Action<BackendReturnObject>>((_, cb) =>
+            { writes++; cb(Result(writes == 1 ? 503 : 204)); }));
+            Call(account, "RefreshAuthenticatedIdentity");
+            Set(account, "displayIdentityRetryAt", -1f);
+            account.RefreshDisplayIdentity();
+            Assert.That(writes, Is.EqualTo(2));
+            Assert.That(account.NicknameStatus, Is.EqualTo("닉네임을 변경했어요"));
+        }
+
+        [TestCase("guestLoginInFlight")]
+        [TestCase("backendProviderVerificationInFlight")]
+        public void NicknameCannotBeChangedWhileAccountOrProfileIsUnresolved(string field)
+        {
+            CreateAccount(MukJumpAccountKind.Apple);
+            Set(account, field, true);
+            Assert.That(account.CanChangeNickname, Is.False);
+        }
+
         [Test] public void DifferentAccountNamesAndLocalGuestNeverOverwriteEachOther()
         {
             MukJumpIdentityProfile.SaveNickname("apple-a", "먹점프");
