@@ -1606,6 +1606,7 @@ namespace MukJump.Core
 
         void BeginAuthenticatedAccountSession()
         {
+            leaderboardSubmissionFailure = string.Empty;
             leaderboardRequested = false;
             leaderboardRefreshQueued = false;
             CancelIdentityRequest();
@@ -1659,6 +1660,7 @@ namespace MukJump.Core
             bool clearPendingLeaderboard,
             bool invalidateTokenLogin = true)
         {
+            leaderboardSubmissionFailure = string.Empty;
             leaderboardRequested = false;
             leaderboardRefreshQueued = false;
             CancelIdentityRequest();
@@ -2916,6 +2918,7 @@ namespace MukJump.Core
                 MarkDirty();
             // 이전 제출 콜백이 앱 종료로 사라졌더라도 서버의
             // 현재 최고 기록으로 리더보드를 다시 보정한다.
+            QueueVerifiedLeaderboardBest(resolvedBest);
             SubmitBestHeight(resolvedBest);
             return true;
         }
@@ -5466,6 +5469,26 @@ namespace MukJump.Core
                 MarkDirty();
         }
 
+        // 서버 행의 소유자와 프로필을 확인한 지점에서만 예약한다.
+        // 전환 잠금이 남아 있어도 예약은 보존하고 실제 전송은 기존 잠금에 맡긴다.
+        void QueueVerifiedLeaderboardBest(int bestHeight)
+        {
+            if (!IsOnlineAuthenticated || !PermanentGrowthProfile.HasCompletedRun ||
+                string.IsNullOrWhiteSpace(rowInDate))
+                return;
+            string scope = CurrentAccountScope();
+            if (!string.IsNullOrWhiteSpace(scope))
+                StorePendingLeaderboardBest(scope, Mathf.Max(0, bestHeight));
+        }
+
+        string leaderboardSubmissionFailure = string.Empty;
+
+        bool HasOwnedPendingLeaderboardBest =>
+            PlayerPrefs.HasKey(PendingLeaderboardBestKey) &&
+            IsPendingLeaderboardOwnedBy(
+                PlayerPrefs.GetString(PendingLeaderboardOwnerKey, string.Empty),
+                CurrentAccountScope());
+
         public void SubmitBestHeight(int bestHeight)
         {
             // 로그인·빈 저장 행 생성은 플레이 기록이 아니다. 0m라도 실제 정산한 판만 등록한다.
@@ -5520,16 +5543,24 @@ namespace MukJump.Core
                         {
                             if (bro == null || !bro.IsSuccess())
                             {
+                                // 응답 본문에는 개인정보가 들어갈 수 있으므로 HTTP 코드만 남긴다.
+                                string failure = "기록은 저장됐지만 순위 등록을 재시도 중입니다 (" +
+                                    (bro == null ? "응답 없음" : bro.GetStatusCode()) + ")";
+                                if (leaderboardSubmissionFailure != failure)
+                                    Debug.Log("[MukJump] " + failure);
+                                leaderboardSubmissionFailure = failure;
                                 StorePendingLeaderboardBest(
                                     capturedAccountScope,
                                     normalizedBest);
                                 leaderboardRetryAtRealtime =
                                     Time.realtimeSinceStartup + InitialRetrySeconds;
-                                SetStatus(
-                                    "기록 순위 등록은 연결 복구 후 다시 시도합니다");
+                                SetStatus(failure);
+                                LeaderboardStatus = failure;
+                                NotifyStateChangedSafely();
                             }
                             else
                             {
+                                leaderboardSubmissionFailure = string.Empty;
                                 int pending = IsPendingLeaderboardOwnedBy(
                                         PlayerPrefs.GetString(
                                             PendingLeaderboardOwnerKey,
@@ -5663,7 +5694,11 @@ namespace MukJump.Core
 
                         leaderboardEntries.Clear();
                         leaderboardEntries.AddRange(loadedEntries);
-                        LeaderboardStatus = leaderboardEntries.Count == 0
+                        LeaderboardStatus = HasOwnedPendingLeaderboardBest
+                            ? (string.IsNullOrEmpty(leaderboardSubmissionFailure)
+                                ? "저장된 최고 기록을 순위에 반영하는 중입니다"
+                                : leaderboardSubmissionFailure)
+                            : leaderboardEntries.Count == 0
                             ? "아직 등록된 최고 고도 기록이 없습니다"
                             : "전체 최고 고도 TOP 10";
                         NotifyStateChangedSafely();
@@ -6259,6 +6294,7 @@ namespace MukJump.Core
             SetState(
                 MukJumpAccountPhase.OnlineReady,
                 dirty ? "새 변경 사항을 이어서 저장하는 중" : "동기화 완료");
+            QueueVerifiedLeaderboardBest(snapshot.bestHeight);
         }
 
         public static bool ShouldKeepDirtyAfterSave(

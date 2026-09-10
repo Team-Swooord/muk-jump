@@ -821,6 +821,59 @@ namespace MukJump.EditorTests
             Assert.That(calls, Is.EqualTo(1));
         }
 
+        [TestCase("cloudLoadInFlight")]
+        [TestCase("backendProviderVerificationInFlight")]
+        [TestCase("temporaryBackendPause")]
+        public void VerifiedCloudSaveKeeps43MeterRankQueuedUntilTransitionUnlocks(string blockingField)
+        {
+            var account = CreateLeaderboardRuntime();
+            int sent = -1;
+            SetPrivateField(account, "updateLeaderboardForTests",
+                new System.Action<int, System.Action<BackEnd.BackendReturnObject>>((height, callback) =>
+                { sent = height; callback(BackendResult(204)); }));
+            SetPrivateField(account, blockingField, true);
+            long savedMutation = (long)typeof(MukJumpAccountRuntime).GetField(
+                "localMutationVersion", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(account);
+            InvokeLifecycle(account, "CompleteSuccessfulSave", new MukJumpCloudSnapshot
+                { bestHeight = 43, revision = 1 }, savedMutation);
+            account.SubmitBestHeight(43);
+            Assert.That(sent, Is.EqualTo(-1));
+            Assert.That(PlayerPrefs.GetInt("MukJump.Cloud.PendingLeaderboardBest", -1), Is.EqualTo(43));
+            Assert.That(PlayerPrefs.GetString("MukJump.Cloud.PendingLeaderboardOwner"), Is.EqualTo("rank-owner"));
+            SetPrivateField(account, blockingField, false);
+            account.SubmitBestHeight(PlayerPrefs.GetInt("MukJump.Cloud.PendingLeaderboardBest"));
+            Assert.That(sent, Is.EqualTo(43));
+            Assert.That(PlayerPrefs.HasKey("MukJump.Cloud.PendingLeaderboardBest"), Is.False);
+        }
+
+        [Test]
+        public void VerifiedEmptyCloudSaveDoesNotQueueUnplayedZeroMeterRank()
+        {
+            var account = CreateLeaderboardRuntime();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            InvokeLifecycle(account, "CompleteSuccessfulSave", new MukJumpCloudSnapshot
+                { bestHeight = 0, revision = 1 }, 0L);
+            Assert.That(PlayerPrefs.HasKey("MukJump.Cloud.PendingLeaderboardBest"), Is.False);
+        }
+
+        [Test]
+        public void RankWriteFailureRemainsVisibleAfterSuccessfulEmptyRead()
+        {
+            var account = CreateLeaderboardRuntime();
+            SetPrivateField(account, "updateLeaderboardForTests",
+                new System.Action<int, System.Action<BackEnd.BackendReturnObject>>((height, callback) =>
+                    callback(BackendResult(403))));
+            SetPrivateField(account, "getLeaderboardForTests",
+                new System.Action<System.Action<BackEnd.Leaderboard.BackendUserLeaderboardReturnObject>>(
+                    callback => callback(LeaderboardResult("{\"rows\":[],\"totalCount\":0}"))));
+            account.SubmitBestHeight(43);
+            account.RefreshLeaderboard();
+            Assert.That(account.LeaderboardStatus, Does.Contain("403"));
+            Assert.That(account.LeaderboardStatus, Does.Contain("재시도"));
+            Assert.That(account.LeaderboardStatus, Does.Not.Contain("아직 등록된"));
+            Assert.That(PlayerPrefs.GetInt("MukJump.Cloud.PendingLeaderboardBest"), Is.EqualTo(43));
+        }
+
         [Test]
         public void AuthenticatedGuestCanReadLeaderboardBeforePlayingWithoutSubmitting()
         {
