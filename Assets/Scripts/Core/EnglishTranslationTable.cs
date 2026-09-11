@@ -46,6 +46,7 @@ namespace MukJump.Core
                 ["이용약관"] = "Terms of Use",
                 ["개인정보처리방침"] = "Privacy Policy",
                 ["플레이 분석"] = "Gameplay Analytics",
+                ["광고 개인정보 선택"] = "Ad privacy choices",
                 ["설치 식별자·기기 정보와 플레이 이벤트를 Google Analytics로 전송해 게임을 개선합니다.\n선택 사항이며 언제든 끌 수 있어요. 계정 UUID·닉네임은 보내지 않습니다."] = "Help improve the game by sending an installation ID, device info and play events to Google Analytics.\nOptional. Turn it off anytime. Account UUIDs and nicknames are not sent.",
                 ["동의하고 켜기"] = "Enable analytics",
                 ["분석 끄기"] = "Disable analytics",

@@ -22,6 +22,7 @@ namespace MukJump.Core
                 ["On"] = "オン", ["Off"] = "オフ", ["Support"] = "サポート", ["Tutorial"] = "遊び方",
                 ["Leaderboard"] = "ランキング", ["World’s Finest Ink"] = "世界最高の墨", ["Rank"] = "順位",
                 ["Terms of Use"] = "利用規約", ["Privacy Policy"] = "プライバシー", ["Gameplay Analytics"] = "プレイ分析",
+                ["Ad privacy choices"] = "広告の同意設定",
                 ["Help improve the game by sending an installation ID, device info and play events to Google Analytics.\nOptional. Turn it off anytime. Account UUIDs and nicknames are not sent."] = "インストールID・端末情報・プレイ情報を\nGoogle Analyticsに送信し、改善に役立てます。\n任意で、いつでもオフにできます。\nアカウントUUID・名前は送信しません。",
                 ["Enable analytics"] = "同意してオン", ["Disable analytics"] = "分析をオフ", ["Analytics on"] = "分析オン", ["Analytics off"] = "分析オフ",
                 ["Could not save. Please try again."] = "保存できませんでした。再試行してください。",

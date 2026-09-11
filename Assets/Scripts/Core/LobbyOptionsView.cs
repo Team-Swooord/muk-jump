@@ -30,6 +30,8 @@ namespace MukJump.Core
         CanvasGroup languageGroup;
         CanvasGroup analyticsPrivacyGroup;
         Text analyticsPrivacyStatus;
+        UnityEngine.UI.Button advertisingPrivacyButton;
+        bool advertisingPrivacyBusy;
         RectTransform safeAreaRoot;
         RectTransform optionsPanel;
         Slider bgmSlider;
@@ -243,6 +245,7 @@ namespace MukJump.Core
                 RefreshSettingsUuid();
             UpdateNicknameUi();
             UpdateDeleteConfirmation();
+            if (IsOpen && ShowingAnalyticsPrivacy) RefreshAdvertisingPrivacy();
         }
 
         public void Open() => OpenLobbyPage(false);
@@ -2409,6 +2412,10 @@ namespace MukJump.Core
                 .onClick.AddListener(() => SetAnalyticsConsent(false));
             CreatePaperButton("ReadPrivacyPolicy", parent, "개인정보처리방침", new Vector2(0, -310), new Vector2(640, 100), 40)
                 .onClick.AddListener(OpenPrivacyPolicy);
+            advertisingPrivacyButton = CreatePaperButton("AdvertisingPrivacy", parent, "광고 개인정보 선택",
+                new Vector2(0, -430), new Vector2(640, 100), 40);
+            advertisingPrivacyButton.onClick.AddListener(ShowAdvertisingPrivacy);
+            advertisingPrivacyButton.gameObject.SetActive(false);
         }
 
         void ShowAnalyticsPrivacyPage()
@@ -2436,6 +2443,49 @@ namespace MukJump.Core
         {
             if (analyticsPrivacyStatus != null)
                 InkLocalizedText.SetSource(analyticsPrivacyStatus, MukJumpAnalyticsPrivacy.HasConsent ? "분석 켜짐" : "분석 꺼짐");
+            RefreshAdvertisingPrivacy();
+        }
+
+        void RefreshAdvertisingPrivacy()
+        {
+            if (advertisingPrivacyButton == null) return;
+            bool required = GoogleMobileAdsPrivacy.IsAvailable && GoogleMobileAdsPrivacy.IsRequired;
+            advertisingPrivacyButton.gameObject.SetActive(required);
+            advertisingPrivacyButton.interactable = required && !advertisingPrivacyBusy;
+            if (!ShowingAnalyticsPrivacy) return;
+            float height = required ? 1120f : 900f;
+            if (Mathf.Approximately(optionsPanel.sizeDelta.y, height)) return;
+            optionsPanel.sizeDelta = new Vector2(PanelWidth, height);
+            optionsPanel.GetComponent<HanjiScrollFrame>().SetPaperSize(new Vector2(764, height - 60f));
+            ApplySafeArea();
+        }
+
+        void ShowAdvertisingPrivacy()
+        {
+            if (!ShowingAnalyticsPrivacy || scrollPageTransition || !rootGroup.interactable ||
+                advertisingPrivacyBusy || !GoogleMobileAdsPrivacy.IsAvailable || !GoogleMobileAdsPrivacy.IsRequired ||
+                Application.isPlaying && !optionsPanel.GetComponent<HanjiScrollFrame>().IsReady) return;
+            advertisingPrivacyBusy = true;
+            RefreshAdvertisingPrivacy();
+            // UMP 선택은 분석 동의와 분리한다. 네이티브 창 중복 호출과 늦은 콜백을 방어한다.
+            try
+            {
+                GoogleMobileAdsPrivacy.ShowOptions(message =>
+                {
+                    if (this == null) return;
+                    advertisingPrivacyBusy = false;
+                    RefreshAnalyticsPrivacy();
+                    if (ShowingAnalyticsPrivacy && !string.IsNullOrEmpty(message) &&
+                        message != "광고 개인정보 선택을 저장했습니다")
+                        InkLocalizedText.SetSource(analyticsPrivacyStatus, "광고 개인정보 화면을 열지 못했습니다");
+                });
+            }
+            catch (System.Exception)
+            {
+                advertisingPrivacyBusy = false;
+                RefreshAdvertisingPrivacy();
+                InkLocalizedText.SetSource(analyticsPrivacyStatus, "광고 개인정보 화면을 열지 못했습니다");
+            }
         }
 
         static void BuildScrollFrame(Transform panel)

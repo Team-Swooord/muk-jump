@@ -1133,17 +1133,55 @@ public class SettingsScrollTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void AdvertisingPrivacyButtonsAreNotCreatedEvenWhenSdkRequiresAnEntry(bool required)
+    public void AdvertisingPrivacyEntryIsInPrivacyPageOnlyWhenRequired(bool required)
     {
         var register = typeof(GoogleMobileAdsPrivacy).GetMethod("Register", BindingFlags.Static | BindingFlags.NonPublic);
         var reset = typeof(GoogleMobileAdsPrivacy).GetMethod("Reset", BindingFlags.Static | BindingFlags.NonPublic);
         try
         {
             register.Invoke(null, new object[] { (System.Action<System.Action<string>>)(_ => { }), required });
+            view.OpenTutorialForTests();
+            typeof(LobbyOptionsView).GetMethod("ShowAnalyticsPrivacyPage", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(view, null);
             Assert.That(page.Find("PrivacyOptionsLink"), Is.Null);
             Assert.That(panel.Find("PlaySettingsPage/AdConsentButton"), Is.Null);
+            var button = panel.Find("AnalyticsPrivacyPage/AdvertisingPrivacy").GetComponent<Button>();
+            Assert.That(button.gameObject.activeSelf, Is.EqualTo(required));
+            Assert.That(((RectTransform)panel).sizeDelta.y, Is.EqualTo(required ? 1120f : 900f));
             Assert.That(GoogleMobileAdsPrivacy.IsRequired, Is.EqualTo(required),
-                "UI 제거가 광고 SDK의 동의 상태를 덮어쓰면 안 된다");
+                "UI가 광고 SDK의 동의 상태를 덮어쓰면 안 된다");
+        }
+        finally { reset.Invoke(null, null); }
+    }
+
+    [Test]
+    public void AdvertisingPrivacyPreventsDuplicateRequestsAndRefreshesLateRequirement()
+    {
+        var register = typeof(GoogleMobileAdsPrivacy).GetMethod("Register", BindingFlags.Static | BindingFlags.NonPublic);
+        var reset = typeof(GoogleMobileAdsPrivacy).GetMethod("Reset", BindingFlags.Static | BindingFlags.NonPublic);
+        var requirement = typeof(GoogleMobileAdsPrivacy).GetMethod("UpdateRequired", BindingFlags.Static | BindingFlags.NonPublic);
+        int requests = 0;
+        System.Action<string> completion = null;
+        try
+        {
+            register.Invoke(null, new object[] { (System.Action<System.Action<string>>)(callback => { requests++; completion = callback; }), true });
+            view.OpenTutorialForTests();
+            typeof(LobbyOptionsView).GetMethod("ShowAnalyticsPrivacyPage", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, null);
+            var button = panel.Find("AnalyticsPrivacyPage/AdvertisingPrivacy").GetComponent<Button>();
+            bool consent = MukJumpAnalyticsPrivacy.HasConsent;
+            button.onClick.Invoke();
+            button.onClick.Invoke();
+            Assert.That(requests, Is.EqualTo(1));
+            Assert.That(button.interactable, Is.False);
+            completion("광고 개인정보 선택을 저장했습니다");
+            Assert.That(button.interactable, Is.True);
+            Assert.That(MukJumpAnalyticsPrivacy.HasConsent, Is.EqualTo(consent));
+            requirement.Invoke(null, new object[] { false });
+            typeof(LobbyOptionsView).GetMethod("RefreshAdvertisingPrivacy", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, null);
+            Assert.That(button.gameObject.activeSelf, Is.False);
+            Assert.That(((RectTransform)panel).sizeDelta.y, Is.EqualTo(900f));
+            button.onClick.Invoke();
+            Assert.That(requests, Is.EqualTo(1));
         }
         finally { reset.Invoke(null, null); }
     }

@@ -282,12 +282,18 @@ namespace MukJump.EditorTests
             Assert.That(MukJumpFirebaseAnalyticsSetup.UseAnalyticsCoreSwiftPackage(corePackages), Is.EqualTo(corePackages));
         }
 
-        [TestCase(GameLanguage.Korean)]
-        [TestCase(GameLanguage.English)]
-        public void PrivacyPageFitsAndChoiceDoesNotStartEditorSdk(GameLanguage language)
+        [TestCase(GameLanguage.Korean, false)]
+        [TestCase(GameLanguage.English, false)]
+        [TestCase(GameLanguage.Japanese, false)]
+        [TestCase(GameLanguage.Korean, true)]
+        [TestCase(GameLanguage.English, true)]
+        [TestCase(GameLanguage.Japanese, true)]
+        public void PrivacyPageFitsAndChoiceDoesNotStartEditorSdk(GameLanguage language, bool requiresAdPrivacy)
         {
             GameLocalization.SetLanguage(language);
             PlayerPrefs.SetInt(MukJumpAnalyticsPrivacy.ConsentKey, 0);
+            typeof(GoogleMobileAdsPrivacy).GetMethod("Register", BindingFlags.Static | BindingFlags.NonPublic)
+                .Invoke(null, new object[] { (System.Action<System.Action<string>>)(_ => { }), requiresAdPrivacy });
             var host = new GameObject("AnalyticsPrivacyTest");
             try
             {
@@ -313,7 +319,11 @@ namespace MukJump.EditorTests
                 Call(view, "ShowOptionsPage");
                 Assert.That(page.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
             }
-            finally { UnityEngine.Object.DestroyImmediate(host); }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+                typeof(GoogleMobileAdsPrivacy).GetMethod("Reset", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, null);
+            }
         }
 
         static void Call(object target, string method, params object[] args) =>
