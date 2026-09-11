@@ -10,6 +10,7 @@ namespace MukJump.Core
         Action<Action<BackendReturnObject>> nicknameTimeForTests;
         Action<Action<MukJumpNicknameChange.State>> nicknamePolicyReadForTests;
         Action<MukJumpNicknameChange.State, Action<bool>> nicknamePolicyWriteForTests;
+        Action<Where, Param, Action<BackendReturnObject>> nicknamePolicyUpdateForTests;
 #endif
         void ChangeNicknameWithCooldown(string value, Action<bool, string> completed)
         {
@@ -100,8 +101,23 @@ namespace MukJump.Core
             param.Add(MukJumpNicknameChange.PendingNameColumn, state.PendingName);
             param.Add(MukJumpNicknameChange.PreviousAtColumn, state.PreviousAt);
             // 게임 기록 전체를 덮지 않고 계정의 이름 변경 이력만 갱신한다.
+            // 기본 키 inDate는 QueryFilter에 넣을 수 없다. ReadNicknamePolicy에서
+            // 소유자의 단일 행을 확인했으므로 변경 세대만 비교한다(점수 저장과 같은 규칙).
+            var where = BuildNicknameUpdateCondition(state);
+#if UNITY_EDITOR
+            if (nicknamePolicyUpdateForTests != null)
+            {
+                nicknamePolicyUpdateForTests(where, param, bro => done(bro != null && bro.IsSuccess()));
+                return;
+            }
+#endif
+            RequestUpdateGameData(settings.PlayerTableName, where, param,
+                bro => done(bro != null && bro.IsSuccess()));
+        }
+
+        public static Where BuildNicknameUpdateCondition(MukJumpNicknameChange.State state)
+        {
             var where = new Where();
-            where.Equal("inDate", state.Row);
             if (!string.IsNullOrEmpty(state.ExpectedUpdatedAt)) where.Equal("updatedAt", state.ExpectedUpdatedAt);
             else
             {
@@ -109,8 +125,7 @@ namespace MukJump.Core
                 where.Equal(MukJumpNicknameChange.PendingNameColumn, state.ExpectedPendingName);
             }
             // 다른 기기의 예약/완료가 먼저 반영됐으면 덮어쓰지 않는다.
-            Backend.GameData.Update(settings.PlayerTableName, where, param,
-                bro => done(bro != null && bro.IsSuccess()));
+            return where;
         }
     }
 }

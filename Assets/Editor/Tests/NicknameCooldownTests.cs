@@ -66,6 +66,23 @@ namespace MukJump.EditorTests
         }
         [Test] public void AccountChangeIgnoresLateNicknameResponse()
         { Run(delay: true); live = false; delayed(Result(204)); Assert.That(success, Is.False); Assert.That(message, Is.Empty); }
+        [Test] public void ReservationQueryExcludesPrimaryKeyButKeepsServerVersionGuard()
+        {
+            state.ExpectedUpdatedAt = "2026-09-11T00:00:00.000Z";
+            string query = MukJumpAccountRuntime.BuildNicknameUpdateCondition(state).GetJson();
+            Assert.That(query, Does.Not.Contain("inDate"));
+            Assert.That(query, Does.Contain("updatedAt"));
+            Assert.That(query, Does.Contain(state.ExpectedUpdatedAt));
+        }
+        [Test] public void CompletionAndRollbackQueriesKeepReservationOwnershipGuard()
+        {
+            state.ExpectedChangedAt = now.ToString("O"); state.ExpectedPendingName = "새이름";
+            string query = MukJumpAccountRuntime.BuildNicknameUpdateCondition(state).GetJson();
+            Assert.That(query, Does.Not.Contain("inDate"));
+            Assert.That(query, Does.Contain(MukJumpNicknameChange.ChangedAtColumn));
+            Assert.That(query, Does.Contain(MukJumpNicknameChange.PendingNameColumn));
+            Assert.That(query, Does.Contain(state.ExpectedChangedAt));
+        }
         [TestCase(1)] [TestCase(13)] [TestCase(20)]
         public void FailedReservationStartsFreshCooldownWhenActuallyChangedOnRetry(int days)
         {

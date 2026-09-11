@@ -8,6 +8,93 @@ namespace MukJump.EditorTools
     /// 명시적 서버 진단 실행만 허용한다. 사용자 계정 대신 매번 고립된 시험 계정을 쓴다.
     public static class MukJumpLiveSaveProbe
     {
+        // 운영 계정은 읽거나 변경하지 않고, 명시적으로 만든 시험 계정 한 개만 사용한다.
+        public static void RunNickname()
+        {
+            if (Environment.GetEnvironmentVariable("MUKJUMP_SERVER_PROBE") != "1")
+                throw new InvalidOperationException("Explicit live probe opt-in required.");
+            Require("nickname-initialize", Backend.Initialize());
+            string id = "nickprobe" + Guid.NewGuid().ToString("N").Substring(0, 16);
+            Require("nickname-signup", Backend.BMember.CustomSignUp(id, Guid.NewGuid().ToString("N")));
+            string owner = Backend.UserInDate;
+            var settings = MukJumpBackendSettings.Load();
+            string rowId = null;
+            try
+            {
+                var initial = new Param();
+                initial.Add("revision", 1L);
+                initial.Add(settings.BestHeightColumn, 156);
+                initial.Add("growthJson", "nickname-probe-unchanged");
+                var inserted = Backend.GameData.Insert(settings.PlayerTableName, initial);
+                Require("nickname-insert", inserted); rowId = inserted.GetInDate();
+                var original = new Where(); original.Equal("inDate", rowId);
+                original.Equal("updatedAt", ReadState().UpdatedAt);
+                var metadata = new Param(); metadata.Add(MukJumpNicknameChange.PendingNameColumn, "probe");
+                var rejected = Backend.GameData.Update(settings.PlayerTableName, original, metadata);
+                Report("nickname-original-query", rejected);
+                if (rejected.IsSuccess()) throw new InvalidOperationException("Original query unexpectedly accepted");
+
+                string requested = "n" + Guid.NewGuid().ToString("N").Substring(0, 9);
+                Run(requested, true);
+                string changedAt = ReadState().ChangedAt;
+                if (string.IsNullOrEmpty(changedAt) || ReadState().PendingName != "")
+                    throw new InvalidOperationException("Nickname reservation was not committed");
+                Run(requested, true);
+                if (ReadState().ChangedAt != changedAt) throw new InvalidOperationException("Same name extended cooldown");
+                Run("n" + Guid.NewGuid().ToString("N").Substring(0, 9), false);
+                var final = Backend.GameData.GetMyData(settings.PlayerTableName, new Where());
+                Require("nickname-readback", final);
+                var row = final.FlattenRows()[0];
+                if (row[settings.BestHeightColumn].ToString() != "156" ||
+                    row["growthJson"].ToString() != "nickname-probe-unchanged")
+                    throw new InvalidOperationException("Nickname changed game progress");
+                Debug.Log("NICKNAME_PROBE PASS: save/readback, same-name retry, 14-day block, score/growth preserved");
+
+                MukJumpNicknameChange.State ReadState()
+                {
+                    var response = Backend.GameData.GetMyData(settings.PlayerTableName, new Where());
+                    Require("nickname-read-policy", response);
+                    var rows = response.FlattenRows();
+                    if (rows.Count != 1 || rows[0]["owner_inDate"].ToString() != owner ||
+                        rows[0]["inDate"].ToString() != rowId) throw new InvalidOperationException("Probe owner/row mismatch");
+                    string Value(string key) => rows[0].ContainsKey(key) ? rows[0][key]?.ToString() ?? "" : "";
+                    return new MukJumpNicknameChange.State { Row = rowId, UpdatedAt = Value("updatedAt"),
+                        ChangedAt = Value(MukJumpNicknameChange.ChangedAtColumn),
+                        PendingName = Value(MukJumpNicknameChange.PendingNameColumn),
+                        PreviousAt = Value(MukJumpNicknameChange.PreviousAtColumn) };
+                }
+                void Run(string name, bool expected)
+                {
+                    bool? accepted = null; string outcome = "";
+                    MukJumpNicknameChange.Run(name, () => Backend.UserInDate == owner,
+                        cb => cb(Backend.Utils.GetServerTime()), cb => cb(Backend.BMember.GetUserInfo()),
+                        cb => cb(ReadState()), (state, cb) =>
+                        {
+                            var param = new Param();
+                            param.Add(MukJumpNicknameChange.ChangedAtColumn, state.ChangedAt);
+                            param.Add(MukJumpNicknameChange.PendingNameColumn, state.PendingName);
+                            param.Add(MukJumpNicknameChange.PreviousAtColumn, state.PreviousAt);
+                            var result = Backend.GameData.Update(settings.PlayerTableName,
+                                MukJumpAccountRuntime.BuildNicknameUpdateCondition(state), param);
+                            Report("nickname-policy-write", result); cb(result.IsSuccess());
+                        }, (value, cb) => cb(Backend.BMember.UpdateNickname(value)),
+                        (ok, message) => { accepted = ok; outcome = message; });
+                    if (accepted != expected) throw new InvalidOperationException("Nickname result mismatch");
+                    if (!expected && outcome != MukJumpNicknameChange.WaitMessage)
+                        throw new InvalidOperationException("Expected cooldown rejection");
+                    if (expected && Backend.BMember.GetUserInfo().GetReturnValuetoJSON()["row"]["nickname"].ToString() != name)
+                        throw new InvalidOperationException("Server nickname mismatch");
+                }
+            }
+            finally
+            {
+                if (Backend.UserInDate != owner) throw new InvalidOperationException("Refusing cleanup of another account");
+                if (!string.IsNullOrEmpty(rowId))
+                    Require("nickname-delete-probe-row", Backend.GameData.DeleteV2(settings.PlayerTableName, rowId, owner));
+                Require("nickname-withdraw-probe-only", Backend.BMember.WithdrawAccount());
+            }
+        }
+
         public static void Run()
         {
             if (Environment.GetEnvironmentVariable("MUKJUMP_SERVER_PROBE") != "1")

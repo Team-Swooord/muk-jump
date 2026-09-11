@@ -651,6 +651,57 @@ namespace MukJump.EditorTests
             }
         }
 
+        [Test]
+        public void NicknameServerAdapterReservesAndCommitsWithoutPrimaryKeyQuery()
+        {
+            CreateAccount(MukJumpAccountKind.Apple);
+            Set(account, "settings", MukJumpBackendSettings.Load());
+            // 정책 계층 전체를 가짜 성공으로 바꾸지 않고 실제 행 해석/쿼리 생성까지 통과한다.
+            Set(account, "nicknamePolicyReadForTests", null);
+            Set(account, "nicknamePolicyWriteForTests", null);
+            Set(account, "getMyDataForTests", new Action<Action<BackendReturnObject>>(cb => cb(Result(200,
+                "{\"rows\":[{\"inDate\":{\"S\":\"owned-row\"},\"owner_inDate\":{\"S\":\"apple-a\"}," +
+                "\"updatedAt\":{\"S\":\"2026-09-11T00:00:00.000Z\"}}]}"))));
+            int writes = 0, updates = 0;
+            Set(account, "nicknamePolicyUpdateForTests", new Action<Where, Param, Action<BackendReturnObject>>((where, param, cb) =>
+            {
+                string query = where.GetJson();
+                Assert.That(query, Does.Not.Contain("inDate"));
+                Assert.That(query, Does.Contain(writes == 0 ? "updatedAt" : MukJumpNicknameChange.PendingNameColumn));
+                writes++; cb(Result(204));
+            }));
+            Set(account, "nicknameUpdateForTests", new Action<string, Action<BackendReturnObject>>((name, cb) =>
+            { updates++; cb(Result(204)); }));
+            bool? saved = null;
+            account.ChangeNickname("먹방울", (ok, _) => saved = ok);
+            Assert.That(saved, Is.True);
+            Assert.That(writes, Is.EqualTo(2));
+            Assert.That(updates, Is.EqualTo(1));
+            Assert.That(account.Nickname, Is.EqualTo("먹방울"));
+        }
+
+        [TestCase("another-owner", 1)]
+        [TestCase("apple-a", 2)]
+        public void NicknameServerAdapterRejectsWrongOwnerOrMultipleRows(string owner, int count)
+        {
+            CreateAccount(MukJumpAccountKind.Apple);
+            Set(account, "settings", MukJumpBackendSettings.Load());
+            Set(account, "nicknamePolicyReadForTests", null);
+            Set(account, "nicknamePolicyWriteForTests", null);
+            string row = "{\"inDate\":{\"S\":\"owned-row\"},\"owner_inDate\":{\"S\":\"" + owner +
+                "\"},\"updatedAt\":{\"S\":\"2026-09-11T00:00:00.000Z\"}}";
+            Set(account, "getMyDataForTests", new Action<Action<BackendReturnObject>>(cb =>
+                cb(Result(200, "{\"rows\":[" + row + (count == 2 ? "," + row : "") + "]}"))));
+            int writes = 0, updates = 0;
+            Set(account, "nicknamePolicyUpdateForTests", new Action<Where, Param, Action<BackendReturnObject>>((_, __, cb) =>
+            { writes++; cb(Result(204)); }));
+            Set(account, "nicknameUpdateForTests", new Action<string, Action<BackendReturnObject>>((_, cb) =>
+            { updates++; cb(Result(204)); }));
+            bool? saved = null;
+            account.ChangeNickname("먹방울", (ok, _) => saved = ok);
+            Assert.That(saved, Is.False); Assert.That(writes, Is.Zero); Assert.That(updates, Is.Zero);
+        }
+
         void CreateAccount(MukJumpAccountKind kind)
         {
             host = new GameObject("NicknameAccountTests");
