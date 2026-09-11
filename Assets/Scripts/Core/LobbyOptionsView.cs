@@ -36,7 +36,6 @@ namespace MukJump.Core
         Slider bgmSlider;
         Slider sfxSlider;
         Button tossIdentityRetry;
-        Button accountSupportButton;
         Text settingsAccountLabel;
         Button settingsUuidButton;
         Text settingsUuidText;
@@ -1008,19 +1007,6 @@ namespace MukJump.Core
                 .Find("Label")?.GetComponent<Text>();
             accountDeleteButton.onClick.AddListener(HandleDeleteAccount);
 
-            accountSupportButton = CreateIconMenu(
-                "CopySupportCode", panel, "문의 코드 복사", "support",
-                new Vector2(0, -465), new Vector2(540, 120));
-            accountSupportButton.onClick.AddListener(() =>
-            {
-                var runtime = MukJumpAccountRuntime.Instance;
-                string code = !string.IsNullOrWhiteSpace(runtime?.PlayerId)
-                    ? runtime.PlayerId : runtime?.SupportCode;
-                if (string.IsNullOrWhiteSpace(code)) return;
-                GUIUtility.systemCopyBuffer = code;
-                ShowAccountNotice("문의 코드를 복사했어요");
-            });
-
             accountCloseButton = CreatePaperButton("AccountClose", panel, string.Empty,
                 new Vector2(0, -590), new Vector2(120, 120), 36);
             var closePaper = accountCloseButton.transform.Find("Paper").GetComponent<Image>();
@@ -1358,9 +1344,6 @@ namespace MukJump.Core
             }
             if (settingsAccountLabel != null)
                 InkLocalizedText.SetSource(settingsAccountLabel, online && HasLinkedProvider(kind) ? "연동 계정" : "계정 연동");
-            if (accountSupportButton != null)
-                accountSupportButton.gameObject.SetActive(!string.IsNullOrWhiteSpace(runtime?.SupportCode));
-
             bool busy = runtime != null &&
                 (runtime.Phase == MukJumpAccountPhase.Connecting ||
                  runtime.Phase == MukJumpAccountPhase.NeedsAccountChoice ||
@@ -1472,9 +1455,6 @@ namespace MukJump.Core
                 accountDeleteButton.interactable = online && !busy;
                 accountDeleteButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(180, actionY);
             }
-            if (accountSupportButton != null)
-                accountSupportButton.GetComponent<RectTransform>().anchoredPosition =
-                    new Vector2(0, apple ? -465 : -260);
             var runtime = MukJumpAccountRuntime.Instance;
             LayoutAccountContents(runtime != null && (runtime.HasPendingAccountConflict ||
                 runtime.HasPendingSyncConflict || runtime.BlocksGameplayForAccountSync));
@@ -1486,8 +1466,7 @@ namespace MukJump.Core
             Transform page = accountKindText.transform.parent;
             bool Visible(Button button) => button != null && button.gameObject.activeSelf;
             int rows = (Visible(accountAppleButton) ? 1 : 0) +
-                       (Visible(accountLogoutButton) || Visible(accountDeleteButton) ? 1 : 0) +
-                       (Visible(accountSupportButton) ? 1 : 0);
+                       (Visible(accountLogoutButton) || Visible(accountDeleteButton) ? 1 : 0);
             // 안내는 종이 밖 토스트에 표시한다. UID가 없으면 그 자리도 예약하지 않는다.
             bool hasId = accountPlayerIdText != null && !string.IsNullOrWhiteSpace(accountPlayerIdText.text);
             if (accountPlayerIdText != null) accountPlayerIdText.gameObject.SetActive(hasId);
@@ -1516,9 +1495,7 @@ namespace MukJump.Core
                     Place(accountLogoutButton.transform, nextY, paired ? -180 : 0);
                 if (Visible(accountDeleteButton))
                     Place(accountDeleteButton.transform, nextY, paired ? 180 : 0);
-                nextY -= 145;
             }
-            if (Visible(accountSupportButton)) Place(accountSupportButton.transform, nextY);
             if (accountCloseButton != null) Place(accountCloseButton.transform, -top - 125);
             foreach (var overlay in new[] { accountConflictRoot, syncConflictRoot, accountSyncPendingRoot })
             {

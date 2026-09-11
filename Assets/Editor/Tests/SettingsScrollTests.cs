@@ -610,6 +610,7 @@ public class SettingsScrollTests
         Assert.That(page.Find("AdPrivacyButton"), Is.Null);
         Assert.That(page.Find("LanguageButton/Paper/Label").GetComponent<Text>().text, Is.EqualTo("한국어"));
         Assert.That(panel.Find("AccountPage/AccountSupportCode"), Is.Null);
+        Assert.That(panel.Find("AccountPage/CopySupportCode"), Is.Null);
         Assert.That(panel.Find("AccountPage/AccountLegal"), Is.Null);
         Assert.That(panel.Find("AccountPage/LeaderboardButton"), Is.Null);
     }
@@ -814,18 +815,18 @@ public class SettingsScrollTests
         }
     }
 
-    [TestCase(false, MukJumpAccountKind.LocalGuest, true, false)]
-    [TestCase(false, MukJumpAccountKind.LocalGuest, false, false)]
-    [TestCase(true, MukJumpAccountKind.BackendGuest, true, true)]
-    [TestCase(true, MukJumpAccountKind.Google, true, true)]
-    [TestCase(false, MukJumpAccountKind.Apple, true, true)]
+    [TestCase(false, MukJumpAccountKind.LocalGuest, true)]
+    [TestCase(false, MukJumpAccountKind.LocalGuest, false)]
+    [TestCase(true, MukJumpAccountKind.BackendGuest, true)]
+    [TestCase(true, MukJumpAccountKind.Google, true)]
+    [TestCase(false, MukJumpAccountKind.Apple, true)]
     public void AccountSheetFitsVisibleActionsWithAnOutsideClose(
-        bool online, MukJumpAccountKind kind, bool appleAvailable, bool support)
+        bool online, MukJumpAccountKind kind, bool appleAvailable)
     {
         typeof(LobbyOptionsView).GetMethod("ShowAccountPage", BindingFlags.Instance | BindingFlags.NonPublic)
             .Invoke(view, null);
         Transform account = panel.Find("AccountPage");
-        account.Find("CopySupportCode").gameObject.SetActive(support);
+        Assert.That(account.Find("CopySupportCode"), Is.Null, "문의 코드 복사 버튼과 빈 행을 생성하지 않습니다.");
         typeof(LobbyOptionsView).GetMethod("ApplyAccountActions", BindingFlags.Instance | BindingFlags.NonPublic)
             .Invoke(view, new object[] { online, kind, false, appleAvailable });
         Canvas.ForceUpdateCanvases();
@@ -839,7 +840,7 @@ public class SettingsScrollTests
         float lastBottom = float.PositiveInfinity;
         string accountAction = account.Find("AccountLogout").gameObject.activeSelf
             ? "AccountLogout" : "AccountDelete";
-        foreach (string name in new[] { "AppleLoginButton", accountAction, "CopySupportCode" })
+        foreach (string name in new[] { "AppleLoginButton", accountAction })
         {
             var rect = (RectTransform)account.Find(name);
             if (!rect.gameObject.activeSelf) continue;
@@ -1022,11 +1023,10 @@ public class SettingsScrollTests
         var available = MobileUiLayout.GetLogicalSafeSize(safe, width, height);
         page.Find("AccountButton").GetComponent<Button>().onClick.Invoke();
         var account = panel.Find("AccountPage");
+        Assert.That(account.Find("CopySupportCode"), Is.Null);
         foreach (bool online in new[] { false, true })
         foreach (bool apple in new[] { false, true })
-        foreach (bool support in new[] { false, true })
         {
-            account.Find("CopySupportCode").gameObject.SetActive(support);
             typeof(LobbyOptionsView).GetMethod("ApplyAccountActions", BindingFlags.Instance | BindingFlags.NonPublic)
                 .Invoke(view, new object[] { online, MukJumpAccountKind.BackendGuest, false, apple });
             Canvas.ForceUpdateCanvases();

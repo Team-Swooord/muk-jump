@@ -366,10 +366,7 @@ namespace MukJump.EditorTests
                 usesActionBrush: false);
             Assert.That(playSettingsPage.Find("ReducedMotionButton"), Is.Null);
             Assert.That(playSettingsPage.Find("AdConsentButton"), Is.Null);
-            AssertOptionButton(
-                accountPage,
-                "CopySupportCode",
-                usesActionBrush: false);
+            Assert.That(accountPage.Find("CopySupportCode"), Is.Null);
             AssertOptionButton(
                 accountPage.Find("AccountConflict"),
                 "UseExistingAccount",
