@@ -142,6 +142,8 @@ namespace MukJump.EditorTools
             else if (requestScope == "account-deletion-targeted") Run(new[] {
                 @"^MukJump\.EditorTests\.MukJumpAccountDeletionCleanupTests\.",
                 @"^MukJump\.EditorTests\.MukJumpAccountTests\.(GuestLogoutNeverCopiesProgressOrChangesAccount|WithdrawnOrInvalidRankNeverAppearsAsZeroMetres|QueuedLogoutRunsOnceAfterSaveUnlessAccountSessionChanged|AppleDeletionDuplicateCallbacksAndRetriesWithdrawExactlyOnce|AppleDeletionWrongStoredOwnerCannotStartAnyRemoteRequest)" });
+            else if (requestScope == "settings-compact-footer") Run(new[] {
+                @"^SettingsScrollTests\.(MainSettingsHasThreeCompactTogglesNoMotionOptionAndReadableLabels|SettingsHeaderAndCaptionsFitBothLanguagesWithoutTouchingTheRoll|SettingsFooterKeepsSaveWarningsReadableAboveLegalText|EmptySettingsFooterCollapsesWithoutMovingUpperControls|SettingsGroupsKeepBreathingRoomWithoutOverlappingLowerContent|LegalFooterUsesSmallUnderlinedTextWithFullTouchArea|ExternalCloseUsesSmallHanjiCrossWithFullHitAreaBelowTheRoll|TutorialSharedGeometryKeepsRollAndFooterInsideSafeArea|SettingsAndTutorialShareScaleAndTopRollPosition)" });
             else if (requestScope == "bottom-fall-only") Run(new[] { @"^MukJump\.EditorTests\.BottomFallRecoveryTests\." });
             else if (requestScope == "bottom-fall-regression") Run(new[] {
                 @"^MukJump\.EditorTests\.(BottomFallRecovery|PlayerHealth|PlayerSafety)Tests\." });

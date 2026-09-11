@@ -12,7 +12,9 @@ namespace MukJump.Core
         const int CanvasSortingOrder = 4150;
         const float PanelWidth = 820f;
         const float PanelHeight = 1510f;
-        const float SettingsPanelHeight = 1450f;
+        const float SettingsDesignHeight = 1450f;
+        const float SettingsPanelHeight = 1220f;
+        const float SettingsStatusHeight = 110f;
         const float CloseFooterHeight = 190f;
         const float SafeAreaPadding = 24f;
         const float DeleteConfirmationMinimumDelay = 0.45f;
@@ -53,6 +55,7 @@ namespace MukJump.Core
         Text bgmToggleLabel;
         Text sfxToggleLabel;
         Text connectionStatus;
+        float settingsLayoutHeight = SettingsDesignHeight;
         Text hapticsStatus;
         Text debugScenarioStatus;
         Text debugScenarioSummary;
@@ -490,6 +493,7 @@ namespace MukJump.Core
 
         void BuildOptionsPage(Transform panel)
         {
+            settingsLayoutHeight = SettingsDesignHeight;
             // 실제 글자 획 기준으로 위 롤과 아래 버전 사이의 여백을 맞춘다.
             var title = CreateReadableText("Title", panel, "설정", 72,
                 new Vector2(0, 608), new Vector2(520, 88),
@@ -1947,7 +1951,7 @@ namespace MukJump.Core
             bool saved = GameLocalization.SetLanguage(language);
             if (saved && previous != language) MukJumpAnalytics.Setting(AnalyticsSetting.Language, (int)language);
             ShowOptionsPage();
-            if (!saved) InkLocalizedText.SetSource(connectionStatus, "언어를 저장하지 못했어요. 다시 시도해 주세요");
+            SetSettingsStatus(saved ? string.Empty : "언어를 저장하지 못했어요. 다시 시도해 주세요");
         }
 
         void ShowLanguagePage()
@@ -2078,7 +2082,7 @@ namespace MukJump.Core
         void ShowCustomerCenterGuide()
         {
             // 메일 작성 화면만 연다. 전송·계정 정보 첨부는 사용자가 직접 결정한다.
-            InkLocalizedText.SetSource(connectionStatus, CustomerSupportEmail);
+            SetSettingsStatus(CustomerSupportEmail);
 #if UNITY_WEBGL && !UNITY_EDITOR
             OpenTossCustomerSupportMail();
 #elif !UNITY_EDITOR
@@ -2099,7 +2103,7 @@ namespace MukJump.Core
             catch (System.Exception)
             {
                 if (this != null && connectionStatus != null)
-                    InkLocalizedText.SetSource(connectionStatus, $"메일 연결 실패 · {CustomerSupportEmail}");
+                    SetSettingsStatus($"메일 연결 실패 · {CustomerSupportEmail}");
             }
             finally { supportMailOpening = false; }
         }
@@ -2351,7 +2355,7 @@ namespace MukJump.Core
         }
 
         public static float CalculateSettingsTutorialScale(Rect safeArea, int width, int height) =>
-            MobileUiLayout.CalculateFitScale(new Vector2(PanelWidth, SettingsPanelHeight + CloseFooterHeight),
+            MobileUiLayout.CalculateFitScale(new Vector2(PanelWidth, SettingsDesignHeight + CloseFooterHeight),
                 safeArea, width, height, Vector2.one * (SafeAreaPadding * .5f));
 
         public static Vector2 CalculateSettingsTutorialPosition(bool tutorial, float scale)
@@ -2361,7 +2365,44 @@ namespace MukJump.Core
         }
 
         static Vector2 CalculateTopAlignedScrollPosition(float height, float scale) =>
-            new Vector2(0, (SettingsPanelHeight + CloseFooterHeight - height) * .5f * scale);
+            new Vector2(0, (SettingsDesignHeight + CloseFooterHeight - height) * .5f * scale);
+
+        void SetSettingsStatus(string source)
+        {
+            InkLocalizedText.SetSource(connectionStatus, source);
+            LayoutSettingsContents();
+            if (showingSettingsPage) ApplySafeArea();
+        }
+
+        void LayoutSettingsContents()
+        {
+            if (optionsGroup == null) return;
+            bool hasStatus = connectionStatus != null && !string.IsNullOrWhiteSpace(connectionStatus.text);
+            float height = UsesTossSettings ? SettingsDesignHeight :
+                SettingsPanelHeight + (hasStatus ? SettingsStatusHeight : 0f);
+            // 위쪽 버튼들의 화면상 위치와 크기는 유지하고 아래 빈 종이만 접는다.
+            float offset = (height - settingsLayoutHeight) * .5f;
+            foreach (RectTransform child in optionsGroup.transform)
+                child.anchoredPosition += Vector2.up * offset;
+            settingsLayoutHeight = height;
+            float footerLift = (SettingsDesignHeight - height) * .5f;
+            foreach (string name in new[] { "TermsButton", "PrivacyButton", "CloseButton" })
+            {
+                var rect = optionsGroup.transform.Find(name) as RectTransform;
+                if (rect != null)
+                    rect.anchoredPosition = new Vector2(rect.anchoredPosition.x,
+                        (name == "CloseButton" ? -820f : -634f) + footerLift);
+            }
+            if (connectionStatus != null)
+            {
+                connectionStatus.gameObject.SetActive(hasStatus);
+                connectionStatus.rectTransform.anchoredPosition = new Vector2(0,
+                    UsesTossSettings ? -527f : -381f - footerLift);
+            }
+            if (!showingSettingsPage) return;
+            optionsPanel.sizeDelta = new Vector2(PanelWidth, height);
+            optionsPanel.GetComponent<HanjiScrollFrame>().SetPaperSize(new Vector2(764, height - 60f));
+        }
 
         static CanvasGroup CreatePageGroup(string name, Transform parent)
         {
@@ -2387,7 +2428,8 @@ namespace MukJump.Core
                 optionsPanel.sizeDelta = new Vector2(PanelWidth,
                     choosingLanguage || privacy ? 900 : tutorial ? FirstRunTutorialController.PanelDesignHeight : showingSettingsPage ? SettingsPanelHeight : PanelHeight);
                 optionsPanel.GetComponent<HanjiScrollFrame>().SetPaperSize(
-                    new Vector2(764, choosingLanguage || privacy ? 840 : tutorial ? 1300 : showingSettingsPage ? 1390 : 1450));
+                    new Vector2(764, choosingLanguage || privacy ? 840 : tutorial ? 1300 : showingSettingsPage ? SettingsPanelHeight - 60f : 1450));
+                if (showingSettingsPage) LayoutSettingsContents();
                 if (showingAccountPage) ApplyAccountPaperSize();
                 ApplySafeArea();
             }

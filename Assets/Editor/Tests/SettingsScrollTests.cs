@@ -46,7 +46,7 @@ public class SettingsScrollTests
         {
             var rect = (RectTransform)page.Find(name);
             Assert.That(rect.rect.height, Is.GreaterThanOrEqualTo(120));
-            Assert.That(rect.anchoredPosition.y, Is.EqualTo(298));
+            Assert.That(rect.anchoredPosition.y, Is.EqualTo(183));
         }
         foreach (Text text in page.GetComponentsInChildren<Text>(true))
         {
@@ -113,13 +113,50 @@ public class SettingsScrollTests
         var legalText = (RectTransform)legal.Find("Label");
         foreach (string source in new[] { "언어를 저장하지 못했어요. 다시 시도해 주세요", "cysbandcs@gmail.com" })
         {
-            InkLocalizedText.SetSource(status, source);
+            typeof(LobbyOptionsView).GetMethod("SetSettingsStatus", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(view, new object[] { source });
             Canvas.ForceUpdateCanvases();
             Assert.That(status.preferredHeight, Is.LessThanOrEqualTo(status.rectTransform.rect.height + 1));
             Assert.That(account.anchoredPosition.y + account.rect.yMin -
                 status.rectTransform.anchoredPosition.y - status.rectTransform.rect.yMax, Is.GreaterThanOrEqualTo(12));
             Assert.That(status.rectTransform.anchoredPosition.y + status.rectTransform.rect.yMin -
                 legal.anchoredPosition.y - legalText.rect.yMax, Is.GreaterThanOrEqualTo(10));
+        }
+    }
+
+    [TestCase(GameLanguage.Korean)]
+    [TestCase(GameLanguage.English)]
+    [TestCase(GameLanguage.Japanese)]
+    public void EmptySettingsFooterCollapsesWithoutMovingUpperControls(GameLanguage language)
+    {
+        GameLocalization.SetLanguage(language);
+        var rect = (RectTransform)panel;
+        var title = (RectTransform)page.Find("Title");
+        var account = (RectTransform)page.Find("AccountButton");
+        var status = page.Find("ConnectionStatus").GetComponent<Text>();
+        var setStatus = typeof(LobbyOptionsView).GetMethod("SetSettingsStatus",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Canvas.ForceUpdateCanvases();
+        Vector3 titlePosition = title.position;
+        Vector3 accountPosition = account.position;
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.That(rect.rect.height, Is.EqualTo(1220));
+            Assert.That(status.gameObject.activeSelf, Is.False);
+            setStatus.Invoke(view, new object[] { "언어를 저장하지 못했어요. 다시 시도해 주세요" });
+            Canvas.ForceUpdateCanvases();
+            Assert.That(rect.rect.height, Is.EqualTo(1330));
+            Assert.That(status.gameObject.activeSelf, Is.True);
+            Assert.That(title.position.y, Is.EqualTo(titlePosition.y).Within(.01f));
+            Assert.That(account.position.y, Is.EqualTo(accountPosition.y).Within(.01f));
+            setStatus.Invoke(view, new object[] { string.Empty });
+            view.OpenTutorialForTests();
+            typeof(LobbyOptionsView).GetMethod("ShowOptionsPageImmediate",
+                BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, null);
+            Canvas.ForceUpdateCanvases();
+            Assert.That(rect.rect.height, Is.EqualTo(1220));
+            Assert.That(title.position.y, Is.EqualTo(titlePosition.y).Within(.01f));
+            Assert.That(account.position.y, Is.EqualTo(accountPosition.y).Within(.01f));
         }
     }
 
@@ -619,14 +656,10 @@ public class SettingsScrollTests
         Assert.That(Gap(sound, language), Is.InRange(40f, 60f));
         Assert.That(Gap(language, guide), Is.GreaterThanOrEqualTo(16f));
         Assert.That(Gap(guide, account), Is.InRange(32f, 40f), "이전 닉네임 행의 빈자리는 남기지 않는다");
-        Assert.That(Gap(account, status), Is.GreaterThanOrEqualTo(12f));
-        // 비상호작용 안내와 약관의 실제 글씨 사이 여백을 검사한다.
-        // 약관의 넓은 투명 터치 영역은 안내를 그리거나 가리지 않는다.
-        var legalLabel = (RectTransform)legal.Find("Label");
-        float legalTextTop = legal.anchoredPosition.y + legalLabel.anchoredPosition.y + legalLabel.rect.yMax;
-        Assert.That(status.anchoredPosition.y + status.rect.yMin - legalTextTop, Is.GreaterThanOrEqualTo(10f));
-        Assert.That(account.anchoredPosition, Is.EqualTo(new Vector2(0, -252)));
-        Assert.That(legal.anchoredPosition.y - legal.rect.height / 2, Is.GreaterThan(-695f));
+        Assert.That(status.gameObject.activeSelf, Is.False, "빈 안내 영역을 예약하지 않는다");
+        Assert.That(Gap(account, legal), Is.InRange(24f, 36f));
+        Assert.That(account.anchoredPosition, Is.EqualTo(new Vector2(0, -367)));
+        Assert.That(legal.anchoredPosition.y - legal.rect.height / 2, Is.GreaterThan(-580f));
     }
 
     [TestCase("music")]
@@ -1161,7 +1194,7 @@ public class SettingsScrollTests
         var underline = button.transform.Find("Underline").GetComponent<Image>();
         Assert.That(hit.raycastTarget, Is.True);
         Assert.That(hit.color.a, Is.Zero);
-        Assert.That(hit.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(x, -634)));
+        Assert.That(hit.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(x, -519)));
         Assert.That(hit.rectTransform.sizeDelta, Is.EqualTo(new Vector2(340, 120)));
         Assert.That(text.fontSize, Is.EqualTo(32));
         Assert.That(text.resizeTextForBestFit, Is.False);
@@ -1180,7 +1213,7 @@ public class SettingsScrollTests
         var button = page.Find("CloseButton").GetComponent<Button>();
         var hit = button.GetComponent<Image>();
         var paper = button.transform.Find("Paper").GetComponent<Image>();
-        Assert.That(hit.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(0, -820)));
+        Assert.That(hit.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(0, -705)));
         Assert.That(hit.rectTransform.sizeDelta, Is.EqualTo(new Vector2(120, 120)));
         Assert.That(paper.rectTransform.sizeDelta, Is.EqualTo(new Vector2(96, 96)));
         Assert.That(hit.raycastTarget, Is.True);
@@ -1218,7 +1251,7 @@ public class SettingsScrollTests
         Vector2 settings = LobbyOptionsView.CalculateSettingsTutorialPosition(false, scale);
         Vector2 tutorial = LobbyOptionsView.CalculateSettingsTutorialPosition(true, scale);
         Vector2 available = MobileUiLayout.GetLogicalSafeSize(safe, width, height);
-        float settingsRoll = settings.y + 1390f * .5f * scale;
+        float settingsRoll = settings.y + 1160f * .5f * scale;
         float tutorialRoll = tutorial.y + 1300f * .5f * scale;
         Assert.That(tutorialRoll, Is.EqualTo(settingsRoll).Within(.001f));
         Assert.That(tutorial.x, Is.EqualTo(settings.x));
@@ -1264,7 +1297,7 @@ public class SettingsScrollTests
         float expectedScale = MobileUiLayout.CalculateFitScale(new Vector2(820, 1640),
             MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height, Vector2.one * 12);
         Assert.That(rect.localScale.x, Is.EqualTo(expectedScale).Within(0.001));
-        Assert.That(rect.anchoredPosition.y, Is.EqualTo(95 * expectedScale).Within(0.001));
+        Assert.That(rect.anchoredPosition.y, Is.EqualTo(210 * expectedScale).Within(0.001));
         var top = (RectTransform)panel.Find("HanjiScrollArt/TopRoll");
         Vector3 topBefore = top.position;
         view.OpenTutorialForTests();
@@ -1280,7 +1313,7 @@ public class SettingsScrollTests
         dim.OnPointerClick(new PointerEventData(null) { position = new Vector2(-100, -100),
             button = PointerEventData.InputButton.Left });
         Assert.That(rect.localScale.x, Is.EqualTo(expectedScale).Within(0.001));
-        Assert.That(rect.anchoredPosition.y, Is.EqualTo(95 * expectedScale).Within(0.001));
+        Assert.That(rect.anchoredPosition.y, Is.EqualTo(210 * expectedScale).Within(0.001));
         page.Find("CloseButton").GetComponent<Button>().onClick.Invoke();
         Assert.That(view.IsOpen, Is.False, "EditMode의 닫힘 완료도 기존 Close 경로를 따른다");
     }
