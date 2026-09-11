@@ -1,6 +1,44 @@
 # 먹점프 스토어 개인정보 응답 기준
 
-대상: 먹점프 1.0 / 뒤끝 로그인·저장·리더보드 + Google Mobile Ads 11.4.0
+대상: 먹점프 1.0.0 정식 심사 준비 / 뒤끝 + Google Mobile Ads + 선택형 Firebase Analytics
+
+## 2026-09-12 정식 심사 입력 현황
+
+28번 Archive의 실제 privacy manifest, 29번 소스, Google의 iOS 데이터 공개 안내와
+Apple의 데이터 유형 정의를 대조하여 다음 **9개 유형**을 App Store Connect에 저장했다.
+공개 개인정보처리방침의 Firebase 고지와 보관기간을 확정하기 전 최종 게시는 보류한다.
+
+| 유형 | 목적 | 사용자 연결 | 추적 |
+|---|---|---|---|
+| 사용자 ID(게스트/뒤끝/Apple 식별자·닉네임) | 앱 기능 | 예 | 아니요 |
+| 게임 플레이 콘텐츠(최고 고도·성장·게임 기록) | 앱 기능, 분석 | 예 | 아니요 |
+| 기기 ID(광고·설치 식별자) | 앱 기능, 분석, 타사 광고 | 예 | 예: ATT 허용 후 광고 ID |
+| 대략적인 위치(IP 지역·기기 지역 설정) | 앱 기능, 분석, 타사 광고 | 예 | 아니요 |
+| 제품 상호 작용 | 앱 기능, 분석, 타사 광고 | 예 | 아니요 |
+| 광고 데이터 | 앱 기능, 분석, 타사 광고 | 예 | 아니요 |
+| 충돌 데이터 | 앱 기능, 분석 | 아니요 | 아니요 |
+| 실적 데이터 | 앱 기능, 분석, 타사 광고 | 예 | 아니요 |
+| 기타 진단 데이터 | 앱 기능, 분석, 타사 광고 | 아니요 | 아니요 |
+
+- Google Sign-In 코드는 `GoogleSignInEnabled=false`로 차단돼 있다. Apple 로그인은
+  `LoginOptions.None`으로 이름·이메일 scope를 요청하지 않는다. SDK 파일이 포함됐다는
+  이유만으로 이름·전화번호·연락처를 실제 수집한다고 입력하지 않는다. 게임의 닉네임은 사용자 ID다.
+- 고객지원은 외부 메일 앱에서 이용자가 직접 보내는 선택형 문의다. 연락처·문의 고지는
+  공개 정책에 유지하되 앱의 자동 수집으로 간주하지 않는다.
+- Firebase는 분석 기본 꺼짐, `SetUserId(null)`, iOS IDFV 수집 차단,
+  광고 관련 consent 세 종류 거부를 확인했다. 분석 목적의 설치 식별자는 완전 익명이 아니다.
+- Google 공식 최신 설명에 user-associated performance가 명시돼 있어 실적 데이터는
+  연결됨으로 답했다. 광고 SDK manifest의 비연결 진단과 구분한다.
+- 29번은 `설정 → 개인정보처리방침 → 광고 개인정보 선택`으로 UMP 재선택 진입점을
+  제공한다. SDK가 요구할 때만 표시하며 분석 동의와 분리한다. 관련 검사 10개 통과.
+- Firebase 프로젝트 `mukjump-3751d`의 GA4 보관기간은 Google 재로그인이 필요해 아직
+  확인하지 못했다. 보관기간을 임의 숫자로 고지하거나 심사 제출 완료라고 보고하지 않는다.
+
+근거: [Apple 데이터 공개 정의](https://developer.apple.com/app-store/app-privacy-details/),
+[AdMob iOS 데이터 공개](https://developers.google.com/admob/ios/privacy/data-disclosure),
+[Google UMP](https://developers.google.com/admob/ios/privacy).
+
+## 과거 검토 이력 — 아래 표를 현재 iOS 답변으로 복사하지 말 것
 
 ## Firebase Analytics 추가 후 재검토 필요 (2026-09-08)
 
