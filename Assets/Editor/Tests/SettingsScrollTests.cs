@@ -725,6 +725,8 @@ public class SettingsScrollTests
     [TestCase(false, MukJumpAccountKind.LocalGuest, false, true, true)]
     [TestCase(false, MukJumpAccountKind.LocalGuest, false, false, false)]
     [TestCase(true, MukJumpAccountKind.BackendGuest, false, true, true)]
+    [TestCase(true, MukJumpAccountKind.BackendGuest, true, true, true)]
+    [TestCase(false, MukJumpAccountKind.BackendGuest, false, true, true)]
     [TestCase(true, MukJumpAccountKind.Google, false, true, false)]
     [TestCase(true, MukJumpAccountKind.Apple, false, true, false)]
     [TestCase(false, MukJumpAccountKind.Google, false, true, false)]
@@ -744,7 +746,39 @@ public class SettingsScrollTests
             Assert.That(appleButton.interactable, Is.False);
         }
         Assert.That(account.Find("AccountDelete").gameObject.activeSelf, Is.EqualTo(online));
-        Assert.That(account.Find("AccountLogout").gameObject.activeSelf, Is.EqualTo(online));
+        bool linked = kind == MukJumpAccountKind.Apple || kind == MukJumpAccountKind.Google;
+        var logout = account.Find("AccountLogout").GetComponent<Button>();
+        Assert.That(logout.gameObject.activeSelf, Is.EqualTo(online && linked));
+        Assert.That(logout.interactable, Is.EqualTo(online && linked && !busy));
+        Assert.That(account.Find("AccountDelete").GetComponent<Button>().interactable,
+            Is.EqualTo(online && !busy), "기존 계정 삭제의 인증·진행 중 보호 조건을 유지합니다.");
+    }
+
+    [Test]
+    public void GuestDeleteStaysCenteredAndLinkedLogoutReturnsAfterAccountChanges()
+    {
+        Transform account = panel.Find("AccountPage");
+        var logout = account.Find("AccountLogout").GetComponent<Button>();
+        var delete = account.Find("AccountDelete").GetComponent<Button>();
+        foreach (var kind in new[] { MukJumpAccountKind.BackendGuest,
+                     MukJumpAccountKind.Apple, MukJumpAccountKind.BackendGuest })
+        {
+            InvokeAccount("ApplyAccountActions", true, kind, false, true);
+            Canvas.ForceUpdateCanvases();
+            bool linked = kind == MukJumpAccountKind.Apple;
+            Assert.That(logout.gameObject.activeSelf, Is.EqualTo(linked));
+            Assert.That(delete.gameObject.activeSelf, Is.True);
+            Assert.That(delete.interactable, Is.True);
+            var deleteRect = (RectTransform)delete.transform;
+            Assert.That(deleteRect.anchoredPosition.x, Is.EqualTo(linked ? 180f : 0f));
+            if (linked)
+            {
+                var logoutRect = (RectTransform)logout.transform;
+                Assert.That(logoutRect.anchoredPosition.x, Is.EqualTo(-180f));
+                Assert.That(logoutRect.anchoredPosition.y, Is.EqualTo(deleteRect.anchoredPosition.y));
+            }
+            Assert.That(delete.GetComponentInChildren<Text>().text, Is.EqualTo("계정 삭제"));
+        }
     }
 
     [TestCase(false, MukJumpAccountKind.LocalGuest, true, false)]
@@ -770,7 +804,9 @@ public class SettingsScrollTests
         Assert.That(title.anchoredPosition.x, Is.Zero);
         Assert.That(paper.rect.yMax - title.anchoredPosition.y - title.rect.yMax, Is.GreaterThanOrEqualTo(50));
         float lastBottom = float.PositiveInfinity;
-        foreach (string name in new[] { "AppleLoginButton", "AccountLogout", "CopySupportCode" })
+        string accountAction = account.Find("AccountLogout").gameObject.activeSelf
+            ? "AccountLogout" : "AccountDelete";
+        foreach (string name in new[] { "AppleLoginButton", accountAction, "CopySupportCode" })
         {
             var rect = (RectTransform)account.Find(name);
             if (!rect.gameObject.activeSelf) continue;

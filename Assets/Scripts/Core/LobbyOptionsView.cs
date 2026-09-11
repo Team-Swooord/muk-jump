@@ -1457,8 +1457,9 @@ namespace MukJump.Core
             float actionY = apple ? -315 : -80;
             if (accountLogoutButton != null)
             {
-                accountLogoutButton.gameObject.SetActive(online);
-                accountLogoutButton.interactable = online && !busy;
+                // 게스트는 로그아웃 대신 기존 계정 삭제 경로만 제공한다.
+                accountLogoutButton.gameObject.SetActive(online && !guest);
+                accountLogoutButton.interactable = online && !guest && !busy;
                 accountLogoutButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-180, actionY);
             }
             if (accountDeleteButton != null)
@@ -1506,8 +1507,11 @@ namespace MukJump.Core
             }
             if (Visible(accountLogoutButton) || Visible(accountDeleteButton))
             {
-                Place(accountLogoutButton.transform, nextY, -180);
-                Place(accountDeleteButton.transform, nextY, 180);
+                bool paired = Visible(accountLogoutButton) && Visible(accountDeleteButton);
+                if (Visible(accountLogoutButton))
+                    Place(accountLogoutButton.transform, nextY, paired ? -180 : 0);
+                if (Visible(accountDeleteButton))
+                    Place(accountDeleteButton.transform, nextY, paired ? 180 : 0);
                 nextY -= 145;
             }
             if (Visible(accountSupportButton)) Place(accountSupportButton.transform, nextY);
