@@ -127,7 +127,7 @@ public class SettingsScrollTests
     [TestCase(GameLanguage.Korean)]
     [TestCase(GameLanguage.English)]
     [TestCase(GameLanguage.Japanese)]
-    public void EmptySettingsFooterCollapsesWithoutMovingUpperControls(GameLanguage language)
+    public void EmptySettingsFooterCollapsesWhileKeepingControlsInsetFromTop(GameLanguage language)
     {
         GameLocalization.SetLanguage(language);
         var rect = (RectTransform)panel;
@@ -137,8 +137,8 @@ public class SettingsScrollTests
         var setStatus = typeof(LobbyOptionsView).GetMethod("SetSettingsStatus",
             BindingFlags.Instance | BindingFlags.NonPublic);
         Canvas.ForceUpdateCanvases();
-        Vector3 titlePosition = title.position;
-        Vector3 accountPosition = account.position;
+        float titleInset = rect.rect.yMax - title.anchoredPosition.y;
+        float accountInset = rect.rect.yMax - account.anchoredPosition.y;
         for (int i = 0; i < 3; i++)
         {
             Assert.That(rect.rect.height, Is.EqualTo(1220));
@@ -147,16 +147,18 @@ public class SettingsScrollTests
             Canvas.ForceUpdateCanvases();
             Assert.That(rect.rect.height, Is.EqualTo(1330));
             Assert.That(status.gameObject.activeSelf, Is.True);
-            Assert.That(title.position.y, Is.EqualTo(titlePosition.y).Within(.01f));
-            Assert.That(account.position.y, Is.EqualTo(accountPosition.y).Within(.01f));
+            Assert.That(rect.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(rect.rect.yMax - title.anchoredPosition.y, Is.EqualTo(titleInset).Within(.01f));
+            Assert.That(rect.rect.yMax - account.anchoredPosition.y, Is.EqualTo(accountInset).Within(.01f));
             setStatus.Invoke(view, new object[] { string.Empty });
             view.OpenTutorialForTests();
             typeof(LobbyOptionsView).GetMethod("ShowOptionsPageImmediate",
                 BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, null);
             Canvas.ForceUpdateCanvases();
             Assert.That(rect.rect.height, Is.EqualTo(1220));
-            Assert.That(title.position.y, Is.EqualTo(titlePosition.y).Within(.01f));
-            Assert.That(account.position.y, Is.EqualTo(accountPosition.y).Within(.01f));
+            Assert.That(rect.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(rect.rect.yMax - title.anchoredPosition.y, Is.EqualTo(titleInset).Within(.01f));
+            Assert.That(rect.rect.yMax - account.anchoredPosition.y, Is.EqualTo(accountInset).Within(.01f));
         }
     }
 
@@ -321,7 +323,7 @@ public class SettingsScrollTests
         Assert.That(scroll.rect.width * scroll.localScale.x + 24f, Is.LessThanOrEqualTo(logicalSafe.x + 0.01f));
         Assert.That((scroll.rect.height + 190f) * scroll.localScale.y + 24f,
             Is.LessThanOrEqualTo(logicalSafe.y + 0.01f));
-        Assert.That(scroll.anchoredPosition.y, Is.EqualTo(95f * scroll.localScale.y).Within(0.01f));
+        Assert.That(scroll.anchoredPosition, Is.EqualTo(Vector2.zero));
         Assert.That(MobileUiLayout.CurrentSafeArea, Is.EqualTo(original), "전역 화면 설정을 바꾸면 안 됩니다.");
     }
 
@@ -1251,14 +1253,14 @@ public class SettingsScrollTests
         Vector2 settings = LobbyOptionsView.CalculateSettingsTutorialPosition(false, scale);
         Vector2 tutorial = LobbyOptionsView.CalculateSettingsTutorialPosition(true, scale);
         Vector2 available = MobileUiLayout.GetLogicalSafeSize(safe, width, height);
-        float settingsRoll = settings.y + 1160f * .5f * scale;
         float tutorialRoll = tutorial.y + 1300f * .5f * scale;
-        Assert.That(tutorialRoll, Is.EqualTo(settingsRoll).Within(.001f));
-        Assert.That(tutorial.x, Is.EqualTo(settings.x));
+        Assert.That(settings, Is.EqualTo(Vector2.zero));
+        Assert.That(tutorial, Is.EqualTo(Vector2.zero));
         Assert.That(scale, Is.GreaterThan(0).And.LessThanOrEqualTo(1));
         Assert.That(820f * scale + 24f, Is.LessThanOrEqualTo(available.x + .001f));
         Assert.That(1640f * scale + 24f, Is.LessThanOrEqualTo(available.y + .001f));
         Assert.That(tutorialRoll + 31f * scale, Is.LessThan(available.y * .5f));
+        Assert.That(settings.y - 765f * scale, Is.GreaterThan(-available.y * .5f));
         Assert.That(tutorial.y - 681f * scale, Is.GreaterThan(-available.y * .5f));
     }
 
@@ -1291,19 +1293,17 @@ public class SettingsScrollTests
     }
 
     [Test]
-    public void SettingsAndTutorialShareScaleAndTopRollPosition()
+    public void SettingsAndTutorialShareScaleAndCenteredPaperPosition()
     {
         var rect = (RectTransform)panel;
         float expectedScale = MobileUiLayout.CalculateFitScale(new Vector2(820, 1640),
             MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height, Vector2.one * 12);
         Assert.That(rect.localScale.x, Is.EqualTo(expectedScale).Within(0.001));
-        Assert.That(rect.anchoredPosition.y, Is.EqualTo(210 * expectedScale).Within(0.001));
-        var top = (RectTransform)panel.Find("HanjiScrollArt/TopRoll");
-        Vector3 topBefore = top.position;
+        Assert.That(rect.anchoredPosition, Is.EqualTo(Vector2.zero));
         view.OpenTutorialForTests();
-        Assert.That(rect.anchoredPosition.y, Is.EqualTo(140 * expectedScale).Within(.001));
+        Assert.That(rect.anchoredPosition, Is.EqualTo(Vector2.zero));
         Assert.That(rect.localScale.x, Is.EqualTo(expectedScale).Within(.001));
-        Assert.That(top.position.y, Is.EqualTo(topBefore.y).Within(.001));
+        Assert.That(panel.Find("HanjiScrollArt/Paper").position, Is.EqualTo(rect.position));
         Assert.That(page.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
         Assert.That(page.GetComponent<CanvasGroup>().alpha, Is.Zero);
         Assert.That(rect.sizeDelta.y, Is.EqualTo(FirstRunTutorialController.PanelDesignHeight));
@@ -1313,9 +1313,58 @@ public class SettingsScrollTests
         dim.OnPointerClick(new PointerEventData(null) { position = new Vector2(-100, -100),
             button = PointerEventData.InputButton.Left });
         Assert.That(rect.localScale.x, Is.EqualTo(expectedScale).Within(0.001));
-        Assert.That(rect.anchoredPosition.y, Is.EqualTo(210 * expectedScale).Within(0.001));
+        Assert.That(rect.anchoredPosition, Is.EqualTo(Vector2.zero));
         page.Find("CloseButton").GetComponent<Button>().onClick.Invoke();
         Assert.That(view.IsOpen, Is.False, "EditMode의 닫힘 완료도 기존 Close 경로를 따른다");
+    }
+
+    [TestCase(1179, 2556, 102, 177)]
+    [TestCase(1080, 2400, 72, 90)]
+    [TestCase(750, 1334, 0, 40)]
+    [TestCase(1536, 2048, 40, 48)]
+    public void CenteredSettingsKeepExternalCloseInsideSafeAreaAcrossPlatforms(int width, int height, int bottom, int top)
+    {
+        var safe = new Rect(24, bottom, width - 64, height - bottom - top);
+        var available = MobileUiLayout.GetLogicalSafeSize(safe, width, height);
+        foreach (var platform in new[] { RuntimePlatform.IPhonePlayer, RuntimePlatform.WebGLPlayer })
+        {
+            var other = new GameObject("CenteredSettingsPlatform");
+            try
+            {
+                var options = other.AddComponent<LobbyOptionsView>();
+                options.BuildForPlatformForTests(platform);
+                options.SetDisplayMetricsForTests(width, height, safe);
+                var paper = (RectTransform)other.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll");
+                var close = (RectTransform)paper.Find("OptionsPage/CloseButton");
+                foreach (string status in new[] { "", "언어를 저장하지 못했어요. 다시 시도해 주세요", "" })
+                {
+                    typeof(LobbyOptionsView).GetMethod("SetSettingsStatus", BindingFlags.Instance | BindingFlags.NonPublic)
+                        .Invoke(options, new object[] { status });
+                    Canvas.ForceUpdateCanvases();
+                    Assert.That(paper.anchoredPosition, Is.EqualTo(Vector2.zero));
+                    Assert.That(paper.Find("HanjiScrollArt/Paper").position, Is.EqualTo(paper.position));
+                    float scale = paper.localScale.x;
+                    Assert.That(paper.rect.yMax * scale, Is.LessThan(available.y * .5f));
+                    Assert.That((close.anchoredPosition.y + close.rect.yMin) * scale,
+                        Is.GreaterThan(-available.y * .5f), platform.ToString());
+                }
+            }
+            finally { Object.DestroyImmediate(other); }
+        }
+    }
+
+    [TestCase("ShowLanguagePageImmediate")]
+    [TestCase("ShowLeaderboardPageImmediate")]
+    [TestCase("ShowAccountPageImmediate")]
+    [TestCase("ShowAnalyticsPrivacyPage")]
+    public void OtherOptionsPagesKeepTheSameSafeAreaCenter(string method)
+    {
+        view.SetDisplayMetricsForTests(1179, 2556, new Rect(24, 102, 1115, 2277));
+        typeof(LobbyOptionsView).GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, null);
+        Canvas.ForceUpdateCanvases();
+        var rect = (RectTransform)panel;
+        Assert.That(rect.anchoredPosition, Is.EqualTo(Vector2.zero), method);
+        Assert.That(panel.Find("HanjiScrollArt/Paper").position, Is.EqualTo(rect.position), method);
     }
 
     [TestCase("BgmCard")]

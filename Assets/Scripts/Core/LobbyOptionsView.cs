@@ -2310,11 +2310,18 @@ namespace MukJump.Core
                 }
                 return;
             }
-            // 설정과 튜토리얼끼리는 기존 예약 공간과 상단 축을 유지한다.
+            // 짧아진 종이에 예전 상단 축을 적용하면 설정 전체가 위로 치우친다.
+            // 본체는 다른 팝업과 같은 중앙에 두고 외부 닫기 영역까지 대칭으로 확보한다.
             if (showingSettingsPage || showingTutorialPage)
             {
                 float scale = CalculateSettingsTutorialScale(safe, UiScreenWidth, UiScreenHeight);
-                optionsPanel.anchoredPosition = CalculateTopAlignedScrollPosition(optionsPanel.sizeDelta.y, scale);
+                float halfHeight = optionsPanel.sizeDelta.y * .5f;
+                if (showingSettingsPage && optionsGroup.transform.Find("CloseButton") is RectTransform close)
+                    halfHeight = Mathf.Max(halfHeight, -close.anchoredPosition.y - close.rect.yMin);
+                scale = Mathf.Min(scale, MobileUiLayout.CalculateFitScale(
+                    new Vector2(PanelWidth, halfHeight * 2f), safe, UiScreenWidth, UiScreenHeight,
+                    Vector2.one * (SafeAreaPadding * .5f)));
+                optionsPanel.anchoredPosition = CalculateSettingsTutorialPosition(showingTutorialPage, scale);
                 optionsPanel.localScale = Vector3.one * scale;
                 return;
             }
@@ -2335,14 +2342,7 @@ namespace MukJump.Core
             MobileUiLayout.CalculateFitScale(new Vector2(PanelWidth, SettingsDesignHeight + CloseFooterHeight),
                 safeArea, width, height, Vector2.one * (SafeAreaPadding * .5f));
 
-        public static Vector2 CalculateSettingsTutorialPosition(bool tutorial, float scale)
-        {
-            float height = tutorial ? FirstRunTutorialController.PanelDesignHeight : SettingsPanelHeight;
-            return CalculateTopAlignedScrollPosition(height, scale);
-        }
-
-        static Vector2 CalculateTopAlignedScrollPosition(float height, float scale) =>
-            new Vector2(0, (SettingsDesignHeight + CloseFooterHeight - height) * .5f * scale);
+        public static Vector2 CalculateSettingsTutorialPosition(bool tutorial, float scale) => Vector2.zero;
 
         void SetSettingsStatus(string source)
         {
@@ -2357,7 +2357,7 @@ namespace MukJump.Core
             bool hasStatus = connectionStatus != null && !string.IsNullOrWhiteSpace(connectionStatus.text);
             float height = UsesTossSettings ? SettingsDesignHeight :
                 SettingsPanelHeight + (hasStatus ? SettingsStatusHeight : 0f);
-            // 위쪽 버튼들의 화면상 위치와 크기는 유지하고 아래 빈 종이만 접는다.
+            // 내용의 종이 상단 여백·크기는 유지한다. 종이 본체의 화면 중심은 별도로 고정한다.
             float offset = (height - settingsLayoutHeight) * .5f;
             foreach (RectTransform child in optionsGroup.transform)
                 child.anchoredPosition += Vector2.up * offset;

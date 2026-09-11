@@ -173,6 +173,70 @@ public class HanjiScrollCloseRuntimeTests
     static void OnDuplicateClosed() => callbackCount += 100;
 
     [UnityTest]
+    public IEnumerator CenteredOptionsPagesKeepOverlayPaperAtTheSafeAreaCenter()
+    {
+        string originalScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().path;
+        UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+            UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
+            UnityEditor.SceneManagement.NewSceneMode.Single);
+        if (!Application.isBatchMode)
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+        yield return new EnterPlayMode();
+        LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+        MukJumpIdentityProfile.UseStoreForTests(new MukJump.EditorTests.MemoryIdentityStore());
+        MobileApplicationLifecycle.SetPlatformVisibility(true);
+        bool oldBackground = Application.runInBackground;
+        Application.runInBackground = true;
+        var host = new GameObject("CenteredOptionsOverlayProbe");
+        var camera = new GameObject("CenteredOptionsBackground", typeof(Camera));
+        camera.GetComponent<Camera>().clearFlags = CameraClearFlags.SolidColor;
+        camera.GetComponent<Camera>().backgroundColor = InkPalette.Paper;
+        try
+        {
+            var view = host.AddComponent<LobbyOptionsView>();
+            view.OpenTutorialForTests();
+            // Device Simulator의 Screen 값과 실제 Game 뷰 렌더 크기를 혼용하지 않는다.
+            var canvas = host.GetComponentInChildren<Canvas>();
+            Vector2 display = canvas.renderingDisplaySize;
+            view.SetDisplayMetricsForTests(Mathf.RoundToInt(display.x), Mathf.RoundToInt(display.y),
+                new Rect(0, 0, display.x, display.y));
+            var panel = (RectTransform)host.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll");
+            foreach (string page in new[] { "ShowOptionsPageImmediate", "ShowTutorialPageImmediate", "ShowLanguagePageImmediate" })
+            {
+                var method = typeof(LobbyOptionsView).GetMethod(page, BindingFlags.Instance | BindingFlags.NonPublic);
+                method.Invoke(view, page == "ShowTutorialPageImmediate" ? new object[] { 0 } : null);
+                panel.GetComponent<HanjiScrollFrame>().ResetPresentation();
+                yield return new WaitForSecondsRealtime(.45f);
+                Canvas.ForceUpdateCanvases();
+                Assert.That(panel.anchoredPosition, Is.EqualTo(Vector2.zero), page);
+                Assert.That(Vector3.Distance(panel.position, panel.parent.position), Is.LessThan(.01f), page);
+                Assert.That(canvas.renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
+                // 배치 모드에는 합성 Game 뷰가 없을 수 있으므로 실제 창에서만 촬영한다.
+                if (!Application.isBatchMode)
+                {
+                    object capture = MukJump.EditorTools.MukJumpAgentAudit.CaptureUi();
+                    string path = (string)capture.GetType().GetProperty("path").GetValue(capture);
+                    double deadline = Time.realtimeSinceStartupAsDouble + 5;
+                    while (!System.IO.File.Exists(path) && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+                    Assert.That(System.IO.File.Exists(path), Is.True, path);
+                    Debug.Log($"[CenteredOptions] {page}: {path} ({Screen.width}x{Screen.height})");
+                }
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(host);
+            UnityEngine.Object.DestroyImmediate(camera);
+            Application.runInBackground = oldBackground;
+            LobbySettingsProfile.RestoreDefaultStoreForTests();
+            MukJumpIdentityProfile.UseStoreForTests(null);
+        }
+        yield return new ExitPlayMode();
+        if (!string.IsNullOrEmpty(originalScene))
+            UnityEditor.SceneManagement.EditorSceneManager.OpenScene(originalScene);
+    }
+
+    [UnityTest]
     public IEnumerator AccountTransitionCentersPopupAndRestoresSettingsWithoutStaleNavigation()
     {
         yield return new EnterPlayMode();
