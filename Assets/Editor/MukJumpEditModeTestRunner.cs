@@ -63,6 +63,7 @@ namespace MukJump.EditorTools
             EditorApplication.delayCall += RunRequestedTests;
         }
 
+        [MenuItem("MukJump/Diagnostics/Resume Requested Validation")]
         static void RunRequestedTests()
         {
             runScheduled = false;
@@ -92,6 +93,24 @@ namespace MukJump.EditorTools
             requestRefreshed = false;
             bool renderOnly = requestScope == "render-fixture-only";
             File.Delete(RequestPath);
+            // CLI 인증이 막혀도 동일한 읽기 전용 감사를 로컬 요청으로 실행한다.
+            if (requestScope == "agent-audit")
+            {
+                File.WriteAllText("Temp/MukJumpAgentAudit.json",
+                    Newtonsoft.Json.JsonConvert.SerializeObject(MukJumpAgentAudit.Audit(),
+                        Newtonsoft.Json.Formatting.Indented));
+                return;
+            }
+            if (requestScope == "agent-regression")
+            {
+                RunAgentToolingRegression();
+                return;
+            }
+            if (requestScope == "release-targeted-recheck")
+            {
+                Run(new[] { @"^MukJump\.EditorTests\.ReleaseGameplayAuditTests\.(AccountDeletionReturnsThroughSplashBeforePausedTutorial|MainSceneNightFinalBand)$" });
+                return;
+            }
             if (requestScope == "capture-haetae" || requestScope == "capture-first-run" || requestScope == "capture-lobby-ranking" || requestScope == "capture-logo-night" || requestScope == "capture-result-growth" || requestScope == "capture-blackout")
             {
                 EditorApplication.ExecuteMenuItem("Window/General/Game");

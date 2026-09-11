@@ -264,7 +264,13 @@ namespace MukJump.EditorTests
                             ScreenCapture.CaptureScreenshot(Path.GetFullPath(Path.Combine(brandEvidence, "brand-hold.png")));
                             var corners = new Vector3[4];
                             logo.rectTransform.GetWorldCorners(corners);
-                            Assert.That(corners[3].x - corners[0].x, Is.LessThan(Screen.width * .8f),
+                            // CanvasScaler는 renderingDisplaySize를 사용한다. Device Simulator가
+                            // 보고하는 Screen.width와 혼용하지 않고 같은 Canvas 좌표로 비교한다.
+                            var canvasCorners = new Vector3[4];
+                            ((RectTransform)logo.canvas.rootCanvas.transform).GetWorldCorners(canvasCorners);
+                            float canvasWidth = canvasCorners[3].x - canvasCorners[0].x;
+                            Assert.That(canvasWidth, Is.GreaterThan(0f));
+                            Assert.That(corners[3].x - corners[0].x, Is.LessThan(canvasWidth * .8f),
                                 "투명 여백을 포함한 전체 원본 로고가 화면 폭을 넘지 않아야 합니다.");
                         }
                     }
@@ -393,7 +399,15 @@ namespace MukJump.EditorTests
             yield return new ExitPlayMode();
         }
 
-        static IEnumerator RunMatrix(bool night)
+        [UnityTest, Timeout(180000)]
+        public IEnumerator MainSceneNightFinalBand()
+        {
+            yield return new EnterPlayMode();
+            yield return RunMatrix(true, 9);
+            yield return new ExitPlayMode();
+        }
+
+        static IEnumerator RunMatrix(bool night, int firstBand = 0)
         {
             bool oldBackground = Application.runInBackground;
             Application.runInBackground = true;
@@ -410,12 +424,13 @@ namespace MukJump.EditorTests
             LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
             MobileApplicationLifecycle.SetPlatformVisibility(true);
             Directory.CreateDirectory(Evidence);
-            string report = Path.Combine(Evidence, night ? "maps-night.txt" : "maps-day.txt");
+            string report = Path.Combine(Evidence, firstBand == 0
+                ? (night ? "maps-night.txt" : "maps-day.txt") : $"maps-night-band-{firstBand}.txt");
             File.WriteAllText(report, "Main scene real Play loop; isolated in-memory saves.\n");
             try
             {
                 // 기본 7종과 무한 구간 3종의 반전 순환까지 검사한다.
-                for (int band = 0; band < 10; band++)
+                for (int band = firstBand; band < 10; band++)
                 {
                     typeof(LobbyNightState).GetMethod("Set", BindingFlags.Static | BindingFlags.NonPublic)
                         .Invoke(null, new object[] { night ? 1f : 0f, night, 0f, 0f, 0f });
