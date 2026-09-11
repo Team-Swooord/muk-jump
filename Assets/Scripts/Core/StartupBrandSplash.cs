@@ -267,6 +267,11 @@ namespace MukJump.Core
 
         void BeginMainLoad()
         {
+            // 초기화 실패 시 기존 재시도 화면에 머물러 이전 저장/로그인을 열지 않는다.
+            if (!PrereleasePlayerReset.EnsureReady()) return;
+#if UNITY_IOS && !UNITY_EDITOR && MUKJUMP_PRERELEASE_RESET
+            MukJumpAccountRuntime.ResumeBootstrapAfterPrereleaseReset();
+#endif
             try
             {
                 mainLoad = SceneManager.LoadSceneAsync(NextSceneName, LoadSceneMode.Single);

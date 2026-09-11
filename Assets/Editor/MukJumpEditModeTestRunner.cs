@@ -206,6 +206,8 @@ namespace MukJump.EditorTools
             else if (requestScope == "code-boundary-only") Run(new[] { @"^MukJump\.EditorTests\.CodeBoundaryRegressionTests\.", @"^MukJump\.EditorTests\.MukJumpAccountTests\.(CloudReadAndSaveCannotOverlapAndSaveResumesAfterRead|DisableInvalidatesOldSaveReplyAndAllowsNewSave|DisabledCloudReadCannotCreateServerDataAndCanResume|DisabledCloudReadCannotResumeUnderChangedOrMissingOwner)" });
             else if (requestScope == "code-audit-only") Run(new[] { @"^MukJump\.EditorTests\.(CodeBoundaryRegressionTests|MukJumpAccountTests|LobbyMenuTests|LobbyDedicatedScreenTests|MobileFeedbackPolishTests)\.", @"^(SettingsScrollTests|ItemSpawnerBalanceTests)\." });
             else if (requestScope == "recent-fixes-only") Run(new[] { @"^SettingsScrollTests\.", @"^(MukJump\.EditorTests\.)?ActionButtonStyleTests\.", @"^MukJump\.EditorTests\.(LobbyWorldSetupTests|PlayerHealthTests|PermanentGrowth(V8|V8View|KeystoneView)Tests)\." });
+            else if (requestScope == "prerelease-reset") Run(new[] {
+                @"^MukJump\.EditorTests\.(PrereleasePlayerReset|IosReleaseBuild|IosLocalizationBuild|MukJumpAccount|NicknameIdentity|FirstRunTutorial|StartupBrandSplash|GoogleMobileAdsConfiguration)Tests\." });
             else if (requestScope == "all") RunAll();
             else
             {

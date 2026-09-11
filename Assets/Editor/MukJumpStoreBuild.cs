@@ -627,7 +627,7 @@ namespace MukJump.EditorTools
                 requireReleaseIdentity: true,
                 intent: MukJumpNativeBuildIntent.IosTestFlightQa,
                 options: BuildOptions.None,
-                extraScriptingDefines: new[] { TestFlightQaAdsDefine });
+                extraScriptingDefines: new[] { TestFlightQaAdsDefine, PrereleasePlayerReset.BuildDefine });
         }
 
         public static string NextIosBuildNumber(string currentBuildNumber)
@@ -1917,6 +1917,10 @@ namespace MukJump.EditorTools
         static MukJumpNativeBuildIntent currentIntent;
         static string[] currentExtraScriptingDefines = Array.Empty<string>();
 
+        public static bool IsPrereleaseResetBuild =>
+            currentIntent == MukJumpNativeBuildIntent.IosTestFlightQa &&
+            currentExtraScriptingDefines.Contains(PrereleasePlayerReset.BuildDefine);
+
         public int callbackOrder => -2000;
 
         internal static IDisposable BeginIntent(
@@ -1944,6 +1948,8 @@ namespace MukJump.EditorTools
             BuildTarget target = report.summary.platform;
             if (target != BuildTarget.iOS && target != BuildTarget.Android)
                 return;
+
+            ValidatePrereleaseResetDefine(target, currentIntent, currentExtraScriptingDefines);
 
             string[] invocationIssues = CollectInvocationIssues(
                 target,
@@ -2099,6 +2105,23 @@ namespace MukJump.EditorTools
             return HasTestAdsDefine(symbols.Split(
                     new[] { ';' },
                     StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        static void ValidatePrereleaseResetDefine(BuildTarget target,
+            MukJumpNativeBuildIntent intent, string[] extraDefines)
+        {
+            string[] global = PlayerSettings.GetScriptingDefineSymbols(
+                target == BuildTarget.iOS ? NamedBuildTarget.iOS : NamedBuildTarget.Android).Split(';');
+            ValidatePrereleaseResetScope(intent, global, extraDefines);
+        }
+
+        public static void ValidatePrereleaseResetScope(MukJumpNativeBuildIntent intent,
+            string[] global, string[] extraDefines)
+        {
+            bool Has(string[] symbols) => symbols != null && symbols.Any(
+                symbol => symbol?.Trim() == PrereleasePlayerReset.BuildDefine);
+            if (Has(global) || Has(extraDefines) != (intent == MukJumpNativeBuildIntent.IosTestFlightQa))
+                throw new BuildFailedException("전원 초기화 심볼은 출시 전 TestFlight 1회 빌드에만 필요합니다.");
         }
 
         static bool HasTestAdsDefine(string[] symbols) =>

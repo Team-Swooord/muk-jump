@@ -66,7 +66,7 @@ namespace MukJump.EditorTests
             Assert.That(runtime, Does.Contain("ForceTestAdsForBuild = true"));
             Assert.That(runtime, Does.Contain("GoogleMobileAdsTestIds.For(platform)"));
             Assert.That(build, Does.Contain("extraScriptingDefines"));
-            Assert.That(build, Does.Contain("new[] { TestFlightQaAdsDefine }"));
+            Assert.That(build, Does.Contain("new[] { TestFlightQaAdsDefine, PrereleasePlayerReset.BuildDefine }"));
 
             settings.ConfigureProductionAdMobIds();
             Assert.That(

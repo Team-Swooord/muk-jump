@@ -272,12 +272,15 @@ namespace MukJump.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Bootstrap()
         {
+            if (!PrereleasePlayerReset.EnsureReady()) return;
             if (Instance != null)
                 return;
             var root = new GameObject("MukJumpAccountRuntime");
             DontDestroyOnLoad(root);
             root.AddComponent<MukJumpAccountRuntime>();
         }
+
+        internal static void ResumeBootstrapAfterPrereleaseReset() => Bootstrap();
 
         void OnEnable()
         {
