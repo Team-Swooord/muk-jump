@@ -12,12 +12,26 @@ namespace MukJump.Core
         static readonly List<MukJumpLeaderboardEntry> entries = new();
         static int request;
         float deadline;
+        bool autoConnectPending;
+        float nextAutoConnectCheck;
         public static event Action Changed;
         public static IReadOnlyList<MukJumpLeaderboardEntry> Entries => entries;
         public static string Status { get; private set; } = string.Empty;
         public static bool Loading { get; private set; }
         public static string LeaderboardId => MukJumpBackendSettings.Load()?.AppleGameCenterLeaderboardId ?? string.Empty;
         public static bool Configured => !string.IsNullOrWhiteSpace(LeaderboardId);
+        public static bool AvailableOnPlatform => Configured &&
+#if UNITY_IOS
+            true;
+#else
+            false;
+#endif
+
+        // 게스트/Apple 로그인으로 가져온 최고 기록이 아닌, 정상 정산한 이번 판만 보낸다.
+        public static bool IsEligible(GameOverResult result) =>
+            result.Height > 0 && result.RewardsAllowed && !result.IsGrowthPreview &&
+            result.RecordSaved && result.GrowthRewardSaved &&
+            result.PersistenceState == GameOverPersistenceState.Complete;
 
         [Serializable] class Response
         {
@@ -41,6 +55,29 @@ namespace MukJump.Core
         void OnEnable() { instance = this; }
         void OnDestroy() { if (instance == this) instance = null; }
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void Initialize()
+        {
+#if UNITY_IOS && !UNITY_EDITOR
+            if (!Configured) return;
+            EnsureInstance();
+            instance.autoConnectPending = true;
+            instance.nextAutoConnectCheck = Time.realtimeSinceStartup + 1f;
+#endif
+        }
+
+        static void EnsureInstance()
+        {
+            if (instance != null) return;
+            var root = new GameObject("MukJumpAppleGameCenterRuntime");
+            DontDestroyOnLoad(root);
+            instance = root.AddComponent<AppleGameCenterRuntime>();
+        }
+
+        public static bool CanAutoConnect(GameState state, bool needsTutorial, bool tutorialActive,
+            bool optionsOpen, bool accountBusy) => state == GameState.Lobby &&
+            !needsTutorial && !tutorialActive && !optionsOpen && !accountBusy;
+
         public static void LoadLeaderboard()
         {
             if (Loading) return;
@@ -52,12 +89,8 @@ namespace MukJump.Core
                 return;
             }
 #if UNITY_IOS && !UNITY_EDITOR
-            if (instance == null)
-            {
-                var root = new GameObject("MukJumpAppleGameCenterRuntime");
-                DontDestroyOnLoad(root);
-                instance = root.AddComponent<AppleGameCenterRuntime>();
-            }
+            EnsureInstance();
+            instance.autoConnectPending = false;
             Loading = true;
             Status = "Game Center에 연결하는 중";
             instance.deadline = Time.realtimeSinceStartup + 60f;
@@ -70,6 +103,20 @@ namespace MukJump.Core
 
         void Update()
         {
+#if UNITY_IOS && !UNITY_EDITOR
+            // 매 실행마다 GameKit을 초기화하되 스플래시·첫 안내·계정 팝업 위에 로그인 창을 덮지 않는다.
+            // 취소해도 로비/뒤끝 저장은 막지 않으며 자동 로그인 재요청은 실행당 한 번뿐이다.
+            if (autoConnectPending && Time.realtimeSinceStartup >= nextAutoConnectCheck)
+            {
+                nextAutoConnectCheck = Time.realtimeSinceStartup + 1f;
+                var manager = GameManager.Instance;
+                if (manager != null && CanAutoConnect(manager.State, LobbySettingsProfile.NeedsGameplayTutorial,
+                    FirstRunTutorialController.Instance != null && FirstRunTutorialController.Instance.IsActive,
+                    FindAnyObjectByType<LobbyOptionsView>()?.IsOpen == true,
+                    MukJumpAccountRuntime.Instance?.BlocksGameplayForAccountSync == true))
+                    LoadLeaderboard();
+            }
+#endif
             if (!Loading || Time.realtimeSinceStartup < deadline) return;
             Loading = false;
             request++;
@@ -96,7 +143,8 @@ namespace MukJump.Core
                     for (int i = 0; i < Math.Min(10, response.rows.Length); i++)
                     {
                         Row row = response.rows[i];
-                        if (row != null) entries.Add(new MukJumpLeaderboardEntry(row.rank, row.height, row.name, "APPLE"));
+                        if (row != null && row.height > 0)
+                            entries.Add(new MukJumpLeaderboardEntry(row.rank, row.height, row.name, "APPLE"));
                     }
                 Status = entries.Count == 0 ? "아직 등록된 기록이 없어요" : string.Empty;
             }
@@ -123,7 +171,7 @@ namespace MukJump.Core
         public static void SubmitCompletedRun(GameOverResult result)
         {
 #if UNITY_IOS && !UNITY_EDITOR
-            if (Configured && AppsInTossGameCenterRuntime.IsEligible(result) && result.Height >= 0)
+            if (Configured && IsEligible(result))
                 // 가져온 전체 최고 기록이 아닌 이 Game Center 사용자가 실제 플레이한 높이만 제출한다.
                 MukJumpGameCenterSubmit(LeaderboardId, result.Height);
 #endif

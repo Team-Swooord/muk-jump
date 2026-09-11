@@ -1032,8 +1032,21 @@ namespace MukJump.Core
         void BuildLeaderboardPage(Transform panel)
         {
             CreateReadableText("LeaderboardTitle", panel, "세계 최고의 먹", 64,
-                new Vector2(0f, 555f), new Vector2(600f, 82f),
+                new Vector2(0f, 585f), new Vector2(600f, 82f),
                 InkPalette.TextDark, TextAnchor.MiddleCenter, strong: true);
+            if (!UsesTossSettings && AppleGameCenterRuntime.AvailableOnPlatform)
+            {
+                var global = CreatePaperButton("GlobalLeaderboardTab", panel, "먹점프",
+                    new Vector2(-170f, 495f), new Vector2(320f, 68f), 36);
+                globalLeaderboardLabel = global.GetComponentInChildren<Text>();
+                globalLeaderboardLabel.fontSize = 36;
+                global.onClick.AddListener(() => SelectLeaderboard(false));
+                var apple = CreatePaperButton("AppleLeaderboardTab", panel, "Game Center",
+                    new Vector2(170f, 495f), new Vector2(320f, 68f), 36);
+                appleLeaderboardLabel = apple.GetComponentInChildren<Text>();
+                appleLeaderboardLabel.fontSize = 36;
+                apple.onClick.AddListener(() => SelectLeaderboard(true));
+            }
             Text rankHeading = CreateReadableText("RankHeading", panel, "순위", 36, new Vector2(-292f, 430f),
                 new Vector2(96f, 50f), InkPalette.TextDark, TextAnchor.MiddleLeft, strong: true);
             InkLocalizedText.OverrideEnglish(rankHeading, "Rank");
@@ -1067,7 +1080,18 @@ namespace MukJump.Core
                     new Vector2(245f, y), new Vector2(190f, 62f),
                     InkPalette.TextDark, TextAnchor.MiddleRight, strong: true);
             }
+            leaderboardRefresh = CreatePaperButton("LeaderboardRefresh", panel, "다시 확인",
+                new Vector2(0f, -624f), new Vector2(300f, 76f), 36);
+            leaderboardRefresh.GetComponentInChildren<Text>().fontSize = 36;
+            leaderboardRefresh.onClick.AddListener(RefreshSelectedLeaderboard);
             RefreshLeaderboardPage();
+        }
+
+        void SelectLeaderboard(bool apple)
+        {
+            if (UsesTossSettings || (apple && !AppleGameCenterRuntime.AvailableOnPlatform)) return;
+            showingAppleLeaderboard = apple;
+            RefreshSelectedLeaderboard();
         }
 
         void BindAccountRuntime()
@@ -1201,7 +1225,8 @@ namespace MukJump.Core
                 bool hasEntry = entries != null && i < entries.Count;
                 if (leaderboardFlags[i] != null)
                 {
-                    leaderboardFlags[i].enabled = hasEntry;
+                    // GameKit은 플레이어의 국가를 제공하지 않는다. 기기 지역을 대신 붙이지 않는다.
+                    leaderboardFlags[i].enabled = hasEntry && !showingAppleLeaderboard;
                     if (hasEntry) leaderboardFlags[i].sprite = RegionFlagImages.Get(entries[i].RegionCode);
                 }
                 if (leaderboardSeals[i] != null) leaderboardSeals[i].enabled = hasEntry;

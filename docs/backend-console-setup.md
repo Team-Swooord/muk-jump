@@ -6,9 +6,9 @@
 - 앱은 설정된 지역 코드(KR/US/JP 등)를 저장·순위 갱신 요청에 포함하고 `item.extraData`로 읽는다.
 - 언어·GPS·IP로 국가를 추정하지 않는다. 빈 값·기존 미등록 행은 지구 아이콘을 표시한다.
 - 설정 이전에는 지구 아이콘이 표시된다. 기존 점수·랭킹·계정은 삭제하거나 다시 만들지 않는다.
-- 2026-09-10 확인: 기존 `먹점프 최고 고도`(01a04198-3705-7286-bce6-651ddcd17e2f)는
-  추가 필드가 없고 수정 화면에서도 변경할 수 없다. 운영 연결은 아직 미완료이며, 기존 보드를
-  보존한 신규 보드 생성·전환 방침을 정한 뒤 진행한다. 현재 코드만으로 기존 보드에 국기가 나타나지는 않는다.
+- 현재 연결 보드는 `세계 최고의 먹`(`01a08afd-b237-7723-9e6a-b8d7950285fd`)이다.
+  미사용 `먹점프 최고 고도`(`01a04198-3705-7286-bce6-651ddcd17e2f`)는 사용자 요청으로
+  2026-09-11 콘솔에서 영구 삭제했다. 활성 보드·게임 계정·게임정보 행은 삭제하지 않았다.
 - 완료한 판이 있는 기존 사용자는 다음 정상 기록 동기화에서 지역 정보도 함께 순위에 반영한다.
 
 이 문서는 **iOS·Android 네이티브 빌드**에만 적용한다. Apps in Toss WebGL에서는 뒤끝
@@ -147,10 +147,8 @@ Markdown 제목·목록·표가 HTML로 렌더링되는 것을 확인했다. 스
 2. 초기 버전은 전체 기간 최고 고도만 사용하고 주간 보상·친구·채팅은 만들지 않는다.
 3. 생성된 UUID를 `MukJumpBackendSettings.allTimeRankUuid`에 입력한다.
 
-2026-09-06 콘솔 재확인: 기존 `먹점프 최고 고도` 보드
-`01a04198-3705-7286-bce6-651ddcd17e2f`가 위 조건을 만족한다. 그룹 구분·초기화·보상은
-없고 추가 필드는 미설정이다. 편집 화면에서는 추가 필드를 바꿀 수 없다. 기존 기록을
-지우거나 새 보드로 자동 이관하지 않으며, 행의 출처는 뒤끝으로 표시한다. OS를 추측하지 않는다.
+운영 UUID는 `01a08afd-b237-7723-9e6a-b8d7950285fd`로 고정한다. 삭제한 구 보드를
+재생성하거나 예전 UUID로 되돌리지 않는다. 행의 출처나 OS를 로그인 수단으로 추측하지 않는다.
 현재 FREE 요금제는 한도 소진 시 접속이 중단될 수 있으므로 출시 전 용량/요금 확인이 필요하다.
 요금제는 변경하지 않았다.
 
@@ -165,11 +163,13 @@ Markdown 제목·목록·표가 HTML로 렌더링되는 것을 확인했다. 스
 - 메인 최고 기록 → 공통 한지 두루마리. 뒤끝은 전체 기간 TOP 10의 닉네임·순위·고도를 표시한다.
 - iOS는 Game Center 별도 탭에서 `GKLeaderboard`의 global/allTime 목록을 조회한다.
   `MukJumpGameCenter.mm`는 네이티브 GameKit을 사용한다. Unity의 deprecated Social API는 쓰지 않는다.
-- Apple 콘솔 로그인 세션이 만료되어 보드 생성/기존 보드 ID 확인은 미완료다.
-  `MukJumpBackendSettings.appleGameCenterLeaderboardId`에 **먹점프 콘솔에서 검증한 ID만** 입력해야 한다.
-  비어 있으면 조회/제출과 Game Center entitlement 추가가 비활성이다. Apple 로그인 기능과 별개다.
-  확인할 설정: classic/all-time, integer meters, highest score, descending; Team `8AU359WZZ2`,
-  Bundle ID `com.CYSB.MukJump`. Game Center 공개를 위한 App Store 심사/버전 연결도 확인한다.
+- 2026-09-11 App Store Connect에서 `com.CYSB.MukJump.bestHeight`를 생성하고
+  `MukJumpBackendSettings.appleGameCenterLeaderboardId`에 연결했다. Classic, 정수 미터,
+  최고값 우선·내림차순, 범위 1–2147483647이다. 한국어·영어(미국)·일본어 이름과 `m` 접미사를 등록했다.
+  앱 버전 1.0.0의 Game Center 체크는 켜졌으며 구성요소 상태는 **제출 준비 중**이다.
+  Team `8AU359WZZ2`, Bundle ID `com.CYSB.MukJump`. 심사 제출/새 TestFlight 업로드는 이번 연결 작업에 포함하지 않았다.
+- 첫 튜토리얼·계정 팝업을 마친 로비에서 실행당 한 번 연결을 시도한다. 취소해도 게임이나 뒤끝 저장을 막지 않는다.
+  `먹점프`/`Game Center` 탭은 서로 다른 계정·순위 목록이다. GameKit 플레이어에게 기기 국가를 임의로 붙이지 않는다.
 - Apple에 제출하는 값은 계정이 확인된 상태에서 시작한 정상 플레이의 `Height`다.
   뒤끝/로컬에서 합쳐진 `Best`를 다른 Game Center 계정으로 올리지 않는다.
   실패한 점수는 Game Center 사용자·보드별 최고값으로 기기에 보관하고 다음 조회/정산에서 재시도한다.
@@ -177,7 +177,8 @@ Markdown 제목·목록·표가 HTML로 렌더링되는 것을 확인했다. 스
   제공되지 않아 두루마리 버튼으로 공식 화면을 연다. 토스→뒤끝 서버 브리지와 동일인 매핑이 없으므로
   **토스까지 포함한 단일 전체 순위는 아직 구현되지 않았다**. 네이티브의 뒤끝 TOP 10을 그렇게 부르면 안 된다.
 
-검증: C# 네이티브/에디터/토스 분기 컴파일 및 iOS SDK의 ObjC++ 구문 확인.
+연결 변경 검증: 집중 검사 17개, iOS Player 스크립트 36개 어셈블리 컴파일, ObjC++ 구문 확인.
+임시 Xcode 프로젝트에서 Game Center/Apple 로그인 entitlement 공존 및 중복 후처리를 확인했다.
 실기기 로그인·계정 변경·오프라인 재시도·리더보드 점수 왕복·UI 클릭 테스트는 완료 전까지 출시 게이트다.
 네이티브 Game Center의 소유자별 재시도는 앱 내부 `NSUserDefaults`를 사용하므로 최종 앱의
 PrivacyInfo.xcprivacy에 해당 required-reason API 사용 사유가 반영됐는지도 Archive에서 확인한다.

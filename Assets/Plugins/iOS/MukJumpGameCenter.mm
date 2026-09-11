@@ -19,7 +19,7 @@ static void MJRetryScore(NSString *identifier)
     NSString *owner = [GKLocalPlayer.localPlayer.gamePlayerID copy];
     NSString *key = [NSString stringWithFormat:@"MukJump.GameCenter.Pending.%@.%@", identifier, owner];
     NSNumber *pending = [NSUserDefaults.standardUserDefaults objectForKey:key];
-    if (![pending isKindOfClass:NSNumber.class] || pending.integerValue < 0) return;
+    if (![pending isKindOfClass:NSNumber.class] || pending.integerValue <= 0) return;
     MJSubmitting = true;
     [GKLeaderboard submitScore:pending.integerValue context:0 player:GKLocalPlayer.localPlayer
         leaderboardIDs:@[identifier] completionHandler:^(NSError *error) {
@@ -126,7 +126,7 @@ extern "C" void MukJumpGameCenterSubmit(const char *leaderboard, int height)
 {
     NSString *identifier = leaderboard ? [NSString stringWithUTF8String:leaderboard] : @"";
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (!identifier.length || height < 0 || !MJSameOwner(MJRunOwner)) return;
+        if (!identifier.length || height <= 0 || !MJSameOwner(MJRunOwner)) return;
         NSString *key = [NSString stringWithFormat:@"MukJump.GameCenter.Pending.%@.%@", identifier, MJRunOwner];
         NSInteger pending = [NSUserDefaults.standardUserDefaults integerForKey:key];
         [NSUserDefaults.standardUserDefaults setInteger:MAX(pending, height) forKey:key];
