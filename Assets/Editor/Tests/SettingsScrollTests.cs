@@ -853,6 +853,14 @@ public class SettingsScrollTests
             Assert.That(bottom - paper.rect.yMin, Is.GreaterThanOrEqualTo(60), name);
             lastBottom = bottom;
         }
+        var guestHint = account.Find("GuestLinkHint").GetComponent<UnityEngine.UI.Text>();
+        if (guestHint.gameObject.activeSelf)
+        {
+            var hintRect = guestHint.rectTransform;
+            Assert.That(lastBottom - hintRect.anchoredPosition.y - hintRect.rect.yMax, Is.GreaterThanOrEqualTo(20));
+            lastBottom = hintRect.anchoredPosition.y + hintRect.rect.yMin;
+            Assert.That(lastBottom - paper.rect.yMin, Is.GreaterThanOrEqualTo(60));
+        }
         if (!float.IsPositiveInfinity(lastBottom))
             Assert.That(lastBottom - paper.rect.yMin, Is.LessThanOrEqualTo(130), "마지막 버튼 아래 큰 빈 공간을 남기지 않는다");
         var close = (RectTransform)account.Find("AccountClose");
@@ -873,6 +881,46 @@ public class SettingsScrollTests
 
     void InvokeAccount(string method, params object[] args) =>
         typeof(LobbyOptionsView).GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, args);
+
+    [TestCase(GameLanguage.Korean, true)] [TestCase(GameLanguage.English, true)] [TestCase(GameLanguage.Japanese, true)]
+    [TestCase(GameLanguage.Korean, false)] [TestCase(GameLanguage.English, false)] [TestCase(GameLanguage.Japanese, false)]
+    public void GuestLinkHintStaysRedBelowDeleteAndHidesForLinkedOrOfflineAccounts(GameLanguage language, bool appleAvailable)
+    {
+        GameLocalization.SetLanguage(language);
+        InvokeAccount("ShowAccountPageImmediate");
+        InvokeAccount("ApplyAccountActions", true, MukJumpAccountKind.BackendGuest, false, appleAvailable);
+        Canvas.ForceUpdateCanvases();
+        var account = panel.Find("AccountPage");
+        var hint = account.Find("GuestLinkHint").GetComponent<UnityEngine.UI.Text>();
+        var delete = (RectTransform)account.Find("AccountDelete");
+        Assert.That(hint.gameObject.activeSelf, Is.True);
+        Assert.That(hint.text, Is.EqualTo(GameLocalization.Translate("기기 변경 전에 계정을 연동해 주세요")));
+        Assert.That(hint.color, Is.EqualTo(InkPalette.Red));
+        Assert.That(hint.raycastTarget, Is.False);
+        Assert.That(hint.rectTransform.anchoredPosition.x, Is.Zero);
+        Assert.That(delete.anchoredPosition.y + delete.rect.yMin -
+            hint.rectTransform.anchoredPosition.y - hint.rectTransform.rect.yMax, Is.GreaterThanOrEqualTo(20));
+        Assert.That(hint.preferredHeight, Is.LessThanOrEqualTo(hint.rectTransform.rect.height));
+        foreach (char c in hint.text) if (!char.IsWhiteSpace(c)) Assert.That(hint.font.HasCharacter(c), Is.True, c.ToString());
+        InvokeAccount("ApplyAccountActions", true, MukJumpAccountKind.Apple, false, appleAvailable);
+        Assert.That(hint.gameObject.activeSelf, Is.False);
+        InvokeAccount("ApplyAccountActions", false, MukJumpAccountKind.BackendGuest, false, appleAvailable);
+        Assert.That(hint.gameObject.activeSelf, Is.False);
+        InvokeAccount("ApplyAccountActions", true, MukJumpAccountKind.BackendGuest, false, appleAvailable);
+        Assert.That(hint.gameObject.activeSelf, Is.True);
+    }
+
+    [Test] public void GuestLinkHintNeverUsesToastButRealErrorsStillDo()
+    {
+        InvokeAccount("ShowAccountPageImmediate");
+        const string hint = "기기 변경 전에 계정을 연동해 주세요";
+        Assert.That(LobbyOptionsView.EssentialAccountStatus(hint), Is.Empty);
+        InvokeAccount("ShowAccountNotice", hint);
+        var source = typeof(LobbyOptionsView).GetField("accountToastSource", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(source.GetValue(view), Is.Null);
+        InvokeAccount("ShowAccountNotice", ServerFailure);
+        Assert.That(source.GetValue(view), Is.EqualTo(ServerFailure));
+    }
 
     const string ServerFailure = "서버 연결을 확인할 수 없습니다. 네트워크를 확인한 뒤 다시 시도해 주세요";
 

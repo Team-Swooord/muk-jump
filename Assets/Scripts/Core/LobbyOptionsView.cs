@@ -72,6 +72,8 @@ namespace MukJump.Core
         Text accountSyncPendingStatusText;
         Text accountSyncPendingCaptionText;
         Text accountDeleteLabel;
+        UnityEngine.UI.Text accountGuestLinkHint;
+        const string GuestLinkHint = "기기 변경 전에 계정을 연동해 주세요";
         Text accountPlayerIdText;
         Button accountAppleButton;
         Button accountLogoutButton;
@@ -999,6 +1001,10 @@ namespace MukJump.Core
             accountDeleteLabel = accountDeleteButton.transform
                 .Find("Label")?.GetComponent<Text>();
             accountDeleteButton.onClick.AddListener(HandleDeleteAccount);
+            accountGuestLinkHint = CreateReadableText("GuestLinkHint", panel, GuestLinkHint, 30,
+                new Vector2(0, -435), new Vector2(660, 80), InkPalette.Red);
+            accountGuestLinkHint.raycastTarget = false;
+            accountGuestLinkHint.gameObject.SetActive(false);
 
             accountCloseButton = CreatePaperButton("AccountClose", panel, string.Empty,
                 new Vector2(0, -590), new Vector2(120, 120), 36);
@@ -1295,9 +1301,8 @@ namespace MukJump.Core
             });
             string accountStatus = EssentialAccountStatus(runtime?.StatusMessage);
             if (online && kind == MukJumpAccountKind.BackendGuest &&
-                (string.IsNullOrEmpty(accountStatus) || accountStatus == "계정 연결 완료" ||
-                 accountStatus == "게스트 계정 연결 완료"))
-                accountStatus = "기기 변경 전에 계정을 연동해 주세요";
+                (accountStatus == "계정 연결 완료" || accountStatus == "게스트 계정 연결 완료"))
+                accountStatus = string.Empty;
             if (accountPlayerIdText != null)
             {
                 string playerId = ReadSettingsUuid();
@@ -1416,6 +1421,8 @@ namespace MukJump.Core
                 accountDeleteButton.interactable = online && !busy;
                 accountDeleteButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(180, actionY);
             }
+            if (accountGuestLinkHint != null)
+                accountGuestLinkHint.gameObject.SetActive(online && kind == MukJumpAccountKind.BackendGuest);
             var runtime = MukJumpAccountRuntime.Instance;
             LayoutAccountContents(runtime != null && (runtime.HasPendingAccountConflict ||
                 runtime.HasPendingSyncConflict || runtime.BlocksGameplayForAccountSync));
@@ -1428,11 +1435,13 @@ namespace MukJump.Core
             bool Visible(Button button) => button != null && button.gameObject.activeSelf;
             int rows = (Visible(accountAppleButton) ? 1 : 0) +
                        (Visible(accountLogoutButton) || Visible(accountDeleteButton) ? 1 : 0);
-            // 안내는 종이 밖 토스트에 표시한다. UID가 없으면 그 자리도 예약하지 않는다.
+            // 게스트 연동 안내만 삭제 버튼 아래에 둔다. UID가 없으면 그 자리도 예약하지 않는다.
             bool hasId = accountPlayerIdText != null && !string.IsNullOrWhiteSpace(accountPlayerIdText.text);
             if (accountPlayerIdText != null) accountPlayerIdText.gameObject.SetActive(hasId);
             float firstActionOffset = hasId ? 515f : 465f;
             accountPaperHeight = firstActionOffset + Mathf.Max(1, rows) * 145f + 40f;
+            bool hasGuestHint = accountGuestLinkHint != null && accountGuestLinkHint.gameObject.activeSelf;
+            if (hasGuestHint) accountPaperHeight += 40f;
             // 선택/복구 팝업의 고정 설명과 버튼은 축소된 일반 계정 종이에 자르지 않는다.
             if (requiredChoice) accountPaperHeight = Mathf.Max(accountPaperHeight, 845f);
             float top = accountPaperHeight * 0.5f;
@@ -1457,6 +1466,9 @@ namespace MukJump.Core
                 if (Visible(accountDeleteButton))
                     Place(accountDeleteButton.transform, nextY, paired ? 180 : 0);
             }
+            if (hasGuestHint)
+                Place(accountGuestLinkHint.transform, nextY - accountDeleteButton.GetComponent<RectTransform>().rect.height * .5f -
+                    20f - accountGuestLinkHint.rectTransform.rect.height * .5f);
             if (accountCloseButton != null) Place(accountCloseButton.transform, -top - 125);
             foreach (var overlay in new[] { accountConflictRoot, syncConflictRoot, accountSyncPendingRoot })
             {
@@ -1501,6 +1513,7 @@ namespace MukJump.Core
 
         void ShowAccountNotice(string source)
         {
+            if (source == GuestLinkHint) return;
             if (!showingAccountPage || accountToast == null || string.IsNullOrWhiteSpace(source)) return;
             if (source == accountToastSource) return;
             accountToastSource = source;
@@ -1568,6 +1581,7 @@ namespace MukJump.Core
             "로그인하지 않아도 바로 플레이할 수 있습니다" => string.Empty,
             "서버 설정 전에도 게스트로 모든 콘텐츠를 플레이할 수 있습니다" => string.Empty,
             "동기화 완료" => string.Empty,
+            GuestLinkHint => string.Empty,
             // OnlineReady/LocalReady에서도 저장 재시도·연결 실패가 올 수 있다.
             // 알려진 정상 안내만 생략하고 그 밖의 상태를 임의로 숨기지 않는다.
             _ => message,
