@@ -6,7 +6,8 @@
 
 28번 Archive의 실제 privacy manifest, 29번 소스, Google의 iOS 데이터 공개 안내와
 Apple의 데이터 유형 정의를 대조하여 다음 **9개 유형**을 App Store Connect에 저장했다.
-공개 개인정보처리방침의 Firebase 고지와 보관기간을 확정하기 전 최종 게시는 보류한다.
+실제 GA4 보관기간을 확인하고 공개 개인정보처리방침을 한국어·영어·일본어로 갱신한 뒤,
+2026-09-12 App Store Connect에서 아래 9개 유형의 답변을 게시했다.
 
 | 유형 | 목적 | 사용자 연결 | 추적 |
 |---|---|---|---|
@@ -31,12 +32,24 @@ Apple의 데이터 유형 정의를 대조하여 다음 **9개 유형**을 App S
   연결됨으로 답했다. 광고 SDK manifest의 비연결 진단과 구분한다.
 - 29번은 `설정 → 개인정보처리방침 → 광고 개인정보 선택`으로 UMP 재선택 진입점을
   제공한다. SDK가 요구할 때만 표시하며 분석 동의와 분리한다. 관련 검사 10개 통과.
-- Firebase 프로젝트 `mukjump-3751d`의 GA4 보관기간은 Google 재로그인이 필요해 아직
-  확인하지 못했다. 보관기간을 임의 숫자로 고지하거나 심사 제출 완료라고 보고하지 않는다.
+- Firebase 프로젝트 `mukjump-3751d`의 GA4 속성 `553160829`을 콘솔에서 확인했다.
+  이벤트 데이터 **2개월**, 사용자 데이터 **14개월**, 새 사용자 활동 발생 시 재설정 **켜짐**이다.
+  읽기 전용 확인이며 설정은 변경하지 않았다. 만료 데이터는 월별로 삭제되고 표준 집계 보고서에는
+  이 기간이 적용되지 않는다는 Google 안내도 함께 고지했다.
+- 공개 정책 세 언어의 시행일은 2026-09-12이며 선택형 분석, 수집 항목·목적,
+  국외 처리, 실제 보관 설정, 광고 동의 재선택, 계정 삭제 및 분석 철회 방법을 반영했다.
+  App Store Connect 영어·일본어 정책/선택 안내 URL도 해당 언어로 연결했다.
+
+### 공개 정책 주소 (2026-09-12 본문 확인)
+
+- 한국어: https://storage.thebackend.io/27f4347cc58b6eca8349b49f00b25a0a9f7c92836f10ec5f6385356867184326/privacy.html
+- 영어: https://storage.thebackend.io/27f4347cc58b6eca8349b49f00b25a0a9f7c92836f10ec5f6385356867184326/privacy2.html
+- 일본어: https://storage.thebackend.io/27f4347cc58b6eca8349b49f00b25a0a9f7c92836f10ec5f6385356867184326/privacy%E6%97%A5%E6%9C%AC%E8%AA%9E.html
 
 근거: [Apple 데이터 공개 정의](https://developer.apple.com/app-store/app-privacy-details/),
 [AdMob iOS 데이터 공개](https://developers.google.com/admob/ios/privacy/data-disclosure),
-[Google UMP](https://developers.google.com/admob/ios/privacy).
+[Google UMP](https://developers.google.com/admob/ios/privacy),
+[Google Analytics 보관 설정](https://support.google.com/analytics/answer/7667196?hl=ko).
 
 ## 과거 검토 이력 — 아래 표를 현재 iOS 답변으로 복사하지 말 것
 
