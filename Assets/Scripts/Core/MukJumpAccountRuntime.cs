@@ -72,6 +72,8 @@ namespace MukJump.Core
             "MukJump.Account.AutomaticAuthenticationSuppressed";
         const string LegacyGuestCredentialCleanupKey =
             "MukJump.Account.LegacyGuestCredentialCleanup";
+        const string InvalidGuestCredentialCleanupKey =
+            "MukJump.Account.InvalidGuestCredentialCleanup";
         const float SaveDebounceSeconds = 2f;
         const float InitialRetrySeconds = 5f;
         const float MaximumRetrySeconds = 60f;
@@ -242,6 +244,7 @@ namespace MukJump.Core
         Action<Action<BackendReturnObject>> initializeBackendForTests;
         Action<Action<BackendReturnObject>> tokenLoginForTests;
         Action<Action<BackendReturnObject>> guestLoginForTests;
+        Func<string> storedGuestIdForTests;
         Action<Action<BackendReturnObject>> getUserInfoForTests;
         Action<Action<BackendReturnObject>> changeFederationForTests;
         Action<Action<BackendReturnObject>> authorizeFederationForTests;
@@ -999,6 +1002,10 @@ namespace MukJump.Core
 
         void HandleOtherDeviceLoginDetected()
         {
+            // 로그인 요청 자체가 반환한 인증 오류는 해당 콜백에서 판별한다.
+            // 공통 핸들러가 먼저 요청 세대를 바꾸면 토큰→게스트 복구 응답을 잃는다.
+            if (!IsOnlineAuthenticated && (tokenLoginInFlight || guestLoginInFlight))
+                return;
             EnterBackendSessionError(
                 "로그인 정보가 만료되었거나 다른 기기에서 변경되었습니다. 이 기기에서 다시 로그인해 주세요");
         }
@@ -1104,6 +1111,13 @@ namespace MukJump.Core
                     explicitRecovery,
                     tokenLoginInFlight))
                 return;
+            if (PlayerPrefs.GetInt(InvalidGuestCredentialCleanupKey, 0) != 0 &&
+                CanRecoverInvalidGuestCredentials())
+            {
+                if (TryCompleteInvalidGuestCredentialCleanup())
+                    BeginBackendGuestLogin();
+                return;
+            }
             if (PlayerPrefs.GetInt(LegacyGuestCredentialCleanupKey, 0) != 0)
             {
                 try
@@ -1244,7 +1258,7 @@ namespace MukJump.Core
                     tokenDefinitivelyUnavailable,
                     ReadStoredKind() == MukJumpAccountKind.BackendGuest &&
                     tokenDefinitivelyUnavailable &&
-                    !string.IsNullOrWhiteSpace(Backend.BMember.GetGuestID())))
+                    !string.IsNullOrWhiteSpace(ReadStoredGuestId())))
             {
                 if (profileResolutionPending ||
                     ShouldBlockPendingProviderTransitionAfterTokenFailure(
@@ -1266,12 +1280,14 @@ namespace MukJump.Core
         void BeginBackendGuestLogin()
         {
             if (guestLoginInFlight) return;
-            long capturedGeneration = tokenLoginGeneration;
+            // 복구 중 이전 요청의 중복/지연 콜백이 새 게스트 요청을 완료시키지 않는다.
+            long capturedGeneration = ++tokenLoginGeneration;
             guestLoginInFlight = true;
             guestLoginDeadlineRealtime =
                 Time.realtimeSinceStartup + AccountRequestWatchdogSeconds;
             try
             {
+                bool hadStoredCredentials = !string.IsNullOrWhiteSpace(ReadStoredGuestId());
                 RequestBackendGuestLogin(guestBro =>
                 {
                     if (capturedGeneration != tokenLoginGeneration || !guestLoginInFlight)
@@ -1284,6 +1300,15 @@ namespace MukJump.Core
                             // 토큰 만료 후 기존 게스트 재로그인도 소유자를 검증한다.
                             // SDK 자격 정보가 다른 계정이면 현재 성장을 절대 업로드하지 않는다.
                             CompleteVerifiedTokenLogin(MukJumpAccountKind.BackendGuest);
+                        }
+                        else if (hadStoredCredentials && CanRecoverInvalidGuestCredentials() &&
+                                 IsInvalidGuestCredentialResponse(guestBro?.GetStatusCode(),
+                                     guestBro?.GetErrorCode(), guestBro?.GetMessage()))
+                        {
+                            // 서버에서 사라졌거나 더 이상 게스트로 사용할 수 없는 자격만
+                            // 정리한다. 점수/성장/튜토리얼/기기 이름은 절대 초기화하지 않는다.
+                            if (TryCompleteInvalidGuestCredentialCleanup())
+                                BeginBackendGuestLogin();
                         }
                         else
                             SetAccountOfflinePreservingKind("오프라인 게스트로 플레이합니다");
@@ -1306,6 +1331,78 @@ namespace MukJump.Core
                     "[MukJump] 게스트 로그인 요청을 시작하지 못했습니다: " +
                     exception.Message);
                 SetAccountOfflinePreservingKind("오프라인 게스트로 플레이합니다");
+            }
+        }
+
+        string ReadStoredGuestId()
+        {
+#if UNITY_EDITOR
+            if (storedGuestIdForTests != null) return storedGuestIdForTests();
+            // 격리된 요청 테스트는 개발자 기기의 실제 SDK 자격을 읽지 않는다.
+            if (guestLoginForTests != null) return string.Empty;
+#endif
+            return Backend.BMember.GetGuestID();
+        }
+
+        public static bool IsInvalidGuestCredentialResponse(string status, string error, string message) =>
+            status?.Trim() == "401" &&
+            string.Equals(error?.Trim(), "BadUnauthorizedException", StringComparison.OrdinalIgnoreCase) &&
+            (message?.Trim().StartsWith("bad customId", StringComparison.OrdinalIgnoreCase) ?? false);
+
+        bool CanRecoverInvalidGuestCredentials() =>
+            (ReadStoredKind() == MukJumpAccountKind.LocalGuest || ReadStoredKind() == MukJumpAccountKind.BackendGuest) &&
+            !IsOnlineAuthenticated && !suppressAutomaticAuthentication &&
+            !profileResolutionPending && !HasPendingAuthorizedTransition &&
+            !PlayerPrefs.HasKey(PendingGuestUpgradeKindKey) &&
+            !PlayerPrefs.HasKey(PendingProfileResolutionOwnerKey) &&
+            PlayerPrefs.GetInt(PendingLocalGuestImportKey, 0) == 0 &&
+            !localLogoutCleanupPending && !accountDeletionCleanupPending &&
+            !federationRequestInFlight && !interactiveFederationInFlight && !providerResolutionBlocked;
+
+        bool TryCompleteInvalidGuestCredentialCleanup()
+        {
+            if (!CanRecoverInvalidGuestCredentials())
+            {
+                EnterProviderResolutionBlock("계정 전환 결과를 확인하지 못했습니다. 게스트를 새로 만들지 않고 다시 확인합니다");
+                return false;
+            }
+            try
+            {
+                // 자격 삭제 또는 저장 중 종료되어도 새 로그인 전에 이 단계부터 재개한다.
+                // 복구 표식을 디스크에 먼저 확정한 뒤 SDK 로컬 정보만 지운다.
+                PlayerPrefs.SetInt(InvalidGuestCredentialCleanupKey, 1);
+                FlushRecoveryMarkers();
+                ClearBackendGuestInfo();
+                if (!string.IsNullOrWhiteSpace(ReadStoredGuestId()))
+                    throw new InvalidOperationException("게스트 로그인 정보가 기기에 남아 있습니다");
+                InvalidateAccountScopedOperations(clearPendingLeaderboard: false);
+                rowInDate = string.Empty;
+                revision = 0;
+                replaceLocalFromServerOnNextLoad = false;
+                restoreLocalGuestIfServerEmptyOnNextLoad = false;
+                PlayerPrefs.DeleteKey(StoredAccountScopeKey);
+                PlayerPrefs.DeleteKey(PendingOperationIdKey);
+                PlayerPrefs.DeleteKey(PendingLeaderboardOwnerKey);
+                PlayerPrefs.DeleteKey(PendingLeaderboardBestKey);
+                PlayerPrefs.SetString(RevisionKey, "0");
+                PlayerPrefs.SetInt(KindKey, (int)MukJumpAccountKind.LocalGuest);
+                PlayerPrefs.SetInt(PendingSaveKey, 1);
+                dirty = true;
+                localMutationVersion++;
+                // 이전 서버 행/순위 식별자는 재사용하지 않는다. 새 서버 조회 후 현재
+                // 기기의 최신 스냅샷을 저장하고, 완료한 판이 있을 때만 순위를 제출한다.
+                PlayerPrefs.DeleteKey(InvalidGuestCredentialCleanupKey);
+                FlushRecoveryMarkers();
+                AccountKind = MukJumpAccountKind.LocalGuest;
+                SetState(MukJumpAccountPhase.Connecting, "게스트 계정 연결 중");
+                return true;
+            }
+            catch (Exception exception)
+            {
+                PlayerPrefs.SetInt(InvalidGuestCredentialCleanupKey, 1);
+                Debug.LogWarning("[MukJump] 유효하지 않은 게스트 로그인 정보 정리를 다시 시도합니다: " + exception.Message);
+                SetAccountOfflinePreservingKind("게스트 연결을 다시 시도합니다");
+                return false;
             }
         }
 
@@ -1568,6 +1665,9 @@ namespace MukJump.Core
                 ? AnalyticsAccountAction.GuestLogin : AnalyticsAccountAction.Login, AnalyticsOutcome.Success);
             guestReconnectDelaySeconds = InitialRetrySeconds;
             IsOnlineAuthenticated = true;
+            // 사용자가 직접 소셜 인증을 마친 경우에도 이전 게스트 복구 표식을
+            // 남겨 두어 다음 재실행의 올바른 토큰 로그인을 가로막지 않는다.
+            PlayerPrefs.DeleteKey(InvalidGuestCredentialCleanupKey);
             backendProviderVerificationInFlight = false;
             providerResolutionBlocked = false;
             temporaryBackendPause = false;
@@ -4165,6 +4265,7 @@ namespace MukJump.Core
             // 정리한다. 남겨 두면 새 게스트도 전환 대기 상태로 계속 잠긴다.
             ClearPendingAuthorizedTransition();
             AccountKind = MukJumpAccountKind.LocalGuest;
+            PlayerPrefs.DeleteKey(InvalidGuestCredentialCleanupKey);
             StoreKind();
             ClearStoredAccountScope();
             SetAutomaticAuthenticationSuppressed(false);
@@ -5179,6 +5280,7 @@ namespace MukJump.Core
                 PendingAuthorizedTransitionRestoreGuestKey);
             PlayerPrefs.DeleteKey(PendingGuestUpgradeKindKey);
             PlayerPrefs.DeleteKey(PendingLocalLogoutCleanupKey);
+            PlayerPrefs.DeleteKey(InvalidGuestCredentialCleanupKey);
             PlayerPrefs.DeleteKey(
                 PendingLocalLogoutRemoteConfirmedKey);
             // 로컬 데이터 삭제가 모두 성공한 뒤 마지막 저장에서만 계정

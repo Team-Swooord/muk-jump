@@ -53,6 +53,7 @@ namespace MukJump.EditorTests
                 "MukJump.Account.Kind",
                 "MukJump.Account.AutomaticAuthenticationSuppressed",
                 "MukJump.Account.LegacyGuestCredentialCleanup",
+                "MukJump.Account.InvalidGuestCredentialCleanup",
                 "MukJump.Account.PendingLocalGuestImport",
                 "MukJump.Account.PendingAuthorizedTransitionKind",
                 "MukJump.Account.PendingAuthorizedTransitionReplaceLocal",
@@ -2279,6 +2280,247 @@ namespace MukJump.EditorTests
             InvokeLifecycle(account, "BeginBackendGuestLogin");
             InvokeLifecycle(account, "BeginBackendGuestLogin");
             Assert.That(requests, Is.EqualTo(1));
+        }
+
+        const string InvalidGuestCleanupKey = "MukJump.Account.InvalidGuestCredentialCleanup";
+        const string InvalidGuestJson = "{\"errorCode\":\"BadUnauthorizedException\",\"message\":\"bad customId, 잘못된 customId 입니다\"}";
+
+        static BackEnd.BackendReturnObject InvalidGuestResult()
+        {
+            var result = BackendResult(401, InvalidGuestJson);
+            // 실제 SDK는 응답 파싱 시 메시지/오류를 별도 속성에도 저장한다.
+            typeof(BackEnd.BackendReturnObject).GetProperty("ErrorCode").SetValue(result, "BadUnauthorizedException");
+            typeof(BackEnd.BackendReturnObject).GetProperty("Message").SetValue(result, "bad customId, 잘못된 customId 입니다");
+            return result;
+        }
+
+        [TestCase("401", "BadUnauthorizedException", "bad customId, 잘못된 customId 입니다", true)]
+        [TestCase("401", "BadUnauthorizedException", "bad refreshToken", false)]
+        [TestCase("401", "BadUnauthorizedException", "bad password", false)]
+        [TestCase("403", "BadUnauthorizedException", "bad customId", false)]
+        [TestCase("410", "GoneResourceException", "Gone user", false)]
+        [TestCase("429", "TooManyRequestsException", "bad customId", false)]
+        [TestCase("503", "ServiceUnavailable", "bad customId", false)]
+        [TestCase(null, null, null, false)]
+        public void OnlyInvalidGuestCredentialsPermitLocalCredentialRenewal(
+            string status, string error, string message, bool expected)
+        {
+            Assert.That(MukJumpAccountRuntime.IsInvalidGuestCredentialResponse(status, error, message), Is.EqualTo(expected));
+        }
+
+        MukJumpAccountRuntime CreateOfflineGuestRecoveryRuntime()
+        {
+            var account = CreateReadySaveRuntime();
+            PlayerPrefs.SetInt("MukJump.Account.Kind", (int)MukJumpAccountKind.BackendGuest);
+            PlayerPrefs.SetString("MukJump.Account.LastAuthenticatedOwner", "deleted-owner");
+            InvokeLifecycle(account, "SetAccountOfflinePreservingKind", "offline");
+            return account;
+        }
+
+        [TestCase(237, true)]
+        [TestCase(0, false)]
+        public void DeletedGuestRenewsCredentialsAndUploadsPreservedRunBeforeRanking(int height, bool completedRun)
+        {
+            MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
+            LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            var scoreStore = new MemoryScoreStore { Best = height };
+            ScoreManager.UseStoreForTests(scoreStore);
+            try
+            {
+                var account = CreateOfflineGuestRecoveryRuntime();
+                var score = host.AddComponent<ScoreManager>();
+                InvokeLifecycle(score, "Awake");
+                InvokeLifecycle(score, "OnEnable");
+                if (completedRun) PermanentGrowthProfile.SettleRun("offline-guest09697-run", height, 0, true);
+                Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string growth), Is.True);
+                string guestName = MukJumpIdentityProfile.GuestNickname;
+                bool tutorial = LobbySettingsProfile.NeedsGameplayTutorial;
+                string credential = "invalid-guest-id", owner = "deleted-owner";
+                int cleanups = 0, logins = 0, rankedHeight = -1;
+                System.Action<BackEnd.BackendReturnObject> insert = null;
+                SetPrivateField(account, "storedGuestIdForTests", new System.Func<string>(() => credential));
+                SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => owner));
+                SetPrivateField(account, "backendUidForTests", new System.Func<string>(() => "1789001234567"));
+                SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() => { cleanups++; credential = ""; }));
+                SetBackendRequestHook(account, "identityInfoForTests", callback => callback(BackendResult(200,
+                    "{\"row\":{\"nickname\":\"" + guestName + "\"}}")));
+                SetBackendRequestHook(account, "getMyDataForTests", callback => callback(BackendResult(200, "{\"rows\":[]}")));
+                SetBackendRequestHook(account, "insertGameDataForTests", callback => insert = callback);
+                SetPrivateField(account, "updateLeaderboardForTests",
+                    new System.Action<int, System.Action<BackEnd.BackendReturnObject>>((height, callback) =>
+                    { rankedHeight = height; callback(BackendResult(204)); }));
+                SetBackendRequestHook(account, "guestLoginForTests", callback =>
+                {
+                    logins++;
+                    if (credential.Length > 0) callback(InvalidGuestResult());
+                    else { credential = "new-guest-id"; owner = "new-owner"; callback(BackendResult(201)); }
+                });
+                SetBackendRequestHook(account, "tokenLoginForTests", callback =>
+                {
+                    InvokeLifecycle(account, "HandleOtherDeviceLoginDetected");
+                    var expired = BackendResult(401);
+                    typeof(BackEnd.BackendReturnObject).GetProperty("ErrorCode").SetValue(expired, "BadUnauthorizedException");
+                    typeof(BackEnd.BackendReturnObject).GetProperty("Message").SetValue(expired, "bad refreshToken");
+                    callback(expired);
+                });
+
+                InvokeLifecycle(account, "BeginBackendTokenLogin", false);
+                Assert.That(logins, Is.EqualTo(2));
+                Assert.That(cleanups, Is.EqualTo(1));
+                Assert.That(account.IsOnlineAuthenticated, Is.True);
+                Assert.That(account.BackendUid, Is.EqualTo("1789001234567"));
+                Assert.That(PlayerPrefs.GetString("MukJump.Account.LastAuthenticatedOwner"), Is.EqualTo("new-owner"));
+                Assert.That(PlayerPrefs.HasKey(InvalidGuestCleanupKey), Is.False);
+                Assert.That(scoreStore.Best, Is.EqualTo(height));
+                Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string afterGrowth), Is.True);
+                Assert.That(afterGrowth, Is.EqualTo(growth));
+                Assert.That(MukJumpIdentityProfile.GuestNickname, Is.EqualTo(guestName));
+                Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.EqualTo(tutorial));
+                Assert.That(insert, Is.Not.Null);
+                Assert.That(rankedHeight, Is.EqualTo(-1), "게임 정보 저장 전에 순위를 제출하지 않는다.");
+                insert(BackendResult(201, "{\"inDate\":\"new-player-row\"}"));
+                Assert.That(rankedHeight, Is.EqualTo(completedRun ? height : -1));
+                Assert.That(ReadPrivateBool(account, "dirty"), Is.False);
+                InvokeLifecycle(score, "OnDisable");
+            }
+            finally { MukJumpIdentityProfile.UseStoreForTests(null); }
+        }
+
+        [TestCase("apple")]
+        [TestCase("google")]
+        [TestCase("upgrade")]
+        [TestCase("transition")]
+        [TestCase("deletion")]
+        [TestCase("logout")]
+        [TestCase("import")]
+        [TestCase("suppressed")]
+        [TestCase("no-credentials")]
+        public void InvalidGuestResponseNeverRenewsSocialOrUnresolvedAccount(string reason)
+        {
+            var account = CreateOfflineGuestRecoveryRuntime();
+            if (reason == "apple" || reason == "google")
+                PlayerPrefs.SetInt("MukJump.Account.Kind", (int)(reason == "apple" ? MukJumpAccountKind.Apple : MukJumpAccountKind.Google));
+            if (reason == "upgrade") PlayerPrefs.SetInt("MukJump.Account.PendingGuestUpgradeKind", (int)MukJumpAccountKind.Apple);
+            if (reason == "transition") PlayerPrefs.SetInt("MukJump.Account.PendingAuthorizedTransitionKind", (int)MukJumpAccountKind.Apple);
+            if (reason == "deletion") SetPrivateField(account, "accountDeletionCleanupPending", true);
+            if (reason == "logout") SetPrivateField(account, "localLogoutCleanupPending", true);
+            if (reason == "import") PlayerPrefs.SetInt("MukJump.Account.PendingLocalGuestImport", 1);
+            if (reason == "suppressed") SetPrivateField(account, "suppressAutomaticAuthentication", true);
+            int cleanups = 0, logins = 0;
+            SetPrivateField(account, "storedGuestIdForTests", new System.Func<string>(() => reason == "no-credentials" ? "" : "stored-id"));
+            SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() => cleanups++));
+            SetBackendRequestHook(account, "guestLoginForTests", callback => { logins++; callback(InvalidGuestResult()); });
+            InvokeLifecycle(account, "BeginBackendGuestLogin");
+            Assert.That(logins, Is.EqualTo(1));
+            Assert.That(cleanups, Is.Zero);
+            Assert.That(PlayerPrefs.HasKey(InvalidGuestCleanupKey), Is.False);
+            Assert.That(PlayerPrefs.GetString("MukJump.Account.LastAuthenticatedOwner"), Is.EqualTo("deleted-owner"));
+        }
+
+        [Test]
+        public void GuestCredentialCleanupFailureResumesWithoutUsingInvalidToken()
+        {
+            var account = CreateOfflineGuestRecoveryRuntime();
+            int cleanups = 0, tokenLogins = 0, guestLogins = 0;
+            string credential = "stored-id";
+            SetPrivateField(account, "storedGuestIdForTests", new System.Func<string>(() => credential));
+            SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() =>
+            { if (++cleanups == 1) throw new System.InvalidOperationException("disk busy"); credential = ""; }));
+            SetBackendRequestHook(account, "tokenLoginForTests", _ => tokenLogins++);
+            SetBackendRequestHook(account, "guestLoginForTests", callback =>
+            { guestLogins++; if (credential.Length > 0) callback(InvalidGuestResult()); });
+            LogAssert.Expect(LogType.Warning, "[MukJump] 유효하지 않은 게스트 로그인 정보 정리를 다시 시도합니다: disk busy");
+            InvokeLifecycle(account, "BeginBackendGuestLogin");
+            Assert.That(PlayerPrefs.GetInt(InvalidGuestCleanupKey), Is.EqualTo(1));
+            Assert.That(account.Phase, Is.EqualTo(MukJumpAccountPhase.LocalReady));
+            InvokeLifecycle(account, "BeginBackendTokenLogin", false);
+            Assert.That(tokenLogins, Is.Zero);
+            Assert.That(guestLogins, Is.EqualTo(2));
+            Assert.That(cleanups, Is.EqualTo(2));
+            Assert.That(PlayerPrefs.HasKey(InvalidGuestCleanupKey), Is.False);
+        }
+
+        [Test]
+        public void GuestCredentialCleanupMustConfirmSdkCredentialsWereRemoved()
+        {
+            var account = CreateOfflineGuestRecoveryRuntime();
+            int guestLogins = 0;
+            SetPrivateField(account, "storedGuestIdForTests", new System.Func<string>(() => "still-stored-id"));
+            SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() => { }));
+            SetBackendRequestHook(account, "guestLoginForTests", callback =>
+            { guestLogins++; callback(InvalidGuestResult()); });
+            LogAssert.Expect(LogType.Warning,
+                "[MukJump] 유효하지 않은 게스트 로그인 정보 정리를 다시 시도합니다: 게스트 로그인 정보가 기기에 남아 있습니다");
+            InvokeLifecycle(account, "BeginBackendGuestLogin");
+            Assert.That(guestLogins, Is.EqualTo(1));
+            Assert.That(PlayerPrefs.GetString("MukJump.Account.LastAuthenticatedOwner"), Is.EqualTo("deleted-owner"));
+            Assert.That(PlayerPrefs.GetInt(InvalidGuestCleanupKey), Is.EqualTo(1));
+            Assert.That(account.Phase, Is.EqualTo(MukJumpAccountPhase.LocalReady));
+        }
+
+        [TestCase(1)]
+        [TestCase(2)]
+        public void GuestCredentialCleanupPersistenceFailureCanResumeSafely(int failingSave)
+        {
+            var account = CreateOfflineGuestRecoveryRuntime();
+            int saves = 0, cleanups = 0, guestLogins = 0, tokenLogins = 0;
+            string credential = "stored-id";
+            SetPrivateField(account, "storedGuestIdForTests", new System.Func<string>(() => credential));
+            SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() =>
+            { cleanups++; credential = ""; }));
+            SetPrivateField(account, "recoveryMarkerPersistenceForTests", new System.Action(() =>
+            { if (++saves == failingSave) throw new System.InvalidOperationException("marker save failed"); }));
+            SetBackendRequestHook(account, "tokenLoginForTests", _ => tokenLogins++);
+            SetBackendRequestHook(account, "guestLoginForTests", callback =>
+            { guestLogins++; if (credential.Length > 0) callback(InvalidGuestResult()); });
+            LogAssert.Expect(LogType.Warning,
+                "[MukJump] 유효하지 않은 게스트 로그인 정보 정리를 다시 시도합니다: marker save failed");
+            InvokeLifecycle(account, "BeginBackendGuestLogin");
+            Assert.That(guestLogins, Is.EqualTo(1));
+            Assert.That(cleanups, Is.EqualTo(failingSave == 1 ? 0 : 1));
+            Assert.That(PlayerPrefs.GetInt(InvalidGuestCleanupKey), Is.EqualTo(1));
+            InvokeLifecycle(account, "BeginBackendTokenLogin", false);
+            Assert.That(tokenLogins, Is.Zero);
+            Assert.That(guestLogins, Is.EqualTo(2));
+            Assert.That(PlayerPrefs.HasKey(InvalidGuestCleanupKey), Is.False);
+            Assert.That(PlayerPrefs.GetInt("MukJump.Cloud.PendingSave"), Is.EqualTo(1));
+            Assert.That(ReadPrivateBool(account, "dirty"), Is.True);
+        }
+
+        [Test]
+        public void OldGuestFailureCallbackCannotCompleteRenewedGuestRequest()
+        {
+            var account = CreateOfflineGuestRecoveryRuntime();
+            string credential = "stored-id";
+            SetPrivateField(account, "storedGuestIdForTests", new System.Func<string>(() => credential));
+            SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() => credential = ""));
+            var replies = new System.Collections.Generic.List<System.Action<BackEnd.BackendReturnObject>>();
+            SetBackendRequestHook(account, "guestLoginForTests", callback => replies.Add(callback));
+            InvokeLifecycle(account, "BeginBackendGuestLogin");
+            replies[0](InvalidGuestResult());
+            Assert.That(replies.Count, Is.EqualTo(2));
+            replies[0](InvalidGuestResult());
+            Assert.That(replies.Count, Is.EqualTo(2));
+            Assert.That(ReadPrivateBool(account, "guestLoginInFlight"), Is.True);
+            replies[1](BackendResult(503));
+            Assert.That(ReadPrivateBool(account, "guestLoginInFlight"), Is.False);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void GlobalAuthErrorCannotDiscardPendingGuestOrTokenLoginResponse(bool guestRequest)
+        {
+            var account = CreateOfflineGuestRecoveryRuntime();
+            System.Action<BackEnd.BackendReturnObject> reply = null;
+            SetPrivateField(account, "storedGuestIdForTests", new System.Func<string>(() => "stored-id"));
+            SetBackendRequestHook(account, guestRequest ? "guestLoginForTests" : "tokenLoginForTests", callback => reply = callback);
+            if (guestRequest) InvokeLifecycle(account, "BeginBackendGuestLogin");
+            else InvokeLifecycle(account, "BeginBackendTokenLogin", false);
+            InvokeLifecycle(account, "HandleOtherDeviceLoginDetected");
+            Assert.That(ReadPrivateBool(account, guestRequest ? "guestLoginInFlight" : "tokenLoginInFlight"), Is.True);
+            reply(BackendResult(503));
+            Assert.That(ReadPrivateBool(account, guestRequest ? "guestLoginInFlight" : "tokenLoginInFlight"), Is.False);
+            Assert.That(account.Phase, Is.EqualTo(MukJumpAccountPhase.LocalReady));
         }
 
         [TestCase(true, MukJumpAccountKind.LocalGuest, "", false, false, false, false, false, false, true)]
