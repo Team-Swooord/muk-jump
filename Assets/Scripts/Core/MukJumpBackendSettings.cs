@@ -16,8 +16,6 @@ namespace MukJump.Core
         [SerializeField] string playerTableName = "MukJumpPlayer";
         [SerializeField] string bestHeightColumn = "bestHeight";
         [SerializeField] string allTimeRankUuid = string.Empty;
-        // App Store Connect에서 생성·확인한 먹점프 전용 ID만 입력한다.
-        [SerializeField] string appleGameCenterLeaderboardId = string.Empty;
         [SerializeField] string androidGoogleWebClientId = string.Empty;
         [SerializeField] string androidAppleServiceId = string.Empty;
         [SerializeField] bool appleRevocationConfigurationVerified;
@@ -29,7 +27,6 @@ namespace MukJump.Core
         public string PlayerTableName => playerTableName.Trim();
         public string BestHeightColumn => bestHeightColumn.Trim();
         public string AllTimeRankUuid => allTimeRankUuid.Trim();
-        public string AppleGameCenterLeaderboardId => (appleGameCenterLeaderboardId ?? string.Empty).Trim();
         public string AndroidGoogleWebClientId =>
             androidGoogleWebClientId.Trim();
         public string AndroidAppleServiceId => androidAppleServiceId.Trim();

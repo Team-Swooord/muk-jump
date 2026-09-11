@@ -161,29 +161,21 @@ Markdown 제목·목록·표가 HTML로 렌더링되는 것을 확인했다. 스
 ### 플랫폼 리더보드 연결 범위
 
 - 메인 최고 기록 → 공통 한지 두루마리. 뒤끝은 전체 기간 TOP 10의 닉네임·순위·고도를 표시한다.
-- iOS는 Game Center 별도 탭에서 `GKLeaderboard`의 global/allTime 목록을 조회한다.
-  `MukJumpGameCenter.mm`는 네이티브 GameKit을 사용한다. Unity의 deprecated Social API는 쓰지 않는다.
-- 2026-09-11 App Store Connect에서 `com.CYSB.MukJump.bestHeight`를 생성하고
-  `MukJumpBackendSettings.appleGameCenterLeaderboardId`에 연결했다. Classic, 정수 미터,
-  최고값 우선·내림차순, 범위 1–2147483647이다. 한국어·영어(미국)·일본어 이름과 `m` 접미사를 등록했다.
-  앱 버전 1.0.0의 Game Center 체크는 켜졌으며 구성요소 상태는 **제출 준비 중**이다.
-  Team `8AU359WZZ2`, Bundle ID `com.CYSB.MukJump`. 심사 제출/새 TestFlight 업로드는 이번 연결 작업에 포함하지 않았다.
-- 첫 튜토리얼·계정 팝업을 마친 로비에서 실행당 한 번 연결을 시도한다. 취소해도 게임이나 뒤끝 저장을 막지 않는다.
-  `먹점프`/`Game Center` 탭은 서로 다른 계정·순위 목록이다. GameKit 플레이어에게 기기 국가를 임의로 붙이지 않는다.
-- Apple에 제출하는 값은 계정이 확인된 상태에서 시작한 정상 플레이의 `Height`다.
-  뒤끝/로컬에서 합쳐진 `Best`를 다른 Game Center 계정으로 올리지 않는다.
-  실패한 점수는 Game Center 사용자·보드별 최고값으로 기기에 보관하고 다음 조회/정산에서 재시도한다.
+- 2026-09-11 사용자 결정으로 Apple Game Center를 제거했다. iOS와 Android는 뒤끝 순위표 하나만 사용한다.
+  Apple 로그인, 게스트 로그인, 계정 동기화는 기존 뒤끝 경로를 유지한다.
+- Game Center 탭, 자동 연결, 점수 제출, 네이티브 GameKit 브리지와 iOS Game Center 권한은 사용하지 않는다.
+  이미 업로드된 1.0.0 (27)은 예전 구현이므로 제거 변경을 사용하려면 다음 빌드가 필요하다.
+- App Store Connect의 앱 버전 1.0.0에서 Game Center 체크 해제 후 페이지를 다시 열어 해제 상태가 유지됨을 확인했다.
 - Toss SDK는 현재 사용자 프로필·점수 제출·공식 리더보드 열기를 제공한다. 다른 플레이어 행 조회는
   제공되지 않아 두루마리 버튼으로 공식 화면을 연다. 토스→뒤끝 서버 브리지와 동일인 매핑이 없으므로
   **토스까지 포함한 단일 전체 순위는 아직 구현되지 않았다**. 네이티브의 뒤끝 TOP 10을 그렇게 부르면 안 된다.
 
-연결 변경 검증: 집중 검사 17개, iOS Player 스크립트 36개 어셈블리 컴파일, ObjC++ 구문 확인.
-임시 Xcode 프로젝트에서 Game Center/Apple 로그인 entitlement 공존 및 중복 후처리를 확인했다.
-실기기 로그인·계정 변경·오프라인 재시도·리더보드 점수 왕복·UI 클릭 테스트는 완료 전까지 출시 게이트다.
-네이티브 Game Center의 소유자별 재시도는 앱 내부 `NSUserDefaults`를 사용하므로 최종 앱의
-PrivacyInfo.xcprivacy에 해당 required-reason API 사용 사유가 반영됐는지도 Archive에서 확인한다.
-공식 근거: [뒤끝 목록 API](https://docs.backnd.com/en/sdk-docs/backend/base/leaderboard/user/get-list/),
-[GameKit](https://developer.apple.com/documentation/gamekit/gkleaderboard).
+검증 항목: 한국어/영어/일본어 단일 순위 화면, 자동 Game Center 런타임/브리지 부재,
+뒤끝 순위 UUID 유지, iOS 후처리에서 Apple 로그인 권한 보존 및 Game Center 권한 부재.
+제거 관련 검사 6/6 통과, iOS Player 스크립트 36개 어셈블리 컴파일 성공. 씬 빌더 재생성 후
+소스 일치·누락 스크립트 0·Player 안전 검사 이상 없음 확인. 실제 기기 검증/재업로드는 이번 변경에 포함하지 않았다.
+앱 내부 설정/출시 전 초기화에서 UserDefaults를 계속 사용하므로 해당 개인정보 API 사용 선언은 유지한다.
+공식 근거: [뒤끝 목록 API](https://docs.backnd.com/en/sdk-docs/backend/base/leaderboard/user/get-list/).
 
 ## 5. Unity 공개 설정
 

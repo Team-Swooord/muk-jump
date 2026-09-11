@@ -16,7 +16,6 @@ MonoBehaviour:
   playerTableName: MukJumpPlayer
   bestHeightColumn: bestHeight
   allTimeRankUuid: 01a08afd-b237-7723-9e6a-b8d7950285fd
-  appleGameCenterLeaderboardId: com.CYSB.MukJump.bestHeight
   androidGoogleWebClientId: 
   androidAppleServiceId: 
   appleRevocationConfigurationVerified: 1

@@ -89,9 +89,7 @@ namespace MukJump.Core
         readonly Image[] leaderboardFlags = new Image[10];
         readonly Text[] leaderboardSources = new Text[10];
         readonly Image[] leaderboardSeals = new Image[10];
-        Text globalLeaderboardLabel, appleLeaderboardLabel;
         bool leaderboardFromLobby;
-        bool showingAppleLeaderboard;
         Button leaderboardRefresh;
         Image tutorialImage;
         Text tutorialTitle;
@@ -180,7 +178,6 @@ namespace MukJump.Core
             BindManager();
             LobbySettingsProfile.Changed += RefreshSettings;
             GameLocalization.Changed += RefreshLanguage;
-            AppleGameCenterRuntime.Changed += RefreshLeaderboardPage;
             DebugShowcaseScenarioProfile.Changed += RefreshDebugScenario;
             BindAccountRuntime();
         }
@@ -190,7 +187,6 @@ namespace MukJump.Core
             CloseNicknameImmediate();
             LobbySettingsProfile.Changed -= RefreshSettings;
             GameLocalization.Changed -= RefreshLanguage;
-            AppleGameCenterRuntime.Changed -= RefreshLeaderboardPage;
             DebugShowcaseScenarioProfile.Changed -= RefreshDebugScenario;
             UnbindAccountRuntime();
             AppleSignInButtonBridge.Hide();
@@ -1034,19 +1030,6 @@ namespace MukJump.Core
             CreateReadableText("LeaderboardTitle", panel, "세계 최고의 먹", 64,
                 new Vector2(0f, 585f), new Vector2(600f, 82f),
                 InkPalette.TextDark, TextAnchor.MiddleCenter, strong: true);
-            if (!UsesTossSettings && AppleGameCenterRuntime.AvailableOnPlatform)
-            {
-                var global = CreatePaperButton("GlobalLeaderboardTab", panel, "먹점프",
-                    new Vector2(-170f, 495f), new Vector2(320f, 68f), 36);
-                globalLeaderboardLabel = global.GetComponentInChildren<Text>();
-                globalLeaderboardLabel.fontSize = 36;
-                global.onClick.AddListener(() => SelectLeaderboard(false));
-                var apple = CreatePaperButton("AppleLeaderboardTab", panel, "Game Center",
-                    new Vector2(170f, 495f), new Vector2(320f, 68f), 36);
-                appleLeaderboardLabel = apple.GetComponentInChildren<Text>();
-                appleLeaderboardLabel.fontSize = 36;
-                apple.onClick.AddListener(() => SelectLeaderboard(true));
-            }
             Text rankHeading = CreateReadableText("RankHeading", panel, "순위", 36, new Vector2(-292f, 430f),
                 new Vector2(96f, 50f), InkPalette.TextDark, TextAnchor.MiddleLeft, strong: true);
             InkLocalizedText.OverrideEnglish(rankHeading, "Rank");
@@ -1085,13 +1068,6 @@ namespace MukJump.Core
             leaderboardRefresh.GetComponentInChildren<Text>().fontSize = 36;
             leaderboardRefresh.onClick.AddListener(RefreshSelectedLeaderboard);
             RefreshLeaderboardPage();
-        }
-
-        void SelectLeaderboard(bool apple)
-        {
-            if (UsesTossSettings || (apple && !AppleGameCenterRuntime.AvailableOnPlatform)) return;
-            showingAppleLeaderboard = apple;
-            RefreshSelectedLeaderboard();
         }
 
         void BindAccountRuntime()
@@ -1169,7 +1145,6 @@ namespace MukJump.Core
 
         void ShowLeaderboardPageImmediate()
         {
-            showingAppleLeaderboard = false;
             DisarmDeleteConfirmation();
             SetPageVisible(optionsGroup, false);
             SetPageVisible(tutorialGroup, false);
@@ -1187,32 +1162,22 @@ namespace MukJump.Core
         void RefreshSelectedLeaderboard()
         {
             if (UsesTossSettings) AppsInTossGameCenterRuntime.OpenLeaderboard();
-            else if (showingAppleLeaderboard) AppleGameCenterRuntime.LoadLeaderboard();
             else MukJumpAccountRuntime.Instance?.RefreshLeaderboard();
             RefreshLeaderboardPage();
         }
 
         void RefreshLeaderboardPage()
         {
-            if (globalLeaderboardLabel != null) globalLeaderboardLabel.color =
-                showingAppleLeaderboard ? InkPalette.TextDark : InkPalette.Red;
-            if (appleLeaderboardLabel != null) appleLeaderboardLabel.color =
-                showingAppleLeaderboard ? InkPalette.Red : InkPalette.TextDark;
             MukJumpAccountRuntime runtime = MukJumpAccountRuntime.Instance;
 
             IReadOnlyList<MukJumpLeaderboardEntry> entries =
                 runtime?.LeaderboardEntries;
-            if (showingAppleLeaderboard)
-            {
-                entries = AppleGameCenterRuntime.Entries;
-            }
             if (UsesTossSettings)
             {
                 entries = null;
             }
             if (leaderboardRefresh != null)
-                leaderboardRefresh.interactable = showingAppleLeaderboard
-                    ? !AppleGameCenterRuntime.Loading : UsesTossSettings || runtime == null || !runtime.LeaderboardLoading;
+                leaderboardRefresh.interactable = UsesTossSettings || runtime == null || !runtime.LeaderboardLoading;
             for (int i = 0; i < leaderboardRows.Length; i++)
             {
                 if (leaderboardRows[i] == null)
@@ -1225,8 +1190,7 @@ namespace MukJump.Core
                 bool hasEntry = entries != null && i < entries.Count;
                 if (leaderboardFlags[i] != null)
                 {
-                    // GameKit은 플레이어의 국가를 제공하지 않는다. 기기 지역을 대신 붙이지 않는다.
-                    leaderboardFlags[i].enabled = hasEntry && !showingAppleLeaderboard;
+                    leaderboardFlags[i].enabled = hasEntry;
                     if (hasEntry) leaderboardFlags[i].sprite = RegionFlagImages.Get(entries[i].RegionCode);
                 }
                 if (leaderboardSeals[i] != null) leaderboardSeals[i].enabled = hasEntry;
@@ -1236,7 +1200,7 @@ namespace MukJump.Core
                             ? GameLocalization.Translate("이름 없는 먹방울") : entries[i].DisplayName)
                         : string.Empty);
                 if (leaderboardSources[i] != null) leaderboardSources[i].text = !hasEntry ? string.Empty :
-                    entries[i].Source == "APPLE" ? "GC" : entries[i].Source == "TOSS" ? "토스" : "뒤끝";
+                    entries[i].Source == "TOSS" ? "토스" : "뒤끝";
             }
         }
 

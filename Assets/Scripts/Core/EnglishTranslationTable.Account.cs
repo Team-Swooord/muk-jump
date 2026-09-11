@@ -215,14 +215,9 @@ namespace MukJump.Core
             values["토스 사용자 확인 시간이 초과됐습니다. 네트워크를 확인하고 다시 시도해 주세요"] = "Toss verification timed out. Check your connection and retry.";
             values["토스 사용자 정보를 확인하지 못했습니다. 다시 시도해 주세요"] = "Could not verify your Toss identity. Try again.";
             values["토스 사용자 기록을 준비하지 못했습니다. 다시 시도해 주세요"] = "Could not prepare your Toss progress. Try again.";
-            values["Game Center 순위를 준비 중이에요"] = "Game Center rankings are not ready yet.";
-            values["Game Center에 연결하는 중"] = "Connecting to Game Center...";
-            values["Game Center는 iPhone에서 이용할 수 있어요"] = "Game Center is available on iPhone.";
             values["연결이 지연되고 있어요. 다시 시도해 주세요"] = "Connection is taking too long. Try again.";
-            values["Game Center 로그인이 필요해요"] = "Sign in to Game Center to continue.";
             values["순위를 불러오지 못했어요. 다시 시도해 주세요"] = "Could not load the leaderboard. Try again.";
             values["아직 등록된 기록이 없어요"] = "No records yet.";
-            values["Game Center 계정이 바뀌었어요. 새로고침해 주세요"] = "Your Game Center account changed. Refresh the leaderboard.";
         }
     }
 }

@@ -185,11 +185,8 @@ namespace MukJump.Core
             v["Toss verification timed out. Check your connection and retry."] = "Tossの確認がタイムアウトしました。通信を確認し再試行してください。";
             v["Could not verify your Toss identity. Try again."] = "Tossユーザーを確認できません。再試行してください。";
             v["Could not prepare your Toss progress. Try again."] = "Tossの記録を準備できません。再試行してください。";
-            v["Game Center rankings are not ready yet."] = "Game Centerの順位は準備中です。"; v["Connecting to Game Center..."] = "Game Centerに接続中…";
-            v["Game Center is available on iPhone."] = "Game CenterはiPhoneで利用できます。";
-            v["Connection is taking too long. Try again."] = "接続が遅れています。再試行してください。"; v["Sign in to Game Center to continue."] = "Game Centerにログインしてください。";
+            v["Connection is taking too long. Try again."] = "接続が遅れています。再試行してください。";
             v["Could not load the leaderboard. Try again."] = "順位を取得できません。再試行してください。"; v["No records yet."] = "記録はまだありません。";
-            v["Your Game Center account changed. Refresh the leaderboard."] = "Game Centerアカウントが変わりました。順位を再取得してください。";
             v[" Verify the current account owner again."] = " 現在の所有者を再確認してください。";
             v[" Reopen the app to finish deletion recovery."] = " 削除を完了するにはアプリを再起動してください。";
             v[" Reopen the app to check your account."] = " アカウント確認のためアプリを再起動してください。";

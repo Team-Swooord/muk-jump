@@ -95,7 +95,7 @@ namespace MukJump.EditorTools
                 File.WriteAllText(path, manifest.WriteToString());
                 return;
             }
-            // Game Center 재전송 대기 기록은 이 앱의 standardUserDefaults에만 저장한다.
+            // 출시 전 초기화 등 이 앱의 standardUserDefaults 접근에 필요한 선언이다.
             var declaration = types.AddDict();
             declaration.SetString("NSPrivacyAccessedAPIType", "NSPrivacyAccessedAPICategoryUserDefaults");
             declaration.CreateArray("NSPrivacyAccessedAPITypeReasons").AddString("CA92.1");

@@ -19,14 +19,19 @@ namespace MukJump.EditorTests
                 options = UnityEditor.Build.Player.ScriptCompilationOptions.None,
             };
             var result = UnityEditor.Build.Player.PlayerBuildInterface.CompilePlayerScripts(
-                settings, "Temp/MukJumpGameCenterPlayer");
+                settings, "Temp/MukJumpWithoutGameCenterPlayer");
             if (result.assemblies == null || result.assemblies.Count == 0)
                 throw new UnityEditor.Build.BuildFailedException("iOS Player 스크립트 컴파일 실패");
-            UnityEngine.Debug.Log("[MukJump] Game Center iOS Player 컴파일 완료: " + result.assemblies.Count);
+            UnityEngine.Debug.Log("[MukJump] Game Center 제거 iOS Player 컴파일 완료: " + result.assemblies.Count);
+            // 제거된 직렬화 필드는 에디터 API로 정리한다. 씬 YAML은 직접 편집하지 않는다.
+            AssetDatabase.ForceReserializeAssets(new[] {
+                "Assets/Resources/MukJump/Settings/MukJumpBackendSettings.asset" });
             MukJumpSceneBuilder.Build();
+            UnityEngine.Debug.Log("[MukJump] " +
+                Newtonsoft.Json.JsonConvert.SerializeObject(MukJumpAgentAudit.Audit()));
         }
 
-        [Test] public void ExportAddsGameCenterWithoutLosingAppleSignInAndIsRepeatable()
+        [Test] public void ExportKeepsAppleSignInWithoutGameCenterAndIsRepeatable()
         {
             string directory = Path.Combine(Path.GetTempPath(), "mukjump-gamecenter-" + Guid.NewGuid().ToString("N"));
             try
@@ -52,10 +57,10 @@ namespace MukJump.EditorTests
                 MukJumpAppleSignInPostprocessor.OnPostProcessBuild(BuildTarget.iOS, directory);
                 var entitlement = new PlistDocument();
                 entitlement.ReadFromFile(Path.Combine(directory, "MukJump.entitlements"));
-                Assert.That(entitlement.root["com.apple.developer.game-center"].AsBoolean(), Is.True);
+                Assert.That(entitlement.root.values.ContainsKey("com.apple.developer.game-center"), Is.False);
                 Assert.That(entitlement.root["com.apple.developer.applesignin"].AsArray().values[0].AsString(), Is.EqualTo("Default"));
                 string first = File.ReadAllText(PBXProject.GetPBXProjectPath(directory));
-                Assert.That(first, Does.Contain("GameKit.framework"));
+                Assert.That(first, Does.Not.Contain("GameKit.framework"));
                 Assert.That(first, Does.Contain("AuthenticationServices.framework"));
                 project.ReadFromString(first);
                 Assert.That(project.GetBuildPropertyForAnyConfig(project.GetUnityMainTargetGuid(), "DEVELOPMENT_TEAM"),

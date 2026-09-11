@@ -1167,9 +1167,6 @@ namespace MukJump.Core
             InvokeReleaseNotificationSafely(
                 "앱인토스 순위 제출",
                 () => AppsInTossGameCenterRuntime.SubmitCompletedRun(result));
-            InvokeReleaseNotificationSafely(
-                "Game Center 순위 제출",
-                () => AppleGameCenterRuntime.SubmitCompletedRun(result));
         }
 
         static bool InvokeReleaseNotificationSafely(
@@ -2032,7 +2029,6 @@ namespace MukJump.Core
             // 연출 난수와 분리된 게임 규칙 스트림을 판 시작 직전에 함께 초기화한다.
             GameplayRandom.ResetSession();
             currentRunId = Guid.NewGuid().ToString("N");
-            AppleGameCenterRuntime.BeginRun();
             activeGameplaySeconds = 0f;
             lastActiveTimeSampleFrame = -1;
             lastDeadPlayer = null;

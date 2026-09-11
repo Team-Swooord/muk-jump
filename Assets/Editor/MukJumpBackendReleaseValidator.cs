@@ -25,8 +25,6 @@ namespace MukJump.EditorTools
         public const string ExpectedBestHeightColumn = "bestHeight";
         public const string ExpectedAllTimeRankUuid =
             "01a08afd-b237-7723-9e6a-b8d7950285fd";
-        public const string ExpectedAppleGameCenterLeaderboardId =
-            "com.CYSB.MukJump.bestHeight";
         public const string ExpectedIosGoogleClientId =
             "58212920281-bm72q2dnoc79ee4214e3k9fojb636u2e" +
             ".apps.googleusercontent.com";
@@ -42,20 +40,6 @@ namespace MukJump.EditorTools
         const string IosGoogleSettingsPath =
             "Assets/TheBackend/Resources/" +
             "TheBackendGoogleSettingsForIOS.asset";
-
-        [MenuItem("MukJump/Store/Backend/Configure Game Center")]
-        public static void ConfigureGameCenter()
-        {
-            var settings = MukJumpBackendSettings.Load();
-            if (settings == null) throw new BuildFailedException("MukJumpBackendSettings가 없습니다.");
-            var serialized = new SerializedObject(settings);
-            serialized.FindProperty("appleGameCenterLeaderboardId").stringValue =
-                ExpectedAppleGameCenterLeaderboardId;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(settings);
-            AssetDatabase.SaveAssets();
-            Debug.Log("[MukJump] Game Center 순위표 ID 연결 완료: " + settings.AppleGameCenterLeaderboardId);
-        }
 
         [MenuItem("MukJump/Store/Backend/Validate Release Setup")]
         public static void ValidateReleaseSetup()
@@ -106,9 +90,6 @@ namespace MukJump.EditorTools
             }
             if (!settings.ProductionConfigurationVerified)
                 issues.Add("• 뒤끝 콘솔 앱 연결 확인 체크가 꺼져 있습니다.");
-            if (includeIos && !string.Equals(settings.AppleGameCenterLeaderboardId,
-                    ExpectedAppleGameCenterLeaderboardId, StringComparison.Ordinal))
-                issues.Add("• App Store Connect에 등록한 먹점프 Game Center 순위표 ID와 다릅니다.");
             if (string.IsNullOrWhiteSpace(settings.PlayerTableName))
                 issues.Add("• 비공개 MukJumpPlayer 테이블 이름이 비었습니다.");
             else if (!string.Equals(
