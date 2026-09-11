@@ -136,6 +136,8 @@ namespace MukJump.Core
             v["Could not restore guest progress on this device. Try again."] = "端末のゲスト記録を復元できません。再試行してください。";
             v["Could not safely separate online account data from this device. Retry."] = "オンライン記録を端末から分離できません。再試行してください。";
             v["Signed out. Continue playing as a guest on this device."] = "ログアウトしました。端末のゲストで続けられます。";
+            v["Could not prepare the new guest tutorial. Please try again."] = "新しいゲストのチュートリアルを準備できませんでした。もう一度お試しください。";
+            v["Signed out. Reopen the app to start the tutorial."] = "ログアウトしました。チュートリアルを始めるにはアプリを再起動してください。";
             v["Deletion stopped: the selected account changed. Contact support."] = "対象アカウントが変わり削除を中止しました。サポートにご連絡ください。";
             v["Could not confirm deletion. Retry or contact cysbandcs@gmail.com."] = "削除を確認できません。再試行するか cysbandcs@gmail.com にご連絡ください。";
             v["Reconnect to the server, then retry account deletion."] = "サーバーに再接続してから削除を再試行してください。";

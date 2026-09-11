@@ -37,9 +37,9 @@ namespace MukJump.Core
         static System.Action<string> restartSceneForTests;
 #endif
 
-        /// 서버·기기 삭제 성공 뒤에만 호출한다. 기존 Main의 자동 진입을 닫고
+        /// 로그아웃·탈퇴 정리 후 새 게스트가 준비됐을 때만 호출한다. 기존 Main의 자동 진입을 닫고
         /// 제작사 씬을 다시 거쳐 새 Main의 첫 안내를 준비한다.
-        internal static bool TryRestartAfterAccountDeletion()
+        internal static bool TryRestartForNewGuest()
         {
             // 시작 화면 아래에서 중단된 탈퇴를 복구했다면 현재 Splash가 이어 맡는다.
             if (IsBlockingInput) return true;
@@ -67,7 +67,7 @@ namespace MukJump.Core
             catch (System.Exception exception)
             {
                 IsBlockingInput = false;
-                Debug.LogWarning("[MukJump] 계정 삭제 후 시작 화면 복귀 실패: " + exception.Message);
+                Debug.LogWarning("[MukJump] 새 게스트 시작 화면 복귀 실패: " + exception.Message);
                 return false;
             }
         }

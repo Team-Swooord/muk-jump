@@ -127,7 +127,7 @@ namespace MukJump.Core
         /// 브랜드가 걷히기 전에 새 설치의 게임 월드를 준비해 로비가 번쩍 보이지 않게 한다.
         public void PrepareBeforeStartupReveal() => TryAutoStartFirstVisit(true);
 
-        /// 탈퇴 뒤 현재 Main에서 자동 시작하지 않고 Splash로 돌아갈 준비만 한다.
+        /// 새 게스트 전환 뒤 현재 Main에서 자동 시작하지 않고 Splash로 돌아갈 준비만 한다.
         internal void PrepareForStartupReturn()
         {
             if (active) EndWithoutCompletion();

@@ -2730,6 +2730,96 @@ namespace MukJump.EditorTests
             Assert.That(growthStore.Json, Is.EqualTo(before));
         }
 
+        [TestCase(MukJumpAccountKind.Apple, false, false)]
+        [TestCase(MukJumpAccountKind.Google, false, false)]
+        [TestCase(MukJumpAccountKind.Apple, true, false)]
+        [TestCase(MukJumpAccountKind.Google, true, false)]
+        [TestCase(MukJumpAccountKind.Apple, false, true)]
+        public void LinkedLogoutRestartsTutorialOnlyForFreshGuest(
+            MukJumpAccountKind kind, bool restoreGuest, bool failFirstCleanup)
+        {
+            var settingsStore = new MemoryLobbySettingsStore();
+            LobbySettingsProfile.UseStoreForTests(settingsStore);
+            MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
+            var scoreStore = new MemoryScoreStore { Best = 156 };
+            ScoreManager.UseStoreForTests(scoreStore);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            typeof(LobbySettingsProfile).GetMethod("MarkGameplayStartedThisSession",
+                BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, null);
+            var account = CreateReadySaveRuntime();
+            typeof(MukJumpAccountRuntime).GetProperty(nameof(MukJumpAccountRuntime.AccountKind))
+                .SetValue(account, kind);
+            SetPrivateField(account, "dirty", false);
+            if (restoreGuest)
+                PlayerPrefs.SetString("MukJump.Account.LocalGuestSnapshot",
+                    JsonUtility.ToJson(CreateValidCloudSnapshot(1)));
+            int cleanups = 0, restarts = 0, withdrawals = 0;
+            System.Action<BackEnd.BackendReturnObject> logoutReply = null;
+            SetBackendRequestHook(account, "logoutForTests", callback => logoutReply = callback);
+            SetBackendRequestHook(account, "withdrawAccountForTests", _ => withdrawals++);
+            SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() =>
+            {
+                cleanups++;
+                if (failFirstCleanup && cleanups == 1)
+                    throw new System.InvalidOperationException("cleanup unavailable");
+            }));
+            var restartHook = typeof(StartupBrandSplash).GetField("restartSceneForTests",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            restartHook.SetValue(null, new System.Action<string>(scene =>
+            {
+                Assert.That(scene, Is.EqualTo("Splash"));
+                Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.True);
+                Assert.That(account.AccountKind, Is.EqualTo(MukJumpAccountKind.LocalGuest));
+                Assert.That(account.BlocksGameplayForAccountSync, Is.False);
+                Assert.That(scoreStore.Best, Is.Zero);
+                restarts++;
+            }));
+            try
+            {
+                account.Logout();
+                Assert.That(logoutReply, Is.Not.Null);
+                Assert.That(restarts, Is.Zero, "원격 로그아웃 확인 전에는 새 게스트를 시작하지 않습니다.");
+                Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.False);
+                if (failFirstCleanup)
+                    LogAssert.Expect(LogType.Warning,
+                        "[MukJump] 뒤끝 게스트 로그인 정보 삭제를 다시 시도합니다: cleanup unavailable");
+                logoutReply(BackendResult(200));
+                if (failFirstCleanup)
+                {
+                    Assert.That(restarts, Is.Zero);
+                    Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.False);
+                    Assert.That(account.BlocksGameplayForAccountSync, Is.True);
+                    InvokeLifecycle(account, "SignOutFederationAndFinishLocalLogout");
+                }
+                Assert.That(restarts, Is.EqualTo(restoreGuest ? 0 : 1));
+                Assert.That(scoreStore.Best, Is.EqualTo(restoreGuest ? 25 : 0));
+                Assert.That(account.AccountKind, Is.EqualTo(MukJumpAccountKind.LocalGuest));
+                Assert.That(account.BlocksGameplayForAccountSync, Is.False);
+                Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.EqualTo(!restoreGuest));
+                Assert.That(withdrawals, Is.Zero, "로그아웃은 연동 계정의 서버 기록을 탈퇴 처리하지 않습니다.");
+                int cleanupCount = cleanups;
+                logoutReply(BackendResult(200));
+                InvokeLifecycle(account, "CompleteLocalLogout");
+                Assert.That(cleanups, Is.EqualTo(cleanupCount));
+                Assert.That(restarts, Is.EqualTo(restoreGuest ? 0 : 1), "중복 콜백은 새 씬을 재요청하지 않습니다.");
+                LobbySettingsProfile.UseStoreForTests(settingsStore);
+                Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.EqualTo(!restoreGuest));
+                if (!restoreGuest)
+                {
+                    LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+                    LobbySettingsProfile.UseStoreForTests(settingsStore);
+                    Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.False,
+                        "새 게스트도 안내 완료 후 재실행하면 반복하지 않습니다.");
+                }
+            }
+            finally
+            {
+                restartHook.SetValue(null, null);
+                typeof(StartupBrandSplash).GetProperty("IsBlockingInput").SetValue(null, false);
+                MukJumpIdentityProfile.UseStoreForTests(null);
+            }
+        }
+
         [TestCase(MukJumpAccountKind.Google, true)]
         [TestCase(MukJumpAccountKind.LocalGuest, false)]
         [TestCase(MukJumpAccountKind.BackendGuest, false)]

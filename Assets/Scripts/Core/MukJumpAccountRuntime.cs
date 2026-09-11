@@ -4195,6 +4195,8 @@ namespace MukJump.Core
 
         void CompleteLocalLogout()
         {
+            if (!localLogoutCleanupPending || !localLogoutRemoteConfirmed)
+                return;
             localLogoutFinalizationGeneration++;
             localLogoutFinalizationInFlight = false;
             InvalidateBackendTokenLogin();
@@ -4252,6 +4254,14 @@ namespace MukJump.Core
                 return;
             }
 
+            bool freshGuest = !hasValidLocalGuestBackup;
+            if (freshGuest && !LobbySettingsProfile.TryResetGameplayTutorialForNewGuest())
+            {
+                EnterLocalLogoutCleanupBlock(
+                    "새 게스트의 첫 안내를 준비하지 못했습니다. 다시 시도해 주세요");
+                return;
+            }
+
             dirty = false;
             PlayerPrefs.DeleteKey(PendingSaveKey);
             PlayerPrefs.DeleteKey(PendingOperationIdKey);
@@ -4272,6 +4282,15 @@ namespace MukJump.Core
             // 지운다. 두 Save 사이 종료돼도 다음 실행이 정리를 재개한다.
             ClearPendingLocalLogoutCleanup();
             SetLocalReady("로그아웃했습니다. 로컬 게스트로 계속 플레이합니다");
+            if (freshGuest)
+            {
+                // 기존 게스트 복원은 재안내하지 않는다. 새 게스트만 삭제 후와
+                // 같은 Splash 경계를 거쳐 새 Main에서 정지된 첫 안내를 시작한다.
+                guestReconnectDelaySeconds = InitialRetrySeconds;
+                guestReconnectAtRealtime = Time.realtimeSinceStartup;
+                if (!StartupBrandSplash.TryRestartForNewGuest())
+                    SetStatus("로그아웃했습니다. 첫 안내를 시작하려면 앱을 다시 실행해 주세요");
+            }
         }
 
         bool BeginPendingLocalAccountDeletion(
@@ -5311,7 +5330,7 @@ namespace MukJump.Core
             // Splash가 보이는 동안 연결을 시작하되 오프라인 플레이는 계속 허용한다.
             guestReconnectDelaySeconds = InitialRetrySeconds;
             guestReconnectAtRealtime = Time.realtimeSinceStartup;
-            if (!StartupBrandSplash.TryRestartAfterAccountDeletion())
+            if (!StartupBrandSplash.TryRestartForNewGuest())
                 SetStatus("계정은 삭제했습니다. 첫 안내를 시작하려면 앱을 다시 실행해 주세요");
         }
 

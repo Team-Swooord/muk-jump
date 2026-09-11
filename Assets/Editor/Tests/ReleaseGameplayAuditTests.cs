@@ -191,11 +191,19 @@ namespace MukJump.EditorTests
         public IEnumerator AccountDeletionReturnsThroughSplashBeforePausedTutorial()
         {
             yield return new EnterPlayMode();
-            yield return RunDeletionSplashFlow();
+            yield return RunNewGuestSplashFlow(false);
             yield return new ExitPlayMode();
         }
 
-        static IEnumerator RunDeletionSplashFlow()
+        [UnityTest, Timeout(180000)]
+        public IEnumerator FreshGuestLogoutReturnsThroughSplashBeforePausedTutorial()
+        {
+            yield return new EnterPlayMode();
+            yield return RunNewGuestSplashFlow(true);
+            yield return new ExitPlayMode();
+        }
+
+        static IEnumerator RunNewGuestSplashFlow(bool logout)
         {
             bool oldBackground = Application.runInBackground;
             Application.runInBackground = true;
@@ -218,9 +226,10 @@ namespace MukJump.EditorTests
                 var oldManager = GameManager.Instance;
                 Assert.That(oldManager.State, Is.EqualTo(GameState.Lobby));
                 loaded.Clear();
-                // 서버를 삭제하지 않고, 검증된 삭제의 로컬 완료 경계부터 실제 씬 이동을 검사한다.
-                Assert.That(LobbySettingsProfile.TryResetForAccountDeletion(), Is.True);
-                var restart = typeof(StartupBrandSplash).GetMethod("TryRestartAfterAccountDeletion",
+                // 실제 계정은 건드리지 않고 정리가 끝난 새 게스트의 실제 씬 이동을 검사한다.
+                Assert.That(logout ? LobbySettingsProfile.TryResetGameplayTutorialForNewGuest() :
+                    LobbySettingsProfile.TryResetForAccountDeletion(), Is.True);
+                var restart = typeof(StartupBrandSplash).GetMethod("TryRestartForNewGuest",
                     BindingFlags.Static | BindingFlags.NonPublic);
                 Assert.That(restart.Invoke(null, null), Is.True);
                 Assert.That(StartupBrandSplash.IsBlockingInput, Is.True);
@@ -229,7 +238,7 @@ namespace MukJump.EditorTests
                 int fadeOutFrames = 0;
                 bool sawFullLogo = false;
                 string brandEvidence = Path.Combine(Evidence, "brand-motion-" + Guid.NewGuid().ToString("N"));
-                Directory.CreateDirectory(brandEvidence);
+                if (!logout) Directory.CreateDirectory(brandEvidence);
                 double deadline = Time.realtimeSinceStartupAsDouble + 20;
                 while (Time.realtimeSinceStartupAsDouble < deadline &&
                        (loaded.Count < 2 || StartupBrandSplash.IsBlockingInput ||
@@ -244,7 +253,7 @@ namespace MukJump.EditorTests
                         if (alpha > .05f && alpha < .95f)
                         {
                             if (sawFullLogo) fadeOutFrames++; else fadeInFrames++;
-                            if (alpha > .4f && alpha < .6f)
+                            if (!logout && alpha > .4f && alpha < .6f)
                             {
                                 string filename = sawFullLogo ? "brand-fade-out.png" : "brand-fade-in.png";
                                 if (!File.Exists(Path.Combine(brandEvidence, filename)))
@@ -261,7 +270,8 @@ namespace MukJump.EditorTests
                             Assert.That(renderedLogo.vertexCount, Is.GreaterThan(0));
                             Assert.That(renderedLogo.colors32.Any(color => color.a >= 250), Is.True,
                                 "완전히 등장한 로고의 실제 Canvas 정점이 불투명해야 한다.");
-                            ScreenCapture.CaptureScreenshot(Path.GetFullPath(Path.Combine(brandEvidence, "brand-hold.png")));
+                            if (!logout)
+                                ScreenCapture.CaptureScreenshot(Path.GetFullPath(Path.Combine(brandEvidence, "brand-hold.png")));
                             var corners = new Vector3[4];
                             logo.rectTransform.GetWorldCorners(corners);
                             // CanvasScaler는 renderingDisplaySize를 사용한다. Device Simulator가

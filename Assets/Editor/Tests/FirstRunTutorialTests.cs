@@ -142,8 +142,9 @@ namespace MukJump.EditorTests
             Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.True);
         }
 
-        [Test]
-        public void AccountDeletionStopsOldControllerAndLeavesTutorialForNewScene()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void AccountDeletionStopsOldControllerAndLeavesTutorialForNewScene(bool logout)
         {
             LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
             host = new GameObject("DeletedAccountTutorial");
@@ -155,7 +156,8 @@ namespace MukJump.EditorTests
                 .SetValue(tutorial, true);
             Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.False);
 
-            Assert.That(LobbySettingsProfile.TryResetForAccountDeletion(), Is.True);
+            Assert.That(logout ? LobbySettingsProfile.TryResetGameplayTutorialForNewGuest() :
+                LobbySettingsProfile.TryResetForAccountDeletion(), Is.True);
             typeof(FirstRunTutorialController).GetMethod("PrepareForStartupReturn", flags)
                 .Invoke(tutorial, null);
             Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.True);
@@ -168,6 +170,25 @@ namespace MukJump.EditorTests
             LobbySettingsProfile.UseStoreForTests(store);
             Assert.That(LobbySettingsProfile.NeedsGameplayTutorial, Is.True,
                 "삭제 직후 앱을 종료해도 새 게스트의 첫 안내가 남아야 합니다.");
+        }
+
+        [Test]
+        public void NewGuestTutorialResetWaitsForSaveAndPreservesDeviceOptions()
+        {
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            LobbySettingsProfile.ApplyCloudSettings(.3f, .4f, 5);
+            string uid = LobbySettingsProfile.PlayerUid;
+            store.ThrowOnSave = true;
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Warning,
+                "[MukJump] 새 게스트의 튜토리얼 준비를 저장하지 못했습니다: Injected lobby settings save failure");
+            Assert.That(LobbySettingsProfile.TryResetGameplayTutorialForNewGuest(), Is.False);
+            Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.False);
+            store.ThrowOnSave = false;
+            Assert.That(LobbySettingsProfile.TryResetGameplayTutorialForNewGuest(), Is.True);
+            Assert.That(LobbySettingsProfile.ShouldAutoStartGameplayTutorial, Is.True);
+            Assert.That(LobbySettingsProfile.BgmVolume, Is.EqualTo(.3f));
+            Assert.That(LobbySettingsProfile.SfxVolume, Is.EqualTo(.4f));
+            Assert.That(LobbySettingsProfile.PlayerUid, Is.EqualTo(uid));
         }
 
         [TestCase(false)]

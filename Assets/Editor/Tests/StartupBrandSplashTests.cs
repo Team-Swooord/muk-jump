@@ -40,7 +40,7 @@ namespace MukJump.EditorTests
             typeof(StartupBrandSplash).GetField("restartSceneForTests",
                 BindingFlags.Static | BindingFlags.NonPublic).SetValue(null,
                     new System.Action<string>(scene => { requests++; requestedScene = scene; }));
-            var restart = typeof(StartupBrandSplash).GetMethod("TryRestartAfterAccountDeletion",
+            var restart = typeof(StartupBrandSplash).GetMethod("TryRestartForNewGuest",
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(restart.Invoke(null, null), Is.True);
             Assert.That(StartupBrandSplash.IsBlockingInput, Is.True);
@@ -56,10 +56,10 @@ namespace MukJump.EditorTests
                 BindingFlags.Static | BindingFlags.NonPublic);
             hook.SetValue(null, new System.Action<string>(_ =>
                 throw new System.InvalidOperationException("scene unavailable")));
-            var restart = typeof(StartupBrandSplash).GetMethod("TryRestartAfterAccountDeletion",
+            var restart = typeof(StartupBrandSplash).GetMethod("TryRestartForNewGuest",
                 BindingFlags.Static | BindingFlags.NonPublic);
             LogAssert.Expect(LogType.Warning,
-                "[MukJump] 계정 삭제 후 시작 화면 복귀 실패: scene unavailable");
+                "[MukJump] 새 게스트 시작 화면 복귀 실패: scene unavailable");
             Assert.That(restart.Invoke(null, null), Is.False);
             Assert.That(StartupBrandSplash.IsBlockingInput, Is.False);
             hook.SetValue(null, new System.Action<string>(_ => { }));
@@ -81,7 +81,7 @@ namespace MukJump.EditorTests
                 int calls = 0;
                 typeof(StartupBrandSplash).GetField("restartSceneForTests", BindingFlags.Static | BindingFlags.NonPublic)
                     .SetValue(null, new System.Action<string>(_ => calls++));
-                var restart = typeof(StartupBrandSplash).GetMethod("TryRestartAfterAccountDeletion",
+                var restart = typeof(StartupBrandSplash).GetMethod("TryRestartForNewGuest",
                     BindingFlags.Static | BindingFlags.NonPublic);
                 Assert.That(restart.Invoke(null, null), Is.True);
                 Assert.That(calls, Is.EqualTo(1));

@@ -160,6 +160,8 @@ namespace MukJump.Core
             values["로컬 게스트 기록 복원에 실패했습니다. 다시 시도해 주세요"] = "Could not restore guest progress on this device. Try again.";
             values["온라인 계정 기록을 기기에서 안전하게 분리하지 못했습니다. 다시 시도해 주세요"] = "Could not safely separate online account data from this device. Retry.";
             values["로그아웃했습니다. 로컬 게스트로 계속 플레이합니다"] = "Signed out. Continue playing as a guest on this device.";
+            values["새 게스트의 첫 안내를 준비하지 못했습니다. 다시 시도해 주세요"] = "Could not prepare the new guest tutorial. Please try again.";
+            values["로그아웃했습니다. 첫 안내를 시작하려면 앱을 다시 실행해 주세요"] = "Signed out. Reopen the app to start the tutorial.";
             values["삭제를 요청한 계정과 현재 계정이 달라 작업을 중단했습니다. 고객센터에 문의해 주세요"] = "Deletion stopped: the selected account changed. Contact support.";
             values["계정 삭제 완료를 자동으로 확인할 수 없습니다. 다시 확인해도 계속되면 cysbandcs@gmail.com으로 문의해 주세요"] = "Could not confirm deletion. Retry or contact cysbandcs@gmail.com.";
             values["서버 연결이 복구된 뒤 계정 삭제를 다시 시도해 주세요"] = "Reconnect to the server, then retry account deletion.";

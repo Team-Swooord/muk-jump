@@ -460,6 +460,29 @@ namespace MukJump.Core
             }
         }
 
+        /// 로그아웃 뒤 새 게스트를 만들 때 첫 안내만 초기화한다.
+        /// 저장 성공 전에는 현재 씬의 자동 시작 가드를 풀지 않는다.
+        public static bool TryResetGameplayTutorialForNewGuest()
+        {
+            try
+            {
+                EnsureLoaded();
+                store.SetInt(GameplayTutorialVersionKey, 0);
+                store.SetInt(TutorialSeenKey, 0);
+                store.Save();
+                gameplayTutorialVersion = 0;
+                tutorialSeen = false;
+                gameplayStartedThisSession = false;
+                NotifyChangedSafely();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning("[MukJump] 새 게스트의 튜토리얼 준비를 저장하지 못했습니다: " + exception.Message);
+                return false;
+            }
+        }
+
         /// 회원 탈퇴 뒤 계정에 연결됐던 옵션·튜토리얼 식별값을 기본값으로
         /// 덮어쓰고 새 로컬 게스트 식별자를 만든다.
         public static bool TryResetForAccountDeletion()
