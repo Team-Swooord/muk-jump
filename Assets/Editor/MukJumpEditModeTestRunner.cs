@@ -139,6 +139,9 @@ namespace MukJump.EditorTools
             else if (requestScope == "haetae-facing") Run(new[] { @"^HaetaeObstacleTests\.(EveryFrameFacesDown|PoolReuseResets|TelegraphLocksSelectedWall|SideWarningMatchesSelectedWall)" });
             else if (requestScope == "live-leaderboard") Run(new[] {
                 @"^MukJump\.EditorTests\.(MukJumpAccount|NicknameIdentity)Tests\.", @"^SettingsScrollTests\." });
+            else if (requestScope == "account-deletion-targeted") Run(new[] {
+                @"^MukJump\.EditorTests\.MukJumpAccountDeletionCleanupTests\.",
+                @"^MukJump\.EditorTests\.MukJumpAccountTests\.(GuestLogoutNeverCopiesProgressOrChangesAccount|WithdrawnOrInvalidRankNeverAppearsAsZeroMetres|QueuedLogoutRunsOnceAfterSaveUnlessAccountSessionChanged|AppleDeletionDuplicateCallbacksAndRetriesWithdrawExactlyOnce|AppleDeletionWrongStoredOwnerCannotStartAnyRemoteRequest)" });
             else if (requestScope == "bottom-fall-only") Run(new[] { @"^MukJump\.EditorTests\.BottomFallRecoveryTests\." });
             else if (requestScope == "bottom-fall-regression") Run(new[] {
                 @"^MukJump\.EditorTests\.(BottomFallRecovery|PlayerHealth|PlayerSafety)Tests\." });

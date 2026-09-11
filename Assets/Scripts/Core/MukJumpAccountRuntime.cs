@@ -3772,6 +3772,14 @@ namespace MukJump.Core
 
         public void Logout()
         {
+            // 게스트는 로그아웃 대상이 아니다. 구 UI/예약 호출도 여기서 막아
+            // 같은 최고 기록이 새 게스트로 복사되어 순위에 중복 등록되지 않게 한다.
+            if (AccountKind != MukJumpAccountKind.Apple &&
+                AccountKind != MukJumpAccountKind.Google)
+            {
+                logoutAfterSaveRequested = false;
+                return;
+            }
             if (!IsOnlineAuthenticated)
                 return;
             if (ShouldBlockLogoutDuringTemporaryBackendPause(
@@ -3812,14 +3820,6 @@ namespace MukJump.Core
                         : "기록 동기화 후 로그아웃합니다");
                 return;
             }
-            if (ShouldPreserveBackendGuestBeforeLogout(AccountKind) &&
-                !SaveCurrentProfileAsLocalGuest())
-            {
-                SetState(
-                    MukJumpAccountPhase.Error,
-                    "게스트 기록을 안전하게 백업하지 못해 로그아웃을 중단했습니다");
-                return;
-            }
             if (!BeginPendingLocalLogoutCleanup())
             {
                 SetState(
@@ -3832,10 +3832,6 @@ namespace MukJump.Core
             MukJumpAnalytics.Account(AnalyticsAccountAction.Logout, AnalyticsOutcome.Requested);
             BeginBackendLogoutRequest();
         }
-
-        public static bool ShouldPreserveBackendGuestBeforeLogout(
-            MukJumpAccountKind accountKind) =>
-            accountKind == MukJumpAccountKind.BackendGuest;
 
         public void RetryPendingProfileResolution()
         {
@@ -5901,6 +5897,10 @@ namespace MukJump.Core
                                         out int parsedHeight)
                                     ? parsedHeight
                                     : 0;
+                                // 탈퇴 직전 무효화한 순위와 구버전의 0m 유령 기록은
+                                // 뒤끝 정시 삭제를 기다리는 동안에도 노출하지 않는다.
+                                if (height <= 0)
+                                    continue;
                                 loadedEntries.Add(
                                     new MukJumpLeaderboardEntry(rank, height, item.nickname,
                                         regionCode: item.extraData));
@@ -6346,7 +6346,28 @@ namespace MukJump.Core
                 return;
             }
 #endif
-            Backend.BMember.WithdrawAccount(bro => callback(bro));
+            string owner = CurrentAccountScope();
+            long generation = accountDeletionRequestGeneration;
+            MukJumpAccountDeletionCleanup.Run(
+                owner,
+                withdrawalMayHaveCompleted => accountDeletionRequestInFlight &&
+                    generation == accountDeletionRequestGeneration &&
+                    IsPendingAccountDeletionOwnedBy(owner) &&
+                    (string.Equals(owner, CurrentAccountScope(), StringComparison.Ordinal) ||
+                     withdrawalMayHaveCompleted && string.IsNullOrEmpty(CurrentAccountScope())),
+                done => RequestMyGameData(settings.PlayerTableName, new Where(), done),
+                (row, done) =>
+                {
+                    var param = new Param();
+                    param.Add(settings.BestHeightColumn, 0);
+                    Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
+                        settings.AllTimeRankUuid, settings.PlayerTableName, row, param,
+                        bro => done(bro));
+                },
+                (row, done) => Backend.GameData.DeleteV2(
+                    settings.PlayerTableName, row, owner, bro => done(bro)),
+                done => Backend.BMember.WithdrawAccount(bro => done(bro)),
+                callback);
         }
 
         void RequestLeaderboardUpdate(int bestHeight, Action<BackendReturnObject> callback)

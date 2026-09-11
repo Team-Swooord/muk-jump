@@ -881,6 +881,23 @@ namespace MukJump.EditorTests
             Assert.That(account.LeaderboardStatus, Does.Contain("아직 등록된"));
         }
 
+        [TestCase("0")]
+        [TestCase("-1")]
+        [TestCase("invalid")]
+        public void WithdrawnOrInvalidRankNeverAppearsAsZeroMetres(string score)
+        {
+            var account = CreateLeaderboardRuntime();
+            string json = RankedPlayerJson;
+            SetPrivateField(account, "getLeaderboardForTests",
+                new System.Action<System.Action<BackEnd.Leaderboard.BackendUserLeaderboardReturnObject>>(
+                    callback => callback(LeaderboardResult(json))));
+            account.RefreshLeaderboard();
+            Assert.That(account.LeaderboardEntries.Count, Is.EqualTo(1));
+            json = RankedPlayerJson.Replace("183", score);
+            account.RefreshLeaderboard();
+            Assert.That(account.LeaderboardEntries, Is.Empty);
+        }
+
         [Test]
         public void LeaderboardSubmissionWaitsForSaveAndSendsLargestQueuedBest()
         {
@@ -2685,18 +2702,32 @@ namespace MukJump.EditorTests
                 owner, pendingRecovery), Is.EqualTo(expected));
         }
 
+        [TestCase(MukJumpAccountKind.BackendGuest, false)]
         [TestCase(MukJumpAccountKind.BackendGuest, true)]
         [TestCase(MukJumpAccountKind.LocalGuest, false)]
-        [TestCase(MukJumpAccountKind.Google, false)]
-        [TestCase(MukJumpAccountKind.Apple, false)]
-        public void BackendGuestLogoutPreservesCurrentProfileLocally(
-            MukJumpAccountKind kind,
-            bool expected)
+        [TestCase(MukJumpAccountKind.LocalGuest, true)]
+        public void GuestLogoutNeverCopiesProgressOrChangesAccount(
+            MukJumpAccountKind kind, bool queued)
         {
-            Assert.That(
-                MukJumpAccountRuntime
-                    .ShouldPreserveBackendGuestBeforeLogout(kind),
-                Is.EqualTo(expected));
+            var account = CreateReadySaveRuntime();
+            typeof(MukJumpAccountRuntime).GetProperty(nameof(MukJumpAccountRuntime.AccountKind))
+                .SetValue(account, kind);
+            SetPrivateField(account, "dirty", false);
+            SetPrivateField(account, "logoutAfterSaveRequested", queued);
+            SetPrivateField(account, "logoutAfterSaveSession", 0L);
+            int calls = 0;
+            SetBackendRequestHook(account, "logoutForTests", _ => calls++);
+            string before = growthStore.Json;
+            if (queued) InvokeLifecycle(account, "ContinueRequestedLogout");
+            else account.Logout();
+            Assert.That(calls, Is.Zero);
+            Assert.That(account.AccountKind, Is.EqualTo(kind));
+            Assert.That(account.IsOnlineAuthenticated, Is.True);
+            Assert.That(account.Phase, Is.EqualTo(MukJumpAccountPhase.OnlineReady));
+            Assert.That(PlayerPrefs.HasKey("MukJump.Account.LocalGuestSnapshot"), Is.False);
+            Assert.That(ReadPrivateBool(account, "localLogoutCleanupPending"), Is.False);
+            Assert.That(ReadPrivateBool(account, "logoutAfterSaveRequested"), Is.False);
+            Assert.That(growthStore.Json, Is.EqualTo(before));
         }
 
         [TestCase(MukJumpAccountKind.Google, true)]
