@@ -18,7 +18,6 @@ namespace MukJump.Core
         const float CloseFooterHeight = 190f;
         const float SafeAreaPadding = 24f;
         const float DeleteConfirmationMinimumDelay = 0.45f;
-        const float DeleteConfirmationLifetime = 4f;
         const string CustomerSupportEmail = "cysbandcs@gmail.com";
 
         CanvasGroup rootGroup;
@@ -245,14 +244,7 @@ namespace MukJump.Core
             if (IsOpen && optionsGroup != null && optionsGroup.blocksRaycasts)
                 RefreshSettingsUuid();
             UpdateNicknameUi();
-            if (deleteConfirmationArmed &&
-                HasDeleteConfirmationExpired(
-                    deleteConfirmationArmedAt,
-                    Time.unscaledTime))
-            {
-                DisarmDeleteConfirmation();
-                RefreshAccountState();
-            }
+            UpdateDeleteConfirmation();
         }
 
         public void Open() => OpenLobbyPage(false);
@@ -304,6 +296,7 @@ namespace MukJump.Core
 
         public void Close()
         {
+            if (IsDeleteConfirmationOpen) { CancelDeleteConfirmation(); return; }
             if (MukJumpAccountRuntime.Instance != null &&
                 MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
                 return;
@@ -1243,50 +1236,25 @@ namespace MukJump.Core
         void HandleDeleteAccount()
         {
             MukJumpAccountRuntime runtime = MukJumpAccountRuntime.Instance;
-            if (runtime == null || !runtime.IsOnlineAuthenticated)
+            if (runtime == null || !runtime.IsOnlineAuthenticated || IsDeleteConfirmationOpen ||
+                runtime.BlocksGameplayForAccountSync || runtime.Phase == MukJumpAccountPhase.Deleting)
                 return;
-            if (!deleteConfirmationArmed)
-            {
-                ArmDeleteConfirmation(Time.unscaledTime);
-                return;
-            }
-
-            float now = Time.unscaledTime;
-            if (HasDeleteConfirmationExpired(deleteConfirmationArmedAt, now))
-            {
-                ArmDeleteConfirmation(now);
-                ShowAccountNotice("확인 시간이 지나 다시 눌렀습니다. 잠시 후 한 번 더 눌러 주세요");
-                return;
-            }
-            if (!IsDeleteConfirmationReady(deleteConfirmationArmedAt, now))
-            {
-                ShowAccountNotice("실수 방지를 위해 잠시 후 한 번 더 눌러 주세요");
-                return;
-            }
-
-            DisarmDeleteConfirmation();
-            MukJumpAnalytics.Account(AnalyticsAccountAction.Delete, AnalyticsOutcome.Requested);
-            runtime.DeleteAccountConfirmed();
+            ArmDeleteConfirmation(Time.unscaledTime);
         }
 
         void ArmDeleteConfirmation(float now)
         {
+            BuildDeleteConfirmation();
             deleteConfirmationArmed = true;
             deleteConfirmationArmedAt = now;
-            if (accountDeleteLabel != null)
-                InkLocalizedText.SetSource(accountDeleteLabel, "한 번 더 눌러 삭제");
-            InkUiStyle.SetActionButtonRole(
-                accountDeleteButton != null
-                    ? accountDeleteButton.GetComponent<Image>()
-                    : null,
-                ActionButtonRole.Primary);
-            ShowAccountNotice("계정과 서버 기록이 영구 삭제됩니다");
+            ShowDeleteConfirmation();
         }
 
         void DisarmDeleteConfirmation()
         {
             deleteConfirmationArmed = false;
             deleteConfirmationArmedAt = float.NegativeInfinity;
+            HideDeleteConfirmation();
             if (accountDeleteLabel != null)
                 InkLocalizedText.SetSource(accountDeleteLabel, "계정 삭제");
             InkUiStyle.SetActionButtonRole(
@@ -1299,14 +1267,7 @@ namespace MukJump.Core
         public static bool IsDeleteConfirmationReady(float armedAt, float now)
         {
             float elapsed = now - armedAt;
-            return elapsed >= DeleteConfirmationMinimumDelay &&
-                   elapsed <= DeleteConfirmationLifetime;
-        }
-
-        public static bool HasDeleteConfirmationExpired(float armedAt, float now)
-        {
-            float elapsed = now - armedAt;
-            return elapsed < 0f || elapsed > DeleteConfirmationLifetime;
+            return elapsed >= DeleteConfirmationMinimumDelay && !float.IsInfinity(elapsed);
         }
 
         void RefreshAccountState()
@@ -1644,6 +1605,7 @@ namespace MukJump.Core
         }
 
         bool IsAccountOverlayOpen() =>
+            IsDeleteConfirmationOpen ||
             accountConflictRoot != null &&
             accountConflictRoot.gameObject.activeInHierarchy ||
             syncConflictRoot != null &&

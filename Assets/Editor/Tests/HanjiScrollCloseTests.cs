@@ -173,7 +173,12 @@ public class HanjiScrollCloseRuntimeTests
     static void OnDuplicateClosed() => callbackCount += 100;
 
     [UnityTest]
-    public IEnumerator NicknameCooldownOverlayKeepsLocalizedHintAndActionsVisible()
+    public IEnumerator NicknameCooldownOverlayKeepsLocalizedHintAndActionsVisible() => CaptureAccountOverlay(false);
+
+    [UnityTest]
+    public IEnumerator DeleteConfirmationOverlayShowsWarningAndCancelInThreeLanguages() => CaptureAccountOverlay(true);
+
+    IEnumerator CaptureAccountOverlay(bool deletion)
     {
         string originalScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().path;
         UnityEditor.SceneManagement.EditorSceneManager.NewScene(
@@ -207,18 +212,23 @@ public class HanjiScrollCloseRuntimeTests
                 GameLocalization.SetLanguage(language);
                 var view = host.AddComponent<LobbyOptionsView>();
                 view.BuildForTests();
-                typeof(LobbyOptionsView).GetMethod("OpenNicknamePopup", BindingFlags.Instance | BindingFlags.NonPublic)
-                    .Invoke(view, new object[] { false });
-                var canvas = host.transform.Find("NicknameCanvas").GetComponent<Canvas>();
+                if (deletion)
+                {
+                    view.Open();
+                    typeof(LobbyOptionsView).GetMethod("ShowAccountPageImmediate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, null);
+                }
+                typeof(LobbyOptionsView).GetMethod(deletion ? "HandleDeleteAccount" : "OpenNicknamePopup", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(view, deletion ? null : new object[] { false });
+                var canvas = host.transform.Find(deletion ? "DeleteConfirmationCanvas" : "NicknameCanvas").GetComponent<Canvas>();
                 Vector2 display = canvas.renderingDisplaySize;
                 view.SetDisplayMetricsForTests(Mathf.RoundToInt(display.x), Mathf.RoundToInt(display.y), new Rect(0, 0, display.x, display.y));
-                var panel = canvas.transform.Find("SafeAreaRoot/NicknameScroll");
-                InkLocalizedText.SetSource(panel.Find("Error").GetComponent<UnityEngine.UI.Text>(), MukJumpNicknameChange.WaitMessage);
+                var panel = canvas.transform.Find(deletion ? "SafeAreaRoot/DeleteConfirmationScroll" : "SafeAreaRoot/NicknameScroll");
+                if (!deletion) InkLocalizedText.SetSource(panel.Find("Error").GetComponent<UnityEngine.UI.Text>(), MukJumpNicknameChange.WaitMessage);
                 panel.GetComponent<HanjiScrollFrame>().ResetPresentation();
                 yield return new WaitForSecondsRealtime(.5f);
                 Assert.That(canvas.renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
-                Assert.That(panel.Find("ChangeIntervalHint").GetComponent<UnityEngine.UI.Text>().text,
-                    Is.EqualTo(GameLocalization.Translate(MukJumpNicknameChange.Hint)));
+                Assert.That(panel.Find(deletion ? "Warning" : "ChangeIntervalHint").GetComponent<UnityEngine.UI.Text>().text,
+                    Is.EqualTo(GameLocalization.Translate(deletion ? "계정과 서버 기록이 영구 삭제됩니다" : MukJumpNicknameChange.Hint)));
                 if (!Application.isBatchMode)
                 {
                     object capture = MukJump.EditorTools.MukJumpAgentAudit.CaptureUi();
@@ -226,7 +236,7 @@ public class HanjiScrollCloseRuntimeTests
                     double deadline = Time.realtimeSinceStartupAsDouble + 5;
                     while (!System.IO.File.Exists(path) && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
                     Assert.That(System.IO.File.Exists(path), Is.True, path);
-                    Debug.Log($"[NicknameCooldownOverlay] {language}: {path}");
+                    Debug.Log($"[AccountOverlay] {(deletion ? "Delete" : "Nickname")} {language}: {path}");
                 }
                 UnityEngine.Object.DestroyImmediate(view);
                 for (int i = host.transform.childCount - 1; i >= 0; i--)

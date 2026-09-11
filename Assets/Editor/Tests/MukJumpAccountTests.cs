@@ -2233,27 +2233,17 @@ namespace MukJump.EditorTests
         [TestCase(10f, 10.44f, false)]
         [TestCase(10f, 10.46f, true)]
         [TestCase(10f, 14f, true)]
-        [TestCase(10f, 14.01f, false)]
-        public void AccountDeletionNeedsADeliberateSecondTap(
+        [TestCase(10f, 14.01f, true)]
+        [TestCase(10f, 70f, true)]
+        [TestCase(10f, 9f, false)]
+        [TestCase(float.NegativeInfinity, 10f, false)]
+        public void AccountDeletionPopupNeedsDeliberateConfirmationWithoutReadingTimeout(
             float armedAt,
             float now,
             bool expected)
         {
             Assert.That(
                 LobbyOptionsView.IsDeleteConfirmationReady(armedAt, now),
-                Is.EqualTo(expected));
-        }
-
-        [TestCase(10f, 9f, true)]
-        [TestCase(10f, 14f, false)]
-        [TestCase(10f, 14.01f, true)]
-        public void AccountDeletionConfirmationExpiresSafely(
-            float armedAt,
-            float now,
-            bool expected)
-        {
-            Assert.That(
-                LobbyOptionsView.HasDeleteConfirmationExpired(armedAt, now),
                 Is.EqualTo(expected));
         }
 
