@@ -254,6 +254,13 @@ namespace MukJump.EditorTests
                         if (alpha >= .999f && !sawFullLogo)
                         {
                             sawFullLogo = true;
+                            // Inspector의 알파 값만 바뀌고 화면은 계속 투명한 회귀도 잡는다.
+                            Canvas.ForceUpdateCanvases();
+                            var renderedLogo = logo.canvasRenderer.GetMesh();
+                            Assert.That(renderedLogo, Is.Not.Null);
+                            Assert.That(renderedLogo.vertexCount, Is.GreaterThan(0));
+                            Assert.That(renderedLogo.colors32.Any(color => color.a >= 250), Is.True,
+                                "완전히 등장한 로고의 실제 Canvas 정점이 불투명해야 한다.");
                             ScreenCapture.CaptureScreenshot(Path.GetFullPath(Path.Combine(brandEvidence, "brand-hold.png")));
                             var corners = new Vector3[4];
                             logo.rectTransform.GetWorldCorners(corners);

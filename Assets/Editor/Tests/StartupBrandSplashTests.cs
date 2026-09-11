@@ -274,7 +274,8 @@ namespace MukJump.EditorTests
             Assert.That(clip.length, Is.EqualTo(1f));
             host = new GameObject("OriginalBrandCurveTest");
             var splash = host.AddComponent<StartupBrandSplash>();
-            splash.SetLogo(AssetDatabase.LoadAssetAtPath<Sprite>(MukJumpSplashSceneBuilder.LogoPath), clip);
+            splash.SetLogo(AssetDatabase.LoadAssetAtPath<Sprite>(MukJumpSplashSceneBuilder.LogoPath),
+                MukJumpSplashSceneBuilder.ReadLogoFadeCurve(clip));
             var sample = typeof(StartupBrandSplash).GetMethod("SampleLogo", BindingFlags.Instance | BindingFlags.NonPublic);
             var logo = host.transform.Find("StartupBrandCanvas/Logo").GetComponent<Image>();
             sample.Invoke(splash, new object[] { time });
@@ -282,6 +283,69 @@ namespace MukJump.EditorTests
             sample.Invoke(splash, new object[] { 1f - time });
             Assert.That(logo.color.a, Is.EqualTo(1f - alpha).Within(.0001f), "퇴장도 같은 곡선을 역방향으로 쓴다.");
             Assert.That(logo.rectTransform.localScale, Is.EqualTo(Vector3.one));
+        }
+
+        [Test]
+        public void EveryLogoSampleInvalidatesTheRenderedImageWithoutInspectorRefresh()
+        {
+            host = new GameObject("BrandRenderRefreshTest");
+            var splash = host.AddComponent<StartupBrandSplash>();
+            splash.SetLogo(AssetDatabase.LoadAssetAtPath<Sprite>(MukJumpSplashSceneBuilder.LogoPath),
+                MukJumpSplashSceneBuilder.ReadLogoFadeCurve(
+                    AssetDatabase.LoadAssetAtPath<AnimationClip>(MukJumpSplashSceneBuilder.LogoFadePath)));
+            var logo = host.transform.Find("StartupBrandCanvas/Logo").GetComponent<UnityEngine.UI.Image>();
+            logo.Rebuild(CanvasUpdate.PreRender);
+            int refreshes = 0;
+            logo.RegisterDirtyVerticesCallback(() => refreshes++);
+            typeof(StartupBrandSplash).GetMethod("SampleLogo", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(splash, new object[] { .5f });
+            Assert.That(logo.color.a, Is.EqualTo(.5f).Within(.0001f));
+            Assert.That(refreshes, Is.GreaterThan(0),
+                "알파 필드뿐 아니라 실제 Canvas 정점도 다시 그려야 한다.");
+        }
+
+        [Test]
+        public void PortableCurveMatchesOriginalClipAtEveryFrameInBothDirections()
+        {
+            host = new GameObject("PortableBrandCurveTest");
+            var splash = host.AddComponent<StartupBrandSplash>();
+            var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(MukJumpSplashSceneBuilder.LogoFadePath);
+            splash.SetLogo(AssetDatabase.LoadAssetAtPath<Sprite>(MukJumpSplashSceneBuilder.LogoPath),
+                MukJumpSplashSceneBuilder.ReadLogoFadeCurve(clip));
+            var logo = host.transform.Find("StartupBrandCanvas/Logo").GetComponent<UnityEngine.UI.Image>();
+            var sample = typeof(StartupBrandSplash).GetMethod("SampleLogo", BindingFlags.Instance | BindingFlags.NonPublic);
+            for (int step = 0; step <= 200; step++)
+            {
+                float time = step <= 100 ? step / 100f : (200 - step) / 100f;
+                clip.SampleAnimation(logo.gameObject, time);
+                float sourceAlpha = logo.color.a;
+                logo.color = Color.clear;
+                sample.Invoke(splash, new object[] { time });
+                Assert.That(logo.color.a, Is.EqualTo(sourceAlpha).Within(.0001f), $"frame={step}");
+            }
+            string source = File.ReadAllText("Assets/Scripts/Core/StartupBrandSplash.cs");
+            Assert.That(source, Does.Not.Contain(".SampleAnimation("),
+                "Player는 클립의 직렬화 필드 바인딩 없이 표시를 갱신해야 한다.");
+        }
+
+        [Test]
+        public void SavedSplashContainsThePortableCurveAndRealLogo()
+        {
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenPreviewScene(MukJumpSplashSceneBuilder.ScenePath);
+            try
+            {
+                var splash = scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<StartupBrandSplash>(true)).Single();
+                var logo = splash.transform.Find("StartupBrandCanvas/Logo").GetComponent<UnityEngine.UI.Image>();
+                Assert.That(logo.sprite, Is.EqualTo(AssetDatabase.LoadAssetAtPath<Sprite>(MukJumpSplashSceneBuilder.LogoPath)));
+                var serialized = new SerializedObject(splash);
+                var curve = serialized.FindProperty("logoFadeCurve").animationCurveValue;
+                var original = MukJumpSplashSceneBuilder.ReadLogoFadeCurve(
+                    AssetDatabase.LoadAssetAtPath<AnimationClip>(MukJumpSplashSceneBuilder.LogoFadePath));
+                for (int step = 0; step <= 100; step++)
+                    Assert.That(curve.Evaluate(step / 100f), Is.EqualTo(original.Evaluate(step / 100f)).Within(.0001f));
+                Assert.That(File.ReadAllText(MukJumpSplashSceneBuilder.ScenePath), Does.Contain("logoFadeCurve:"));
+            }
+            finally { UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(scene); }
         }
 
         [TestCase(2f, 5f, true, 2.0333333f)]

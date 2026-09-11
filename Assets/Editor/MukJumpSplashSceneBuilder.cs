@@ -129,7 +129,7 @@ namespace MukJump.EditorTools
 
                 var root = new GameObject("@SplashScene");
                 StartupBrandSplash splash = root.AddComponent<StartupBrandSplash>();
-                splash.SetLogo(logo, fade);
+                splash.SetLogo(logo, ReadLogoFadeCurve(fade));
 
                 if (!EditorSceneManager.SaveScene(splashScene, ScenePath))
                     throw new InvalidOperationException(
@@ -142,6 +142,18 @@ namespace MukJump.EditorTools
                 if (splashScene.IsValid() && splashScene.isLoaded)
                     EditorSceneManager.CloseScene(splashScene, true);
             }
+        }
+
+        internal static AnimationCurve ReadLogoFadeCurve(AnimationClip clip)
+        {
+            if (clip == null || !Mathf.Approximately(clip.length, StartupBrandSplash.LogoFadeDuration))
+                throw new InvalidOperationException("제작사 로고 원본의 1초 페이드 클립을 확인하세요.");
+            var binding = EditorCurveBinding.FloatCurve(string.Empty, typeof(UnityEngine.UI.Image), "m_Color.a");
+            var curve = AnimationUtility.GetEditorCurve(clip, binding);
+            if (curve == null || curve.length < 2)
+                throw new InvalidOperationException("제작사 로고 원본의 알파 곡선이 없습니다.");
+            // 런타임 AnimationClip 바인딩에 기대지 않고 원본 키·접선을 그대로 직렬화한다.
+            return curve;
         }
 
         internal static void ConfigureBuildSettings()

@@ -273,6 +273,11 @@ namespace MukJump.EditorTools
 
         public static void RunAll() => Run(null);
 
+        [MenuItem("MukJump/Diagnostics/Run Brand Splash Regression")]
+        static void RunBrandSplashRegression() => Run(new[] {
+            @"^MukJump\.EditorTests\.(StartupBrandSplash|FirstRunTutorial|IosReleaseBuild|ApplicationPauseBoundary)Tests\.",
+            @"^MukJump\.EditorTests\.ReleaseGameplayAuditTests\.AccountDeletionReturnsThroughSplashBeforePausedTutorial$" });
+
         [MenuItem("MukJump/Diagnostics/Run Guest Leaderboard Regression")]
         static void RunGuestLeaderboardRegression() => Run(new[] {
             @"^MukJump\.EditorTests\.MukJumpAccountTests\." });

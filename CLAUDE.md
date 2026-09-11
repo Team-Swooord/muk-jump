@@ -750,8 +750,9 @@ docs/
 - 실행 시 SHIFT 원본 CYSBand 로고·페이드 클립을 Splash 씬에서 재생하고 메인으로 연결한다. 신규 설치는 게임 안내, 완료자는 로비다.
   - 원본 PNG/.meta는 `Assets/Art/Brand/Logo_CYSBand.png`에 그대로 보존한다.
     GUID `6fd6fcc61df57486b9fe21a3fbad2e42`, 전체 투명 여백과 main sprite를 보존한다.
-    `CYSBand_Logo.anim` 원본도 그대로 가져와 1초 페이드 인·1초 유지 뒤 같은 곡선을
-    역방향으로 1초 재생한다. 배경 `#231F20`, 중앙 로고 크기 396.6099,
+    `CYSBand_Logo.anim` 원본도 그대로 보존하며, 빌더가 알파 키·접선을 Splash 씬에 복사한다.
+    Player에서는 클립의 UI 필드 직접 샘플링 대신 Image.color로 Canvas 갱신을 보장한다.
+    1초 페이드 인·1초 유지 뒤 같은 곡선을 역방향으로 1초 재생한다. 배경 `#231F20`, 중앙 로고 크기 396.6099,
     Canvas 960×540·Match 0.5는 SHIFT의 기존 SplashScene(4bac34d0^) 규격이다.
   - 현재 SHIFT는 엔진 스플래시만 사용한다. 먹점프는 엔진/플랫폼별 크기·컷 차이를 피하기 위해
     명시적인 UI 재생으로 고정한 재현 대안이며 현재 SHIFT 런타임을 통째 복사한 것은 아니다.

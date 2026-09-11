@@ -19,7 +19,9 @@ namespace MukJump.Core
         public const float LogoSize = 396.6099f;
         public static Color BackgroundColor => new Color32(35, 31, 32, 255);
 
-        [SerializeField] AnimationClip logoFadeClip;
+        // 원본 클립의 알파 곡선만 씬에 저장한다. Player에서 UI 직렬화 필드를
+        // SampleAnimation으로 쓰지 않고 color setter로 실제 Canvas 갱신까지 보장한다.
+        [SerializeField] AnimationCurve logoFadeCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
         CanvasGroup rootGroup;
         CanvasGroup logoGroup;
         Image logoImage;
@@ -200,13 +202,14 @@ namespace MukJump.Core
             scaler.matchWidthOrHeight = 0.5f;
         }
 
-        public void SetLogo(Sprite sprite, AnimationClip fadeClip = null)
+        public void SetLogo(Sprite sprite, AnimationCurve fadeCurve = null)
         {
             BuildIfNeeded();
             if (logoImage == null)
                 return;
             logoImage.sprite = sprite;
-            logoFadeClip = fadeClip;
+            logoFadeCurve = fadeCurve == null ? AnimationCurve.EaseInOut(0f, 0f, 1f, 1f)
+                : new AnimationCurve(fadeCurve.keys);
             logoImage.enabled = sprite != null;
         }
 
@@ -257,10 +260,9 @@ namespace MukJump.Core
         void SampleLogo(float normalizedTime)
         {
             float t = Mathf.Clamp01(normalizedTime);
-            if (logoFadeClip != null)
-                logoFadeClip.SampleAnimation(logoImage.gameObject, t * logoFadeClip.length);
-            else
-                logoImage.color = new Color(1f, 1f, 1f, Mathf.SmoothStep(0f, 1f, t));
+            float alpha = logoFadeCurve != null && logoFadeCurve.length > 0
+                ? logoFadeCurve.Evaluate(t) : Mathf.SmoothStep(0f, 1f, t);
+            logoImage.color = new Color(1f, 1f, 1f, Mathf.Clamp01(alpha));
         }
 
         void BeginMainLoad()
