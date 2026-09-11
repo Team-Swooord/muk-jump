@@ -126,6 +126,67 @@ namespace MukJump.EditorTests
             yield return new ExitPlayMode();
         }
 
+        [UnityTest, Timeout(120000)]
+        public IEnumerator AudioPoolStopsAndRecoversInRealMainScene()
+        {
+            yield return new EnterPlayMode();
+            bool oldBackground = Application.runInBackground;
+            Application.runInBackground = true;
+            LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            AudioClip clip = null;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main");
+                yield return WaitReal(.8f);
+                var pool = VfxAudioManager.Instance;
+                Assert.That(pool, Is.Not.Null);
+                clip = AudioClip.Create("SilentPoolRegression", 22050 * 2, 1, 22050, false);
+                var sources = (AudioSource[])Get(pool, "sources");
+                pool.StopAll();
+                for (int i = 0; i < sources.Length; i++) pool.PlayOneShot(clip);
+                yield return null;
+                Assert.That(sources.All(source => source.isPlaying), Is.True, "실제 오디오 엔진의 모든 재생 슬롯을 채운다.");
+                int next = (int)Get(pool, "nextSource");
+                pool.PlayOneShot(clip, 0f);
+                Assert.That((int)Get(pool, "nextSource"), Is.EqualTo(next));
+                pool.enabled = false;
+                yield return null;
+                Assert.That(sources.All(source => !source.isPlaying), Is.True);
+                Assert.That(VfxAudioManager.Instance, Is.Null);
+                Object.Destroy(sources[0]);
+                yield return null;
+                pool.enabled = true;
+                Assert.That(VfxAudioManager.Instance, Is.SameAs(pool));
+                var repaired = (AudioSource[])Get(pool, "sources");
+                Assert.That(repaired.Length, Is.EqualTo(sources.Length));
+                Assert.That(repaired.All(source => source != null), Is.True);
+                Assert.That(pool.GetComponents<AudioSource>().Length, Is.EqualTo(sources.Length));
+                pool.PlayOneShot(clip);
+                yield return null;
+                Assert.That(repaired.Any(source => source.isPlaying), Is.True);
+                pool.StopAll();
+                Assert.That(repaired.All(source => !source.isPlaying), Is.True);
+            }
+            finally
+            {
+                if (VfxAudioManager.Instance != null) VfxAudioManager.Instance.StopAll();
+                if (clip != null) Object.DestroyImmediate(clip);
+                if (Application.isPlaying)
+                    foreach (var root in SceneManager.GetActiveScene().GetRootGameObjects()) Object.DestroyImmediate(root);
+                LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests();
+                ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+                Application.runInBackground = oldBackground;
+            }
+            yield return new ExitPlayMode();
+        }
+
         [UnityTest, Timeout(180000)]
         public IEnumerator AccountDeletionReturnsThroughSplashBeforePausedTutorial()
         {

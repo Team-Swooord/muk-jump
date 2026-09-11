@@ -29,12 +29,17 @@ namespace MukJump.Core
 
         void OnDisable()
         {
+            StopAll();
             if (Instance == this) Instance = null;
         }
 
         public void PlayOneShot(AudioClip clip, float volume = 1f)
         {
-            if (clip == null) return;
+            if (clip == null || !isActiveAndEnabled) return;
+            float gain = FiniteVolume(volume) * FiniteVolume(masterVolume) *
+                         FiniteVolume(LobbySettingsProfile.SfxVolume);
+            // 들리지 않는 요청이 이미 재생 중인 피격음을 밀어내지 않는다.
+            if (gain <= 0f) return;
             EnsureSources();
             if (sources == null || sources.Length == 0) return;
 
@@ -44,18 +49,14 @@ namespace MukJump.Core
             if (source.isPlaying)
                 source.Stop();
             source.clip = null;
-            source.PlayOneShot(
-                clip,
-                Mathf.Clamp01(volume) *
-                masterVolume *
-                LobbySettingsProfile.SfxVolume);
+            source.PlayOneShot(clip, gain);
             lastStartedAt[selected] = Time.unscaledTime;
         }
 
         /// 일시정지 전에 재생 중인 짧은 효과음을 비워, 재개 시 뒤늦게 이어지지 않게 한다.
         public void StopAll()
         {
-            EnsureSources();
+            // 종료/비활성화 경로에서 없어진 재생기를 새로 만들지 않는다.
             if (sources == null) return;
             for (int i = 0; i < sources.Length; i++)
             {
@@ -69,21 +70,37 @@ namespace MukJump.Core
         void EnsureSources()
         {
             int count = Mathf.Clamp(sourceCount, 2, 12);
-            if (sources != null && sources.Length == count) return;
+            bool complete = sources != null && sources.Length == count &&
+                            lastStartedAt != null && lastStartedAt.Length == count;
+            if (complete)
+                for (int i = 0; i < count; i++)
+                    if (sources[i] == null || !sources[i].enabled) { complete = false; break; }
+            if (complete) return;
 
             var existing = GetComponents<AudioSource>();
+            var previousSources = sources;
+            var previousStartedAt = lastStartedAt;
             sources = new AudioSource[count];
+            lastStartedAt = new float[count];
             for (int i = 0; i < count; i++)
             {
                 AudioSource source = i < existing.Length ? existing[i] : gameObject.AddComponent<AudioSource>();
+                source.enabled = true;
                 source.playOnAwake = false;
                 source.loop = false;
                 source.spatialBlend = 0f;
                 sources[i] = source;
+                // 일부 컴포넌트만 복구해도 나머지 소리와 오래된 재생 순서는 보존한다.
+                int previousIndex = previousSources == null ? -1 : System.Array.IndexOf(previousSources, source);
+                if (previousStartedAt != null && previousIndex >= 0 && previousIndex < previousStartedAt.Length)
+                    lastStartedAt[i] = previousStartedAt[previousIndex];
             }
-            lastStartedAt = new float[count];
-            nextSource = 0;
+            for (int i = count; i < existing.Length; i++) existing[i].Stop();
+            nextSource %= count;
         }
+
+        static float FiniteVolume(float value) =>
+            float.IsNaN(value) || float.IsInfinity(value) ? 0f : Mathf.Clamp01(value);
 
         int FindAvailableSourceIndex()
         {

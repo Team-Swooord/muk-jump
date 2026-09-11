@@ -21,6 +21,8 @@ namespace MukJump.Core
         Vector3 restingScale = Vector3.one;
         float targetScale = 1f;
         bool isAnimating;
+        bool pointerHeld;
+        int pressedPointerId;
 
         void Awake()
         {
@@ -33,23 +35,39 @@ namespace MukJump.Core
         void OnEnable()
         {
             if (target == null) target = transform as RectTransform;
+            if (button == null) button = GetComponent<Button>();
             if (target != null)
                 restingScale = target.localScale;
             targetScale = 1f;
             isAnimating = false;
+            pointerHeld = false;
         }
 
-        void OnDisable()
+        void OnDisable() => ResetPress();
+        void OnApplicationPause(bool paused) { if (paused) ResetPress(); }
+        void OnApplicationFocus(bool focused) { if (!focused) ResetPress(); }
+
+        void ResetPress()
         {
+            // 레이아웃이 갱신한 대기 중 크기는 건드리지 않는다.
+            if (target != null && (isAnimating || pointerHeld))
+                target.localScale = restingScale;
             targetScale = 1f;
             isAnimating = false;
-            if (target != null)
-                target.localScale = restingScale;
+            pointerHeld = false;
         }
 
-        void Update()
+        void Update() => AdvancePress(Time.unscaledDeltaTime);
+
+        void AdvancePress(float deltaTime)
         {
-            if (target == null || !isAnimating) return;
+            if (target == null || (!isAnimating && !pointerHeld)) return;
+            if (!MobileApplicationLifecycle.IsApplicationActive || !CanPress())
+            {
+                ResetPress();
+                return;
+            }
+            if (!isAnimating) return;
             float current = restingScale.x > 0.0001f
                 ? target.localScale.x / restingScale.x
                 : 1f;
@@ -57,7 +75,7 @@ namespace MukJump.Core
             float next = Mathf.Lerp(
                 current,
                 targetScale,
-                1f - Mathf.Exp(-speed * Time.unscaledDeltaTime));
+                1f - Mathf.Exp(-speed * Mathf.Max(0f, deltaTime)));
             target.localScale = restingScale * next;
             if (Mathf.Abs(next - targetScale) > .0004f) return;
             target.localScale = restingScale * targetScale;
@@ -66,31 +84,40 @@ namespace MukJump.Core
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            if (button != null && !button.interactable) return;
+            if (!IsPrimaryPointer(eventData) || !CanPress() || pointerHeld) return;
+            // 안전 영역/부모 레이아웃이 Awake 이후 정한 실제 크기를 기준으로 누른다.
+            if (!isAnimating && target != null) restingScale = target.localScale;
+            pressedPointerId = eventData?.pointerId ?? -1;
+            pointerHeld = true;
             targetScale = LobbySettingsProfile.ReducedMotionEnabled ? .995f : PressedScale;
             isAnimating = true;
         }
 
-        public void OnPointerUp(PointerEventData eventData)
-        {
-            targetScale = 1f;
-            isAnimating = true;
-        }
+        public void OnPointerUp(PointerEventData eventData) => ReleasePointer(eventData);
 
-        public void OnPointerExit(PointerEventData eventData)
-        {
-            targetScale = 1f;
-            isAnimating = true;
-        }
+        public void OnPointerExit(PointerEventData eventData) => ReleasePointer(eventData);
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            if (button != null && !button.interactable) return;
-            targetScale = 1f;
-            isAnimating = true;
+            ReleasePointer(eventData);
             // 먹 번짐은 화면 공통 입력에서 누르는 순간 한 번만 재생한다.
             // 버튼은 눌림 크기만 담당해 손을 뗄 때 두 번째 효과가 생기지 않게 한다.
         }
+
+        void ReleasePointer(PointerEventData eventData)
+        {
+            if (!pointerHeld || !IsPrimaryPointer(eventData) ||
+                pressedPointerId != (eventData?.pointerId ?? -1)) return;
+            pointerHeld = false;
+            targetScale = 1f;
+            isAnimating = true;
+        }
+
+        bool CanPress() => isActiveAndEnabled &&
+            (button == null || (button.IsActive() && button.IsInteractable()));
+
+        static bool IsPrimaryPointer(PointerEventData data) =>
+            data == null || data.button == PointerEventData.InputButton.Left;
     }
 
     public enum ActionButtonRole

@@ -39,6 +39,7 @@ namespace MukJump.Core
         Button settingsUuidButton;
         Text settingsUuidText;
         string settingsUuid = string.Empty;
+        string settingsUuidCaption;
         string uuidCopyStatus = string.Empty;
         float uuidCopyStatusUntil;
         bool uuidCopyPending = false;
@@ -612,10 +613,14 @@ namespace MukJump.Core
             {
                 settingsUuid = id;
                 uuidCopyStatus = string.Empty;
+                settingsUuidCaption = null;
             }
+            // 설정이 열린 매 프레임 같은 UID 문자열을 다시 할당하지 않는다.
+            // 소유자가 바뀌거나 UID가 해제되면 같은 프레임에 다시 만든다.
+            if (settingsUuidCaption == null) settingsUuidCaption = FormatSettingsUuid(settingsUuid);
             if (Time.unscaledTime >= uuidCopyStatusUntil)
                 uuidCopyStatus = string.Empty;
-            string source = string.IsNullOrEmpty(uuidCopyStatus) ? FormatSettingsUuid(settingsUuid) : uuidCopyStatus;
+            string source = string.IsNullOrEmpty(uuidCopyStatus) ? settingsUuidCaption : uuidCopyStatus;
             var binding = settingsUuidText.GetComponent<InkLocalizedText>();
             if (binding == null || binding.SourceText != source)
                 InkLocalizedText.SetSource(settingsUuidText, source);
