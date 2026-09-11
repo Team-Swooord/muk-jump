@@ -419,7 +419,7 @@ namespace MukJump.EditorTests
             var button = (RectTransform)page.Find("NicknameButton");
             var link = (RectTransform)page.Find("AccountButton");
             Assert.That(button.sizeDelta, Is.EqualTo(new Vector2(348, 128)));
-            Assert.That(button.anchoredPosition, Is.EqualTo(new Vector2(178, -88)));
+            Assert.That(button.anchoredPosition, Is.EqualTo(new Vector2(178, -203)));
             Assert.That(page.Find("LeaderboardMenuButton"), Is.Null);
             Assert.That(button.anchoredPosition.y + button.rect.yMin, Is.GreaterThan(link.anchoredPosition.y + link.rect.yMax));
             page.Find("NicknameButton").GetComponent<Button>().onClick.Invoke();
@@ -660,6 +660,45 @@ namespace MukJump.EditorTests
             Property(account, "IsOnlineAuthenticated", true);
             Property(account, "Phase", MukJumpAccountPhase.OnlineReady);
             Set(account, "currentAccountScopeForTests", new Func<string>(() => "apple-a"));
+            Set(account, "identityInfoForTests", new Action<Action<BackendReturnObject>>(cb =>
+                cb(UserInfo(kind == MukJumpAccountKind.BackendGuest ? "guest12345" : ""))));
+            Set(account, "nicknameTimeForTests", new Action<Action<BackendReturnObject>>(cb =>
+                cb(Result(200, "{\"utcTime\":\"2026-09-11T00:00:00Z\"}"))));
+            var nicknamePolicy = new MukJumpNicknameChange.State { Row = "nickname-row" };
+            Set(account, "nicknamePolicyReadForTests", new Action<Action<MukJumpNicknameChange.State>>(cb => cb(nicknamePolicy)));
+            Set(account, "nicknamePolicyWriteForTests", new Action<MukJumpNicknameChange.State, Action<bool>>((state, cb) =>
+            { nicknamePolicy = state; cb(true); }));
+        }
+
+        [TestCase(GameLanguage.Korean)] [TestCase(GameLanguage.English)] [TestCase(GameLanguage.Japanese)]
+        public void NicknameCooldownHintAndRejectionFitWithoutOverlappingInputOrButtons(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language);
+            CreateAccount(MukJumpAccountKind.Apple);
+            var view = host.AddComponent<LobbyOptionsView>();
+            view.BuildForTests();
+            host.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/OptionsPage/NicknameButton")
+                .GetComponent<Button>().onClick.Invoke();
+            var paper = host.transform.Find("NicknameCanvas/SafeAreaRoot/NicknameScroll");
+            var hint = paper.Find("ChangeIntervalHint").GetComponent<Text>();
+            var error = paper.Find("Error").GetComponent<Text>();
+            InkLocalizedText.SetSource(error, MukJumpNicknameChange.WaitMessage);
+            Canvas.ForceUpdateCanvases();
+            foreach (var text in new[] { hint, error })
+            {
+                Assert.That(text.text, Is.EqualTo(GameLocalization.Translate(text == hint ? MukJumpNicknameChange.Hint : MukJumpNicknameChange.WaitMessage)));
+                Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1));
+                foreach (char c in text.text) if (!char.IsWhiteSpace(c)) Assert.That(text.font.HasCharacter(c), Is.True, c.ToString());
+            }
+            var input = (RectTransform)paper.Find("NicknameInput");
+            var button = (RectTransform)paper.Find("SaveButton");
+            Assert.That(hint.fontSize, Is.LessThan(error.fontSize));
+            Assert.That(error.rectTransform.anchoredPosition.y + error.rectTransform.rect.yMax,
+                Is.LessThan(input.anchoredPosition.y + input.rect.yMin));
+            Assert.That(hint.rectTransform.anchoredPosition.y + hint.rectTransform.rect.yMax,
+                Is.LessThan(error.rectTransform.anchoredPosition.y + error.rectTransform.rect.yMin));
+            Assert.That(button.anchoredPosition.y + button.rect.yMax,
+                Is.LessThan(hint.rectTransform.anchoredPosition.y + hint.rectTransform.rect.yMin));
         }
         static BackendReturnObject UserInfo(string name) => Result(200,
             "{\"row\":{\"nickname\":" + (name == null ? "null" : "\"" + name + "\"") + "}}");

@@ -59,6 +59,7 @@ namespace MukJump.EditorTests
                 "MukJump.Account.PendingAuthorizedTransitionReplaceLocal",
                 "MukJump.Account.PendingAuthorizedTransitionRestoreGuest",
                 "MukJump.Account.PendingGuestUpgradeKind",
+                "MukJump.Account.RetiringGuestDeleted",
                 AppleDeletionMarkerKey })
             {
                 deletionPrefs.Add(key, (PlayerPrefs.HasKey(key), PlayerPrefs.GetInt(key, 0)));
@@ -69,7 +70,8 @@ namespace MukJump.EditorTests
                 "MukJump.Cloud.Revision", "MukJump.Cloud.PendingOperationId",
                 "MukJump.Account.LocalGuestSnapshot", "MukJump.Account.PendingLocalGuestImportOwner",
                 "MukJump.Account.PendingLocalGuestImportRestoredOwner", "MukJump.Account.PendingProfileResolutionOwner",
-                "MukJump.Account.PendingAuthorizedTransitionPreviousOwner" })
+                "MukJump.Account.PendingAuthorizedTransitionPreviousOwner",
+                "MukJump.Account.RetiringGuestOwner", "MukJump.Account.RetiringGuestTarget" })
             {
                 deletionStringPrefs.Add(key, (PlayerPrefs.HasKey(key), PlayerPrefs.GetString(key, string.Empty)));
                 PlayerPrefs.DeleteKey(key);
@@ -1241,7 +1243,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void AppleConflictConfirmationAuthorizesOnceAndLoadsOnlyTheExistingAccountRecord()
+        public void AppleConflictConfirmationRetiresGuestThenLoadsOnlyTheExistingAccountRecord()
         {
             MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
             LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
@@ -1263,6 +1265,18 @@ namespace MukJump.EditorTests
                 { authorizations++; authorize = callback; });
                 SetBackendRequestHook(account, "getMyDataForTests", callback => cloud = callback);
                 SetBackendRequestHook(account, "getUserInfoForTests", _ => { });
+                SetPrivateField(account, "storedGuestIdForTests", new System.Func<string>(() => "stored-guest"));
+                SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() => { }));
+                SetPrivateField(account, "retiringGuestLookupForTests",
+                    new System.Action<string, System.Action<BackEnd.BackendReturnObject>>((id, cb) => cb(BackendResult(200))));
+                SetBackendRequestHook(account, "guestLoginForTests", cb => { owner = "guest-owner"; cb(BackendResult(200)); });
+                SetBackendRequestHook(account, "getUserInfoForTests", cb =>
+                    cb(BackendResult(200, "{\"row\":{\"subscriptionType\":\"customSignUp\"}}")));
+                int deleted = 0;
+                SetPrivateField(account, "retiringGuestDeleteForTests",
+                    new System.Action<string, System.Func<bool, bool>, System.Action<BackEnd.BackendReturnObject>>((id, current, cb) =>
+                    { Assert.That(id, Is.EqualTo("guest-owner")); Assert.That(current(false), Is.True);
+                      deleted++; owner = ""; cb(BackendResult(204)); }));
                 SetBackendRequestHook(account, "logoutForTests", _ => logouts++);
                 var button = dialog.Find("UseExistingAccount").GetComponent<UnityEngine.UI.Button>();
 
@@ -1283,6 +1297,11 @@ namespace MukJump.EditorTests
 
                 owner = "apple-owner";
                 authorize(BackendResult(200));
+                Assert.That(deleted, Is.EqualTo(1));
+                Assert.That(authorizations, Is.EqualTo(2));
+                Assert.That(cloud, Is.Null, "게스트 정리 중에는 Apple 기록을 읽거나 덮지 않습니다.");
+                owner = "apple-owner";
+                authorize(BackendResult(200));
                 Assert.That(account.AccountKind, Is.EqualTo(MukJumpAccountKind.Apple));
                 Assert.That(account.BlocksGameplayForAccountSync, Is.True);
                 Assert.That(cloud, Is.Not.Null);
@@ -1295,14 +1314,14 @@ namespace MukJump.EditorTests
                 Assert.That(score.Best, Is.EqualTo(43), "전환을 승인한 기존 계정 기록만 적용합니다.");
                 Assert.That(account.BlocksGameplayForAccountSync, Is.False);
                 Assert.That(account.HasPendingAccountConflict, Is.False);
-                Assert.That(PlayerPrefs.GetString("MukJump.Account.LocalGuestSnapshot"),
-                    Does.Contain("\"bestHeight\":237"), "게스트 기록은 별도로 복귀할 수 있게 유지합니다.");
+                Assert.That(PlayerPrefs.HasKey("MukJump.Account.LocalGuestSnapshot"), Is.False);
+                Assert.That(PlayerPrefs.HasKey("MukJump.Account.RetiringGuestOwner"), Is.False);
             }
             finally { MukJumpIdentityProfile.UseStoreForTests(null); }
         }
 
         [Test]
-        public void AppleConflictLocalGuestActionBacksUpProgressBeforeLoggingOut()
+        public void AppleConflictGuestActionKeepsTheSameGuestWithoutDeletingOrDuplicatingIt()
         {
             MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
             LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
@@ -1327,14 +1346,114 @@ namespace MukJump.EditorTests
                     callback(BackendResult(204));
                 });
                 dialog.Find("KeepGuestAccount").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
-                Assert.That(logouts, Is.EqualTo(1));
+                Assert.That(logouts, Is.Zero);
                 Assert.That(authorizations, Is.Zero);
-                Assert.That(account.AccountKind, Is.EqualTo(MukJumpAccountKind.LocalGuest));
-                Assert.That(account.IsOnlineAuthenticated, Is.False);
+                Assert.That(account.AccountKind, Is.EqualTo(MukJumpAccountKind.BackendGuest));
+                Assert.That(account.IsOnlineAuthenticated, Is.True);
                 Assert.That(account.BlocksGameplayForAccountSync, Is.False);
                 Assert.That(score.Best, Is.EqualTo(237));
                 Assert.That(typeof(MukJumpAccountRuntime).GetField("pendingFederationToken",
                     BindingFlags.Instance | BindingFlags.NonPublic).GetValue(account), Is.Empty);
+            }
+            finally { MukJumpIdentityProfile.UseStoreForTests(null); }
+        }
+
+        [Test]
+        public void AppleConflictFailedInitialAuthorizationDoesNotDeleteGuest()
+        {
+            MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
+            LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            try
+            {
+                var account = CreateReadySaveRuntime();
+                SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => "guest-owner"));
+                Transform dialog = BuildExistingAppleAccountDialog(account);
+                int deletions = 0;
+                SetPrivateField(account, "retiringGuestDeleteForTests",
+                    new System.Action<string, System.Func<bool, bool>, System.Action<BackEnd.BackendReturnObject>>((id, current, cb) => deletions++));
+                SetBackendRequestHook(account, "authorizeFederationForTests", cb => cb(BackendResult(500)));
+                SetBackendRequestHook(account, "getUserInfoForTests", cb => cb(BackendResult(200,
+                    "{\"row\":{\"subscriptionType\":\"customSignUp\"}}")));
+                dialog.Find("UseExistingAccount").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                Assert.That(deletions, Is.Zero);
+                Assert.That(PlayerPrefs.HasKey("MukJump.Account.RetiringGuestOwner"), Is.False);
+                Assert.That(account.AccountKind, Is.EqualTo(MukJumpAccountKind.BackendGuest));
+                Assert.That(PlayerPrefs.HasKey("MukJump.Account.LocalGuestSnapshot"), Is.True);
+            }
+            finally { MukJumpIdentityProfile.UseStoreForTests(null); }
+        }
+
+        [TestCase("wrong-guest")]
+        [TestCase("guest-is-apple")]
+        [TestCase("delete-fails")]
+        [TestCase("wrong-target")]
+        [TestCase("target-fails")]
+        public void GuestRetirementFailureNeverDeletesLinkedAccountOrRestoresGuestBackup(string failure)
+        {
+            MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
+            try
+            {
+                var account = CreateReadySaveRuntime();
+                string owner = "temporary-guest";
+                typeof(MukJumpAccountRuntime).GetProperty("AccountKind").SetValue(account, MukJumpAccountKind.BackendGuest);
+                SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => owner));
+                Assert.That(InvokePrivate<bool>(account, "BeginGuestRetirement"), Is.True);
+                SetPrivateField(account, "storedGuestIdForTests", new System.Func<string>(() => "stored"));
+                SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() => { }));
+                SetPrivateField(account, "retiringGuestLookupForTests",
+                    new System.Action<string, System.Action<BackEnd.BackendReturnObject>>((id, cb) => cb(BackendResult(200))));
+                SetBackendRequestHook(account, "guestLoginForTests", cb =>
+                { owner = failure == "wrong-guest" ? "different-guest" : "temporary-guest"; cb(BackendResult(200)); });
+                SetBackendRequestHook(account, "getUserInfoForTests", cb => cb(BackendResult(200,
+                    "{\"row\":{\"subscriptionType\":\"" + (failure == "guest-is-apple" ? "apple" : "customSignUp") + "\"}}")));
+                int deletions = 0;
+                SetPrivateField(account, "retiringGuestDeleteForTests",
+                    new System.Action<string, System.Func<bool, bool>, System.Action<BackEnd.BackendReturnObject>>((id, current, cb) =>
+                    { Assert.That(id, Is.EqualTo("temporary-guest")); Assert.That(current(false), Is.True);
+                      deletions++; cb(BackendResult(failure == "delete-fails" ? 500 : 204)); }));
+                SetBackendRequestHook(account, "authorizeFederationForTests", cb =>
+                { owner = failure == "wrong-target" ? "different-apple" : "linked-apple";
+                  cb(BackendResult(failure == "target-fails" ? 500 : 200)); });
+                int cloudReads = 0;
+                SetBackendRequestHook(account, "getMyDataForTests", _ => cloudReads++);
+                owner = "linked-apple";
+                InvokeLifecycle(account, "RetireGuestAfterTargetAuthenticated", "token", BackEnd.FederationType.Apple, MukJumpAccountKind.Apple);
+                Assert.That(account.Phase, Is.EqualTo(MukJumpAccountPhase.Error));
+                Assert.That(account.BlocksGameplayForAccountSync, Is.True);
+                Assert.That(account.CanReturnToLocalGuestDuringAccountSync, Is.False);
+                Assert.That(cloudReads, Is.Zero);
+                Assert.That(deletions, Is.EqualTo(failure == "wrong-guest" || failure == "guest-is-apple" ? 0 : 1));
+                Assert.That(PlayerPrefs.GetString("MukJump.Account.RetiringGuestOwner"), Is.EqualTo("temporary-guest"));
+                account.ReturnToLocalGuestDuringAccountSync();
+                Assert.That(account.HasPendingAuthorizedTransition, Is.True);
+            }
+            finally { MukJumpIdentityProfile.UseStoreForTests(null); }
+        }
+
+        [TestCase(true)] [TestCase(false)]
+        public void GuestRetirementResumesAfterDeletionWithoutCreatingAnotherGuest(bool recordedCompletion)
+        {
+            MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
+            try
+            {
+                var account = CreateReadySaveRuntime();
+                SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => "linked-apple"));
+                PlayerPrefs.SetString("MukJump.Account.RetiringGuestOwner", "old-guest");
+                PlayerPrefs.SetString("MukJump.Account.RetiringGuestTarget", "linked-apple");
+                if (recordedCompletion) PlayerPrefs.SetInt("MukJump.Account.RetiringGuestDeleted", 1);
+                Assert.That(InvokePrivate<bool>(account, "TryResumePendingAuthorizedTransition"), Is.True);
+                Assert.That(account.BlocksGameplayForAccountSync, Is.True);
+                int guests = 0;
+                SetBackendRequestHook(account, "guestLoginForTests", _ => guests++);
+                SetBackendRequestHook(account, "getMyDataForTests", _ => { });
+                SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() => { }));
+                SetPrivateField(account, "retiringGuestLookupForTests",
+                    new System.Action<string, System.Action<BackEnd.BackendReturnObject>>((id, cb) => cb(BackendResult(404))));
+                InvokeLifecycle(account, "RetireGuestAfterTargetAuthenticated", "new-token", BackEnd.FederationType.Apple, MukJumpAccountKind.Apple);
+                Assert.That(guests, Is.Zero);
+                Assert.That(account.AccountKind, Is.EqualTo(MukJumpAccountKind.Apple));
+                Assert.That(PlayerPrefs.HasKey("MukJump.Account.RetiringGuestOwner"), Is.False);
+                Assert.That(PlayerPrefs.HasKey("MukJump.Account.LocalGuestSnapshot"), Is.False);
             }
             finally { MukJumpIdentityProfile.UseStoreForTests(null); }
         }

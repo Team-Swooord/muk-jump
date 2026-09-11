@@ -9,6 +9,12 @@ namespace MukJump.Core
             values["닉네임"] = "Nickname";
             values["계정 기록을 안전하게 교체하지 못했습니다. 로컬 기록은 보존됩니다"] = "Could not switch account saves safely. Your device save is preserved.";
             values["닉네임 변경"] = "Change Nickname";
+            values["닉네임은 2주에 한 번 변경할 수 있어요"] = "You can change your nickname once every 2 weeks.";
+            values["기존 Apple 계정으로 전환합니다.\n현재 게스트 계정과 기록은 삭제되며 복구할 수 없습니다."] = "Switch to your existing Apple account.\nThis guest account and progress will be permanently deleted.";
+            values["임시 게스트 계정과 기록을 정리하는 중"] = "Removing the temporary guest account and progress...";
+            values["게스트로 계속하기"] = "Continue as Guest";
+            values["게스트 정리를 마무리하려면 같은 Apple 계정으로 다시 로그인해 주세요"] = "Sign in with the same Apple account to finish guest cleanup.";
+            values["마지막 닉네임 변경 후 14일이 지나야 변경할 수 있어요"] = "Wait 14 days after your last nickname change.";
             values["닉네임 설정"] = "Choose a Nickname";
             values["닉네임 미설정"] = "No nickname";
             values["닉네임을 입력해 주세요"] = "Enter a nickname";

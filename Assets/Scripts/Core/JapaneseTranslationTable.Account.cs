@@ -9,6 +9,12 @@ namespace MukJump.Core
             v["Could not back up guest progress safely. Try again."] = "ゲスト記録をバックアップできません。再試行してください。";
             v["Keeping your current guest progress."] = "現在のゲスト記録を維持します。";
             v["Nickname"] = "名前";
+            v["Switch to your existing Apple account.\nThis guest account and progress will be permanently deleted."] = "既存のAppleアカウントに切り替えます。\nこのゲストのアカウントと記録は削除され、復元できません。";
+            v["Removing the temporary guest account and progress..."] = "一時ゲストのアカウントと記録を削除中…";
+            v["Continue as Guest"] = "ゲストで続ける";
+            v["Sign in with the same Apple account to finish guest cleanup."] = "ゲストの削除を完了するには、同じAppleアカウントで再ログインしてください。";
+            v["You can change your nickname once every 2 weeks."] = "名前の変更は2週間に1回までです。";
+            v["Wait 14 days after your last nickname change."] = "前回の名前変更から14日間お待ちください。";
             v["Could not switch account saves safely. Your device save is preserved."] = "記録を切り替えられませんでした。端末の記録は保持されます。";
             v["Change Nickname"] = "名前を変更"; v["Choose a Nickname"] = "名前を決める"; v["No nickname"] = "名前未設定";
             v["Enter a nickname"] = "名前を入力してください"; v["2–10 letters, numbers, _ or -"] = "2〜10文字・文字、数字、_、-";

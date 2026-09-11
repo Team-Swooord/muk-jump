@@ -68,13 +68,13 @@ namespace MukJump.Core
             });
             trigger.triggers.Add(click);
             nicknameSafeArea = CreateStretchRect("SafeAreaRoot", root.transform);
-            nicknamePaper = CreateRect("NicknameScroll", nicknameSafeArea, Vector2.zero, new Vector2(780, 670));
-            HanjiScrollFrame.Attach(nicknamePaper, new Vector2(748, 630));
+            nicknamePaper = CreateRect("NicknameScroll", nicknameSafeArea, Vector2.zero, new Vector2(780, 750));
+            HanjiScrollFrame.Attach(nicknamePaper, new Vector2(748, 710));
             nicknameTitle = CreateReadableText("Title", nicknamePaper, "닉네임 변경", 64,
-                new Vector2(0, 215), new Vector2(670, 86), InkPalette.TextDark, strong: true);
+                new Vector2(0, 255), new Vector2(670, 86), InkPalette.TextDark, strong: true);
             CreateReadableText("Hint", nicknamePaper, "2~10자 · 한글, 영문, 숫자, _, -", 30,
-                new Vector2(0, 126), new Vector2(670, 56), InkPalette.TextMuted);
-            var fieldImage = CreateImage("NicknameInput", nicknamePaper, null, new Vector2(0, 28), new Vector2(636, 124), Color.white);
+                new Vector2(0, 166), new Vector2(670, 56), InkPalette.TextMuted);
+            var fieldImage = CreateImage("NicknameInput", nicknamePaper, null, new Vector2(0, 68), new Vector2(636, 124), Color.white);
             InkUiStyle.ConfigureHanjiSurface(fieldImage);
             fieldImage.raycastTarget = true;
             var inputText = CreateReadableText("Text", fieldImage.transform, string.Empty, 44,
@@ -94,12 +94,14 @@ namespace MukJump.Core
             nicknameInput.selectionColor = WithAlpha(InkPalette.Red, .2f);
             nicknameInput.onValueChanged.AddListener(_ => InkLocalizedText.SetSource(nicknameError, string.Empty));
             nicknameError = CreateReadableText("Error", nicknamePaper, string.Empty, 30,
-                new Vector2(0, -76), new Vector2(660, 60), InkPalette.Red);
+                new Vector2(0, -45), new Vector2(660, 74), InkPalette.Red);
+            CreateReadableText("ChangeIntervalHint", nicknamePaper, "닉네임은 2주에 한 번 변경할 수 있어요", 27,
+                new Vector2(0, -112), new Vector2(670, 42), InkPalette.TextMuted);
             nicknameCancelButton = CreatePaperButton("CancelButton", nicknamePaper, "취소",
-                new Vector2(-165, -203), new Vector2(300, 124), 44);
+                new Vector2(-165, -217), new Vector2(300, 124), 44);
             nicknameCancelButton.onClick.AddListener(CloseNicknamePopup);
             nicknameSaveButton = CreatePaperButton("SaveButton", nicknamePaper, "저장",
-                new Vector2(165, -203), new Vector2(300, 124), 44);
+                new Vector2(165, -217), new Vector2(300, 124), 44);
             nicknameSaveLabel = nicknameSaveButton.transform.Find("Paper/Label").GetComponent<Text>();
             nicknameSaveButton.onClick.AddListener(SubmitNickname);
             CloseNicknameImmediate();
@@ -123,7 +125,7 @@ namespace MukJump.Core
             nicknameRoot.interactable = nicknameRoot.blocksRaycasts = true;
             nicknameCancelButton.gameObject.SetActive(!firstRunNickname);
             ((RectTransform)nicknameSaveButton.transform).anchoredPosition =
-                new Vector2(firstRunNickname ? 0 : 165, -203);
+                new Vector2(firstRunNickname ? 0 : 165, -217);
             InkLocalizedText.SetSource(nicknameSaveLabel, firstRunNickname ? "시작하기" : "저장");
             nicknamePaper.GetComponent<HanjiScrollFrame>().ResetPresentation();
             AppleSignInButtonBridge.Hide();

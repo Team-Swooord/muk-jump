@@ -100,9 +100,9 @@ namespace MukJump.Core
         public bool IsTemporaryBackendPaused => temporaryBackendPause;
         public bool HasVerifiedAppsInTossIdentity => false;
         public bool CanReturnToLocalGuestDuringAccountSync =>
-            !accountDeletionCleanupPending && !federationRequestInFlight;
+            !accountDeletionCleanupPending && !federationRequestInFlight && !HasPendingGuestRetirement;
         public bool HasPendingAuthorizedTransition =>
-            PlayerPrefs.HasKey(PendingAuthorizedTransitionKindKey);
+            PlayerPrefs.HasKey(PendingAuthorizedTransitionKindKey) || HasPendingGuestRetirement;
         public bool BlocksGameplayForAccountSync
         {
             get
@@ -2164,6 +2164,8 @@ namespace MukJump.Core
 
         bool TryResumePendingAuthorizedTransition()
         {
+            if (HasPendingGuestRetirement)
+            { EnterProviderResolutionBlock(GuestRetirementRetry); return true; }
             if (!PlayerPrefs.HasKey(
                     PendingAuthorizedTransitionKindKey))
                 return false;
@@ -3469,6 +3471,12 @@ namespace MukJump.Core
                 return;
             }
 
+            if (HasPendingGuestRetirement)
+            {
+                AuthorizeExistingFederation(token, type, kind, replaceLocalProfile: true);
+                return;
+            }
+
             if (IsOnlineAuthenticated &&
                 AccountKind == MukJumpAccountKind.BackendGuest)
             {
@@ -3652,6 +3660,8 @@ namespace MukJump.Core
                     "현재 게스트 기록을 안전하게 백업하지 못했습니다. 다시 시도해 주세요");
                 return;
             }
+            if (!BeginGuestRetirement())
+            { SetStatus("계정 전환 복구 상태를 저장하지 못해 로그인을 중단했습니다"); return; }
             AuthorizeExistingFederation(
                 pendingFederationToken,
                 pendingFederationType,
@@ -3661,6 +3671,7 @@ namespace MukJump.Core
 
         public void KeepCurrentGuestAfterConflict()
         {
+            if (HasPendingGuestRetirement) return;
             ClearPendingFederation();
             ClearPendingGuestUpgrade();
             SetState(MukJumpAccountPhase.OnlineReady, "현재 게스트 기록을 유지합니다");
@@ -3705,6 +3716,11 @@ namespace MukJump.Core
                     {
                         if (bro != null && bro.IsSuccess())
                         {
+                            if (HasPendingGuestRetirement)
+                            {
+                                RetireGuestAfterTargetAuthenticated(token, type, kind);
+                                return;
+                            }
                             MukJumpAccountScopeRelation relation =
                                 ClassifyAuthorizedTransitionAccount(
                                     previousAccountScope,
@@ -3729,6 +3745,12 @@ namespace MukJump.Core
                         }
                         else
                         {
+                            if (HasPendingGuestRetirement)
+                            {
+                                if (!string.IsNullOrEmpty(PlayerPrefs.GetString(RetiringGuestTargetKey, "")))
+                                { EnterProviderResolutionBlock(GuestRetirementRetry); return; }
+                                ClearGuestRetirement();
+                            }
                             ClearPendingAuthorizedTransition();
                             if (restoreLocalIfServerEmpty)
                                 ClearPendingLocalGuestImport();
@@ -3764,7 +3786,7 @@ namespace MukJump.Core
             if (!logoutAfterSaveRequested) return;
             if (!IsOnlineAuthenticated || accountSessionGeneration != logoutAfterSaveSession)
             { logoutAfterSaveRequested = false; return; }
-            if (dirty || HasAccountOperationInFlight(cloudLoadInFlight, saveInFlight,
+            if (dirty || identityBusy || HasAccountOperationInFlight(cloudLoadInFlight, saveInFlight,
                     leaderboardSaveInFlight, LeaderboardLoading)) return;
             logoutAfterSaveRequested = false;
             Logout();
@@ -3796,7 +3818,7 @@ namespace MukJump.Core
                 SetStatus("로그아웃과 기기 기록 분리를 마무리하고 있습니다");
                 return;
             }
-            bool operationInFlight = HasAccountOperationInFlight(
+            bool operationInFlight = identityBusy || HasAccountOperationInFlight(
                 cloudLoadInFlight,
                 saveInFlight,
                 leaderboardSaveInFlight,
@@ -3953,7 +3975,7 @@ namespace MukJump.Core
 
         public void ReturnToLocalGuestDuringAccountSync()
         {
-            if (!BlocksGameplayForAccountSync || federationRequestInFlight)
+            if (!BlocksGameplayForAccountSync || federationRequestInFlight || HasPendingGuestRetirement)
                 return;
             if (accountDeletionCleanupPending)
             {
@@ -4608,7 +4630,7 @@ namespace MukJump.Core
         /// UI에서 반드시 두 단계 확인을 마친 뒤 호출한다.
         public void DeleteAccountConfirmed()
         {
-            if (!IsOnlineAuthenticated ||
+            if (!IsOnlineAuthenticated || identityBusy || HasPendingGuestRetirement ||
                 Phase == MukJumpAccountPhase.NeedsAccountChoice ||
                 Phase == MukJumpAccountPhase.NeedsSyncChoice ||
                 Phase == MukJumpAccountPhase.Deleting)
@@ -6012,7 +6034,7 @@ namespace MukJump.Core
         {
             // 조회 A 뒤 저장 B가 먼저 끝나면 A의 옛 스냅샷이 최신 진행을
             // 덮을 수 있다. 계정 읽기와 쓰기는 항상 하나씩 진행한다.
-            if (!dirty || !IsOnlineAuthenticated || saveInFlight ||
+            if (!dirty || !IsOnlineAuthenticated || saveInFlight || identityBusy ||
                 cloudLoadInFlight || resumeCloudLoadPending || leaderboardSaveInFlight ||
                 syncWriteBlocked || temporaryBackendPause || BlocksGameplayForAccountSync ||
                 settings == null ||
@@ -6652,6 +6674,7 @@ namespace MukJump.Core
 
         bool CanStartInteractiveLogin()
         {
+            if (identityBusy) return false;
             if (!CanUseBackend())
             {
                 SetState(

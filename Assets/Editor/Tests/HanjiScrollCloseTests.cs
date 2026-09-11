@@ -173,6 +173,81 @@ public class HanjiScrollCloseRuntimeTests
     static void OnDuplicateClosed() => callbackCount += 100;
 
     [UnityTest]
+    public IEnumerator NicknameCooldownOverlayKeepsLocalizedHintAndActionsVisible()
+    {
+        string originalScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().path;
+        UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+            UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
+        if (!Application.isBatchMode)
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+        yield return new EnterPlayMode();
+        LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+        MukJumpIdentityProfile.UseStoreForTests(new MukJump.EditorTests.MemoryIdentityStore());
+        MobileApplicationLifecycle.SetPlatformVisibility(true);
+        bool oldBackground = Application.runInBackground;
+        Application.runInBackground = true;
+        var host = new GameObject("NicknameCooldownOverlayProbe");
+        var camera = new GameObject("NicknameBackground", typeof(Camera));
+        camera.GetComponent<Camera>().clearFlags = CameraClearFlags.SolidColor;
+        camera.GetComponent<Camera>().backgroundColor = InkPalette.Paper;
+        // 비활성 대역으로 UI만 촬영한다. 실제 인증·프로필 초기화는 호출하지 않는다.
+        var accountHost = new GameObject("NicknameAccountProbe");
+        accountHost.SetActive(false);
+        var account = accountHost.AddComponent<MukJumpAccountRuntime>();
+        var previousAccount = MukJumpAccountRuntime.Instance;
+        typeof(MukJumpAccountRuntime).GetProperty("Instance").SetValue(null, account);
+        typeof(MukJumpAccountRuntime).GetProperty("AccountKind").SetValue(account, MukJumpAccountKind.Apple);
+        typeof(MukJumpAccountRuntime).GetProperty("IsOnlineAuthenticated").SetValue(account, true);
+        typeof(MukJumpAccountRuntime).GetField("currentAccountScopeForTests", BindingFlags.Instance | BindingFlags.NonPublic)
+            .SetValue(account, new Func<string>(() => "nickname-ui-owner"));
+        try
+        {
+            foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
+            {
+                GameLocalization.SetLanguage(language);
+                var view = host.AddComponent<LobbyOptionsView>();
+                view.BuildForTests();
+                typeof(LobbyOptionsView).GetMethod("OpenNicknamePopup", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { false });
+                var canvas = host.transform.Find("NicknameCanvas").GetComponent<Canvas>();
+                Vector2 display = canvas.renderingDisplaySize;
+                view.SetDisplayMetricsForTests(Mathf.RoundToInt(display.x), Mathf.RoundToInt(display.y), new Rect(0, 0, display.x, display.y));
+                var panel = canvas.transform.Find("SafeAreaRoot/NicknameScroll");
+                InkLocalizedText.SetSource(panel.Find("Error").GetComponent<UnityEngine.UI.Text>(), MukJumpNicknameChange.WaitMessage);
+                panel.GetComponent<HanjiScrollFrame>().ResetPresentation();
+                yield return new WaitForSecondsRealtime(.5f);
+                Assert.That(canvas.renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
+                Assert.That(panel.Find("ChangeIntervalHint").GetComponent<UnityEngine.UI.Text>().text,
+                    Is.EqualTo(GameLocalization.Translate(MukJumpNicknameChange.Hint)));
+                if (!Application.isBatchMode)
+                {
+                    object capture = MukJump.EditorTools.MukJumpAgentAudit.CaptureUi();
+                    string path = (string)capture.GetType().GetProperty("path").GetValue(capture);
+                    double deadline = Time.realtimeSinceStartupAsDouble + 5;
+                    while (!System.IO.File.Exists(path) && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+                    Assert.That(System.IO.File.Exists(path), Is.True, path);
+                    Debug.Log($"[NicknameCooldownOverlay] {language}: {path}");
+                }
+                UnityEngine.Object.DestroyImmediate(view);
+                for (int i = host.transform.childCount - 1; i >= 0; i--)
+                    UnityEngine.Object.DestroyImmediate(host.transform.GetChild(i).gameObject);
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(host);
+            UnityEngine.Object.DestroyImmediate(camera);
+            UnityEngine.Object.DestroyImmediate(accountHost);
+            typeof(MukJumpAccountRuntime).GetProperty("Instance").SetValue(null, previousAccount);
+            Application.runInBackground = oldBackground;
+            LobbySettingsProfile.RestoreDefaultStoreForTests();
+            MukJumpIdentityProfile.UseStoreForTests(null);
+        }
+        yield return new ExitPlayMode();
+        if (!string.IsNullOrEmpty(originalScene)) UnityEditor.SceneManagement.EditorSceneManager.OpenScene(originalScene);
+    }
+
+    [UnityTest]
     public IEnumerator CenteredOptionsPagesKeepOverlayPaperAtTheSafeAreaCenter()
     {
         string originalScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().path;

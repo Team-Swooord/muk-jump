@@ -66,6 +66,7 @@ namespace MukJump.Core
             identityLoaded && identityLoadedScope == CurrentAccountScope() &&
             (string.IsNullOrEmpty(identityNickname) || MukJumpIdentityProfile.IsGeneratedNickname(identityNickname));
         public bool CanChangeNickname => !identityBusy && !backendProviderVerificationInFlight &&
+            !cloudLoadInFlight && !saveInFlight &&
             !guestLoginInFlight && !HasPendingAuthorizedTransition &&
             !localLogoutCleanupPending &&
             !accountDeletionCleanupPending && !federationRequestInFlight && !providerResolutionBlocked &&
@@ -187,7 +188,7 @@ namespace MukJump.Core
                 catch (Exception) { completed?.Invoke(false, "닉네임을 저장하지 못했어요. 다시 시도해 주세요"); }
                 return;
             }
-            SaveNicknameOnServer(value, completed, -1);
+            ChangeNicknameWithCooldown(value, completed);
         }
 
         void SaveNicknameOnServer(string value, Action<bool, string> completed, int guestAttempt)

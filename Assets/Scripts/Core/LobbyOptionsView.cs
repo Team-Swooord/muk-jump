@@ -862,7 +862,7 @@ namespace MukJump.Core
                 strong: true);
             CreateReadableText(
                 "ConflictCaption", accountConflictRoot,
-                "알겠습니다를 누르면 기존 Apple 계정으로 전환합니다.\n현재 게스트 기록은 따로 보관하며 합쳐지지 않습니다.",
+                "기존 Apple 계정으로 전환합니다.\n현재 게스트 계정과 기록은 삭제되며 복구할 수 없습니다.",
                 InkUiStyle.BodySize,
                 new Vector2(0f, 65f), new Vector2(660f, 140f),
                 InkPalette.TextDark, TextAnchor.MiddleCenter);
@@ -880,14 +880,14 @@ namespace MukJump.Core
                 useExisting.GetComponent<Image>(), ActionButtonRole.Primary);
             var keepGuest = CreatePaperButton(
                 "KeepGuestAccount", accountConflictRoot,
-                "로컬 게스트로 진행하기",
+                "게스트로 계속하기",
                 new Vector2(0f, -305f),
                 new Vector2(600f, InkUiStyle.MinimumTapHeight),
                 InkUiStyle.CaptionSize,
                 useHanji: true);
             keepGuest.onClick.AddListener(
                 () => MukJumpAccountRuntime.Instance?
-                    .ReturnToLocalGuestDuringAccountSync());
+                    .KeepCurrentGuestAfterConflict());
 
             syncConflictRoot = CreateRect(
                 "SyncConflict",
