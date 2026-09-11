@@ -48,6 +48,88 @@ namespace MukJump.EditorTests
             Assert.That(name.Length, Is.EqualTo(10));
         }
 
+        [TestCase("ㅇㅇㄹㄹ", "ㅇㅇㄹㄹ")]
+        [TestCase("ㄱㅏㄴㅏ", "가나")]
+        [TestCase("ㅏㅓ", "ㅏㅓ")]
+        [TestCase("ㄳㅄ", "ㄳㅄ")]
+        [TestCase("\u110b\u110b\u1105\u1105", "ㅇㅇㄹㄹ")]
+        [TestCase("\u11a8\u11ab", "ㄱㄴ")]
+        [TestCase("\u1100\u1161\u1102\u1161", "가나")]
+        [TestCase(" Ｍｕｋ１２ ", "Muk12")]
+        [TestCase("ｿﾗ", "ソラ")]
+        [TestCase("먹방울_Muk", "먹방울_Muk")]
+        public void NicknameGlyphsStayStableThroughStorageNormalization(string input, string expected)
+        {
+            Assert.That(MukJumpIdentityProfile.TryNormalizeNickname(input, out var value, out var error), Is.True, error);
+            Assert.That(value, Is.EqualTo(input.Trim().Normalize(System.Text.NormalizationForm.FormKC)),
+                "서버 이름 중복 판정에 사용하는 기존 정규화는 유지합니다.");
+            Assert.That(MukJumpIdentityProfile.TryNormalizeNickname(value, out var again, out _), Is.True);
+            Assert.That(again, Is.EqualTo(value), "중복 정규화가 표시 문자를 다시 바꾸면 안 됩니다.");
+            Assert.That(MukJumpIdentityProfile.FormatNicknameForDisplay(value), Is.EqualTo(expected));
+        }
+
+        [Test] public void NicknameGlyphsCoverCompatibilityJamoIncludingCompoundConsonants()
+        {
+            for (char c = '\u3131'; c <= '\u318e'; c++)
+            {
+                string original = c.ToString();
+                string stored = original.Normalize(System.Text.NormalizationForm.FormKC);
+                Assert.That(MukJumpIdentityProfile.FormatNicknameForDisplay(stored), Is.EqualTo(original),
+                    "U+" + ((int)c).ToString("X4"));
+            }
+        }
+
+        [Test] public void NicknameGlyphsSentToServerKeepCanonicalIdentityButDisplayLikeFirstInput()
+        {
+            CreateAccount(MukJumpAccountKind.Apple);
+            string submitted = null;
+            Set(account, "nicknameUpdateForTests", new Action<string, Action<BackendReturnObject>>((name, cb) =>
+            { submitted = name; cb(Result(204)); }));
+            bool? success = null;
+            account.ChangeNickname("ㅇㅇㄹㄹ", (ok, _) => success = ok);
+            Assert.That(success, Is.True);
+            Assert.That(submitted, Is.EqualTo("\u110b\u110b\u1105\u1105"));
+            Assert.That(account.Nickname, Is.EqualTo(submitted));
+            Assert.That(MukJumpIdentityProfile.ReadNickname("apple-a"), Is.EqualTo(submitted));
+            Assert.That(MukJumpIdentityProfile.FormatNicknameForDisplay(submitted), Is.EqualTo("ㅇㅇㄹㄹ"));
+        }
+
+        [TestCase(false)] [TestCase(true)]
+        public void NicknameGlyphsFromOldSaveMatchRetypingWithoutChangingServerIdentity(bool firstAppleLogin)
+        {
+            const string legacy = "\u110b\u110b\u1105\u1105";
+            CreateAccount(MukJumpAccountKind.Apple);
+            Set(account, "identityLoaded", true);
+            Set(account, "identityLoadedScope", "apple-a");
+            Set(account, "identityNickname", legacy);
+            Set(account, "identityInfoForTests", new Action<Action<BackendReturnObject>>(cb => cb(UserInfo(legacy))));
+            MukJumpIdentityProfile.SaveNickname("apple-a", legacy);
+            var view = host.AddComponent<LobbyOptionsView>();
+            view.BuildForTests();
+            Call(view, "RefreshSettingsUuid");
+            var settings = host.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/OptionsPage/Nickname").GetComponent<Text>();
+            Assert.That(settings.text, Is.EqualTo("ㅇㅇㄹㄹ"));
+            typeof(LobbyOptionsView).GetMethod("OpenNicknamePopup", BindingFlags.NonPublic | BindingFlags.Instance)
+                .Invoke(view, new object[] { firstAppleLogin });
+            var paper = host.transform.Find("NicknameCanvas/SafeAreaRoot/NicknameScroll");
+            var input = paper.GetComponentInChildren<InputField>();
+            paper.GetComponent<CanvasGroup>().interactable = true;
+            input.ForceLabelUpdate();
+            Assert.That(input.textComponent.text, Is.EqualTo("ㅇㅇㄹㄹ"));
+            Assert.That(input.textComponent.font, Is.EqualTo(InkPalette.UiFont));
+            string reopened = input.text;
+            input.text = string.Empty;
+            foreach (char c in "ㅇㅇㄹㄹ") input.ProcessEvent(new Event { type = EventType.KeyDown, character = c });
+            input.ForceLabelUpdate();
+            Assert.That(input.textComponent.text, Is.EqualTo(reopened));
+            Assert.That(input.textComponent.font, Is.EqualTo(InkPalette.UiFont));
+            var name = host.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/LeaderboardPage/NameCell1/Name1").GetComponent<Text>();
+            LobbyOptionsView.FitLeaderboardName(name, legacy);
+            Assert.That(name.text, Is.EqualTo(reopened));
+            Assert.That(account.Nickname, Is.EqualTo(legacy), "표시 보정은 서버 이름 변경이 아닙니다.");
+            Assert.That(MukJumpIdentityProfile.ReadNickname("apple-a"), Is.EqualTo(legacy));
+        }
+
         [TestCase("deleted-owner")]
         [TestCase("")]
         [TestCase(MukJumpIdentityProfile.LocalScope)]

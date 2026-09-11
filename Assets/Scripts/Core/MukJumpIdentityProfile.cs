@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using UnityEngine;
@@ -121,10 +122,39 @@ namespace MukJump.Core
             store.Save();
         }
 
+        static readonly Dictionary<char, char> nicknameDisplayJamo = CreateNicknameDisplayJamo();
+
+        static Dictionary<char, char> CreateNicknameDisplayJamo()
+        {
+            var map = new Dictionary<char, char>();
+            // ㅄ 같은 겹자음은 현대 초성 범위 밖으로 정규화되므로 실제 호환 자모 전체에서 역매핑한다.
+            for (char c = '\u3131'; c <= '\u318e'; c++)
+            {
+                string normalized = c.ToString().Normalize(NormalizationForm.FormKC);
+                if (normalized.Length == 1) map[normalized[0]] = c;
+            }
+            const string trailing = "ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ";
+            for (int i = 0; i < trailing.Length; i++) map[(char)('\u11a8' + i)] = trailing[i];
+            return map;
+        }
+
+        /// 정규화된 조합용 낱자만 표시용 자모로 바꾼다. 서버/캐시는 쓰지 않는다.
+        public static string FormatNicknameForDisplay(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return string.Empty;
+            try { value = value.Normalize(NormalizationForm.FormC); }
+            catch (ArgumentException) { return value; }
+            var display = new StringBuilder(value.Length);
+            foreach (char c in value)
+                display.Append(nicknameDisplayJamo.TryGetValue(c, out char visible) ? visible : c);
+            return display.ToString();
+        }
+
         public static bool TryNormalizeNickname(string input, out string value, out string error)
         {
             value = string.Empty;
             error = string.Empty;
+            // 기존 이름 중복 판정/서버 저장 규칙은 유지하고, 낱자의 글리프 보정은 화면에서만 한다.
             try { value = (input ?? string.Empty).Trim().Normalize(NormalizationForm.FormKC); }
             catch (ArgumentException)
             { error = "한글, 영문, 숫자, _와 -만 사용할 수 있어요"; return false; }

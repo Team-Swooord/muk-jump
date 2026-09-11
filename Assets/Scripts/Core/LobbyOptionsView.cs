@@ -595,7 +595,7 @@ namespace MukJump.Core
                 // 서버 이름 조회 전·미등록 상태에도 설치에 고정된 게스트 이름을 표시한다.
                 // Apple 첫 이름 설정 여부는 서버 identity 상태로 별도 판단한다.
                 settingsNicknameText.text = string.IsNullOrWhiteSpace(nickname)
-                    ? MukJumpIdentityProfile.GuestNickname : nickname;
+                    ? MukJumpIdentityProfile.GuestNickname : MukJumpIdentityProfile.FormatNicknameForDisplay(nickname);
             }
         }
 
@@ -1209,7 +1209,7 @@ namespace MukJump.Core
             if (label == null) return;
             InkLocalizedText.Exclude(label);
             label.supportRichText = false;
-            label.text = value ?? string.Empty;
+            label.text = MukJumpIdentityProfile.FormatNicknameForDisplay(value);
             float width = Mathf.Max(0f, label.rectTransform.rect.width - 4f);
             if (label.preferredWidth <= width) return;
             // 문자 수뿐 아니라 실제 폰트 폭으로 줄인다. 크기는 줄이지 않고

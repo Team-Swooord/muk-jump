@@ -118,7 +118,8 @@ namespace MukJump.Core
             nicknamePopupGeneration++;
             InkLocalizedText.SetSource(nicknameTitle, firstAppleLogin ? "닉네임 설정" : "닉네임 변경");
             string current = account?.Nickname ?? MukJumpIdentityProfile.GuestNickname;
-            nicknameInput.SetTextWithoutNotify(MukJumpIdentityProfile.IsGeneratedNickname(current) ? string.Empty : current);
+            nicknameInput.SetTextWithoutNotify(MukJumpIdentityProfile.IsGeneratedNickname(current)
+                ? string.Empty : MukJumpIdentityProfile.FormatNicknameForDisplay(current));
             InkLocalizedText.SetSource(nicknameError, string.Empty);
             nicknameRoot.gameObject.SetActive(true);
             nicknameRoot.alpha = 1;
