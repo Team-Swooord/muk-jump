@@ -14,6 +14,75 @@ namespace MukJump.EditorTests
     public sealed class InkShowroomPlayTests
     {
         [UnityTest, Timeout(120000)]
+        public IEnumerator CostumeCardsRenderInsideTheirFramesInAllLocales()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool oldBackground=Application.runInBackground; Application.runInBackground=true;
+            var settings=new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1f);
+                Assert.That(GameManager.Instance.State,Is.EqualTo(GameState.Lobby));
+                Assert.That(MukJumpAccountRuntime.Instance==null || !MukJumpAccountRuntime.Instance.IsOnlineAuthenticated,Is.True);
+                PermanentGrowthProfile.SettleRun("card-capture",777,777,0,60,true,SkinRunStats.Begin(true,InkSkinId.CatEars));
+                Assert.That(ScoreManager.Instance.TryCommitBestCandidate(777),Is.True);
+                foreach (var secret in new[] { InkSkinId.NightBat, InkSkinId.Astronaut, InkSkinId.OrigamiWings })
+                    Assert.That(PermanentGrowthProfile.GrantSkinSecret(secret),Is.True);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(),Is.True); yield return Wait(3f);
+                var view=Object.FindAnyObjectByType<InkWardrobeView>();
+                foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
+                {
+                    GameLocalization.SetLanguage(language);
+                    foreach (var id in new[] { InkSkinId.Gat, InkSkinId.PhoenixCrown, InkSkinId.OrigamiWings })
+                    {
+                        view.Select(id); yield return Wait(.6f); Canvas.ForceUpdateCanvases();
+                        foreach (var text in view.Paper.GetComponentsInChildren<UnityEngine.UI.Text>())
+                        {
+                            if (!text.enabled || string.IsNullOrEmpty(text.text)) continue;
+                            Assert.That(text.canvasRenderer.cull,Is.False,text.name+": "+text.text);
+                            Assert.That(text.canvasRenderer.GetMesh().vertexCount,Is.GreaterThan(0),text.name+": "+text.text);
+                        }
+                        foreach (var graphic in view.Paper.GetComponentsInChildren<UnityEngine.UI.Graphic>())
+                        {
+                            if (!graphic.enabled || !graphic.transform.parent.name.StartsWith("Preview") ||
+                                graphic.transform.parent.parent.name!="PreviewViewport") continue;
+                            Assert.That(graphic.canvasRenderer.cull,Is.False,graphic.name);
+                            Assert.That(graphic.canvasRenderer.GetMesh().vertexCount,Is.GreaterThan(0),graphic.name);
+                        }
+                        yield return Capture("card-strip-"+language+"-"+id);
+                    }
+                    view.Select(InkSkinId.Gat); yield return Wait(.6f);
+                    settings.ThrowOnSave=true; view.EquipButton.onClick.Invoke(); Canvas.ForceUpdateCanvases();
+                    var status=view.Paper.Find("SaveStatus").GetComponent<UnityEngine.UI.Text>();
+                    Assert.That(status.text,Is.Not.Empty);
+                    Assert.That(status.canvasRenderer.cull,Is.False);
+                    Assert.That(status.canvasRenderer.GetMesh().vertexCount,Is.GreaterThan(0));
+                    yield return Capture("card-strip-save-failure-"+language);
+                    settings.ThrowOnSave=false;
+                }
+                view.Select(InkSkinId.Gat); yield return Wait(.6f);
+                view.Paper.Find("SkinCard0").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                Assert.That(view.Selected,Is.EqualTo(InkSkinId.Ink));
+                Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
+            }
+            finally
+            {
+                settings.ThrowOnSave=false;
+                Application.runInBackground=oldBackground;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+        [UnityTest, Timeout(120000)]
         public IEnumerator HeadbandsSitOnTheForeheadInShowroomAndActualGameplay()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();

@@ -75,7 +75,57 @@ namespace MukJump.EditorTests
             Assert.That(AssetDatabase.GetAssetPath(body.sprite), Is.EqualTo("Assets/Art/Character/Player/muk_spritesheet.png"));
             var strip = view.Paper.Cast<Transform>().Where(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf).Cast<RectTransform>().ToArray();
             Assert.That(strip.Select(t=>t.anchoredPosition.y).Distinct().Count(), Is.EqualTo(1));
-            Assert.That(strip[0].sizeDelta.y, Is.LessThan(body.rectTransform.sizeDelta.y * .3f));
+            Assert.That(strip[0].sizeDelta.y, Is.LessThan(body.rectTransform.sizeDelta.y * .34f));
+        }
+        [TestCase(GameLanguage.Korean)]
+        [TestCase(GameLanguage.English)]
+        [TestCase(GameLanguage.Japanese)]
+        public void EveryCardFitsItsArtworkAndStateWithoutOverlappingTheNextRow(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language);
+            foreach (bool foundSecrets in new[] { false, true })
+            {
+                if (foundSecrets)
+                {
+                    PermanentGrowthProfile.SettleRun("card-fit-secrets",777,777,0,60,true,SkinRunStats.Begin(true,InkSkinId.CatEars));
+                    foreach (var id in new[] { InkSkinId.NightBat, InkSkinId.Astronaut, InkSkinId.OrigamiWings })
+                        Assert.That(PermanentGrowthProfile.GrantSkinSecret(id), Is.True);
+                }
+                for (int selected = 0; selected < InkSkinCatalog.Count; selected++)
+                {
+                    view.Select((InkSkinId)selected); Canvas.ForceUpdateCanvases();
+                    var strip = view.Paper.Cast<Transform>().Where(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf)
+                        .Cast<RectTransform>().ToArray();
+                    Assert.That(strip.Length, Is.EqualTo(6));
+                    Vector3? previewScale = null, previewPosition = null;
+                    for (int slot = 0; slot < strip.Length; slot++)
+                    {
+                        var card = strip[slot];
+                        Assert.That(card.anchoredPosition.x, Is.EqualTo((slot-2.5f)*136));
+                        Assert.That(card.anchoredPosition.y, Is.EqualTo(-245));
+                        var viewport = (RectTransform)card.Find("PreviewViewport");
+                        Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null);
+                        var preview = (RectTransform)viewport.Find("Preview");
+                        previewScale ??= preview.localScale; previewPosition ??= preview.anchoredPosition;
+                        Assert.That(preview.localScale, Is.EqualTo(previewScale.Value));
+                        Assert.That((Vector3)preview.anchoredPosition, Is.EqualTo(previewPosition.Value));
+                        foreach (var image in preview.GetComponentsInChildren<Image>().Where(i=>i.enabled))
+                            AssertInside(BoundsIn(viewport,image.rectTransform),viewport.rect,3.9f,card.name+"/"+image.name);
+                        var state = card.Find("State").GetComponent<Text>();
+                        Rect stateBounds = BoundsIn(card,state.rectTransform);
+                        AssertInside(stateBounds,card.rect,12,card.name+"/State");
+                        Assert.That(state.preferredWidth, Is.LessThanOrEqualTo(state.rectTransform.rect.width+.1f),state.text);
+                        Assert.That(state.preferredHeight, Is.LessThanOrEqualTo(state.rectTransform.rect.height+.1f),state.text);
+                        Assert.That(BoundsIn(card,viewport).yMin, Is.GreaterThanOrEqualTo(stateBounds.yMax+4));
+                        Assert.That(BoundsIn(view.Paper,card).yMax, Is.LessThanOrEqualTo(BoundsIn(view.Paper,(RectTransform)view.Paper.Find("SkinName")).yMin-10));
+                        Assert.That(BoundsIn(view.Paper,card).yMin, Is.GreaterThanOrEqualTo(BoundsIn(view.Paper,(RectTransform)view.Paper.Find("PreviousPage")).yMax+4));
+                    }
+                    string[] rows = { "PreviousPage", "Ability", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "EquipButton" };
+                    for (int row = 1; row < rows.Length; row++)
+                        Assert.That(BoundsIn(view.Paper,(RectTransform)view.Paper.Find(rows[row-1])).yMin,
+                            Is.GreaterThanOrEqualTo(BoundsIn(view.Paper,(RectTransform)view.Paper.Find(rows[row])).yMax+2),rows[row]);
+                }
+            }
         }
         [Test] public void ArrowsSwapOnlyClothesAndPeriodicRefreshDoesNotSnapTheAnimation()
         {
@@ -135,6 +185,29 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Ink));
             Assert.That(view.Presentation.EquipPlayCount, Is.Zero);
             Assert.That(view.Paper.Find("SaveStatus").GetComponent<Text>().text, Is.Not.Empty);
+        }
+        [TestCase(GameLanguage.Korean)]
+        [TestCase(GameLanguage.English)]
+        [TestCase(GameLanguage.Japanese)]
+        public void SaveFailureFitsBetweenDescriptionAndEquipAndRestoresProgressOnRetry(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language); view.Select(InkSkinId.Gat);
+            settings.ThrowOnSave = true; view.EquipButton.onClick.Invoke(); Canvas.ForceUpdateCanvases();
+            var status = view.Paper.Find("SaveStatus").GetComponent<Text>();
+            Assert.That(status.text, Is.Not.Empty);
+            Assert.That(status.preferredHeight, Is.LessThanOrEqualTo(status.rectTransform.rect.height));
+            Rect bounds = BoundsIn(view.Paper,status.rectTransform);
+            Assert.That(bounds.yMax, Is.LessThanOrEqualTo(BoundsIn(view.Paper,(RectTransform)view.Paper.Find("Description")).yMin-10));
+            Assert.That(bounds.yMin, Is.GreaterThanOrEqualTo(BoundsIn(view.Paper,view.EquipButton.GetComponent<RectTransform>()).yMax+10));
+            foreach (var name in new[] { "Achievement", "AchievementProgress" })
+                Assert.That(view.Paper.Find(name).GetComponent<Text>().enabled, Is.False);
+            Assert.That(view.Paper.Find("AchievementTrack").gameObject.activeSelf, Is.False);
+            settings.ThrowOnSave = false; view.EquipButton.onClick.Invoke();
+            Assert.That(status.text, Is.Empty);
+            foreach (var name in new[] { "Achievement", "AchievementProgress" })
+                Assert.That(view.Paper.Find(name).GetComponent<Text>().enabled, Is.True);
+            Assert.That(view.Paper.Find("AchievementTrack").gameObject.activeSelf, Is.True);
+            Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Gat));
         }
         [Test] public void LockedAndConcealedCostumesNeverEquipOrLeakArtThroughTheOutgoingLayer()
         {
@@ -303,6 +376,24 @@ namespace MukJump.EditorTests
             var costume = Focus.Find("Accessory").GetComponent<Image>();
             Assert.That(costume.color.a, Is.EqualTo(1));
             Assert.That(costume.rectTransform.localScale, Is.EqualTo(Vector3.one));
+        }
+        static Rect BoundsIn(RectTransform parent, RectTransform child)
+        {
+            var corners = new Vector3[4]; child.GetWorldCorners(corners);
+            Vector2 min = parent.InverseTransformPoint(corners[0]), max = min;
+            foreach (var corner in corners)
+            {
+                Vector2 point = parent.InverseTransformPoint(corner);
+                min = Vector2.Min(min,point); max = Vector2.Max(max,point);
+            }
+            return Rect.MinMaxRect(min.x,min.y,max.x,max.y);
+        }
+        static void AssertInside(Rect content, Rect frame, float inset, string message)
+        {
+            Assert.That(content.xMin, Is.GreaterThanOrEqualTo(frame.xMin+inset-.01f),message);
+            Assert.That(content.yMin, Is.GreaterThanOrEqualTo(frame.yMin+inset-.01f),message);
+            Assert.That(content.xMax, Is.LessThanOrEqualTo(frame.xMax-inset+.01f),message);
+            Assert.That(content.yMax, Is.LessThanOrEqualTo(frame.yMax-inset+.01f),message);
         }
         static void Invoke(object target,string name) => target.GetType().GetMethod(name,BindingFlags.Instance|BindingFlags.NonPublic).Invoke(target,null);
     }

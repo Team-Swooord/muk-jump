@@ -20,6 +20,8 @@ namespace MukJump.Core
         readonly GameObject[] cards = new GameObject[InkSkinCatalog.Count];
         readonly Image[] cardPapers = new Image[InkSkinCatalog.Count], cardBodies = new Image[InkSkinCatalog.Count], cardAccessories = new Image[InkSkinCatalog.Count];
         readonly Text[] cardStates = new Text[InkSkinCatalog.Count];
+        readonly RectTransform[] cardPreviews = new RectTransform[InkSkinCatalog.Count];
+        readonly RectTransform[] cardViewports = new RectTransform[InkSkinCatalog.Count];
         InkSkinId selected;
         InkSkinId renderedSkin;
         int page;
@@ -143,7 +145,10 @@ namespace MukJump.Core
             achievementText.color = unlocked ? InkPalette.TextMuted : InkPalette.Red;
             int goal = hidden ? 0 : InkSkinAchievements.Goal(selected), progress = InkSkinAchievements.Progress(selected);
             progressText.text = goal == 0 ? "" : $"{progress} / {goal}";
-            progressFill.parent.gameObject.SetActive(goal > 0);
+            // 저장 오류는 진행도 자리에 표시해 버튼·두루마리 테두리와 겹치지 않는다.
+            bool saveFailed = !string.IsNullOrEmpty(statusText.text);
+            achievementText.enabled = progressText.enabled = !saveFailed;
+            progressFill.parent.gameObject.SetActive(goal > 0 && !saveFailed);
             progressFill.anchorMax = new Vector2(goal == 0 ? 1 : (float)progress / goal, 1);
             pageText.text = $"{page+1} / {(InkSkinCatalog.Count+PageSize-1)/PageSize}";
             previousButton.interactable = page > 0;
@@ -160,6 +165,27 @@ namespace MukJump.Core
                 SetPreview(cardBodies[i], cardAccessories[i], id, 80, concealed);
                 InkLocalizedText.SetSource(cardStates[i], !InkSkinAchievements.IsUnlocked(id) ? "잠김" :
                     id == InkSkinPreferences.Equipped ? "착용 중" : id == selected ? "선택됨" : "해금됨");
+            }
+            FitCardPreviews();
+        }
+        void FitCardPreviews()
+        {
+            // 같은 페이지는 먹 크기와 발끝 기준선을 공유한다. 가장 큰 장식까지 포함해 칸 안으로 맞춘다.
+            Vector2 min=Vector2.one*-40f, max=-min;
+            int first=page*PageSize, end=Mathf.Min(first+PageSize,cards.Length);
+            for(int i=first;i<end;i++)
+            {
+                if(!cardAccessories[i].enabled) continue;
+                var rect=cardAccessories[i].rectTransform;
+                min=Vector2.Min(min,rect.anchoredPosition-rect.sizeDelta*.5f);
+                max=Vector2.Max(max,rect.anchoredPosition+rect.sizeDelta*.5f);
+            }
+            Vector2 size=max-min, available=cardViewports[first].sizeDelta-Vector2.one*8f;
+            float scale=Mathf.Min(1f,Mathf.Min(available.x/size.x,available.y/size.y));
+            for(int i=first;i<end;i++)
+            {
+                cardPreviews[i].localScale=Vector3.one*scale;
+                cardPreviews[i].anchoredPosition=-(min+max)*(.5f*scale);
             }
         }
         void EnsureBuilt()
@@ -189,31 +215,34 @@ namespace MukJump.Core
             foreach (var arrow in neighborButtons) arrow.transform.SetAsLastSibling();
             nameText=Label("SkinName",paper,"",54,new Vector2(0,-123),new Vector2(780,70),true);
             for(int i=0;i<cards.Length;i++) BuildCard((InkSkinId)i);
-            previousButton=Button("PreviousPage",paper,"‹",new Vector2(-220,-338),new Vector2(160,68),50,out _);
-            nextButton=Button("NextPage",paper,"›",new Vector2(220,-338),new Vector2(160,68),50,out _);
+            previousButton=Button("PreviousPage",paper,"‹",new Vector2(-220,-358),new Vector2(160,64),36,out _);
+            nextButton=Button("NextPage",paper,"›",new Vector2(220,-358),new Vector2(160,64),36,out _);
             previousButton.onClick.AddListener(()=>ChangePage(-1)); nextButton.onClick.AddListener(()=>ChangePage(1));
-            pageText=Label("Page",paper,"",30,new Vector2(0,-338),new Vector2(250,50),false); InkLocalizedText.Exclude(pageText);
-            abilityText=Label("Ability",paper,"",42,new Vector2(0,-405),new Vector2(780,60),true);
-            descriptionText=Label("Description",paper,"",30,new Vector2(0,-475),new Vector2(780,84),false);
-            achievementText=Label("Achievement",paper,"",30,new Vector2(0,-549),new Vector2(790,52),true);
-            progressText=Label("AchievementProgress",paper,"",27,new Vector2(0,-588),new Vector2(780,34),false); InkLocalizedText.Exclude(progressText);
-            var track=Rect("AchievementTrack",paper,new Vector2(0,-616),new Vector2(620,6));
+            pageText=Label("Page",paper,"",30,new Vector2(0,-358),new Vector2(250,50),false); InkLocalizedText.Exclude(pageText);
+            abilityText=Label("Ability",paper,"",40,new Vector2(0,-423),new Vector2(780,50),true);
+            descriptionText=Label("Description",paper,"",28,new Vector2(0,-490),new Vector2(780,72),false);
+            achievementText=Label("Achievement",paper,"",28,new Vector2(0,-553),new Vector2(790,42),true);
+            progressText=Label("AchievementProgress",paper,"",26,new Vector2(0,-594),new Vector2(780,30),false); InkLocalizedText.Exclude(progressText);
+            var track=Rect("AchievementTrack",paper,new Vector2(0,-619),new Vector2(620,6));
             var ti=track.gameObject.AddComponent<Image>(); ti.color=new Color(.11f,.106f,.102f,.15f); ti.raycastTarget=false;
             progressFill=Stretch("Progress",track); var fi=progressFill.gameObject.AddComponent<Image>(); fi.color=InkPalette.Ink; fi.raycastTarget=false;
             equipButton=Button("EquipButton",paper,"착용하기",new Vector2(0,-680),new Vector2(620,110),48,out equipText); equipButton.onClick.AddListener(Equip);
-            statusText=Label("SaveStatus",paper,"",30,new Vector2(0,-746),new Vector2(780,42),false); statusText.color=InkPalette.Red;
+            statusText=Label("SaveStatus",paper,"",28,new Vector2(0,-576),new Vector2(780,70),false); statusText.color=InkPalette.Red;
             backButton=Button("BackButton",safeRoot,"로비로",new Vector2(0,-872),new Vector2(360,110),42,out _); backButton.onClick.AddListener(Back);
             rootGroup.alpha=0; rootGroup.interactable=rootGroup.blocksRaycasts=false;
         }
         void BuildCard(InkSkinId id)
         {
             int i=(int)id, slot=i%PageSize;
-            var button=Button("SkinCard"+i,paper,"",new Vector2((slot-2.5f)*138,-232),new Vector2(130,138),24,out _);
+            var button=Button("SkinCard"+i,paper,"",new Vector2((slot-2.5f)*136,-245),new Vector2(128,152),24,out _);
             cards[i]=button.gameObject; cardPapers[i]=button.transform.Find("Paper").GetComponent<Image>();
-            var preview=Rect("Preview",button.transform,new Vector2(0,14),new Vector2(80,80));
+            var viewport=Rect("PreviewViewport",button.transform,new Vector2(0,16),new Vector2(104,90));
+            viewport.gameObject.AddComponent<RectMask2D>();
+            var preview=Rect("Preview",viewport,Vector2.zero,new Vector2(80,80));
+            cardViewports[i]=viewport; cardPreviews[i]=preview;
             cardBodies[i]=SpriteImage("OriginalInkBody",preview,previewBodySprite,Vector2.zero,new Vector2(80,80));
             cardAccessories[i]=SpriteImage("Accessory",preview,null,Vector2.zero,Vector2.one);
-            cardStates[i]=Label("State",button.transform,"",23,new Vector2(0,-50),new Vector2(126,34),false);
+            cardStates[i]=Label("State",button.transform,"",24,new Vector2(0,-48),new Vector2(104,28),false);
             button.onClick.AddListener(()=>Select(id));
         }
         void BuildNeighbor(RectTransform stage, int side)
