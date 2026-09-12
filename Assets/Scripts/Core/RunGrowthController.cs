@@ -26,6 +26,8 @@ namespace MukJump.Core
         float stableHitReadyAt;
         float lastFallBrakeReadyAt;
         PlatformCollider activeSafetyPlatform;
+        readonly List<PlayerController> skinPlayers = new(GameManager.MaxLivingPlayers);
+        bool skinStartShieldGranted;
 
         void Awake()
         {
@@ -70,6 +72,31 @@ namespace MukJump.Core
         /// 구 호출부 호환. 새 의미는 마지막 생존자가 아니라 본체 전용 1회 부활이다.
         public bool TrySurviveLethalObstacleHit(PlayerController player) =>
             TryReviveOriginalPlayer(player);
+
+        /// 실제 분신 사망 전이에서만 호출한다. 씬 정리·촬영용 제거는 보상으로 세지 않는다.
+        public bool NotifySkinCloneDeath(PlayerController clone, AnalyticsDeathCause cause)
+        {
+            if (SkinSnapshot != InkSkinId.SpiritHalo || clone == null || !clone.IsRuntimeClone || !clone.IsDead ||
+                cause is not (AnalyticsDeathCause.Fall or AnalyticsDeathCause.Obstacle) ||
+                manager == null || !manager.IsGameplayTicking || !MobileApplicationLifecycle.IsApplicationActive)
+                return false;
+            manager.GetLivingPlayersNonAlloc(skinPlayers);
+            foreach (var player in skinPlayers)
+                if (player.isActiveAndEnabled && !player.IsRuntimeClone)
+                    return player.RestoreHealth(1);
+            return false;
+        }
+
+        /// 새 판의 체력 초기화 직후 본체에게만 지급한다. 광고 부활·분신 생성은 재충전하지 않는다.
+        public bool TryGrantSkinStartShield(PlayerController player)
+        {
+            if (skinStartShieldGranted || SkinSnapshot != InkSkinId.TurtleShell ||
+                player == null || !player.isActiveAndEnabled || player.IsDead || player.IsRuntimeClone ||
+                manager == null || manager.State != GameState.Playing)
+                return false;
+            skinStartShieldGranted = true;
+            return player.TryGrantShield();
+        }
 
         /// 제거된 구 피격 보존 비기의 호환 경로. 현재 성장 스냅샷에서는 활성화되지 않는다.
         public bool TryPreserveHitMotion()
@@ -240,7 +267,8 @@ namespace MukJump.Core
 
         void ResetSharedRunState()
         {
-            LastBreathAvailable = PermanentSnapshot.HasLastBreath;
+            LastBreathAvailable = PermanentSnapshot.HasLastBreath || SkinSnapshot == InkSkinId.PhoenixCrown;
+            skinStartShieldGranted = false;
             stableHitReadyAt = float.NegativeInfinity;
             lastFallBrakeReadyAt = float.NegativeInfinity;
             SafetyJumpProgress = 0;

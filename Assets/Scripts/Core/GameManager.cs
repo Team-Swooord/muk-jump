@@ -2159,7 +2159,10 @@ namespace MukJump.Core
             // 정상 로비에는 본체 한 마리뿐이지만 재컴파일·호환 씬의 잔존 분신도 빠뜨리지 않는다.
             GetLivingPlayersNonAlloc(swarmScratch);
             for (int i = 0; i < swarmScratch.Count; i++)
+            {
                 swarmScratch[i]?.BeginFromLobby();
+                RunGrowthController.Instance?.TryGrantSkinStartShield(swarmScratch[i]);
+            }
             var player = HighestLivingPlayer;
             if (player != null)
                 ScoreManager.Instance?.ResetOrigin(player.transform.position.y);

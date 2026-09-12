@@ -56,7 +56,7 @@ namespace MukJump.EditorTests
             GameLocalization.SetLanguage(language);
             Assert.That(view.Paper.Find("Title").GetComponent<Text>().text, Is.EqualTo(expected));
         }
-        [Test] public void WardrobeIsADedicatedLandscapeScreenWithoutScrollOrModalDim()
+        [Test] public void WardrobeIsADedicatedLandscapeScreenWithoutParchmentOrModalDim()
         {
             Assert.That(view.Paper.name,Is.EqualTo("WardrobeScreen"));
             Assert.That(view.Paper.sizeDelta,Is.EqualTo(new Vector2(1080,1920)));
@@ -75,7 +75,7 @@ namespace MukJump.EditorTests
             Assert.That(view.EquipButton.transform.Find("BrushBackground"),Is.Not.Null);
             Assert.That(view.CanBrowse,Is.True);
         }
-        [Test] public void OneLargeOriginalInkIsFramedByTwoArrowButtonsAndACompactStrip()
+        [Test] public void OneLargeOriginalInkIsFramedByTwoArrowButtonsAndAWideCollection()
         {
             view.Select(InkSkinId.Gat);
             var body = Focus.Find("OriginalInkBody").GetComponent<Image>();
@@ -92,9 +92,11 @@ namespace MukJump.EditorTests
             Assert.That(body.enabled, Is.True);
             Assert.That(body.rectTransform.sizeDelta.x, Is.EqualTo(500));
             Assert.That(AssetDatabase.GetAssetPath(body.sprite), Is.EqualTo("Assets/Art/Character/Player/muk_spritesheet.png"));
-            var strip = view.Paper.Cast<Transform>().Where(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf).Cast<RectTransform>().ToArray();
-            Assert.That(strip.Select(t=>t.anchoredPosition.y).Distinct().Count(), Is.EqualTo(1));
-            Assert.That(strip[0].sizeDelta.y, Is.LessThan(body.rectTransform.sizeDelta.y * .34f));
+            var strip = view.CollectionContent.Cast<Transform>().Cast<RectTransform>().ToArray();
+            Assert.That(strip.Length,Is.EqualTo(36));
+            Assert.That(strip.Select(t=>t.anchoredPosition.y).Distinct().Count(), Is.EqualTo(8));
+            Assert.That(strip[0].sizeDelta, Is.EqualTo(new Vector2(180,190)));
+            Assert.That(view.CollectionScroll.vertical && !view.CollectionScroll.horizontal,Is.True);
         }
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
@@ -113,15 +115,15 @@ namespace MukJump.EditorTests
                 for (int selected = 0; selected < InkSkinCatalog.Count; selected++)
                 {
                     view.Select((InkSkinId)selected); Canvas.ForceUpdateCanvases();
-                    var strip = view.Paper.Cast<Transform>().Where(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf)
+                    var strip = view.CollectionContent.Cast<Transform>().Where(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf)
                         .Cast<RectTransform>().ToArray();
-                    Assert.That(strip.Length, Is.EqualTo(6));
+                    Assert.That(strip.Length, Is.EqualTo(36));
                     Vector3? previewScale = null, previewPosition = null;
                     for (int slot = 0; slot < strip.Length; slot++)
                     {
                         var card = strip[slot];
-                        Assert.That(card.anchoredPosition.x, Is.EqualTo((slot-2.5f)*136));
-                        Assert.That(card.anchoredPosition.y, Is.EqualTo(-245));
+                        AssertInside(BoundsIn(view.CollectionContent,card),view.CollectionContent.rect,0,card.name);
+                        if(slot>=5) Assert.That(card.anchoredPosition.y,Is.LessThan(strip[slot-5].anchoredPosition.y-190));
                         var viewport = (RectTransform)card.Find("PreviewViewport");
                         Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null);
                         var preview = (RectTransform)viewport.Find("Preview");
@@ -136,10 +138,8 @@ namespace MukJump.EditorTests
                         Assert.That(state.preferredWidth, Is.LessThanOrEqualTo(state.rectTransform.rect.width+.1f),state.text);
                         Assert.That(state.preferredHeight, Is.LessThanOrEqualTo(state.rectTransform.rect.height+.1f),state.text);
                         Assert.That(BoundsIn(card,viewport).yMin, Is.GreaterThanOrEqualTo(stateBounds.yMax+4));
-                        Assert.That(BoundsIn(view.Paper,card).yMax, Is.LessThanOrEqualTo(BoundsIn(view.Paper,(RectTransform)view.Paper.Find("SkinName")).yMin-10));
-                        Assert.That(BoundsIn(view.Paper,card).yMin, Is.GreaterThanOrEqualTo(BoundsIn(view.Paper,(RectTransform)view.Paper.Find("PreviousPage")).yMax+4));
                     }
-                    string[] rows = { "PreviousPage", "Ability", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "EquipButton" };
+                    string[] rows = { "SkinName", "Ability", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "CollectionScroll", "EquipButton" };
                     for (int row = 1; row < rows.Length; row++)
                         Assert.That(BoundsIn(view.Paper,(RectTransform)view.Paper.Find(rows[row-1])).yMin,
                             Is.GreaterThanOrEqualTo(BoundsIn(view.Paper,(RectTransform)view.Paper.Find(rows[row])).yMax+2),rows[row]);
@@ -342,7 +342,7 @@ namespace MukJump.EditorTests
                 }
                 view.Presentation.Cancel();
                 AssertBlack(Focus.Find("Accessory").GetComponent<Image>());
-                var card=view.Paper.Find("SkinCard"+(int)id);
+                var card=view.CollectionContent.Find("SkinCard"+(int)id);
                 AssertBlack(card.Find("PreviewViewport/Preview/OriginalInkBody").GetComponent<Image>());
                 AssertBlack(card.Find("PreviewViewport/Preview/Accessory").GetComponent<Image>());
                 Assert.That(card.Find("PreviewViewport/QuestionMark").GetComponent<Text>().enabled,Is.False);
@@ -383,7 +383,7 @@ namespace MukJump.EditorTests
                 view.Presentation.Cancel();
                 var question=Focus.Find("QuestionMark").GetComponent<Text>();
                 Assert.That(question.enabled,Is.True); Assert.That(question.text,Is.EqualTo("?"));
-                var card=view.Paper.Find("SkinCard"+(int)id);
+                var card=view.CollectionContent.Find("SkinCard"+(int)id);
                 foreach (var image in card.Find("PreviewViewport/Preview").GetComponentsInChildren<Image>())
                 { Assert.That(image.enabled,Is.False); Assert.That(image.sprite,Is.Null); }
                 question=card.Find("PreviewViewport/QuestionMark").GetComponent<Text>();
@@ -488,14 +488,39 @@ namespace MukJump.EditorTests
             e.position=new Vector2(-Screen.width,0); swipe.OnEndDrag(e);
             Assert.That(view.Selected, Is.EqualTo(InkSkinId.Ink));
         }
-        [Test] public void NavigationStopsAtEndsAndKeepsSixVisibleCards()
+        [Test] public void NavigationStopsAtEndsAndKeepsAllCardsInTheScrollCollection()
         {
             view.StepSelection(-1); Assert.That(view.Selected, Is.EqualTo(InkSkinId.Ink));
             Assert.That(view.Paper.Find("ShowroomStage/PreviousCostume").GetComponent<Button>().interactable, Is.False);
             view.Select((InkSkinId)(InkSkinCatalog.Count-1)); view.StepSelection(1);
             Assert.That((int)view.Selected, Is.EqualTo(InkSkinCatalog.Count-1));
             Assert.That(view.Paper.Find("ShowroomStage/NextCostume").GetComponent<Button>().interactable, Is.False);
-            Assert.That(view.Paper.Cast<Transform>().Count(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf), Is.EqualTo(6));
+            Assert.That(view.CollectionContent.Cast<Transform>().Count(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf), Is.EqualTo(36));
+        }
+        [Test] public void ScrollPositionSurvivesRefreshAndAllViewFitsEveryCardWithoutLeakingSecrets()
+        {
+            Canvas.ForceUpdateCanvases();
+            var scroll=view.CollectionScroll;
+            Assert.That(scroll.viewport.GetComponent<RectMask2D>(),Is.Not.Null);
+            Assert.That(scroll.content.rect.height,Is.GreaterThan(scroll.viewport.rect.height));
+            scroll.verticalNormalizedPosition=0;
+            Vector2 offset=scroll.content.anchoredPosition;
+            Invoke(view,"RefreshSelection");
+            Assert.That(scroll.content.anchoredPosition,Is.EqualTo(offset));
+            AssertInside(BoundsIn(scroll.viewport,(RectTransform)view.CollectionContent.Find("SkinCard35")),scroll.viewport.rect,0,"last card");
+            view.ToggleCollection(); Canvas.ForceUpdateCanvases();
+            Assert.That(view.CollectionExpanded,Is.True);
+            Assert.That(Focus.parent.gameObject.activeSelf,Is.False);
+            Assert.That(view.EquipButton.gameObject.activeSelf,Is.False);
+            foreach(RectTransform card in view.CollectionContent)
+                AssertInside(BoundsIn(scroll.viewport,card),scroll.viewport.rect,0,card.name);
+            var hidden=view.CollectionContent.Find("SkinCard31/PreviewViewport/Preview/Accessory").GetComponent<Image>();
+            Assert.That(hidden.sprite,Is.Null);
+            view.CollectionContent.Find("SkinCard1").GetComponent<Button>().onClick.Invoke();
+            Assert.That(view.CollectionExpanded,Is.False); Assert.That(view.Selected,Is.EqualTo(InkSkinId.Gat));
+            Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
+            scroll.velocity=new Vector2(0,1000); view.SetNavigationPresentation(false,false);
+            Assert.That(scroll.velocity,Is.EqualTo(Vector2.zero)); Assert.That(scroll.enabled,Is.False);
         }
         [Test] public void DragStartedBeforeTransitionCompletesIsIgnored()
         {

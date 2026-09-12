@@ -375,6 +375,90 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.SpiderMask));
         }
 
+        void UnlockCombatSkins()
+        {
+            Assert.That(score.TryCommitBestCandidate(2000),Is.True);
+            var stats=SkinRunStats.Begin(false,InkSkinId.Ink); stats.items=30; stats.maxLivingPlayers=3;
+            Assert.That(PermanentGrowthProfile.SettleRun("combat-skins",2000,2000,0,30,true,stats).Accepted,Is.True);
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+        }
+        [TestCase(AnalyticsDeathCause.Obstacle)] [TestCase(AnalyticsDeathCause.Fall)]
+        public void SpiritHaloHealsOriginalOncePerActualCloneDeathAndNeverAboveMaximum(AnalyticsDeathCause cause)
+        {
+            UnlockCombatSkins(); Assert.That(InkSkinPreferences.TryEquip(InkSkinId.SpiritHalo),Is.True);
+            var manager=Manager(out var growth); Invoke(manager,"SetState",GameState.Playing);
+            var original=Player(); manager.RegisterPlayer(original);
+            typeof(PlayerController).GetProperty("CurrentHealth").SetValue(original,1);
+            int notifications=0; original.HealthChanged+=(_,_)=>notifications++;
+            for(int i=0;i<4;i++)
+            {
+                var clone=Player(); Field(clone,"isRuntimeClone",true); manager.RegisterPlayer(clone);
+                Invoke(clone,"KillWithCause",cause);
+                int health=original.CurrentHealth;
+                Invoke(clone,"KillWithCause",cause);
+                Assert.That(original.CurrentHealth,Is.EqualTo(health),"같은 분신의 사망을 중복 보상하지 않는다.");
+                Assert.That(health,Is.EqualTo(Mathf.Min(2+i,original.MaxHealth)));
+            }
+            Assert.That(notifications,Is.EqualTo(2)); Assert.That(manager.LivingPlayerCount,Is.EqualTo(1));
+            Assert.That(manager.State,Is.EqualTo(GameState.Playing));
+            settings.SetInt(InkSkinPreferences.StorageKey,(int)InkSkinId.Ink);
+            Assert.That(growth.SkinSnapshot,Is.EqualTo(InkSkinId.SpiritHalo));
+        }
+        [TestCase("other")] [TestCase("lobby")] [TestCase("paused")]
+        [TestCase("background")] [TestCase("wrong-skin")] [TestCase("dead-original")]
+        public void SpiritHaloDoesNotHealDuringCleanupOrInvalidGameplay(string guard)
+        {
+            UnlockCombatSkins(); InkSkinPreferences.TryEquip(InkSkinId.SpiritHalo);
+            var manager=Manager(out var growth); Invoke(manager,"SetState",GameState.Playing);
+            var original=Player(); manager.RegisterPlayer(original);
+            typeof(PlayerController).GetProperty("CurrentHealth").SetValue(original,1);
+            var clone=Player(); Field(clone,"isRuntimeClone",true); manager.RegisterPlayer(clone);
+            if(guard=="lobby") typeof(GameManager).GetProperty("State").SetValue(manager,GameState.Lobby);
+            if(guard=="paused") typeof(GameManager).GetProperty("IsPaused").SetValue(manager,true);
+            if(guard=="background") MobileApplicationLifecycle.SetPlatformVisibility(false);
+            if(guard=="wrong-skin") Field(growth,"skinSnapshot",InkSkinId.Ink);
+            if(guard=="dead-original") { typeof(PlayerController).GetProperty("IsDead").SetValue(original,true); typeof(PlayerController).GetProperty("CurrentHealth").SetValue(original,0); }
+            try
+            {
+                int expected=original.CurrentHealth;
+                Invoke(clone,"KillWithCause",guard=="other" ? AnalyticsDeathCause.Other : AnalyticsDeathCause.Obstacle);
+                Assert.That(original.CurrentHealth,Is.EqualTo(expected));
+            }
+            finally { MobileApplicationLifecycle.SetPlatformVisibility(true); }
+        }
+        [Test] public void TurtleStartsOnlyOriginalWithOneShieldAndDoesNotRefillOnResume()
+        {
+            UnlockCombatSkins(); InkSkinPreferences.TryEquip(InkSkinId.TurtleShell);
+            var manager=Manager(out var growth);
+            var original=Player(); manager.RegisterPlayer(original);
+            var clone=Player(); Field(clone,"isRuntimeClone",true); manager.RegisterPlayer(clone);
+            Assert.That(growth.TryGrantSkinStartShield(original),Is.False);
+            Invoke(manager,"BeginPlayingAfterCover");
+            Assert.That(original.HasShield,Is.True); Assert.That(clone.HasShield,Is.False);
+            Invoke(original,"ConsumeShield");
+            Assert.That(growth.TryGrantSkinStartShield(original),Is.False);
+            Invoke(manager,"SetState",GameState.GameOver); Invoke(manager,"SetState",GameState.Playing);
+            Assert.That(growth.TryGrantSkinStartShield(original),Is.False);
+            Invoke(manager,"SetState",GameState.Lobby); Invoke(manager,"BeginPlayingAfterCover");
+            Assert.That(original.HasShield,Is.True);
+        }
+        [Test] public void PhoenixConsumesOneSharedRevivalAcrossBothDamageTypesAndAdResume()
+        {
+            UnlockCombatSkins(); InkSkinPreferences.TryEquip(InkSkinId.PhoenixCrown);
+            var manager=Manager(out var growth); Invoke(manager,"SetState",GameState.Playing);
+            var original=Player(); manager.RegisterPlayer(original);
+            var clone=Player(); Field(clone,"isRuntimeClone",true); manager.RegisterPlayer(clone);
+            Assert.That(growth.TryReviveOriginalPlayer(clone),Is.False);
+            typeof(PlayerController).GetProperty("CurrentHealth").SetValue(original,1);
+            Assert.That(original.TakeHit(),Is.True);
+            Assert.That(original.IsDead,Is.False); Assert.That(original.CurrentHealth,Is.EqualTo(1));
+            Assert.That(original.IsInkDropBoosted,Is.True); Assert.That(growth.LastBreathAvailable,Is.False);
+            Invoke(manager,"SetState",GameState.GameOver); Invoke(manager,"SetState",GameState.Playing);
+            Assert.That(growth.TryReviveOriginalPlayer(original),Is.False);
+            Invoke(manager,"SetState",GameState.Lobby); Invoke(manager,"SetState",GameState.Playing);
+            Assert.That(growth.LastBreathAvailable,Is.True);
+        }
+
         GameManager Manager(out RunGrowthController growth)
         {
             var host = Track(new GameObject("SkinTestSystems"));

@@ -24,6 +24,17 @@ namespace MukJump.Core
                 ["시험 착용 중 · 플레이 기록 저장 안 됨"] = ("Test outfits · runs are not saved", "試着中 · プレイ記録は保存されません"),
                 ["실제 기록은 바뀌지 않아요"] = ("Your real progress stays unchanged", "実際の進行状況は変わりません"),
                 ["꾸미기"] = ("Wardrobe", "着せ替え"),
+                ["전체 보기"] = ("View all", "一覧"),
+                ["크게 보기"] = ("Preview", "試着"),
+                ["먹의 환원"] = ("Ink Return", "墨の還元"),
+                ["시작 방어막"] = ("Starting Shield", "開幕の盾"),
+                ["봉황의 숨결"] = ("Phoenix Breath", "鳳凰の息吹"),
+                ["분신이 쓰러질 때마다 본체 체력을 1칸 회복해요.\n최대 체력을 넘거나 쓰러진 본체를 되살리지는 않아요."] =
+                    ("Each fallen clone restores 1 HP to Ink.\nCannot exceed max HP or revive Ink.", "分身が倒れるたび、本体の体力を1回復。\n最大体力を超えず、倒れた本体は蘇りません。"),
+                ["매 판 본체에게 방어막 1개를 주고 시작해요.\n충돌·추락을 한 번 막으며 분신에게는 적용되지 않아요."] =
+                    ("Start each run with a shield on Ink.\nBlocks one hit or fall; clones excluded.", "毎回、本体に盾を1つ付けてスタート。\n衝突・落下を1回防ぎます。分身は対象外です。"),
+                ["한 판에 한 번 본체가 체력 1칸으로 살아남아 50m 올라가요.\n성장 부활과 횟수를 공유하며 분신에게는 적용되지 않아요."] =
+                    ("Survive one fatal hit with 1 HP per run.\nRise 50m; shared with growth revival.", "1プレイに1回、本体が体力1で耐えて50m上昇。\n成長の復活と回数を共有。分身は対象外です。"),
                 ["새 의상 해금"] = ("Costume Unlocked", "衣装を解放"),
                 ["비밀 의상 발견"] = ("Secret Discovered", "秘密の衣装を発見"),
                 ["해금"] = ("NEW", "解放"),

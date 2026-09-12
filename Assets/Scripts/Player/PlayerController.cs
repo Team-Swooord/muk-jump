@@ -728,6 +728,7 @@ namespace MukJump.Player
             if (healthChanged)
                 NotifyHealthChanged();
 
+            RunGrowthController.Instance?.NotifySkinCloneDeath(this, cause);
             bool isLastPlayer = GameManager.Instance == null ||
                                 GameManager.Instance.NotifyPlayerDied(this);
             GameFeedbackController.Instance?.PlayDeath(

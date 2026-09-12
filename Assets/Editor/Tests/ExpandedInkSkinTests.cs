@@ -238,13 +238,13 @@ namespace MukJump.EditorTests
             Assert.That(renderer.enabled,Is.True);
             Assert.That(view.AccessoryRenderer.sprite,Is.SameAs(sprites[0]));
         }
-        [Test] public void WardrobeUsesSixCardsAndFullyConcealsUnfoundRewards()
+        [Test] public void WardrobeScrollsAllCardsAndFullyConcealsUnfoundRewards()
         {
             var host=Track(new GameObject("ExpandedWardrobe"));var view=host.AddComponent<InkWardrobeView>();
             view.BuildForTests();view.SetNavigationPresentation(true,true);
             for(int page=0;page<6;page++)
             {
-                Assert.That(view.Paper.GetComponentsInChildren<UnityEngine.UI.Button>().Count(b=>b.name.StartsWith("SkinCard")),Is.EqualTo(6));
+                Assert.That(view.Paper.GetComponentsInChildren<UnityEngine.UI.Button>().Count(b=>b.name.StartsWith("SkinCard")),Is.EqualTo(36));
                 view.ChangePage(1);
             }
             view.Select(InkSkinId.ClockworkCat);

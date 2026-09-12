@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// 6칸 페이지로 의상을 탐색한다. 비밀 보상은 이름·원화·조건·진행도 모두 감춘다.
+    /// 넓은 수집 목록을 스크롤하거나 전체 펼쳐 본다. 비밀 보상은 발견 전까지 감춘다.
     [DisallowMultipleComponent]
     public sealed class InkWardrobeView : MonoBehaviour
     {
@@ -15,7 +15,11 @@ namespace MukJump.Core
         readonly Button[] neighborButtons = new Button[2];
         InkShowroomPresentation presentation;
         InkShowroomSwipe swipe;
-        Text nameText, abilityText, descriptionText, equipText, statusText, achievementText, progressText, pageText;
+        Text nameText, abilityText, descriptionText, equipText, statusText, achievementText, progressText, collectionToggleText;
+        UnityEngine.UI.ScrollRect collectionScroll;
+        UnityEngine.UI.GridLayoutGroup collectionGrid;
+        RectTransform collectionContent, collectionRoot, stage;
+        bool collectionExpanded;
         UnityEngine.UI.Image progressFill;
         RectTransform progressTrack, completionSeal;
         InkSkinId progressSkin;
@@ -23,7 +27,7 @@ namespace MukJump.Core
         uint progressInactiveGeneration;
         bool hasProgress, progressAnimating, progressComplete;
         const float ProgressDuration = .36f;
-        Button equipButton, backButton, previousButton, nextButton;
+        Button equipButton, backButton;
         readonly GameObject[] cards = new GameObject[InkSkinCatalog.Count];
         readonly Image[] cardPapers = new Image[InkSkinCatalog.Count], cardBodies = new Image[InkSkinCatalog.Count], cardAccessories = new Image[InkSkinCatalog.Count];
         readonly Text[] cardStates = new Text[InkSkinCatalog.Count];
@@ -44,6 +48,9 @@ namespace MukJump.Core
         public Button EquipButton => equipButton;
         public Button BackButton => backButton;
         public int Page => page;
+        public RectTransform CollectionContent => collectionContent;
+        public UnityEngine.UI.ScrollRect CollectionScroll => collectionScroll;
+        public bool CollectionExpanded => collectionExpanded;
         public InkShowroomPresentation Presentation => presentation;
         public bool CanBrowse => CanInteract();
 
@@ -51,23 +58,28 @@ namespace MukJump.Core
         {
             if (show) EnsureBuilt();
             if (rootGroup == null) return;
-            if (!show || !allowInput) { presentation?.Cancel(); swipe?.Cancel(); SnapProgress(); }
+            if (!show || !allowInput) { presentation?.Cancel(); swipe?.Cancel(); SnapProgress(); StopCollection(); }
             if (show && !visible)
             {
                 selected = InkSkinPreferences.Equipped;
                 page = (int)selected / PageSize;
+                collectionExpanded = false;
+                ApplyCollectionLayout();
                 InkLocalizedText.SetSource(statusText, "");
                 RefreshSelection();
             }
             visible = show; interactive = show && allowInput;
             rootGroup.alpha = show ? 1 : 0;
             rootGroup.interactable = interactive; rootGroup.blocksRaycasts = show;
+            collectionScroll.enabled = interactive && MobileApplicationLifecycle.IsApplicationActive;
             ApplyLayout();
+            if (show) RevealSelectedCard();
         }
         void OnDisable()
         {
             visible = interactive = false;
             presentation?.Cancel(); swipe?.Cancel();
+            StopCollection();
             SnapProgress();
             if (rootGroup == null) return;
             rootGroup.alpha = 0; rootGroup.interactable = rootGroup.blocksRaycasts = false;
@@ -76,6 +88,9 @@ namespace MukJump.Core
         {
             if (!visible) return;
             ApplyLayout();
+            bool canScroll = CanInteract();
+            if (!canScroll) StopCollection();
+            else if (!collectionScroll.enabled) collectionScroll.enabled = true;
             if (Time.unscaledTime >= refreshAt) { refreshAt = Time.unscaledTime + .25f; RefreshSelection(); }
             UpdateProgress();
             if (GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby) SetNavigationPresentation(false,false);
@@ -88,6 +103,7 @@ namespace MukJump.Core
             SkinSecrets.SelectedByUser(id);
             InkLocalizedText.SetSource(statusText, "");
             RefreshSelection();
+            RevealSelectedCard();
             if (step != 0) presentation.Browse(step);
         }
         public void StepSelection(int direction)
@@ -104,6 +120,7 @@ namespace MukJump.Core
             selected = (InkSkinId)(page * PageSize);
             InkLocalizedText.SetSource(statusText, "");
             RefreshSelection();
+            RevealSelectedCard();
             if ((int)selected != previous) presentation.Browse((int)selected - previous);
         }
         bool CanInteract() => IsOpen && MobileApplicationLifecycle.IsApplicationActive &&
@@ -161,20 +178,16 @@ namespace MukJump.Core
             bool saveFailed = !string.IsNullOrEmpty(statusText.text);
             achievementText.enabled = progressText.enabled = !saveFailed;
             RefreshProgress(goal, progress, unlocked, saveFailed);
-            pageText.text = $"{page+1} / {(InkSkinCatalog.Count+PageSize-1)/PageSize}";
-            previousButton.interactable = page > 0;
-            nextButton.interactable = (page+1)*PageSize < InkSkinCatalog.Count;
+            abilityText.color = InkSkinCatalog.HasAbility(selected) ? InkPalette.Red : InkPalette.TextDark;
+            equipButton.gameObject.SetActive(!hidden && !collectionExpanded);
             for (int i=0; i<cards.Length; i++)
             {
-                bool active = i / PageSize == page;
-                cards[i].SetActive(active);
-                if (!active) continue;
                 var id = (InkSkinId)i;
                 bool concealed = SkinDebugSession.IsConcealed(id);
                 bool cardUnlocked = SkinDebugSession.CanEquip(id);
                 cardPapers[i].color = id == selected ? InkPalette.Paper : new Color(.86f, .82f, .73f, .62f);
                 cardStates[i].color = id == selected ? InkPalette.Red : InkPalette.TextMuted;
-                SetPreview(cardBodies[i], cardAccessories[i], id, 80, concealed, cardUnlocked);
+                SetPreview(cardBodies[i], cardAccessories[i], id, 100, concealed, cardUnlocked);
                 cardQuestions[i].enabled = concealed;
                 InkLocalizedText.SetSource(cardStates[i], concealed ? "" : !cardUnlocked ? "잠김" :
                     id == InkSkinPreferences.Equipped ? "착용 중" : id == selected ? "선택됨" : "해금됨");
@@ -183,7 +196,7 @@ namespace MukJump.Core
         }
         void RefreshProgress(int goal, int value, bool unlocked, bool saveFailed)
         {
-            bool show = goal > 0 && !saveFailed;
+            bool show = goal > 0 && !saveFailed && !collectionExpanded;
             progressTrack.gameObject.SetActive(show);
             if (!show)
             {
@@ -232,9 +245,9 @@ namespace MukJump.Core
         }
         void FitCardPreviews()
         {
-            // 같은 페이지는 먹 크기와 발끝 기준선을 공유한다. 가장 큰 장식까지 포함해 칸 안으로 맞춘다.
-            Vector2 min=Vector2.one*-40f, max=-min;
-            int first=page*PageSize, end=Mathf.Min(first+PageSize,cards.Length);
+            // 수집 목록 전체가 먹 크기·기준선을 공유한다. 큰 장식도 칸을 벗어나지 않는다.
+            Vector2 min=Vector2.one*-50f, max=-min;
+            int first=0, end=cards.Length;
             for(int i=first;i<end;i++)
             {
                 if(!cardAccessories[i].enabled) continue;
@@ -263,8 +276,8 @@ namespace MukJump.Core
             blocker.color=Color.clear; blocker.raycastTarget=true;
             safeRoot=Stretch("SafeAreaRoot",root.transform);
             paper=Rect("WardrobeScreen",safeRoot,Vector2.zero,new Vector2(1080,1920));
-            Label("Title",paper,"꾸미기",72,new Vector2(0,860),new Vector2(640,108),true);
-            var stage=Rect("ShowroomStage",paper,new Vector2(0,300),new Vector2(1000,900));
+            Label("Title",paper,"꾸미기",72,new Vector2(0,860),new Vector2(520,108),true);
+            stage=Rect("ShowroomStage",paper,new Vector2(0,400),new Vector2(1000,800));
             // 큰 장식·파동은 제목과 하단 의상 목록을 침범하지 않는다.
             stage.gameObject.AddComponent<RectMask2D>().softness=new Vector2Int(10,16);
             var stageHit=stage.gameObject.AddComponent<Image>(); stageHit.color=Color.clear; stageHit.raycastTarget=true;
@@ -276,17 +289,16 @@ namespace MukJump.Core
             previewQuestion=Label("QuestionMark",preview,"?",260,Vector2.zero,new Vector2(360,420),true);
             presentation=stage.gameObject.AddComponent<InkShowroomPresentation>(); presentation.Initialize(stage,preview);
             foreach (var arrow in neighborButtons) arrow.transform.SetAsLastSibling();
-            nameText=Label("SkinName",paper,"",54,new Vector2(0,-123),new Vector2(780,70),true);
+            nameText=Label("SkinName",paper,"",54,new Vector2(0,62),new Vector2(920,70),true);
+            BuildCollection();
             for(int i=0;i<cards.Length;i++) BuildCard((InkSkinId)i);
-            previousButton=Button("PreviousPage",paper,"‹",new Vector2(-220,-358),new Vector2(160,64),36,out _);
-            nextButton=Button("NextPage",paper,"›",new Vector2(220,-358),new Vector2(160,64),36,out _);
-            previousButton.onClick.AddListener(()=>ChangePage(-1)); nextButton.onClick.AddListener(()=>ChangePage(1));
-            pageText=Label("Page",paper,"",30,new Vector2(0,-358),new Vector2(250,50),false); InkLocalizedText.Exclude(pageText);
-            abilityText=Label("Ability",paper,"",40,new Vector2(0,-423),new Vector2(780,50),true);
-            descriptionText=Label("Description",paper,"",28,new Vector2(0,-490),new Vector2(780,72),false);
-            achievementText=Label("Achievement",paper,"",28,new Vector2(0,-553),new Vector2(790,42),true);
-            progressText=Label("AchievementProgress",paper,"",26,new Vector2(0,-591),new Vector2(560,30),false); InkLocalizedText.Exclude(progressText);
-            progressTrack=Rect("AchievementTrack",paper,new Vector2(0,-616),new Vector2(620,14));
+            var toggle=Button("CollectionToggle",paper,"전체 보기",new Vector2(410,860),new Vector2(230,94),30,out collectionToggleText);
+            toggle.onClick.AddListener(ToggleCollection);
+            abilityText=Label("Ability",paper,"",38,new Vector2(0,0),new Vector2(920,48),true);
+            descriptionText=Label("Description",paper,"",28,new Vector2(0,-65),new Vector2(960,76),false);
+            achievementText=Label("Achievement",paper,"",28,new Vector2(0,-127),new Vector2(940,40),true);
+            progressText=Label("AchievementProgress",paper,"",26,new Vector2(0,-165),new Vector2(560,30),false); InkLocalizedText.Exclude(progressText);
+            progressTrack=Rect("AchievementTrack",paper,new Vector2(0,-195),new Vector2(780,14));
             var brush=InkUiTextureFactory.CreateBrushSprite();
             var trackImage=progressTrack.gameObject.AddComponent<UnityEngine.UI.Image>();
             trackImage.sprite=brush; trackImage.color=new Color(.11f,.106f,.102f,.16f); trackImage.raycastTarget=false;
@@ -295,26 +307,101 @@ namespace MukJump.Core
             progressFill.type=UnityEngine.UI.Image.Type.Filled;
             progressFill.fillMethod=UnityEngine.UI.Image.FillMethod.Horizontal; progressFill.fillOrigin=0;
             progressFill.fillAmount=0f;
-            completionSeal=Rect("CompletionSeal",progressTrack,new Vector2(346,0),Vector2.one*30f);
+            completionSeal=Rect("CompletionSeal",progressTrack,new Vector2(420,0),Vector2.one*30f);
             completionSeal.localRotation=Quaternion.Euler(0,0,-6);
             InkHudSurface.Ensure(completionSeal,true);
             var sealMark=SpriteImage("Mark",completionSeal,InkUiTextureFactory.CreateGrowthConfirmIconSprite(),Vector2.zero,Vector2.one*23f);
             sealMark.color=InkPalette.Paper; completionSeal.gameObject.SetActive(false);
             BuildEquipButton(); equipButton.onClick.AddListener(Equip);
-            statusText=Label("SaveStatus",paper,"",28,new Vector2(0,-576),new Vector2(780,70),false); statusText.color=InkPalette.Red;
+            statusText=Label("SaveStatus",paper,"",28,new Vector2(0,-150),new Vector2(940,70),false); statusText.color=InkPalette.Red;
             var backHit=Rect("BackButton",paper,new Vector2(-420,860),new Vector2(220,120)).gameObject.AddComponent<UnityEngine.UI.Image>();
             backHit.color=Color.clear; backHit.raycastTarget=true;
             var backIcon=SpriteImage("Icon",backHit.transform,InkUiTextureFactory.CreateGrowthBackIconSprite(),new Vector2(-45,0),new Vector2(84,84));
             backIcon.color=InkPalette.TextDark;
             backButton=backHit.gameObject.AddComponent<UnityEngine.UI.Button>();
             InkUiStyle.ConfigureButton(backButton,backIcon); backButton.onClick.AddListener(Back);
+            ApplyCollectionLayout();
             rootGroup.alpha=0; rootGroup.interactable=rootGroup.blocksRaycasts=false;
         }
+        void BuildCollection()
+        {
+            collectionRoot=Rect("CollectionScroll",paper,new Vector2(0,-488),new Vector2(1000,520));
+            collectionScroll=collectionRoot.gameObject.AddComponent<UnityEngine.UI.ScrollRect>();
+            var viewport=Stretch("Viewport",collectionRoot);
+            var hit=viewport.gameObject.AddComponent<UnityEngine.UI.Image>(); hit.color=Color.clear; hit.raycastTarget=true;
+            viewport.gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
+            collectionContent=Rect("Content",viewport,Vector2.zero,new Vector2(980,0));
+            collectionContent.anchorMin=collectionContent.anchorMax=new Vector2(.5f,1);
+            collectionContent.pivot=new Vector2(.5f,1);
+            collectionGrid=collectionContent.gameObject.AddComponent<UnityEngine.UI.GridLayoutGroup>();
+            collectionGrid.constraint=UnityEngine.UI.GridLayoutGroup.Constraint.FixedColumnCount;
+            collectionGrid.childAlignment=TextAnchor.UpperCenter;
+            collectionGrid.spacing=new Vector2(16,16);
+            var fitter=collectionContent.gameObject.AddComponent<UnityEngine.UI.ContentSizeFitter>();
+            fitter.horizontalFit=UnityEngine.UI.ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit=UnityEngine.UI.ContentSizeFitter.FitMode.PreferredSize;
+            collectionScroll.content=collectionContent; collectionScroll.viewport=viewport;
+            collectionScroll.horizontal=false; collectionScroll.vertical=true;
+            collectionScroll.movementType=UnityEngine.UI.ScrollRect.MovementType.Clamped;
+            collectionScroll.decelerationRate=.14f; collectionScroll.scrollSensitivity=42;
+        }
+        public void ToggleCollection()
+        {
+            if (!CanInteract()) return;
+            collectionExpanded=!collectionExpanded;
+            presentation.Cancel(); swipe.Cancel();
+            ApplyCollectionLayout(); RefreshSelection(); RevealSelectedCard();
+        }
+        void ApplyCollectionLayout()
+        {
+            if (collectionGrid==null) return;
+            StopCollection();
+            collectionGrid.constraintCount=collectionExpanded ? 6 : 5;
+            collectionGrid.cellSize=collectionExpanded ? new Vector2(150,220) : new Vector2(180,190);
+            collectionRoot.anchoredPosition=collectionExpanded ? new Vector2(0,0) : new Vector2(0,-488);
+            collectionRoot.sizeDelta=new Vector2(1000,collectionExpanded ? 1560 : 520);
+            stage.gameObject.SetActive(!collectionExpanded);
+            foreach(var label in new[]{nameText,abilityText,descriptionText,achievementText,progressText,statusText})
+                if(label!=null) label.gameObject.SetActive(!collectionExpanded);
+            if(progressTrack!=null) progressTrack.gameObject.SetActive(!collectionExpanded && hasProgress);
+            InkLocalizedText.SetSource(collectionToggleText,collectionExpanded ? "크게 보기" : "전체 보기");
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(collectionContent);
+            // 카드 자체는 Grid가, 내부 종이와 미리보기만 이 화면이 배치한다.
+            for(int i=0;i<cards.Length;i++)
+            {
+                if(cards[i]==null) continue;
+                cardPapers[i].rectTransform.sizeDelta=collectionGrid.cellSize;
+                cardViewports[i].anchoredPosition=new Vector2(0,18);
+                cardViewports[i].sizeDelta=new Vector2(collectionGrid.cellSize.x-24,collectionExpanded ? 150 : 112);
+                cardStates[i].rectTransform.anchoredPosition=new Vector2(0,-collectionGrid.cellSize.y*.5f+27);
+                cardStates[i].rectTransform.sizeDelta=new Vector2(collectionGrid.cellSize.x-24,28);
+            }
+            collectionScroll.enabled=CanInteract();
+        }
+        void RevealSelectedCard()
+        {
+            if(collectionScroll==null) return;
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(collectionContent);
+            var card=(RectTransform)cards[(int)selected].transform;
+            float top=-card.anchoredPosition.y-card.rect.height*.5f;
+            float bottom=top+card.rect.height, height=collectionScroll.viewport.rect.height;
+            float offset=collectionContent.anchoredPosition.y;
+            float target=top<offset ? top : bottom>offset+height ? bottom-height : offset;
+            collectionScroll.StopMovement();
+            collectionContent.anchoredPosition=new Vector2(0,Mathf.Clamp(target,0,Mathf.Max(0,collectionContent.rect.height-height)));
+        }
+        void StopCollection()
+        {
+            if(collectionScroll==null) return;
+            collectionScroll.StopMovement(); collectionScroll.enabled=false;
+        }
+        void OnApplicationPause(bool paused) { if(paused) StopCollection(); }
+        void OnApplicationFocus(bool focused) { if(!focused) StopCollection(); }
         void BuildEquipButton()
         {
             // 성장하기와 같은 검정 먹 붓·밝은 글씨. 팝업용 종이 받침은 사용하지 않는다.
             Vector2 size=new Vector2(820,180);
-            var root=Rect("EquipButton",paper,new Vector2(0,-810),size);
+            var root=Rect("EquipButton",paper,new Vector2(0,-845),size);
             var hit=root.gameObject.AddComponent<UnityEngine.UI.Image>(); hit.color=Color.clear; hit.raycastTarget=true;
             float scaleX=size.x/LobbyMenuLayout.BackgroundSize.x;
             var brush=Rect("BrushBackground",root,new Vector2(-LobbyMenuLayout.BrushArtworkLabelOffsetX*scaleX,0),size)
@@ -329,19 +416,24 @@ namespace MukJump.Core
         }
         void BuildCard(InkSkinId id)
         {
-            int i=(int)id, slot=i%PageSize;
-            var button=Button("SkinCard"+i,paper,"",new Vector2((slot-2.5f)*136,-245),new Vector2(128,152),24,out _);
+            int i=(int)id;
+            var button=Button("SkinCard"+i,collectionContent,"",Vector2.zero,new Vector2(180,190),24,out _);
             cards[i]=button.gameObject; cardPapers[i]=button.transform.Find("Paper").GetComponent<Image>();
             var viewport=Rect("PreviewViewport",button.transform,new Vector2(0,16),new Vector2(104,90));
             viewport.gameObject.AddComponent<RectMask2D>();
-            var preview=Rect("Preview",viewport,Vector2.zero,new Vector2(80,80));
+            var preview=Rect("Preview",viewport,Vector2.zero,new Vector2(100,100));
             cardViewports[i]=viewport; cardPreviews[i]=preview;
-            cardBodies[i]=SpriteImage("OriginalInkBody",preview,previewBodySprite,Vector2.zero,new Vector2(80,80));
+            cardBodies[i]=SpriteImage("OriginalInkBody",preview,previewBodySprite,Vector2.zero,new Vector2(100,100));
             cardAccessories[i]=SpriteImage("Accessory",preview,null,Vector2.zero,Vector2.one);
             // 물음표는 장식 크기에 맞추는 보정과 분리해 모든 히든 칸의 중앙에 고정한다.
             cardQuestions[i]=Label("QuestionMark",viewport,"?",48,Vector2.zero,new Vector2(104,90),true);
             cardStates[i]=Label("State",button.transform,"",24,new Vector2(0,-48),new Vector2(104,28),false);
-            button.onClick.AddListener(()=>Select(id));
+            button.onClick.AddListener(()=>
+            {
+                if(!CanInteract()) return;
+                if(collectionExpanded) ToggleCollection();
+                Select(id);
+            });
         }
         void BuildNeighbor(RectTransform stage, int side)
         {

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.IO;
+using System.Linq;
 using MukJump.Core;
 using MukJump.EditorTools;
 using Newtonsoft.Json.Linq;
@@ -13,6 +14,76 @@ namespace MukJump.EditorTests
 {
     public sealed class InkShowroomPlayTests
     {
+        [UnityTest, Timeout(120000)]
+        public IEnumerator WideCollectionScrollsWithoutEquippingAndShowsAllInThreeLanguages()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool oldBackground=Application.runInBackground; Application.runInBackground=true;
+            var settings=new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                var stats=SkinRunStats.Begin(false,InkSkinId.Ink); stats.items=30; stats.maxLivingPlayers=3;
+                Assert.That(PermanentGrowthProfile.SettleRun("wide-collection",2000,2000,0,60,true,stats).Accepted,Is.True);
+                Assert.That(ScoreManager.Instance.TryCommitBestCandidate(2000),Is.True);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(),Is.True); yield return WaitForWardrobe();
+                var view=Object.FindAnyObjectByType<InkWardrobeView>(); var scroll=view.CollectionScroll;
+                foreach(var language in new[]{GameLanguage.Korean,GameLanguage.English,GameLanguage.Japanese})
+                {
+                    GameLocalization.SetLanguage(language); view.Select(InkSkinId.SpiritHalo); yield return Wait(.5f);
+                    foreach(string name in new[]{"SkinName","Ability","Description","Achievement"})
+                    {
+                        var label=view.Paper.Find(name).GetComponent<UnityEngine.UI.Text>();
+                        Assert.That(label.preferredHeight,Is.LessThanOrEqualTo(label.rectTransform.rect.height+.1f),name+": "+label.text);
+                        Assert.That(label.canvasRenderer.cull,Is.False,name);
+                    }
+                    yield return Capture("wardrobe-wide-"+language);
+                    view.ToggleCollection(); yield return Wait(.2f);
+                    Assert.That(view.CollectionExpanded,Is.True);
+                    foreach(var image in view.CollectionContent.GetComponentsInChildren<UnityEngine.UI.Image>())
+                    {
+                        if(!image.enabled || image.sprite==null) continue;
+                        Assert.That(image.canvasRenderer.cull,Is.False,image.name);
+                    }
+                    yield return Capture("wardrobe-all-"+language);
+                    view.CollectionContent.Find("SkinCard19").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                    Assert.That(view.CollectionExpanded,Is.False); Assert.That(view.Selected,Is.EqualTo(InkSkinId.TurtleShell));
+                }
+                view.Select(InkSkinId.Ink); yield return Wait(.2f);
+                var events=UnityEngine.EventSystems.EventSystem.current;
+                var e=new UnityEngine.EventSystems.PointerEventData(events) { button=UnityEngine.EventSystems.PointerEventData.InputButton.Left, pointerId=91 };
+                e.position=RectTransformUtility.WorldToScreenPoint(null,scroll.viewport.position);
+                scroll.OnInitializePotentialDrag(e); scroll.OnBeginDrag(e);
+                e.position+=new Vector2(0,300); scroll.OnDrag(e); scroll.OnEndDrag(e); scroll.StopMovement();
+                Assert.That(scroll.content.anchoredPosition.y,Is.GreaterThan(50));
+                Assert.That(view.Selected,Is.EqualTo(InkSkinId.Ink)); Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
+                Vector2 offset=scroll.content.anchoredPosition; yield return Wait(.4f);
+                Assert.That(Vector2.Distance(offset,scroll.content.anchoredPosition),Is.LessThan(.1f));
+                scroll.verticalNormalizedPosition=0; yield return Wait(.1f);
+                yield return Capture("wardrobe-scroll-bottom");
+                var last=view.CollectionContent.Find("SkinCard35");
+                Assert.That(last.Find("PreviewViewport/QuestionMark").GetComponent<UnityEngine.UI.Text>().canvasRenderer.cull,Is.False);
+                scroll.velocity=new Vector2(0,200); MobileApplicationLifecycle.SetPlatformVisibility(false); yield return null;
+                Assert.That(scroll.velocity,Is.EqualTo(Vector2.zero)); Assert.That(scroll.enabled,Is.False);
+                MobileApplicationLifecycle.SetPlatformVisibility(true); yield return Wait(.1f);
+                Assert.That(scroll.enabled,Is.True,$"active={MobileApplicationLifecycle.IsApplicationActive}, browse={view.CanBrowse}, open={view.IsOpen}");
+            }
+            finally
+            {
+                Application.runInBackground=oldBackground; MobileApplicationLifecycle.SetPlatformVisibility(true);
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
         [UnityTest, Timeout(120000)]
         public IEnumerator BrushProgressRendersAndSettlesAcrossRefreshesAndDisclosureChanges()
         {
@@ -189,13 +260,13 @@ namespace MukJump.EditorTests
                         view.Select(id); yield return Wait(.6f); Canvas.ForceUpdateCanvases();
                         foreach (var text in view.Paper.GetComponentsInChildren<UnityEngine.UI.Text>())
                         {
-                            if (!text.enabled || string.IsNullOrEmpty(text.text)) continue;
+                            if (!text.enabled || string.IsNullOrEmpty(text.text) || IsClippedCollectionCard(view,text.transform)) continue;
                             Assert.That(text.canvasRenderer.cull,Is.False,text.name+": "+text.text);
                             Assert.That(text.canvasRenderer.GetMesh().vertexCount,Is.GreaterThan(0),text.name+": "+text.text);
                         }
                         foreach (var graphic in view.Paper.GetComponentsInChildren<UnityEngine.UI.Graphic>())
                         {
-                            if (!graphic.enabled || !graphic.transform.parent.name.StartsWith("Preview") ||
+                            if (!graphic.enabled || IsClippedCollectionCard(view,graphic.transform) || !graphic.transform.parent.name.StartsWith("Preview") ||
                                 graphic.transform.parent.parent.name!="PreviewViewport") continue;
                             Assert.That(graphic.canvasRenderer.cull,Is.False,graphic.name);
                             Assert.That(graphic.canvasRenderer.GetMesh().vertexCount,Is.GreaterThan(0),graphic.name);
@@ -212,7 +283,7 @@ namespace MukJump.EditorTests
                     settings.ThrowOnSave=false;
                 }
                 view.Select(InkSkinId.Gat); yield return Wait(.6f);
-                view.Paper.Find("SkinCard0").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                view.CollectionContent.Find("SkinCard0").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                 Assert.That(view.Selected,Is.EqualTo(InkSkinId.Ink));
                 Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
             }
@@ -388,6 +459,15 @@ namespace MukJump.EditorTests
                 GameManager.RestorePendingGameOverSettlementStoreForTests();
             }
             yield return new ExitPlayMode();
+        }
+        static bool IsClippedCollectionCard(InkWardrobeView view,Transform child)
+        {
+            var card=child;
+            while(card!=null && card.parent!=view.CollectionContent) card=card.parent;
+            if(card==null) return false;
+            var corners=new Vector3[4]; ((RectTransform)card).GetWorldCorners(corners);
+            var viewport=view.CollectionScroll.viewport;
+            return corners.Any(c=>!viewport.rect.Contains(viewport.InverseTransformPoint(c)));
         }
         static IEnumerator WaitForWardrobe()
         {
