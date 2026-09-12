@@ -214,6 +214,88 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinCatalog.Ability(InkSkinId.Gat), Is.EqualTo("이단 도약"));
             Assert.That(InkSkinCatalog.Ability(InkSkinId.SpiderMask), Is.EqualTo("거미 걸음"));
         }
+        [Test]
+        public void WardrobePolishOrdersByGoalWithoutChangingSavedIds()
+        {
+            var order=Enumerable.Range(0,InkSkinCatalog.Count).Select(InkSkinCatalog.BrowseAt).ToArray();
+            Assert.That(order.Distinct().Count(),Is.EqualTo(InkSkinCatalog.Count));
+            var view=Track(new GameObject("SortedWardrobe")).AddComponent<InkWardrobeView>();
+            view.BuildForTests(Idle()); view.SetNavigationPresentation(true,true);
+            for(int i=0;i<order.Length;i++)
+            {
+                Assert.That(InkSkinCatalog.Get((InkSkinId)i).Id,Is.EqualTo((InkSkinId)i));
+                Assert.That(InkSkinCatalog.BrowseIndex(order[i]),Is.EqualTo(i));
+                Assert.That(view.CollectionContent.GetChild(i).name,Is.EqualTo("SkinCard"+(int)order[i]));
+                Assert.That(view.Selected,Is.EqualTo(order[i]));
+                if(i>0)
+                {
+                    Assert.That(InkSkinCatalog.BrowseGroup(order[i]),Is.GreaterThanOrEqualTo(InkSkinCatalog.BrowseGroup(order[i-1])));
+                    if(InkSkinCatalog.BrowseGroup(order[i])==InkSkinCatalog.BrowseGroup(order[i-1]))
+                        Assert.That(InkSkinCatalog.Get(order[i]).Goal,Is.GreaterThanOrEqualTo(InkSkinCatalog.Get(order[i-1]).Goal));
+                }
+                view.StepSelection(1);
+            }
+            Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
+            view.Select(InkSkinId.RedShoes); view.StepSelection(-1);
+            Assert.That(view.Selected,Is.EqualTo(InkSkinId.RedHeadband));
+        }
+        [TestCase(GameLanguage.Korean)]
+        [TestCase(GameLanguage.English)]
+        [TestCase(GameLanguage.Japanese)]
+        public void WardrobePolishHasReadableLocalizedLoreAndLargerProgress(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language);
+            var view=Track(new GameObject("ReadableWardrobe")).AddComponent<InkWardrobeView>();
+            view.BuildForTests(Idle()); view.SetNavigationPresentation(true,true);
+            Assert.That(SkinDebugSession.SetAllUnlocked(true),Is.True);
+            try
+            {
+                for(int i=0;i<InkSkinCatalog.Count;i++)
+                {
+                    var id=(InkSkinId)i;
+                    var lore=InkSkinLore.Get(id);
+                    Assert.That(lore.ko,Is.Not.Empty); Assert.That(lore.en,Is.Not.Empty); Assert.That(lore.ja,Is.Not.Empty);
+                    view.Select(id); Canvas.ForceUpdateCanvases();
+                    var stage=(RectTransform)view.Paper.Find("ShowroomStage");
+                    var preview=(RectTransform)stage.Find("Preview");
+                    Rect bounds=LobbySkinPreview.CostumeBounds(id,InkSkinCatalog.Sprite(id));
+                    foreach(var corner in new[]{bounds.min,bounds.max,new Vector2(bounds.xMin,bounds.yMax),new Vector2(bounds.xMax,bounds.yMin)})
+                        Assert.That(stage.rect.Contains(stage.InverseTransformPoint(preview.TransformPoint(corner*preview.rect.width))),Is.True,id+" 무대 잘림");
+                    Assert.That(view.Paper.Find("ItemLore").GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo(language==GameLanguage.Korean ? lore.ko : language==GameLanguage.Japanese ? lore.ja : lore.en));
+                    foreach(var text in view.GetComponentsInChildren<UnityEngine.UI.Text>(true))
+                        if(!string.IsNullOrEmpty(text.text))
+                            Assert.That(text.preferredHeight,Is.LessThanOrEqualTo(text.rectTransform.rect.height+2),id+" / "+text.name+" / "+text.text);
+                }
+                // 일본어는 기존 Kaisei Decol의 넓은 행 메트릭에 맞춘 .76배 보정을 유지한다.
+                float fontScale=language==GameLanguage.Japanese ? .76f : 1f;
+                Assert.That(view.Paper.Find("Description").GetComponent<UnityEngine.UI.Text>().fontSize,Is.EqualTo(Mathf.RoundToInt(36*fontScale)));
+                Assert.That(view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>().fontSize,Is.EqualTo(Mathf.RoundToInt(40*fontScale)));
+                Assert.That(((RectTransform)view.Paper.Find("AchievementTrack")).rect.height,Is.GreaterThanOrEqualTo(30));
+                view.ToggleCollection();
+                Assert.That(view.Paper.Find("ItemLore").gameObject.activeSelf,Is.False);
+            }
+            finally { SkinDebugSession.Reset(); }
+            view.ToggleCollection(); view.Select(InkSkinId.Astronaut);
+            Assert.That(view.Paper.Find("ItemLore").GetComponent<UnityEngine.UI.Text>().text,Is.Empty);
+        }
+        [TestCase(InkSkinId.RedShoes)]
+        [TestCase(InkSkinId.CloudBoots)]
+        public void WardrobePolishFootwearUsesSameOutwardPartsInUiAndPlayer(InkSkinId id)
+        {
+            var source=InkSkinCatalog.Sprite(id);
+            for(int side=0;side<2;side++)
+            {
+                bool right=side==1;
+                var part=InkFootwearPose.Part(id,right);
+                Assert.That(InkFootwearPose.SourceRight(id,right),Is.EqualTo(id==InkSkinId.RedShoes ? !right : right));
+                Assert.That(part.rect.x,Is.EqualTo(source.rect.x+(InkFootwearPose.SourceRight(id,right)?source.rect.width*.5f:0)));
+                Assert.That(part.pivot.x/part.rect.width,Is.EqualTo(InkFootwearPose.Pivot(id,right).x).Within(.0001f));
+                Rect drawn=InkFootwearPose.DrawingRect(id,source,right);
+                Vector2 anchor=drawn.position+Vector2.Scale(drawn.size,InkFootwearPose.Pivot(id,right));
+                Assert.That(Vector2.Distance(anchor,InkFootwearPose.Anchor(null,right)),Is.LessThan(.0001f));
+            }
+        }
         [TestCase(InkSkinId.Gat)]
         [TestCase(InkSkinId.SpiderMask)]
         public void AccessoryFollowsBodyWithoutChangingPhysicsAndCloneKeepsItsOwnRenderer(InkSkinId id)

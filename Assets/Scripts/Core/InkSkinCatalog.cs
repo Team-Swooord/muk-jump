@@ -65,6 +65,29 @@ namespace MukJump.Core
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
         public static InkSkinId Normalize(InkSkinId id) => IsValid(id) ? id : InkSkinId.Ink;
         public static InkSkinDefinition Get(InkSkinId id) => IsValid(id) ? definitions[(int)id] : null;
+        // 표시 순서만 변경한다. 서버·해금·장착에 저장된 ID는 절대로 재배열하지 않는다.
+        static readonly InkSkinId[] browseOrder = BuildBrowseOrder();
+        static InkSkinId[] BuildBrowseOrder()
+        {
+            var order = new InkSkinId[Count];
+            for (int i = 0; i < Count; i++) order[i] = (InkSkinId)i;
+            Array.Sort(order, (a, b) => {
+                int group = BrowseGroup(a).CompareTo(BrowseGroup(b));
+                if (group != 0) return group;
+                int goal = Get(a).Goal.CompareTo(Get(b).Goal);
+                return goal != 0 ? goal : ((int)a).CompareTo((int)b);
+            });
+            return order;
+        }
+        public static int BrowseGroup(InkSkinId id) => Get(id)?.Tier is SkinTier.Hidden or SkinTier.UltraHidden
+            ? 100 : (int)(Get(id)?.Metric ?? SkinMetric.None);
+        public static InkSkinId BrowseAt(int index) => browseOrder[Mathf.Clamp(index, 0, Count - 1)];
+        public static int BrowseIndex(InkSkinId id) => Array.IndexOf(browseOrder, Normalize(id));
+        public static string GroupName(InkSkinId id) => BrowseGroup(id) == 100 ? "비밀 의상" : Get(id)?.Metric switch {
+            SkinMetric.Best => "최고 고도", SkinMetric.Runs => "플레이 횟수", SkinMetric.Distance => "누적 고도",
+            SkinMetric.DrawnLandings => "발판 착지", SkinMetric.InkDrops => "먹방울 수집", SkinMetric.Items => "아이템 수집",
+            SkinMetric.Survival => "생존 시간", SkinMetric.Clones => "분신", SkinMetric.NightBest => "밤의 고도",
+            SkinMetric.Growth => "성장", SkinMetric.NoItemBest => "아이템 없는 도전", _ => "기본 의상" };
         public static bool IsSignatureCostume(InkSkinId id) => id is InkSkinId.CloudDragon or InkSkinId.InkMecha or InkSkinId.ClockworkCat;
         public static bool IsConcealed(InkSkinId id) => (Get(id)?.Tier is SkinTier.Hidden or SkinTier.UltraHidden) && !InkSkinAchievements.IsUnlocked(id);
         public static string Name(InkSkinId id) => Get(id)?.Korean ?? "???";

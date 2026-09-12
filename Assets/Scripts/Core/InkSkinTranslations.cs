@@ -26,6 +26,18 @@ namespace MukJump.Core
                 ["꾸미기"] = ("Wardrobe", "着せ替え"),
                 ["전체 보기"] = ("View all", "一覧"),
                 ["크게 보기"] = ("Preview", "試着"),
+                ["같은 해금 조건끼리"] = ("Grouped by unlock goal", "解放条件ごとに表示"),
+                ["기본 의상"] = ("Starter outfit", "基本の衣装"),
+                ["최고 고도"] = ("Best height", "最高高度"),
+                ["플레이 횟수"] = ("Runs completed", "プレイ回数"),
+                ["누적 고도"] = ("Total height", "累計高度"),
+                ["발판 착지"] = ("Platform landings", "足場への着地"),
+                ["먹방울 수집"] = ("Ink Drop collection", "墨滴集め"),
+                ["아이템 수집"] = ("Item collection", "アイテム集め"),
+                ["생존 시간"] = ("Survival time", "生存時間"),
+                ["분신"] = ("Clones", "分身"),
+                ["밤의 고도"] = ("Night height", "夜の高度"),
+                ["아이템 없는 도전"] = ("No-item challenge", "アイテムなしの挑戦"),
                 ["먹의 환원"] = ("Ink Return", "墨の還元"),
                 ["시작 방어막"] = ("Starting Shield", "開幕の盾"),
                 ["봉황의 숨결"] = ("Phoenix Breath", "鳳凰の息吹"),
@@ -60,6 +72,8 @@ namespace MukJump.Core
             {
                 var id=(InkSkinId)i; var d=InkSkinCatalog.Get(id); int n=d.Goal;
                 result[d.Korean]=(d.English,d.Japanese);
+                var lore=InkSkinLore.Get(id);
+                result[lore.ko]=(lore.en,lore.ja);
                 var pair=d.Metric switch
                 {
                     SkinMetric.Best => ($"Reach {n}m", $"最高高度{n}mに到達"),
@@ -79,5 +93,52 @@ namespace MukJump.Core
             }
             return result;
         }
+    }
+    /// 효과 수치와 분리된 짧은 창작 뒷이야기. 발견 전 비밀 의상에는 표시하지 않는다.
+    public static class InkSkinLore
+    {
+        public static (string ko, string en, string ja) Get(InkSkinId id) => id switch {
+            InkSkinId.Ink => ("벼루 밖으로 처음 굴러 나온 날.", "The day a drop rolled out of the inkstone.", "硯の外へ、はじめて転がり出た日。"),
+            InkSkinId.Gat => ("주인은 날아갔고, 갓만 돌아왔다.", "The hat came back. Its owner did not.", "持ち主は飛んでいき、笠だけ戻った。"),
+            InkSkinId.SpiderMask => ("처마 밑 거미에게 빌린 얼굴.", "A face borrowed from a spider in the eaves.", "軒下の蜘蛛から借りた顔。"),
+            InkSkinId.FirstRibbon => ("풀 줄 몰라서 아직 첫 매듭이다.", "Still the first knot. Nobody can untie it.", "ほどけないので、まだ最初の結び目。"),
+            InkSkinId.Scholar => ("붓보다 낮잠에 더 익숙한 선비의 관.", "Its scholar preferred naps to calligraphy.", "書より昼寝が得意な書生の冠。"),
+            InkSkinId.InkGhost => ("다 쓴 종이도 가끔 꿈을 꾼다.", "Even used paper dreams sometimes.", "使い終えた紙も、ときどき夢を見る。"),
+            InkSkinId.BambooHat => ("비는 막아도 먹 번짐은 못 막는다.", "Keeps out rain. Ink stains, not so much.", "雨は防げても、墨のにじみは防げない。"),
+            InkSkinId.RedHeadband => ("백 번 넘어져도 매듭은 그대로였다.", "A hundred falls. The knot held firm.", "百回転んでも、結び目はそのまま。"),
+            InkSkinId.LotusCrown => ("연못지기가 잃어버린 작은 왕관.", "The pond keeper's missing little crown.", "池の番人がなくした小さな冠。"),
+            InkSkinId.CatEars => ("생선 냄새가 나면 살짝 기울어진다.", "Tilts ever so slightly toward fish.", "魚の匂いがすると、少し傾く。"),
+            InkSkinId.BellRibbon => ("소리가 안 나서 도둑이 탐냈다.", "A thief coveted this silent bell.", "音がしないので、泥棒が欲しがった。"),
+            InkSkinId.CloudCap => ("구름 한 조각을 말렸더니 줄어들었다.", "One cloud, shrunk in the wash.", "雲をひとかけ洗ったら、縮んだ。"),
+            InkSkinId.PaperBoat => ("강 대신 머리 위를 항해하기로 했다.", "It chose a head over the open river.", "川ではなく、頭の上を旅することにした。"),
+            InkSkinId.TeaCupHat => ("차는 식었지만 고집은 따뜻하다.", "The tea is cold. The stubbornness is warm.", "お茶は冷めても、意地はまだ温かい。"),
+            InkSkinId.FeatherHairpin => ("학은 빠진 깃 하나를 아직 찾고 있다.", "A crane is still looking for this feather.", "鶴はまだ、この羽を探している。"),
+            InkSkinId.PeachFlower => ("봄이 급히 두고 간 물건.", "Spring left this behind in a hurry.", "春があわてて置いていったもの。"),
+            InkSkinId.FoxMask => ("속인 건 아무도 없고, 본인만 신났다.", "Fooled nobody. Had a wonderful time.", "誰もだませず、自分だけ大喜び。"),
+            InkSkinId.CraneCrest => ("높이 날던 학도 빗질은 서툴렀다.", "A fine flier. A terrible hairdresser.", "高く飛ぶ鶴も、髪を整えるのは苦手。"),
+            InkSkinId.YakshaMask => ("무서운 얼굴은 동네 아이가 그렸다.", "A village child drew the scary face.", "怖い顔は、近所の子が描いた。"),
+            InkSkinId.TurtleShell => ("느린 장인이 끝내 완성한 투구.", "A very slow craftsman finally finished it.", "のんびり屋の職人が、ついに仕上げた。"),
+            InkSkinId.StormScarf => ("바람을 묶으려다 두건이 되었다.", "An attempt to tie up the wind.", "風を結ぼうとしたら、頭巾になった。"),
+            InkSkinId.MoonCrown => ("달에서 빌렸다. 반납일은 모른다.", "Borrowed from the moon. No due date.", "月から借りた。返す日は知らない。"),
+            InkSkinId.BrushMaster => ("장인은 붓을 찾고, 붓은 여기 있다.", "The master is looking for these brushes.", "職人は筆を探している。筆はここにある。"),
+            InkSkinId.SpiritHalo => ("꺼진 줄 알았던 불씨가 따라왔다.", "An ember thought extinguished followed home.", "消えたはずの火種が、ついてきた。"),
+            InkSkinId.KoiMask => ("용문 앞에서 잠깐 쉬어 가는 중.", "Taking a short rest before the Dragon Gate.", "竜門の手前で、ちょっとひと休み。"),
+            InkSkinId.JadeCrown => ("돌인 줄 알고 문을 괴어 두던 용관.", "Once mistaken for a very good doorstop.", "ただの石だと思われ、戸止めにされていた。"),
+            InkSkinId.PhoenixCrown => ("타지 않은 깃은 딱 다섯 개였다.", "Exactly five feathers escaped the fire.", "燃え残った羽は、ちょうど五枚だった。"),
+            InkSkinId.TigerMask => ("산군도 가끔은 귀여워 보이고 싶다.", "Even a mountain tiger wants to look cute.", "山の虎も、たまには可愛く見られたい。"),
+            InkSkinId.MountainKing => ("산꼭대기에 먼저 앉은 먹의 왕관.", "Crown of the first Ink to sit on the summit.", "山頂に一番乗りした墨の冠。"),
+            InkSkinId.CloudDragon => ("승천 연습은 아직 구름 속에서만.", "Still practicing ascension inside a cloud.", "昇天の練習は、まだ雲の中だけ。"),
+            InkSkinId.InkMecha => ("대장간의 실패작. 종이로는 첫 성공작.", "Failed in iron. A triumph in cardboard.", "鉄では失敗作。紙では初の成功作。"),
+            InkSkinId.NightBat => ("밤마다 지붕을 지킨다. 낮에는 잔다.", "Guards the rooftops by night. Naps by day.", "夜は屋根を守る。昼は寝る。"),
+            InkSkinId.Astronaut => ("달에 떡이 있는지 확인하러 간다.", "Off to check if the moon has rice cakes.", "月にお餅があるか、確かめに行く。"),
+            InkSkinId.ClockworkCat => ("태엽을 감으면 오히려 잠이 든다.", "Winding it up only puts it to sleep.", "ぜんまいを巻くと、かえって眠くなる。"),
+            InkSkinId.LuckyDice => ("일곱 번째 눈은 굴린 먹만 보인다.", "Only the roller can see the seventh face.", "七つ目の目は、振った墨にしか見えない。"),
+            InkSkinId.OrigamiWings => ("접는 순서를 틀렸더니 문이 열렸다.", "One wrong fold opened a doorway.", "折る順番を間違えたら、扉が開いた。"),
+            InkSkinId.CraneWings => ("빌린 날개라 깃털은 돌려줘야 한다.", "Borrowed wings. Please return every feather.", "借りた翼なので、羽は全部返すこと。"),
+            InkSkinId.ButterflyWings => ("먹이 묻은 줄 모르고 날아온 나비.", "A butterfly unaware of its ink stains.", "墨がついたとも知らず、飛んできた蝶。"),
+            InkSkinId.RedShoes => ("발자국부터 먼저 길을 나섰다.", "The footprints set off before their owner.", "足跡のほうが、先に旅に出た。"),
+            InkSkinId.CloudBoots => ("비 오는 날엔 양말까지 구름이 된다.", "On rainy days, even the socks turn to cloud.", "雨の日には、靴下まで雲になる。"),
+            _ => ("", "", "")
+        };
     }
 }

@@ -45,8 +45,10 @@ namespace MukJump.Core
             }
             return right ? pose.right : pose.left;
         }
+        // 붉은 버선 원화는 발끝이 안쪽을 향한다. 좌우 조각과 발목 피벗을 함께 바꾼다.
+        public static bool SourceRight(InkSkinId id, bool right) => id == InkSkinId.RedShoes ? !right : right;
         public static Vector2 Pivot(InkSkinId id,bool right) => id==InkSkinId.RedShoes
-            ? new Vector2(right ? .65f : .35f,.19f) : new Vector2(right ? .42f : .58f,.20f);
+            ? new Vector2(SourceRight(id,right) ? .65f : .35f,.19f) : new Vector2(right ? .42f : .58f,.20f);
         public static bool Identify(Sprite sprite,out InkSkinId id)
         {
             id=sprite!=null && sprite.name=="skin_red_shoes_v1" ? InkSkinId.RedShoes :
@@ -64,7 +66,7 @@ namespace MukJump.Core
             if(parts.TryGetValue(key,out var cached) && cached!=null) return cached;
             var source=InkSkinCatalog.Sprite(id);
             if(source==null || !InkSkinCatalog.IsFootwear(id)) return null;
-            Rect r=source.rect; r.width*=.5f; if(right) r.x+=r.width;
+            Rect r=source.rect; r.width*=.5f; if(SourceRight(id,right)) r.x+=r.width;
             cached=UnityEngine.Sprite.Create(source.texture,r,Pivot(id,right),source.pixelsPerUnit,0,SpriteMeshType.FullRect);
             cached.name=source.name+(right?"_right":"_left"); cached.hideFlags=HideFlags.HideAndDontSave;
             parts[key]=cached; return cached;

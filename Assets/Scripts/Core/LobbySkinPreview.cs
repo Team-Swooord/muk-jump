@@ -6,7 +6,7 @@ namespace MukJump.Core
     [DisallowMultipleComponent]
     public sealed class LobbySkinPreview : MonoBehaviour
     {
-        const float MaximumTilt = 12f;
+        const float MaximumTilt = 24f;
         // idle 원화의 알파 경계 (100, 152)~(924, 866)/1024에 여유를 더한 범위.
         // 투명 프레임 전체를 피팅하면 실제 먹이 너무 작아진다. 원본 그림은 자르지 않는다.
         public static readonly Rect BodyDrawingBounds = new(-.415f, -.36f, .83f, .725f);
@@ -18,6 +18,8 @@ namespace MukJump.Core
         Vector2 fittedSize;
         Vector2 travel;
         float elapsed;
+        // 게임 난수·저장값과 분리된 시드. 로비를 새로 만들 때마다 다른 경로를 탄다.
+        readonly int motionSeed = System.Guid.NewGuid().GetHashCode();
         public InkSkinId DisplayedSkin => shown;
         public RectTransform Drift => drift;
         public RectTransform Area => area;
@@ -83,7 +85,7 @@ namespace MukJump.Core
             Rect bounds = CostumeBounds(shown, accessory.sprite);
             Vector2 envelope = RotationEnvelope(bounds.size);
             float size = Mathf.Max(.01f, Mathf.Min(360f,
-                Mathf.Min(area.rect.width * .48f / envelope.x, area.rect.height * .82f / envelope.y)));
+                Mathf.Min(area.rect.width * .48f / envelope.x, area.rect.height * .70f / envelope.y)));
             body.rectTransform.sizeDelta = Vector2.one * size;
             artwork.anchoredPosition = -bounds.center * size;
             if (accessory.enabled)
@@ -98,14 +100,32 @@ namespace MukJump.Core
 
         void ApplyPose(float time, bool reduced)
         {
-            drift.anchoredPosition = reduced ? Vector2.zero : Vector2.Scale(DriftAt(time), travel);
-            drift.localRotation = Quaternion.Euler(0, 0, reduced ? 0 : TiltAt(time));
+            drift.anchoredPosition = reduced ? Vector2.zero : Vector2.Scale(DriftAt(time, motionSeed), travel);
+            drift.localRotation = Quaternion.Euler(0, 0, reduced ? 0 : TiltAt(time, motionSeed));
         }
 
-        public static Vector2 DriftAt(float time) => new(
-            .78f * Mathf.Sin(time * .28f) + .16f * Mathf.Sin(time * .67f),
-            .7f * Mathf.Sin(time * .46f) + .2f * Mathf.Sin(time * .9f));
-        public static float TiltAt(float time) => 9f * Mathf.Sin(time * .39f) + 3f * Mathf.Sin(time * .72f);
+        public static Vector2 DriftAt(float time, int seed = 0) => new(
+            Wander(time / 1.65f, seed), Wander(time / 1.35f, seed ^ 0x51F2));
+        public static float TiltAt(float time, int seed = 0) => MaximumTilt * Wander(time / 1.8f, seed ^ 0x78A3);
+        static float Wander(float time, int seed)
+        {
+            int segment = Mathf.FloorToInt(time);
+            float t = time - segment;
+            float a = Knot(segment - 1, seed), b = Knot(segment, seed);
+            float c = Knot(segment + 1, seed), d = Knot(segment + 2, seed);
+            // 무작위 제어점을 부드럽게 이어 경계에서 급정지·순간이동하지 않는다.
+            // 제어점 ±.78, Catmull-Rom 최대 절댓값 가중치 1.25 → 항상 ±.975 안쪽.
+            return .5f * (2*b + (-a+c)*t + (2*a-5*b+4*c-d)*t*t + (-a+3*b-3*c+d)*t*t*t);
+        }
+        static float Knot(int index, int seed)
+        {
+            unchecked
+            {
+                uint h = (uint)index * 0x9E3779B9u ^ (uint)seed;
+                h ^= h >> 16; h *= 0x7FEB352Du; h ^= h >> 15; h *= 0x846CA68Bu; h ^= h >> 16;
+                return ((h & 0xFFFFu) / 65535f * 2f - 1f) * .78f;
+            }
+        }
         public static Vector2 RotationEnvelope(Vector2 size)
         {
             float s = Mathf.Sin(MaximumTilt * Mathf.Deg2Rad);

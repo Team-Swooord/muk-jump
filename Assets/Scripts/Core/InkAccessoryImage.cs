@@ -16,7 +16,8 @@ namespace MukJump.Core
             {
                 Rect r=InkFootwearPose.DrawingRect(id,sprite,side==1);
                 r.position=(r.position-InkSkinCatalog.Offset(id))*bodySize; r.size*=bodySize;
-                float left=uv.x+side*uv.width*.5f,right=left+uv.width*.5f;
+                int sourceSide=InkFootwearPose.SourceRight(id,side==1) ? 1 : 0;
+                float left=uv.x+sourceSide*uv.width*.5f,right=left+uv.width*.5f;
                 int start=mesh.currentVertCount;
                 mesh.AddVert(new Vector3(r.xMin,r.yMin),color,new Vector2(left,uv.yMin));
                 mesh.AddVert(new Vector3(r.xMin,r.yMax),color,new Vector2(left,uv.yMax));

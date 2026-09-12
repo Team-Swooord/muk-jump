@@ -18,6 +18,7 @@ namespace MukJump.EditorTests
         [Test] public void DriftIsContinuousAndBoundedWithoutTouchingGameRandom()
         {
             var state = Random.state;
+            float distance = 0f;
             for (int i = 0; i < 3600; i++)
             {
                 float t = i / 30f;
@@ -25,9 +26,12 @@ namespace MukJump.EditorTests
                 var next = LobbySkinPreview.DriftAt(t + 1f / 60f);
                 Assert.That(Mathf.Abs(p.x), Is.LessThanOrEqualTo(1));
                 Assert.That(Mathf.Abs(p.y), Is.LessThanOrEqualTo(1));
-                Assert.That(Vector2.Distance(p, next), Is.LessThan(.011f));
-                Assert.That(Mathf.Abs(LobbySkinPreview.TiltAt(t)), Is.LessThanOrEqualTo(12));
+                distance += Vector2.Distance(p, next);
+                Assert.That(Vector2.Distance(p, next), Is.LessThan(.06f));
+                Assert.That(Mathf.Abs(LobbySkinPreview.TiltAt(t)), Is.LessThanOrEqualTo(24));
+                Assert.That(Vector2.Distance(p, LobbySkinPreview.DriftAt(t, 981)), Is.GreaterThan(.00001f));
             }
+            Assert.That(distance, Is.GreaterThan(25f), "기존 느린 진동보다 활발하게 이동해야 한다.");
             Assert.That(Random.state, Is.EqualTo(state));
         }
 
@@ -80,8 +84,25 @@ namespace MukJump.EditorTests
                 yield return Wait(2); yield return Capture("lobby-floating-drift");
                 InkSkinPreferences.TryEquip(InkSkinId.CraneWings); yield return Wait(.1f);
                 yield return Capture("lobby-floating-wings");
-                InkSkinPreferences.TryEquip(InkSkinId.CloudBoots); yield return Wait(.1f);
+                InkSkinPreferences.TryEquip(InkSkinId.RedShoes); yield return Wait(.1f);
                 yield return Capture("lobby-floating-boots");
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(),Is.True);
+                yield return WaitNavigation();
+                var wardrobe=Object.FindAnyObjectByType<InkWardrobeView>();
+                Assert.That(wardrobe.IsOpen,Is.True);
+                foreach(var language in new[]{GameLanguage.Korean,GameLanguage.English,GameLanguage.Japanese})
+                {
+                    GameLocalization.SetLanguage(language);
+                    wardrobe.Select(language==GameLanguage.Korean ? InkSkinId.RedShoes : InkSkinId.SpiritHalo);
+                    Assert.That(wardrobe.Selected,Is.EqualTo(language==GameLanguage.Korean ? InkSkinId.RedShoes : InkSkinId.SpiritHalo));
+                    yield return Wait(.5f); yield return Capture("wardrobe-polish-"+language);
+                }
+                wardrobe.ToggleCollection(); Assert.That(wardrobe.CollectionExpanded,Is.True);
+                yield return Wait(.2f); yield return Capture("wardrobe-polish-groups");
+                wardrobe.ToggleCollection();
+                GameLocalization.SetLanguage(GameLanguage.Korean);
+                wardrobe.BackButton.onClick.Invoke(); yield return WaitNavigation();
+                Assert.That(lobby.IsInteractive,Is.True);
 
                 MobileApplicationLifecycle.SetPlatformVisibility(false); yield return Wait(.1f);
                 var paused = preview.Drift.anchoredPosition; yield return Wait(.15f);
@@ -102,7 +123,10 @@ namespace MukJump.EditorTests
                 lobby.SetNavigationPresentation(true, true); yield return Wait(.1f);
                 Assert.That(preview.IsVisible, Is.True);
                 Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby));
-                lobby.StartButton.onClick.Invoke(); yield return Wait(4);
+                Assert.That(LobbyScreenNavigator.Instance.CanStartGame,Is.True);
+                lobby.StartButton.onClick.Invoke();
+                float playDeadline=Time.realtimeSinceStartup+20;
+                while(GameManager.Instance.State==GameState.Lobby && Time.realtimeSinceStartup<playDeadline) yield return null;
                 Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Playing));
                 Assert.That(preview.IsVisible, Is.False);
             }
@@ -153,6 +177,13 @@ namespace MukJump.EditorTests
         {
             float until = Time.realtimeSinceStartup + seconds;
             while (Time.realtimeSinceStartup < until) yield return null;
+        }
+        static IEnumerator WaitNavigation()
+        {
+            float until=Time.realtimeSinceStartup+20;
+            while(LobbyScreenNavigator.Instance.IsTransitioning && Time.realtimeSinceStartup<until) yield return null;
+            Assert.That(LobbyScreenNavigator.Instance.IsTransitioning,Is.False,"붓 전환 완료 후 촬영한다.");
+            yield return null;
         }
         static IEnumerator Capture(string name)
         {
