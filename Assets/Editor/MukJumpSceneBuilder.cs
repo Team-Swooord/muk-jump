@@ -1626,6 +1626,8 @@ namespace MukJump.EditorTools
             so.FindProperty("optionsButton").objectReferenceValue = optionsButton;
             so.ApplyModifiedPropertiesWithoutUndo();
             view.RefreshResponsiveLayout();
+            LobbySkinPreview.Build(contentRoot, view,
+                AssetDatabase.LoadAllAssetsAtPath(CharSheetPath).OfType<Sprite>().FirstOrDefault(s => s.name == "idle"));
         }
 
         static Button CreateLobbyMenuButton(
