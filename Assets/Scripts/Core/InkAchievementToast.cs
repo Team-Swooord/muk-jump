@@ -45,16 +45,21 @@ namespace MukJump.Core
             panel = Rect("InkBanner", safe, new Vector2(-24, -210), new Vector2(580, 116));
             panel.anchorMin = panel.anchorMax = panel.pivot = Vector2.one;
             var brush = Rect("Brush", panel, Vector2.zero, new Vector2(610, 124));
-            // 넓은 번짐·흰 갈필 자국 대신 얇게 거친 종이 가장자리만 남긴다.
-            InkHudSurface.Ensure(brush, true).color = InkPalette.Ink;
+            // 게임의 흰 한지 버튼 면을 그대로 재사용한다. 배경만 비치고 글자는 또렷하게 유지한다.
+            var paper = brush.gameObject.AddComponent<UnityEngine.UI.Image>();
+            paper.raycastTarget = false;
+            InkUiStyle.ConfigureHanjiSurface(paper);
+            Color paperColor = paper.color; paperColor.a = .9f; paper.color = paperColor;
             var stamp = Rect("Seal", panel, new Vector2(-226, 0), new Vector2(62, 62));
             InkHudSurface.Ensure(stamp, true);
             Label(stamp, "해금", 25, Vector2.zero, new Vector2(60, 58));
             var heading = Label(panel, "업적 달성", 26, new Vector2(38, 27), new Vector2(400, 36));
             heading.alignment = TextAnchor.MiddleLeft;
-            heading.color = Color.Lerp(InkPalette.Paper, InkPalette.Ink, .18f);
+            heading.color = Color.Lerp(InkPalette.Ink, InkPalette.Paper, .24f);
+            heading.fontStyle = FontStyle.Normal;
             label = Label(panel, "", 36, new Vector2(38, -17), new Vector2(400, 52));
             label.alignment = TextAnchor.MiddleLeft;
+            label.color = InkPalette.Ink;
             // 재생 중 조작음과 경쟁하지 않는 짧은 전용 알림. 캔버스 수명 동안 하나만 재사용한다.
             noticeSource = root.AddComponent<AudioSource>();
             noticeSource.playOnAwake = noticeSource.loop = false; noticeSource.spatialBlend = 0;
@@ -136,6 +141,8 @@ namespace MukJump.Core
         {
             var t = Rect("Label", parent, pos, bounds).gameObject.AddComponent<UnityEngine.UI.Text>();
             InkLocalizedText.SetSource(t, source); InkUiStyle.ApplyReadableText(t, size, TextAnchor.MiddleCenter, true, true);
+            // 작은 알림에는 두꺼운 외곽선을 더하지 않는다.
+            t.GetComponent<UnityEngine.UI.Outline>().enabled = false;
             t.color = InkPalette.Paper; t.raycastTarget = false; return t;
         }
     }

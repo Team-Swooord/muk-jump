@@ -78,6 +78,10 @@ namespace MukJump.EditorTests
                 yield return Wait(.15f);
                 var panel = (RectTransform)root.Find("SafeArea/InkBanner");
                 var label = panel.GetComponentsInChildren<UnityEngine.UI.Text>().Single(t => t.text == "벽을 타는 먹");
+                var paper = panel.Find("Brush").GetComponent<UnityEngine.UI.Image>();
+                Assert.That(paper.sprite, Is.SameAs(InkUiStyle.ActionButtonSprite), "기존 흰 한지 버튼 자산 재사용");
+                Assert.That(paper.type, Is.EqualTo(UnityEngine.UI.Image.Type.Sliced));
+                Assert.That(paper.color.a, Is.EqualTo(.9f).Within(.001f), "배경만 90% 불투명도");
                 foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
                 {
                     GameLocalization.SetLanguage(language); yield return null; Canvas.ForceUpdateCanvases();
@@ -87,6 +91,8 @@ namespace MukJump.EditorTests
                     Assert.That(root.GetComponent<UnityEngine.UI.GraphicRaycaster>(), Is.Null);
                     Assert.That(root.GetComponentsInChildren<UnityEngine.UI.Graphic>().All(g => !g.raycastTarget), Is.True);
                     Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 2));
+                    Assert.That(label.color, Is.EqualTo(InkPalette.Ink), "글자는 반투명 처리 없이 먹색 유지");
+                    Assert.That(panel.GetComponentsInChildren<UnityEngine.UI.Outline>().All(o => !o.enabled), Is.True);
                     var corners = new Vector3[4]; panel.GetWorldCorners(corners);
                     Assert.That(corners[0].x, Is.GreaterThanOrEqualTo(MobileUiLayout.CurrentSafeArea.xMin));
                     Assert.That(corners[2].x, Is.LessThanOrEqualTo(MobileUiLayout.CurrentSafeArea.xMax));
@@ -120,7 +126,12 @@ namespace MukJump.EditorTests
                 Assert.That(toast.SoundPlayCountForTests, Is.EqualTo(2));
                 Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(), Is.True); yield return Wait(.1f);
                 Assert.That(group.alpha, Is.Zero); Assert.That(source.isPlaying, Is.False);
-                Object.Destroy(toast); yield return null; yield return null;
+                Object.Destroy(toast);
+                // EditMode에서 진입한 Play 검사는 yield 두 번이 실제 두 프레임을 보장하지 않는다.
+                // OnDestroy 안에서 예약한 음원 해제까지 완료되는지 제한 시간 내에 확인한다.
+                deadline = Time.realtimeSinceStartup + 1;
+                while (clip != null && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(toast == null, Is.True);
                 Assert.That(clip == null, Is.True, "생성 음원은 컴포넌트 수명에 맞춰 해제");
             }
             finally
