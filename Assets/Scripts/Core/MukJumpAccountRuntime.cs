@@ -157,6 +157,9 @@ namespace MukJump.Core
 
         MukJumpBackendSettings settings;
         string rowInDate = string.Empty;
+        object skinRewardProfileToken;
+        string skinRewardOwner = string.Empty;
+        float skinRewardRetryAt;
         string pendingFederationToken = string.Empty;
         FederationType pendingFederationType;
         MukJumpAccountKind pendingFederationKind;
@@ -545,6 +548,7 @@ namespace MukJump.Core
                     "서버 연결을 다시 확인하고 있습니다");
                 LoadCloudSnapshot();
             }
+            PumpAppleLinkSkinReward();
             if (dirty && IsOnlineAuthenticated && !saveInFlight &&
                 !syncWriteBlocked &&
                 Phase != MukJumpAccountPhase.Connecting &&
@@ -590,6 +594,31 @@ namespace MukJump.Core
 #elif UNITY_IOS
             appleAuthManager?.Update();
 #endif
+        }
+
+        void MarkSkinRewardProfileResolved()
+        {
+            skinRewardProfileToken = PermanentGrowthProfile.SkinAccountToken;
+            skinRewardOwner = CurrentAccountScope();
+            skinRewardRetryAt = 0;
+        }
+
+        // 캐시된 Apple 표시가 아니라 인증 + 해당 계정의 프로필 적용 완료를 함께 확인한다.
+        // 저장 성공 알림이 기존 dirty 큐에 들어가므로 별도 행·0m 순위를 생성하지 않는다.
+        void PumpAppleLinkSkinReward()
+        {
+            // 이미 저장된 보상은 매 프레임 계정 문자열/PlayerPrefs를 다시 읽지 않는다.
+            if (InkSkinAchievements.IsUnlocked(InkSkinId.BondKnot)) return;
+            if (Time.realtimeSinceStartup < skinRewardRetryAt || AccountKind != MukJumpAccountKind.Apple ||
+                !IsOnlineAuthenticated || Phase != MukJumpAccountPhase.OnlineReady ||
+                BlocksGameplayForAccountSync || suppressDirty || syncWriteBlocked || tokenLoginInFlight ||
+                temporaryBackendPause || replaceLocalFromServerOnNextLoad ||
+                !ReferenceEquals(skinRewardProfileToken, PermanentGrowthProfile.SkinAccountToken) ||
+                string.IsNullOrWhiteSpace(skinRewardOwner) ||
+                !string.Equals(skinRewardOwner, CurrentAccountScope(), StringComparison.Ordinal) ||
+                !string.Equals(skinRewardOwner, PlayerPrefs.GetString(StoredAccountScopeKey, ""), StringComparison.Ordinal)) return;
+            skinRewardRetryAt = Time.realtimeSinceStartup + InitialRetrySeconds;
+            PermanentGrowthProfile.TryGrantAppleLinkSkin(skinRewardProfileToken);
         }
 
         void HandleAppleAuthenticationPumpFailure(Exception exception)
@@ -1718,6 +1747,8 @@ namespace MukJump.Core
 
         void BeginAuthenticatedAccountSession()
         {
+            skinRewardProfileToken = null;
+            skinRewardOwner = string.Empty;
             leaderboardSubmissionFailure = string.Empty;
             leaderboardRequested = false;
             leaderboardRefreshQueued = false;
@@ -1772,6 +1803,8 @@ namespace MukJump.Core
             bool clearPendingLeaderboard,
             bool invalidateTokenLogin = true)
         {
+            skinRewardProfileToken = null;
+            skinRewardOwner = string.Empty;
             leaderboardSubmissionFailure = string.Empty;
             leaderboardRequested = false;
             leaderboardRefreshQueued = false;
@@ -2585,6 +2618,7 @@ namespace MukJump.Core
                 return;
             }
 
+            skinRewardProfileToken = null;
             long capturedSessionGeneration = accountSessionGeneration;
             string capturedAccountScope = CurrentAccountScope();
             cloudLoadAccountScope = capturedAccountScope;
@@ -2860,6 +2894,7 @@ namespace MukJump.Core
             }
 
             ClearPendingSyncConflict();
+            MarkSkinRewardProfileResolved();
             SetState(
                 MukJumpAccountPhase.OnlineReady,
                 "이 기기의 기록을 선택했습니다. 서버에 저장하는 중입니다");
@@ -3093,6 +3128,7 @@ namespace MukJump.Core
                 return false;
             }
             ClearPendingSyncConflict();
+            MarkSkinRewardProfileResolved();
             SetState(
                 MukJumpAccountPhase.OnlineReady,
                 dirty ? "기록을 확인해 서버에 저장하는 중" : "동기화 완료");
@@ -6594,6 +6630,7 @@ namespace MukJump.Core
                 KeepSavePending("서버 저장 완료 상태를 다시 확인합니다");
                 return;
             }
+            MarkSkinRewardProfileResolved();
             SetState(
                 MukJumpAccountPhase.OnlineReady,
                 dirty ? "새 변경 사항을 이어서 저장하는 중" : "동기화 완료");

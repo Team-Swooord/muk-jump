@@ -4204,6 +4204,70 @@ namespace MukJump.EditorTests
             Assert.That(ReadPrivateBool(account, "dirty"), Is.True);
         }
 
+        [TestCase("guest")] [TestCase("offline")] [TestCase("not-resolved")]
+        [TestCase("other-owner")] [TestCase("other-profile")] [TestCase("syncing")]
+        [Category("SkinSkills")]
+        public void AppleSkinRewardRejectsUnverifiedOrDifferentProfile(string guard)
+        {
+            var account = ReadyAppleSkinReward();
+            if (guard == "guest") typeof(MukJumpAccountRuntime).GetProperty("AccountKind").SetValue(account, MukJumpAccountKind.BackendGuest);
+            if (guard == "offline") typeof(MukJumpAccountRuntime).GetProperty("IsOnlineAuthenticated").SetValue(account, false);
+            if (guard == "not-resolved") SetPrivateField<object>(account, "skinRewardProfileToken", null);
+            if (guard == "other-owner") SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => "other-owner"));
+            if (guard == "other-profile") PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            if (guard == "syncing") SetPrivateField(account, "cloudLoadInFlight", true);
+            InvokeLifecycle(account, "PumpAppleLinkSkinReward");
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.BondKnot), Is.False);
+        }
+
+        [Test, Category("SkinSkills")] public void AppleSkinRewardSavesOnceWithoutInventingRunOrLeaderboardAndStaysWithOwner()
+        {
+            var account = ReadyAppleSkinReward();
+            int before = growthStore.SaveCount;
+            InvokeLifecycle(account, "PumpAppleLinkSkinReward");
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.BondKnot), Is.True);
+            Assert.That(growthStore.SaveCount, Is.EqualTo(before + 1));
+            Assert.That(ReadPrivateBool(account, "dirty"), Is.True);
+            Assert.That(PermanentGrowthProfile.HasCompletedRun, Is.False);
+            Assert.That(PlayerPrefs.HasKey("MukJump.Cloud.PendingLeaderboardBest"), Is.False);
+            SetPrivateField(account, "skinRewardRetryAt", 0f);
+            InvokeLifecycle(account, "PumpAppleLinkSkinReward");
+            Assert.That(growthStore.SaveCount, Is.EqualTo(before + 1));
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            InvokeLifecycle(account, "PumpAppleLinkSkinReward");
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.BondKnot), Is.False);
+            PermanentGrowthProfile.UseStoreForTests(growthStore);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.BondKnot), Is.True);
+            InvokeLifecycle(account, "BeginAuthenticatedAccountSession");
+            Assert.That(typeof(MukJumpAccountRuntime).GetField("skinRewardProfileToken", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(account), Is.Null);
+        }
+
+        [Test, Category("SkinSkills")] public void AppleSkinRewardFailureDoesNotGrantAndRecoveredProfileCanRetry()
+        {
+            var account = ReadyAppleSkinReward();
+            growthStore.ThrowOnPrimarySave = true;
+            InvokeLifecycle(account, "PumpAppleLinkSkinReward");
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.BondKnot), Is.False);
+            Assert.That(ReadPrivateBool(account, "dirty"), Is.False);
+            growthStore.ThrowOnPrimarySave = false;
+            Assert.That(PermanentGrowthProfile.TryRestoreBackup(), Is.True);
+            // 복구 프로필도 기존 서버 재저장 성공 후에만 계정 보상을 재개한다.
+            InvokeLifecycle(account, "MarkSkinRewardProfileResolved");
+            InvokeLifecycle(account, "PumpAppleLinkSkinReward");
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.BondKnot), Is.True);
+        }
+
+        MukJumpAccountRuntime ReadyAppleSkinReward()
+        {
+            var account = CreateReadySaveRuntime();
+            typeof(MukJumpAccountRuntime).GetProperty("AccountKind").SetValue(account, MukJumpAccountKind.Apple);
+            SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => "apple-skin-owner"));
+            PlayerPrefs.SetString("MukJump.Account.LastAuthenticatedOwner", "apple-skin-owner");
+            InvokeLifecycle(account, "MarkSkinRewardProfileResolved");
+            SetPrivateField(account, "dirty", false);
+            return account;
+        }
+
         MukJumpAccountRuntime CreateReadySaveRuntime()
         {
             host = new GameObject("AccountSaveFailureTest");

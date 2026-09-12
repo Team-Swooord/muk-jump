@@ -541,6 +541,83 @@ namespace MukJump.EditorTests
             Assert.That(growth.LastBreathAvailable,Is.True);
         }
 
+        [Test, Category("SkinSkills")] public void AppleSkinStartsWithExactlyOneRealInkDropAfterTutorialAndNeverOnRevive()
+        {
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            Assert.That(PermanentGrowthProfile.TryGrantAppleLinkSkin(PermanentGrowthProfile.SkinAccountToken), Is.True);
+            Assert.That(InkSkinPreferences.TryEquip(InkSkinId.BondKnot), Is.True);
+            var manager = Manager(out var growth);
+            var player = Player(); manager.RegisterPlayer(player);
+            Invoke(manager, "BeginPlayingAfterCover");
+            typeof(GameManager).GetProperty("IsPaused").SetValue(manager, true);
+            Assert.That(growth.TryGrantSkinStartBoost(), Is.False);
+            typeof(GameManager).GetProperty("IsPaused").SetValue(manager, false);
+            Assert.That(growth.TryGrantSkinStartBoost(), Is.True);
+            Assert.That(player.IsInkDropBoosted, Is.True);
+            Assert.That(player.Body.linearVelocity.y, Is.EqualTo(Mathf.Sqrt(2 * Mathf.Abs(Physics2D.gravity.y * player.Body.gravityScale) * 50)).Within(.01));
+            Assert.That(growth.TryGrantSkinStartBoost(), Is.False);
+            var stats = (SkinRunStats)typeof(GameManager).GetField("skinRunStats", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(manager);
+            Assert.That(stats.items, Is.EqualTo(1)); Assert.That(stats.inkDrops, Is.EqualTo(1));
+            Invoke(manager, "SetState", GameState.GameOver); Invoke(manager, "SetState", GameState.Playing);
+            Assert.That(growth.TryGrantSkinStartBoost(), Is.False);
+            Invoke(manager, "SetState", GameState.Lobby); Invoke(manager, "BeginPlayingAfterCover");
+            Assert.That(growth.TryGrantSkinStartBoost(), Is.True);
+        }
+
+        [Test, Category("SkinSkills")] public void WindSkinSkillUsesOneOriginalLeapAndGameplayOnlyCooldownWithoutItemCredit()
+        {
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            var stats = SkinRunStats.Begin(false, InkSkinId.Ink); stats.inkDrops = stats.items = 5;
+            PermanentGrowthProfile.SettleRun("wind-skin-unlock", 100, 100, 0, 20, true, stats);
+            Assert.That(InkSkinPreferences.TryEquip(InkSkinId.WindFan), Is.True);
+            var manager = Manager(out var growth);
+            var original = Player(); manager.RegisterPlayer(original);
+            var clone = Player(); Field(clone, "isRuntimeClone", true); manager.RegisterPlayer(clone);
+            Invoke(manager, "BeginPlayingAfterCover");
+            clone.Body.linearVelocity = Vector2.zero;
+            Assert.That(growth.TryUseActiveSkinSkill(), Is.True);
+            Assert.That(original.IsInkDropBoosted, Is.True); Assert.That(clone.IsInkDropBoosted, Is.False);
+            Assert.That(original.Body.linearVelocity.y, Is.EqualTo(Mathf.Sqrt(2 * Mathf.Abs(Physics2D.gravity.y * original.Body.gravityScale) * 25)).Within(.01));
+            Assert.That(growth.TryUseActiveSkinSkill(), Is.False);
+            Assert.That(original.AchievementItemFlight, Is.Zero);
+            stats = (SkinRunStats)typeof(GameManager).GetField("skinRunStats", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(manager);
+            Assert.That(stats.items, Is.Zero);
+            typeof(GameManager).GetProperty("IsPaused").SetValue(manager, true);
+            Invoke(growth, "TickSkinCooldown", 30f); Assert.That(growth.SkinSkillCooldownRemaining, Is.EqualTo(20));
+            typeof(GameManager).GetProperty("IsPaused").SetValue(manager, false);
+            MobileApplicationLifecycle.SetPlatformVisibility(false);
+            try { Invoke(growth, "TickSkinCooldown", 30f); Assert.That(growth.SkinSkillCooldownRemaining, Is.EqualTo(20)); }
+            finally { MobileApplicationLifecycle.SetPlatformVisibility(true); }
+            Invoke(manager, "SetState", GameState.GameOver); Invoke(manager, "SetState", GameState.Playing);
+            Assert.That(growth.SkinSkillCooldownRemaining, Is.EqualTo(20));
+            Invoke(growth, "TickSkinCooldown", 20f);
+            Assert.That(growth.CanUseActiveSkinSkill, Is.False, "특수 상승 중에는 재발동하지 않는다.");
+            typeof(PlayerController).GetProperty("IsInkDropBoosted").SetValue(original, false);
+            Assert.That(growth.CanUseActiveSkinSkill, Is.True);
+            typeof(PlayerController).GetProperty("IsDead").SetValue(original, true);
+            Assert.That(growth.TryUseActiveSkinSkill(), Is.False, "분신만 남아도 본체를 부활시키지 않는다.");
+            Invoke(manager, "SetState", GameState.Lobby);
+            settings.SetInt(InkSkinPreferences.StorageKey, (int)InkSkinId.Ink);
+            Invoke(manager, "SetState", GameState.Playing);
+            Assert.That(growth.HasActiveSkinSkill, Is.False);
+        }
+
+        [Test, Category("SkinSkills")] public void NewSkillSkinsHaveStableIdsAndCompleteLocalizations()
+        {
+            Assert.That((int)InkSkinId.BondKnot, Is.EqualTo(43)); Assert.That((int)InkSkinId.WindFan, Is.EqualTo(44));
+            foreach (var id in new[] { InkSkinId.BondKnot, InkSkinId.WindFan })
+            {
+                Assert.That(InkSkinCatalog.Sprite(id), Is.Not.Null);
+                Assert.That(InkSkinCatalog.HasAbility(id), Is.True);
+                foreach (var source in new[] { InkSkinCatalog.Name(id), InkSkinCatalog.Ability(id), InkSkinCatalog.Description(id), InkSkinAchievements.Requirement(id), InkSkinLore.Get(id).ko })
+                    foreach (bool ja in new[] { false, true })
+                    { Assert.That(InkSkinTranslations.TryTranslate(source, ja, out var translated), Is.True, source); Assert.That(translated, Is.Not.Empty); }
+            }
+            var saved = new SkinAchievementState(); saved.Grant(InkSkinId.BondKnot); saved.Grant(InkSkinId.WindFan);
+            Assert.That(saved.IsValid, Is.True);
+            Assert.That(JsonUtility.FromJson<SkinAchievementState>(JsonUtility.ToJson(saved)).Has(InkSkinId.BondKnot), Is.True);
+        }
+
         GameManager Manager(out RunGrowthController growth)
         {
             var host = Track(new GameObject("SkinTestSystems"));

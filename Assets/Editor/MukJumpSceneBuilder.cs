@@ -1337,6 +1337,7 @@ namespace MukJump.EditorTools
             go.AddComponent<GameOverPopupView>();
             go.AddComponent<PauseMenuView>();
             go.AddComponent<RunGrowthController>();
+            go.AddComponent<InkSkinSkillView>();
             var growthView = go.AddComponent<PermanentGrowthView>();
             var growthSettings = new SerializedObject(growthView);
             growthSettings.FindProperty("purchaseButtonTexture").objectReferenceValue =

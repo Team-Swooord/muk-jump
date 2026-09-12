@@ -2,9 +2,9 @@ using System;
 using UnityEngine;
 namespace MukJump.Core
 {
-    public enum InkSkinId { Ink = 0, Gat = 1, SpiderMask = 2, FirstRibbon = 3, Scholar = 4, InkGhost = 5, BambooHat = 6, RedHeadband = 7, LotusCrown = 8, CatEars = 9, BellRibbon = 10, CloudCap = 11, PaperBoat = 12, TeaCupHat = 13, FeatherHairpin = 14, PeachFlower = 15, FoxMask = 16, CraneCrest = 17, YakshaMask = 18, TurtleShell = 19, StormScarf = 20, MoonCrown = 21, BrushMaster = 22, SpiritHalo = 23, KoiMask = 24, JadeCrown = 25, PhoenixCrown = 26, TigerMask = 27, MountainKing = 28, CloudDragon = 29, InkMecha = 30, NightBat = 31, Astronaut = 32, ClockworkCat = 33, LuckyDice = 34, OrigamiWings = 35, CraneWings = 36, ButterflyWings = 37, RedShoes = 38, CloudBoots = 39, BlueWisps = 40, PaperLanterns = 41, MoonClouds = 42 }
+    public enum InkSkinId { Ink = 0, Gat = 1, SpiderMask = 2, FirstRibbon = 3, Scholar = 4, InkGhost = 5, BambooHat = 6, RedHeadband = 7, LotusCrown = 8, CatEars = 9, BellRibbon = 10, CloudCap = 11, PaperBoat = 12, TeaCupHat = 13, FeatherHairpin = 14, PeachFlower = 15, FoxMask = 16, CraneCrest = 17, YakshaMask = 18, TurtleShell = 19, StormScarf = 20, MoonCrown = 21, BrushMaster = 22, SpiritHalo = 23, KoiMask = 24, JadeCrown = 25, PhoenixCrown = 26, TigerMask = 27, MountainKing = 28, CloudDragon = 29, InkMecha = 30, NightBat = 31, Astronaut = 32, ClockworkCat = 33, LuckyDice = 34, OrigamiWings = 35, CraneWings = 36, ButterflyWings = 37, RedShoes = 38, CloudBoots = 39, BlueWisps = 40, PaperLanterns = 41, MoonClouds = 42, BondKnot = 43, WindFan = 44 }
     public enum SkinTier { Basic, Easy, Medium, Hard, Hidden, UltraHidden }
-    public enum SkinMetric { None, Best, Runs, Distance, DrawnLandings, InkDrops, Items, Survival, Clones, NightBest, Growth, NoItemBest, ZeroRun, Secret }
+    public enum SkinMetric { None, Best, Runs, Distance, DrawnLandings, InkDrops, Items, Survival, Clones, NightBest, Growth, NoItemBest, ZeroRun, Secret, AppleLink }
     public sealed class InkSkinDefinition
     {
         public readonly InkSkinId Id;
@@ -17,7 +17,7 @@ namespace MukJump.Core
     }
     public static class InkSkinCatalog
     {
-        public const int Count = 43;
+        public const int Count = 45;
         public const float AirJumpRatio = .4f;
         static readonly InkSkinDefinition[] definitions =
         {
@@ -63,7 +63,9 @@ namespace MukJump.Core
             new(InkSkinId.CloudBoots,"구름 장화","Cloud Boots","雲の靴","skin_cloud_boots_v1",SkinTier.Medium,SkinMetric.Distance,3000),
             new(InkSkinId.BlueWisps,"도깨비불 나들이","Wisp Parade","鬼火のおさんぽ","skin_blue_wisps_v1",SkinTier.Medium,SkinMetric.InkDrops,20),
             new(InkSkinId.PaperLanterns,"길 잃은 등불","Wandering Lanterns","迷子の灯り","skin_paper_lanterns_v1",SkinTier.Easy,SkinMetric.Runs,7),
-            new(InkSkinId.MoonClouds,"달구름 둥지","Mooncloud Nest","月雲の巣","skin_moon_clouds_v1",SkinTier.Medium,SkinMetric.NightBest,200)
+            new(InkSkinId.MoonClouds,"달구름 둥지","Mooncloud Nest","月雲の巣","skin_moon_clouds_v1",SkinTier.Medium,SkinMetric.NightBest,200),
+            new(InkSkinId.BondKnot,"인연 매듭","Bond Knot","縁結び","skin_bond_knot_v1",SkinTier.Basic,SkinMetric.AppleLink,1),
+            new(InkSkinId.WindFan,"바람부채","Wind Fan","風の扇","skin_wind_fan_v1",SkinTier.Medium,SkinMetric.InkDrops,5)
         };
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
         public static InkSkinId Normalize(InkSkinId id) => IsValid(id) ? id : InkSkinId.Ink;
@@ -90,15 +92,16 @@ namespace MukJump.Core
             SkinMetric.Best => "최고 고도", SkinMetric.Runs => "플레이 횟수", SkinMetric.Distance => "누적 고도",
             SkinMetric.DrawnLandings => "발판 착지", SkinMetric.InkDrops => "먹방울 수집", SkinMetric.Items => "아이템 수집",
             SkinMetric.Survival => "생존 시간", SkinMetric.Clones => "분신", SkinMetric.NightBest => "밤의 고도",
-            SkinMetric.Growth => "성장", SkinMetric.NoItemBest => "아이템 없는 도전", _ => "기본 의상" };
+            SkinMetric.Growth => "성장", SkinMetric.NoItemBest => "아이템 없는 도전", SkinMetric.AppleLink => "연동 보상", _ => "기본 의상" };
         public static bool IsSignatureCostume(InkSkinId id) => id is InkSkinId.CloudDragon or InkSkinId.InkMecha or InkSkinId.ClockworkCat;
         public static bool IsConcealed(InkSkinId id) => (Get(id)?.Tier is SkinTier.Hidden or SkinTier.UltraHidden) && !InkSkinAchievements.IsUnlocked(id);
         public static string Name(InkSkinId id) => Get(id)?.Korean ?? "???";
         public static bool HasAbility(InkSkinId id) => id is InkSkinId.Gat or InkSkinId.SpiderMask or
-            InkSkinId.SpiritHalo or InkSkinId.TurtleShell or InkSkinId.PhoenixCrown;
+            InkSkinId.SpiritHalo or InkSkinId.TurtleShell or InkSkinId.PhoenixCrown or InkSkinId.BondKnot or InkSkinId.WindFan;
         public static string Ability(InkSkinId id) => id switch {
             InkSkinId.Gat => "이단 도약", InkSkinId.SpiderMask => "거미 걸음",
             InkSkinId.SpiritHalo => "먹의 환원", InkSkinId.TurtleShell => "시작 방어막", InkSkinId.PhoenixCrown => "봉황의 숨결",
+            InkSkinId.BondKnot => "첫걸음 도약", InkSkinId.WindFan => "바람 도약",
             _ => "먹의 장식" };
         public static string Description(InkSkinId id) => id switch {
             InkSkinId.Gat => "점프 정점에서 한 번 더 도약해요.\n첫 도약의 40% 힘으로 자동 발동해요.",
@@ -106,10 +109,12 @@ namespace MukJump.Core
             InkSkinId.SpiritHalo => "분신이 쓰러질 때마다 본체 체력을 1칸 회복해요.\n최대 체력을 넘거나 쓰러진 본체를 되살리지는 않아요.",
             InkSkinId.TurtleShell => "매 판 본체에게 방어막 1개를 주고 시작해요.\n충돌·추락을 한 번 막으며 분신에게는 적용되지 않아요.",
             InkSkinId.PhoenixCrown => "한 판에 한 번 본체가 체력 1칸으로 살아남아 50m 올라가요.\n성장 부활과 횟수를 공유하며 분신에게는 적용되지 않아요.",
+            InkSkinId.BondKnot => "매 판 시작에 먹방울 아이템으로 50m 올라가요.\n튜토리얼이 끝나면 발동하며 부활 때는 다시 주지 않아요.",
+            InkSkinId.WindFan => "전용 버튼으로 본체가 25m 도약해요.\n상승 중 피해를 막고, 20초 뒤 다시 쓸 수 있어요.",
             _ => "원래 먹에 장식을 더해요.\n기존 점프와 성장 효과를 유지해요." };
         public static string ResourcePath(InkSkinId id) => Get(id) is { Asset: { Length: > 0 } } d ? "MukJump/Skins/" + d.Asset : "";
         public static bool BehindBody(InkSkinId id) => id is InkSkinId.OrigamiWings or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.SpiritHalo
-            or InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds;
+            or InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds or InkSkinId.WindFan;
         public static bool IsFootwear(InkSkinId id) => id is InkSkinId.RedShoes or InkSkinId.CloudBoots;
         // 1024 프레임 전체가 기준이다. 실제 먹 몸통은 약 0.7배 폭이며 넉넉한 착용선을 사용한다.
         public static float Width(InkSkinId id) => id switch {
@@ -129,6 +134,7 @@ namespace MukJump.Core
             InkSkinId.ClockworkCat => 1.02f, InkSkinId.SpiritHalo => 1.04f, InkSkinId.LuckyDice => .88f,
             InkSkinId.CraneWings => 1.35f, InkSkinId.ButterflyWings => 1.30f, InkSkinId.OrigamiWings => 1.30f,
             InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds => 1.22f,
+            InkSkinId.BondKnot => .40f, InkSkinId.WindFan => .90f,
             InkSkinId.RedShoes or InkSkinId.CloudBoots => 1f, _ => .68f };
         public static Vector2 Offset(InkSkinId id)
         {
@@ -139,6 +145,8 @@ namespace MukJump.Core
             if (id == InkSkinId.FeatherHairpin) return new Vector2(.22f, .27f);
             if (id == InkSkinId.StormScarf) return new Vector2(.045f, .16f);
             if (id == InkSkinId.ClockworkCat) return new Vector2(.04f, .10f);
+            if (id == InkSkinId.BondKnot) return new Vector2(.25f, .20f);
+            if (id == InkSkinId.WindFan) return new Vector2(-.20f, .22f);
             return new Vector2(0, id switch {
                 InkSkinId.Gat => .32f, InkSkinId.Scholar => .34f, InkSkinId.BambooHat => .36f,
                 InkSkinId.LotusCrown => .33f, InkSkinId.CraneCrest => .31f, InkSkinId.PhoenixCrown => .40f,
@@ -191,6 +199,7 @@ namespace MukJump.Core
                 SkinMetric.Growth => $"성장 노드 {d.Goal}개 획득",
                 SkinMetric.NoItemBest => $"아이템 없이 {d.Goal}m 달성",
                 SkinMetric.ZeroRun => "그린 발판에 착지하지 않고 한 판 완료",
+                SkinMetric.AppleLink => "Apple 계정 연동 완료",
                 _ => id switch {
                     InkSkinId.NightBat => "로비를 밤으로 바꾸기",
                     InkSkinId.Astronaut => "낮과 밤을 여섯 번 바꾸기",

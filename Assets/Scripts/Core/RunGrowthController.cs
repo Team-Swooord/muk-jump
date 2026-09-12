@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using MukJump.Drawing;
 using MukJump.Player;
+using MukJump.Items;
 using UnityEngine;
 
 namespace MukJump.Core
@@ -28,6 +29,63 @@ namespace MukJump.Core
         PlatformCollider activeSafetyPlatform;
         readonly List<PlayerController> skinPlayers = new(GameManager.MaxLivingPlayers);
         bool skinStartShieldGranted;
+        [SerializeField] bool skinStartBoostGranted;
+        [SerializeField] float skinSkillCooldown;
+        public const float SkinSkillCooldownSeconds = 20f;
+        public const float SkinSkillJumpHeight = 25f;
+        public float SkinSkillCooldownRemaining => skinSkillCooldown;
+        public bool HasActiveSkinSkill => SkinSnapshot == InkSkinId.WindFan;
+        public bool CanUseActiveSkinSkill => HasActiveSkinSkill && skinSkillCooldown <= 0 &&
+            CanTickSkinAbility && OriginalSkinPlayer() is { IsInkDropBoosted: false };
+        bool CanTickSkinAbility => manager != null && manager.IsGameplayTicking &&
+            MobileApplicationLifecycle.IsApplicationActive &&
+            MukJumpAccountRuntime.Instance?.BlocksGameplayForAccountSync != true;
+
+        void Update()
+        {
+            TickSkinCooldown(Time.deltaTime);
+            TryGrantSkinStartBoost();
+        }
+
+        void TickSkinCooldown(float seconds)
+        {
+            if (CanTickSkinAbility && float.IsFinite(seconds) && seconds > 0)
+                skinSkillCooldown = Mathf.Max(0, skinSkillCooldown - seconds);
+        }
+
+        PlayerController OriginalSkinPlayer()
+        {
+            if (manager == null) return null;
+            manager.GetLivingPlayersNonAlloc(skinPlayers);
+            foreach (var player in skinPlayers)
+                if (player != null && player.isActiveAndEnabled && !player.IsDead && !player.IsRuntimeClone &&
+                    player.Body != null && player.Body.simulated) return player;
+            return null;
+        }
+
+        // 전환·첫 안내 뒤 실제 물리가 재개된 첫 프레임에 한 번만 먹방울을 받는다.
+        public bool TryGrantSkinStartBoost()
+        {
+            if (skinStartBoostGranted || SkinSnapshot != InkSkinId.BondKnot || !CanTickSkinAbility) return false;
+            var player = OriginalSkinPlayer();
+            if (player == null || !ItemEffect.Apply(ItemType.InkDrop, player)) return false;
+            skinStartBoostGranted = true;
+            manager.NotifySkinItemCollected(true);
+            manager.NotifyAchievementPickup(true, 0);
+            return true;
+        }
+
+        // 스킨 비기는 픽업이 아니다. 수집 업적·아이템 비행 연쇄를 늘리지 않는다.
+        public bool TryUseActiveSkinSkill()
+        {
+            if (!CanUseActiveSkinSkill) return false;
+            var player = OriginalSkinPlayer();
+            if (player == null) return false;
+            skinSkillCooldown = SkinSkillCooldownSeconds;
+            player.LaunchInkDrop(SkinSkillJumpHeight);
+            player.GetComponent<InkDropJumpVfx>()?.Play();
+            return true;
+        }
 
         void Awake()
         {
@@ -269,6 +327,8 @@ namespace MukJump.Core
         {
             LastBreathAvailable = PermanentSnapshot.HasLastBreath || SkinSnapshot == InkSkinId.PhoenixCrown;
             skinStartShieldGranted = false;
+            skinStartBoostGranted = false;
+            skinSkillCooldown = 0;
             stableHitReadyAt = float.NegativeInfinity;
             lastFallBrakeReadyAt = float.NegativeInfinity;
             SafetyJumpProgress = 0;

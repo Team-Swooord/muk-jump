@@ -271,6 +271,12 @@ namespace MukJump.Drawing
                     PointerInput.SuppressUntilRelease();
                     return;
                 }
+                if (InkSkinSkillView.IsPointerOverControls(screenPos))
+                {
+                    if (drawing) CancelStroke();
+                    PointerInput.SuppressUntilRelease();
+                    return;
+                }
                 if (GameplayHudView.IsPointerOverItemTestControls(screenPos) ||
                     PauseMenuView.IsPointerOverControls(screenPos) ||
                     FirstRunTutorialController.IsPointerOverControls(screenPos))

@@ -28,6 +28,17 @@ namespace MukJump.Core
                 ["크게 보기"] = ("Preview", "試着"),
                 ["같은 해금 조건끼리"] = ("Grouped by unlock goal", "解放条件ごとに表示"),
                 ["기본 의상"] = ("Starter outfit", "基本の衣装"),
+                ["연동 보상"] = ("Link reward", "連携報酬"),
+                ["Apple 계정 연동 완료"] = ("Link your Apple account", "Appleアカウントを連携"),
+                ["첫걸음 도약"] = ("First Leap", "はじまりの跳躍"),
+                ["바람 도약"] = ("Wind Leap", "風の跳躍"),
+                ["도약"] = ("Leap", "跳躍"),
+                ["준비"] = ("Ready", "準備完了"),
+                ["대기"] = ("Wait", "待機"),
+                ["매 판 시작에 먹방울 아이템으로 50m 올라가요.\n튜토리얼이 끝나면 발동하며 부활 때는 다시 주지 않아요."] =
+                    ("Start each run with a 50m Ink Drop boost.\nAfter the tutorial; not granted on revival.", "毎回、墨滴で50m上昇してスタート。\nチュートリアル後に発動。復活時は再発動しません。"),
+                ["전용 버튼으로 본체가 25m 도약해요.\n상승 중 피해를 막고, 20초 뒤 다시 쓸 수 있어요."] =
+                    ("Tap the skill button to leap 25m with Ink.\nProtected while rising. Cooldown: 20s.", "専用ボタンで本体が25m跳躍。\n上昇中はダメージを防ぎ、20秒後に再使用できます。"),
                 ["최고 고도"] = ("Best height", "最高高度"),
                 ["플레이 횟수"] = ("Runs completed", "プレイ回数"),
                 ["누적 고도"] = ("Total height", "累計高度"),
@@ -141,6 +152,8 @@ namespace MukJump.Core
             InkSkinId.BlueWisps => ("무섭게 따라오려다 산책이 되어 버렸다.", "They meant to haunt you. It turned into a stroll.", "脅かすつもりが、おさんぽになった。"),
             InkSkinId.PaperLanterns => ("집으로 가는 길은 모르지만 일단 따라온다.", "They forgot the way home, so they follow you.", "帰り道は忘れたけれど、とりあえずついてくる。"),
             InkSkinId.MoonClouds => ("달이 낮잠 잘 자리를 잘못 골랐다.", "The moon picked the wrong place for a nap.", "月がお昼寝する場所を間違えた。"),
+            InkSkinId.BondKnot => ("인연을 묶었더니 발이 먼저 떠올랐다.", "One little bond. Two feet off the ground.", "縁を結んだら、足が先に浮かんだ。"),
+            InkSkinId.WindFan => ("불을 끄려다 주인부터 날려 버렸다.", "Meant to cool the fire. Blew its owner away.", "火を消すつもりが、持ち主を飛ばした。"),
             _ => ("", "", "")
         };
     }

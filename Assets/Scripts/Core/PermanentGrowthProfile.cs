@@ -519,6 +519,19 @@ namespace MukJump.Core
             return true;
         }
 
+        // 인증 제공자·서버 프로필 확인이 끝난 런타임만 호출한다. 계정 교체나 저장 실패에는 지급하지 않는다.
+        public static bool TryGrantAppleLinkSkin(object owner)
+        {
+            EnsureLoaded();
+            if (writeBlocked || !ReferenceEquals(owner, data)) return false;
+            if (data.skinAchievements.Has(InkSkinId.BondKnot)) return true;
+            var snapshot = CaptureMutationSnapshot();
+            data.skinAchievements.Grant(InkSkinId.BondKnot);
+            if (!Save(snapshot)) return false;
+            NotifyChangedSafely();
+            return ReferenceEquals(owner, data);
+        }
+
         public static int ClaimedDistanceRewardCount
         {
             get
