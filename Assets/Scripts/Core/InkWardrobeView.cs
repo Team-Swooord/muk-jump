@@ -11,6 +11,7 @@ namespace MukJump.Core
         CanvasGroup rootGroup;
         RectTransform safeRoot, paper;
         Image previewBody, previewAccessory;
+        float accessoryMotionTime;
         UnityEngine.UI.Text previewQuestion;
         readonly Button[] neighborButtons = new Button[2];
         InkShowroomPresentation presentation;
@@ -93,6 +94,10 @@ namespace MukJump.Core
             else if (!collectionScroll.enabled) collectionScroll.enabled = true;
             if (Time.unscaledTime >= refreshAt) { refreshAt = Time.unscaledTime + .25f; RefreshSelection(); }
             UpdateProgress();
+            if (canScroll && (GameManager.Instance == null || !GameManager.Instance.IsPaused))
+                accessoryMotionTime += Mathf.Min(.05f, Time.unscaledDeltaTime);
+            (previewAccessory as InkAccessoryImage)?.PresentMotion(selected, accessoryMotionTime,
+                SkinDebugSession.CanEquip(selected) ? InkAccessoryMotion.Strength : 0f);
             if (GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby) SetNavigationPresentation(false,false);
         }
         public void Select(InkSkinId id)

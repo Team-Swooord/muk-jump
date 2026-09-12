@@ -138,6 +138,9 @@ namespace MukJump.Core
             InkSkinId.ButterflyWings => ("먹이 묻은 줄 모르고 날아온 나비.", "A butterfly unaware of its ink stains.", "墨がついたとも知らず、飛んできた蝶。"),
             InkSkinId.RedShoes => ("발자국부터 먼저 길을 나섰다.", "The footprints set off before their owner.", "足跡のほうが、先に旅に出た。"),
             InkSkinId.CloudBoots => ("비 오는 날엔 양말까지 구름이 된다.", "On rainy days, even the socks turn to cloud.", "雨の日には、靴下まで雲になる。"),
+            InkSkinId.BlueWisps => ("무섭게 따라오려다 산책이 되어 버렸다.", "They meant to haunt you. It turned into a stroll.", "脅かすつもりが、おさんぽになった。"),
+            InkSkinId.PaperLanterns => ("집으로 가는 길은 모르지만 일단 따라온다.", "They forgot the way home, so they follow you.", "帰り道は忘れたけれど、とりあえずついてくる。"),
+            InkSkinId.MoonClouds => ("달이 낮잠 잘 자리를 잘못 골랐다.", "The moon picked the wrong place for a nap.", "月がお昼寝する場所を間違えた。"),
             _ => ("", "", "")
         };
     }

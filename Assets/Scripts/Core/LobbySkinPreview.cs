@@ -59,6 +59,7 @@ namespace MukJump.Core
                 (GameManager.Instance == null || !GameManager.Instance.IsPaused))
                 elapsed += Mathf.Min(Time.unscaledDeltaTime, .05f);
             ApplyPose(reduced ? 0f : elapsed, reduced);
+            accessory.PresentMotion(shown, elapsed, InkAccessoryMotion.Strength);
         }
 
         void RefreshSkin(InkSkinId id)
@@ -149,6 +150,7 @@ namespace MukJump.Core
                 {
                     float width = InkSkinCatalog.Width(id);
                     Vector2 half = new Vector2(width, width * sprite.rect.height / sprite.rect.width) * .5f;
+                    if (InkAccessoryMotion.Supports(id)) half *= 1f + InkAccessoryMotion.Padding * 2f;
                     min = Vector2.Min(min, InkSkinCatalog.Offset(id) - half);
                     max = Vector2.Max(max, InkSkinCatalog.Offset(id) + half);
                 }

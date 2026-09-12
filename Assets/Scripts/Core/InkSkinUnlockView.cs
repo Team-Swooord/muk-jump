@@ -21,6 +21,7 @@ namespace MukJump.Core
         Action completed, invalidated;
         int count, index;
         float elapsed, nextActionAt;
+        float accessoryMotionTime;
         uint inactiveGeneration;
         bool visible, revealed, debugPreview;
         AudioClip revealSound;
@@ -91,6 +92,10 @@ namespace MukJump.Core
             if (!MobileApplicationLifecycle.IsApplicationActive || inactiveGeneration != MobileApplicationLifecycle.InactiveGeneration)
             { StopSound(); soundPlayed = true; FinishReveal(); return; }
             if (revealSource != null) revealSource.volume = InkSkinUnlockSound.Volume * LobbySettingsProfile.SfxVolume;
+            if (GameManager.Instance == null || !GameManager.Instance.IsPaused)
+                accessoryMotionTime += Mathf.Min(.05f, Time.unscaledDeltaTime);
+            (accessory as InkAccessoryImage)?.PresentMotion(Current, accessoryMotionTime,
+                revealed ? InkAccessoryMotion.Strength : 0f);
             if (LobbySettingsProfile.ReducedMotionEnabled)
             { FinishReveal(); PlayRevealSound(); return; }
             elapsed = Mathf.Min(Duration, elapsed + Mathf.Min(.05f, Time.unscaledDeltaTime));

@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 namespace MukJump.Core
 {
-    public enum InkSkinId { Ink = 0, Gat = 1, SpiderMask = 2, FirstRibbon = 3, Scholar = 4, InkGhost = 5, BambooHat = 6, RedHeadband = 7, LotusCrown = 8, CatEars = 9, BellRibbon = 10, CloudCap = 11, PaperBoat = 12, TeaCupHat = 13, FeatherHairpin = 14, PeachFlower = 15, FoxMask = 16, CraneCrest = 17, YakshaMask = 18, TurtleShell = 19, StormScarf = 20, MoonCrown = 21, BrushMaster = 22, SpiritHalo = 23, KoiMask = 24, JadeCrown = 25, PhoenixCrown = 26, TigerMask = 27, MountainKing = 28, CloudDragon = 29, InkMecha = 30, NightBat = 31, Astronaut = 32, ClockworkCat = 33, LuckyDice = 34, OrigamiWings = 35, CraneWings = 36, ButterflyWings = 37, RedShoes = 38, CloudBoots = 39 }
+    public enum InkSkinId { Ink = 0, Gat = 1, SpiderMask = 2, FirstRibbon = 3, Scholar = 4, InkGhost = 5, BambooHat = 6, RedHeadband = 7, LotusCrown = 8, CatEars = 9, BellRibbon = 10, CloudCap = 11, PaperBoat = 12, TeaCupHat = 13, FeatherHairpin = 14, PeachFlower = 15, FoxMask = 16, CraneCrest = 17, YakshaMask = 18, TurtleShell = 19, StormScarf = 20, MoonCrown = 21, BrushMaster = 22, SpiritHalo = 23, KoiMask = 24, JadeCrown = 25, PhoenixCrown = 26, TigerMask = 27, MountainKing = 28, CloudDragon = 29, InkMecha = 30, NightBat = 31, Astronaut = 32, ClockworkCat = 33, LuckyDice = 34, OrigamiWings = 35, CraneWings = 36, ButterflyWings = 37, RedShoes = 38, CloudBoots = 39, BlueWisps = 40, PaperLanterns = 41, MoonClouds = 42 }
     public enum SkinTier { Basic, Easy, Medium, Hard, Hidden, UltraHidden }
     public enum SkinMetric { None, Best, Runs, Distance, DrawnLandings, InkDrops, Items, Survival, Clones, NightBest, Growth, NoItemBest, ZeroRun, Secret }
     public sealed class InkSkinDefinition
@@ -17,7 +17,7 @@ namespace MukJump.Core
     }
     public static class InkSkinCatalog
     {
-        public const int Count = 40;
+        public const int Count = 43;
         public const float AirJumpRatio = .4f;
         static readonly InkSkinDefinition[] definitions =
         {
@@ -60,7 +60,10 @@ namespace MukJump.Core
             new(InkSkinId.CraneWings,"학의 날개","Crane Wings","鶴の翼","skin_crane_wings_v1",SkinTier.Medium,SkinMetric.Best,350),
             new(InkSkinId.ButterflyWings,"먹나비 날개","Ink Butterfly","墨蝶の羽","skin_butterfly_wings_v1",SkinTier.Medium,SkinMetric.Items,50),
             new(InkSkinId.RedShoes,"붉은 버선","Crimson Steps","紅の足袋","skin_red_shoes_v1",SkinTier.Easy,SkinMetric.DrawnLandings,15),
-            new(InkSkinId.CloudBoots,"구름 장화","Cloud Boots","雲の靴","skin_cloud_boots_v1",SkinTier.Medium,SkinMetric.Distance,3000)
+            new(InkSkinId.CloudBoots,"구름 장화","Cloud Boots","雲の靴","skin_cloud_boots_v1",SkinTier.Medium,SkinMetric.Distance,3000),
+            new(InkSkinId.BlueWisps,"도깨비불 나들이","Wisp Parade","鬼火のおさんぽ","skin_blue_wisps_v1",SkinTier.Medium,SkinMetric.InkDrops,20),
+            new(InkSkinId.PaperLanterns,"길 잃은 등불","Wandering Lanterns","迷子の灯り","skin_paper_lanterns_v1",SkinTier.Easy,SkinMetric.Runs,7),
+            new(InkSkinId.MoonClouds,"달구름 둥지","Mooncloud Nest","月雲の巣","skin_moon_clouds_v1",SkinTier.Medium,SkinMetric.NightBest,200)
         };
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
         public static InkSkinId Normalize(InkSkinId id) => IsValid(id) ? id : InkSkinId.Ink;
@@ -105,7 +108,8 @@ namespace MukJump.Core
             InkSkinId.PhoenixCrown => "한 판에 한 번 본체가 체력 1칸으로 살아남아 50m 올라가요.\n성장 부활과 횟수를 공유하며 분신에게는 적용되지 않아요.",
             _ => "원래 먹에 장식을 더해요.\n기존 점프와 성장 효과를 유지해요." };
         public static string ResourcePath(InkSkinId id) => Get(id) is { Asset: { Length: > 0 } } d ? "MukJump/Skins/" + d.Asset : "";
-        public static bool BehindBody(InkSkinId id) => id is InkSkinId.OrigamiWings or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.SpiritHalo;
+        public static bool BehindBody(InkSkinId id) => id is InkSkinId.OrigamiWings or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.SpiritHalo
+            or InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds;
         public static bool IsFootwear(InkSkinId id) => id is InkSkinId.RedShoes or InkSkinId.CloudBoots;
         // 1024 프레임 전체가 기준이다. 실제 먹 몸통은 약 0.7배 폭이며 넉넉한 착용선을 사용한다.
         public static float Width(InkSkinId id) => id switch {
@@ -124,6 +128,7 @@ namespace MukJump.Core
             InkSkinId.CloudDragon => 1.00f, InkSkinId.InkMecha => 1.00f, InkSkinId.Astronaut => 1.05f,
             InkSkinId.ClockworkCat => 1.02f, InkSkinId.SpiritHalo => 1.04f, InkSkinId.LuckyDice => .88f,
             InkSkinId.CraneWings => 1.35f, InkSkinId.ButterflyWings => 1.30f, InkSkinId.OrigamiWings => 1.30f,
+            InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds => 1.22f,
             InkSkinId.RedShoes or InkSkinId.CloudBoots => 1f, _ => .68f };
         public static Vector2 Offset(InkSkinId id)
         {

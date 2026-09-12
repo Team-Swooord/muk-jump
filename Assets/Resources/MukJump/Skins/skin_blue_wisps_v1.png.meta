@@ -1,0 +1,455 @@
+fileFormatVersion: 2
+guid: b197b2fd89a9f4857b9516a17b4ddcb0
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -3938731411033429941
+    second: skin_blue_wisps_v1_0
+  - first:
+      213: -469519187788911345
+    second: skin_blue_wisps_v1_1
+  - first:
+      213: -6709638055089125984
+    second: skin_blue_wisps_v1_2
+  - first:
+      213: -4717528416075010149
+    second: skin_blue_wisps_v1_3
+  - first:
+      213: 5160567799195567786
+    second: skin_blue_wisps_v1_4
+  - first:
+      213: -7921839911823605032
+    second: skin_blue_wisps_v1_5
+  - first:
+      213: 2782707018952991274
+    second: skin_blue_wisps_v1_6
+  - first:
+      213: -4881575787920452321
+    second: skin_blue_wisps_v1_7
+  - first:
+      213: -7395777587259603519
+    second: skin_blue_wisps_v1_8
+  - first:
+      213: 5200238033770862194
+    second: skin_blue_wisps_v1_9
+  - first:
+      213: 4114072613700317257
+    second: skin_blue_wisps_v1_10
+  - first:
+      213: -3135090170418528203
+    second: skin_blue_wisps_v1_11
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 0
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 512
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: iOS
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: skin_blue_wisps_v1_0
+      rect:
+        serializedVersion: 2
+        x: 104
+        y: 738
+        width: 377
+        height: 317
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b48eda366a0d659c0800000000000000
+      internalID: -3938731411033429941
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: skin_blue_wisps_v1_1
+      rect:
+        serializedVersion: 2
+        x: 504
+        y: 811
+        width: 263
+        height: 401
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f0dac9c49ceeb79f0800000000000000
+      internalID: -469519187788911345
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: skin_blue_wisps_v1_2
+      rect:
+        serializedVersion: 2
+        x: 711
+        y: 803
+        width: 26
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0a548f2fcb392e2a0800000000000000
+      internalID: -6709638055089125984
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: skin_blue_wisps_v1_3
+      rect:
+        serializedVersion: 2
+        x: 731
+        y: 377
+        width: 502
+        height: 821
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b9fa90e66e8f78eb0800000000000000
+      internalID: -4717528416075010149
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: skin_blue_wisps_v1_4
+      rect:
+        serializedVersion: 2
+        x: 695
+        y: 769
+        width: 46
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: aa60f5e42150e9740800000000000000
+      internalID: 5160567799195567786
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: skin_blue_wisps_v1_5
+      rect:
+        serializedVersion: 2
+        x: 1093
+        y: 697
+        width: 17
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8d20e386298ff0290800000000000000
+      internalID: -7921839911823605032
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: skin_blue_wisps_v1_6
+      rect:
+        serializedVersion: 2
+        x: 28
+        y: 71
+        width: 490
+        height: 618
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a22eda25a492e9620800000000000000
+      internalID: 2782707018952991274
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: skin_blue_wisps_v1_7
+      rect:
+        serializedVersion: 2
+        x: 360
+        y: 650
+        width: 35
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f159ad04fa8214cb0800000000000000
+      internalID: -4881575787920452321
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: skin_blue_wisps_v1_8
+      rect:
+        serializedVersion: 2
+        x: 1049
+        y: 382
+        width: 175
+        height: 262
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1c58899087bec5990800000000000000
+      internalID: -7395777587259603519
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: skin_blue_wisps_v1_9
+      rect:
+        serializedVersion: 2
+        x: 900
+        y: 55
+        width: 178
+        height: 253
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 276536e80f4fa2840800000000000000
+      internalID: 5200238033770862194
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: skin_blue_wisps_v1_10
+      rect:
+        serializedVersion: 2
+        x: 1119
+        y: 278
+        width: 56
+        height: 30
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 94035cfae3f181930800000000000000
+      internalID: 4114072613700317257
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: skin_blue_wisps_v1_11
+      rect:
+        serializedVersion: 2
+        x: 1180
+        y: 304
+        width: 39
+        height: 22
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5308265b91ced74d0800000000000000
+      internalID: -3135090170418528203
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      skin_blue_wisps_v1_0: -3938731411033429941
+      skin_blue_wisps_v1_1: -469519187788911345
+      skin_blue_wisps_v1_10: 4114072613700317257
+      skin_blue_wisps_v1_11: -3135090170418528203
+      skin_blue_wisps_v1_2: -6709638055089125984
+      skin_blue_wisps_v1_3: -4717528416075010149
+      skin_blue_wisps_v1_4: 5160567799195567786
+      skin_blue_wisps_v1_5: -7921839911823605032
+      skin_blue_wisps_v1_6: 2782707018952991274
+      skin_blue_wisps_v1_7: -4881575787920452321
+      skin_blue_wisps_v1_8: -7395777587259603519
+      skin_blue_wisps_v1_9: 5200238033770862194
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
