@@ -24,6 +24,11 @@ namespace MukJump.Core
         uint inactiveGeneration;
         bool visible, revealed, debugPreview;
         AudioClip revealSound;
+        AudioSource revealSource;
+        bool soundPlayed;
+#if UNITY_EDITOR
+        public int SoundPlayCountForTests { get; private set; }
+#endif
         public bool IsOpen => visible;
         public int Count => count;
         public InkSkinId Current => count > 0 ? rewards[index] : InkSkinId.Ink;
@@ -50,6 +55,7 @@ namespace MukJump.Core
         }
         void BindCurrent()
         {
+            StopSound(); soundPlayed = false;
             presentation.Cancel(); elapsed = 0f; revealed = false;
             inactiveGeneration = MobileApplicationLifecycle.InactiveGeneration;
             nextActionAt = Time.unscaledTime + .16f;
@@ -73,7 +79,8 @@ namespace MukJump.Core
             }
             body.color = accessory.color = Color.white;
             presentation.RememberCostumePose();
-            if (LobbySettingsProfile.ReducedMotionEnabled || !Application.isPlaying) FinishReveal();
+            if (LobbySettingsProfile.ReducedMotionEnabled || !Application.isPlaying)
+            { FinishReveal(); PlayRevealSound(); }
             else ApplyPose();
         }
         void Update()
@@ -81,16 +88,17 @@ namespace MukJump.Core
             if (!visible) return;
             if (!IsCurrentContext()) { Invalidate(); return; }
             ApplyLayout();
-            if (!MobileApplicationLifecycle.IsApplicationActive || inactiveGeneration != MobileApplicationLifecycle.InactiveGeneration ||
-                LobbySettingsProfile.ReducedMotionEnabled)
-            { FinishReveal(); return; }
+            if (!MobileApplicationLifecycle.IsApplicationActive || inactiveGeneration != MobileApplicationLifecycle.InactiveGeneration)
+            { StopSound(); soundPlayed = true; FinishReveal(); return; }
+            if (revealSource != null) revealSource.volume = InkSkinUnlockSound.Volume * LobbySettingsProfile.SfxVolume;
+            if (LobbySettingsProfile.ReducedMotionEnabled)
+            { FinishReveal(); PlayRevealSound(); return; }
             elapsed = Mathf.Min(Duration, elapsed + Mathf.Min(.05f, Time.unscaledDeltaTime));
             if (!revealed && elapsed >= RevealAt)
             {
                 revealed = true;
                 presentation.Wear();
-                // 하나의 짧은 붓 소리만 사용한다. 파편마다 소리를 겹치지 않는다.
-                VfxAudioManager.Instance?.PlayOneShot(revealSound, .38f);
+                PlayRevealSound();
             }
             ApplyPose();
         }
@@ -126,7 +134,7 @@ namespace MukJump.Core
             if (!CanAdvance()) return;
             PointerInput.SuppressUntilRelease();
             nextActionAt = Time.unscaledTime + .16f;
-            if (elapsed < Duration) { FinishReveal(); return; }
+            if (elapsed < Duration) { FinishReveal(); PlayRevealSound(); return; }
             if (++index >= count) { index = count - 1; Complete(); return; }
             BindCurrent();
         }
@@ -147,12 +155,45 @@ namespace MukJump.Core
         }
         public void Cancel()
         {
+            StopSound();
             visible = false; completed = invalidated = null; account = null;
             presentation?.Cancel();
             if (group == null) return;
             group.alpha = 0f; group.interactable = group.blocksRaycasts = false;
         }
         void OnDisable() => Cancel();
+        void OnApplicationPause(bool paused) { if (paused) SuspendReveal(); }
+        void OnApplicationFocus(bool focused) { if (!focused) SuspendReveal(); }
+        void SuspendReveal()
+        {
+            StopSound();
+            if (!visible) return;
+            soundPlayed = true;
+            FinishReveal();
+        }
+        void OnDestroy()
+        {
+            StopSound();
+            if (revealSource != null) revealSource.clip = null;
+            if (revealSound == null) return;
+            if (Application.isPlaying) Destroy(revealSound);
+            else DestroyImmediate(revealSound);
+            revealSound = null;
+        }
+        void StopSound() { if (revealSource != null) revealSource.Stop(); }
+        void PlayRevealSound()
+        {
+            if (soundPlayed || !Application.isPlaying || !visible ||
+                !MobileApplicationLifecycle.IsApplicationActive || !IsCurrentContext()) return;
+            // 무음으로 지나간 해금도 소진해 설정 변경·앱 복귀에 뒤늦게 울리지 않는다.
+            soundPlayed = true;
+            if (revealSource == null || revealSound == null || LobbySettingsProfile.SfxVolume <= 0f) return;
+            revealSource.volume = InkSkinUnlockSound.Volume * LobbySettingsProfile.SfxVolume;
+            revealSource.Play();
+#if UNITY_EDITOR
+            SoundPlayCountForTests++;
+#endif
+        }
         void Build()
         {
             if (group != null) return;
@@ -187,7 +228,15 @@ namespace MukJump.Core
             nextButton.onClick.AddListener(Advance);
             skipButton = Button("AcknowledgeAll", paper, "모두 확인", new Vector2(0, -619), new Vector2(420, 92), out _);
             skipButton.onClick.AddListener(AcknowledgeAll);
-            revealSound = Resources.Load<AudioClip>("MukJump/Audio/SFX/SFX_Brush_Transition");
+            var audioRoot = new GameObject("UnlockRevealAudio", typeof(AudioSource));
+            audioRoot.transform.SetParent(root.transform, false);
+            revealSource = audioRoot.GetComponent<AudioSource>();
+            revealSource.playOnAwake = revealSource.loop = false;
+            revealSource.spatialBlend = 0f;
+            revealSource.ignoreListenerPause = false;
+            float[] samples = InkSkinUnlockSound.BuildSamples();
+            revealSound = AudioClip.Create("Ink_Unlock_BrightPlucks", samples.Length, 1, InkSkinUnlockSound.SampleRate, false);
+            revealSound.SetData(samples, 0); revealSource.clip = revealSound;
             group.alpha = 0f; group.interactable = group.blocksRaycasts = false;
         }
         void ApplyLayout()
