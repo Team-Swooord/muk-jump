@@ -45,17 +45,34 @@ namespace MukJump.EditorTests
                 foreach (var language in new[]{GameLanguage.Korean,GameLanguage.English,GameLanguage.Japanese})
                 {
                     GameLocalization.SetLanguage(language); view.Select(InkSkinId.Gat);
-                    yield return Wait(.4f); yield return Capture("showroom-"+language);
+                    yield return Wait(.6f); yield return Capture("showroom-"+language);
                 }
                 GameLocalization.SetLanguage(GameLanguage.Korean);
                 foreach (var id in new[]{InkSkinId.InkMecha,InkSkinId.ClockworkCat,InkSkinId.CloudDragon})
                 {
-                    view.Select(id); yield return Wait(.4f); yield return Capture("showroom-"+id);
+                    view.Select(id); yield return Wait(.6f); yield return Capture("showroom-"+id);
                     var body=view.Paper.Find("ShowroomStage/Preview/OriginalInkBody").GetComponent<UnityEngine.UI.Image>();
                     Assert.That(body.enabled, Is.True);
                     Assert.That(UnityEditor.AssetDatabase.GetAssetPath(body.sprite), Is.EqualTo("Assets/Art/Character/Player/muk_spritesheet.png"));
                 }
-                view.Select(InkSkinId.Gat); yield return Wait(.4f);
+                foreach(var tall in new[]{InkSkinId.PhoenixCrown,InkSkinId.InkGhost})
+                {
+                    Assert.That(InkSkinAchievements.IsUnlocked(tall), Is.True);
+                    view.Select(tall); yield return Wait(.6f); yield return Capture("tall-rest-"+tall);
+                    view.StepSelection(1); yield return Wait(.06f); yield return Capture("tall-change-"+tall);
+                    yield return Wait(.6f);
+                }
+                view.Select(InkSkinId.Gat); yield return Wait(.6f);
+                view.Paper.Find("ShowroomStage/NextCostume").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                Assert.That(view.Selected, Is.EqualTo(InkSkinId.SpiderMask));
+                Assert.That(view.Presentation.IsPlaying, Is.True);
+                yield return Wait(.06f); yield return Capture("arrow-change-start");
+                yield return Wait(.07f); yield return Capture("arrow-change-settle");
+                yield return Wait(.6f);
+                Assert.That(view.Presentation.IsPlaying, Is.False);
+                Assert.That(view.Paper.Find("ShowroomStage/Preview/OutgoingCostume").GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
+                yield return Capture("arrow-change-complete");
+                view.Select(InkSkinId.Gat); yield return Wait(.6f);
                 view.EquipButton.onClick.Invoke();
                 Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Gat));
                 Assert.That(view.Presentation.IsEquipping, Is.True);

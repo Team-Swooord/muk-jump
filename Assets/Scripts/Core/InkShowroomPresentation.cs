@@ -8,13 +8,17 @@ namespace MukJump.Core
     public sealed class InkShowroomPresentation : MonoBehaviour
     {
         public const float EquipDuration = 1.05f;
-        public const float BrowseDuration = .28f;
+        public const float BrowseDuration = .42f;
         [SerializeField] RectTransform focus, effectRoot;
         [SerializeField] CanvasGroup focusAlpha;
         [SerializeField] Image wash;
         [SerializeField] GrowthBloomArc[] rings;
         [SerializeField] InkShowroomMotes motes;
-        bool playing, equipping;
+        [SerializeField] Image costume, outgoingCostume;
+        [SerializeField] Vector2 costumePosition, outgoingPosition;
+        [SerializeField] Quaternion restRotation = Quaternion.identity;
+        [SerializeField] bool costumePoseKnown;
+        bool playing, equipping, prepared;
         float elapsed, direction;
         uint inactiveGeneration;
         [SerializeField] Vector2 restPosition;
@@ -31,10 +35,15 @@ namespace MukJump.Core
             focus = target;
             restPosition = target.anchoredPosition;
             restScale = target.localScale;
+            restRotation = target.localRotation;
+            costume = target.Find("Accessory").GetComponent<Image>();
+            outgoingCostume = Picture("OutgoingCostume", target, null, Vector2.one);
+            outgoingCostume.preserveAspect = true;
+            RememberCostumePose();
             focusAlpha = target.GetComponent<CanvasGroup>();
             if (focusAlpha == null) focusAlpha = target.gameObject.AddComponent<CanvasGroup>();
-            effectRoot = Rect("ShowroomInkEffect", stage, new Vector2(500, 372));
-            effectRoot.anchoredPosition = new Vector2(0,45);
+            effectRoot = Rect("ShowroomInkEffect", stage, new Vector2(570, 570));
+            effectRoot.anchoredPosition = new Vector2(0,30);
             effectRoot.SetAsFirstSibling();
             var clip = effectRoot.GetComponent<RectMask2D>();
             if (clip == null) clip = effectRoot.gameObject.AddComponent<RectMask2D>();
@@ -42,13 +51,13 @@ namespace MukJump.Core
             var group = effectRoot.GetComponent<CanvasGroup>();
             if (group == null) group = effectRoot.gameObject.AddComponent<CanvasGroup>();
             group.interactable = group.blocksRaycasts = false;
-            wash = Picture("InkWash", effectRoot, InkUiTextureFactory.CreateBlobSprite(), Vector2.one * 320f);
-            wash.rectTransform.anchoredPosition = new Vector2(0,-45);
+            wash = Picture("InkWash", effectRoot, InkUiTextureFactory.CreateBlobSprite(), Vector2.one * 460f);
+            wash.rectTransform.anchoredPosition = new Vector2(0,-30);
             rings = new GrowthBloomArc[2];
             for (int i = 0; i < rings.Length; i++)
             {
-                var rect = Rect("Ripple" + i, effectRoot, Vector2.one * 390f);
-                rect.anchoredPosition = new Vector2(0,-45);
+                var rect = Rect("Ripple" + i, effectRoot, Vector2.one * 500f);
+                rect.anchoredPosition = new Vector2(0,-30);
                 // 사용자 정의 Graphic은 Image와 달리 CanvasRenderer를 자동으로 요구하지 않는다.
                 if (rect.GetComponent<CanvasRenderer>() == null) rect.gameObject.AddComponent<CanvasRenderer>();
                 rings[i] = rect.GetComponent<GrowthBloomArc>();
@@ -57,25 +66,51 @@ namespace MukJump.Core
                 rings[i].IsWaterRipple = true;
             }
             var moteRect = Rect("HanjiMotes", effectRoot, Vector2.one * 520f);
-            moteRect.anchoredPosition = new Vector2(0,-45);
+            moteRect.anchoredPosition = new Vector2(0,-30);
             motes = moteRect.GetComponent<InkShowroomMotes>();
             if (motes == null) motes = moteRect.gameObject.AddComponent<InkShowroomMotes>();
             motes.raycastTarget = false;
-            moteRect.localScale = new Vector3(1, .8f, 1);
+            moteRect.localScale = new Vector3(1.45f, 1.25f, 1);
             // 바닥의 엷은 먹 타원은 무대만 기울이며 캐릭터를 원근 왜곡하지 않는다.
-            var floor = Picture("InkStageFloor", stage, InkUiTextureFactory.CreateBlobSprite(), new Vector2(370, 44));
-            floor.rectTransform.anchoredPosition = new Vector2(0, -130);
+            var floor = Picture("InkStageFloor", stage, InkUiTextureFactory.CreateBlobSprite(), new Vector2(500, 52));
+            floor.rectTransform.anchoredPosition = new Vector2(0, -228);
             floor.color = new Color(.11f, .106f, .102f, .075f);
             floor.transform.SetAsFirstSibling();
             Cancel();
         }
-        public void Browse(int step)
+        // 몸통 복제 없이 장식 한 장만 재사용한다. 연타 시 이전 연출을 끝내고 현재 옷을 출발점으로 삼는다.
+        public void PrepareCostumeChange(bool allowOutgoing)
         {
             Cancel();
-            if (focus == null || LobbySettingsProfile.ReducedMotionEnabled) return;
+            if (costume == null || outgoingCostume == null) return;
+            outgoingCostume.sprite = allowOutgoing && costume.enabled ? costume.sprite : null;
+            outgoingCostume.rectTransform.sizeDelta = costume.rectTransform.sizeDelta;
+            outgoingPosition = costume.rectTransform.anchoredPosition;
+            outgoingCostume.rectTransform.anchoredPosition = outgoingPosition;
+            outgoingCostume.rectTransform.localScale = Vector3.one;
+            outgoingCostume.rectTransform.localRotation = Quaternion.identity;
+            outgoingCostume.color = Color.white;
+            if (costume.transform.GetSiblingIndex() < focus.Find("OriginalInkBody").GetSiblingIndex())
+                outgoingCostume.transform.SetAsFirstSibling();
+            else outgoingCostume.transform.SetAsLastSibling();
+            prepared = true;
+        }
+        public void RememberCostumePose()
+        {
+            if (costume == null) return;
+            costumePosition = costume.rectTransform.anchoredPosition;
+            costumePoseKnown = true;
+        }
+        public void Browse(int step)
+        {
+            if (!prepared) Cancel();
+            prepared = false;
+            if (focus == null || step == 0 || LobbySettingsProfile.ReducedMotionEnabled) { Cancel(); return; }
             direction = Mathf.Sign(step);
             elapsed = 0f; playing = true; equipping = false;
             inactiveGeneration = MobileApplicationLifecycle.InactiveGeneration;
+            outgoingCostume.enabled = outgoingCostume.sprite != null;
+            effectRoot.gameObject.SetActive(true);
             ApplyFrame(0f);
         }
         public void Wear()
@@ -108,10 +143,31 @@ namespace MukJump.Core
             if (!equipping)
             {
                 float t = Mathf.Clamp01(time / BrowseDuration);
-                float ease = 1f - Mathf.Pow(1f - t, 3f);
-                focus.anchoredPosition = restPosition + new Vector2(reduced ? 0f : direction * (1f - ease) * 52f, 0f);
-                focus.localScale = restScale * (reduced ? 1f : Mathf.Lerp(.91f, 1f, ease));
-                focusAlpha.alpha = Mathf.Lerp(.55f, 1f, ease);
+                float hop = reduced ? 0f : Mathf.Sin(t * Mathf.PI);
+                focus.anchoredPosition = restPosition + new Vector2(0, hop * 24f);
+                focus.localScale = Vector3.Scale(restScale, new Vector3(1f - hop * .045f, 1f + hop * .045f, 1));
+                focus.localRotation = restRotation * Quaternion.Euler(0, 0, -direction * hop * 3f);
+                float arrive = Mathf.Clamp01((t - .08f) / .92f);
+                // 약한 오버슈트로 새 장식이 제자리에 걸리는 느낌을 준다.
+                float u = arrive - 1f;
+                float settle = 1f + 2.2f * u * u * u + 1.2f * u * u;
+                costume.rectTransform.anchoredPosition = costumePosition + (reduced ? Vector2.zero :
+                    new Vector2(direction * 170f * (1f - settle), Mathf.Sin(arrive * Mathf.PI) * 40f));
+                costume.rectTransform.localScale = Vector3.one * (reduced ? 1f : Mathf.LerpUnclamped(.82f, 1f, settle));
+                costume.rectTransform.localRotation = Quaternion.Euler(0, 0, reduced ? 0f : direction * -22f * (1f - settle));
+                costume.color = new Color(1, 1, 1, reduced ? 1f : Mathf.Clamp01(arrive * 6f));
+                float leave = Mathf.Clamp01(t / .45f);
+                outgoingCostume.enabled = !reduced && leave < 1f && outgoingCostume.sprite != null;
+                outgoingCostume.rectTransform.anchoredPosition = outgoingPosition +
+                    new Vector2(-direction * leave * 160f, -Mathf.Sin(leave * Mathf.PI * .75f) * 45f);
+                outgoingCostume.rectTransform.localScale = Vector3.one * (1f - leave * .2f);
+                outgoingCostume.rectTransform.localRotation = Quaternion.Euler(0, 0, direction * leave * 28f);
+                outgoingCostume.color = new Color(1, 1, 1, 1f - leave);
+                // 탐색은 짧은 먹 번짐만 사용한다. 저장 성공용 파동과 구분한다.
+                wash.color = new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, reduced ? 0f : hop * .045f);
+                wash.rectTransform.localScale = Vector3.one * (.9f + t * .15f);
+                foreach (var ring in rings) ring.color = Color.clear;
+                motes.Present(t * EquipDuration, reduced ? 0 : VfxQualityRuntime.Profile.ScaleDecorativeCount(10, 3));
                 return;
             }
             float t1 = Mathf.Clamp01(time / EquipDuration);
@@ -135,9 +191,17 @@ namespace MukJump.Core
         }
         public void Cancel()
         {
-            playing = equipping = false;
-            if (focus != null) { focus.anchoredPosition = restPosition; focus.localScale = restScale; }
+            playing = equipping = prepared = false;
+            if (focus != null) { focus.anchoredPosition = restPosition; focus.localScale = restScale; focus.localRotation = restRotation; }
             if (focusAlpha != null) focusAlpha.alpha = 1;
+            if (costume != null && costumePoseKnown)
+            {
+                costume.rectTransform.anchoredPosition = costumePosition;
+                costume.rectTransform.localScale = Vector3.one;
+                costume.rectTransform.localRotation = Quaternion.identity;
+                costume.color = Color.white;
+            }
+            if (outgoingCostume != null) { outgoingCostume.enabled = false; outgoingCostume.sprite = null; }
             if (motes != null) motes.Present(0, 0);
             if (effectRoot != null) effectRoot.gameObject.SetActive(false);
         }

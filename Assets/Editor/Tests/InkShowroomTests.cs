@@ -56,21 +56,65 @@ namespace MukJump.EditorTests
             GameLocalization.SetLanguage(language);
             Assert.That(view.Paper.Find("Title").GetComponent<Text>().text, Is.EqualTo(expected));
         }
-        [Test] public void SideCostumesRecedeAndPreserveOriginalBody()
+        [Test] public void OneLargeOriginalInkIsFramedByTwoArrowButtonsAndACompactStrip()
         {
             view.Select(InkSkinId.Gat);
             var body = Focus.Find("OriginalInkBody").GetComponent<Image>();
+            Assert.That(Focus.parent.GetComponent<RectMask2D>(), Is.Not.Null);
             foreach (string side in new[] { "PreviousCostume", "NextCostume" })
             {
                 var neighbor = view.Paper.Find("ShowroomStage/" + side);
-                var other = neighbor.Find("OriginalInkBody").GetComponent<Image>();
-                Assert.That(other.sprite, Is.SameAs(body.sprite));
-                Assert.That(other.rectTransform.sizeDelta.x, Is.LessThan(body.rectTransform.sizeDelta.x * .6f));
-                Assert.That(neighbor.GetComponent<CanvasGroup>().alpha, Is.LessThan(.7f));
+                Assert.That(neighbor.Find("OriginalInkBody"), Is.Null);
+                Assert.That(neighbor.GetComponent<RectTransform>().sizeDelta.x, Is.GreaterThanOrEqualTo(116));
+                Assert.That(neighbor.Find("Label").GetComponent<Text>().text, Is.EqualTo(side == "PreviousCostume" ? "‹" : "›"));
                 Assert.That(neighbor.GetComponent<Button>(), Is.Not.Null);
+                Assert.That(neighbor.GetSiblingIndex(), Is.GreaterThan(Focus.GetSiblingIndex()));
             }
             Assert.That(body.enabled, Is.True);
+            Assert.That(body.rectTransform.sizeDelta.x, Is.EqualTo(500));
             Assert.That(AssetDatabase.GetAssetPath(body.sprite), Is.EqualTo("Assets/Art/Character/Player/muk_spritesheet.png"));
+            var strip = view.Paper.Cast<Transform>().Where(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf).Cast<RectTransform>().ToArray();
+            Assert.That(strip.Select(t=>t.anchoredPosition.y).Distinct().Count(), Is.EqualTo(1));
+            Assert.That(strip[0].sizeDelta.y, Is.LessThan(body.rectTransform.sizeDelta.y * .3f));
+        }
+        [Test] public void ArrowsSwapOnlyClothesAndPeriodicRefreshDoesNotSnapTheAnimation()
+        {
+            view.Select(InkSkinId.Gat); view.Presentation.Cancel();
+            var body = Focus.Find("OriginalInkBody").GetComponent<Image>();
+            var original = body.sprite;
+            var costume = Focus.Find("Accessory").GetComponent<Image>();
+            var previous = costume.sprite;
+            view.Paper.Find("ShowroomStage/NextCostume").GetComponent<Button>().onClick.Invoke();
+            var outgoing = Focus.Find("OutgoingCostume").GetComponent<Image>();
+            Assert.That(view.Selected, Is.EqualTo(InkSkinId.SpiderMask));
+            Assert.That(outgoing.enabled, Is.True);
+            Assert.That(outgoing.sprite, Is.SameAs(previous));
+            Assert.That(costume.sprite, Is.SameAs(InkSkinCatalog.Sprite(InkSkinId.SpiderMask)));
+            view.Presentation.SampleForTests(.08f);
+            var movingPosition = costume.rectTransform.anchoredPosition;
+            Assert.That(movingPosition, Is.Not.EqualTo(InkSkinCatalog.Offset(InkSkinId.SpiderMask) * 500));
+            Invoke(view, "RefreshSelection");
+            Assert.That(costume.rectTransform.anchoredPosition, Is.EqualTo(movingPosition));
+            Assert.That(body.sprite, Is.SameAs(original));
+            Assert.That(Focus.GetComponentsInChildren<Image>().Count(i=>i.sprite == original), Is.EqualTo(1));
+            Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Ink));
+            view.Presentation.SampleForTests(InkShowroomPresentation.BrowseDuration);
+            Assert.That(Vector2.Distance(costume.rectTransform.anchoredPosition, InkSkinCatalog.Offset(InkSkinId.SpiderMask) * 500), Is.LessThan(.01f));
+            view.Presentation.Cancel(); AssertStopped();
+        }
+        [Test] public void RapidArrowReversalUsesLastCostumeWithoutAllocatingOrLeavingAGhost()
+        {
+            view.Select(InkSkinId.Gat); view.Presentation.Cancel();
+            int count = host.GetComponentsInChildren<Transform>(true).Length;
+            for(int i=0;i<40;i++)
+            {
+                view.StepSelection(i%2==0 ? 1 : -1); view.Presentation.SampleForTests(.05f);
+                Assert.That(Focus.Find("OutgoingCostume").GetComponent<Image>().sprite,
+                    Is.SameAs(InkSkinCatalog.Sprite(i%2==0 ? InkSkinId.Gat : InkSkinId.SpiderMask)));
+            }
+            Assert.That(view.Selected, Is.EqualTo(InkSkinId.Gat));
+            Assert.That(host.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(count));
+            view.SetNavigationPresentation(false,false); AssertStopped();
         }
         [Test] public void BrowseDoesNotEquipAndSuccessfulSavePlaysOnlyOnce()
         {
@@ -92,17 +136,17 @@ namespace MukJump.EditorTests
             Assert.That(view.Presentation.EquipPlayCount, Is.Zero);
             Assert.That(view.Paper.Find("SaveStatus").GetComponent<Text>().text, Is.Not.Empty);
         }
-        [Test] public void LockedAndConcealedCostumesNeverEquipOrRevealNeighborArt()
+        [Test] public void LockedAndConcealedCostumesNeverEquipOrLeakArtThroughTheOutgoingLayer()
         {
             Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(), Is.True);
             Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(0), Is.True);
             var secret = Enumerable.Range(1, InkSkinCatalog.Count-1).Select(i => (InkSkinId)i).First(InkSkinCatalog.IsConcealed);
             view.Select((InkSkinId)((int)secret-1));
-            var next = view.Paper.Find("ShowroomStage/NextCostume");
-            Assert.That(next.Find("Accessory").GetComponent<Image>().enabled, Is.False);
-            Assert.That(next.Find("Name").GetComponent<Text>().text, Is.EqualTo("???"));
             view.Select(secret); view.EquipButton.onClick.Invoke();
             Assert.That(Focus.Find("Accessory").GetComponent<Image>().enabled, Is.False);
+            Assert.That(view.Paper.Find("SkinName").GetComponent<Text>().text, Is.EqualTo("???"));
+            view.StepSelection(-1);
+            Assert.That(Focus.Find("OutgoingCostume").GetComponent<Image>().sprite, Is.Null);
             Assert.That(view.Presentation.EquipPlayCount, Is.Zero);
         }
         [Test] public void CloseCancelsEverythingAndReopenUsesSavedSelection()
@@ -114,6 +158,18 @@ namespace MukJump.EditorTests
             AssertStopped();
             view.SetNavigationPresentation(true, true);
             Assert.That(view.Selected, Is.EqualTo(InkSkinId.Gat)); AssertStopped();
+        }
+        [Test] public void AccountClearBeforeTheNextRefreshDoesNotCopyTheOldSecretIntoTheOutgoingLayer()
+        {
+            SkinSecrets.AcceptedNightChange(true);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.True);
+            view.Select(InkSkinId.NightBat); view.Presentation.Cancel();
+            Assert.That(Focus.Find("Accessory").GetComponent<Image>().enabled, Is.True);
+            Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(), Is.True);
+            Assert.That(InkSkinCatalog.IsConcealed(InkSkinId.NightBat), Is.True);
+            view.Select(InkSkinId.Gat);
+            var outgoing = Focus.Find("OutgoingCostume").GetComponent<Image>();
+            Assert.That(outgoing.sprite, Is.Null); Assert.That(outgoing.enabled, Is.False);
         }
         [Test] public void RapidChangesReuseOneEffectAndRestoreNeutralPose()
         {
@@ -173,10 +229,10 @@ namespace MukJump.EditorTests
         [Test] public void NavigationStopsAtEndsAndKeepsSixVisibleCards()
         {
             view.StepSelection(-1); Assert.That(view.Selected, Is.EqualTo(InkSkinId.Ink));
-            Assert.That(view.Paper.Find("ShowroomStage/PreviousCostume").gameObject.activeSelf, Is.False);
+            Assert.That(view.Paper.Find("ShowroomStage/PreviousCostume").GetComponent<Button>().interactable, Is.False);
             view.Select((InkSkinId)(InkSkinCatalog.Count-1)); view.StepSelection(1);
             Assert.That((int)view.Selected, Is.EqualTo(InkSkinCatalog.Count-1));
-            Assert.That(view.Paper.Find("ShowroomStage/NextCostume").gameObject.activeSelf, Is.False);
+            Assert.That(view.Paper.Find("ShowroomStage/NextCostume").GetComponent<Button>().interactable, Is.False);
             Assert.That(view.Paper.Cast<Transform>().Count(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf), Is.EqualTo(6));
         }
         [Test] public void DragStartedBeforeTransitionCompletesIsIgnored()
@@ -221,11 +277,32 @@ namespace MukJump.EditorTests
             Assert.That(clip.TransformPoint(new Vector3(0,clip.rect.yMax)).y,
                 Is.LessThan(title.TransformPoint(new Vector3(0,title.rect.yMin)).y));
         }
+        [Test] public void EveryStationaryCostumeFitsBelowTitleWithoutCroppingItsTop()
+        {
+            var stage=(RectTransform)Focus.parent;
+            var title=(RectTransform)view.Paper.Find("Title");
+            Assert.That(stage.TransformPoint(new Vector3(0,stage.rect.yMax)).y,
+                Is.LessThan(title.TransformPoint(new Vector3(0,title.rect.yMin)).y));
+            for(int i=1;i<InkSkinCatalog.Count;i++)
+            {
+                var id=(InkSkinId)i; var sprite=InkSkinCatalog.Sprite(id);
+                Assert.That(sprite, Is.Not.Null, id.ToString());
+                float height=500*InkSkinCatalog.Width(id)*sprite.rect.height/sprite.rect.width;
+                float top=InkSkinCatalog.Offset(id).y*500+height*.5f;
+                Assert.That(top, Is.LessThanOrEqualTo(stage.rect.yMax-16), id.ToString());
+            }
+        }
         void AssertStopped()
         {
             Assert.That(view.Presentation.IsPlaying, Is.False); Assert.That(view.Presentation.ParticleCount, Is.Zero);
             Assert.That(Focus.localScale, Is.EqualTo(Vector3.one)); Assert.That(Focus.anchoredPosition, Is.EqualTo(Vector2.zero));
             Assert.That(Focus.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1));
+            Assert.That(Quaternion.Angle(Focus.localRotation, Quaternion.identity), Is.LessThan(.001f));
+            Assert.That(Focus.Find("OutgoingCostume").GetComponent<Image>().enabled, Is.False);
+            Assert.That(Focus.Find("OutgoingCostume").GetComponent<Image>().sprite, Is.Null);
+            var costume = Focus.Find("Accessory").GetComponent<Image>();
+            Assert.That(costume.color.a, Is.EqualTo(1));
+            Assert.That(costume.rectTransform.localScale, Is.EqualTo(Vector3.one));
         }
         static void Invoke(object target,string name) => target.GetType().GetMethod(name,BindingFlags.Instance|BindingFlags.NonPublic).Invoke(target,null);
     }
