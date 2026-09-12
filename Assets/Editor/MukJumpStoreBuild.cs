@@ -339,11 +339,7 @@ namespace MukJump.EditorTools
             if (scenes.Length == 0)
                 throw new BuildFailedException(
                     "Build Settings에 활성화된 씬이 없습니다.");
-            if (scenes.Length != 2 ||
-                scenes[0] != MukJumpSplashSceneBuilder.ScenePath ||
-                scenes[1] != MukJumpSplashSceneBuilder.MainScenePath)
-                throw new BuildFailedException(
-                    "출시 빌드의 활성 씬은 Splash → Main 두 개만 허용됩니다.");
+            ValidateReleaseScenes(scenes);
             if (!MukJumpSceneBuilder.SavedMainSceneMatchesCurrentSource())
                 throw new BuildFailedException(
                     "저장된 Main 씬이 현재 MukJumpSceneBuilder와 일치하지 않습니다. " +
@@ -407,6 +403,15 @@ namespace MukJump.EditorTools
                 throw new BuildFailedException(
                     "사용하지 않는 Unity 온라인 서비스가 켜져 있습니다:\n" +
                     string.Join("\n", unityServiceIssues));
+        }
+
+        public static void ValidateReleaseScenes(string[] scenes)
+        {
+            if (scenes == null || scenes.Length != 3 ||
+                scenes[0] != MukJumpSplashSceneBuilder.ScenePath ||
+                scenes[1] != MukJumpSplashSceneBuilder.MainScenePath ||
+                scenes[2] != MukJumpSkinUnlockSceneBuilder.ScenePath)
+                throw new BuildFailedException("출시 빌드의 활성 씬은 Splash → Main → SkinUnlock만 허용됩니다.");
         }
 
         public static string[] CollectReleaseEnvironmentIssues(

@@ -95,6 +95,14 @@ namespace MukJump.EditorTests
             Assert.That(MukJumpNativeReleaseBuildGuard.CollectInvocationIssues(UnityEditor.BuildTarget.iOS, UnityEditor.BuildOptions.None,
                 MukJumpNativeBuildIntent.IosSkinDebug, false, false, true, MukJumpStoreBuild.DefaultBundleIdentifier), Is.Empty);
         }
+        [Test] public void ReleaseIncludesUnlockSceneButNeverArbitraryDebugScenes()
+        {
+            var scenes = new[]{MukJumpSplashSceneBuilder.ScenePath, MukJumpSplashSceneBuilder.MainScenePath, MukJumpSkinUnlockSceneBuilder.ScenePath};
+            Assert.DoesNotThrow(() => MukJumpStoreBuild.ValidateReleaseScenes(scenes));
+            Assert.Throws<BuildFailedException>(() => MukJumpStoreBuild.ValidateReleaseScenes(new[]{scenes[0], scenes[1]}));
+            Assert.Throws<BuildFailedException>(() => MukJumpStoreBuild.ValidateReleaseScenes(new[]{scenes[0], scenes[1], "Assets/Scenes/Debug.unity"}));
+            Assert.Throws<BuildFailedException>(() => MukJumpStoreBuild.ValidateReleaseScenes(new[]{scenes[0], scenes[1], scenes[2], "Assets/Scenes/Debug.unity"}));
+        }
     }
 
     public sealed class SkinDebugPlayTests
