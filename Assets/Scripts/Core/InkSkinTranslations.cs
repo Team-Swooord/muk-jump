@@ -16,11 +16,9 @@ namespace MukJump.Core
             var result = new Dictionary<string, (string, string)>
             {
                 ["쇼룸"] = ("Showroom", "ショールーム"),
-                ["특별한 의상"] = ("Signature Costume", "特別な衣装"),
                 ["먹의 장식"] = ("Ink Accessory", "墨の飾り"),
                 ["비밀 의상"] = ("Secret Costume", "秘密の衣装"),
                 ["숨겨진 행동으로 발견해 보세요."] = ("Discover it through a hidden action.", "隠された行動で見つけよう。"),
-                ["원래 먹 그대로, 특별한 의상을 입어요."] = ("The original Ink, wearing a special costume.", "いつもの墨に、特別な衣装を。"),
                 ["원래 먹에 장식을 더해요.\n기존 점프와 성장 효과를 유지해요."] = ("Dress up your original Ink.\nJump and growth effects stay unchanged.", "元の墨に飾りを。\nジャンプと成長効果は変わりません。"),
                 ["그린 발판에 착지하지 않고 한 판 완료"] = ("Finish a run without landing on a drawn platform", "描いた足場に着地せずプレイを終える"),
                 ["로비를 밤으로 바꾸기"] = ("Turn the lobby into night", "ロビーを夜に変える"),

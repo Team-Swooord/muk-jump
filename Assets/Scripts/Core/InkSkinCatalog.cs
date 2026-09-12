@@ -66,11 +66,11 @@ namespace MukJump.Core
         public static string Name(InkSkinId id) => Get(id)?.Korean ?? "???";
         public static string Ability(InkSkinId id) => id switch {
             InkSkinId.Gat => "이단 도약", InkSkinId.SpiderMask => "거미 걸음",
-            _ => IsSignatureCostume(id) ? "특별한 의상" : "먹의 장식" };
+            _ => "먹의 장식" };
         public static string Description(InkSkinId id) => id switch {
             InkSkinId.Gat => "점프 정점에서 한 번 더 도약해요.\n첫 도약의 40% 힘으로 자동 발동해요.",
             InkSkinId.SpiderMask => "양옆 벽에 붙었다가\n화면 안쪽으로 자동 도약해요.",
-            _ => IsSignatureCostume(id) ? "원래 먹 그대로, 특별한 의상을 입어요." : "원래 먹에 장식을 더해요.\n기존 점프와 성장 효과를 유지해요." };
+            _ => "원래 먹에 장식을 더해요.\n기존 점프와 성장 효과를 유지해요." };
         public static string ResourcePath(InkSkinId id) => Get(id) is { Asset: { Length: > 0 } } d ? "MukJump/Skins/" + d.Asset : "";
         public static bool BehindBody(InkSkinId id) => id == InkSkinId.OrigamiWings;
         public static float Width(InkSkinId id) => IsSignatureCostume(id) ? .75f : id switch {

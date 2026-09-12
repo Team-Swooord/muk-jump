@@ -204,6 +204,16 @@ namespace MukJump.EditorTests
                 }
             }
         }
+        [TestCase(InkSkinId.CloudDragon)]
+        [TestCase(InkSkinId.InkMecha)]
+        [TestCase(InkSkinId.ClockworkCat)]
+        public void CosmeticCostumesUseOrdinaryAccessoryCopy(InkSkinId id)
+        {
+            Assert.That(InkSkinCatalog.Ability(id), Is.EqualTo("먹의 장식"));
+            Assert.That(InkSkinCatalog.Description(id), Is.EqualTo(InkSkinCatalog.Description(InkSkinId.CatEars)));
+            Assert.That(InkSkinCatalog.Ability(InkSkinId.Gat), Is.EqualTo("이단 도약"));
+            Assert.That(InkSkinCatalog.Ability(InkSkinId.SpiderMask), Is.EqualTo("거미 걸음"));
+        }
         [TestCase(InkSkinId.Gat)]
         [TestCase(InkSkinId.SpiderMask)]
         public void AccessoryFollowsBodyWithoutChangingPhysicsAndCloneKeepsItsOwnRenderer(InkSkinId id)
