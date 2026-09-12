@@ -6,6 +6,8 @@ namespace MukJump.Core
     public sealed class InkAchievementToast : MonoBehaviour
     {
         readonly Queue<int> queue = new();
+        readonly HashSet<int> announced = new();
+        public const float Duration = 3f;
         CanvasGroup group;
         RectTransform safe, panel;
         UnityEngine.UI.Text label;
@@ -13,6 +15,11 @@ namespace MukJump.Core
         float time;
         bool showing;
         bool lobbyNotice;
+        AudioSource noticeSource;
+        AudioClip noticeSound;
+#if UNITY_EDITOR
+        public int SoundPlayCountForTests { get; private set; }
+#endif
         public void Enqueue(int id) => EnqueueForState(id, false);
         public void EnqueueLobby(int id) => EnqueueForState(id, true);
         void EnqueueForState(int id, bool inLobby)
@@ -21,7 +28,7 @@ namespace MukJump.Core
             if (!ReferenceEquals(owner, PermanentGrowthProfile.SkinAccountToken) || lobbyNotice != inLobby) Clear();
             owner = PermanentGrowthProfile.SkinAccountToken;
             lobbyNotice = inLobby;
-            if (queue.Count < InkSkinCatalog.Count + 1) queue.Enqueue(id);
+            if (announced.Add(id)) queue.Enqueue(id);
         }
         void Build()
         {
@@ -35,15 +42,26 @@ namespace MukJump.Core
             group = root.GetComponent<CanvasGroup>(); group.blocksRaycasts = group.interactable = false;
             safe = Rect("SafeArea", root.transform, Vector2.zero, Vector2.zero);
             safe.anchorMin = Vector2.zero; safe.anchorMax = Vector2.one;
-            panel = Rect("InkBanner", safe, new Vector2(-24, -210), new Vector2(630, 136));
+            panel = Rect("InkBanner", safe, new Vector2(-24, -210), new Vector2(580, 116));
             panel.anchorMin = panel.anchorMax = panel.pivot = Vector2.one;
-            var brush = Rect("Brush", panel, Vector2.zero, new Vector2(660, 146)).gameObject.AddComponent<UnityEngine.UI.Image>();
-            brush.sprite = InkUiTextureFactory.CreateBrushSprite(); brush.color = InkPalette.Ink;
-            var stamp = Rect("Seal", panel, new Vector2(-248, 0), new Vector2(74, 74));
+            var brush = Rect("Brush", panel, Vector2.zero, new Vector2(610, 124));
+            // 넓은 번짐·흰 갈필 자국 대신 얇게 거친 종이 가장자리만 남긴다.
+            InkHudSurface.Ensure(brush, true).color = InkPalette.Ink;
+            var stamp = Rect("Seal", panel, new Vector2(-226, 0), new Vector2(62, 62));
             InkHudSurface.Ensure(stamp, true);
-            Label(stamp, "해금", 30, Vector2.zero, new Vector2(72, 68));
-            Label(panel, "업적 달성", 31, new Vector2(42, 32), new Vector2(480, 40));
-            label = Label(panel, "", 40, new Vector2(42, -20), new Vector2(480, 62));
+            Label(stamp, "해금", 25, Vector2.zero, new Vector2(60, 58));
+            var heading = Label(panel, "업적 달성", 26, new Vector2(38, 27), new Vector2(400, 36));
+            heading.alignment = TextAnchor.MiddleLeft;
+            heading.color = Color.Lerp(InkPalette.Paper, InkPalette.Ink, .18f);
+            label = Label(panel, "", 36, new Vector2(38, -17), new Vector2(400, 52));
+            label.alignment = TextAnchor.MiddleLeft;
+            // 재생 중 조작음과 경쟁하지 않는 짧은 전용 알림. 캔버스 수명 동안 하나만 재사용한다.
+            noticeSource = root.AddComponent<AudioSource>();
+            noticeSource.playOnAwake = noticeSource.loop = false; noticeSource.spatialBlend = 0;
+            float[] samples = InkAchievementNoticeSound.BuildSamples();
+            noticeSound = AudioClip.Create("Ink_Achievement_TwoNotes", samples.Length, 1,
+                InkAchievementNoticeSound.SampleRate, false);
+            noticeSound.SetData(samples, 0); noticeSource.clip = noticeSound;
             foreach (var graphic in root.GetComponentsInChildren<UnityEngine.UI.Graphic>(true)) graphic.raycastTarget = false;
             group.alpha = 0;
         }
@@ -58,28 +76,47 @@ namespace MukJump.Core
                   !StartupBrandSplash.IsBlockingInput && (LobbyScreenNavigator.Instance == null ||
                   !LobbyScreenNavigator.Instance.IsTransitioning &&
                   LobbyScreenNavigator.Instance.CurrentSection == LobbyScreenNavigator.LobbySection.Lobby)
-                : game.IsGameplayTicking;
-            if (!canAnimate) { if (group != null) group.alpha = 0; return; }
+                : MobileApplicationLifecycle.IsApplicationActive && game.IsGameplayTicking;
+            if (!canAnimate) { Suspend(); return; }
+            if (noticeSource != null) noticeSource.volume = InkAchievementNoticeSound.Volume * LobbySettingsProfile.SfxVolume;
             if (!showing && queue.Count == 0) return;
             Build();
             MobileUiLayout.ApplySafeArea(safe, MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height);
             panel.localScale = Vector3.one * (lobbyNotice
-                ? Mathf.Min(1, safe.rect.width * .56f / 660f)
-                : Mathf.Min(1, safe.rect.width / 700f));
+                ? Mathf.Min(1, safe.rect.width * .56f / 610f)
+                : Mathf.Min(1, safe.rect.width / 650f));
             if (!showing)
             {
                 int id = queue.Dequeue(); showing = true; time = 0;
                 InkLocalizedText.SetSource(label, InkAchievementCatalog.Name(id));
+                if (Application.isPlaying && LobbySettingsProfile.SfxVolume > 0)
+                {
+                    noticeSource.volume = InkAchievementNoticeSound.Volume * LobbySettingsProfile.SfxVolume;
+                    noticeSource.Play();
+#if UNITY_EDITOR
+                    SoundPlayCountForTests++;
+#endif
+                }
             }
             time += Mathf.Min(Time.unscaledDeltaTime, .05f);
-            float fade = Mathf.Min(Mathf.Clamp01(time / .2f), Mathf.Clamp01((3f - time) / .25f));
+            float fade = Mathf.SmoothStep(0, 1, Mathf.Min(Mathf.Clamp01(time / .22f), Mathf.Clamp01((Duration - time) / .28f)));
             group.alpha = fade;
-            panel.anchoredPosition = new Vector2(-24 + (LobbySettingsProfile.ReducedMotionEnabled ? 0 : 45 * (1 - fade)),
+            panel.anchoredPosition = new Vector2(-24 + (LobbySettingsProfile.ReducedMotionEnabled ? 0 : 22 * (1 - fade)),
                 lobbyNotice ? CalculateLobbyTop() : CalculateTop(MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height));
-            if (time >= 3) { showing = false; group.alpha = 0; }
+            if (time >= Duration) { showing = false; group.alpha = 0; }
         }
-        void Clear() { queue.Clear(); showing = false; if (group != null) group.alpha = 0; }
+        void Suspend() { if (group != null) group.alpha = 0; if (noticeSource != null) noticeSource.Stop(); }
+        void Clear() { queue.Clear(); announced.Clear(); showing = false; Suspend(); }
         void OnDisable() => Clear();
+        void OnApplicationPause(bool paused) { if (paused) Suspend(); }
+        void OnApplicationFocus(bool focused) { if (!focused) Suspend(); }
+        void OnDestroy()
+        {
+            Suspend();
+            if (noticeSource != null) noticeSource.clip = null;
+            if (noticeSound == null) return;
+            if (Application.isPlaying) Destroy(noticeSound); else DestroyImmediate(noticeSound);
+        }
         // 로비에는 플레이 HUD가 없다. 달 왼쪽·기록 아래와 겹치지 않도록 배너 바로 아래 오른쪽에 둔다.
         public static float CalculateLobbyTop() => -LobbyAdLayout.CalculateCanvasInset(MobileUiLayout.ReferenceHeight,
             Mathf.Max(LobbyAdLayout.TopInsetFraction, LobbyAdLayout.MeasuredTopInsetFraction)) - 24f;
