@@ -8,8 +8,19 @@ namespace MukJump.Core
     {
         InkSkinId motionId;
         float motionTime, motionStrength;
+        float swimTime, swimStrength;
         public float MotionTime => motionTime;
         public bool HasMotion => motionStrength > 0f && InkAccessoryMotion.Supports(motionId);
+        // 로비 미리보기에서만 사용한다. 나머지 UI의 신발 앵커와 렌더 비용은 유지한다.
+        public void PresentSwim(float time, float strength)
+        {
+            time = InkAccessoryMotion.SampleTime(time);
+            strength = InkFootwearPose.Identify(sprite, out _) ? Mathf.Clamp01(strength) : 0f;
+            if (swimTime == time && swimStrength == strength) return;
+            bool redraw = strength > 0f || swimStrength > 0f;
+            swimTime = time; swimStrength = strength;
+            if (redraw) SetVerticesDirty();
+        }
         // 큰 미리보기 소유자가 명시적으로 호출한다. 목록·리더보드에는 Update 자체가 없다.
         public void PresentMotion(InkSkinId id, float time, float strength)
         {
@@ -30,6 +41,8 @@ namespace MukJump.Core
             for(int side=0;side<2;side++)
             {
                 Rect r=InkFootwearPose.DrawingRect(id,sprite,side==1);
+                Vector2 foot = InkFootwearPose.Anchor(null, side == 1);
+                r.position += LobbyInkSwimMotion.DeformPoint(foot, swimTime, swimStrength) - foot;
                 r.position=(r.position-InkSkinCatalog.Offset(id))*bodySize; r.size*=bodySize;
                 int sourceSide=InkFootwearPose.SourceRight(id,side==1) ? 1 : 0;
                 float left=uv.x+sourceSide*uv.width*.5f,right=left+uv.width*.5f;

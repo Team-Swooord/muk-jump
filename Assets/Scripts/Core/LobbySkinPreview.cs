@@ -7,12 +7,15 @@ namespace MukJump.Core
     public sealed class LobbySkinPreview : MonoBehaviour
     {
         const float MaximumTilt = 24f;
+        public const float PreviewScale = .85f;
+        const float MaximumBodyStretch = 1.025f;
         // idle 원화의 알파 경계 (100, 152)~(924, 866)/1024에 여유를 더한 범위.
         // 투명 프레임 전체를 피팅하면 실제 먹이 너무 작아진다. 원본 그림은 자르지 않는다.
         public static readonly Rect BodyDrawingBounds = new(-.415f, -.36f, .83f, .725f);
         [SerializeField] LobbyView lobby;
         [SerializeField] RectTransform area, drift, artwork, logo, start;
         [SerializeField] UnityEngine.UI.Image body;
+        [SerializeField] LobbyInkSwimMotion swim;
         [SerializeField] InkAccessoryImage accessory;
         InkSkinId shown = (InkSkinId)(-1);
         Vector2 fittedSize;
@@ -36,6 +39,7 @@ namespace MukJump.Core
             view.artwork = CreateRect("Artwork", view.drift);
             view.body = CreateRect("OriginalInkBody", view.artwork).gameObject.AddComponent<UnityEngine.UI.Image>();
             view.body.sprite = idle; view.body.preserveAspect = true; view.body.raycastTarget = false;
+            view.swim = view.body.gameObject.AddComponent<LobbyInkSwimMotion>();
             view.accessory = CreateRect("Accessory", view.artwork).gameObject.AddComponent<InkAccessoryImage>();
             view.accessory.preserveAspect = true; view.accessory.raycastTarget = false;
             view.RefreshSkin(InkSkinId.Ink);
@@ -60,6 +64,8 @@ namespace MukJump.Core
                 elapsed += Mathf.Min(Time.unscaledDeltaTime, .05f);
             ApplyPose(reduced ? 0f : elapsed, reduced);
             accessory.PresentMotion(shown, elapsed, InkAccessoryMotion.Strength);
+            swim?.Present(elapsed, InkAccessoryMotion.Strength);
+            accessory.PresentSwim(elapsed, InkAccessoryMotion.Strength);
         }
 
         void RefreshSkin(InkSkinId id)
@@ -85,7 +91,7 @@ namespace MukJump.Core
             fittedSize = area.sizeDelta;
             Rect bounds = CostumeBounds(shown, accessory.sprite);
             Vector2 envelope = RotationEnvelope(bounds.size);
-            float size = Mathf.Max(.01f, Mathf.Min(360f,
+            float size = PreviewScale * Mathf.Max(.01f, Mathf.Min(360f,
                 Mathf.Min(area.rect.width * .48f / envelope.x, area.rect.height * .70f / envelope.y)));
             body.rectTransform.sizeDelta = Vector2.one * size;
             artwork.anchoredPosition = -bounds.center * size;
@@ -95,6 +101,8 @@ namespace MukJump.Core
                 accessory.rectTransform.sizeDelta = new Vector2(width, width * accessory.sprite.rect.height / accessory.sprite.rect.width);
                 accessory.rectTransform.anchoredPosition = InkSkinCatalog.Offset(shown) * size;
             }
+            // 팔다리 젓기·신발 변위·미세한 몸통 신축까지 포함한 이동 여백이다.
+            envelope = RotationEnvelope(bounds.size + LobbyInkSwimMotion.Padding * 2f) * MaximumBodyStretch;
             travel = Vector2.Max(Vector2.zero, (area.sizeDelta - envelope * size) * .5f - Vector2.one * 4f);
             ApplyPose(elapsed, false);
         }
@@ -103,11 +111,23 @@ namespace MukJump.Core
         {
             drift.anchoredPosition = reduced ? Vector2.zero : Vector2.Scale(DriftAt(time, motionSeed), travel);
             drift.localRotation = Quaternion.Euler(0, 0, reduced ? 0 : TiltAt(time, motionSeed));
+            drift.localScale = reduced ? Vector3.one : SwimScaleAt(time);
         }
 
         public static Vector2 DriftAt(float time, int seed = 0) => new(
             Wander(time / 1.65f, seed), Wander(time / 1.35f, seed ^ 0x51F2));
-        public static float TiltAt(float time, int seed = 0) => MaximumTilt * Wander(time / 1.8f, seed ^ 0x78A3);
+        public static float TiltAt(float time, int seed = 0)
+        {
+            // 이동하는 쪽으로 머리를 내밀며 전진한다. 방향 전환에도 반전·각도 점프가 없다.
+            float vx = (DriftAt(time + .02f, seed).x - DriftAt(time - .02f, seed).x) / .04f;
+            return -19f * vx / Mathf.Sqrt(.16f + vx * vx) +
+                2.5f * Mathf.Sin(time * (Mathf.PI * 2f / LobbyInkSwimMotion.CycleSeconds));
+        }
+        public static Vector3 SwimScaleAt(float time)
+        {
+            float stroke = Mathf.Sin(time * (Mathf.PI * 2f / LobbyInkSwimMotion.CycleSeconds));
+            return new Vector3(1f + .018f * stroke, 1f - .025f * stroke, 1f);
+        }
         static float Wander(float time, int seed)
         {
             int segment = Mathf.FloorToInt(time);

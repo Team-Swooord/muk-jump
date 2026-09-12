@@ -15,7 +15,7 @@ namespace MukJump.EditorTests
 {
     public sealed class LobbySkinPreviewTests
     {
-        [Test] public void DriftIsContinuousAndBoundedWithoutTouchingGameRandom()
+        [Test, Category("LobbySwim")] public void DriftIsContinuousAndBoundedWithoutTouchingGameRandom()
         {
             var state = Random.state;
             float distance = 0f;
@@ -33,6 +33,128 @@ namespace MukJump.EditorTests
             }
             Assert.That(distance, Is.GreaterThan(25f), "기존 느린 진동보다 활발하게 이동해야 한다.");
             Assert.That(Random.state, Is.EqualTo(state));
+        }
+
+        [Test, Category("LobbySwim")]
+        public void SwimStrokeKeepsFaceAndHatFixedWhileFeetAlternate()
+        {
+            foreach (var point in new[] { new Vector2(-.13f, .05f), new Vector2(.13f, .05f), new Vector2(.3f, .2f), new Vector2(-.3f, .2f) })
+            for (int i = 0; i < 90; i++) Assert.That(LobbyInkSwimMotion.DeformPoint(point, i / 30f, 1), Is.EqualTo(point));
+            Vector2 left = InkFootwearPose.Anchor(null, false), right = InkFootwearPose.Anchor(null, true);
+            Assert.That(LobbyInkSwimMotion.DeformPoint(left, 0, 1).y, Is.GreaterThan(left.y + .04f));
+            Assert.That(LobbyInkSwimMotion.DeformPoint(right, 0, 1).y, Is.LessThan(right.y - .04f));
+            Assert.That(LobbyInkSwimMotion.DeformPoint(left, LobbyInkSwimMotion.CycleSeconds / 2, 1).y, Is.LessThan(left.y - .04f));
+            for (int i = 0; i < 120; i++)
+            {
+                float t = i / 30f;
+                var p = LobbyInkSwimMotion.DeformPoint(left, t, 1);
+                Assert.That(Mathf.Abs(p.x - left.x), Is.LessThanOrEqualTo(LobbyInkSwimMotion.Padding.x));
+                Assert.That(Mathf.Abs(p.y - left.y), Is.LessThanOrEqualTo(LobbyInkSwimMotion.Padding.y));
+                Assert.That(Vector2.Distance(p, LobbyInkSwimMotion.DeformPoint(left, t + 1f / 60, 1)), Is.LessThan(.006f));
+                Assert.That(LobbyInkSwimMotion.DeformPoint(left, t, 0), Is.EqualTo(left));
+            }
+        }
+
+        [Test, Category("LobbySwim")]
+        public void SwimLeanFollowsTravelAndBreathingStaysWithinTheFittedEnvelope()
+        {
+            for (int i = 0; i < 1800; i++)
+            {
+                float t = i / 30f;
+                float vx = (LobbySkinPreview.DriftAt(t + .02f).x - LobbySkinPreview.DriftAt(t - .02f).x) / .04f;
+                float angle = LobbySkinPreview.TiltAt(t);
+                if (Mathf.Abs(vx) > .1f) Assert.That(Mathf.Sign(angle), Is.EqualTo(-Mathf.Sign(vx)));
+                Assert.That(Mathf.Abs(angle - LobbySkinPreview.TiltAt(t + 1f / 60)), Is.LessThan(2.5f));
+                var scale = LobbySkinPreview.SwimScaleAt(t);
+                Assert.That(scale.x, Is.InRange(.975f, 1.025f));
+                Assert.That(scale.y, Is.InRange(.975f, 1.025f));
+                Assert.That(scale.z, Is.EqualTo(1));
+            }
+        }
+
+        [UnityTest, Timeout(120000)]
+        public IEnumerator SmallerLobbyPreviewSwimsWithItsShoesAndStopsOnOptionsAndReducedMotion()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool background = Application.runInBackground; Application.runInBackground = true;
+            var settings = new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                var preview = Object.FindAnyObjectByType<LobbySkinPreview>();
+                var lobby = Object.FindAnyObjectByType<LobbyView>();
+                var body = preview.transform.Find("Drift/Artwork/OriginalInkBody").GetComponent<UnityEngine.UI.Image>();
+                var swim = body.GetComponent<LobbyInkSwimMotion>();
+                Assert.That(swim, Is.Not.Null);
+                Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+                foreach (var id in new[] { InkSkinId.Ink, InkSkinId.RedHeadband, InkSkinId.Astronaut, InkSkinId.RedShoes, InkSkinId.CloudBoots, InkSkinId.CraneWings, InkSkinId.DragonTail })
+                {
+                    Assert.That(InkSkinPreferences.TryEquip(id), Is.True); yield return Wait(.1f);
+                    var art = preview.transform.Find("Drift/Artwork/Accessory").GetComponent<InkAccessoryImage>();
+                    var envelope = LobbySkinPreview.RotationEnvelope(LobbySkinPreview.CostumeBounds(id, art.sprite).size);
+                    float oldSize = Mathf.Max(.01f, Mathf.Min(360f, Mathf.Min(preview.Area.rect.width * .48f / envelope.x,
+                        preview.Area.rect.height * .70f / envelope.y)));
+                    Assert.That(body.rectTransform.rect.width, Is.EqualTo(oldSize * .85f).Within(.01f));
+                    for (int pose = 0; pose < 6; pose++)
+                    {
+                        yield return Wait(.16f); Canvas.ForceUpdateCanvases(); CheckBounds(preview);
+                        Assert.That(body.canvasRenderer.GetMesh().vertexCount, Is.EqualTo(289));
+                        if (InkSkinCatalog.IsFootwear(id)) CheckSwimmingShoes(art, id, swim.MotionTime);
+                        if (id == InkSkinId.RedHeadband || id == InkSkinId.RedShoes)
+                            yield return Capture("swim-" + id + "-" + pose);
+                    }
+                }
+                var before = swim.MotionTime; yield return Wait(.2f);
+                Assert.That(swim.MotionTime, Is.GreaterThan(before));
+                Assert.That(preview.GetComponentsInChildren<UnityEngine.UI.Graphic>(true).All(g => !g.raycastTarget), Is.True);
+                Assert.That(preview.GetComponentsInChildren<Rigidbody2D>(true), Is.Empty);
+                Assert.That(preview.GetComponentsInChildren<Collider2D>(true), Is.Empty);
+                Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby));
+                lobby.OptionsButton.onClick.Invoke(); yield return Wait(.5f);
+                before = swim.MotionTime; var position = preview.Drift.anchoredPosition; var scale = preview.Drift.localScale;
+                yield return Wait(.3f);
+                Assert.That(swim.MotionTime, Is.EqualTo(before));
+                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(position));
+                Assert.That(preview.Drift.localScale, Is.EqualTo(scale));
+                Object.FindAnyObjectByType<LobbyOptionsView>().Close(); yield return Wait(.5f);
+                MobileApplicationLifecycle.SetPlatformVisibility(false); yield return Wait(.1f);
+                before = swim.MotionTime; yield return Wait(.2f); Assert.That(swim.MotionTime, Is.EqualTo(before));
+                MobileApplicationLifecycle.SetPlatformVisibility(true);
+                LobbySettingsProfile.SetReducedMotionEnabled(true); yield return Wait(.1f); Canvas.ForceUpdateCanvases();
+                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(Vector2.zero));
+                Assert.That(preview.Drift.localRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(preview.Drift.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(body.canvasRenderer.GetMesh().vertexCount, Is.EqualTo(4));
+                lobby.SetNavigationPresentation(false, false); yield return Wait(.1f);
+                Assert.That(preview.IsVisible, Is.False);
+            }
+            finally
+            {
+                SkinDebugSession.Reset(); MobileApplicationLifecycle.SetPlatformVisibility(true); Application.runInBackground = background;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+        static void CheckSwimmingShoes(InkAccessoryImage image, InkSkinId id, float time)
+        {
+            var mesh = image.canvasRenderer.GetMesh(); Assert.That(mesh.vertexCount, Is.EqualTo(8));
+            float bodySize = image.rectTransform.rect.width / InkSkinCatalog.Width(id);
+            for (int side = 0; side < 2; side++)
+            {
+                var anchor = InkFootwearPose.Anchor(null, side == 1);
+                var expected = InkFootwearPose.DrawingRect(id, image.sprite, side == 1).min - InkSkinCatalog.Offset(id) +
+                    LobbyInkSwimMotion.DeformPoint(anchor, time, InkAccessoryMotion.Strength) - anchor;
+                Assert.That(Vector2.Distance(mesh.vertices[side * 4], expected * bodySize), Is.LessThan(.01f));
+            }
         }
 
         [UnityTest, Timeout(120000)]
@@ -155,6 +277,13 @@ namespace MukJump.EditorTests
                     corners[1] = image.transform.TransformPoint(new Vector3(r.xMin, r.yMax) * size);
                     corners[2] = image.transform.TransformPoint(new Vector3(r.xMax, r.yMax) * size);
                     corners[3] = image.transform.TransformPoint(new Vector3(r.xMax, r.yMin) * size);
+                    var swim = image.GetComponent<LobbyInkSwimMotion>();
+                    if (swim != null)
+                    {
+                        var points = new[] { r.min, new Vector2(r.xMin, r.yMax), r.max, new Vector2(r.xMax, r.yMin) };
+                        for (int i = 0; i < 4; i++) corners[i] = image.transform.TransformPoint(
+                            LobbyInkSwimMotion.DeformPoint(points[i], swim.MotionTime, InkAccessoryMotion.Strength) * size);
+                    }
                 }
                 // 신발은 빈 이미지 사각형 대신 실제 좌우 신발 메시를 검사한다.
                 if (image is InkAccessoryImage && InkSkinCatalog.IsFootwear(preview.DisplayedSkin))
