@@ -84,7 +84,7 @@ namespace MukJump.EditorTests
             Assert.That(entries.Count, Is.EqualTo(InkSkinCatalog.Count - 1));
             Assert.That(entries.Count, Is.EqualTo(InkAchievementCatalog.GameCenterCount));
             Assert.That(entries.Select(x => x["id"].Value<string>()).Distinct().Count(), Is.EqualTo(entries.Count));
-            Assert.That(catalog["totalPoints"].Value<int>(), Is.EqualTo(entries.Count * 20).And.LessThanOrEqualTo(1000));
+            Assert.That(catalog["totalPoints"].Value<int>(), Is.EqualTo(entries.Sum(x => x["points"].Value<int>())).And.LessThanOrEqualTo(1000));
             for (int i = 1; i < InkSkinCatalog.Count; i++)
             {
                 var entry = entries[i - 1];

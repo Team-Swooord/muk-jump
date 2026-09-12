@@ -19,7 +19,7 @@ namespace MukJump.Core
         public static ulong Evaluate(SkinAchievementState start, SkinRunStats stats, int height, float seconds)
         {
             if (start == null || !stats.IsMeasured || height < 0 || float.IsNaN(seconds) || float.IsInfinity(seconds)) return 0;
-            ulong mask = 0;
+            ulong mask = InkMythicSkins.Evaluate(stats, height, seconds, false);
             for (int i = 1; i < InkSkinCatalog.Count; i++)
             {
                 var d = InkSkinCatalog.Get((InkSkinId)i);

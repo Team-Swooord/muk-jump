@@ -2,7 +2,10 @@ using System;
 using UnityEngine;
 namespace MukJump.Core
 {
-    public enum InkSkinId { Ink = 0, Gat = 1, SpiderMask = 2, FirstRibbon = 3, Scholar = 4, InkGhost = 5, BambooHat = 6, RedHeadband = 7, LotusCrown = 8, CatEars = 9, BellRibbon = 10, CloudCap = 11, PaperBoat = 12, TeaCupHat = 13, FeatherHairpin = 14, PeachFlower = 15, FoxMask = 16, CraneCrest = 17, YakshaMask = 18, TurtleShell = 19, StormScarf = 20, MoonCrown = 21, BrushMaster = 22, SpiritHalo = 23, KoiMask = 24, JadeCrown = 25, PhoenixCrown = 26, TigerMask = 27, MountainKing = 28, CloudDragon = 29, InkMecha = 30, NightBat = 31, Astronaut = 32, ClockworkCat = 33, LuckyDice = 34, OrigamiWings = 35, CraneWings = 36, ButterflyWings = 37, RedShoes = 38, CloudBoots = 39, BlueWisps = 40, PaperLanterns = 41, MoonClouds = 42, BondKnot = 43, WindFan = 44, DragonTail = 45 }
+    public enum InkSkinId { Ink = 0, Gat = 1, SpiderMask = 2, FirstRibbon = 3, Scholar = 4, InkGhost = 5, BambooHat = 6, RedHeadband = 7, LotusCrown = 8, CatEars = 9, BellRibbon = 10, CloudCap = 11, PaperBoat = 12, TeaCupHat = 13, FeatherHairpin = 14, PeachFlower = 15, FoxMask = 16, CraneCrest = 17, YakshaMask = 18, TurtleShell = 19, StormScarf = 20, MoonCrown = 21, BrushMaster = 22, SpiritHalo = 23, KoiMask = 24, JadeCrown = 25, PhoenixCrown = 26, TigerMask = 27, MountainKing = 28, CloudDragon = 29, InkMecha = 30, NightBat = 31, Astronaut = 32, ClockworkCat = 33, LuckyDice = 34, OrigamiWings = 35, CraneWings = 36, ButterflyWings = 37, RedShoes = 38, CloudBoots = 39, BlueWisps = 40, PaperLanterns = 41, MoonClouds = 42, BondKnot = 43, WindFan = 44, DragonTail = 45,
+        ZodiacRat = 46, ZodiacOx = 47, ZodiacTiger = 48, ZodiacRabbit = 49, ZodiacDragon = 50, ZodiacSnake = 51,
+        ZodiacHorse = 52, ZodiacGoat = 53, ZodiacMonkey = 54, ZodiacRooster = 55, ZodiacDog = 56, ZodiacPig = 57,
+        HaetaeCrest = 58, ThreeLeggedCrow = 59, NineTails = 60 }
     public enum SkinTier { Basic, Easy, Medium, Hard, Hidden, UltraHidden }
     public enum SkinMetric { None, Best, Runs, Distance, DrawnLandings, InkDrops, Items, Survival, Clones, NightBest, Growth, NoItemBest, ZeroRun, Secret, AppleLink, DragonDeath }
     public sealed class InkSkinDefinition
@@ -17,7 +20,7 @@ namespace MukJump.Core
     }
     public static class InkSkinCatalog
     {
-        public const int Count = 46;
+        public const int Count = 61;
         public const float AirJumpRatio = .4f;
         static readonly InkSkinDefinition[] definitions =
         {
@@ -66,7 +69,22 @@ namespace MukJump.Core
             new(InkSkinId.MoonClouds,"달구름 둥지","Mooncloud Nest","月雲の巣","skin_moon_clouds_v1",SkinTier.Medium,SkinMetric.NightBest,200),
             new(InkSkinId.BondKnot,"인연 매듭","Bond Knot","縁結び","skin_bond_knot_v1",SkinTier.Basic,SkinMetric.AppleLink,1),
             new(InkSkinId.WindFan,"바람부채","Wind Fan","風の扇","skin_wind_fan_v1",SkinTier.Medium,SkinMetric.InkDrops,5),
-            new(InkSkinId.DragonTail,"용꼬리","Dragon Tail","竜のしっぽ","skin_dragon_tail_v1",SkinTier.Easy,SkinMetric.DragonDeath,1)
+            new(InkSkinId.DragonTail,"용꼬리","Dragon Tail","竜のしっぽ","skin_dragon_tail_v2",SkinTier.Easy,SkinMetric.DragonDeath,1),
+            new(InkSkinId.ZodiacRat,"자 · 밤쥐","Rat · Night Forager","子・夜ねずみ","skin_zodiac_rat_v1",SkinTier.Hidden,SkinMetric.Secret,1),
+            new(InkSkinId.ZodiacOx,"축 · 느긋한 소","Ox · Steady Steps","丑・のんびり牛","skin_zodiac_ox_v1",SkinTier.Hidden,SkinMetric.Secret,1),
+            new(InkSkinId.ZodiacTiger,"인 · 작은 산군","Tiger · Little Guardian","寅・小さな山守","skin_zodiac_tiger_v1",SkinTier.Hidden,SkinMetric.Secret,1),
+            new(InkSkinId.ZodiacRabbit,"묘 · 달토끼","Rabbit · Moon Hopper","卯・月うさぎ","skin_zodiac_rabbit_v1",SkinTier.Hidden,SkinMetric.Secret,1),
+            new(InkSkinId.ZodiacDragon,"진 · 꼬마 용","Dragon · Little Cloud","辰・ちび竜","skin_zodiac_dragon_v1",SkinTier.Hidden,SkinMetric.Secret,1),
+            new(InkSkinId.ZodiacSnake,"사 · 실뱀","Snake · Ribbon Coil","巳・ひもへび","skin_zodiac_snake_v1",SkinTier.Hidden,SkinMetric.Secret,1),
+            new(InkSkinId.ZodiacHorse,"오 · 바람갈기","Horse · Wind Mane","午・風のたてがみ","skin_zodiac_horse_v1",SkinTier.Hidden,SkinMetric.Secret,1),
+            new(InkSkinId.ZodiacGoat,"미 · 구름양","Goat · Cloud Curls","未・雲ひつじ","skin_zodiac_goat_v1",SkinTier.Hidden,SkinMetric.Secret,1),
+            new(InkSkinId.ZodiacMonkey,"신 · 잔꾀 원숭이","Monkey · Trickster","申・いたずら猿","skin_zodiac_monkey_v1",SkinTier.Hidden,SkinMetric.Secret,1),
+            new(InkSkinId.ZodiacRooster,"유 · 새벽볏","Rooster · Dawn Comb","酉・夜明けのとさか","skin_zodiac_rooster_v1",SkinTier.Hidden,SkinMetric.Secret,1),
+            new(InkSkinId.ZodiacDog,"술 · 지킴개","Dog · Loyal Watch","戌・見守り犬","skin_zodiac_dog_v1",SkinTier.Hidden,SkinMetric.Secret,1),
+            new(InkSkinId.ZodiacPig,"해 · 복돼지","Pig · Lucky Snout","亥・福ぶた","skin_zodiac_pig_v1",SkinTier.Hidden,SkinMetric.Secret,1),
+            new(InkSkinId.HaetaeCrest,"해태의 작은 뿔","Little Haetae Horn","ヘテの小さな角","skin_haetae_crest_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
+            new(InkSkinId.ThreeLeggedCrow,"삼족오의 해","Three-Legged Sun Crow","三足烏の太陽","skin_three_legged_crow_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
+            new(InkSkinId.NineTails,"구미호의 낮잠","Nine-Tailed Nap","九尾の昼寝","skin_nine_tails_v1",SkinTier.UltraHidden,SkinMetric.Secret,1)
         };
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
         public static InkSkinId Normalize(InkSkinId id) => IsValid(id) ? id : InkSkinId.Ink;
@@ -115,7 +133,8 @@ namespace MukJump.Core
             _ => "원래 먹에 장식을 더해요.\n기존 점프와 성장 효과를 유지해요." };
         public static string ResourcePath(InkSkinId id) => Get(id) is { Asset: { Length: > 0 } } d ? "MukJump/Skins/" + d.Asset : "";
         public static bool BehindBody(InkSkinId id) => id is InkSkinId.OrigamiWings or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.SpiritHalo
-            or InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds or InkSkinId.WindFan or InkSkinId.DragonTail;
+            or InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds or InkSkinId.WindFan or InkSkinId.DragonTail
+            or InkSkinId.ThreeLeggedCrow or InkSkinId.NineTails;
         public static bool IsFootwear(InkSkinId id) => id is InkSkinId.RedShoes or InkSkinId.CloudBoots;
         // 1024 프레임 전체가 기준이다. 실제 먹 몸통은 약 0.7배 폭이며 넉넉한 착용선을 사용한다.
         public static float Width(InkSkinId id) => id switch {
@@ -135,8 +154,9 @@ namespace MukJump.Core
             InkSkinId.ClockworkCat => 1.02f, InkSkinId.SpiritHalo => 1.04f, InkSkinId.LuckyDice => .88f,
             InkSkinId.CraneWings => 1.35f, InkSkinId.ButterflyWings => 1.30f, InkSkinId.OrigamiWings => 1.30f,
             InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds => 1.22f,
-            InkSkinId.BondKnot => .40f, InkSkinId.WindFan => .90f, InkSkinId.DragonTail => .84f,
-            InkSkinId.RedShoes or InkSkinId.CloudBoots => 1f, _ => .68f };
+            InkSkinId.BondKnot => .40f, InkSkinId.WindFan => .90f, InkSkinId.DragonTail => .68f,
+            InkSkinId.ThreeLeggedCrow => 1.12f, InkSkinId.NineTails => 1.24f,
+            InkSkinId.RedShoes or InkSkinId.CloudBoots => 1f, _ => InkMythicSkins.Contains(id) ? .94f : .68f };
         public static Vector2 Offset(InkSkinId id)
         {
             // 뒤쪽 끈은 그리지 않는다. 이마 띠와 옆머리 매듭의 중심을 따로 맞춘다.
@@ -148,7 +168,12 @@ namespace MukJump.Core
             if (id == InkSkinId.ClockworkCat) return new Vector2(.04f, .10f);
             if (id == InkSkinId.BondKnot) return new Vector2(.25f, .20f);
             if (id == InkSkinId.WindFan) return new Vector2(-.20f, .22f);
-            if (id == InkSkinId.DragonTail) return new Vector2(.43f, -.19f);
+            if (id == InkSkinId.DragonTail) return new Vector2(.36f, -.13f);
+            if (InkMythicSkins.Contains(id)) return new Vector2(0, id switch {
+                InkSkinId.ThreeLeggedCrow => .27f, InkSkinId.NineTails => .02f,
+                InkSkinId.ZodiacRat or InkSkinId.ZodiacMonkey or InkSkinId.ZodiacPig => .20f,
+                InkSkinId.ZodiacTiger or InkSkinId.ZodiacSnake or InkSkinId.ZodiacDragon => .24f,
+                InkSkinId.ZodiacRabbit => .39f, InkSkinId.ZodiacDog => .17f, _ => .30f });
             return new Vector2(0, id switch {
                 InkSkinId.Gat => .32f, InkSkinId.Scholar => .34f, InkSkinId.BambooHat => .36f,
                 InkSkinId.LotusCrown => .33f, InkSkinId.CraneCrest => .31f, InkSkinId.PhoenixCrown => .40f,
@@ -187,6 +212,7 @@ namespace MukJump.Core
         {
             var d = InkSkinCatalog.Get(id);
             if (d == null) return "???";
+            if (InkMythicSkins.Contains(id)) return InkMythicSkins.Requirement(id).ko;
             if (id == InkSkinId.Ink) return "처음부터 사용 가능";
             return d.Metric switch {
                 SkinMetric.Best => $"최고 고도 {d.Goal}m 달성",

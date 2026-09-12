@@ -380,7 +380,8 @@ namespace MukJump.Core
             StopCollection();
             collectionGrid.constraintCount=collectionExpanded ? 6 : 5;
             int rows=Mathf.CeilToInt(InkSkinCatalog.Count/6f);
-            float allHeight=Mathf.Min(220,(1560f-(rows-1)*16f)/rows);
+            // 의상이 늘어도 먹 미리보기를 축소해 없애지 않는다. 남은 줄은 세로 스크롤한다.
+            float allHeight=Mathf.Clamp((1560f-(rows-1)*16f)/rows,180,220);
             collectionGrid.cellSize=collectionExpanded ? new Vector2(150,allHeight) : new Vector2(180,190);
             collectionRoot.anchoredPosition=collectionExpanded ? new Vector2(0,0) : new Vector2(0,-548);
             collectionRoot.sizeDelta=new Vector2(1000,collectionExpanded ? 1560 : 424);

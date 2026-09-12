@@ -87,6 +87,11 @@ namespace MukJump.Core
                 result[d.Korean]=(d.English,d.Japanese);
                 var lore=InkSkinLore.Get(id);
                 result[lore.ko]=(lore.en,lore.ja);
+                if (InkMythicSkins.Contains(id))
+                {
+                    var requirement = InkMythicSkins.Requirement(id);
+                    result[requirement.ko] = (requirement.en, requirement.ja);
+                }
                 var pair=d.Metric switch
                 {
                     SkinMetric.Best => ($"Reach {n}m", $"最高高度{n}mに到達"),
@@ -110,7 +115,7 @@ namespace MukJump.Core
     /// 효과 수치와 분리된 짧은 창작 뒷이야기. 발견 전 비밀 의상에는 표시하지 않는다.
     public static class InkSkinLore
     {
-        public static (string ko, string en, string ja) Get(InkSkinId id) => id switch {
+        public static (string ko, string en, string ja) Get(InkSkinId id) => InkMythicSkins.Contains(id) ? InkMythicSkins.Lore(id) : id switch {
             InkSkinId.Ink => ("벼루 밖으로 처음 굴러 나온 날.", "The day a drop rolled out of the inkstone.", "硯の外へ、はじめて転がり出た日。"),
             InkSkinId.Gat => ("주인은 날아갔고, 갓만 돌아왔다.", "The hat came back. Its owner did not.", "持ち主は飛んでいき、笠だけ戻った。"),
             InkSkinId.SpiderMask => ("처마 밑 거미에게 빌린 얼굴.", "A face borrowed from a spider in the eaves.", "軒下の蜘蛛から借りた顔。"),

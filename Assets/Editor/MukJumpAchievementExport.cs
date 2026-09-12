@@ -41,12 +41,14 @@ namespace MukJump.EditorTools
                 }
                 string icon=InkAchievementCatalog.Id(i)+".png";
                 all.Add(new JObject { ["id"]=InkAchievementCatalog.Id(i),["referenceName"]=name,
-                    ["points"]=20,["hidden"]=InkAchievementCatalog.Hidden(i),["repeatable"]=false,
+                    ["points"]=Points(i),["hidden"]=InkAchievementCatalog.Hidden(i),["repeatable"]=false,
                     ["icon"]=icon,["localizations"]=locales });
             }
             return new JObject { ["appId"]="6804614765",["registrationStatus"]="NOT_REGISTERED",
-                ["totalPoints"]=InkAchievementCatalog.GameCenterCount*20,["achievements"]=all };
+                ["totalPoints"]=Enumerable.Range(1, InkAchievementCatalog.GameCenterCount).Sum(Points),["achievements"]=all };
         }
+        // 기존 45개 배점은 유지한다. 추가 히든까지 Apple의 총 1,000점 한도 안에 둔다.
+        public static int Points(int index) => index < InkMythicSkins.First ? 20 : 5;
         static void ExportIcon(int index,string path)
         {
             var id=(InkSkinId)index;

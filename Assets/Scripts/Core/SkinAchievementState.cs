@@ -86,6 +86,7 @@ namespace MukJump.Core
                 if (height == 777) Grant(InkSkinId.LuckyDice);
                 if (stats.startedAtNight && stats.startingSkin == InkSkinId.CatEars && stats.items == 0 &&
                     seconds >= 60 && !float.IsInfinity(seconds)) Grant(InkSkinId.ClockworkCat);
+                unlockedMask |= (long)InkMythicSkins.Evaluate(stats, height, seconds, true);
             }
             for (int i = 1; i < InkSkinCatalog.Count; i++)
             {
