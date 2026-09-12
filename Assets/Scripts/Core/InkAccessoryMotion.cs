@@ -9,7 +9,7 @@ namespace MukJump.Core
         public const float Padding = .05f;
         public static bool Supports(InkSkinId id) => id is InkSkinId.SpiritHalo or InkSkinId.BlueWisps
             or InkSkinId.PaperLanterns or InkSkinId.MoonClouds or InkSkinId.OrigamiWings
-            or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.StormScarf;
+            or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.StormScarf or InkSkinId.DragonTail;
         public static float Strength => LobbySettingsProfile.ReducedMotionEnabled ? 0f :
             VfxQualityRuntime.Tier == VfxQualityTier.Low ? .55f : 1f;
         public static float SampleTime(float time)
@@ -36,6 +36,11 @@ namespace MukJump.Core
                 float tail = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.48f, .18f, uv.y)) *
                     Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.67f, .88f, uv.x));
                 delta = new Vector2(.024f * Mathf.Sin(time * 3f + y * 6f), .018f * Mathf.Sin(time * 2.5f + x * 5f)) * tail;
+            }
+            else if (id == InkSkinId.DragonTail)
+            {
+                float tip = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.30f, .88f, uv.x));
+                delta = new Vector2(.010f * Mathf.Sin(time * 2.2f + x * 4f), .028f * Mathf.Sin(time * 2.2f + x * 4f)) * tip;
             }
             else if (id == InkSkinId.PaperLanterns)
                 delta = new Vector2(.018f * Mathf.Sin(time * 1.5f + x * 8f), .018f * Mathf.Sin(time * 1.9f + x * 6f + 1f));

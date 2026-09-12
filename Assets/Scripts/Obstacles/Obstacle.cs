@@ -119,7 +119,7 @@ namespace MukJump.Obstacles
         {
             if (consumed) return;
             var player = other.GetComponentInParent<PlayerController>();
-            if (player == null || !player.TakeHit()) return;
+            if (player == null || !(Kind == ObstacleKind.ChildDragon ? player.TakeDragonHit() : player.TakeHit())) return;
 
             // 한 번 유효하게 피격시킨 장애물은 같은 물리 스텝의 다른 콜라이더나
             // 분신까지 연쇄 타격하지 않도록 즉시 판정을 끄고 풀 반환을 요청한다.

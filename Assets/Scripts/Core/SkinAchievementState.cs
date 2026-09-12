@@ -10,6 +10,8 @@ namespace MukJump.Core
         public int version;
         public int drawnLandings, items, inkDrops, maxLivingPlayers;
         public bool startedAtNight;
+        // 기존 v1 정산 복구본에서는 누락 시 false. 치명적인 용 접촉을 직접 확인한 판만 인정한다.
+        public bool diedToDragon;
         public InkSkinId startingSkin;
         public static SkinRunStats Begin(bool night, InkSkinId skin) => new()
         { version = 1, startedAtNight = night, startingSkin = skin, maxLivingPlayers = 1 };
@@ -80,6 +82,7 @@ namespace MukJump.Core
                 if (stats.startedAtNight) nightBest = Math.Max(nightBest, height);
                 if (stats.items == 0) noItemBest = Math.Max(noItemBest, height);
                 if (stats.drawnLandings == 0) Grant(InkSkinId.InkGhost);
+                if (stats.diedToDragon) Grant(InkSkinId.DragonTail);
                 if (height == 777) Grant(InkSkinId.LuckyDice);
                 if (stats.startedAtNight && stats.startingSkin == InkSkinId.CatEars && stats.items == 0 &&
                     seconds >= 60 && !float.IsInfinity(seconds)) Grant(InkSkinId.ClockworkCat);

@@ -404,7 +404,10 @@ namespace MukJump.Player
         public void GrantShield() => TryGrantShield();
 
         /// 장애물 피해. 실제로 처리한 접촉이면 true를 반환해 장애물이 스스로 사라지게 한다.
-        public bool TakeHit()
+        public bool TakeHit() => TakeObstacleHit(false);
+        public bool TakeDragonHit() => TakeObstacleHit(true);
+
+        bool TakeObstacleHit(bool dragonCollision)
         {
             if (IsDead) return false;
             // 일시정지·전환 중 같은 Physics2D 스텝에 예약된 충돌이 이어져도
@@ -436,7 +439,7 @@ namespace MukJump.Player
             MukJumpAnalytics.Damage(fall: false);
             int nextHealth = Mathf.Max(0, CurrentHealth - 1);
             if (nextHealth <= 0)
-                KillWithCause(AnalyticsDeathCause.Obstacle);
+                KillFromDamage(AnalyticsDeathCause.Obstacle, dragonCollision);
             else
             {
                 CurrentHealth = nextHealth;
@@ -708,7 +711,9 @@ namespace MukJump.Player
         /// 캐릭터를 숨기고 먹 번짐이 퍼졌다 사라지는 연출을 재생한다.
         public void Kill() => KillWithCause(AnalyticsDeathCause.Other);
 
-        void KillWithCause(AnalyticsDeathCause cause)
+        void KillWithCause(AnalyticsDeathCause cause) => KillFromDamage(cause, false);
+
+        void KillFromDamage(AnalyticsDeathCause cause, bool dragonCollision)
         {
             if (IsDead) return;
             MukJumpAnalytics.PlayerDied(cause);
@@ -729,6 +734,7 @@ namespace MukJump.Player
                 NotifyHealthChanged();
 
             RunGrowthController.Instance?.NotifySkinCloneDeath(this, cause);
+            if (dragonCollision) GameManager.Instance?.NotifySkinDragonDeath(this);
             bool isLastPlayer = GameManager.Instance == null ||
                                 GameManager.Instance.NotifyPlayerDied(this);
             GameFeedbackController.Instance?.PlayDeath(

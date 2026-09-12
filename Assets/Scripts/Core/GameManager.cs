@@ -547,6 +547,14 @@ namespace MukJump.Core
             skinRunStats.maxLivingPlayers = Mathf.Max(skinRunStats.maxLivingPlayers, LivingPlayerCount);
         }
 
+        // 마지막 사망자의 게임오버 정산 복구본을 만들기 전에 기록한다.
+        public void NotifySkinDragonDeath(PlayerController player)
+        {
+            if (!IsGameplayTicking || !skinRunStats.IsMeasured || player == null ||
+                !player.IsDead || player.IsRuntimeClone) return;
+            skinRunStats.diedToDragon = true;
+        }
+
         /// 바람·카메라 같은 읽기 전용 시스템이 매 프레임 FindObjects 배열을 만들지 않도록
         /// 현재 생존자 목록을 호출자가 재사용하는 버퍼에 채운다.
         public void GetLivingPlayersNonAlloc(List<PlayerController> results)

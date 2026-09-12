@@ -626,6 +626,99 @@ namespace MukJump.EditorTests
             Invoke(growth, "OnEnable");
             return manager;
         }
+
+        [TestCase("fatal", true)] [TestCase("health-left", false)]
+        [TestCase("shield", false)] [TestCase("boost", false)] [TestCase("paused", false)]
+        [TestCase("clone", false)] [TestCase("spike", false)] [TestCase("fall-after-hit", false)]
+        [TestCase("last-breath", false)]
+        [Category("DragonTail")]
+        public void DragonTailRequiresAnActualFatalDragonCollision(string scenario, bool expected)
+        {
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            try
+            {
+                var manager = Manager(out var growth);
+                Invoke(manager, "SetState", GameState.Playing);
+                Field(manager, "currentRunId", "dragon-collision-test");
+                Field(manager, "skinRunStats", SkinRunStats.Begin(false, InkSkinId.Ink));
+                var player = Player(); manager.RegisterPlayer(player);
+                typeof(PlayerController).GetProperty("CurrentHealth").SetValue(player,
+                    scenario is "health-left" or "fall-after-hit" ? 2 : 1);
+                if (scenario == "clone") { Field(player, "isRuntimeClone", true); manager.RegisterPlayer(Player()); }
+                if (scenario == "shield") player.GrantShield();
+                if (scenario == "boost") player.LaunchInkDrop(50);
+                if (scenario == "paused") typeof(GameManager).GetProperty("IsPaused").SetValue(manager, true);
+                if (scenario == "last-breath") typeof(RunGrowthController).GetProperty("LastBreathAvailable").SetValue(growth, true);
+                bool recordedBeforeGameOver = false;
+                manager.StateChanged += (_, next) => { if (next == GameState.GameOver) recordedBeforeGameOver = DragonStats(manager).diedToDragon; };
+                var obstacle = Track(new GameObject("DragonTailTestObstacle")).AddComponent<MukJump.Obstacles.Obstacle>();
+                obstacle.Configure(0, 0, 0, scenario == "spike" ? MukJump.Obstacles.ObstacleKind.Spike : MukJump.Obstacles.ObstacleKind.ChildDragon);
+                Invoke(obstacle, "OnTriggerEnter2D", player.GetComponent<Collider2D>());
+                if (scenario == "fall-after-hit") Invoke(player, "KillWithCause", AnalyticsDeathCause.Fall);
+                Assert.That(DragonStats(manager).diedToDragon, Is.EqualTo(expected));
+                if (expected)
+                {
+                    Assert.That(player.IsDead, Is.True);
+                    Assert.That(recordedBeforeGameOver, Is.True, "정산 복구본보다 먼저 사망 원인을 기록한다.");
+                    Invoke(manager, "SettleGameOverResult");
+                    Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.True);
+                    Invoke(obstacle, "OnTriggerEnter2D", player.GetComponent<Collider2D>());
+                    Assert.That(DragonStats(manager).diedToDragon, Is.True);
+                }
+                else Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.False);
+            }
+            finally { GameManager.RestorePendingGameOverSettlementStoreForTests(); }
+        }
+
+        [Test, Category("DragonTail")]
+        public void DragonTailSettlementPersistsWithAccountAndNeverGrantsOnFailedOrUnmeasuredRuns()
+        {
+            var stats = SkinRunStats.Begin(false, InkSkinId.Ink); stats.diedToDragon = true;
+            Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string before), Is.True);
+            var invalid = stats; invalid.version = 0;
+            PermanentGrowthProfile.SettleRun("dragon-invalid", 1, 1, 0, 1, true, invalid);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.False);
+            growthStore.ThrowOnPrimarySave = true;
+            Assert.That(PermanentGrowthProfile.SettleRun("dragon-save", 1, 1, 0, 1, true, stats).Accepted, Is.False);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.False);
+            growthStore.ThrowOnPrimarySave = false;
+            Assert.That(PermanentGrowthProfile.TryRestoreBackup(), Is.True);
+            Assert.That(PermanentGrowthProfile.SettleRun("dragon-save", 1, 1, 0, 1, true, stats).Accepted, Is.True);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.True);
+            Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string earned), Is.True);
+            Assert.That(PermanentGrowthProfile.TryReplaceFromCloudJson(before), Is.True);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.False);
+            Assert.That(PermanentGrowthProfile.TryReplaceFromCloudJson(earned), Is.True);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.True);
+            var roundTrip = JsonUtility.FromJson<SkinRunStats>(JsonUtility.ToJson(stats));
+            Assert.That(roundTrip.diedToDragon, Is.True);
+            Assert.That(JsonUtility.FromJson<SkinRunStats>("{\"version\":1,\"maxLivingPlayers\":1}").diedToDragon, Is.False);
+        }
+
+        [Test, Category("DragonTail")]
+        public void DragonTailHasLocalizedRequirementAndKeepsTheRootFixedWhileWagging()
+        {
+            Assert.That((int)InkSkinId.DragonTail, Is.EqualTo(45));
+            Assert.That(InkSkinCatalog.Sprite(InkSkinId.DragonTail), Is.Not.Null);
+            Assert.That(InkSkinCatalog.BehindBody(InkSkinId.DragonTail), Is.True);
+            Assert.That(InkSkinCatalog.HasAbility(InkSkinId.DragonTail), Is.False);
+            foreach (string source in new[] { InkSkinCatalog.Name(InkSkinId.DragonTail), InkSkinAchievements.Requirement(InkSkinId.DragonTail), InkSkinLore.Get(InkSkinId.DragonTail).ko })
+                foreach (bool japanese in new[] { false, true })
+                    Assert.That(InkSkinTranslations.TryTranslate(source, japanese, out _), Is.True);
+            float travel = 0;
+            for (int t = 0; t < 80; t++)
+            {
+                var root = new Vector2(.2f, .5f); var tip = new Vector2(.9f, .5f);
+                Assert.That(InkAccessoryMotion.Deform(InkSkinId.DragonTail, root, t * .1f, 1), Is.EqualTo(root));
+                var moved = InkAccessoryMotion.Deform(InkSkinId.DragonTail, tip, t * .1f, 1);
+                float distance = Vector2.Distance(tip, moved); travel += distance;
+                Assert.That(distance, Is.LessThan(.04f));
+                Assert.That(InkAccessoryMotion.Deform(InkSkinId.DragonTail, tip, t, 0), Is.EqualTo(tip));
+            }
+            Assert.That(travel, Is.GreaterThan(.01f));
+        }
+        static SkinRunStats DragonStats(GameManager manager) => (SkinRunStats)typeof(GameManager)
+            .GetField("skinRunStats", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(manager);
         PlayerController Player()
         {
             var host = Track(new GameObject("SkinTestPlayer", typeof(SpriteRenderer), typeof(Rigidbody2D), typeof(CircleCollider2D)));

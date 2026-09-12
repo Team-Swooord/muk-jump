@@ -35,7 +35,7 @@ namespace MukJump.EditorTests
                 Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return Navigation();
                 var wardrobe = Object.FindAnyObjectByType<InkWardrobeView>();
                 foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
-                foreach (var id in new[] { InkSkinId.BondKnot, InkSkinId.WindFan })
+                foreach (var id in new[] { InkSkinId.BondKnot, InkSkinId.WindFan, InkSkinId.DragonTail })
                 {
                     GameLocalization.SetLanguage(language); wardrobe.Select(id); yield return Wait(1);
                     Canvas.ForceUpdateCanvases();

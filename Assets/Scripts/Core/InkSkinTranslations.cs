@@ -29,6 +29,8 @@ namespace MukJump.Core
                 ["같은 해금 조건끼리"] = ("Grouped by unlock goal", "解放条件ごとに表示"),
                 ["기본 의상"] = ("Starter outfit", "基本の衣装"),
                 ["연동 보상"] = ("Link reward", "連携報酬"),
+                ["용과의 만남"] = ("Dragon encounter", "竜との出会い"),
+                ["본체가 용과 충돌해 사망하기"] = ("Let the original Ink die from a dragon collision", "本体が竜との衝突で倒れる"),
                 ["Apple 계정 연동 완료"] = ("Link your Apple account", "Appleアカウントを連携"),
                 ["첫걸음 도약"] = ("First Leap", "はじまりの跳躍"),
                 ["바람 도약"] = ("Wind Leap", "風の跳躍"),
@@ -154,6 +156,7 @@ namespace MukJump.Core
             InkSkinId.MoonClouds => ("달이 낮잠 잘 자리를 잘못 골랐다.", "The moon picked the wrong place for a nap.", "月がお昼寝する場所を間違えた。"),
             InkSkinId.BondKnot => ("인연을 묶었더니 발이 먼저 떠올랐다.", "One little bond. Two feet off the ground.", "縁を結んだら、足が先に浮かんだ。"),
             InkSkinId.WindFan => ("불을 끄려다 주인부터 날려 버렸다.", "Meant to cool the fire. Blew its owner away.", "火を消すつもりが、持ち主を飛ばした。"),
+            InkSkinId.DragonTail => ("한 번 부딪혔을 뿐인데 꼬리가 따라왔다.", "One little bump. A tail followed me home.", "一度ぶつかっただけなのに、しっぽがついてきた。"),
             _ => ("", "", "")
         };
     }
