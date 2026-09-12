@@ -305,8 +305,14 @@ namespace MukJump.EditorTests
                 Assert.That(lobby.WardrobeButton.transform.position.y, Is.GreaterThan(lobby.OptionsButton.transform.position.y));
                 yield return Capture("lobby");
                 Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True);
-                yield return Wait(3f);
+                yield return WaitForWardrobe();
                 var view = Object.FindAnyObjectByType<InkWardrobeView>(); Assert.That(view.IsOpen, Is.True);
+                var wardrobeCanvas=view.Paper.GetComponentInParent<Canvas>();
+                Assert.That(wardrobeCanvas.GetComponentsInChildren<HanjiScrollFrame>(true),Is.Empty);
+                Assert.That(LobbyScreenNavigator.Instance.CanStartGame,Is.False);
+                Assert.That(LobbyScreenNavigator.Instance.CanShowTopBanner,Is.False);
+                Assert.That(wardrobeCanvas.transform.Find("LobbyBackgroundInputBlocker")
+                    .GetComponent<UnityEngine.UI.Image>().color,Is.EqualTo(Color.clear));
                 var measured = SkinRunStats.Begin(true, InkSkinId.CatEars);
                 for (int i=0;i<100;i++) PermanentGrowthProfile.SettleRun("showroom-capture-"+i,200,200,0,120,true,measured);
                 PermanentGrowthProfile.SettleRun("showroom-peak",2000,2000,0,120,true,measured);
@@ -314,6 +320,10 @@ namespace MukJump.EditorTests
                 foreach (var language in new[]{GameLanguage.Korean,GameLanguage.English,GameLanguage.Japanese})
                 {
                     GameLocalization.SetLanguage(language); view.Select(InkSkinId.Gat);
+                    Assert.That(lobby.WardrobeButton.GetComponentInChildren<UnityEngine.UI.Text>().text,
+                        Is.EqualTo(GameLocalization.Translate("꾸미기")));
+                    Assert.That(view.Paper.Find("Title").GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo(GameLocalization.Translate("꾸미기")));
                     yield return Wait(.6f); yield return Capture("showroom-"+language);
                 }
                 GameLocalization.SetLanguage(GameLanguage.Korean);
@@ -366,7 +376,7 @@ namespace MukJump.EditorTests
                 view.BackButton.onClick.Invoke(); yield return Wait(3f);
                 Assert.That(view.IsOpen, Is.False); Assert.That(view.Presentation.IsPlaying, Is.False);
                 Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby));
-                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return Wait(3f);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return WaitForWardrobe();
                 Assert.That(view.Selected, Is.EqualTo(InkSkinId.SpiderMask));
                 Assert.That(view.Presentation.ParticleCount, Is.Zero);
             }
@@ -378,6 +388,17 @@ namespace MukJump.EditorTests
                 GameManager.RestorePendingGameOverSettlementStoreForTests();
             }
             yield return new ExitPlayMode();
+        }
+        static IEnumerator WaitForWardrobe()
+        {
+            float deadline=Time.realtimeSinceStartup+10f;
+            while(Time.realtimeSinceStartup<deadline)
+            {
+                var view=Object.FindAnyObjectByType<InkWardrobeView>();
+                if(view!=null && view.CanBrowse) yield break;
+                yield return null;
+            }
+            Assert.Fail("꾸미기 전체 화면 전환이 완료되지 않았습니다.");
         }
         static IEnumerator Capture(string name)
         {

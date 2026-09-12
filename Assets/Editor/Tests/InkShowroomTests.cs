@@ -48,13 +48,32 @@ namespace MukJump.EditorTests
             VfxQualityRuntime.SetTier(originalTier, VfxQualityChangeReason.DebugOverride);
             MobileApplicationLifecycle.SetPlatformVisibility(true);
         }
-        [TestCase(GameLanguage.Korean, "쇼룸")]
-        [TestCase(GameLanguage.English, "Showroom")]
-        [TestCase(GameLanguage.Japanese, "ショールーム")]
+        [TestCase(GameLanguage.Korean, "꾸미기")]
+        [TestCase(GameLanguage.English, "Wardrobe")]
+        [TestCase(GameLanguage.Japanese, "着せ替え")]
         public void ShowroomTitleMatchesLocale(GameLanguage language, string expected)
         {
             GameLocalization.SetLanguage(language);
             Assert.That(view.Paper.Find("Title").GetComponent<Text>().text, Is.EqualTo(expected));
+        }
+        [Test] public void WardrobeIsADedicatedLandscapeScreenWithoutScrollOrModalDim()
+        {
+            Assert.That(view.Paper.name,Is.EqualTo("WardrobeScreen"));
+            Assert.That(view.Paper.sizeDelta,Is.EqualTo(new Vector2(1080,1920)));
+            Assert.That(host.GetComponentsInChildren<HanjiScrollFrame>(true),Is.Empty);
+            var canvas=view.GetComponentInChildren<Canvas>();
+            var blocker=canvas.transform.Find("LobbyBackgroundInputBlocker").GetComponent<Image>();
+            Assert.That(blocker.color,Is.EqualTo(Color.clear));
+            Assert.That(blocker.raycastTarget,Is.True);
+            Assert.That(blocker.rectTransform.anchorMin,Is.EqualTo(Vector2.zero));
+            Assert.That(blocker.rectTransform.anchorMax,Is.EqualTo(Vector2.one));
+            Assert.That(view.BackButton.transform.parent,Is.EqualTo(view.Paper));
+            Assert.That(view.BackButton.transform.Find("Paper"),Is.Null);
+            Assert.That(view.BackButton.transform.Find("Icon"),Is.Not.Null);
+            Assert.That(view.BackButton.GetComponent<RectTransform>().anchoredPosition.y,Is.EqualTo(860));
+            Assert.That(view.EquipButton.transform.Find("Paper"),Is.Null);
+            Assert.That(view.EquipButton.transform.Find("BrushBackground"),Is.Not.Null);
+            Assert.That(view.CanBrowse,Is.True);
         }
         [Test] public void OneLargeOriginalInkIsFramedByTwoArrowButtonsAndACompactStrip()
         {

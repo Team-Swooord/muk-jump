@@ -58,7 +58,6 @@ namespace MukJump.Core
                 page = (int)selected / PageSize;
                 InkLocalizedText.SetSource(statusText, "");
                 RefreshSelection();
-                paper.GetComponent<HanjiScrollFrame>().ResetPresentation();
             }
             visible = show; interactive = show && allowInput;
             rootGroup.alpha = show ? 1 : 0;
@@ -110,8 +109,7 @@ namespace MukJump.Core
         bool CanInteract() => IsOpen && MobileApplicationLifecycle.IsApplicationActive &&
             (GameManager.Instance == null || GameManager.Instance.State == GameState.Lobby) &&
             (LobbyScreenNavigator.Instance == null || !LobbyScreenNavigator.Instance.IsTransitioning) &&
-            (MukJumpAccountRuntime.Instance == null || !MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync) &&
-            (!Application.isPlaying || paper.GetComponent<HanjiScrollFrame>().IsReady);
+            (MukJumpAccountRuntime.Instance == null || !MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync);
         void Equip()
         {
             if (!CanInteract() || !SkinDebugSession.CanEquip(selected) || InkSkinPreferences.Equipped == selected) return;
@@ -159,7 +157,7 @@ namespace MukJump.Core
             int goal = hidden ? 0 : InkSkinAchievements.Goal(selected), progress = InkSkinAchievements.Progress(selected);
             if (SkinDebugSession.Active) progress = goal;
             progressText.text = goal == 0 ? "" : $"{progress} / {goal}";
-            // 저장 오류는 진행도 자리에 표시해 버튼·두루마리 테두리와 겹치지 않는다.
+            // 저장 오류는 진행도 자리에 표시해 하단 착용 버튼과 겹치지 않는다.
             bool saveFailed = !string.IsNullOrEmpty(statusText.text);
             achievementText.enabled = progressText.enabled = !saveFailed;
             RefreshProgress(goal, progress, unlocked, saveFailed);
@@ -261,13 +259,13 @@ namespace MukJump.Core
             MobileUiLayout.ConfigurePortraitScaler(root.GetComponent<CanvasScaler>());
             rootGroup = root.GetComponent<CanvasGroup>();
             var blocker = Stretch("LobbyBackgroundInputBlocker",root.transform).gameObject.AddComponent<Image>();
-            blocker.color=InkUiStyle.PopupDimColor; blocker.raycastTarget=true;
+            // 성장과 같은 전용 화면: 산수화를 밝게 유지하고 뒤쪽 로비 입력만 막는다.
+            blocker.color=Color.clear; blocker.raycastTarget=true;
             safeRoot=Stretch("SafeAreaRoot",root.transform);
-            paper=Rect("WardrobeScroll",safeRoot,Vector2.zero,new Vector2(920,1580));
-            HanjiScrollFrame.Attach(paper,new Vector2(880,1540));
-            Label("Title",paper,"쇼룸",72,new Vector2(0,650),new Vector2(750,105),true);
-            var stage=Rect("ShowroomStage",paper,new Vector2(0,180),new Vector2(880,810));
-            // 큰 장식의 교체 궤적도 제목과 두루마리 밖으로 나가지 않게 고정 무대에서 자른다.
+            paper=Rect("WardrobeScreen",safeRoot,Vector2.zero,new Vector2(1080,1920));
+            Label("Title",paper,"꾸미기",72,new Vector2(0,860),new Vector2(640,108),true);
+            var stage=Rect("ShowroomStage",paper,new Vector2(0,300),new Vector2(1000,900));
+            // 큰 장식·파동은 제목과 하단 의상 목록을 침범하지 않는다.
             stage.gameObject.AddComponent<RectMask2D>().softness=new Vector2Int(10,16);
             var stageHit=stage.gameObject.AddComponent<Image>(); stageHit.color=Color.clear; stageHit.raycastTarget=true;
             swipe=stage.gameObject.AddComponent<InkShowroomSwipe>(); swipe.Owner=this;
@@ -302,10 +300,32 @@ namespace MukJump.Core
             InkHudSurface.Ensure(completionSeal,true);
             var sealMark=SpriteImage("Mark",completionSeal,InkUiTextureFactory.CreateGrowthConfirmIconSprite(),Vector2.zero,Vector2.one*23f);
             sealMark.color=InkPalette.Paper; completionSeal.gameObject.SetActive(false);
-            equipButton=Button("EquipButton",paper,"착용하기",new Vector2(0,-680),new Vector2(620,110),48,out equipText); equipButton.onClick.AddListener(Equip);
+            BuildEquipButton(); equipButton.onClick.AddListener(Equip);
             statusText=Label("SaveStatus",paper,"",28,new Vector2(0,-576),new Vector2(780,70),false); statusText.color=InkPalette.Red;
-            backButton=Button("BackButton",safeRoot,"로비로",new Vector2(0,-872),new Vector2(360,110),42,out _); backButton.onClick.AddListener(Back);
+            var backHit=Rect("BackButton",paper,new Vector2(-420,860),new Vector2(220,120)).gameObject.AddComponent<UnityEngine.UI.Image>();
+            backHit.color=Color.clear; backHit.raycastTarget=true;
+            var backIcon=SpriteImage("Icon",backHit.transform,InkUiTextureFactory.CreateGrowthBackIconSprite(),new Vector2(-45,0),new Vector2(84,84));
+            backIcon.color=InkPalette.TextDark;
+            backButton=backHit.gameObject.AddComponent<UnityEngine.UI.Button>();
+            InkUiStyle.ConfigureButton(backButton,backIcon); backButton.onClick.AddListener(Back);
             rootGroup.alpha=0; rootGroup.interactable=rootGroup.blocksRaycasts=false;
+        }
+        void BuildEquipButton()
+        {
+            // 성장하기와 같은 검정 먹 붓·밝은 글씨. 팝업용 종이 받침은 사용하지 않는다.
+            Vector2 size=new Vector2(820,180);
+            var root=Rect("EquipButton",paper,new Vector2(0,-810),size);
+            var hit=root.gameObject.AddComponent<UnityEngine.UI.Image>(); hit.color=Color.clear; hit.raycastTarget=true;
+            float scaleX=size.x/LobbyMenuLayout.BackgroundSize.x;
+            var brush=Rect("BrushBackground",root,new Vector2(-LobbyMenuLayout.BrushArtworkLabelOffsetX*scaleX,0),size)
+                .gameObject.AddComponent<UnityEngine.UI.RawImage>();
+            var lobby=FindAnyObjectByType<LobbyView>(FindObjectsInactive.Include);
+            brush.texture=lobby?.StartButton?.GetComponent<UnityEngine.UI.RawImage>()?.texture ?? InkUiTextureFactory.CreateBrushSprite().texture;
+            brush.color=Color.white; brush.raycastTarget=false;
+            equipButton=root.gameObject.AddComponent<UnityEngine.UI.Button>();
+            InkUiStyle.ConfigureButton(equipButton,brush);
+            equipText=Label("Label",root,"착용하기",64,Vector2.zero,new Vector2(700,110),true);
+            equipText.color=InkPalette.TextLight;
         }
         void BuildCard(InkSkinId id)
         {
@@ -327,7 +347,7 @@ namespace MukJump.Core
         {
             int step=side==0 ? -1 : 1;
             var button=Button(side==0 ? "PreviousCostume" : "NextCostume",stage,side==0 ? "‹" : "›",
-                new Vector2(step*350,20),new Vector2(116,148),90,out _);
+                new Vector2(step*430,20),new Vector2(116,148),90,out _);
             button.onClick.AddListener(()=>StepSelection(step)); neighborButtons[side]=button;
         }
         void SetPreview(Image body, Image accessory, InkSkinId id, float size, bool hidden, bool unlocked)
@@ -352,10 +372,11 @@ namespace MukJump.Core
             if (safeRoot == null || Screen.width <= 0 || Screen.height <= 0) return;
             Rect safe = MobileUiLayout.CurrentSafeArea;
             MobileUiLayout.ApplySafeArea(safeRoot, safe, Screen.width, Screen.height);
-            float scale = MobileUiLayout.CalculateFitScale(new Vector2(960, 1880), safe, Screen.width, Screen.height, Vector2.one * 24);
+            float scale = MobileUiLayout.CalculateFitScale(new Vector2(1080, 1920), safe, Screen.width, Screen.height, Vector2.zero);
             paper.localScale = Vector3.one * scale;
-            backButton.transform.localScale = Vector3.one * scale;
-            backButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, -872 * scale);
+            // 성장 화면과 같은 상단 기준. 꾸미기는 배너가 없으므로 노치만 제외한다.
+            float topOffset=(safe.height*1920f/Screen.height-1920f*scale)*.5f;
+            paper.anchoredPosition=new Vector2(0,topOffset);
         }
 
         static RectTransform Stretch(string name, Transform parent)

@@ -23,7 +23,7 @@ namespace MukJump.Core
                 ["전체 의상 해금 OFF"] = ("Unlock all outfits OFF", "全衣装を解放 OFF"),
                 ["시험 착용 중 · 플레이 기록 저장 안 됨"] = ("Test outfits · runs are not saved", "試着中 · プレイ記録は保存されません"),
                 ["실제 기록은 바뀌지 않아요"] = ("Your real progress stays unchanged", "実際の進行状況は変わりません"),
-                ["쇼룸"] = ("Showroom", "ショールーム"),
+                ["꾸미기"] = ("Wardrobe", "着せ替え"),
                 ["새 의상 해금"] = ("Costume Unlocked", "衣装を解放"),
                 ["비밀 의상 발견"] = ("Secret Discovered", "秘密の衣装を発見"),
                 ["해금"] = ("NEW", "解放"),

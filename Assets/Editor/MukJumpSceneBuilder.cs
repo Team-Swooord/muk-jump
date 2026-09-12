@@ -1604,7 +1604,7 @@ namespace MukJump.EditorTools
                 "성장",
                 LobbyMenuLayout.GrowthAnchor);
             var wardrobeButton = CreateLobbyMenuButton(
-                "WardrobeButton", contentRoot, buttonTexture, "쇼룸", LobbyMenuLayout.WardrobeAnchor);
+                "WardrobeButton", contentRoot, buttonTexture, "꾸미기", LobbyMenuLayout.WardrobeAnchor);
             var optionsButton = CreateLobbyMenuButton(
                 "OptionsButton",
                 contentRoot,
