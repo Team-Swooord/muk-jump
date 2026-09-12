@@ -13,9 +13,17 @@ namespace MukJump.EditorTools
         [MenuItem("MukJump/Export Game Center Achievement Catalog")]
         public static void Export()
         {
+            JObject catalog = BuildCatalog();
             Directory.CreateDirectory(Output);
+            for (int i = 1; i <= InkAchievementCatalog.GameCenterCount; i++)
+                ExportIcon(i, Path.Combine(Output, InkAchievementCatalog.Id(i) + ".png"));
+            File.WriteAllText(Path.Combine(Output,"catalog.json"), catalog.ToString()+"\n");
+            Debug.Log($"[Achievements] {InkAchievementCatalog.GameCenterCount}개 의상 해금 / 한·영·일 / RGB 1024 아이콘 내보내기 완료. Apple 등록은 별도입니다.");
+        }
+        public static JObject BuildCatalog()
+        {
             var all = new JArray();
-            for (int i=1;i<=InkAchievementCatalog.Count;i++)
+            for (int i=1;i<=InkAchievementCatalog.GameCenterCount;i++)
             {
                 string name=InkAchievementCatalog.Name(i), requirement=InkAchievementCatalog.Requirement(i);
                 var locales=new JArray();
@@ -32,18 +40,16 @@ namespace MukJump.EditorTools
                         ["beforeEarnedDescription"]=description,["afterEarnedDescription"]=description });
                 }
                 string icon=InkAchievementCatalog.Id(i)+".png";
-                ExportIcon(i,Path.Combine(Output,icon));
                 all.Add(new JObject { ["id"]=InkAchievementCatalog.Id(i),["referenceName"]=name,
                     ["points"]=20,["hidden"]=InkAchievementCatalog.Hidden(i),["repeatable"]=false,
                     ["icon"]=icon,["localizations"]=locales });
             }
-            File.WriteAllText(Path.Combine(Output,"catalog.json"),new JObject {
-                ["appId"]="6804614765",["registrationStatus"]="NOT_REGISTERED",["totalPoints"]=InkAchievementCatalog.Count*20,["achievements"]=all }.ToString()+"\n");
-            Debug.Log($"[Achievements] {InkAchievementCatalog.Count}개 업적 / 한·영·일 / RGB 1024 아이콘 내보내기 완료. Apple 등록은 별도입니다.");
+            return new JObject { ["appId"]="6804614765",["registrationStatus"]="NOT_REGISTERED",
+                ["totalPoints"]=InkAchievementCatalog.GameCenterCount*20,["achievements"]=all };
         }
         static void ExportIcon(int index,string path)
         {
-            var id=index<InkSkinCatalog.Count?(InkSkinId)index:index==InkSkinCatalog.Count?InkSkinId.SpiderMask:InkSkinId.CatEars;
+            var id=(InkSkinId)index;
             var body=AssetDatabase.LoadAllAssetsAtPath("Assets/Art/Character/Player/muk_spritesheet.png").OfType<Sprite>().First(s=>s.name=="idle");
             var accessory=InkSkinCatalog.Sprite(id);
             var target=RenderTexture.GetTemporary(1024,1024,0,RenderTextureFormat.ARGB32);
@@ -57,8 +63,9 @@ namespace MukJump.EditorTools
                 try
                 {
                     GL.LoadPixelMatrix(0,1024,1024,0);
-                    const float size=740;
-                    var center=new Vector2(512,585);
+                    Rect bodyBounds = IconBodyRect(id, accessory);
+                    float size = bodyBounds.width;
+                    Vector2 center = bodyBounds.center;
                     void Costume()
                     {
                         if(accessory==null) return;
@@ -78,7 +85,7 @@ namespace MukJump.EditorTools
                         Draw(accessory,new Rect(position-bounds*.5f,bounds));
                     }
                     if(InkSkinCatalog.BehindBody(id)) Costume();
-                    Draw(body,new Rect(center-Vector2.one*size*.5f,Vector2.one*size));
+                    Draw(body,bodyBounds);
                     if(!InkSkinCatalog.BehindBody(id)) Costume();
                 }
                 finally { GL.PopMatrix(); }
@@ -88,6 +95,14 @@ namespace MukJump.EditorTools
             }
             finally
             { RenderTexture.active=previous; RenderTexture.ReleaseTemporary(target); if(png!=null) Object.DestroyImmediate(png); }
+        }
+        public static Rect IconBodyRect(InkSkinId id, Sprite accessory)
+        {
+            // 긴 꼬리·날개도 둥근 Game Center 배지 안에 들어오도록 실제 의상 외곽을 중앙에 맞춘다.
+            Rect bounds = LobbySkinPreview.CostumeBounds(id, accessory);
+            float size = 700f / Mathf.Max(bounds.width, bounds.height);
+            Vector2 center = Vector2.one * 512f - Vector2.Scale(bounds.center, new Vector2(1, -1)) * size;
+            return new Rect(center - Vector2.one * size * .5f, Vector2.one * size);
         }
         static void Draw(Sprite sprite,Rect bounds)
         {

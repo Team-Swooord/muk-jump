@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using MukJump.Core;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 namespace MukJump.EditorTests
@@ -74,6 +75,63 @@ namespace MukJump.EditorTests
                 Assert.That(PermanentGrowthProfile.AchievementSnapshot().best,Is.Zero);
             }
             finally { Object.DestroyImmediate(host); }
+        }
+        [Test] public void GameCenterCatalogMatchesEveryUnlockAndAllThreeLanguages()
+        {
+            var catalog = MukJump.EditorTools.MukJumpAchievementExport.BuildCatalog();
+            var entries = (Newtonsoft.Json.Linq.JArray)catalog["achievements"];
+            Assert.That(catalog["appId"].Value<string>(), Is.EqualTo("6804614765"));
+            Assert.That(entries.Count, Is.EqualTo(InkSkinCatalog.Count - 1));
+            Assert.That(entries.Count, Is.EqualTo(InkAchievementCatalog.GameCenterCount));
+            Assert.That(entries.Select(x => x["id"].Value<string>()).Distinct().Count(), Is.EqualTo(entries.Count));
+            Assert.That(catalog["totalPoints"].Value<int>(), Is.EqualTo(entries.Count * 20).And.LessThanOrEqualTo(1000));
+            for (int i = 1; i < InkSkinCatalog.Count; i++)
+            {
+                var entry = entries[i - 1];
+                Assert.That(entry["id"].Value<string>(), Is.EqualTo($"mukjump.achievement.skin.{i:00}"));
+                Assert.That(entry["referenceName"].Value<string>(), Is.EqualTo(InkSkinCatalog.Name((InkSkinId)i)));
+                Assert.That(entry["hidden"].Value<bool>(), Is.EqualTo(InkAchievementCatalog.Hidden(i)));
+                Assert.That(entry["repeatable"].Value<bool>(), Is.False);
+                var locales = (Newtonsoft.Json.Linq.JArray)entry["localizations"];
+                CollectionAssert.AreEquivalent(new[] { "ko", "en-US", "ja" }, locales.Select(x => x["locale"].Value<string>()));
+                foreach (var locale in locales)
+                    foreach (string field in new[] { "name", "beforeEarnedDescription", "afterEarnedDescription" })
+                        Assert.That(locale[field].Value<string>(), Is.Not.Empty.And.Not.EqualTo("???"), i + " / " + field);
+            }
+        }
+        [Test] public void EverySavedCostumeUnlockReportsItsOneMatchingGameCenterAchievement()
+        {
+            for (int i = 1; i < InkSkinCatalog.Count; i++)
+            {
+                var state = new SkinAchievementState(); state.Grant((InkSkinId)i);
+                var progress = InkAchievementCatalog.SavedProgress(state, 0);
+                Assert.That(progress.Count, Is.EqualTo(1), "의상 " + i);
+                Assert.That(progress[0].id, Is.EqualTo(InkAchievementCatalog.Id(i)));
+                Assert.That(progress[0].percent, Is.EqualTo(100));
+            }
+        }
+        [Test] public void GameCenterIconsKeepWholeCostumesInsideTheCircularBadge()
+        {
+            for (int i = 1; i < InkSkinCatalog.Count; i++)
+            {
+                var id = (InkSkinId)i; var sprite = InkSkinCatalog.Sprite(id);
+                Assert.That(sprite, Is.Not.Null, "의상 원화 " + i);
+                Rect bounds = LobbySkinPreview.CostumeBounds(id, sprite);
+                Rect body = MukJump.EditorTools.MukJumpAchievementExport.IconBodyRect(id, sprite);
+                foreach (var corner in new[] { bounds.min, bounds.max,
+                    new Vector2(bounds.xMin, bounds.yMax), new Vector2(bounds.xMax, bounds.yMin) })
+                {
+                    Vector2 pixel = body.center + Vector2.Scale(corner, new Vector2(1, -1)) * body.width;
+                    Assert.That(Vector2.Distance(pixel, Vector2.one * 512), Is.LessThan(500), "아이콘 잘림 " + i);
+                }
+            }
+        }
+        [Test] public void GameplayOnlyNoticesAndDefaultInkNeverBecomeGameCenterUnlocks()
+        {
+            var state = new SkinAchievementState { gameplayMask = 3 }; state.Grant(InkSkinId.Ink);
+            Assert.That(InkAchievementCatalog.SavedProgress(state, 0), Is.Empty);
+            state.items = 2;
+            Assert.That(InkAchievementCatalog.SavedProgress(state, 0).Single(x => x.id == InkAchievementCatalog.Id(10)).percent, Is.EqualTo(40));
         }
         [Test] public void ToastSitsBelowHudAndPauseTargetOnPortraitAndTabletSafeAreas()
         {

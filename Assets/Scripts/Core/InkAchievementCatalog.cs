@@ -7,6 +7,9 @@ namespace MukJump.Core
     public static class InkAchievementCatalog
     {
         public const int Count = InkSkinCatalog.Count + 1;
+        // Apple에 등록·전송할 업적은 기본 먹을 제외한 의상 해금과 1:1이다.
+        // 게임 내부 벽타기/연속 획득 알림 ID는 기존 저장 호환을 위해 유지한다.
+        public const int GameCenterCount = InkSkinCatalog.Count - 1;
         public static string Id(int index) => index < InkSkinCatalog.Count
             ? $"mukjump.achievement.skin.{index:00}"
             : index == InkSkinCatalog.Count ? "mukjump.achievement.wall" : "mukjump.achievement.flight3";
@@ -21,15 +24,10 @@ namespace MukJump.Core
         {
             var result = new List<AppleAchievementProgress>();
             if (state == null || !state.IsValid) return result;
-            for (int i = 1; i <= Count; i++)
+            for (int i = 1; i <= GameCenterCount; i++)
             {
-                double percent;
-                if (i < InkSkinCatalog.Count)
-                {
-                    var id = (InkSkinId)i;
-                    percent = Math.Min(100, Math.Floor(100d * state.Progress(id, distance, state.growth) / InkSkinAchievements.Goal(id)));
-                }
-                else percent = (state.gameplayMask & (1 << (i - InkSkinCatalog.Count))) != 0 ? 100 : 0;
+                var id = (InkSkinId)i;
+                double percent = Math.Min(100, Math.Floor(100d * state.Progress(id, distance, state.growth) / InkSkinAchievements.Goal(id)));
                 // 0%도 비밀 업적을 공개하므로 잠긴 비밀은 요청에 포함하지 않는다.
                 if (percent <= 0 || Hidden(i) && percent < 100) continue;
                 result.Add(new AppleAchievementProgress { id = Id(i), percent = percent });

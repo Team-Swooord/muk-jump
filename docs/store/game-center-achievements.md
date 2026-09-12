@@ -4,16 +4,18 @@
 
 ## 등록 상태
 
-2026-09-12: 런타임·iOS GameKit 연결·저장/계정 경계 검사를 구현했다. App Store Connect 세션 만료로 **Apple 콘솔 업적 등록과 실기기 전송 검증은 아직 미완료**다. 현재 심사 중인 버전/빌드와 배포 설정은 변경하지 않았다. 아래 등록과 기기 검증이 끝나기 전 Game Center 동기화 완료 또는 출시 준비 완료로 보고하지 않는다.
+2026-09-13: 사용자가 Game Center 업적을 의상 해금과 1:1로 요청했다. 기본 먹을 제외한 45개만 등록·전송하도록 연결했다. App Store Connect 세션 만료로 **Apple 콘솔 업적 등록과 실기기 전송 검증은 아직 미완료**다. 현재 심사 중인 버전/빌드와 배포 설정은 변경하지 않았다. 아래 등록과 기기 검증이 끝나기 전 Game Center 동기화 완료 또는 출시 준비 완료로 보고하지 않는다.
 
 ## 등록 자료
 
 Unity 메뉴 `MukJump > Export Game Center Achievement Catalog`는 `output/store/game-center-achievements/`에 catalog.json과 RGB 1024×1024 PNG를 생성한다. 기존 원먹·의상 스프라이트를 그대로 사용하며 외부 에셋을 도입하지 않는다.
+용꼬리·날개를 포함한 전체 의상 외곽으로 크기와 중심을 계산해 원형 배지에서도 잘리지 않게 한다.
+아이콘과 점수 규격은 [Apple 업적 등록 기준](https://developer.apple.com/help/app-store-connect/reference/game-center/achievements/)을 따른다.
 
 - 앱: 먹점프 / App Store ID 6804614765. SHIFT와 혼동하지 않는다.
-- 의상 39개: `mukjump.achievement.skin.01`~`.39`. 기존 InkSkinId 0~35는 보존하고 학 날개·먹나비·버선·구름 장화만 36~39에 추가했다.
-- 일반 업적 2개: `mukjump.achievement.wall`, `mukjump.achievement.flight3`.
-- 일반 업적 포함 41개, 각각 20점, 총 820점, 반복 달성 불가. 숨김 여부와 한·영·일 이름/달성 전후 설명은 catalog.json 기준.
+- 의상 해금 45개: `mukjump.achievement.skin.01`~`.45`. 기존 ID는 재배열하지 않는다.
+- 기본 먹은 처음부터 보유하므로 업적을 만들지 않는다. 해금 보상이 없는 `mukjump.achievement.wall`, `mukjump.achievement.flight3`도 Apple 등록·전송에서 제외한다. 게임 내 기존 알림과 저장 비트는 유지한다.
+- 각각 20점, 총 900점, 반복 달성 불가. 숨김 여부와 한·영·일 이름/달성 전후 설명은 catalog.json 기준.
 - 숨김 업적은 잠겨 있는 동안 0%도 보내지 않으며, 달성한 뒤 100%만 전송한다.
 
 App Store Connect 로그인 후 해당 ID의 기존 정의를 먼저 확인하여 중복 생성 없이 등록한다. 세 언어와 아이콘까지 저장하고 Game Center 사용을 다음 스킨 버전에 연결한다. 현재 제출한 버전을 취소/교체하거나 심사에 추가 제출하지 않는다.
