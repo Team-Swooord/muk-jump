@@ -35,6 +35,7 @@ namespace MukJump.Core
         bool bannerLoading;
         bool consentGathering;
         bool trackingAuthorizationResolved;
+        public bool IsPrivacyFlowBusy => configurationReady && (!trackingAuthorizationResolved || consentGathering);
         bool configurationReady;
         bool sdkConfigured;
         bool initializationInFlight;

@@ -194,10 +194,12 @@ namespace MukJump.Items
             if (collected) return;
             var player = other.GetComponentInParent<PlayerController>();
             if (player == null) return;
+            int previousFlight = player.AchievementItemFlight;
             if (!ItemEffect.Apply(type, player)) return;
 
             collected = true;
             GameManager.Instance?.NotifySkinItemCollected(type == ItemType.InkDrop);
+            GameManager.Instance?.NotifyAchievementPickup(type == ItemType.InkDrop, previousFlight);
             MukJumpAnalytics.Item(type);
             trigger.enabled = false;
             BeginCollection(player.transform);

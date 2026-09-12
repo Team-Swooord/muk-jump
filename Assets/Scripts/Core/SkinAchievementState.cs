@@ -29,10 +29,11 @@ namespace MukJump.Core
     [Serializable]
     public sealed class SkinAchievementState
     {
-        public int version = 1;
+        public int version = 2;
         public int runs, best, drawnLandings, items, inkDrops, survival, clones, nightBest, noItemBest, growth;
         public long unlockedMask;
-        public bool IsValid => version == 1 && runs >= 0 && best >= 0 && drawnLandings >= 0 &&
+        public int gameplayMask;
+        public bool IsValid => (version == 1 || version == 2) && gameplayMask >= 0 && gameplayMask <= 3 && runs >= 0 && best >= 0 && drawnLandings >= 0 &&
             items >= 0 && inkDrops >= 0 && inkDrops <= items && survival >= 0 && clones >= 0 &&
             nightBest >= 0 && noItemBest >= 0 && growth >= 0 && unlockedMask >= 0 &&
             (unlockedMask >> InkSkinCatalog.Count) == 0;
@@ -44,6 +45,8 @@ namespace MukJump.Core
             foreach (string field in new[] { "version", "runs", "best", "drawnLandings", "items", "inkDrops",
                 "survival", "clones", "nightBest", "noItemBest", "growth", "unlockedMask" })
                 if (!System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"" + field + "\"\\s*:")) return false;
+            if (System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"version\"\\s*:\\s*2\\b") &&
+                !System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"gameplayMask\"\\s*:")) return false;
             return true;
         }
         public void Grant(InkSkinId id) { if (InkSkinCatalog.IsValid(id)) unlockedMask |= 1L << (int)id; }

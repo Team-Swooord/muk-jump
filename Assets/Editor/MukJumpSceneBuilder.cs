@@ -217,6 +217,7 @@ namespace MukJump.EditorTools
                     string.Join("\n", assetIssues));
 
             MukJumpSplashSceneBuilder.BuildSceneFile();
+            MukJumpSkinUnlockSceneBuilder.BuildSceneFile();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             BuildSceneContents(configureUiImporters: true);
@@ -872,6 +873,7 @@ namespace MukJump.EditorTools
             {
                 NormalizeProjectPath(BuilderSourcePath),
                 NormalizeProjectPath(SplashBuilderSourcePath),
+                "Assets/Editor/MukJumpSkinUnlockSceneBuilder.cs",
                 "ProjectSettings/TagManager.asset",
                 "ProjectSettings/ProjectVersion.txt",
                 "Packages/manifest.json",
@@ -930,7 +932,7 @@ namespace MukJump.EditorTools
             string mainSceneText = File.ReadAllText(ScenePath);
             if (!SceneTextContainsCurrentSourceStamp(mainSceneText) ||
                 !File.Exists(MukJumpSplashSceneBuilder.ScenePath) ||
-                !File.Exists(SceneAttestationPath))
+                !File.Exists(SceneAttestationPath) || !File.Exists(MukJumpSkinUnlockSceneBuilder.ScenePath))
                 return false;
             try
             {
@@ -939,7 +941,7 @@ namespace MukJump.EditorTools
                 return SceneTextsMatchAttestation(
                     mainSceneText,
                     File.ReadAllText(MukJumpSplashSceneBuilder.ScenePath),
-                    attestation);
+                    attestation) && attestation.unlockSceneHash == HashSceneText(File.ReadAllText(MukJumpSkinUnlockSceneBuilder.ScenePath));
             }
             catch (System.Exception)
             {
@@ -960,6 +962,7 @@ namespace MukJump.EditorTools
             SceneAttestation attestation = CreateSceneAttestation(
                 mainSceneText,
                 File.ReadAllText(MukJumpSplashSceneBuilder.ScenePath));
+            attestation.unlockSceneHash = HashSceneText(File.ReadAllText(MukJumpSkinUnlockSceneBuilder.ScenePath));
             File.WriteAllText(
                 SceneAttestationPath,
                 JsonUtility.ToJson(attestation, true) + "\n");
@@ -1013,6 +1016,7 @@ namespace MukJump.EditorTools
             public string sourceStamp;
             public string mainSceneHash;
             public string splashSceneHash;
+            public string unlockSceneHash;
         }
 
         internal static bool SceneTextContainsCurrentSourceStamp(
@@ -1339,11 +1343,7 @@ namespace MukJump.EditorTools
             wardrobeSettings.FindProperty("previewBodySprite").objectReferenceValue =
                 AssetDatabase.LoadAllAssetsAtPath(CharSheetPath).OfType<Sprite>().FirstOrDefault(s => s.name == "idle");
             wardrobeSettings.ApplyModifiedPropertiesWithoutUndo();
-            var skinUnlock = go.AddComponent<InkSkinUnlockView>();
-            var unlockSettings = new SerializedObject(skinUnlock);
-            unlockSettings.FindProperty("previewBodySprite").objectReferenceValue =
-                wardrobeSettings.FindProperty("previewBodySprite").objectReferenceValue;
-            unlockSettings.ApplyModifiedPropertiesWithoutUndo();
+            go.AddComponent<InkAchievementToast>();
             go.AddComponent<FirstRunTutorialController>();
             go.AddComponent<LobbyScreenNavigator>();
             go.AddComponent<InkUiFeedbackController>();

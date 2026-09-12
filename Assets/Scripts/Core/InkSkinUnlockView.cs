@@ -41,7 +41,6 @@ namespace MukJump.Core
             Build();
             account = owner; completed = onCompleted; invalidated = onInvalidated; index = 0; visible = true;
             group.alpha = 1f; group.interactable = group.blocksRaycasts = true;
-            paper.GetComponent<HanjiScrollFrame>().ResetPresentation();
             BindCurrent(); ApplyLayout(); PointerInput.SuppressUntilRelease();
             return true;
         }
@@ -160,10 +159,9 @@ namespace MukJump.Core
             MobileUiLayout.ConfigurePortraitScaler(root.GetComponent<UnityEngine.UI.CanvasScaler>());
             group = root.GetComponent<CanvasGroup>();
             var dim = Stretch("InputBlocker", root.transform).gameObject.AddComponent<UnityEngine.UI.Image>();
-            dim.color = InkUiStyle.PopupDimColor; dim.raycastTarget = true;
+            dim.color = Color.clear; dim.raycastTarget = true;
             safeRoot = Stretch("SafeAreaRoot", root.transform);
-            paper = Rect("UnlockScroll", safeRoot, Vector2.zero, new Vector2(880, 1460));
-            HanjiScrollFrame.Attach(paper, new Vector2(840, 1420));
+            paper = Rect("UnlockStagePage", safeRoot, Vector2.zero, new Vector2(880, 1460));
             title = Label("Title", paper, "새 의상 해금", 62, new Vector2(0, 584), new Vector2(720, 100), true);
             var stage = Rect("UnlockStage", paper, new Vector2(0, 120), new Vector2(760, 790));
             stage.gameObject.AddComponent<UnityEngine.UI.RectMask2D>().softness = new Vector2Int(12, 16);

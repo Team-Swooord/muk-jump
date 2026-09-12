@@ -38,7 +38,7 @@ namespace MukJump.EditorTests
             Assert.That(MukJumpBackendReleaseValidator.CollectIssues(BackendReleasePlatform.IOS), Is.Empty);
         }
 
-        [Test] public void NoAutomaticGameCenterRuntimeOrNativeBridgeRemains()
+        [Test] public void NoLegacyGameCenterLeaderboardRuntimeOrBridgeRemains()
         {
             Assert.That(typeof(GameManager).Assembly.GetType("MukJump.Core.AppleGameCenterRuntime"), Is.Null);
             Assert.That(File.Exists("Assets/Plugins/iOS/MukJumpGameCenter.mm"), Is.False);

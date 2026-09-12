@@ -31,7 +31,7 @@ namespace MukJump.EditorTests
                 Newtonsoft.Json.JsonConvert.SerializeObject(MukJumpAgentAudit.Audit()));
         }
 
-        [Test] public void ExportKeepsAppleSignInWithoutGameCenterAndIsRepeatable()
+        [Test] public void ExportKeepsAppleSignInWithAchievementsAndIsRepeatable()
         {
             string directory = Path.Combine(Path.GetTempPath(), "mukjump-gamecenter-" + Guid.NewGuid().ToString("N"));
             try
@@ -57,10 +57,10 @@ namespace MukJump.EditorTests
                 MukJumpAppleSignInPostprocessor.OnPostProcessBuild(BuildTarget.iOS, directory);
                 var entitlement = new PlistDocument();
                 entitlement.ReadFromFile(Path.Combine(directory, "MukJump.entitlements"));
-                Assert.That(entitlement.root.values.ContainsKey("com.apple.developer.game-center"), Is.False);
+                Assert.That(entitlement.root["com.apple.developer.game-center"].AsBoolean(), Is.True);
                 Assert.That(entitlement.root["com.apple.developer.applesignin"].AsArray().values[0].AsString(), Is.EqualTo("Default"));
                 string first = File.ReadAllText(PBXProject.GetPBXProjectPath(directory));
-                Assert.That(first, Does.Not.Contain("GameKit.framework"));
+                Assert.That(first, Does.Contain("GameKit.framework"));
                 Assert.That(first, Does.Contain("AuthenticationServices.framework"));
                 project.ReadFromString(first);
                 Assert.That(project.GetBuildPropertyForAnyConfig(project.GetUnityMainTargetGuid(), "DEVELOPMENT_TEAM"),

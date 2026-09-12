@@ -190,8 +190,39 @@ namespace MukJump.Core
         bool requiresPendingGameOverSettlementRefresh;
         BrushTransitionView transitionView;
         GameOverPopupView gameOverPopupView;
-        InkSkinUnlockView skinUnlockView;
         readonly InkSkinUnlockState skinUnlocks = new();
+        readonly LiveInkAchievements liveAchievements = new();
+        int itemFlightSequence, itemFlightCount;
+        int liveGameplayMask;
+        Action<int> achievementNotifier;
+        bool LiveAchievementsAllowed => isActiveAndEnabled && !string.IsNullOrEmpty(currentRunId) &&
+            MobileApplicationLifecycle.IsApplicationActive && !PermanentGrowthProfile.RequiresRecovery &&
+            MukJumpAccountRuntime.Instance?.BlocksGameplayForAccountSync != true && IsGameplayTicking && !DebugInvincible &&
+            ScoreManager.Instance != null && ScoreManager.Instance.RecordsAllowed;
+        void UpdateLiveAchievements()
+        {
+            if (!LiveAchievementsAllowed) return;
+            liveAchievements.Sample(skinRunStats, ScoreManager.Instance.Height, activeGameplaySeconds,
+                liveGameplayMask, achievementNotifier);
+        }
+        public void NotifySkinWallCling()
+        {
+            if (!LiveAchievementsAllowed) return;
+            liveGameplayMask |= 1; UpdateLiveAchievements();
+        }
+        public void NotifyAchievementPickup(bool inkDrop, int priorFlight)
+        {
+            if (!LiveAchievementsAllowed) return;
+            if (priorFlight != 0 && priorFlight == itemFlightSequence && ++itemFlightCount >= 3)
+                liveGameplayMask |= 2;
+            if (inkDrop)
+            {
+                itemFlightSequence++; itemFlightCount = 0;
+                GetLivingPlayersNonAlloc(swarmScratch);
+                foreach (var player in swarmScratch) player.ArmAchievementItemFlight(itemFlightSequence);
+            }
+            UpdateLiveAchievements();
+        }
         bool skinUnlockPresentationPending, skinUnlockReturnPending;
         bool transitionInProgress;
         float timeScaleBeforePause = 1f;
@@ -317,8 +348,8 @@ namespace MukJump.Core
             gameOverPopupView.ConfigureActions(
                 HandleGameOverReviveRequested,
                 HandleGameOverLobbyRequested);
-            skinUnlockView = GetComponent<InkSkinUnlockView>();
-            if (skinUnlockView == null) skinUnlockView = gameObject.AddComponent<InkSkinUnlockView>();
+            if (GetComponent<InkAchievementToast>() == null) gameObject.AddComponent<InkAchievementToast>();
+            achievementNotifier = GetComponent<InkAchievementToast>().Enqueue;
             skinUnlocks.Initialize(PermanentGrowthProfile.SkinAccountToken, InkSkinUnlockState.ReadUnlocked());
             if (GetComponent<PauseMenuView>() == null)
                 gameObject.AddComponent<PauseMenuView>();
@@ -364,7 +395,6 @@ namespace MukJump.Core
             activeReviveRequestGeneration = 0;
             reviveRequestDeadline = 0f;
             gameOverPopupView?.ConfigureActions(null, null);
-            skinUnlockView?.Cancel();
             skinUnlockPresentationPending = skinUnlockReturnPending = false;
             if (Instance != this) return;
             RestorePausedWorld(false, preserveBackgroundPause: false);
@@ -412,6 +442,7 @@ namespace MukJump.Core
                 if (IsGameplayTicking)
                 {
                     SampleActiveGameplayTime();
+                    UpdateLiveAchievements();
                     if (DebugInvincible || ScoreManager.Instance != null && !ScoreManager.Instance.RecordsAllowed)
                         MukJumpAnalytics.ExcludeDebugRun();
                     else if (MukJumpAnalytics.IsCollecting)
@@ -1107,7 +1138,7 @@ namespace MukJump.Core
             }
             ulong newSkins = skinUnlocks.Take(currentRunId, PermanentGrowthProfile.SkinAccountToken,
                 InkSkinUnlockState.ReadUnlocked(), latestGameOverResult);
-            if (newSkins != 0 && skinUnlockView != null)
+            if (newSkins != 0)
             {
                 skinUnlockPresentationPending = true;
                 string completedRun = currentRunId;
@@ -1118,19 +1149,16 @@ namespace MukJump.Core
                     if (this != null && isActiveAndEnabled && State == GameState.GameOver && completedRun == currentRunId)
                         skinUnlockReturnPending = true;
                 }
-                void ContinueToLobby()
-                {
-                    skinUnlockPresentationPending = false;
-                    if (!ReferenceEquals(account, PermanentGrowthProfile.SkinAccountToken) ||
-                        MukJumpAccountRuntime.Instance != null && MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
-                    { InvalidateReveal(); return; }
-                    if (this != null && isActiveAndEnabled && State == GameState.GameOver && completedRun == currentRunId)
-                        Restart();
-                }
                 void Reveal()
                 {
                     if (this == null || !isActiveAndEnabled || State != GameState.GameOver || completedRun != currentRunId) return;
-                    if (!skinUnlockView.Show(newSkins, account, ContinueToLobby, InvalidateReveal)) ContinueToLobby();
+                    if (!ReferenceEquals(account, PermanentGrowthProfile.SkinAccountToken)) { InvalidateReveal(); return; }
+                    if (!transitionView.TryPlay(() =>
+                    {
+                        SkinUnlockSceneController.Prepare(newSkins, account);
+                        BrushTransitionView.RequestRevealAfterSceneLoad();
+                        SceneManager.LoadScene(SkinUnlockSceneController.SceneName);
+                    }, InvalidateReveal)) InvalidateReveal();
                 }
                 if (gameOverPopupView != null) gameOverPopupView.Close(Reveal);
                 else Reveal();
@@ -2104,6 +2132,7 @@ namespace MukJump.Core
             skinUnlockPresentationPending = skinUnlockReturnPending = false;
             activeGameplaySeconds = 0f;
             skinRunStats = SkinRunStats.Begin(LobbyNightState.TargetNight, InkSkinPreferences.Equipped);
+            liveAchievements.Begin(); itemFlightSequence = itemFlightCount = liveGameplayMask = 0;
             lastActiveTimeSampleFrame = -1;
             lastDeadPlayer = null;
             reviveUsedThisRun = false;

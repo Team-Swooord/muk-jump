@@ -188,12 +188,13 @@ namespace MukJump.EditorTools
             {
                 new(ScenePath, true),
                 new(MainScenePath, true),
+                new(MukJumpSkinUnlockSceneBuilder.ScenePath, true),
             };
             if (existingScenes != null)
             {
                 scenes.AddRange(existingScenes
                     .Where(scene =>
-                        !string.Equals(
+                        scene.path != MukJumpSkinUnlockSceneBuilder.ScenePath && !string.Equals(
                             scene.path,
                             ScenePath,
                             StringComparison.Ordinal) &&

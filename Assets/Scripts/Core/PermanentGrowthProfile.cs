@@ -459,6 +459,40 @@ namespace MukJump.Core
         }
 
         public static object SkinAccountToken { get { EnsureLoaded(); return data; } }
+        /// 현재 판 수치는 합산하지 않는다. 영구 저장이 확정된 업적 상태만 복사한다.
+        public static SkinAchievementState AchievementSnapshot()
+        {
+            EnsureLoaded();
+            if (writeBlocked) return null;
+            return JsonUtility.FromJson<SkinAchievementState>(JsonUtility.ToJson(data.skinAchievements));
+        }
+        public static long AchievementDistance { get { EnsureLoaded(); return writeBlocked ? 0 : data.cumulativeDistanceMeters; } }
+        public static SkinAchievementState AchievementSyncSnapshot()
+        {
+            var state = AchievementSnapshot();
+            var score = ScoreManager.Instance;
+            // 기존 버전의 최고점 폴백도 실제 저장이 확인된 현재 계정 값만 외부로 보낸다.
+            if (state != null && MukJumpAccountRuntime.Instance?.BlocksGameplayForAccountSync != true &&
+                score != null && score.HasConfirmedBest && !score.HasPendingBestSaveRetry)
+                state.best = Math.Max(state.best, score.Best);
+            return state;
+        }
+        public static bool TryGrantLiveAchievements(object owner, ulong mask, int gameplay)
+        {
+            EnsureLoaded();
+            if (writeBlocked || !ReferenceEquals(owner, data)) return false;
+            mask &= ((1UL << InkSkinCatalog.Count) - 1) & ~1UL;
+            gameplay &= 3;
+            if (((ulong)data.skinAchievements.unlockedMask & mask) == mask &&
+                (data.skinAchievements.gameplayMask & gameplay) == gameplay) return true;
+            var snapshot = CaptureMutationSnapshot();
+            data.skinAchievements.version = 2;
+            data.skinAchievements.unlockedMask |= (long)mask;
+            data.skinAchievements.gameplayMask |= gameplay;
+            if (!Save(snapshot)) return false;
+            NotifyChangedSafely();
+            return ReferenceEquals(owner, data);
+        }
         public static long SkinProgress(InkSkinId id)
         {
             EnsureLoaded();

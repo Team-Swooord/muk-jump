@@ -168,6 +168,7 @@ namespace MukJump.Player
 
         void OnDisable()
         {
+            achievementItemFlight = 0;
             GameManager.Instance?.UnregisterPlayer(this);
         }
 
@@ -573,8 +574,13 @@ namespace MukJump.Player
         }
 
         /// 먹물방울: 현재 위치에서 지정 높이까지 오르는 물리 점프 속도를 적용한다.
+        int achievementItemFlight;
+        public int AchievementItemFlight => !IsDead && IsInkDropBoosted && rb != null && rb.linearVelocity.y > .1f
+            ? achievementItemFlight : 0;
+        public void ArmAchievementItemFlight(int sequence) { if (!IsDead && IsInkDropBoosted) achievementItemFlight = sequence; }
         public void LaunchToHeight(float height)
         {
+            achievementItemFlight = 0;
             if (!EnsureBody()) return;
             centeringAfterFall = false;
             GetComponent<AutoJump>()?.CancelForSpecialLaunch();
@@ -611,6 +617,7 @@ namespace MukJump.Player
         /// AutoJump가 만든 상승만 정점·낙하 영구 성장의 대상으로 표시한다.
         public void BeginAutomaticJumpFlight()
         {
+            achievementItemFlight = 0;
             centeringAfterFall = false;
             if (!IsDead)
                 automaticJumpInFlight = true;
@@ -618,6 +625,7 @@ namespace MukJump.Player
 
         void ResetHealth()
         {
+            achievementItemFlight = 0;
             inkDropEndShieldArmed = false;
             CurrentHealth = MaxHealth;
             NotifyHealthChanged();
@@ -1187,6 +1195,8 @@ namespace MukJump.Player
             // 좌우 벽을 일반 발판과 같은 새 착지로 취급한다. 정점 예약과
             // 이전 비행 상태를 정리한 뒤 AutoJump의 평소 충전·점프 흐름을 쓴다.
             GetComponent<AutoJump>()?.NotifyLanding(false);
+            achievementItemFlight = 0;
+            game.NotifySkinWallCling();
             return true;
         }
 

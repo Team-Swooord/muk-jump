@@ -33,13 +33,22 @@ namespace MukJump.EditorTests
                 Assert.That(MukJumpAccountRuntime.Instance==null || !MukJumpAccountRuntime.Instance.IsOnlineAuthenticated,Is.True);
                 yield return BeginRun();
                 var manager=GameManager.Instance;
+                for(int i=0;i<5;i++) manager.NotifySkinItemCollected(i==0);
+                yield return Wait(.3f);
+                var toast=manager.GetComponent<InkAchievementToast>();
+                var toastCanvas=toast.transform.Find("AchievementToastCanvas");
+                Assert.That(toastCanvas.GetComponent<CanvasGroup>().blocksRaycasts,Is.False);
+                foreach(var graphic in toastCanvas.GetComponentsInChildren<UnityEngine.UI.Graphic>()) Assert.That(graphic.raycastTarget,Is.False,graphic.name);
+                yield return Capture("achievement-playing");
                 EndRun(manager,100);
                 yield return Wait(2);
-                var view=manager.GetComponent<InkSkinUnlockView>();
-                Assert.That(view.IsOpen,Is.False,"부활 선택이 남은 결과 화면에서는 아직 공개하지 않는다.");
+                Assert.That(manager.GetComponent<InkSkinUnlockView>(),Is.Null,"해금 공개는 Main의 팝업이 아니다.");
                 LobbyButton(manager).onClick.Invoke();
-                float deadline=Time.realtimeSinceStartup+5;
-                while(!view.IsOpen && Time.realtimeSinceStartup<deadline) yield return null;
+                yield return WaitForUnlock();
+                var view=Object.FindFirstObjectByType<InkSkinUnlockView>();
+                Assert.That(SceneManager.GetActiveScene().name,Is.EqualTo("SkinUnlock"));
+                Assert.That(GameManager.Instance==null,Is.True,"게임 월드는 공개 씬에 남아 있지 않는다.");
+                Assert.That(view.Paper.GetComponent<HanjiScrollFrame>(),Is.Null,"성장처럼 전면 화면을 사용한다.");
                 Assert.That(view.IsOpen,Is.True); Assert.That(view.Count,Is.GreaterThanOrEqualTo(4));
                 Assert.That(view.Current,Is.EqualTo(InkSkinId.Gat));
                 yield return Wait(.3f); yield return Capture("unlock-ripple");
@@ -76,13 +85,12 @@ namespace MukJump.EditorTests
                 yield return BeginRun(); manager=GameManager.Instance; EndRun(manager,100);
                 yield return Wait(2); LobbyButton(manager).onClick.Invoke(); yield return Wait(3);
                 Assert.That(GameManager.Instance.State,Is.EqualTo(GameState.Lobby));
-                Assert.That(GameManager.Instance.GetComponent<InkSkinUnlockView>().IsOpen,Is.False);
+                Assert.That(Object.FindFirstObjectByType<InkSkinUnlockView>(),Is.Null);
                 // 로비에서 새로 발견한 비밀 의상도 다음 확정 종료에서 공개한다.
                 Assert.That(PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat),Is.True);
                 yield return BeginRun(); manager=GameManager.Instance; EndRun(manager,100);
                 yield return Wait(2); LobbyButton(manager).onClick.Invoke();
-                view=manager.GetComponent<InkSkinUnlockView>(); deadline=Time.realtimeSinceStartup+5;
-                while(!view.IsOpen && Time.realtimeSinceStartup<deadline) yield return null;
+                yield return WaitForUnlock(); view=Object.FindFirstObjectByType<InkSkinUnlockView>();
                 Assert.That(view.IsOpen,Is.True);
                 for(int i=0; i<view.Count && view.Current!=InkSkinId.NightBat; i++)
                 { yield return Wait(1.4f); view.Advance(); }
@@ -92,20 +100,14 @@ namespace MukJump.EditorTests
                 Assert.That(view.IsRevealed,Is.True);
                 Assert.That(view.GetComponentInChildren<InkShowroomPresentation>().IsPlaying,Is.False);
                 GameLocalization.SetLanguage(GameLanguage.Korean); yield return Capture("unlock-secret");
+                LobbySettingsProfile.SetReducedMotionEnabled(true); yield return Wait(.1f);
+                Assert.That(view.IsRevealed,Is.True);
+                Assert.That(view.GetComponentInChildren<InkShowroomPresentation>().ParticleCount,Is.Zero);
                 // 이전 계정의 완료 콜백을 실행하지 않고 빈 결과에 갇히지 않게 화면만 로비로 돌아간다.
                 Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(),Is.True);
                 view.AcknowledgeAll(); yield return Wait(3);
                 Assert.That(GameManager.Instance.State,Is.EqualTo(GameState.Lobby));
                 Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat),Is.False);
-                // 감소된 동작은 첫 프레임부터 이동/입자 없이 읽을 수 있어야 한다.
-                Assert.That(PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat),Is.True);
-                LobbySettingsProfile.SetReducedMotionEnabled(true);
-                Call(GameManager.Instance,"SetState",GameState.GameOver);
-                view=GameManager.Instance.GetComponent<InkSkinUnlockView>();
-                Assert.That(view.Show(1UL<<(int)InkSkinId.NightBat,PermanentGrowthProfile.SkinAccountToken,null),Is.True);
-                Assert.That(view.IsRevealed,Is.True);
-                Assert.That(view.GetComponentInChildren<InkShowroomPresentation>().ParticleCount,Is.Zero);
-                view.Cancel();
             }
             finally
             {
@@ -125,6 +127,17 @@ namespace MukJump.EditorTests
             GameManager.Instance.StartGameFromMenu(); deadline=Time.realtimeSinceStartup+8;
             while(!GameManager.Instance.IsGameplayTicking && Time.realtimeSinceStartup<deadline) yield return null;
             Assert.That(GameManager.Instance.IsGameplayTicking,Is.True,$"state={GameManager.Instance.State}, transition={GameManager.Instance.IsTransitioning}, pause={GameManager.Instance.PauseReason}, nav={LobbyScreenNavigator.Instance.CanStartGame}");
+        }
+        static IEnumerator WaitForUnlock()
+        {
+            float deadline=Time.realtimeSinceStartup+9;
+            while(Time.realtimeSinceStartup<deadline)
+            {
+                var view=Object.FindFirstObjectByType<InkSkinUnlockView>();
+                if(view!=null && view.IsOpen) yield break;
+                yield return null;
+            }
+            Assert.Fail("해금 씬으로 이동하지 못했습니다.");
         }
         static void EndRun(GameManager manager,int height)
         {
