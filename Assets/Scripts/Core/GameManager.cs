@@ -190,6 +190,9 @@ namespace MukJump.Core
         bool requiresPendingGameOverSettlementRefresh;
         BrushTransitionView transitionView;
         GameOverPopupView gameOverPopupView;
+        InkSkinUnlockView skinUnlockView;
+        readonly InkSkinUnlockState skinUnlocks = new();
+        bool skinUnlockPresentationPending, skinUnlockReturnPending;
         bool transitionInProgress;
         float timeScaleBeforePause = 1f;
         float fixedDeltaBeforePause = 0.02f;
@@ -314,6 +317,9 @@ namespace MukJump.Core
             gameOverPopupView.ConfigureActions(
                 HandleGameOverReviveRequested,
                 HandleGameOverLobbyRequested);
+            skinUnlockView = GetComponent<InkSkinUnlockView>();
+            if (skinUnlockView == null) skinUnlockView = gameObject.AddComponent<InkSkinUnlockView>();
+            skinUnlocks.Initialize(PermanentGrowthProfile.SkinAccountToken, InkSkinUnlockState.ReadUnlocked());
             if (GetComponent<PauseMenuView>() == null)
                 gameObject.AddComponent<PauseMenuView>();
             if (GetComponent<RunGrowthController>() == null)
@@ -358,6 +364,8 @@ namespace MukJump.Core
             activeReviveRequestGeneration = 0;
             reviveRequestDeadline = 0f;
             gameOverPopupView?.ConfigureActions(null, null);
+            skinUnlockView?.Cancel();
+            skinUnlockPresentationPending = skinUnlockReturnPending = false;
             if (Instance != this) return;
             RestorePausedWorld(false, preserveBackgroundPause: false);
             Instance = null;
@@ -379,6 +387,18 @@ namespace MukJump.Core
 
         void Update()
         {
+            if (State != GameState.GameOver) skinUnlockReturnPending = false;
+            if (skinUnlockReturnPending)
+            {
+                // 계정 서비스는 DontDestroyOnLoad로 유지한다. 확인이 필요한 동기화도
+                // 로비 계정 UI에서 해결하도록 화면만 복귀하며, 보상을 다시 정산하지 않는다.
+                if (!IsTransitioning && MobileApplicationLifecycle.IsApplicationActive)
+                {
+                    skinUnlockReturnPending = false;
+                    Restart();
+                }
+                return;
+            }
             // 복귀 콜백이 화면 전환 도중 도착해 보류됐다면 전환 종료 뒤 재개한다.
             // 사용자 메뉴·튜토리얼이 소유한 일시정지는 여기서 건드리지 않는다.
             if (PauseReason == GameplayPauseReason.ApplicationBackground &&
@@ -1048,6 +1068,7 @@ namespace MukJump.Core
         {
             if (State != GameState.GameOver ||
                 transitionInProgress ||
+                skinUnlockPresentationPending || skinUnlockReturnPending ||
                 reviveRequestInFlight)
                 return;
 
@@ -1084,7 +1105,37 @@ namespace MukJump.Core
                     return;
                 ScoreManager.Instance?.StopPendingBestSaveRetry();
             }
-            if (gameOverPopupView != null)
+            ulong newSkins = skinUnlocks.Take(currentRunId, PermanentGrowthProfile.SkinAccountToken,
+                InkSkinUnlockState.ReadUnlocked(), latestGameOverResult);
+            if (newSkins != 0 && skinUnlockView != null)
+            {
+                skinUnlockPresentationPending = true;
+                string completedRun = currentRunId;
+                object account = PermanentGrowthProfile.SkinAccountToken;
+                void InvalidateReveal()
+                {
+                    skinUnlockPresentationPending = false;
+                    if (this != null && isActiveAndEnabled && State == GameState.GameOver && completedRun == currentRunId)
+                        skinUnlockReturnPending = true;
+                }
+                void ContinueToLobby()
+                {
+                    skinUnlockPresentationPending = false;
+                    if (!ReferenceEquals(account, PermanentGrowthProfile.SkinAccountToken) ||
+                        MukJumpAccountRuntime.Instance != null && MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
+                    { InvalidateReveal(); return; }
+                    if (this != null && isActiveAndEnabled && State == GameState.GameOver && completedRun == currentRunId)
+                        Restart();
+                }
+                void Reveal()
+                {
+                    if (this == null || !isActiveAndEnabled || State != GameState.GameOver || completedRun != currentRunId) return;
+                    if (!skinUnlockView.Show(newSkins, account, ContinueToLobby, InvalidateReveal)) ContinueToLobby();
+                }
+                if (gameOverPopupView != null) gameOverPopupView.Close(Reveal);
+                else Reveal();
+            }
+            else if (gameOverPopupView != null)
                 gameOverPopupView.Close(Restart);
             else
                 Restart();
@@ -1110,6 +1161,7 @@ namespace MukJump.Core
                 score != null && score.RecordsAllowed;
             bool growthProfileHealthy = !PermanentGrowthProfile.RequiresRecovery;
             long distanceBefore = PermanentGrowthProfile.CumulativeDistanceMeters;
+            object unlockOwnerBeforeSettlement = PermanentGrowthProfile.SkinAccountToken;
             PermanentGrowthSettlement settlement = rewardsAllowed && scoreBaselineReady
                 ? PermanentGrowthProfile.SettleRun(
                     currentRunId,
@@ -1128,6 +1180,7 @@ namespace MukJump.Core
                     PermanentGrowthProfile.PreviousDistanceRewardMeters,
                     PermanentGrowthProfile.NextDistanceRewardMeters,
                     PermanentGrowthProfile.IsDistanceJourneyComplete);
+            skinUnlocks.FollowSettlement(unlockOwnerBeforeSettlement, PermanentGrowthProfile.SkinAccountToken);
             bool growthSaved = !rewardsAllowed || settlement.Accepted ||
                 PermanentGrowthProfile.IsRunSettled(currentRunId);
             // 최고 기록은 광고·성장 정산과 독립된 단조 데이터다. 성장 저장이
@@ -2047,6 +2100,8 @@ namespace MukJump.Core
             // 연출 난수와 분리된 게임 규칙 스트림을 판 시작 직전에 함께 초기화한다.
             GameplayRandom.ResetSession();
             currentRunId = Guid.NewGuid().ToString("N");
+            skinUnlocks.BeginRun(currentRunId, PermanentGrowthProfile.SkinAccountToken, InkSkinUnlockState.ReadUnlocked());
+            skinUnlockPresentationPending = skinUnlockReturnPending = false;
             activeGameplaySeconds = 0f;
             skinRunStats = SkinRunStats.Begin(LobbyNightState.TargetNight, InkSkinPreferences.Equipped);
             lastActiveTimeSampleFrame = -1;

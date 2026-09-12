@@ -1,0 +1,152 @@
+using System.Linq;
+using System.Reflection;
+using MukJump.Core;
+using NUnit.Framework;
+using UnityEditor;
+using UnityEngine;
+
+namespace MukJump.EditorTests
+{
+    public sealed class InkSkinUnlockTests
+    {
+        GameObject host, scoreHost;
+        InkSkinUnlockView view;
+        MemoryPermanentGrowthStore growth;
+        static GameOverResult Saved => new(100, 100, true, 1, 1, true);
+        static ulong Bit(InkSkinId id) => 1UL << (int)id;
+        [SetUp] public void Setup()
+        {
+            growth = new MemoryPermanentGrowthStore();
+            PermanentGrowthProfile.UseStoreForTests(growth);
+            var settings = new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            ScoreManager.UseStoreForTests(new MemoryScoreStore { Best = 2000 });
+            scoreHost = new GameObject("UnlockScore"); var score = scoreHost.AddComponent<ScoreManager>();
+            Call(score,"OnEnable"); Call(score,"Awake");
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            host = new GameObject("UnlockTest"); view = host.AddComponent<InkSkinUnlockView>();
+            view.BuildForTests(AssetDatabase.LoadAllAssetsAtPath("Assets/Art/Character/Player/muk_spritesheet.png")
+                .OfType<Sprite>().First(s=>s.name=="idle"));
+        }
+        [TearDown] public void Teardown()
+        {
+            Object.DestroyImmediate(host); Object.DestroyImmediate(scoreHost);
+            InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+            PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+        }
+        [Test] public void NewRunAndLobbyDiscoveriesAreComparedBeforeTheEarlyBestCommit()
+        {
+            var owner = new object(); var state = new InkSkinUnlockState();
+            state.Initialize(owner, Bit(InkSkinId.BambooHat));
+            state.BeginRun("run",owner,Bit(InkSkinId.BambooHat)|Bit(InkSkinId.NightBat));
+            ulong all = Bit(InkSkinId.BambooHat)|Bit(InkSkinId.Gat)|Bit(InkSkinId.NightBat);
+            Assert.That(state.Take("run",owner,all,Saved),Is.EqualTo(Bit(InkSkinId.Gat)|Bit(InkSkinId.NightBat)));
+            Assert.That(state.Take("run",owner,all,Saved),Is.Zero);
+            state.BeginRun("next",owner,all);
+            Assert.That(state.Take("next",owner,all,Saved),Is.Zero);
+        }
+        [TestCase(false,true,true,false)] [TestCase(true,false,true,false)]
+        [TestCase(true,true,false,false)] [TestCase(true,true,true,true)]
+        public void IneligiblePreviewOrFailedSaveNeverConsumesTheUnlock(bool eligible,bool growthSaved,bool recordSaved,bool preview)
+        {
+            var owner=new object(); var state=new InkSkinUnlockState(); state.BeginRun("run",owner,0);
+            var pending=new GameOverResult(100,100,true,0,0,eligible,growthSaved,recordSaved,isGrowthPreview:preview);
+            Assert.That(state.Take("run",owner,Bit(InkSkinId.Gat),pending),Is.Zero);
+            Assert.That(state.Take("run",owner,Bit(InkSkinId.Gat),Saved),Is.EqualTo(Bit(InkSkinId.Gat)));
+        }
+        [Test] public void LateScoreInitializationDoesNotAnnounceAlreadyOwnedBestCostumes()
+        {
+            var owner=new object(); var state=new InkSkinUnlockState(); state.Initialize(owner,0);
+            state.BeginRun("run",owner,Bit(InkSkinId.Gat));
+            Assert.That(state.Take("run",owner,Bit(InkSkinId.Gat)|Bit(InkSkinId.FirstRibbon),Saved),Is.EqualTo(Bit(InkSkinId.FirstRibbon)));
+        }
+        [Test] public void AccountSwitchAndStaleRunCannotRevealAnOldReward()
+        {
+            var oldOwner=new object(); var newOwner=new object(); var state=new InkSkinUnlockState();
+            state.BeginRun("old",oldOwner,0);
+            Assert.That(state.Take("old",newOwner,Bit(InkSkinId.Gat),Saved),Is.Zero);
+            state.BeginRun("new",newOwner,Bit(InkSkinId.Gat));
+            Assert.That(state.Take("old",newOwner,Bit(InkSkinId.Gat)|Bit(InkSkinId.FirstRibbon),Saved),Is.Zero);
+            Assert.That(state.Take("new",newOwner,Bit(InkSkinId.Gat),Saved),Is.Zero);
+        }
+        [Test] public void FailedGrowthRollbackStaysSilentUntilRecoveryAndANewRun()
+        {
+            PermanentGrowthProfile.SettleRun("base",1,1,0,10,true,SkinRunStats.Begin(false,InkSkinId.Ink));
+            var stats=SkinRunStats.Begin(false,InkSkinId.Ink); stats.items=1; stats.inkDrops=1;
+            var state=new InkSkinUnlockState(); object owner=PermanentGrowthProfile.SkinAccountToken;
+            state.BeginRun("retry",owner,InkSkinUnlockState.ReadUnlocked());
+            growth.ThrowOnPrimarySave=true;
+            var failed=PermanentGrowthProfile.SettleRun("retry",10,10,0,10,true,stats);
+            Assert.That(failed.Accepted,Is.False);
+            state.FollowSettlement(owner,PermanentGrowthProfile.SkinAccountToken);
+            Assert.That(state.Take("retry",PermanentGrowthProfile.SkinAccountToken,InkSkinUnlockState.ReadUnlocked(),
+                new GameOverResult(10,2000,false,0,0,true,growthRewardSaved:false)),Is.Zero);
+            growth.ThrowOnPrimarySave=false;
+            Assert.That(PermanentGrowthProfile.TryRestoreBackup(),Is.True);
+            owner=PermanentGrowthProfile.SkinAccountToken;
+            state.BeginRun("after-recovery",owner,InkSkinUnlockState.ReadUnlocked());
+            Assert.That(PermanentGrowthProfile.SettleRun("after-recovery",10,10,0,10,true,stats).Accepted,Is.True);
+            state.FollowSettlement(owner,PermanentGrowthProfile.SkinAccountToken);
+            ulong newly=state.Take("after-recovery",PermanentGrowthProfile.SkinAccountToken,InkSkinUnlockState.ReadUnlocked(),Saved);
+            Assert.That(newly & Bit(InkSkinId.CatEars),Is.Not.Zero);
+            Assert.That(newly & Bit(InkSkinId.Gat),Is.Zero);
+        }
+        [Test] public void QueueFiltersUnownedRewardsAndAcknowledgesExactlyOnce()
+        {
+            int calls=0;
+            Assert.That(view.Show(Bit(InkSkinId.Gat)|Bit(InkSkinId.NightBat)|1UL,PermanentGrowthProfile.SkinAccountToken,()=>calls++),Is.True);
+            Assert.That(view.Count,Is.EqualTo(1)); Assert.That(view.Current,Is.EqualTo(InkSkinId.Gat));
+            Assert.That(view.Show(Bit(InkSkinId.Gat),PermanentGrowthProfile.SkinAccountToken,()=>calls++),Is.False);
+            view.Advance(); view.Advance(); view.AcknowledgeAll();
+            Assert.That(calls,Is.EqualTo(1)); Assert.That(view.IsOpen,Is.False);
+            Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Gat),Is.True);
+        }
+        [TestCase(GameLanguage.Korean)] [TestCase(GameLanguage.English)] [TestCase(GameLanguage.Japanese)]
+        public void RevealTextAndArtworkFitAndOnlyOneSharedEffectIsBuilt(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language);
+            PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat);
+            PermanentGrowthProfile.GrantSkinSecret(InkSkinId.OrigamiWings);
+            int objects=view.GetComponentsInChildren<Transform>(true).Length;
+            foreach(var id in new[]{InkSkinId.Gat,InkSkinId.CloudDragon,InkSkinId.PhoenixCrown,InkSkinId.NightBat,InkSkinId.OrigamiWings})
+            {
+                Assert.That(view.Show(Bit(id),PermanentGrowthProfile.SkinAccountToken,null),Is.True); Canvas.ForceUpdateCanvases();
+                foreach(var label in view.Paper.GetComponentsInChildren<UnityEngine.UI.Text>())
+                {
+                    if(string.IsNullOrEmpty(label.text)) continue;
+                    Assert.That(label.preferredHeight,Is.LessThanOrEqualTo(label.rectTransform.rect.height+.1f),label.name+": "+label.text);
+                    Assert.That(label.font.HasCharacter(label.text[0]),Is.True,label.text);
+                    AssertInside(view.Paper,label.rectTransform,24);
+                }
+                var stage=(RectTransform)view.Paper.Find("UnlockStage");
+                foreach(var art in stage.Find("Entrance/Preview").GetComponentsInChildren<UnityEngine.UI.Image>().Where(i=>i.enabled))
+                    AssertInside(stage,art.rectTransform,10);
+                Assert.That(view.GetComponentsInChildren<InkShowroomPresentation>().Length,Is.EqualTo(1));
+                view.AcknowledgeAll();
+            }
+            Assert.That(view.GetComponentsInChildren<Transform>(true).Length,Is.EqualTo(objects));
+        }
+        [Test] public void AccountDeletionDismissesTheRevealWithoutChangingSavedCostumes()
+        {
+            int calls=0, invalidated=0;
+            view.Show(Bit(InkSkinId.Gat),PermanentGrowthProfile.SkinAccountToken,()=>calls++,()=>invalidated++);
+            Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(),Is.True);
+            view.Advance(); Assert.That(calls,Is.Zero);
+            Call(view,"Update"); Assert.That(view.IsOpen,Is.False); Assert.That(calls,Is.Zero); Assert.That(invalidated,Is.EqualTo(1));
+            Assert.That(host.transform.Find("SkinUnlockCanvas").GetComponent<CanvasGroup>().blocksRaycasts,Is.False);
+        }
+        static void AssertInside(RectTransform parent,RectTransform child,float margin)
+        {
+            var corners=new Vector3[4]; child.GetWorldCorners(corners);
+            foreach(var corner in corners)
+            {
+                Vector3 p=parent.InverseTransformPoint(corner);
+                Assert.That(p.x,Is.InRange(parent.rect.xMin+margin,parent.rect.xMax-margin),child.name);
+                Assert.That(p.y,Is.InRange(parent.rect.yMin+margin,parent.rect.yMax-margin),child.name);
+            }
+        }
+        static void Call(object target,string name) => target.GetType().GetMethod(name,BindingFlags.Instance|BindingFlags.NonPublic).Invoke(target,null);
+    }
+}

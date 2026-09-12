@@ -1339,6 +1339,11 @@ namespace MukJump.EditorTools
             wardrobeSettings.FindProperty("previewBodySprite").objectReferenceValue =
                 AssetDatabase.LoadAllAssetsAtPath(CharSheetPath).OfType<Sprite>().FirstOrDefault(s => s.name == "idle");
             wardrobeSettings.ApplyModifiedPropertiesWithoutUndo();
+            var skinUnlock = go.AddComponent<InkSkinUnlockView>();
+            var unlockSettings = new SerializedObject(skinUnlock);
+            unlockSettings.FindProperty("previewBodySprite").objectReferenceValue =
+                wardrobeSettings.FindProperty("previewBodySprite").objectReferenceValue;
+            unlockSettings.ApplyModifiedPropertiesWithoutUndo();
             go.AddComponent<FirstRunTutorialController>();
             go.AddComponent<LobbyScreenNavigator>();
             go.AddComponent<InkUiFeedbackController>();

@@ -16,6 +16,11 @@ namespace MukJump.Core
             var result = new Dictionary<string, (string, string)>
             {
                 ["쇼룸"] = ("Showroom", "ショールーム"),
+                ["새 의상 해금"] = ("Costume Unlocked", "衣装を解放"),
+                ["비밀 의상 발견"] = ("Secret Discovered", "秘密の衣装を発見"),
+                ["해금"] = ("NEW", "解放"),
+                ["다음 의상"] = ("Next Costume", "次の衣装"),
+                ["모두 확인"] = ("Done", "すべて確認"),
                 ["먹의 장식"] = ("Ink Accessory", "墨の飾り"),
                 ["비밀 의상"] = ("Secret Costume", "秘密の衣装"),
                 ["숨겨진 행동으로 발견해 보세요."] = ("Discover it through a hidden action.", "隠された行動で見つけよう。"),
