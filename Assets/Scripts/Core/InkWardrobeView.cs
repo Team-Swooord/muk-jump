@@ -16,7 +16,13 @@ namespace MukJump.Core
         InkShowroomPresentation presentation;
         InkShowroomSwipe swipe;
         Text nameText, abilityText, descriptionText, equipText, statusText, achievementText, progressText, pageText;
-        RectTransform progressFill;
+        UnityEngine.UI.Image progressFill;
+        RectTransform progressTrack, completionSeal;
+        InkSkinId progressSkin;
+        float progressTarget, progressStart, progressStartedAt;
+        uint progressInactiveGeneration;
+        bool hasProgress, progressAnimating, progressComplete;
+        const float ProgressDuration = .36f;
         Button equipButton, backButton, previousButton, nextButton;
         readonly GameObject[] cards = new GameObject[InkSkinCatalog.Count];
         readonly Image[] cardPapers = new Image[InkSkinCatalog.Count], cardBodies = new Image[InkSkinCatalog.Count], cardAccessories = new Image[InkSkinCatalog.Count];
@@ -45,7 +51,7 @@ namespace MukJump.Core
         {
             if (show) EnsureBuilt();
             if (rootGroup == null) return;
-            if (!show || !allowInput) { presentation?.Cancel(); swipe?.Cancel(); }
+            if (!show || !allowInput) { presentation?.Cancel(); swipe?.Cancel(); SnapProgress(); }
             if (show && !visible)
             {
                 selected = InkSkinPreferences.Equipped;
@@ -63,6 +69,7 @@ namespace MukJump.Core
         {
             visible = interactive = false;
             presentation?.Cancel(); swipe?.Cancel();
+            SnapProgress();
             if (rootGroup == null) return;
             rootGroup.alpha = 0; rootGroup.interactable = rootGroup.blocksRaycasts = false;
         }
@@ -71,6 +78,7 @@ namespace MukJump.Core
             if (!visible) return;
             ApplyLayout();
             if (Time.unscaledTime >= refreshAt) { refreshAt = Time.unscaledTime + .25f; RefreshSelection(); }
+            UpdateProgress();
             if (GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby) SetNavigationPresentation(false,false);
         }
         public void Select(InkSkinId id)
@@ -153,8 +161,7 @@ namespace MukJump.Core
             // 저장 오류는 진행도 자리에 표시해 버튼·두루마리 테두리와 겹치지 않는다.
             bool saveFailed = !string.IsNullOrEmpty(statusText.text);
             achievementText.enabled = progressText.enabled = !saveFailed;
-            progressFill.parent.gameObject.SetActive(goal > 0 && !saveFailed);
-            progressFill.anchorMax = new Vector2(goal == 0 ? 1 : (float)progress / goal, 1);
+            RefreshProgress(goal, progress, unlocked, saveFailed);
             pageText.text = $"{page+1} / {(InkSkinCatalog.Count+PageSize-1)/PageSize}";
             previousButton.interactable = page > 0;
             nextButton.interactable = (page+1)*PageSize < InkSkinCatalog.Count;
@@ -174,6 +181,55 @@ namespace MukJump.Core
                     id == InkSkinPreferences.Equipped ? "착용 중" : id == selected ? "선택됨" : "해금됨");
             }
             FitCardPreviews();
+        }
+        void RefreshProgress(int goal, int value, bool unlocked, bool saveFailed)
+        {
+            bool show = goal > 0 && !saveFailed;
+            progressTrack.gameObject.SetActive(show);
+            if (!show)
+            {
+                // 비밀·기본 먹·오류 화면으로 넘어갈 때 이전 의상의 완료 표시도 즉시 비운다.
+                hasProgress = progressAnimating = progressComplete = false;
+                progressTarget = progressFill.fillAmount = 0f;
+                completionSeal.gameObject.SetActive(false);
+                return;
+            }
+            float target = Mathf.Clamp01((float)value / goal);
+            bool changedSkin = !hasProgress || progressSkin != selected;
+            bool changedValue = !Mathf.Approximately(progressTarget, target);
+            progressComplete = unlocked && target >= 1f;
+            progressText.color = progressComplete ? InkPalette.Red : InkPalette.TextMuted;
+            if (changedSkin || changedValue)
+            {
+                // 주기적인 갱신은 번짐을 재시작하지 않는다. 계정 초기화로 줄어든 값은 즉시 반영한다.
+                bool decreased = !changedSkin && target < progressTarget;
+                progressStart = changedSkin ? 0f : progressFill.fillAmount;
+                progressTarget = target; progressSkin = selected; hasProgress = true;
+                progressStartedAt = Time.unscaledTime;
+                progressInactiveGeneration = MobileApplicationLifecycle.InactiveGeneration;
+                progressAnimating = CanAnimateProgress() && !decreased && target > progressStart;
+                progressFill.fillAmount = progressAnimating ? progressStart : target;
+            }
+            completionSeal.gameObject.SetActive(progressComplete && !progressAnimating);
+        }
+        bool CanAnimateProgress() => Application.isPlaying && visible && interactive &&
+            MobileApplicationLifecycle.IsApplicationActive && !LobbySettingsProfile.ReducedMotionEnabled;
+        void UpdateProgress()
+        {
+            if (!progressAnimating) return;
+            if (!CanAnimateProgress() || progressInactiveGeneration != MobileApplicationLifecycle.InactiveGeneration)
+            { SnapProgress(); return; }
+            float t = Mathf.Clamp01((Time.unscaledTime - progressStartedAt) / ProgressDuration);
+            // 끝으로 갈수록 천천히 스며드는 한 번의 붓질. 재질·오브젝트는 재사용한다.
+            progressFill.fillAmount = Mathf.Lerp(progressStart, progressTarget, 1f - Mathf.Pow(1f - t, 3f));
+            if (t >= 1f) SnapProgress();
+        }
+        void SnapProgress()
+        {
+            if (progressFill == null) return;
+            progressAnimating = false;
+            progressFill.fillAmount = progressTarget;
+            completionSeal.gameObject.SetActive(hasProgress && progressComplete);
         }
         void FitCardPreviews()
         {
@@ -230,10 +286,21 @@ namespace MukJump.Core
             abilityText=Label("Ability",paper,"",40,new Vector2(0,-423),new Vector2(780,50),true);
             descriptionText=Label("Description",paper,"",28,new Vector2(0,-490),new Vector2(780,72),false);
             achievementText=Label("Achievement",paper,"",28,new Vector2(0,-553),new Vector2(790,42),true);
-            progressText=Label("AchievementProgress",paper,"",26,new Vector2(0,-594),new Vector2(780,30),false); InkLocalizedText.Exclude(progressText);
-            var track=Rect("AchievementTrack",paper,new Vector2(0,-619),new Vector2(620,6));
-            var ti=track.gameObject.AddComponent<Image>(); ti.color=new Color(.11f,.106f,.102f,.15f); ti.raycastTarget=false;
-            progressFill=Stretch("Progress",track); var fi=progressFill.gameObject.AddComponent<Image>(); fi.color=InkPalette.Ink; fi.raycastTarget=false;
+            progressText=Label("AchievementProgress",paper,"",26,new Vector2(0,-591),new Vector2(560,30),false); InkLocalizedText.Exclude(progressText);
+            progressTrack=Rect("AchievementTrack",paper,new Vector2(0,-616),new Vector2(620,14));
+            var brush=InkUiTextureFactory.CreateBrushSprite();
+            var trackImage=progressTrack.gameObject.AddComponent<UnityEngine.UI.Image>();
+            trackImage.sprite=brush; trackImage.color=new Color(.11f,.106f,.102f,.16f); trackImage.raycastTarget=false;
+            progressFill=Stretch("Progress",progressTrack).gameObject.AddComponent<UnityEngine.UI.Image>();
+            progressFill.sprite=brush; progressFill.color=InkPalette.Ink; progressFill.raycastTarget=false;
+            progressFill.type=UnityEngine.UI.Image.Type.Filled;
+            progressFill.fillMethod=UnityEngine.UI.Image.FillMethod.Horizontal; progressFill.fillOrigin=0;
+            progressFill.fillAmount=0f;
+            completionSeal=Rect("CompletionSeal",progressTrack,new Vector2(346,0),Vector2.one*30f);
+            completionSeal.localRotation=Quaternion.Euler(0,0,-6);
+            InkHudSurface.Ensure(completionSeal,true);
+            var sealMark=SpriteImage("Mark",completionSeal,InkUiTextureFactory.CreateGrowthConfirmIconSprite(),Vector2.zero,Vector2.one*23f);
+            sealMark.color=InkPalette.Paper; completionSeal.gameObject.SetActive(false);
             equipButton=Button("EquipButton",paper,"착용하기",new Vector2(0,-680),new Vector2(620,110),48,out equipText); equipButton.onClick.AddListener(Equip);
             statusText=Label("SaveStatus",paper,"",28,new Vector2(0,-576),new Vector2(780,70),false); statusText.color=InkPalette.Red;
             backButton=Button("BackButton",safeRoot,"로비로",new Vector2(0,-872),new Vector2(360,110),42,out _); backButton.onClick.AddListener(Back);

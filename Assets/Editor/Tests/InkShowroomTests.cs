@@ -209,6 +209,68 @@ namespace MukJump.EditorTests
             Assert.That(view.Paper.Find("AchievementTrack").gameObject.activeSelf, Is.True);
             Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Gat));
         }
+        [TestCase(GameLanguage.Korean)]
+        [TestCase(GameLanguage.English)]
+        [TestCase(GameLanguage.Japanese)]
+        public void BrushProgressUsesAccurateFillAndHidesTheSealWhenResetOrConcealed(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language);
+            Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(),Is.True);
+            Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(0),Is.True);
+            view.Select(InkSkinId.Gat);
+            var track=view.Paper.Find("AchievementTrack").GetComponent<Image>();
+            var fill=track.transform.Find("Progress").GetComponent<Image>();
+            var seal=track.transform.Find("CompletionSeal").gameObject;
+            var number=view.Paper.Find("AchievementProgress").GetComponent<Text>();
+            int objects=view.GetComponentsInChildren<Transform>(true).Length;
+            Assert.That(track.sprite,Is.SameAs(InkUiTextureFactory.CreateBrushSprite()));
+            Assert.That(fill.sprite,Is.SameAs(track.sprite));
+            Assert.That(fill.type,Is.EqualTo(Image.Type.Filled));
+            Assert.That(fill.fillMethod,Is.EqualTo(Image.FillMethod.Horizontal));
+            Assert.That(fill.fillOrigin,Is.Zero);
+            Assert.That(fill.preserveAspect,Is.False);
+            foreach (int value in new[] {0,43,100,1000,0})
+            {
+                Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(value),Is.True);
+                for(int i=0;i<4;i++) Invoke(view,"RefreshSelection");
+                Assert.That(fill.fillAmount,Is.EqualTo(Mathf.Clamp01(value/100f)).Within(.001f));
+                Assert.That(number.text,Is.EqualTo($"{Mathf.Min(value,100)} / 100"));
+                Assert.That(seal.activeSelf,Is.EqualTo(value>=100));
+                Canvas.ForceUpdateCanvases();
+                Assert.That(fill.rectTransform.rect.size,Is.EqualTo(track.rectTransform.rect.size));
+            }
+            Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(100),Is.True);
+            view.Select(InkSkinId.Gat); Assert.That(seal.activeSelf,Is.True);
+            foreach(var id in new[]{InkSkinId.NightBat,InkSkinId.Ink})
+            {
+                view.Select(id);
+                Assert.That(track.gameObject.activeSelf,Is.False);
+                Assert.That(fill.fillAmount,Is.Zero);
+                Assert.That(seal.activeSelf,Is.False);
+                Assert.That(number.text,Is.Empty);
+            }
+            Assert.That(view.GetComponentsInChildren<Transform>(true).Length,Is.EqualTo(objects));
+        }
+        [TestCase(GameLanguage.Korean)]
+        [TestCase(GameLanguage.English)]
+        [TestCase(GameLanguage.Japanese)]
+        public void CompletionSealFitsBesideBrushAndDisappearsDuringSaveFailure(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language); view.Select(InkSkinId.Gat); Canvas.ForceUpdateCanvases();
+            var track=(RectTransform)view.Paper.Find("AchievementTrack");
+            var seal=(RectTransform)track.Find("CompletionSeal");
+            Rect bounds=BoundsIn(view.Paper,seal);
+            AssertInside(bounds,view.Paper.rect,50,"CompletionSeal");
+            Assert.That(bounds.xMin,Is.GreaterThanOrEqualTo(BoundsIn(view.Paper,track).xMax+12));
+            Assert.That(bounds.Overlaps(BoundsIn(view.Paper,(RectTransform)view.EquipButton.transform)),Is.False);
+            Assert.That(bounds.Overlaps(BoundsIn(view.Paper,(RectTransform)view.Paper.Find("AchievementProgress"))),Is.False);
+            Assert.That(seal.GetComponentInChildren<InkHudSurface>().raycastTarget,Is.False);
+            Assert.That(seal.Find("Mark").GetComponent<Image>().raycastTarget,Is.False);
+            settings.ThrowOnSave=true; view.EquipButton.onClick.Invoke();
+            Assert.That(seal.gameObject.activeSelf,Is.False);
+            settings.ThrowOnSave=false; view.EquipButton.onClick.Invoke();
+            Assert.That(seal.gameObject.activeInHierarchy,Is.True);
+        }
         [Test] public void LockedAndConcealedCostumesNeverEquipOrLeakArtThroughTheOutgoingLayer()
         {
             Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(), Is.True);

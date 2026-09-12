@@ -14,6 +14,95 @@ namespace MukJump.EditorTests
     public sealed class InkShowroomPlayTests
     {
         [UnityTest, Timeout(120000)]
+        public IEnumerator BrushProgressRendersAndSettlesAcrossRefreshesAndDisclosureChanges()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool oldBackground=Application.runInBackground; Application.runInBackground=true;
+            var settings=new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1f);
+                Assert.That(MukJumpAccountRuntime.Instance==null || !MukJumpAccountRuntime.Instance.IsOnlineAuthenticated,Is.True);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(),Is.True); yield return Wait(3f);
+                var view=Object.FindAnyObjectByType<InkWardrobeView>();
+                var track=view.Paper.Find("AchievementTrack");
+                var fill=track.Find("Progress").GetComponent<UnityEngine.UI.Image>();
+                var seal=track.Find("CompletionSeal");
+                foreach(var language in new[]{GameLanguage.Korean,GameLanguage.English,GameLanguage.Japanese})
+                {
+                    GameLocalization.SetLanguage(language);
+                    Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(0),Is.True);
+                    view.Select(InkSkinId.Gat); yield return Wait(.5f);
+                    Assert.That(fill.fillAmount,Is.Zero); Assert.That(seal.gameObject.activeSelf,Is.False);
+                    Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(43),Is.True);
+                    // 같은 항목 갱신으로 시작하고 매 0.25초 갱신 뒤에도 목표값까지 도착해야 한다.
+                    view.Select(InkSkinId.Gat);
+                    Assert.That(fill.fillAmount,Is.LessThan(.43f));
+                    yield return Wait(.75f);
+                    Assert.That(fill.fillAmount,Is.EqualTo(.43f).Within(.001f));
+                    Assert.That(seal.gameObject.activeSelf,Is.False);
+                    yield return Capture("progress-partial-"+language);
+                    Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(100),Is.True);
+                    view.Select(InkSkinId.Gat); Assert.That(seal.gameObject.activeSelf,Is.False);
+                    yield return Wait(.75f); Canvas.ForceUpdateCanvases();
+                    Assert.That(fill.fillAmount,Is.EqualTo(1f));
+                    Assert.That(seal.gameObject.activeSelf,Is.True);
+                    foreach(var graphic in seal.GetComponentsInChildren<UnityEngine.UI.Graphic>())
+                    {
+                        Assert.That(graphic.canvasRenderer.cull,Is.False,graphic.name);
+                        Assert.That(graphic.canvasRenderer.GetMesh().vertexCount,Is.GreaterThan(0),graphic.name);
+                    }
+                    yield return Capture("progress-complete-"+language);
+                }
+                Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(0),Is.True);
+                view.Select(InkSkinId.Gat);
+                Assert.That(fill.fillAmount,Is.Zero); Assert.That(seal.gameObject.activeSelf,Is.False);
+                Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(100),Is.True);
+                view.Select(InkSkinId.Gat); yield return Wait(.1f);
+                Assert.That(fill.fillAmount,Is.InRange(.001f,.999f));
+                view.Select(InkSkinId.NightBat);
+                Assert.That(track.gameObject.activeSelf,Is.False); Assert.That(fill.fillAmount,Is.Zero);
+                Assert.That(seal.gameObject.activeSelf,Is.False);
+                LobbySettingsProfile.SetReducedMotionEnabled(true);
+                view.Select(InkSkinId.Gat);
+                Assert.That(fill.fillAmount,Is.EqualTo(1f)); Assert.That(seal.gameObject.activeSelf,Is.True);
+                view.Select(InkSkinId.Ink); Assert.That(track.gameObject.activeSelf,Is.False);
+                LobbySettingsProfile.SetReducedMotionEnabled(false);
+                view.Select(InkSkinId.Gat); yield return Wait(.1f);
+                view.SetNavigationPresentation(false,false);
+                Assert.That(fill.fillAmount,Is.EqualTo(1f));
+                view.SetNavigationPresentation(true,true); yield return Wait(3f);
+                Assert.That(view.Selected,Is.EqualTo(InkSkinId.Ink));
+                Assert.That(track.gameObject.activeSelf,Is.False);
+                view.Select(InkSkinId.Gat); yield return Wait(.1f);
+                MobileApplicationLifecycle.SetPlatformVisibility(false); yield return Wait(.06f);
+                Assert.That(fill.fillAmount,Is.EqualTo(1f));
+                MobileApplicationLifecycle.SetPlatformVisibility(true);
+                view.Select(InkSkinId.Ink); view.Select(InkSkinId.Gat); yield return Wait(.06f);
+                Assert.That(fill.fillAmount,Is.InRange(.001f,.999f));
+                // 숨김 중 Update가 한 번도 없어도 복귀 시 이전 붓질을 이어가지 않는다.
+                MobileApplicationLifecycle.SetPlatformVisibility(false);
+                MobileApplicationLifecycle.SetPlatformVisibility(true); yield return Wait(.06f);
+                Assert.That(fill.fillAmount,Is.EqualTo(1f));
+            }
+            finally
+            {
+                MobileApplicationLifecycle.SetPlatformVisibility(true);
+                Application.runInBackground=oldBackground;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+        [UnityTest, Timeout(120000)]
         public IEnumerator LockedAndHiddenPreviewsRenderWithoutRevealingArtwork()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
