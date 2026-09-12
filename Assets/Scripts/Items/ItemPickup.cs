@@ -197,6 +197,7 @@ namespace MukJump.Items
             if (!ItemEffect.Apply(type, player)) return;
 
             collected = true;
+            GameManager.Instance?.NotifySkinItemCollected(type == ItemType.InkDrop);
             MukJumpAnalytics.Item(type);
             trigger.enabled = false;
             BeginCollection(player.transform);

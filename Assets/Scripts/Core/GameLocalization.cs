@@ -55,6 +55,7 @@ namespace MukJump.Core
         public static string Translate(string source)
         {
             if (string.IsNullOrEmpty(source) || Language == GameLanguage.Korean) return source ?? string.Empty;
+            if (InkSkinTranslations.TryTranslate(source, IsJapanese, out string skinText)) return skinText;
             return IsJapanese ? JapaneseTranslationTable.Translate(source, English(source)) : English(source);
         }
 

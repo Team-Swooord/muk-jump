@@ -402,6 +402,7 @@ namespace MukJump.Core
             if (++tapCount != RequiredTaps) return;
             tapCount = 0;
             targetNight = !targetNight;
+            SkinSecrets.AcceptedNightChange(targetNight);
             MukJumpAnalytics.Night(targetNight);
             departureHold = DepartureHoldSeconds;
             StoreMotion();

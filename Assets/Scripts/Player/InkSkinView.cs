@@ -40,8 +40,7 @@ namespace MukJump.Player
             if (displayed != id)
             {
                 displayed = id;
-                string path = InkSkinCatalog.ResourcePath(id);
-                accessory.sprite = path.Length == 0 ? null : Resources.Load<Sprite>(path);
+                accessory.sprite = InkSkinCatalog.Sprite(id);
             }
             accessory.enabled = body.enabled && body.sprite != null && accessory.sprite != null &&
                                 (player == null || !player.IsDead);
@@ -58,7 +57,7 @@ namespace MukJump.Player
             accessory.flipY = body.flipY;
             accessory.color = body.color;
             accessory.sortingLayerID = body.sortingLayerID;
-            accessory.sortingOrder = body.sortingOrder + 1;
+            accessory.sortingOrder = body.sortingOrder + (InkSkinCatalog.BehindBody(id) ? -1 : 1);
         }
     }
 }

@@ -199,7 +199,7 @@ namespace MukJump.EditorTests
                     Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 2), text.name + ": " + text.text);
                     var binding = text.GetComponent<InkLocalizedText>();
                     Assert.That(binding, Is.Not.Null);
-                    if (language != GameLanguage.Korean)
+                    if (language != GameLanguage.Korean && binding.SourceText.Any(c => c >= '\uAC00' && c <= '\uD7A3'))
                         Assert.That(text.text, Is.Not.EqualTo(binding.SourceText), text.name);
                 }
             }

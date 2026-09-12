@@ -161,7 +161,7 @@ namespace MukJump.Core
     public static class PermanentGrowthProfile
     {
         const int SchemaVersion = 1;
-        const int BalanceVersion = 11;
+        const int BalanceVersion = 12;
         const int V2TotalCost = 39;
         const int LegacyTotalCost = 957;
         const int SettledRunHistoryLimit = 64;
@@ -191,6 +191,7 @@ namespace MukJump.Core
             // 실제 누적 거리는 고치지 않으며 미지급 잔여 m도 그대로 이어진다.
             public long distanceRewardOffsetMeters;
             public string lastSettledRunId = string.Empty;
+            public SkinAchievementState skinAchievements = new();
             public List<string> settledRunIds = new();
             // balanceVersion 1 역직렬화·마이그레이션 전용.
             public List<RankRecord> ranks = new();
@@ -455,6 +456,33 @@ namespace MukJump.Core
                 EnsureLoaded();
                 return writeBlocked ? 0 : data.settledRunIds.Count;
             }
+        }
+
+        public static object SkinAccountToken { get { EnsureLoaded(); return data; } }
+        public static long SkinProgress(InkSkinId id)
+        {
+            EnsureLoaded();
+            if (writeBlocked || data.skinAchievements == null) return 0;
+            long value = data.skinAchievements.Progress(id, data.cumulativeDistanceMeters, data.ownedNodeIds.Count);
+            // 구 빌드에서 이미 기록한 최고점은 읽기 전용으로 인정한다. Changed 콜백에서
+            // 다른 계정의 점수를 새 계정 JSON으로 기록하지 않는다.
+            if (InkSkinCatalog.Get(id)?.Metric == SkinMetric.Best &&
+                (MukJumpAccountRuntime.Instance == null || !MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync) &&
+                ScoreManager.Instance != null && ScoreManager.Instance.HasConfirmedBest)
+                value = Math.Max(value, ScoreManager.Instance.Best);
+            return value;
+        }
+
+        public static bool GrantSkinSecret(InkSkinId id)
+        {
+            EnsureLoaded();
+            if (writeBlocked || id is not (InkSkinId.NightBat or InkSkinId.Astronaut or InkSkinId.OrigamiWings)) return false;
+            if (data.skinAchievements.Has(id)) return true;
+            var snapshot = CaptureMutationSnapshot();
+            data.skinAchievements.Grant(id);
+            if (!Save(snapshot)) return false;
+            NotifyChangedSafely();
+            return true;
         }
 
         public static int ClaimedDistanceRewardCount
@@ -747,6 +775,7 @@ namespace MukJump.Core
 
             MutationSnapshot snapshot = CaptureMutationSnapshot();
             data.ownedNodeIds.Add(catalogNode.Id);
+            data.skinAchievements.growth = Math.Max(data.skinAchievements.growth, data.ownedNodeIds.Count);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (debugCurrencyOverride >= 0)
             {
@@ -1039,7 +1068,8 @@ namespace MukJump.Core
             int scoreHeight,
             int previousBest,
             float activeGameplaySeconds,
-            bool eligible)
+            bool eligible,
+            SkinRunStats skinStats = default)
         {
             EnsureLoaded();
             if (writeBlocked)
@@ -1077,12 +1107,14 @@ namespace MukJump.Core
             data.claimedDistanceRewardCount = reachedRewardCount;
             data.wallet += earned;
 
+            data.skinAchievements.Settle(runDistanceMeters, activeGameplaySeconds, skinStats,
+                data.cumulativeDistanceMeters, data.ownedNodeIds.Count);
+
             if (!Save(snapshot))
                 return CreateSettlement(0, false);
             if (!AnalyticsDebugCurrencyActive)
                 MukJumpAnalytics.EarnCurrency(earned, data.wallet);
-            if (runDistanceMeters > 0 || earned > 0)
-                NotifyChangedSafely();
+            NotifyChangedSafely();
             return CreateSettlement(
                 earned,
                 true,
@@ -1546,7 +1578,14 @@ namespace MukJump.Core
                 MigrateV9ToV10();
             if (data.balanceVersion == 10)
                 MigrateV10ToV11();
+            if (data.balanceVersion < 12)
+            {
+                // 예전 저장은 최근 64판만 증명한다. 추정 누적 판수를 만들지 않는다.
+                data.skinAchievements = new SkinAchievementState { runs = data.settledRunIds?.Count ?? 0 };
+            }
             NormalizeLoadedData();
+            // 기존 소유 성장으로 이미 달성한 의상은 성장 환급 후에도 유지한다.
+            data.skinAchievements.growth = Math.Max(data.skinAchievements.growth, data.ownedNodeIds.Count);
             return !string.Equals(
                 before,
                 JsonUtility.ToJson(data),
@@ -1588,6 +1627,8 @@ namespace MukJump.Core
                     return false;
 
                 parsed = JsonUtility.FromJson<SaveData>(json);
+                if (header.balanceVersion >= 12 && (!SkinAchievementState.HasCompletePayload(json) ||
+                    parsed?.skinAchievements == null || !parsed.skinAchievements.IsValid)) return false;
                 if (parsed == null ||
                     parsed.ranks == null ||
                     parsed.lastSettledRunId == null)

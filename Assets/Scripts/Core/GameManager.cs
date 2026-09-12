@@ -34,6 +34,7 @@ namespace MukJump.Core
         public int previousBest;
         public float activeGameplaySeconds;
         public bool eligible;
+        public SkinRunStats skinStats;
     }
 
     /// 게임오버 정산 복구본 저장을 격리해 기기 저장소 오류가 게임 흐름까지
@@ -205,6 +206,7 @@ namespace MukJump.Core
         float reviveRequestDeadline;
         bool gameOverResultSettled;
         [SerializeField, HideInInspector] string currentRunId;
+        [SerializeField, HideInInspector] SkinRunStats skinRunStats;
         readonly List<PlayerController> players = new();
         readonly List<PlayerController> swarmScratch =
             new(MaxLivingPlayers);
@@ -477,11 +479,21 @@ namespace MukJump.Core
         {
             if (State != GameState.Playing || player == null || player.IsDead)
                 return;
+            if (IsGameplayTicking && platform != null && platform.IsTemporaryDrawnPlatform)
+                skinRunStats.drawnLandings = SkinAchievementState.Add(skinRunStats.drawnLandings, 1);
             NotifyListenersSafely(
                 PlayerLanded,
                 player,
                 platform,
                 "착지");
+        }
+
+        public void NotifySkinItemCollected(bool inkDrop)
+        {
+            if (!IsGameplayTicking || !skinRunStats.IsMeasured) return;
+            skinRunStats.items = SkinAchievementState.Add(skinRunStats.items, 1);
+            if (inkDrop) skinRunStats.inkDrops = SkinAchievementState.Add(skinRunStats.inkDrops, 1);
+            skinRunStats.maxLivingPlayers = Mathf.Max(skinRunStats.maxLivingPlayers, LivingPlayerCount);
         }
 
         /// 바람·카메라 같은 읽기 전용 시스템이 매 프레임 FindObjects 배열을 만들지 않도록
@@ -736,6 +748,7 @@ namespace MukJump.Core
             if (lastActiveTimeSampleFrame == Time.frameCount)
                 return;
             activeGameplaySeconds += Time.unscaledDeltaTime;
+            skinRunStats.maxLivingPlayers = Mathf.Max(skinRunStats.maxLivingPlayers, LivingPlayerCount);
             lastActiveTimeSampleFrame = Time.frameCount;
         }
 
@@ -1104,7 +1117,8 @@ namespace MukJump.Core
                     height,
                     previousBest,
                     activeGameplaySeconds,
-                    true)
+                    true,
+                    skinRunStats)
                 : new PermanentGrowthSettlement(
                     0,
                     PermanentGrowthProfile.Currency,
@@ -1820,6 +1834,7 @@ namespace MukJump.Core
                 previousBest = Mathf.Max(0, score.RunBestToBeat),
                 activeGameplaySeconds = Mathf.Max(0f, activeGameplaySeconds),
                 eligible = score.RecordsAllowed,
+                skinStats = skinRunStats,
             };
             try
             {
@@ -1949,6 +1964,8 @@ namespace MukJump.Core
             {
                 snapshot = JsonUtility.FromJson<
                     PendingGameOverSettlementSnapshot>(json);
+                // 누락된 0을 실제 무아이템/무착지로 오인하지 않는다.
+                if (snapshot != null && !SkinRunStats.HasCompletePayload(json)) snapshot.skinStats = default;
             }
             catch (Exception exception)
             {
@@ -1974,7 +1991,8 @@ namespace MukJump.Core
                     snapshot.scoreHeight,
                     snapshot.previousBest,
                     snapshot.activeGameplaySeconds,
-                    snapshot.eligible);
+                    snapshot.eligible,
+                    snapshot.skinStats);
             bool growthSaved = !snapshot.eligible || settlement.Accepted ||
                 PermanentGrowthProfile.IsRunSettled(snapshot.runId);
             if (!growthSaved)
@@ -2030,6 +2048,7 @@ namespace MukJump.Core
             GameplayRandom.ResetSession();
             currentRunId = Guid.NewGuid().ToString("N");
             activeGameplaySeconds = 0f;
+            skinRunStats = SkinRunStats.Begin(LobbyNightState.TargetNight, InkSkinPreferences.Equipped);
             lastActiveTimeSampleFrame = -1;
             lastDeadPlayer = null;
             reviveUsedThisRun = false;
