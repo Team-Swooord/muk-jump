@@ -53,6 +53,16 @@ namespace MukJump.EditorTests
                     yield return Wait(.3f);
                     yield return Capture("wardrobe-" + language);
                 }
+                Assert.That(wardrobe.EquipButton.interactable, Is.False);
+                wardrobe.EquipButton.onClick.Invoke();
+                Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Ink));
+                for (int i = 0; i < 10; i++) PermanentGrowthProfile.SettleRun("skin-unlock-" + i, 10, 0, true);
+                Assert.That(ScoreManager.Instance.TryCommitBestCandidate(100), Is.True);
+                yield return Wait(.3f);
+                Assert.That(wardrobe.EquipButton.interactable, Is.True);
+                GameLocalization.SetLanguage(GameLanguage.Korean);
+                yield return Wait(.3f);
+                yield return Capture("wardrobe-unlocked");
                 wardrobe.EquipButton.onClick.Invoke();
                 Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.SpiderMask));
                 wardrobe.BackButton.onClick.Invoke();

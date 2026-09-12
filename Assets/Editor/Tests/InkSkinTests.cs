@@ -16,6 +16,8 @@ namespace MukJump.EditorTests
         readonly List<Object> cleanup = new();
         MemoryLobbySettingsStore settings;
         MemoryPermanentGrowthStore growthStore;
+        MemoryScoreStore scoreStore;
+        ScoreManager score;
 
         [SetUp]
         public void Setup()
@@ -25,6 +27,11 @@ namespace MukJump.EditorTests
             InkSkinPreferences.UseStoreForTests(settings);
             LobbySettingsProfile.UseStoreForTests(settings);
             PermanentGrowthProfile.UseStoreForTests(growthStore);
+            scoreStore = new MemoryScoreStore { Best = 100 };
+            ScoreManager.UseStoreForTests(scoreStore);
+            score = Track(new GameObject("SkinScore")).AddComponent<ScoreManager>();
+            Invoke(score, "OnEnable"); Invoke(score, "Awake");
+            for (int i = 0; i < 10; i++) PermanentGrowthProfile.SettleRun("skin-test-" + i, 1, 0, true);
         }
         [TearDown]
         public void Teardown()
@@ -35,6 +42,7 @@ namespace MukJump.EditorTests
             InkSkinPreferences.RestoreDefaultStoreForTests();
             LobbySettingsProfile.RestoreDefaultStoreForTests();
             PermanentGrowthProfile.RestoreDefaultStoreForTests();
+            ScoreManager.RestoreDefaultStoreForTests();
             PointerInput.ResetSuppressionForTests();
         }
 
@@ -236,6 +244,86 @@ namespace MukJump.EditorTests
             Assert.That(LobbyMenuLayout.GrowthAnchor.y, Is.GreaterThan(LobbyMenuLayout.WardrobeAnchor.y));
             Assert.That(LobbyMenuLayout.WardrobeAnchor.y, Is.GreaterThan(LobbyMenuLayout.OptionsAnchor.y));
             Assert.That(LobbyMenuLayout.OptionsAnchor.x, Is.EqualTo(LobbyMenuLayout.WardrobeAnchor.x));
+        }
+
+        void ClearAchievements()
+        {
+            Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(), Is.True);
+            Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(0), Is.True);
+        }
+
+        [Test]
+        public void LockedPreviewAndRawEquipKeyCannotGrantAnAbility()
+        {
+            ClearAchievements();
+            settings.SetInt(InkSkinPreferences.StorageKey, (int)InkSkinId.Gat);
+            Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Ink));
+            Assert.That(InkSkinPreferences.TryEquip(InkSkinId.Gat), Is.False);
+            var manager = Manager(out var growth);
+            var wardrobe = manager.gameObject.AddComponent<InkWardrobeView>();
+            wardrobe.BuildForTests(Idle()); wardrobe.SetNavigationPresentation(true, true);
+            wardrobe.Select(InkSkinId.SpiderMask);
+            Assert.That(wardrobe.Selected, Is.EqualTo(InkSkinId.SpiderMask));
+            Assert.That(wardrobe.EquipButton.interactable, Is.False);
+            wardrobe.EquipButton.onClick.Invoke();
+            Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Ink));
+            Invoke(manager, "SetState", GameState.Playing);
+            Assert.That(growth.SkinSnapshot, Is.EqualTo(InkSkinId.Ink));
+        }
+
+        [Test]
+        public void GatUsesConfirmedBestNotLiveHeightOrFailedSave()
+        {
+            ClearAchievements();
+            Assert.That(score.TryCommitBestCandidate(99), Is.True);
+            Assert.That(InkSkinAchievements.Progress(InkSkinId.Gat), Is.EqualTo(99));
+            scoreStore.ThrowOnSave = true;
+            Assert.That(score.TryCommitBestCandidate(100), Is.False);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Gat), Is.False);
+            scoreStore.ThrowOnSave = false;
+            Assert.That(score.TryCommitBestCandidate(100), Is.True);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Gat), Is.True);
+            Assert.That(InkSkinPreferences.TryEquip(InkSkinId.Gat), Is.True);
+        }
+
+        [Test]
+        public void TenUniqueEligibleSettlementsUnlockWithoutDuplicateOrFailedSaves()
+        {
+            ClearAchievements();
+            for (int i = 0; i < 9; i++) PermanentGrowthProfile.SettleRun("achievement-" + i, 1, 0, true);
+            PermanentGrowthProfile.SettleRun("achievement-8", 1, 0, true);
+            PermanentGrowthProfile.SettleRun("debug", 900, 0, false);
+            Assert.That(InkSkinAchievements.Progress(InkSkinId.SpiderMask), Is.EqualTo(9));
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.SpiderMask), Is.False);
+            growthStore.ThrowOnPrimarySave = true;
+            Assert.That(PermanentGrowthProfile.SettleRun("achievement-9", 1, 0, true).Accepted, Is.False);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.SpiderMask), Is.False);
+            growthStore.ThrowOnPrimarySave = false;
+            Assert.That(PermanentGrowthProfile.TryRestoreBackup(), Is.True);
+            Assert.That(InkSkinAchievements.Progress(InkSkinId.SpiderMask), Is.EqualTo(9));
+            Assert.That(PermanentGrowthProfile.SettleRun("achievement-9", 1, 0, true).Accepted, Is.True);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.SpiderMask), Is.True);
+            for (int i = 10; i < 75; i++) PermanentGrowthProfile.SettleRun("achievement-" + i, 1, 0, true);
+            Assert.That(PermanentGrowthProfile.CompletedRunHistoryCount, Is.EqualTo(64));
+            Assert.That(InkSkinAchievements.Progress(InkSkinId.SpiderMask), Is.EqualTo(10));
+            PermanentGrowthProfile.UseStoreForTests(growthStore);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.SpiderMask), Is.True);
+        }
+
+        [Test]
+        public void AccountReplacementDeletionAndGrowthResetRespectAchievementOwnership()
+        {
+            Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string earnedAccount), Is.True);
+            Assert.That(InkSkinPreferences.TryEquip(InkSkinId.SpiderMask), Is.True);
+            Assert.That(PermanentGrowthProfile.TryResetPurchasedNodes(), Is.True);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.SpiderMask), Is.True);
+            ClearAchievements();
+            Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Ink));
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Gat), Is.False);
+            Assert.That(PermanentGrowthProfile.TryReplaceFromCloudJson(earnedAccount), Is.True);
+            Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(100), Is.True);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Gat), Is.True);
+            Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.SpiderMask));
         }
 
         GameManager Manager(out RunGrowthController growth)

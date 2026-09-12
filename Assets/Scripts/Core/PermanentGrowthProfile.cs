@@ -446,6 +446,17 @@ namespace MukJump.Core
             }
         }
 
+        /// 내구 정산이 끝난 최근 최대 64판. 평생 누적 횟수가 아니며,
+        /// 64판 이하의 업적은 이 기록만으로 중복 지급/별도 저장 없이 판정한다.
+        public static int CompletedRunHistoryCount
+        {
+            get
+            {
+                EnsureLoaded();
+                return writeBlocked ? 0 : data.settledRunIds.Count;
+            }
+        }
+
         public static int ClaimedDistanceRewardCount
         {
             get

@@ -5,7 +5,7 @@ namespace MukJump.Core
 {
     public enum InkSkinId { Ink = 0, Gat = 1, SpiderMask = 2 }
 
-    /// 먹 몸체는 교체하지 않는다. 무료 장식 한 개와 자동 발동 능력 한 개를 묶는다.
+    /// 먹 몸체는 교체하지 않는다. 업적으로 얻는 장식과 자동 발동 능력을 묶는다.
     public static class InkSkinCatalog
     {
         public const int Count = 3;
@@ -42,17 +42,49 @@ namespace MukJump.Core
             ? new Vector2(0, 0.4f) : new Vector2(0, 0.085f);
     }
 
-    /// 무료 스킨의 착용 선택은 기기 설정이다. 계정/점수/성장 클라우드 저장을 변경하지 않는다.
+    /// 계정의 기존 내구 기록으로 판정한다. 클라우드/계정 교체·삭제도 같은 기록을 따르며
+    /// 로컬의 착용 키만 수정해서 잠긴 능력을 얻을 수 없다. 서버 권위 판정은 아니다.
+    public static class InkSkinAchievements
+    {
+        public static int Goal(InkSkinId id) => id == InkSkinId.Gat ? 100 : id == InkSkinId.SpiderMask ? 10 : 0;
+        public static int Progress(InkSkinId id)
+        {
+            int progress = id switch
+            {
+                InkSkinId.Gat => ScoreManager.Instance != null && ScoreManager.Instance.HasConfirmedBest
+                    ? ScoreManager.Instance.Best : 0,
+                InkSkinId.SpiderMask => PermanentGrowthProfile.CompletedRunHistoryCount,
+                _ => 0,
+            };
+            return Mathf.Clamp(progress, 0, Goal(id));
+        }
+        public static bool IsUnlocked(InkSkinId id) => InkSkinCatalog.IsValid(id) &&
+            (id == InkSkinId.Ink || Progress(id) >= Goal(id));
+        public static string Requirement(InkSkinId id) => id switch
+        {
+            InkSkinId.Gat => "최고 고도 100m 달성",
+            InkSkinId.SpiderMask => "정상 플레이 10판 완료",
+            _ => "처음부터 사용 가능",
+        };
+    }
+
+    /// 착용 취향만 기기에 저장한다. 사용 권한은 현재 계정 업적으로 다시 검증한다.
     public static class InkSkinPreferences
     {
         public const string StorageKey = "MukJump.Settings.EquippedSkin";
         static ILobbySettingsStore store = new PlayerPrefsLobbySettingsStore();
-        public static InkSkinId Equipped => InkSkinCatalog.Normalize(
-            (InkSkinId)store.GetInt(StorageKey, 0));
+        public static InkSkinId Equipped
+        {
+            get
+            {
+                var chosen = InkSkinCatalog.Normalize((InkSkinId)store.GetInt(StorageKey, 0));
+                return InkSkinAchievements.IsUnlocked(chosen) ? chosen : InkSkinId.Ink;
+            }
+        }
 
         public static bool TryEquip(InkSkinId id)
         {
-            if (!InkSkinCatalog.IsValid(id) ||
+            if (!InkSkinAchievements.IsUnlocked(id) ||
                 GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby ||
                 MukJumpAccountRuntime.Instance != null && MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
                 return false;

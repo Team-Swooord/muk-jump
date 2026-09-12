@@ -11,6 +11,9 @@ namespace MukJump.Core
         RectTransform safeRoot, paper;
         UnityEngine.UI.Image previewBody, previewAccessory;
         UnityEngine.UI.Text nameText, abilityText, descriptionText, equipText, statusText;
+        UnityEngine.UI.Text achievementText, progressText;
+        RectTransform progressFill;
+        int lastGatProgress = -1, lastSpiderProgress = -1;
         UnityEngine.UI.Button equipButton, backButton;
         readonly UnityEngine.UI.Image[] cardPapers = new UnityEngine.UI.Image[InkSkinCatalog.Count];
         readonly UnityEngine.UI.Text[] cardStates = new UnityEngine.UI.Text[InkSkinCatalog.Count];
@@ -56,6 +59,9 @@ namespace MukJump.Core
         {
             if (!visible) return;
             ApplyLayout();
+            if (lastGatProgress != InkSkinAchievements.Progress(InkSkinId.Gat) ||
+                lastSpiderProgress != InkSkinAchievements.Progress(InkSkinId.SpiderMask))
+                RefreshSelection();
             if (GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby)
                 SetNavigationPresentation(false, false);
         }
@@ -99,14 +105,25 @@ namespace MukJump.Core
             InkLocalizedText.SetSource(abilityText, InkSkinCatalog.Ability(selected));
             InkLocalizedText.SetSource(descriptionText, InkSkinCatalog.Description(selected));
             SetAccessory(previewAccessory, selected, 350);
+            bool unlocked = InkSkinAchievements.IsUnlocked(selected);
             bool equipped = InkSkinPreferences.Equipped == selected;
-            InkLocalizedText.SetSource(equipText, equipped ? "착용 중" : "착용하기");
-            equipButton.interactable = !equipped;
+            InkLocalizedText.SetSource(equipText, !unlocked ? "업적 달성 필요" : equipped ? "착용 중" : "착용하기");
+            equipButton.interactable = unlocked && !equipped;
+            InkLocalizedText.SetSource(achievementText, InkSkinAchievements.Requirement(selected));
+            achievementText.color = unlocked ? InkPalette.TextMuted : InkPalette.Red;
+            int goal = InkSkinAchievements.Goal(selected);
+            int progress = InkSkinAchievements.Progress(selected);
+            progressText.text = goal == 0 ? string.Empty : $"{progress} / {goal}";
+            progressFill.parent.gameObject.SetActive(goal > 0);
+            progressFill.anchorMax = new Vector2(goal == 0 ? 1 : (float)progress / goal, 1);
+            lastGatProgress = InkSkinAchievements.Progress(InkSkinId.Gat);
+            lastSpiderProgress = InkSkinAchievements.Progress(InkSkinId.SpiderMask);
             for (int i = 0; i < InkSkinCatalog.Count; i++)
             {
                 cardPapers[i].color = i == (int)selected ? InkPalette.Paper : Color.white;
                 cardStates[i].color = i == (int)selected ? InkPalette.Red : InkPalette.TextMuted;
-                InkLocalizedText.SetSource(cardStates[i], i == (int)InkSkinPreferences.Equipped ? "착용 중" : i == (int)selected ? "선택됨" : string.Empty);
+                InkLocalizedText.SetSource(cardStates[i], !InkSkinAchievements.IsUnlocked((InkSkinId)i) ? "잠김" :
+                    i == (int)InkSkinPreferences.Equipped ? "착용 중" : i == (int)selected ? "선택됨" : "해금됨");
             }
         }
 
@@ -133,11 +150,20 @@ namespace MukJump.Core
             previewAccessory = SpriteImage("Accessory", preview, null, Vector2.zero, Vector2.one);
             nameText = Label("SkinName", paper, string.Empty, 54, new Vector2(0, 45), new Vector2(780, 80), true);
             for (int i = 0; i < InkSkinCatalog.Count; i++) BuildCard((InkSkinId)i);
-            abilityText = Label("Ability", paper, string.Empty, 48, new Vector2(0, -330), new Vector2(780, 75), true);
-            descriptionText = Label("Description", paper, string.Empty, 38, new Vector2(0, -420), new Vector2(780, 128), false);
-            equipButton = Button("EquipButton", paper, "착용하기", new Vector2(0, -550), new Vector2(620, 120), 48, out equipText);
+            abilityText = Label("Ability", paper, string.Empty, 48, new Vector2(0, -305), new Vector2(780, 60), true);
+            descriptionText = Label("Description", paper, string.Empty, 36, new Vector2(0, -380), new Vector2(780, 90), false);
+            achievementText = Label("Achievement", paper, string.Empty, 34, new Vector2(0, -454), new Vector2(780, 52), true);
+            progressText = Label("AchievementProgress", paper, string.Empty, 28, new Vector2(0, -491), new Vector2(780, 36), false);
+            InkLocalizedText.Exclude(progressText);
+            var track = Rect("AchievementTrack", paper, new Vector2(0, -518), new Vector2(620, 6));
+            var trackImage = track.gameObject.AddComponent<UnityEngine.UI.Image>();
+            trackImage.color = new Color(0.11f, 0.106f, 0.102f, .15f); trackImage.raycastTarget = false;
+            progressFill = Stretch("Progress", track);
+            var fillImage = progressFill.gameObject.AddComponent<UnityEngine.UI.Image>();
+            fillImage.color = InkPalette.Ink; fillImage.raycastTarget = false;
+            equipButton = Button("EquipButton", paper, "착용하기", new Vector2(0, -588), new Vector2(620, 110), 48, out equipText);
             equipButton.onClick.AddListener(Equip);
-            statusText = Label("SaveStatus", paper, string.Empty, 30, new Vector2(0, -645), new Vector2(780, 64), false);
+            statusText = Label("SaveStatus", paper, string.Empty, 30, new Vector2(0, -675), new Vector2(780, 56), false);
             statusText.color = InkPalette.Red;
             backButton = Button("BackButton", safeRoot, "로비로", new Vector2(0, -810), new Vector2(360, 110), 42, out _);
             backButton.onClick.AddListener(Back);
