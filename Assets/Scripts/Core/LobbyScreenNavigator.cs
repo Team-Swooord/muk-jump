@@ -12,6 +12,7 @@ namespace MukJump.Core
         {
             Lobby,
             PermanentGrowth,
+            Wardrobe,
         }
 
         public static LobbyScreenNavigator Instance { get; private set; }
@@ -21,6 +22,7 @@ namespace MukJump.Core
         LobbyView lobbyView;
         PermanentGrowthView growthView;
         LobbyOptionsView optionsView;
+        InkWardrobeView wardrobeView;
         Coroutine revealWaitRoutine;
         LobbySection previousSection;
         int transitionVersion;
@@ -79,6 +81,8 @@ namespace MukJump.Core
             return RequestSection(LobbySection.PermanentGrowth);
         }
 
+        public bool OpenWardrobe() => RequestSection(LobbySection.Wardrobe);
+
         public bool ReturnToLobby()
         {
             return RequestSection(LobbySection.Lobby);
@@ -104,6 +108,8 @@ namespace MukJump.Core
                 optionsView = GetComponent<LobbyOptionsView>();
             if (optionsView == null)
                 optionsView = FindAnyObjectByType<LobbyOptionsView>();
+            if (wardrobeView == null)
+                wardrobeView = GetComponent<InkWardrobeView>();
         }
 
         void BindManager()
@@ -137,13 +143,15 @@ namespace MukJump.Core
         {
             ResolveDependencies();
             BindManager();
-            if (destination == LobbySection.PermanentGrowth &&
+            if (destination != LobbySection.Lobby &&
                 MukJumpAccountRuntime.Instance != null &&
                 MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
             {
                 optionsView?.OpenAccountForRequiredSync();
                 return false;
             }
+            if (destination == LobbySection.Wardrobe && wardrobeView == null)
+                return false;
             if (manager == null ||
                 manager.State != GameState.Lobby ||
                 IsTransitioning ||
@@ -252,7 +260,8 @@ namespace MukJump.Core
 
         void ApplySection(LobbySection section, bool interactive)
         {
-            if (interactive) MukJumpAnalytics.Screen(section == LobbySection.Lobby ? AnalyticsScreen.Lobby : AnalyticsScreen.Growth);
+            if (interactive && section != LobbySection.Wardrobe)
+                MukJumpAnalytics.Screen(section == LobbySection.Lobby ? AnalyticsScreen.Lobby : AnalyticsScreen.Growth);
             ApplyMenuSelection(section);
             bool showLobby = section == LobbySection.Lobby;
             bool showGrowth = section == LobbySection.PermanentGrowth;
@@ -263,6 +272,9 @@ namespace MukJump.Core
             growthView?.SetNavigationPresentation(
                 showGrowth,
                 showGrowth && interactive);
+            wardrobeView?.SetNavigationPresentation(
+                section == LobbySection.Wardrobe,
+                section == LobbySection.Wardrobe && interactive);
         }
 
         void ApplyMenuSelection(LobbySection section)
@@ -271,6 +283,7 @@ namespace MukJump.Core
             lobbyView.SetActiveMenu(section switch
             {
                 LobbySection.PermanentGrowth => LobbyMenuSelection.Growth,
+                LobbySection.Wardrobe => LobbyMenuSelection.Wardrobe,
                 _ => LobbyMenuSelection.Start,
             });
         }

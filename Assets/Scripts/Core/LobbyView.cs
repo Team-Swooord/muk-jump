@@ -19,6 +19,7 @@ namespace MukJump.Core
         [SerializeField] Text bestText;
         [SerializeField] Button startButton;
         [SerializeField] Button growthButton;
+        [SerializeField] Button wardrobeButton;
         [SerializeField] Button optionsButton;
         Button leaderboardButton;
 
@@ -44,6 +45,7 @@ namespace MukJump.Core
 
         public Button StartButton => startButton;
         public Button GrowthButton => growthButton;
+        public Button WardrobeButton => wardrobeButton;
         public Button OptionsButton => optionsButton;
         public Button LeaderboardButton => leaderboardButton;
         public RectTransform LogoRect => logoRect;
@@ -120,6 +122,7 @@ namespace MukJump.Core
             if (listenersBound) return;
             startButton?.onClick.AddListener(HandleStartPressed);
             growthButton?.onClick.AddListener(HandleGrowthPressed);
+            wardrobeButton?.onClick.AddListener(HandleWardrobePressed);
             optionsButton?.onClick.AddListener(HandleOptionsPressed);
             leaderboardButton?.onClick.AddListener(HandleLeaderboardPressed);
             listenersBound = true;
@@ -130,6 +133,7 @@ namespace MukJump.Core
             if (!listenersBound) return;
             startButton?.onClick.RemoveListener(HandleStartPressed);
             growthButton?.onClick.RemoveListener(HandleGrowthPressed);
+            wardrobeButton?.onClick.RemoveListener(HandleWardrobePressed);
             optionsButton?.onClick.RemoveListener(HandleOptionsPressed);
             leaderboardButton?.onClick.RemoveListener(HandleLeaderboardPressed);
             listenersBound = false;
@@ -206,6 +210,12 @@ namespace MukJump.Core
             growth?.Open();
             if (growth != null && growth.IsOpen)
                 SetActiveMenu(LobbyMenuSelection.Growth);
+        }
+
+        void HandleWardrobePressed()
+        {
+            ResolveOptionsView()?.Close();
+            ResolveScreenNavigator()?.OpenWardrobe();
         }
 
         void HandleOptionsPressed()
@@ -323,6 +333,11 @@ namespace MukJump.Core
                 LobbyMenuLayout.GrowthAnchor,
                 primary: activeMenu == LobbyMenuSelection.Growth);
             LobbyMenuLayout.ApplyButton(
+                wardrobeButton,
+                "꾸미기",
+                LobbyMenuLayout.WardrobeAnchor,
+                primary: activeMenu == LobbyMenuSelection.Wardrobe);
+            LobbyMenuLayout.ApplyButton(
                 optionsButton,
                 "옵션",
                 LobbyMenuLayout.OptionsAnchor,
@@ -429,6 +444,7 @@ namespace MukJump.Core
                 MoveRootToSafeArea(bestText.transform.parent);
             MoveRootToSafeArea(startButton?.transform);
             MoveRootToSafeArea(growthButton?.transform);
+            MoveRootToSafeArea(wardrobeButton?.transform);
             MoveRootToSafeArea(optionsButton?.transform);
         }
 
@@ -460,6 +476,9 @@ namespace MukJump.Core
             LobbyMenuLayout.ApplySelectionEmphasis(
                 growthButton,
                 selection == LobbyMenuSelection.Growth);
+            LobbyMenuLayout.ApplySelectionEmphasis(
+                wardrobeButton,
+                selection == LobbyMenuSelection.Wardrobe);
             LobbyMenuLayout.ApplySelectionEmphasis(
                 optionsButton,
                 selection == LobbyMenuSelection.Options);
@@ -498,6 +517,7 @@ namespace MukJump.Core
             {
                 LobbyScreenNavigator.LobbySection.PermanentGrowth =>
                     LobbyMenuSelection.Growth,
+                LobbyScreenNavigator.LobbySection.Wardrobe => LobbyMenuSelection.Wardrobe,
                 _ => LobbyMenuSelection.Start,
             };
         }

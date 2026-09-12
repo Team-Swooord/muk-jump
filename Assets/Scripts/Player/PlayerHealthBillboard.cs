@@ -23,6 +23,7 @@ namespace MukJump.Player
         PlayerController player;
         SpriteRenderer bodyRenderer;
         Collider2D bodyCollider;
+        InkSkinView skinView;
         SpriteRenderer billboardRenderer;
         int displayedHealth = int.MinValue;
         int displayedMaximum = int.MinValue;
@@ -113,6 +114,8 @@ namespace MukJump.Player
                 bodyRenderer = GetComponent<SpriteRenderer>();
             if (bodyCollider == null)
                 bodyCollider = GetComponent<Collider2D>();
+            if (skinView == null)
+                skinView = GetComponent<InkSkinView>();
         }
 
         void EnsureRenderer()
@@ -155,7 +158,12 @@ namespace MukJump.Player
         Bounds ResolveOwnerBounds()
         {
             if (bodyRenderer != null && bodyRenderer.sprite != null)
-                return bodyRenderer.bounds;
+            {
+                Bounds bounds = bodyRenderer.bounds;
+                if (skinView != null && skinView.AccessoryRenderer != null && skinView.AccessoryRenderer.enabled)
+                    bounds.Encapsulate(skinView.AccessoryRenderer.bounds);
+                return bounds;
+            }
             if (bodyCollider != null && bodyCollider.enabled)
                 return bodyCollider.bounds;
             return new Bounds(transform.position, Vector3.one * 0.8f);

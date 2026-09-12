@@ -19,6 +19,8 @@ namespace MukJump.Core
         public PermanentGrowthRunSnapshot PermanentSnapshot { get; private set; } =
             PermanentGrowthRunSnapshot.Empty;
         public event Action RunReset;
+        [SerializeField] InkSkinId skinSnapshot;
+        public InkSkinId SkinSnapshot => InkSkinCatalog.Normalize(skinSnapshot);
 
         GameManager manager;
         float stableHitReadyAt;
@@ -230,6 +232,8 @@ namespace MukJump.Core
         void ResetRun()
         {
             PermanentSnapshot = PermanentGrowthProfile.CreateRunSnapshot();
+            // 광고 부활과 분신 생성은 새 판이 아니다. 로비에서 시작할 때만 고정한다.
+            skinSnapshot = InkSkinPreferences.Equipped;
             ResetSharedRunState();
             RunReset?.Invoke();
         }

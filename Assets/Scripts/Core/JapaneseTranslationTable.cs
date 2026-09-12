@@ -13,6 +13,12 @@ namespace MukJump.Core
             var values = new Dictionary<string, string>
             {
                 ["Play"] = "遊ぶ", ["Growth"] = "成長", ["Options"] = "設定", ["Settings"] = "設定",
+                ["Wardrobe"] = "着せ替え", ["Inkdrop"] = "墨のしずく", ["Wind Gat"] = "風の笠",
+                ["Spider Mask"] = "蜘蛛の面", ["Double Jump"] = "二段跳び", ["Wall Cling"] = "壁張りつき",
+                ["Original Jump"] = "いつもの跳躍", ["Equip"] = "装備する", ["Equipped"] = "装備中", ["Selected"] = "選択中",
+                ["Leap again near the top of each jump.\nAutomatic, at 40% of the first jump's speed."] = "跳躍の頂点付近でもう一度ジャンプ。\n最初の40%の速さで自動発動します。",
+                ["Cling to either side wall, then\nautomatically leap back inward."] = "左右の壁に張りついてから、\n画面の内側へ自動で跳びます。",
+                ["Your original inkdrop, unadorned.\nKeeps the usual jump and growth effects."] = "飾りのない、いつもの墨の姿。\nこれまでの跳躍と成長効果を保ちます。",
                 ["English"] = "日本語", ["Language"] = "言語",
                 ["Could not save the language. Please try again."] = "言語を保存できませんでした。再試行してください。",
                 ["Lobby"] = "ロビー", ["Leave this run?"] = "挑戦を終了しますか？",

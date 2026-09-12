@@ -193,6 +193,7 @@ namespace MukJump.EditorTools
             ConfigureBackground();
             foreach (string atlasPath in AmbientThemeAtlasPaths) ConfigureAmbientCloudAtlas(atlasPath);
             ConfigureCharacterSheets();
+            ConfigureSkinAccessories();
             ConfigureDeathSprites();
             ConfigureObstacleSprite();
             ConfigureDragonObstacleSprites();
@@ -235,6 +236,27 @@ namespace MukJump.EditorTools
             Debug.Log(
                 "[MukJump] Splash·Main 씬 구성 완료 — " +
                 "Game 뷰를 9:16으로 두고 Play 하세요.");
+        }
+
+        static void ConfigureSkinAccessories()
+        {
+            for (int i = 1; i < InkSkinCatalog.Count; i++)
+            {
+                string path = "Assets/Resources/" + InkSkinCatalog.ResourcePath((InkSkinId)i) + ".png";
+                var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+                if (importer == null) throw new System.InvalidOperationException("스킨 원화 누락: " + path);
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.spritePixelsPerUnit = 100;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = false;
+                importer.isReadable = false;
+                importer.maxTextureSize = 512;
+                importer.textureCompression = TextureImporterCompression.Compressed;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.SaveAndReimport();
+            }
         }
 
         [MenuItem("MukJump/Configure Dragon Obstacle Sprites")]
@@ -1161,6 +1183,7 @@ namespace MukJump.EditorTools
             playerSo.FindProperty("cloneSpawnGraceDuration").floatValue = 1f;
             playerSo.ApplyModifiedPropertiesWithoutUndo();
             go.AddComponent<PlayerHealthBillboard>();
+            go.AddComponent<InkSkinView>();
             var itemEffectView = go.AddComponent<ItemEffectView>();
             var itemEffectSo = new SerializedObject(itemEffectView);
             itemEffectSo.FindProperty("effectDroplet").objectReferenceValue =
@@ -1311,6 +1334,11 @@ namespace MukJump.EditorTools
                 AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
             growthSettings.ApplyModifiedPropertiesWithoutUndo();
             go.AddComponent<LobbyOptionsView>();
+            var wardrobe = go.AddComponent<InkWardrobeView>();
+            var wardrobeSettings = new SerializedObject(wardrobe);
+            wardrobeSettings.FindProperty("previewBodySprite").objectReferenceValue =
+                AssetDatabase.LoadAllAssetsAtPath(CharSheetPath).OfType<Sprite>().FirstOrDefault(s => s.name == "idle");
+            wardrobeSettings.ApplyModifiedPropertiesWithoutUndo();
             go.AddComponent<FirstRunTutorialController>();
             go.AddComponent<LobbyScreenNavigator>();
             go.AddComponent<InkUiFeedbackController>();
@@ -1570,6 +1598,8 @@ namespace MukJump.EditorTools
                 buttonTexture,
                 "성장",
                 LobbyMenuLayout.GrowthAnchor);
+            var wardrobeButton = CreateLobbyMenuButton(
+                "WardrobeButton", contentRoot, buttonTexture, "꾸미기", LobbyMenuLayout.WardrobeAnchor);
             var optionsButton = CreateLobbyMenuButton(
                 "OptionsButton",
                 contentRoot,
@@ -1582,6 +1612,7 @@ namespace MukJump.EditorTools
             so.FindProperty("bestText").objectReferenceValue = lobbyBest;
             so.FindProperty("startButton").objectReferenceValue = startButton;
             so.FindProperty("growthButton").objectReferenceValue = growthButton;
+            so.FindProperty("wardrobeButton").objectReferenceValue = wardrobeButton;
             so.FindProperty("optionsButton").objectReferenceValue = optionsButton;
             so.ApplyModifiedPropertiesWithoutUndo();
             view.RefreshResponsiveLayout();

@@ -1162,11 +1162,14 @@ namespace MukJump.Player
             }
         }
 
+        bool HasWallClingAbility => ActivePermanentGrowth.HasWallCling ||
+            RunGrowthController.Instance != null && RunGrowthController.Instance.SkinSnapshot == InkSkinId.SpiderMask;
+
         bool TryBeginWallCling(ScreenSideWall wall, float inwardDirection)
         {
             GameManager game = GameManager.Instance;
             if (wall == null || IsDead || IsWallClinging ||
-                !ActivePermanentGrowth.HasWallCling ||
+                !HasWallClingAbility ||
                 Time.time < wallRelatchAllowedAt ||
                 game == null || game.State != GameState.Playing)
                 return false;
@@ -1191,7 +1194,7 @@ namespace MukJump.Player
         {
             if (!IsWallClinging || rb == null)
                 return;
-            if (IsDead || !ActivePermanentGrowth.HasWallCling)
+            if (IsDead || !HasWallClingAbility)
             {
                 ClearWallCling(true);
                 return;

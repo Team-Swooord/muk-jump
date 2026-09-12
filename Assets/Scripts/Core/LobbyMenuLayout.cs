@@ -8,6 +8,7 @@ namespace MukJump.Core
         Start,
         Growth,
         Options,
+        Wardrobe,
     }
 
     /// 사용자가 직접 맞춘 최고 기록 칸을 기준으로 로비 메뉴의 시각 중심을 통일한다.
@@ -43,7 +44,8 @@ namespace MukJump.Core
 
         public static readonly Vector2 StartAnchor = new(MenuRailX, 0.46f);
         public static readonly Vector2 GrowthAnchor = new(MenuRailX, 0.385f);
-        public static readonly Vector2 OptionsAnchor = new(MenuRailX, 0.31f);
+        public static readonly Vector2 WardrobeAnchor = new(MenuRailX, 0.31f);
+        public static readonly Vector2 OptionsAnchor = new(MenuRailX, 0.235f);
 
         public static void ApplyRecord(Text label)
         {

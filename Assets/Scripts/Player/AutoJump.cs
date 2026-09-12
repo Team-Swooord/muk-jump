@@ -184,7 +184,7 @@ namespace MukJump.Player
             growth?.NotifyPrimaryAutomaticJump(
                 player,
                 rb.linearVelocity);
-            doubleJumpArmed = ActivePermanentGrowth.HasDoubleJump;
+            doubleJumpArmed = ActivePermanentGrowth.HasDoubleJump || ActiveSkin == InkSkinId.Gat;
             Vector3 takeoff = player.PrimaryCollider != null
                 ? new Vector3(transform.position.x, player.PrimaryCollider.bounds.min.y, transform.position.z)
                 : transform.position;
@@ -243,7 +243,8 @@ namespace MukJump.Player
             hasLaunched = true;
             wasRising = true;
             float ratio = Mathf.Clamp(
-                ActivePermanentGrowth.DoubleJumpVerticalSpeedRatio,
+                Mathf.Max(ActivePermanentGrowth.DoubleJumpVerticalSpeedRatio,
+                    ActiveSkin == InkSkinId.Gat ? InkSkinCatalog.AirJumpRatio : 0f),
                 0.1f,
                 0.6f);
             rb.linearVelocity = new Vector2(
@@ -285,6 +286,9 @@ namespace MukJump.Player
                  player.CurrentPlatform.IsTemporaryDrawnPlatform
                     ? ActivePermanentGrowth.DrawnPlatformChargeMultiplier
                     : 1f));
+
+        InkSkinId ActiveSkin => RunGrowthController.Instance != null
+            ? RunGrowthController.Instance.SkinSnapshot : InkSkinId.Ink;
 
         PermanentGrowthRunSnapshot ActivePermanentGrowth =>
             RunGrowthController.Instance != null
