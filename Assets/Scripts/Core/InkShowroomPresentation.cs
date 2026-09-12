@@ -16,6 +16,7 @@ namespace MukJump.Core
         [SerializeField] InkShowroomMotes motes;
         [SerializeField] Image costume, outgoingCostume;
         [SerializeField] Vector2 costumePosition, outgoingPosition;
+        [SerializeField] Color costumeTint = Color.white, outgoingTint = Color.white;
         [SerializeField] Quaternion restRotation = Quaternion.identity;
         [SerializeField] bool costumePoseKnown;
         bool playing, equipping, prepared;
@@ -89,7 +90,8 @@ namespace MukJump.Core
             outgoingCostume.rectTransform.anchoredPosition = outgoingPosition;
             outgoingCostume.rectTransform.localScale = Vector3.one;
             outgoingCostume.rectTransform.localRotation = Quaternion.identity;
-            outgoingCostume.color = Color.white;
+            outgoingTint = costumeTint;
+            outgoingCostume.color = outgoingTint;
             if (costume.transform.GetSiblingIndex() < focus.Find("OriginalInkBody").GetSiblingIndex())
                 outgoingCostume.transform.SetAsFirstSibling();
             else outgoingCostume.transform.SetAsLastSibling();
@@ -99,6 +101,7 @@ namespace MukJump.Core
         {
             if (costume == null) return;
             costumePosition = costume.rectTransform.anchoredPosition;
+            costumeTint = costume.color;
             costumePoseKnown = true;
         }
         public void Browse(int step)
@@ -155,14 +158,14 @@ namespace MukJump.Core
                     new Vector2(direction * 170f * (1f - settle), Mathf.Sin(arrive * Mathf.PI) * 40f));
                 costume.rectTransform.localScale = Vector3.one * (reduced ? 1f : Mathf.LerpUnclamped(.82f, 1f, settle));
                 costume.rectTransform.localRotation = Quaternion.Euler(0, 0, reduced ? 0f : direction * -22f * (1f - settle));
-                costume.color = new Color(1, 1, 1, reduced ? 1f : Mathf.Clamp01(arrive * 6f));
+                costume.color = WithOpacity(costumeTint, reduced ? 1f : Mathf.Clamp01(arrive * 6f));
                 float leave = Mathf.Clamp01(t / .45f);
                 outgoingCostume.enabled = !reduced && leave < 1f && outgoingCostume.sprite != null;
                 outgoingCostume.rectTransform.anchoredPosition = outgoingPosition +
                     new Vector2(-direction * leave * 160f, -Mathf.Sin(leave * Mathf.PI * .75f) * 45f);
                 outgoingCostume.rectTransform.localScale = Vector3.one * (1f - leave * .2f);
                 outgoingCostume.rectTransform.localRotation = Quaternion.Euler(0, 0, direction * leave * 28f);
-                outgoingCostume.color = new Color(1, 1, 1, 1f - leave);
+                outgoingCostume.color = WithOpacity(outgoingTint, 1f - leave);
                 // 탐색은 짧은 먹 번짐만 사용한다. 저장 성공용 파동과 구분한다.
                 wash.color = new Color(InkPalette.Ink.r, InkPalette.Ink.g, InkPalette.Ink.b, reduced ? 0f : hop * .045f);
                 wash.rectTransform.localScale = Vector3.one * (.9f + t * .15f);
@@ -199,7 +202,7 @@ namespace MukJump.Core
                 costume.rectTransform.anchoredPosition = costumePosition;
                 costume.rectTransform.localScale = Vector3.one;
                 costume.rectTransform.localRotation = Quaternion.identity;
-                costume.color = Color.white;
+                costume.color = costumeTint;
             }
             if (outgoingCostume != null) { outgoingCostume.enabled = false; outgoingCostume.sprite = null; }
             if (motes != null) motes.Present(0, 0);
@@ -212,6 +215,12 @@ namespace MukJump.Core
             rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.one * .5f;
             rect.anchoredPosition = Vector2.zero; rect.sizeDelta = size;
             return rect;
+        }
+        static Color WithOpacity(Color tint, float opacity)
+        {
+            // 교체 연출은 투명도만 바꾼다. 잠긴 의상의 검정 실루엣을 원화 색으로 되돌리지 않는다.
+            tint.a *= opacity;
+            return tint;
         }
         static Image Picture(string name, Transform parent, Sprite sprite, Vector2 size)
         {

@@ -11,6 +11,7 @@ namespace MukJump.Core
         CanvasGroup rootGroup;
         RectTransform safeRoot, paper;
         Image previewBody, previewAccessory;
+        UnityEngine.UI.Text previewQuestion;
         readonly Button[] neighborButtons = new Button[2];
         InkShowroomPresentation presentation;
         InkShowroomSwipe swipe;
@@ -20,6 +21,7 @@ namespace MukJump.Core
         readonly GameObject[] cards = new GameObject[InkSkinCatalog.Count];
         readonly Image[] cardPapers = new Image[InkSkinCatalog.Count], cardBodies = new Image[InkSkinCatalog.Count], cardAccessories = new Image[InkSkinCatalog.Count];
         readonly Text[] cardStates = new Text[InkSkinCatalog.Count];
+        readonly UnityEngine.UI.Text[] cardQuestions = new UnityEngine.UI.Text[InkSkinCatalog.Count];
         readonly RectTransform[] cardPreviews = new RectTransform[InkSkinCatalog.Count];
         readonly RectTransform[] cardViewports = new RectTransform[InkSkinCatalog.Count];
         InkSkinId selected;
@@ -27,7 +29,7 @@ namespace MukJump.Core
         int page;
         float refreshAt;
         bool visible, interactive;
-        bool hasPreview, renderedHidden;
+        bool hasPreview, renderedHidden, renderedUnlocked;
         const int PageSize = 6;
         const float HeroSize = 500;
         public bool IsOpen => visible && interactive;
@@ -121,17 +123,19 @@ namespace MukJump.Core
             bool hidden = InkSkinCatalog.IsConcealed(selected);
             bool unlocked = InkSkinAchievements.IsUnlocked(selected);
             bool equipped = InkSkinPreferences.Equipped == selected;
-            InkLocalizedText.SetSource(nameText, hidden ? "???" : InkSkinCatalog.Name(selected));
-            InkLocalizedText.SetSource(abilityText, hidden ? "비밀 의상" : InkSkinCatalog.Ability(selected));
+            InkLocalizedText.SetSource(nameText, hidden ? "" : InkSkinCatalog.Name(selected));
+            InkLocalizedText.SetSource(abilityText, hidden ? "" : InkSkinCatalog.Ability(selected));
             InkLocalizedText.SetSource(descriptionText, hidden ? "숨겨진 행동으로 발견해 보세요." : InkSkinCatalog.Description(selected));
+            previewQuestion.enabled = hidden;
             // 주기적인 상태 갱신이 의상 교체 애니메이션의 위치를 덮어쓰지 않는다.
-            if (!hasPreview || renderedSkin != selected || renderedHidden != hidden)
+            if (!hasPreview || renderedSkin != selected || renderedHidden != hidden || renderedUnlocked != unlocked)
             {
-                // 계정 교체 직후에는 이전 계정에서만 발견한 장식을 잔상으로도 노출하지 않는다.
-                presentation.PrepareCostumeChange(hasPreview && !InkSkinCatalog.IsConcealed(renderedSkin));
-                SetPreview(previewBody, previewAccessory, selected, HeroSize, hidden);
+                // 히든 화면과 계정 교체 직후에는 이전 계정의 원화·색을 잔상으로도 노출하지 않는다.
+                presentation.PrepareCostumeChange(hasPreview && !hidden && !InkSkinCatalog.IsConcealed(renderedSkin) &&
+                    renderedUnlocked == InkSkinAchievements.IsUnlocked(renderedSkin));
+                SetPreview(previewBody, previewAccessory, selected, HeroSize, hidden, unlocked);
                 presentation.RememberCostumePose();
-                renderedSkin = selected; renderedHidden = hidden; hasPreview = true;
+                renderedSkin = selected; renderedHidden = hidden; renderedUnlocked = unlocked; hasPreview = true;
             }
             for (int side = 0; side < 2; side++)
             {
@@ -140,6 +144,7 @@ namespace MukJump.Core
                 neighborButtons[side].interactable = exists;
             }
             InkLocalizedText.SetSource(equipText, !unlocked ? "업적 달성 필요" : equipped ? "착용 중" : "착용하기");
+            equipButton.gameObject.SetActive(!hidden);
             equipButton.interactable = unlocked && !equipped;
             InkLocalizedText.SetSource(achievementText, hidden ? "" : InkSkinAchievements.Requirement(selected));
             achievementText.color = unlocked ? InkPalette.TextMuted : InkPalette.Red;
@@ -160,10 +165,12 @@ namespace MukJump.Core
                 if (!active) continue;
                 var id = (InkSkinId)i;
                 bool concealed = InkSkinCatalog.IsConcealed(id);
+                bool cardUnlocked = InkSkinAchievements.IsUnlocked(id);
                 cardPapers[i].color = id == selected ? InkPalette.Paper : new Color(.86f, .82f, .73f, .62f);
                 cardStates[i].color = id == selected ? InkPalette.Red : InkPalette.TextMuted;
-                SetPreview(cardBodies[i], cardAccessories[i], id, 80, concealed);
-                InkLocalizedText.SetSource(cardStates[i], !InkSkinAchievements.IsUnlocked(id) ? "잠김" :
+                SetPreview(cardBodies[i], cardAccessories[i], id, 80, concealed, cardUnlocked);
+                cardQuestions[i].enabled = concealed;
+                InkLocalizedText.SetSource(cardStates[i], concealed ? "" : !cardUnlocked ? "잠김" :
                     id == InkSkinPreferences.Equipped ? "착용 중" : id == selected ? "선택됨" : "해금됨");
             }
             FitCardPreviews();
@@ -211,6 +218,7 @@ namespace MukJump.Core
             var preview=Rect("Preview",stage,Vector2.zero,Vector2.one*HeroSize);
             previewBody=SpriteImage("OriginalInkBody",preview,previewBodySprite,Vector2.zero,Vector2.one*HeroSize);
             previewAccessory=SpriteImage("Accessory",preview,null,Vector2.zero,Vector2.one);
+            previewQuestion=Label("QuestionMark",preview,"?",260,Vector2.zero,new Vector2(360,420),true);
             presentation=stage.gameObject.AddComponent<InkShowroomPresentation>(); presentation.Initialize(stage,preview);
             foreach (var arrow in neighborButtons) arrow.transform.SetAsLastSibling();
             nameText=Label("SkinName",paper,"",54,new Vector2(0,-123),new Vector2(780,70),true);
@@ -242,6 +250,8 @@ namespace MukJump.Core
             cardViewports[i]=viewport; cardPreviews[i]=preview;
             cardBodies[i]=SpriteImage("OriginalInkBody",preview,previewBodySprite,Vector2.zero,new Vector2(80,80));
             cardAccessories[i]=SpriteImage("Accessory",preview,null,Vector2.zero,Vector2.one);
+            // 물음표는 장식 크기에 맞추는 보정과 분리해 모든 히든 칸의 중앙에 고정한다.
+            cardQuestions[i]=Label("QuestionMark",viewport,"?",48,Vector2.zero,new Vector2(104,90),true);
             cardStates[i]=Label("State",button.transform,"",24,new Vector2(0,-48),new Vector2(104,28),false);
             button.onClick.AddListener(()=>Select(id));
         }
@@ -252,19 +262,19 @@ namespace MukJump.Core
                 new Vector2(step*350,20),new Vector2(116,148),90,out _);
             button.onClick.AddListener(()=>StepSelection(step)); neighborButtons[side]=button;
         }
-        void SetPreview(Image body, Image accessory, InkSkinId id, float size, bool hidden)
+        void SetPreview(Image body, Image accessory, InkSkinId id, float size, bool hidden, bool unlocked)
         {
-            // 특수 의상도 원래 먹과 눈을 절대 대체하지 않는다.
-            body.sprite=previewBodySprite; body.enabled=true;
-            body.color=hidden ? new Color(.11f,.106f,.102f,.16f) : Color.white;
+            // 미해금은 알파 윤곽만 남기고 색·눈·무늬를 숨긴다. 히든은 원먹도 표시하지 않는다.
+            body.sprite=hidden ? null : previewBodySprite; body.enabled=!hidden;
+            body.color=unlocked ? Color.white : Color.black;
             accessory.sprite=hidden ? null : InkSkinCatalog.Sprite(id);
             accessory.enabled=accessory.sprite!=null;
             accessory.rectTransform.localScale=Vector3.one;
             accessory.rectTransform.localRotation=Quaternion.identity;
-            accessory.color=Color.white;
+            accessory.color=unlocked ? Color.white : Color.black;
             if (InkSkinCatalog.BehindBody(id)) accessory.transform.SetAsFirstSibling();
             else accessory.transform.SetAsLastSibling();
-            if (!accessory.enabled) { body.enabled=true; return; }
+            if (!accessory.enabled) return;
             float width=size*InkSkinCatalog.Width(id);
             accessory.rectTransform.sizeDelta=new Vector2(width,width*accessory.sprite.rect.height/accessory.sprite.rect.width);
             accessory.rectTransform.anchoredPosition=InkSkinCatalog.Offset(id)*size;

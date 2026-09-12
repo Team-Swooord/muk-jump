@@ -14,6 +14,61 @@ namespace MukJump.EditorTests
     public sealed class InkShowroomPlayTests
     {
         [UnityTest, Timeout(120000)]
+        public IEnumerator LockedAndHiddenPreviewsRenderWithoutRevealingArtwork()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool oldBackground=Application.runInBackground; Application.runInBackground=true;
+            var settings=new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1f);
+                Assert.That(MukJumpAccountRuntime.Instance==null || !MukJumpAccountRuntime.Instance.IsOnlineAuthenticated,Is.True);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(),Is.True); yield return Wait(3f);
+                var view=Object.FindAnyObjectByType<InkWardrobeView>();
+                var focus=view.Paper.Find("ShowroomStage/Preview");
+                foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
+                {
+                    GameLocalization.SetLanguage(language);
+                    view.Select(InkSkinId.PhoenixCrown); yield return Wait(.6f);
+                    Assert.That(focus.Find("OriginalInkBody").GetComponent<UnityEngine.UI.Image>().color,Is.EqualTo(Color.black));
+                    Assert.That(focus.Find("Accessory").GetComponent<UnityEngine.UI.Image>().color,Is.EqualTo(Color.black));
+                    yield return Capture("locked-silhouette-"+language);
+                    view.Select(InkSkinId.NightBat); yield return Wait(.6f); Canvas.ForceUpdateCanvases();
+                    foreach (string layer in new[] { "OriginalInkBody", "Accessory", "OutgoingCostume" })
+                        Assert.That(focus.Find(layer).GetComponent<UnityEngine.UI.Image>().enabled,Is.False,layer);
+                    foreach (var text in view.Paper.GetComponentsInChildren<UnityEngine.UI.Text>())
+                    {
+                        if (!text.enabled || string.IsNullOrEmpty(text.text)) continue;
+                        Assert.That(text.canvasRenderer.cull,Is.False,text.name);
+                        Assert.That(text.canvasRenderer.GetMesh().vertexCount,Is.GreaterThan(0),text.name);
+                    }
+                    yield return Capture("hidden-question-"+language);
+                }
+                GameLocalization.SetLanguage(GameLanguage.Korean);
+                Assert.That(PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat),Is.True);
+                yield return Wait(.5f);
+                Assert.That(focus.Find("QuestionMark").GetComponent<UnityEngine.UI.Text>().enabled,Is.False);
+                Assert.That(focus.Find("OriginalInkBody").GetComponent<UnityEngine.UI.Image>().color,Is.EqualTo(Color.white));
+                Assert.That(focus.Find("Accessory").GetComponent<UnityEngine.UI.Image>().enabled,Is.True);
+                yield return Capture("discovered-colour-Korean");
+            }
+            finally
+            {
+                Application.runInBackground=oldBackground;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+        [UnityTest, Timeout(120000)]
         public IEnumerator CostumeCardsRenderInsideTheirFramesInAllLocales()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();

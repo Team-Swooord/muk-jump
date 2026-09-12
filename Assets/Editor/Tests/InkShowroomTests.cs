@@ -217,7 +217,8 @@ namespace MukJump.EditorTests
             view.Select((InkSkinId)((int)secret-1));
             view.Select(secret); view.EquipButton.onClick.Invoke();
             Assert.That(Focus.Find("Accessory").GetComponent<Image>().enabled, Is.False);
-            Assert.That(view.Paper.Find("SkinName").GetComponent<Text>().text, Is.EqualTo("???"));
+            Assert.That(view.Paper.Find("SkinName").GetComponent<Text>().text, Is.Empty);
+            Assert.That(Focus.Find("QuestionMark").GetComponent<Text>().enabled, Is.True);
             view.StepSelection(-1);
             Assert.That(Focus.Find("OutgoingCostume").GetComponent<Image>().sprite, Is.Null);
             Assert.That(view.Presentation.EquipPlayCount, Is.Zero);
@@ -243,6 +244,113 @@ namespace MukJump.EditorTests
             view.Select(InkSkinId.Gat);
             var outgoing = Focus.Find("OutgoingCostume").GetComponent<Image>();
             Assert.That(outgoing.sprite, Is.Null); Assert.That(outgoing.enabled, Is.False);
+        }
+        [TestCase(false)] [TestCase(true)]
+        public void LockedCostumesKeepBlackSilhouettesThroughMotionAndCancellation(bool reduced)
+        {
+            LobbySettingsProfile.SetReducedMotionEnabled(reduced);
+            foreach (var id in Enumerable.Range(1,InkSkinCatalog.Count-1).Select(i=>(InkSkinId)i)
+                .Where(id=>!InkSkinCatalog.IsConcealed(id) && !InkSkinAchievements.IsUnlocked(id)))
+            {
+                view.Select(id);
+                foreach (float time in new[] { 0f, .06f, .2f, .42f })
+                {
+                    view.Presentation.SampleForTests(time); Invoke(view,"RefreshSelection");
+                    AssertBlack(Focus.Find("OriginalInkBody").GetComponent<Image>());
+                    AssertBlack(Focus.Find("Accessory").GetComponent<Image>());
+                }
+                view.Presentation.Cancel();
+                AssertBlack(Focus.Find("Accessory").GetComponent<Image>());
+                var card=view.Paper.Find("SkinCard"+(int)id);
+                AssertBlack(card.Find("PreviewViewport/Preview/OriginalInkBody").GetComponent<Image>());
+                AssertBlack(card.Find("PreviewViewport/Preview/Accessory").GetComponent<Image>());
+                Assert.That(card.Find("PreviewViewport/QuestionMark").GetComponent<Text>().enabled,Is.False);
+            }
+            for (int i=0;i<6;i++)
+            {
+                view.Select(i%2==0 ? InkSkinId.RedHeadband : InkSkinId.CatEars);
+                view.Presentation.SampleForTests(.05f);
+                AssertBlack(Focus.Find("Accessory").GetComponent<Image>());
+                var outgoing=Focus.Find("OutgoingCostume").GetComponent<Image>();
+                if (outgoing.enabled) AssertBlack(outgoing);
+            }
+            MobileApplicationLifecycle.SetPlatformVisibility(false); Invoke(view.Presentation,"Update");
+            AssertBlack(Focus.Find("Accessory").GetComponent<Image>());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            view.SetNavigationPresentation(false,false); AssertBlack(Focus.Find("Accessory").GetComponent<Image>());
+            view.SetNavigationPresentation(true,true);
+            Assert.That(Focus.Find("OriginalInkBody").GetComponent<Image>().color,Is.EqualTo(Color.white));
+            view.Select(InkSkinId.Gat); view.Presentation.Cancel();
+            Assert.That(Focus.Find("Accessory").GetComponent<Image>().color,Is.EqualTo(Color.white));
+        }
+        [TestCase(GameLanguage.Korean)] [TestCase(GameLanguage.English)] [TestCase(GameLanguage.Japanese)]
+        public void UndiscoveredRewardsShowOnlyQuestionsAndGenericHelp(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language);
+            foreach (var id in Enumerable.Range(1,InkSkinCatalog.Count-1).Select(i=>(InkSkinId)i).Where(InkSkinCatalog.IsConcealed))
+            {
+                view.Select(InkSkinId.Gat); view.Presentation.SampleForTests(.1f); view.Select(id);
+                foreach (float time in new[] { 0f, .06f, .2f, .42f })
+                {
+                    view.Presentation.SampleForTests(time);
+                    foreach (string layer in new[] { "OriginalInkBody", "Accessory", "OutgoingCostume" })
+                    {
+                        var image=Focus.Find(layer).GetComponent<Image>();
+                        Assert.That(image.enabled,Is.False,layer); Assert.That(image.sprite,Is.Null,layer);
+                    }
+                }
+                view.Presentation.Cancel();
+                var question=Focus.Find("QuestionMark").GetComponent<Text>();
+                Assert.That(question.enabled,Is.True); Assert.That(question.text,Is.EqualTo("?"));
+                var card=view.Paper.Find("SkinCard"+(int)id);
+                foreach (var image in card.Find("PreviewViewport/Preview").GetComponentsInChildren<Image>())
+                { Assert.That(image.enabled,Is.False); Assert.That(image.sprite,Is.Null); }
+                question=card.Find("PreviewViewport/QuestionMark").GetComponent<Text>();
+                Assert.That(question.enabled,Is.True); Assert.That(question.text,Is.EqualTo("?"));
+                Assert.That(question.rectTransform.anchoredPosition,Is.EqualTo(Vector2.zero));
+                Assert.That(card.Find("State").GetComponent<Text>().text,Is.Empty);
+                foreach (string label in new[] { "SkinName", "Ability", "Achievement", "AchievementProgress" })
+                    Assert.That(view.Paper.Find(label).GetComponent<Text>().text,Is.Empty,label);
+                Assert.That(view.Paper.Find("Description").GetComponent<Text>().text,
+                    Is.EqualTo(GameLocalization.Translate("숨겨진 행동으로 발견해 보세요.")));
+                Assert.That(view.EquipButton.gameObject.activeSelf,Is.False);
+                Assert.That(view.Paper.Find("AchievementTrack").gameObject.activeSelf,Is.False);
+            }
+        }
+        [Test] public void SameSelectionUpdatesAfterUnlockAndAccountClear()
+        {
+            view.Select(InkSkinId.RedHeadband); view.Presentation.Cancel();
+            AssertBlack(Focus.Find("Accessory").GetComponent<Image>());
+            var stats=SkinRunStats.Begin(false,InkSkinId.Ink); stats.drawnLandings=10;
+            PermanentGrowthProfile.SettleRun("silhouette-unlock",10,10,0,10,true,stats);
+            Invoke(view,"RefreshSelection"); view.Presentation.Cancel();
+            Assert.That(Focus.Find("Accessory").GetComponent<Image>().color,Is.EqualTo(Color.white));
+            Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(),Is.True);
+            Invoke(view,"RefreshSelection"); AssertBlack(Focus.Find("Accessory").GetComponent<Image>());
+            view.Select(InkSkinId.NightBat);
+            Assert.That(Focus.Find("QuestionMark").GetComponent<Text>().enabled,Is.True);
+            Assert.That(PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat),Is.True);
+            Invoke(view,"RefreshSelection");
+            Assert.That(Focus.Find("QuestionMark").GetComponent<Text>().enabled,Is.False);
+            Assert.That(Focus.Find("OriginalInkBody").GetComponent<Image>().enabled,Is.True);
+            Assert.That(Focus.Find("Accessory").GetComponent<Image>().color,Is.EqualTo(Color.white));
+            Assert.That(view.EquipButton.gameObject.activeSelf,Is.True);
+            Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(),Is.True);
+            Invoke(view,"RefreshSelection");
+            Assert.That(Focus.Find("QuestionMark").GetComponent<Text>().enabled,Is.True);
+            Assert.That(Focus.Find("OriginalInkBody").GetComponent<Image>().sprite,Is.Null);
+            Assert.That(Focus.Find("Accessory").GetComponent<Image>().sprite,Is.Null);
+            Assert.That(Focus.Find("OutgoingCostume").GetComponent<Image>().sprite,Is.Null);
+        }
+        [Test] public void AccountClearBeforeRefreshDoesNotCopyAnOldColouredOrdinaryCostume()
+        {
+            view.Select(InkSkinId.Gat); view.Presentation.Cancel();
+            Assert.That(Focus.Find("Accessory").GetComponent<Image>().color,Is.EqualTo(Color.white));
+            Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(),Is.True);
+            Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(0),Is.True);
+            view.Select(InkSkinId.RedHeadband);
+            AssertBlack(Focus.Find("Accessory").GetComponent<Image>());
+            Assert.That(Focus.Find("OutgoingCostume").GetComponent<Image>().sprite,Is.Null);
         }
         [Test] public void RapidChangesReuseOneEffectAndRestoreNeutralPose()
         {
@@ -387,6 +495,14 @@ namespace MukJump.EditorTests
                 min = Vector2.Min(min,point); max = Vector2.Max(max,point);
             }
             return Rect.MinMaxRect(min.x,min.y,max.x,max.y);
+        }
+        static void AssertBlack(Image image)
+        {
+            Assert.That(image.enabled,Is.True,image.name);
+            Assert.That(image.sprite,Is.Not.Null,image.name);
+            Assert.That(image.color.r,Is.Zero,image.name);
+            Assert.That(image.color.g,Is.Zero,image.name);
+            Assert.That(image.color.b,Is.Zero,image.name);
         }
         static void AssertInside(Rect content, Rect frame, float inset, string message)
         {

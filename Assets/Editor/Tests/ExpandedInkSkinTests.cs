@@ -248,7 +248,8 @@ namespace MukJump.EditorTests
                 view.ChangePage(1);
             }
             view.Select(InkSkinId.ClockworkCat);
-            Assert.That(view.Paper.Find("SkinName").GetComponent<UnityEngine.UI.Text>().text,Is.EqualTo("???"));
+            Assert.That(view.Paper.Find("SkinName").GetComponent<UnityEngine.UI.Text>().text,Is.Empty);
+            Assert.That(view.Paper.Find("ShowroomStage/Preview/QuestionMark").GetComponent<UnityEngine.UI.Text>().enabled,Is.True);
             Assert.That(view.Paper.Find("ShowroomStage/Preview/Accessory").GetComponent<UnityEngine.UI.Image>().enabled,Is.False);
             Assert.That(view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>().text,Is.Empty);
             Assert.That(view.EquipButton.interactable,Is.False);
