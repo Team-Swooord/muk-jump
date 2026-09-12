@@ -602,12 +602,14 @@ namespace MukJump.Core
         static Sprite inkDropSprite;
         static Sprite celestialDiscSprite;
         static Sprite hanjiMoonSprite;
+        static Sprite batMoonSprite;
         static Sprite growthPaperRibbonSprite;
         static Texture2D brushTexture;
         static Texture2D blobTexture;
         static Texture2D inkDropTexture;
         static Texture2D celestialDiscTexture;
         static Texture2D hanjiMoonTexture;
+        static Texture2D batMoonTexture;
         static Texture2D growthPaperRibbonTexture;
         static readonly Sprite[] growthNavigationSprites = new Sprite[3];
         static readonly Texture2D[] growthNavigationTextures = new Texture2D[3];
@@ -627,24 +629,28 @@ namespace MukJump.Core
             DestroyRuntimeObject(inkDropSprite);
             DestroyRuntimeObject(celestialDiscSprite);
             DestroyRuntimeObject(hanjiMoonSprite);
+            DestroyRuntimeObject(batMoonSprite);
             DestroyRuntimeObject(growthPaperRibbonSprite);
             DestroyRuntimeObject(brushTexture);
             DestroyRuntimeObject(blobTexture);
             DestroyRuntimeObject(inkDropTexture);
             DestroyRuntimeObject(celestialDiscTexture);
             DestroyRuntimeObject(hanjiMoonTexture);
+            DestroyRuntimeObject(batMoonTexture);
             DestroyRuntimeObject(growthPaperRibbonTexture);
             brushSprite = null;
             blobSprite = null;
             inkDropSprite = null;
             celestialDiscSprite = null;
             hanjiMoonSprite = null;
+            batMoonSprite = null;
             growthPaperRibbonSprite = null;
             brushTexture = null;
             blobTexture = null;
             inkDropTexture = null;
             celestialDiscTexture = null;
             hanjiMoonTexture = null;
+            batMoonTexture = null;
             growthPaperRibbonTexture = null;
         }
 
@@ -810,6 +816,53 @@ namespace MukJump.Core
                 new Vector2(.5f, .5f), 100f);
             hanjiMoonSprite.name = "MukJump_HanjiMoon";
             return hanjiMoonSprite;
+        }
+
+        /// 두 번째 밤의 먹 그림자. 원형 달의 크기·테두리·재질을 그대로 공유한다.
+        public static Sprite CreateBatMoonSprite()
+        {
+            if (batMoonSprite != null) return batMoonSprite;
+            const int size = 128;
+            batMoonTexture = NewTexture(size, size, "MukJump_BatMoon");
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++) pixels[y * size + x] = SampleBatMoonPixel(x, y, size);
+            batMoonTexture.SetPixels32(pixels);
+            batMoonTexture.Apply(false, true);
+            batMoonSprite = Sprite.Create(batMoonTexture, new Rect(0, 0, size, size), new Vector2(.5f, .5f), 100f);
+            batMoonSprite.name = "MukJump_BatMoon";
+            return batMoonSprite;
+        }
+
+        // 작은 달에서도 귀·펼친 날개·접힌 날개막이 읽히는 단순한 먹 실루엣의 오른쪽 절반.
+        static readonly Vector2[] BatContour = {
+            new(0, .17f), new(.065f, .17f), new(.12f, .34f), new(.16f, .12f),
+            new(.25f, .10f), new(.38f, .19f), new(.56f, .36f), new(.80f, .44f),
+            new(.75f, .28f), new(.70f, .08f), new(.76f, -.12f),
+            new(.62f, -.055f), new(.53f, -.06f), new(.45f, -.12f), new(.42f, -.25f),
+            new(.31f, -.17f), new(.24f, -.17f), new(.17f, -.24f), new(0, -.43f),
+        };
+        public static Color32 SampleBatMoonPixel(int x, int y, int size = 128)
+        {
+            Color32 paper = SampleHanjiMoonPixel(x, y, size);
+            float coverage = 0;
+            // 고정 2×2 서브픽셀 샘플로 작은 날개 끝을 정리한다. 생성 시 한 번만 실행한다.
+            for (int sy = 0; sy < 2; sy++)
+            for (int sx = 0; sx < 2; sx++)
+            {
+                var point = new Vector2(Mathf.Abs((x + (sx + .5f) / 2f) / size * 2f - 1f),
+                    (y + (sy + .5f) / 2f) / size * 2f - 1f);
+                bool inside = false;
+                for (int i = 0, j = BatContour.Length - 1; i < BatContour.Length; j = i++)
+                {
+                    Vector2 a = BatContour[i], b = BatContour[j];
+                    if ((a.y > point.y) != (b.y > point.y) &&
+                        point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+                }
+                if (inside) coverage += .25f;
+            }
+            byte ink = (byte)Mathf.RoundToInt(paper.r * Mathf.Lerp(1f, .105f, coverage));
+            return new Color32(ink, ink, ink, paper.a);
         }
 
         // 실제 표시 크기에서 모래처럼 보이는 픽셀 단위 노이즈는 쓰지 않는다.

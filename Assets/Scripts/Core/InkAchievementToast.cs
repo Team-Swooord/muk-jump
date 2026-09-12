@@ -12,11 +12,15 @@ namespace MukJump.Core
         object owner;
         float time;
         bool showing;
-        public void Enqueue(int id)
+        bool lobbyNotice;
+        public void Enqueue(int id) => EnqueueForState(id, false);
+        public void EnqueueLobby(int id) => EnqueueForState(id, true);
+        void EnqueueForState(int id, bool inLobby)
         {
             if (id <= 0 || id > InkSkinCatalog.Count + 1) return;
-            if (!ReferenceEquals(owner, PermanentGrowthProfile.SkinAccountToken)) Clear();
+            if (!ReferenceEquals(owner, PermanentGrowthProfile.SkinAccountToken) || lobbyNotice != inLobby) Clear();
             owner = PermanentGrowthProfile.SkinAccountToken;
+            lobbyNotice = inLobby;
             if (queue.Count < InkSkinCatalog.Count + 1) queue.Enqueue(id);
         }
         void Build()
@@ -46,13 +50,22 @@ namespace MukJump.Core
         void Update()
         {
             var game = GameManager.Instance;
-            if (!ReferenceEquals(owner, PermanentGrowthProfile.SkinAccountToken) || game == null || game.State != GameState.Playing)
+            if (!ReferenceEquals(owner, PermanentGrowthProfile.SkinAccountToken) || game == null ||
+                game.State != (lobbyNotice ? GameState.Lobby : GameState.Playing))
             { Clear(); return; }
-            if (!game.IsGameplayTicking) { if (group != null) group.alpha = 0; return; }
+            bool canAnimate = lobbyNotice
+                ? MobileApplicationLifecycle.IsApplicationActive && !game.IsPaused && !game.IsTransitioning &&
+                  !StartupBrandSplash.IsBlockingInput && (LobbyScreenNavigator.Instance == null ||
+                  !LobbyScreenNavigator.Instance.IsTransitioning &&
+                  LobbyScreenNavigator.Instance.CurrentSection == LobbyScreenNavigator.LobbySection.Lobby)
+                : game.IsGameplayTicking;
+            if (!canAnimate) { if (group != null) group.alpha = 0; return; }
             if (!showing && queue.Count == 0) return;
             Build();
             MobileUiLayout.ApplySafeArea(safe, MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height);
-            panel.localScale = Vector3.one * Mathf.Min(1, safe.rect.width / 700f);
+            panel.localScale = Vector3.one * (lobbyNotice
+                ? Mathf.Min(1, safe.rect.width * .56f / 660f)
+                : Mathf.Min(1, safe.rect.width / 700f));
             if (!showing)
             {
                 int id = queue.Dequeue(); showing = true; time = 0;
@@ -62,11 +75,14 @@ namespace MukJump.Core
             float fade = Mathf.Min(Mathf.Clamp01(time / .2f), Mathf.Clamp01((3f - time) / .25f));
             group.alpha = fade;
             panel.anchoredPosition = new Vector2(-24 + (LobbySettingsProfile.ReducedMotionEnabled ? 0 : 45 * (1 - fade)),
-                CalculateTop(MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height));
+                lobbyNotice ? CalculateLobbyTop() : CalculateTop(MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height));
             if (time >= 3) { showing = false; group.alpha = 0; }
         }
         void Clear() { queue.Clear(); showing = false; if (group != null) group.alpha = 0; }
         void OnDisable() => Clear();
+        // 로비에는 플레이 HUD가 없다. 달 왼쪽·기록 아래와 겹치지 않도록 배너 바로 아래 오른쪽에 둔다.
+        public static float CalculateLobbyTop() => -LobbyAdLayout.CalculateCanvasInset(MobileUiLayout.ReferenceHeight,
+            Mathf.Max(LobbyAdLayout.TopInsetFraction, LobbyAdLayout.MeasuredTopInsetFraction)) - 24f;
         public static float CalculateTop(Rect area, int width, int height)
         {
             float hudBottom = Mathf.Min(GameplayHudView.CalculateVisibleHudRect(area, width, height).yMin,

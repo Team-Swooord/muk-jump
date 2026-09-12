@@ -35,6 +35,7 @@ namespace MukJump.EditorTests
         public void Setup()
         {
             LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
             LobbyNightState.Reset();
             LobbyAdLayout.ClearTopInset();
             root = new GameObject("NightSkyFixture");
@@ -80,6 +81,7 @@ namespace MukJump.EditorTests
             LobbyNightState.Reset();
             LobbyAdLayout.ClearTopInset();
             LobbySettingsProfile.RestoreDefaultStoreForTests();
+            PermanentGrowthProfile.RestoreDefaultStoreForTests();
         }
 
         static SpriteRenderer Layer(Transform parent, string name, int order)
@@ -120,6 +122,44 @@ namespace MukJump.EditorTests
         {
             for (int i = 0; i < 10; i++) TapLogo();
             Advance(LobbyNightSkyView.TransitionSeconds + .1f);
+        }
+
+        [Test, Category("NightSecret")]
+        public void ActualLogoTapsShowSecondNightShadowAndRestoringTheMoonDoesNotCount()
+        {
+            Night();
+            Assert.That(moon.sprite, Is.SameAs(InkUiTextureFactory.CreateHanjiMoonSprite()));
+            view.DisableForTests(); view.InitializeForTests(); view.TickForTests(0);
+            Assert.That(SkinSecrets.HasBatMoon, Is.False);
+            Night(); Night();
+            Assert.That(moon.sprite, Is.SameAs(InkUiTextureFactory.CreateBatMoonSprite()));
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.False);
+            view.DisableForTests(); view.InitializeForTests(); view.TickForTests(0);
+            Assert.That(moon.sprite, Is.SameAs(InkUiTextureFactory.CreateBatMoonSprite()));
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.False);
+            Night(); Night();
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.True);
+        }
+
+        [Test, Category("NightSecret")]
+        public void BatShadowPreservesCircularMoonAlphaAndCachesItsSprite()
+        {
+            int shaded = 0, opaque = 0;
+            for (int y = 0; y < 128; y++)
+            for (int x = 0; x < 128; x++)
+            {
+                Color32 paper = InkUiTextureFactory.SampleHanjiMoonPixel(x, y);
+                Color32 bat = InkUiTextureFactory.SampleBatMoonPixel(x, y);
+                Assert.That(bat.a, Is.EqualTo(paper.a));
+                if (paper.a == 255) opaque++;
+                if (bat.r < paper.r / 2) shaded++;
+                bool mirrored = InkUiTextureFactory.SampleBatMoonPixel(127 - x, y).r < 100;
+                Assert.That(bat.r < 100, Is.EqualTo(mirrored));
+            }
+            Assert.That(shaded, Is.InRange(opaque / 6, opaque / 2));
+            Assert.That(InkUiTextureFactory.CreateBatMoonSprite(), Is.SameAs(InkUiTextureFactory.CreateBatMoonSprite()));
+            Assert.That(InkUiTextureFactory.CreateBatMoonSprite().bounds.size,
+                Is.EqualTo(InkUiTextureFactory.CreateHanjiMoonSprite().bounds.size));
         }
 
         [Test]

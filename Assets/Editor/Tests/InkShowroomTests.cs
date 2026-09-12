@@ -312,9 +312,9 @@ namespace MukJump.EditorTests
             view.SetNavigationPresentation(true, true);
             Assert.That(view.Selected, Is.EqualTo(InkSkinId.Gat)); AssertStopped();
         }
-        [Test] public void AccountClearBeforeTheNextRefreshDoesNotCopyTheOldSecretIntoTheOutgoingLayer()
+        [Test, Category("NightSecret")] public void AccountClearBeforeTheNextRefreshDoesNotCopyTheOldSecretIntoTheOutgoingLayer()
         {
-            SkinSecrets.AcceptedNightChange(true);
+            PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.True);
             view.Select(InkSkinId.NightBat); view.Presentation.Cancel();
             Assert.That(Focus.Find("Accessory").GetComponent<Image>().enabled, Is.True);

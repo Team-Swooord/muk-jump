@@ -75,6 +75,8 @@ namespace MukJump.Core
         Vector2 pressPosition;
         float pressDuration;
         float pressTravel;
+        ulong pendingSecretNotices;
+        object secretNoticeOwner;
 
         public int TapCount => tapCount;
         public float Progress => progress;
@@ -346,6 +348,17 @@ namespace MukJump.Core
             }
             StoreMotion();
             ApplyVisuals(reducedMotion);
+            if (!ReferenceEquals(secretNoticeOwner, PermanentGrowthProfile.SkinAccountToken)) pendingSecretNotices = 0;
+            if (pendingSecretNotices != 0 && animate && mainMenu && inputAllowed && !IsTransitioning)
+            {
+                var toast = GameManager.Instance != null ? GameManager.Instance.GetComponent<InkAchievementToast>() : null;
+                if (toast != null)
+                {
+                    for (int i = 1; i < InkSkinCatalog.Count; i++)
+                        if ((pendingSecretNotices & (1UL << i)) != 0) toast.EnqueueLobby(i);
+                    pendingSecretNotices = 0;
+                }
+            }
         }
 
         float TransitionPhase => targetNight ? progress : 1f - progress;
@@ -402,7 +415,9 @@ namespace MukJump.Core
             if (++tapCount != RequiredTaps) return;
             tapCount = 0;
             targetNight = !targetNight;
-            SkinSecrets.AcceptedNightChange(targetNight);
+            if (!ReferenceEquals(secretNoticeOwner, PermanentGrowthProfile.SkinAccountToken)) pendingSecretNotices = 0;
+            secretNoticeOwner = PermanentGrowthProfile.SkinAccountToken;
+            pendingSecretNotices |= SkinSecrets.AcceptedNightChange(targetNight);
             MukJumpAnalytics.Night(targetNight);
             departureHold = DepartureHoldSeconds;
             StoreMotion();
@@ -454,6 +469,7 @@ namespace MukJump.Core
             if (first == null || cleanSky == null)
             { sun.enabled = moon.enabled = false; return; }
             PlaceMountainLayer(first, blend);
+            moon.sprite = SkinSecrets.HasBatMoon ? InkUiTextureFactory.CreateBatMoonSprite() : InkUiTextureFactory.CreateHanjiMoonSprite();
 
             Rect skyLane = ResolveLobbySkyLane();
             Vector2 sunHome = HomeUvInView(first, SunHomeUv, skyLane);
@@ -564,6 +580,8 @@ namespace MukJump.Core
         {
             if (logoInput != null) logoInput.Bind(null);
             logoInput = null;
+            pendingSecretNotices = 0;
+            secretNoticeOwner = null;
             tapCount = 0;
             pressedHere = false;
             if (sun != null) sun.enabled = false;

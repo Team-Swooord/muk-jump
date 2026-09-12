@@ -170,7 +170,7 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.KoiMask));
             Assert.That(PermanentGrowthProfile.CompletedRunHistoryCount,Is.EqualTo(1));
         }
-        [Test] public void SecretCountersResetAcrossAccountReplacementAndDeletion()
+        [Test, Category("NightSecret")] public void SecretCountersResetAcrossAccountReplacementAndDeletion()
         {
             for(int i=0;i<5;i++) SkinSecrets.AcceptedNightChange(i%2==0);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat),Is.True);
@@ -183,6 +183,73 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.TryReplaceFromCloudJson(first),Is.True);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat),Is.True);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Astronaut),Is.False);
+        }
+        [Test, Category("NightSecret")] public void SecondNightHintsAndThirdNightAwardsOnce()
+        {
+            Assert.That(SkinSecrets.AcceptedNightChange(true), Is.Zero);
+            Assert.That(SkinSecrets.HasBatMoon, Is.False);
+            Assert.That(SkinSecrets.AcceptedNightChange(false), Is.Zero);
+            Assert.That(SkinSecrets.AcceptedNightChange(true), Is.Zero);
+            Assert.That(SkinSecrets.HasBatMoon, Is.True);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.False);
+            Assert.That(SkinSecrets.AcceptedNightChange(false), Is.Zero);
+            Assert.That(SkinSecrets.AcceptedNightChange(true), Is.EqualTo(1UL << (int)InkSkinId.NightBat));
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.True);
+            Assert.That(SkinSecrets.AcceptedNightChange(false), Is.EqualTo(1UL << (int)InkSkinId.Astronaut));
+            Assert.That(SkinSecrets.AcceptedNightChange(true), Is.Zero);
+        }
+        [Test, Category("NightSecret")] public void RepeatedSamePhaseCannotFarmNightsOrTransitions()
+        {
+            for (int i = 0; i < 30; i++) Assert.That(SkinSecrets.AcceptedNightChange(true), Is.Zero);
+            Assert.That(SkinSecrets.HasBatMoon, Is.False);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.False);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Astronaut), Is.False);
+        }
+        [Test, Category("NightSecret")] public void NewAccountCannotInheritTheSecondNightHint()
+        {
+            SkinSecrets.AcceptedNightChange(true); SkinSecrets.AcceptedNightChange(false); SkinSecrets.AcceptedNightChange(true);
+            Assert.That(SkinSecrets.HasBatMoon, Is.True);
+            Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(), Is.True);
+            Assert.That(SkinSecrets.HasBatMoon, Is.False);
+            Assert.That(SkinSecrets.AcceptedNightChange(true), Is.Zero);
+            Assert.That(SkinSecrets.HasBatMoon, Is.False);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.False);
+        }
+        [Test, Category("NightSecret")] public void PreviouslyEarnedNightWatcherRemainsOwnedWithoutNewNotification()
+        {
+            Assert.That(PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat), Is.True);
+            Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string earned), Is.True);
+            Assert.That(PermanentGrowthProfile.TryReplaceFromCloudJson(earned), Is.True);
+            for (int i = 0; i < 5; i++) Assert.That(SkinSecrets.AcceptedNightChange(i % 2 == 0), Is.Zero);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.True);
+        }
+        [Test, Category("NightSecret")] public void FailedSecretSaveDoesNotAwardOrNotify()
+        {
+            for (int i = 0; i < 4; i++) SkinSecrets.AcceptedNightChange(i % 2 == 0);
+            store.ThrowOnPrimarySave = true;
+            Assert.That(SkinSecrets.AcceptedNightChange(true), Is.Zero);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.False);
+        }
+        [Test, Category("NightSecret")] public void DebugNightsNeverEnterRealSecretProgress()
+        {
+            try
+            {
+                Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+                for (int i = 0; i < 6; i++) Assert.That(SkinSecrets.AcceptedNightChange(i % 2 == 0), Is.Zero);
+                Assert.That(SkinSecrets.HasBatMoon, Is.False);
+            }
+            finally { SkinDebugSession.Reset(); }
+            Assert.That(SkinSecrets.AcceptedNightChange(true), Is.Zero);
+            Assert.That(SkinSecrets.HasBatMoon, Is.False);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.False);
+        }
+        [TestCase(false), TestCase(true), Category("NightSecret")]
+        public void ThirdNightRequirementHasBothTranslations(bool japanese)
+        {
+            string requirement = InkSkinAchievements.Requirement(InkSkinId.NightBat);
+            Assert.That(requirement, Is.EqualTo("로비를 세 번째 밤으로 바꾸기"));
+            Assert.That(InkSkinTranslations.TryTranslate(requirement, japanese, out string translated), Is.True);
+            Assert.That(translated, Does.Contain(japanese ? "三度目" : "third night"));
         }
         [Test] public void WardrobeSecretRequiresOrderedExplicitSelection()
         {

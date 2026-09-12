@@ -204,7 +204,7 @@ namespace MukJump.Core
                 SkinMetric.AppleLink => "Apple 계정 연동 완료",
                 SkinMetric.DragonDeath => "본체가 용과 충돌해 사망하기",
                 _ => id switch {
-                    InkSkinId.NightBat => "로비를 밤으로 바꾸기",
+                    InkSkinId.NightBat => "로비를 세 번째 밤으로 바꾸기",
                     InkSkinId.Astronaut => "낮과 밤을 여섯 번 바꾸기",
                     InkSkinId.ClockworkCat => "고양이 귀로 밤에 아이템 없이 60초 생존",
                     InkSkinId.LuckyDice => "정확히 777m로 한 판 완료",

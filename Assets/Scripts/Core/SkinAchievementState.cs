@@ -100,24 +100,36 @@ namespace MukJump.Core
     public static class SkinSecrets
     {
         static object owner;
-        static int nightChanges, selectionStep;
+        static int nightChanges, nightEntries, selectionStep;
+        static bool? lastNight;
         static readonly InkSkinId[] sequence = { InkSkinId.Ink, InkSkinId.Gat, InkSkinId.Ink, InkSkinId.SpiderMask, InkSkinId.Ink };
+        public static bool HasBatMoon => !SkinDebugSession.Active && nightEntries >= 2 &&
+            ReferenceEquals(owner, PermanentGrowthProfile.SkinAccountToken);
+        static void ResetInputs() { nightChanges = nightEntries = selectionStep = 0; lastNight = null; }
         static bool Ready()
         {
-            if (SkinDebugSession.Active) { nightChanges = selectionStep = 0; return false; }
+            if (SkinDebugSession.Active) { ResetInputs(); return false; }
             if (PermanentGrowthProfile.RequiresRecovery ||
                 GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby ||
                 MukJumpAccountRuntime.Instance != null && MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync) return false;
             var current = PermanentGrowthProfile.SkinAccountToken;
-            if (!ReferenceEquals(current, owner)) { owner = current; nightChanges = selectionStep = 0; }
+            if (!ReferenceEquals(current, owner)) { owner = current; ResetInputs(); }
             return true;
         }
-        public static void AcceptedNightChange(bool night)
+        // 달의 복원·중복 호출은 세지 않는다. 저장까지 성공한 새 보상만 알림에 전달한다.
+        public static ulong AcceptedNightChange(bool night)
         {
-            if (!Ready()) return;
-            if (night) PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat);
-            if (++nightChanges >= 6) PermanentGrowthProfile.GrantSkinSecret(InkSkinId.Astronaut);
+            if (!Ready() || lastNight == night) return 0;
+            lastNight = night;
+            if (night) nightEntries = Math.Min(3, nightEntries + 1);
+            nightChanges = Math.Min(6, nightChanges + 1);
+            ulong awarded = 0;
+            if (nightEntries >= 3) awarded |= GrantNew(InkSkinId.NightBat);
+            if (nightChanges >= 6) awarded |= GrantNew(InkSkinId.Astronaut);
+            return awarded;
         }
+        static ulong GrantNew(InkSkinId id) => !InkSkinAchievements.IsUnlocked(id) &&
+            PermanentGrowthProfile.GrantSkinSecret(id) ? 1UL << (int)id : 0;
         public static void SelectedByUser(InkSkinId id)
         {
             if (!Ready()) return;

@@ -8,6 +8,10 @@
 
 ## 아트 방향
 
+같은 계정의 현재 실행에서 첫 번째 밤은 원래 달, **두 번째 밤부터 둥근 달 안에 먹빛 박쥐 그림자**가 나타난다. 다시 낮을 거쳐 **세 번째 밤에 `밤의 파수꾼`을 해금**한다. 달이 도착한 뒤 기존 수묵 업적 알림을 로비에 표시한다. 낮·밤 상태를 단순 복원하거나 같은 상태를 중복 전달하는 것은 횟수에 넣지 않는다. 계정 삭제·교체와 디버그 시험은 비밀 입력을 이어받지 않으며, 이미 보유한 보상은 유지한다. 기존 여섯 번 낮/밤 전환의 우주비행사 해금은 유지한다.
+
+그림자는 기존 코드 생성 달에 단순한 좌우 대칭 실루엣을 덧그린 별도 128px 캐시다. 달의 원형 알파·크기·이동·붉은색은 바꾸지 않는다. 새 파티클·재질·매 프레임 텍스처 생성은 없다.
+
 오른쪽 해는 원래 한지색, 왼쪽 달은 붉은색을 유지한다. 탭 횟수로 색을 바꾸지 않는다. 원화를 뒷배경과 `LobbyForegroundMountains` 앞산 Mesh로 분리하고, 사이에 달 SpriteRenderer를 놓는다. 128개 구간의 공통 능선으로 뒷배경의 앞산 부분을 제외하고 앞산 Mesh가 그 픽셀을 대신 그린다. 두 레이어는 원래 텍스처·UV·밤 색조를 공유하므로 산을 새로 그리거나 위치를 바꾸지 않는다. 앞산 Mesh 1개(258개 정점)를 재사용하며 별도 비트맵·전체 화면 덮개는 만들지 않는다.
 
 새로 그린 정교한 일월오봉도풍 원화는 사용하지 않는다. 기존 7개 맵의 산·소나무·한지 여백·거친 붓결을 그대로 유지하고 `BackgroundNight.shader`로 하늘을 먹청색, 아래 플레이 영역을 달빛 한지색으로 어둡게 한다. 캐릭터·먹선·UI를 검은 덮개로 가리지 않는다. 맵별 구름도 같은 밤 색조를 공유한다.
@@ -35,5 +39,7 @@
 > Use case: precise-object-edit. Image 1 is the edit target, an existing portrait Korean ink-wash game background. Remove ONLY the small pale round sun in the upper-right sky (approximately x68.5%, y9.8%). Seamlessly fill that circular region with the immediately surrounding warm beige hanji sky, matching fibers, mottling and subtle cloud wash. Preserve all mountain silhouettes, all trees, mist, paper grain, overall colors, positions, framing and the large open lower half exactly. This is a clean background plate so a separate animated sun can move over it. Do not add a moon, sun, stars, text, UI, borders or any other objects. Keep original 9:16 portrait composition. One full background image only.
 
 ## 검증
+
+두 번째/세 번째 밤 변경은 `NightSecret` 조건 검사 12개와 실제 Main Play Mode 검사 1개로 확인했다. 중복 입력, 재활성화 복원, 계정 교체, 기존 해금 유지, 저장 실패, 디버그 제외, 영·일 해금 조건을 포함한다. 알림은 달 도착 후 나타나고 입력을 가로채지 않으며, 광고·달·최고 기록과 겹치지 않는지 확인했다. `output/qa/night-secret/`에 결과와 1·2·3번째 밤의 전체 UI 촬영본을 보관한다. 기기·실제 서버·TestFlight 검증 결과는 아니다.
 
 `LobbyNightSkyTests`에서 9/10회 탭, 해·달 왕복, 드래그/팝업 차단, 게임 진입, 정지/복귀, 세로 화면 비율, 7개 맵 및 양쪽 renderer 색상·알파, 원화 유지, 로비 버튼, 셰이더 컴파일과 렌더를 검사한다. `night-sky-regression` 범위는 구름·로비·화면 전환·영문 UI 회귀 검증도 실행한다. 미리보기는 `output/quality-polish/lobby-night/`에 생성한다.
