@@ -255,6 +255,45 @@ namespace MukJump.EditorTests
             Assert.That(LobbyMenuLayout.WardrobeAnchor.y, Is.GreaterThan(LobbyMenuLayout.OptionsAnchor.y));
             Assert.That(LobbyMenuLayout.OptionsAnchor.x, Is.EqualTo(LobbyMenuLayout.WardrobeAnchor.x));
         }
+        [TestCase(InkSkinId.RedHeadband)]
+        [TestCase(InkSkinId.CatEars)]
+        [TestCase(InkSkinId.ClockworkCat)]
+        public void HeadbandsShareForeheadFitAcrossPreviewFramesAndFacing(InkSkinId id)
+        {
+            var manager=Manager(out _);
+            var measured=SkinRunStats.Begin(true,InkSkinId.CatEars);
+            measured.drawnLandings=10; measured.items=measured.inkDrops=1;
+            PermanentGrowthProfile.SettleRun("headband",100,100,0,60,true,measured);
+            PermanentGrowthProfile.SettleRun("headband-secret",100,100,0,60,true,SkinRunStats.Begin(true,InkSkinId.CatEars));
+            Assert.That(InkSkinPreferences.TryEquip(id),Is.True);
+            var wardrobe=Track(new GameObject("HeadbandWardrobe")).AddComponent<InkWardrobeView>();
+            wardrobe.BuildForTests(Idle()); wardrobe.SetNavigationPresentation(true,true); wardrobe.Select(id);
+            wardrobe.Presentation.Cancel();
+            var preview=wardrobe.Paper.Find("ShowroomStage/Preview/Accessory").GetComponent<UnityEngine.UI.Image>();
+            Vector2 fit=InkSkinCatalog.Offset(id);
+            Assert.That(fit.y,Is.InRange(.1f,.18f),"머리띠는 모자 높이가 아닌 이마에 걸칩니다.");
+            Assert.That(preview.rectTransform.anchoredPosition/500f,Is.EqualTo(fit));
+            Assert.That(preview.rectTransform.sizeDelta.x/500f,Is.EqualTo(InkSkinCatalog.Width(id)).Within(.0001f));
+            Invoke(manager,"SetState",GameState.Playing);
+            var player=Player(); var body=player.GetComponent<SpriteRenderer>();
+            var skin=player.gameObject.AddComponent<InkSkinView>(); Invoke(skin,"OnEnable");
+            var frames=AssetDatabase.LoadAllAssetsAtPath("Assets/Art/Character/Player/muk_spritesheet.png").OfType<Sprite>().ToArray();
+            Assert.That(frames.Length,Is.EqualTo(8));
+            foreach(var frame in frames)
+            foreach(bool flipped in new[]{false,true})
+            {
+                body.sprite=frame; body.flipX=flipped; Invoke(skin,"LateUpdate");
+                Vector2 size=frame.rect.size/frame.pixelsPerUnit;
+                Vector2 center=(frame.rect.size*.5f-frame.pivot)/frame.pixelsPerUnit;
+                Vector2 expected=fit; if(flipped) expected.x=-expected.x;
+                Vector2 normalized=((Vector2)skin.AccessoryRenderer.transform.localPosition-center)/size;
+                Assert.That(Vector2.Distance(normalized,expected),Is.LessThan(.0001f),frame.name);
+                Assert.That(skin.AccessoryRenderer.flipX,Is.EqualTo(flipped));
+                Assert.That(skin.AccessoryRenderer.sprite,Is.SameAs(preview.sprite));
+                Assert.That(body.sprite,Is.SameAs(frame));
+                Assert.That(player.GetComponent<CircleCollider2D>().radius,Is.EqualTo(.4f));
+            }
+        }
 
         void ClearAchievements()
         {

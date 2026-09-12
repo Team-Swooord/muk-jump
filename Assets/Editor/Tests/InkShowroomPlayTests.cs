@@ -14,6 +14,62 @@ namespace MukJump.EditorTests
     public sealed class InkShowroomPlayTests
     {
         [UnityTest, Timeout(120000)]
+        public IEnumerator HeadbandsSitOnTheForeheadInShowroomAndActualGameplay()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool oldBackground=Application.runInBackground; Application.runInBackground=true;
+            var settings=new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1f);
+                var stats=SkinRunStats.Begin(true,InkSkinId.CatEars);
+                stats.drawnLandings=10; stats.items=stats.inkDrops=1;
+                PermanentGrowthProfile.SettleRun("headband-fit",100,100,0,60,true,stats);
+                PermanentGrowthProfile.SettleRun("headband-fit-secret",100,100,0,60,true,SkinRunStats.Begin(true,InkSkinId.CatEars));
+                foreach(var id in new[]{InkSkinId.RedHeadband,InkSkinId.CatEars,InkSkinId.ClockworkCat})
+                {
+                    yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(.8f);
+                    var manager=GameManager.Instance;
+                    Assert.That(manager.State,Is.EqualTo(GameState.Lobby));
+                    Assert.That(MukJumpAccountRuntime.Instance==null || !MukJumpAccountRuntime.Instance.IsOnlineAuthenticated,Is.True);
+                    Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(),Is.True); yield return Wait(3f);
+                    var view=Object.FindAnyObjectByType<InkWardrobeView>();
+                    view.Select(id); yield return Wait(.6f); yield return Capture("headband-preview-"+id);
+                    view.EquipButton.onClick.Invoke(); Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(id));
+                    view.BackButton.onClick.Invoke(); yield return Wait(3f);
+                    manager.StartGameFromMenu();
+                    float deadline=Time.realtimeSinceStartup+8;
+                    while(!manager.IsGameplayTicking && Time.realtimeSinceStartup<deadline) yield return null;
+                    Assert.That(manager.IsGameplayTicking,Is.True);
+                    var debugControls=Object.FindAnyObjectByType<GameplayHudView>()?.transform.Find("ItemTestControls");
+                    if(debugControls!=null) debugControls.gameObject.SetActive(false);
+                    yield return Wait(.5f);
+                    Assert.That(RunGrowthController.Instance.SkinSnapshot,Is.EqualTo(id));
+                    var body=manager.HighestLivingPlayer.GetComponent<SpriteRenderer>();
+                    var accessory=body.GetComponent<MukJump.Player.InkSkinView>().AccessoryRenderer;
+                    Assert.That(accessory.enabled && accessory.isVisible,Is.True);
+                    Assert.That(accessory.sprite,Is.SameAs(InkSkinCatalog.Sprite(id)));
+                    Assert.That(UnityEditor.AssetDatabase.GetAssetPath(body.sprite),Is.EqualTo("Assets/Art/Character/Player/muk_spritesheet.png"));
+                    yield return Capture("headband-player-"+id);
+                }
+            }
+            finally
+            {
+                Application.runInBackground=oldBackground;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+        [UnityTest, Timeout(120000)]
         public IEnumerator ShowroomRendersBrowsingEquipAndCloseInRealMainWithoutServerWrites()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();

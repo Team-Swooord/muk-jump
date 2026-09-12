@@ -76,11 +76,18 @@ namespace MukJump.Core
         public static float Width(InkSkinId id) => IsSignatureCostume(id) ? .75f : id switch {
             InkSkinId.Gat or InkSkinId.BambooHat => .9f,
             InkSkinId.SpiderMask or InkSkinId.FoxMask or InkSkinId.YakshaMask or InkSkinId.KoiMask or InkSkinId.TigerMask or InkSkinId.NightBat => .55f,
-            InkSkinId.InkGhost => .62f, InkSkinId.BellRibbon => .38f,
+            InkSkinId.InkGhost => .62f, InkSkinId.BellRibbon => .38f, InkSkinId.CatEars => .8f,
             InkSkinId.OrigamiWings => 1.08f, InkSkinId.Astronaut => .85f, _ => .68f };
-        public static Vector2 Offset(InkSkinId id) => IsSignatureCostume(id) ? new Vector2(0,.35f) : new Vector2(0, id switch {
-            InkSkinId.OrigamiWings => -.015f, InkSkinId.InkGhost => .45f, InkSkinId.Astronaut => .085f,
-            InkSkinId.RedHeadband => .27f, InkSkinId.BellRibbon => .38f, _ => .4f });
+        public static Vector2 Offset(InkSkinId id)
+        {
+            // 띠의 착용점은 모자 꼭대기가 아니라 원먹의 이마다. 오른쪽 매듭 여백도 보정한다.
+            if (id == InkSkinId.RedHeadband) return new Vector2(.07f, .14f);
+            return new Vector2(0, id switch {
+                InkSkinId.CatEars => .14f, InkSkinId.ClockworkCat => .16f,
+                InkSkinId.CloudDragon or InkSkinId.InkMecha => .35f,
+                InkSkinId.OrigamiWings => -.015f, InkSkinId.InkGhost => .45f, InkSkinId.Astronaut => .085f,
+                InkSkinId.BellRibbon => .38f, _ => .4f });
+        }
         static readonly System.Collections.Generic.Dictionary<InkSkinId, Sprite[]> sprites = new();
         public static Sprite Sprite(InkSkinId id, int frame = 0)
         {

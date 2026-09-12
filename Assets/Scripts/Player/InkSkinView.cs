@@ -49,6 +49,8 @@ namespace MukJump.Player
             Vector2 frameSize = frame.rect.size / frame.pixelsPerUnit;
             Vector2 center = (frame.rect.size * 0.5f - frame.pivot) / frame.pixelsPerUnit;
             Vector2 offset = InkSkinCatalog.Offset(id) * frameSize;
+            // 매듭 때문에 비대칭인 머리띠도 방향 반전 시 띠 중심이 먹의 이마에 남는다.
+            if (body.flipX) offset.x = -offset.x;
             accessory.transform.localPosition = center + offset;
             float scale = frameSize.x * InkSkinCatalog.Width(id) / accessory.sprite.bounds.size.x;
             accessory.transform.localScale = Vector3.one * scale;
