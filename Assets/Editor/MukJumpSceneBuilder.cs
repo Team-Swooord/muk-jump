@@ -1342,7 +1342,11 @@ namespace MukJump.EditorTools
             growthSettings.FindProperty("purchaseButtonTexture").objectReferenceValue =
                 AssetDatabase.LoadAssetAtPath<Texture2D>(StartButtonPath);
             growthSettings.ApplyModifiedPropertiesWithoutUndo();
-            go.AddComponent<LobbyOptionsView>();
+            var options = go.AddComponent<LobbyOptionsView>();
+            var optionsSettings = new SerializedObject(options);
+            optionsSettings.FindProperty("leaderboardBodySprite").objectReferenceValue =
+                AssetDatabase.LoadAllAssetsAtPath(CharSheetPath).OfType<Sprite>().FirstOrDefault(s => s.name == "idle");
+            optionsSettings.ApplyModifiedPropertiesWithoutUndo();
             var wardrobe = go.AddComponent<InkWardrobeView>();
             var wardrobeSettings = new SerializedObject(wardrobe);
             wardrobeSettings.FindProperty("previewBodySprite").objectReferenceValue =

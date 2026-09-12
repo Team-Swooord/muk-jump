@@ -178,13 +178,22 @@ namespace MukJump.Core
     {
         public const string StorageKey = "MukJump.Settings.EquippedSkin";
         static ILobbySettingsStore store = new PlayerPrefsLobbySettingsStore();
+        public static event Action Changed;
+        // 디버그 시험 착용은 공개 리더보드로 전송하지 않는다.
+        public static InkSkinId PersistedEquipped
+        {
+            get
+            {
+                var chosen = InkSkinCatalog.Normalize((InkSkinId)store.GetInt(StorageKey, 0));
+                return InkSkinAchievements.IsUnlocked(chosen) ? chosen : InkSkinId.Ink;
+            }
+        }
         public static InkSkinId Equipped
         {
             get
             {
                 if (SkinDebugSession.TryGetEquipped(out var preview)) return preview;
-                var chosen = InkSkinCatalog.Normalize((InkSkinId)store.GetInt(StorageKey, 0));
-                return InkSkinAchievements.IsUnlocked(chosen) ? chosen : InkSkinId.Ink;
+                return PersistedEquipped;
             }
         }
 
@@ -201,6 +210,12 @@ namespace MukJump.Core
             {
                 store.SetInt(StorageKey, (int)id);
                 store.Save();
+                // 로컬 저장 성공 뒤에만 기존 클라우드 저장 대기열에 변경을 알린다.
+                // 수신자 오류 때문에 이미 저장된 장착을 실패/롤백으로 취급하지 않는다.
+                if (Changed != null)
+                    foreach (Action listener in Changed.GetInvocationList())
+                        try { listener(); }
+                        catch (Exception error) { UnityEngine.Debug.LogWarning("[MukJump] 착용 변경 알림 실패: " + error.Message); }
                 return true;
             }
             catch (Exception)

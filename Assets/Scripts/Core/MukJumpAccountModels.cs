@@ -93,14 +93,17 @@ namespace MukJump.Core
         public string DisplayName { get; }
         public string Source { get; }
         public string RegionCode { get; }
+        public InkSkinId EquippedSkin { get; }
 
         public MukJumpLeaderboardEntry(int rank, int height, string displayName = null,
-            string source = "BACKND", string regionCode = null)
+            string source = "BACKND", string regionCode = null, InkSkinId equippedSkin = InkSkinId.Ink)
         {
             Rank = Mathf.Max(1, rank);
             Height = Mathf.Max(0, height);
             DisplayName = CleanDisplayName(displayName);
             RegionCode = DeviceRegion.Normalize(regionCode);
+            // 다른 플레이어의 착용은 내 해금 여부와 무관하게 표시한다.
+            EquippedSkin = InkSkinCatalog.Normalize(equippedSkin);
             // 출처는 실제 공급자만 표시한다. 로그인 수단으로 OS를 추측하지 않는다.
             Source = source == "APPLE" || source == "TOSS" ? source : "BACKND";
         }

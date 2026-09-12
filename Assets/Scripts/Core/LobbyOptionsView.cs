@@ -19,6 +19,7 @@ namespace MukJump.Core
         const float SafeAreaPadding = 24f;
         const float DeleteConfirmationMinimumDelay = 0.45f;
         const string CustomerSupportEmail = "cysbandcs@gmail.com";
+        [SerializeField] Sprite leaderboardBodySprite;
 
         CanvasGroup rootGroup;
         CanvasGroup optionsGroup;
@@ -89,6 +90,7 @@ namespace MukJump.Core
         readonly Text[] leaderboardRanks = new Text[10];
         readonly Text[] leaderboardNames = new Text[10];
         readonly Image[] leaderboardFlags = new Image[10];
+        readonly InkLeaderboardAvatar[] leaderboardAvatars = new InkLeaderboardAvatar[10];
         readonly Text[] leaderboardSources = new Text[10];
         readonly Image[] leaderboardSeals = new Image[10];
         bool leaderboardFromLobby;
@@ -1037,7 +1039,7 @@ namespace MukJump.Core
                 new Vector2(96f, 50f), InkPalette.TextDark, TextAnchor.MiddleLeft, strong: true);
             InkLocalizedText.OverrideEnglish(rankHeading, "Rank");
             CreateReadableText("NameHeading", panel, "이름", 36, new Vector2(-65f, 430f),
-                new Vector2(340f, 50f), InkPalette.TextDark, TextAnchor.MiddleLeft, strong: true);
+                new Vector2(110f, 50f), InkPalette.TextDark, TextAnchor.MiddleLeft, strong: true);
             CreateReadableText("HeightHeading", panel, "고도", 36, new Vector2(245f, 430f),
                 new Vector2(190f, 50f), InkPalette.TextDark, TextAnchor.MiddleRight, strong: true);
             CreateDivider(panel, "LeaderboardDivider", 390f, 680f);
@@ -1048,16 +1050,18 @@ namespace MukJump.Core
                     new Vector2(-292f, y), new Vector2(96, 62),
                     i < 3 ? InkPalette.Red : InkPalette.TextDark, TextAnchor.MiddleLeft, strong: true);
                 var cell = CreateRect($"NameCell{i + 1}", panel,
-                    new Vector2(-36f, y), new Vector2(282f, 62f));
+                    new Vector2(-7.5f, y), new Vector2(225f, 62f));
+                leaderboardAvatars[i] = new InkLeaderboardAvatar(panel, $"SkinAvatar{i + 1}",
+                    new Vector2(-216f, y), 44f, leaderboardBodySprite);
                 leaderboardFlags[i] = CreateImage($"RegionFlag{i + 1}", panel,
-                    RegionFlagImages.Get(null), new Vector2(-213f, y),
+                    RegionFlagImages.Get(null), new Vector2(-160f, y),
                     new Vector2(44f, 44f), Color.white);
                 leaderboardFlags[i].preserveAspect = true;
                 leaderboardFlags[i].raycastTarget = false;
                 leaderboardFlags[i].enabled = false;
                 cell.gameObject.AddComponent<RectMask2D>();
                 leaderboardNames[i] = CreateReadableText($"Name{i + 1}", cell, "", 40,
-                    Vector2.zero, new Vector2(282f, 62f), InkPalette.TextDark,
+                    Vector2.zero, new Vector2(225f, 62f), InkPalette.TextDark,
                     TextAnchor.MiddleLeft, strong: true);
                 leaderboardNames[i].supportRichText = false;
                 leaderboardNames[i].horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -1191,6 +1195,7 @@ namespace MukJump.Core
                 if (leaderboardRanks[i] != null)
                     leaderboardRanks[i].text = entries != null && i < entries.Count ? $"{entries[i].Rank}" : string.Empty;
                 bool hasEntry = entries != null && i < entries.Count;
+                leaderboardAvatars[i]?.Set(hasEntry ? entries[i] : null);
                 if (leaderboardFlags[i] != null)
                 {
                     leaderboardFlags[i].enabled = hasEntry;

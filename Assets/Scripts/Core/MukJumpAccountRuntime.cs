@@ -287,8 +287,10 @@ namespace MukJump.Core
             Instance = this;
             PermanentGrowthProfile.Changed -= MarkDirty;
             LobbySettingsProfile.Changed -= MarkDirty;
+            InkSkinPreferences.Changed -= MarkDirty;
             PermanentGrowthProfile.Changed += MarkDirty;
             LobbySettingsProfile.Changed += MarkDirty;
+            InkSkinPreferences.Changed += MarkDirty;
             if (restoreBackendErrorHandlersOnEnable)
             {
                 restoreBackendErrorHandlersOnEnable = false;
@@ -301,6 +303,7 @@ namespace MukJump.Core
             CancelIdentityRequest();
             PermanentGrowthProfile.Changed -= MarkDirty;
             LobbySettingsProfile.Changed -= MarkDirty;
+            InkSkinPreferences.Changed -= MarkDirty;
             restoreBackendErrorHandlersOnEnable |= backendErrorHandlersInstalled;
             UninstallBackendErrorHandlers();
             // SDK 콜백은 컴포넌트 비활성화/파괴 뒤에도 도착할 수 있다.
@@ -5942,9 +5945,10 @@ namespace MukJump.Core
                                 // 뒤끝 정시 삭제를 기다리는 동안에도 노출하지 않는다.
                                 if (height <= 0)
                                     continue;
+                                LeaderboardAppearance.Decode(item.extraData, out string region, out InkSkinId skin);
                                 loadedEntries.Add(
                                     new MukJumpLeaderboardEntry(rank, height, item.nickname,
-                                        regionCode: item.extraData));
+                                        regionCode: region, equippedSkin: skin));
                             }
                         }
 
@@ -6420,12 +6424,17 @@ namespace MukJump.Core
                 return;
             }
 #endif
+            Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
+                settings.AllTimeRankUuid, settings.PlayerTableName, rowInDate, CreateLeaderboardParam(bestHeight),
+                bro => callback(bro));
+        }
+
+        Param CreateLeaderboardParam(int bestHeight)
+        {
             var param = new Param();
             param.Add(settings.BestHeightColumn, bestHeight);
-            param.Add(DeviceRegion.Column, DeviceRegion.Current);
-            Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
-                settings.AllTimeRankUuid, settings.PlayerTableName, rowInDate, param,
-                bro => callback(bro));
+            param.Add(DeviceRegion.Column, LeaderboardAppearance.Current);
+            return param;
         }
 
         void RequestLeaderboard(
@@ -6522,7 +6531,7 @@ namespace MukJump.Core
         {
             var param = new Param();
             param.Add("schemaVersion", snapshot.schemaVersion);
-            param.Add(DeviceRegion.Column, DeviceRegion.Current);
+            param.Add(DeviceRegion.Column, LeaderboardAppearance.Current);
             param.Add(settings.BestHeightColumn, snapshot.bestHeight);
             param.Add("growthJson", snapshot.growthJson);
             param.Add("bgmVolume", snapshot.bgmVolume);

@@ -848,6 +848,59 @@ namespace MukJump.EditorTests
             "\"nickname\":\"guest(1234567890)\",\"rank\":1,\"index\":0,\"score\":\"183\"}],\"totalCount\":1}";
 
         [Test]
+        public void LeaderboardAppearanceReadsServerSkinAndClearsEmptyAvatar()
+        {
+            var account = CreateLeaderboardRuntime();
+            string json = RankedPlayerJson.Replace("\"index\":0", "\"extraData\":\"JP|1|36\",\"index\":0");
+            SetPrivateField(account, "getLeaderboardForTests",
+                new System.Action<System.Action<BackEnd.Leaderboard.BackendUserLeaderboardReturnObject>>(
+                    callback => callback(LeaderboardResult(json))));
+            account.RefreshLeaderboard();
+            Assert.That(account.LeaderboardEntries[0].EquippedSkin, Is.EqualTo(InkSkinId.CraneWings));
+            Assert.That(account.LeaderboardEntries[0].RegionCode, Is.EqualTo("JP"));
+            Assert.That(account.LeaderboardEntries[0].Height, Is.EqualTo(183));
+            var view = host.AddComponent<LobbyOptionsView>(); view.BuildForTests();
+            var page = host.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/LeaderboardPage");
+            var avatar = page.Find("SkinAvatar1");
+            Assert.That(avatar.gameObject.activeSelf, Is.True);
+            Assert.That(avatar.Find("Artwork/Accessory").GetComponent<UnityEngine.UI.Image>().sprite,
+                Is.SameAs(InkSkinCatalog.Sprite(InkSkinId.CraneWings)));
+            Assert.That(page.Find("SkinAvatar2").gameObject.activeSelf, Is.False);
+            json = "{\"rows\":[],\"totalCount\":0}";
+            account.RefreshLeaderboard();
+            InvokeLifecycle(view, "RefreshLeaderboardPage");
+            Assert.That(avatar.gameObject.activeSelf, Is.False);
+        }
+
+        [Test]
+        public void LeaderboardAppearanceEquipQueuesSaveButDebugDoesNotLeak()
+        {
+            var account = CreateLeaderboardRuntime();
+            InkSkinPreferences.UseStoreForTests(new MemoryLobbySettingsStore());
+            SkinDebugSession.Reset();
+            try
+            {
+                Assert.That(InkSkinPreferences.TryEquip(InkSkinId.Gat), Is.True);
+                Assert.That(ReadPrivateBool(account, "dirty"), Is.True);
+                Assert.That(PlayerPrefs.GetInt("MukJump.Cloud.PendingSave"), Is.EqualTo(1));
+                var rank = (BackEnd.Param)typeof(MukJumpAccountRuntime).GetMethod("CreateLeaderboardParam",
+                    BindingFlags.Instance | BindingFlags.NonPublic).Invoke(account, new object[] { 183 });
+                var cloud = (BackEnd.Param)typeof(MukJumpAccountRuntime).GetMethod("ToParam",
+                    BindingFlags.Instance | BindingFlags.NonPublic).Invoke(account, new object[] { CreateValidCloudSnapshot(2) });
+                Assert.That(rank.GetValue()["bestHeight"], Is.EqualTo(183));
+                Assert.That(rank.GetValue()[DeviceRegion.Column], Is.EqualTo(LeaderboardAppearance.Encode(DeviceRegion.Current, InkSkinId.Gat)));
+                Assert.That(cloud.GetValue()[DeviceRegion.Column], Is.EqualTo(rank.GetValue()[DeviceRegion.Column]));
+                SetPrivateField(account, "dirty", false);
+                Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+                Assert.That(InkSkinPreferences.TryEquip(InkSkinId.Astronaut), Is.True);
+                Assert.That(ReadPrivateBool(account, "dirty"), Is.False);
+                Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Astronaut));
+                Assert.That(LeaderboardAppearance.Current, Is.EqualTo(LeaderboardAppearance.Encode(DeviceRegion.Current, InkSkinId.Gat)));
+            }
+            finally { SkinDebugSession.Reset(); InkSkinPreferences.RestoreDefaultStoreForTests(); }
+        }
+
+        [Test]
         public void RealLeaderboardResponseReachesUiWithoutPreviewReplacement()
         {
             var account = CreateLeaderboardRuntime();
