@@ -80,7 +80,7 @@ namespace MukJump.EditorTests
                 foreach(var id in new[]{InkSkinId.CloudDragon,InkSkinId.InkMecha,InkSkinId.ClockworkCat})
                 {
                     wardrobe.Select(id);yield return Wait(.3f);yield return Capture("review-detail-"+id);
-                    Assert.That(wardrobe.Paper.Find("Preview/OriginalInkBody").GetComponent<UnityEngine.UI.Image>().enabled,Is.True);
+                    Assert.That(wardrobe.Paper.Find("ShowroomStage/Preview/OriginalInkBody").GetComponent<UnityEngine.UI.Image>().enabled,Is.True);
                 }
                 wardrobe.Select(InkSkinId.SpiderMask);
                 yield return Wait(.3f);

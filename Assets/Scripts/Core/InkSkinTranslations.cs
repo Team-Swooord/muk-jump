@@ -15,6 +15,7 @@ namespace MukJump.Core
         {
             var result = new Dictionary<string, (string, string)>
             {
+                ["쇼룸"] = ("Showroom", "ショールーム"),
                 ["특별한 의상"] = ("Signature Costume", "特別な衣装"),
                 ["먹의 장식"] = ("Ink Accessory", "墨の飾り"),
                 ["비밀 의상"] = ("Secret Costume", "秘密の衣装"),

@@ -10,6 +10,8 @@ namespace MukJump.Core
     {
         public static MobileApplicationLifecycle Instance { get; private set; }
         public static bool IsApplicationActive { get; private set; } = true;
+        // 숨김 중 프레임이 없더라도 복귀한 UI가 이전 입력·연출을 이어가지 않도록 식별한다.
+        public static uint InactiveGeneration { get; private set; }
 
         static bool platformVisible = true;
         bool applicationPaused;
@@ -99,6 +101,7 @@ namespace MukJump.Core
                 return;
 
             IsApplicationActive = active;
+            if (!active) unchecked { InactiveGeneration++; }
             BackgroundMusicController.Instance?.SetApplicationActive(active);
             if (active)
                 GameManager.Instance?.ResumeFromApplicationBackground();

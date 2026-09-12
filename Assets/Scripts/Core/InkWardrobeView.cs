@@ -11,6 +11,11 @@ namespace MukJump.Core
         CanvasGroup rootGroup;
         RectTransform safeRoot, paper;
         Image previewBody, previewAccessory;
+        readonly Image[] neighborBodies = new Image[2], neighborAccessories = new Image[2];
+        readonly Text[] neighborNames = new Text[2];
+        readonly Button[] neighborButtons = new Button[2];
+        InkShowroomPresentation presentation;
+        InkShowroomSwipe swipe;
         Text nameText, abilityText, descriptionText, equipText, statusText, achievementText, progressText, pageText;
         RectTransform progressFill;
         Button equipButton, backButton, previousButton, nextButton;
@@ -28,11 +33,14 @@ namespace MukJump.Core
         public Button EquipButton => equipButton;
         public Button BackButton => backButton;
         public int Page => page;
+        public InkShowroomPresentation Presentation => presentation;
+        public bool CanBrowse => CanInteract();
 
         public void SetNavigationPresentation(bool show, bool allowInput)
         {
             if (show) EnsureBuilt();
             if (rootGroup == null) return;
+            if (!show || !allowInput) { presentation?.Cancel(); swipe?.Cancel(); }
             if (show && !visible)
             {
                 selected = InkSkinPreferences.Equipped;
@@ -49,6 +57,7 @@ namespace MukJump.Core
         void OnDisable()
         {
             visible = interactive = false;
+            presentation?.Cancel(); swipe?.Cancel();
             if (rootGroup == null) return;
             rootGroup.alpha = 0; rootGroup.interactable = rootGroup.blocksRaycasts = false;
         }
@@ -62,28 +71,41 @@ namespace MukJump.Core
         public void Select(InkSkinId id)
         {
             if (!CanInteract() || !InkSkinCatalog.IsValid(id)) return;
+            int step = (int)id - (int)selected;
             selected = id; page = (int)id / PageSize;
             SkinSecrets.SelectedByUser(id);
             InkLocalizedText.SetSource(statusText, "");
             RefreshSelection();
+            if (step != 0) presentation.Browse(step);
+        }
+        public void StepSelection(int direction)
+        {
+            if (!CanInteract() || direction == 0) return;
+            int next = Mathf.Clamp((int)selected + (direction > 0 ? 1 : -1), 0, InkSkinCatalog.Count - 1);
+            if (next != (int)selected) Select((InkSkinId)next);
         }
         public void ChangePage(int direction)
         {
             if (!CanInteract()) return;
+            int previous = (int)selected;
             page = Mathf.Clamp(page + direction, 0, (InkSkinCatalog.Count-1)/PageSize);
             selected = (InkSkinId)(page * PageSize);
+            InkLocalizedText.SetSource(statusText, "");
             RefreshSelection();
+            if ((int)selected != previous) presentation.Browse((int)selected - previous);
         }
-        bool CanInteract() => IsOpen &&
+        bool CanInteract() => IsOpen && MobileApplicationLifecycle.IsApplicationActive &&
             (GameManager.Instance == null || GameManager.Instance.State == GameState.Lobby) &&
             (LobbyScreenNavigator.Instance == null || !LobbyScreenNavigator.Instance.IsTransitioning) &&
             (MukJumpAccountRuntime.Instance == null || !MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync) &&
             (!Application.isPlaying || paper.GetComponent<HanjiScrollFrame>().IsReady);
         void Equip()
         {
-            if (!CanInteract()) return;
-            InkLocalizedText.SetSource(statusText, InkSkinPreferences.TryEquip(selected) ? "" : "저장하지 못했어요. 다시 시도해 주세요");
+            if (!CanInteract() || !InkSkinAchievements.IsUnlocked(selected) || InkSkinPreferences.Equipped == selected) return;
+            bool saved = InkSkinPreferences.TryEquip(selected);
+            InkLocalizedText.SetSource(statusText, saved ? "" : "저장하지 못했어요. 다시 시도해 주세요");
             RefreshSelection();
+            if (saved) presentation.Wear();
         }
         void Back()
         {
@@ -99,7 +121,18 @@ namespace MukJump.Core
             InkLocalizedText.SetSource(nameText, hidden ? "???" : InkSkinCatalog.Name(selected));
             InkLocalizedText.SetSource(abilityText, hidden ? "비밀 의상" : InkSkinCatalog.Ability(selected));
             InkLocalizedText.SetSource(descriptionText, hidden ? "숨겨진 행동으로 발견해 보세요." : InkSkinCatalog.Description(selected));
-            SetPreview(previewBody, previewAccessory, selected, 220, hidden);
+            SetPreview(previewBody, previewAccessory, selected, 320, hidden);
+            for (int side = 0; side < 2; side++)
+            {
+                int index = (int)selected + (side == 0 ? -1 : 1);
+                bool exists = index >= 0 && index < InkSkinCatalog.Count;
+                neighborButtons[side].gameObject.SetActive(exists);
+                if (!exists) continue;
+                var id = (InkSkinId)index;
+                bool concealed = InkSkinCatalog.IsConcealed(id);
+                SetPreview(neighborBodies[side], neighborAccessories[side], id, 150, concealed);
+                InkLocalizedText.SetSource(neighborNames[side], concealed ? "???" : InkSkinCatalog.Name(id));
+            }
             InkLocalizedText.SetSource(equipText, !unlocked ? "업적 달성 필요" : equipped ? "착용 중" : "착용하기");
             equipButton.interactable = unlocked && !equipped;
             InkLocalizedText.SetSource(achievementText, hidden ? "" : InkSkinAchievements.Requirement(selected));
@@ -118,7 +151,7 @@ namespace MukJump.Core
                 if (!active) continue;
                 var id = (InkSkinId)i;
                 bool concealed = InkSkinCatalog.IsConcealed(id);
-                cardPapers[i].color = id == selected ? InkPalette.Paper : Color.white;
+                cardPapers[i].color = id == selected ? InkPalette.Paper : new Color(.86f, .82f, .73f, .62f);
                 cardStates[i].color = id == selected ? InkPalette.Red : InkPalette.TextMuted;
                 SetPreview(cardBodies[i], cardAccessories[i], id, 90, concealed);
                 InkLocalizedText.SetSource(cardNames[i], concealed ? "???" : InkSkinCatalog.Name(id));
@@ -137,41 +170,59 @@ namespace MukJump.Core
             var blocker = Stretch("LobbyBackgroundInputBlocker",root.transform).gameObject.AddComponent<Image>();
             blocker.color=InkUiStyle.PopupDimColor; blocker.raycastTarget=true;
             safeRoot=Stretch("SafeAreaRoot",root.transform);
-            paper=Rect("WardrobeScroll",safeRoot,Vector2.zero,new Vector2(920,1440));
-            HanjiScrollFrame.Attach(paper,new Vector2(880,1400));
-            Label("Title",paper,"꾸미기",72,new Vector2(0,595),new Vector2(750,105),true);
-            var preview=Rect("Preview",paper,new Vector2(0,410),new Vector2(220,220));
-            previewBody=SpriteImage("OriginalInkBody",preview,previewBodySprite,Vector2.zero,new Vector2(220,220));
+            paper=Rect("WardrobeScroll",safeRoot,Vector2.zero,new Vector2(920,1580));
+            HanjiScrollFrame.Attach(paper,new Vector2(880,1540));
+            Label("Title",paper,"쇼룸",72,new Vector2(0,650),new Vector2(750,105),true);
+            var stage=Rect("ShowroomStage",paper,new Vector2(0,355),new Vector2(850,430));
+            var stageHit=stage.gameObject.AddComponent<Image>(); stageHit.color=Color.clear; stageHit.raycastTarget=true;
+            swipe=stage.gameObject.AddComponent<InkShowroomSwipe>(); swipe.Owner=this;
+            for (int side=0;side<2;side++) BuildNeighbor(stage,side);
+            var preview=Rect("Preview",stage,Vector2.zero,new Vector2(320,320));
+            previewBody=SpriteImage("OriginalInkBody",preview,previewBodySprite,Vector2.zero,new Vector2(320,320));
             previewAccessory=SpriteImage("Accessory",preview,null,Vector2.zero,Vector2.one);
-            nameText=Label("SkinName",paper,"",48,new Vector2(0,257),new Vector2(780,75),true);
+            presentation=stage.gameObject.AddComponent<InkShowroomPresentation>(); presentation.Initialize(stage,preview);
+            nameText=Label("SkinName",paper,"",48,new Vector2(0,175),new Vector2(780,70),true);
             for(int i=0;i<cards.Length;i++) BuildCard((InkSkinId)i);
-            previousButton=Button("PreviousPage",paper,"‹",new Vector2(-220,-269),new Vector2(160,80),50,out _);
-            nextButton=Button("NextPage",paper,"›",new Vector2(220,-269),new Vector2(160,80),50,out _);
+            previousButton=Button("PreviousPage",paper,"‹",new Vector2(-220,-310),new Vector2(160,68),50,out _);
+            nextButton=Button("NextPage",paper,"›",new Vector2(220,-310),new Vector2(160,68),50,out _);
             previousButton.onClick.AddListener(()=>ChangePage(-1)); nextButton.onClick.AddListener(()=>ChangePage(1));
-            pageText=Label("Page",paper,"",30,new Vector2(0,-269),new Vector2(250,50),false); InkLocalizedText.Exclude(pageText);
-            abilityText=Label("Ability",paper,"",44,new Vector2(0,-340),new Vector2(780,60),true);
-            descriptionText=Label("Description",paper,"",32,new Vector2(0,-400),new Vector2(780,90),false);
-            achievementText=Label("Achievement",paper,"",30,new Vector2(0,-467),new Vector2(790,52),true);
-            progressText=Label("AchievementProgress",paper,"",27,new Vector2(0,-506),new Vector2(780,34),false); InkLocalizedText.Exclude(progressText);
-            var track=Rect("AchievementTrack",paper,new Vector2(0,-532),new Vector2(620,6));
+            pageText=Label("Page",paper,"",30,new Vector2(0,-310),new Vector2(250,50),false); InkLocalizedText.Exclude(pageText);
+            abilityText=Label("Ability",paper,"",44,new Vector2(0,-371),new Vector2(780,60),true);
+            descriptionText=Label("Description",paper,"",32,new Vector2(0,-450),new Vector2(780,90),false);
+            achievementText=Label("Achievement",paper,"",30,new Vector2(0,-530),new Vector2(790,52),true);
+            progressText=Label("AchievementProgress",paper,"",27,new Vector2(0,-576),new Vector2(780,34),false); InkLocalizedText.Exclude(progressText);
+            var track=Rect("AchievementTrack",paper,new Vector2(0,-605),new Vector2(620,6));
             var ti=track.gameObject.AddComponent<Image>(); ti.color=new Color(.11f,.106f,.102f,.15f); ti.raycastTarget=false;
             progressFill=Stretch("Progress",track); var fi=progressFill.gameObject.AddComponent<Image>(); fi.color=InkPalette.Ink; fi.raycastTarget=false;
-            equipButton=Button("EquipButton",paper,"착용하기",new Vector2(0,-599),new Vector2(620,110),48,out equipText); equipButton.onClick.AddListener(Equip);
-            statusText=Label("SaveStatus",paper,"",30,new Vector2(0,-680),new Vector2(780,50),false); statusText.color=InkPalette.Red;
-            backButton=Button("BackButton",safeRoot,"로비로",new Vector2(0,-810),new Vector2(360,110),42,out _); backButton.onClick.AddListener(Back);
+            equipButton=Button("EquipButton",paper,"착용하기",new Vector2(0,-668),new Vector2(620,110),48,out equipText); equipButton.onClick.AddListener(Equip);
+            statusText=Label("SaveStatus",paper,"",30,new Vector2(0,-746),new Vector2(780,42),false); statusText.color=InkPalette.Red;
+            backButton=Button("BackButton",safeRoot,"로비로",new Vector2(0,-872),new Vector2(360,110),42,out _); backButton.onClick.AddListener(Back);
             rootGroup.alpha=0; rootGroup.interactable=rootGroup.blocksRaycasts=false;
         }
         void BuildCard(InkSkinId id)
         {
             int i=(int)id, slot=i%PageSize;
-            var button=Button("SkinCard"+i,paper,"",new Vector2((slot%3-1)*270,100-(slot/3)*213),new Vector2(248,198),36,out _);
+            var button=Button("SkinCard"+i,paper,"",new Vector2((slot%3-1)*270,15-(slot/3)*200),new Vector2(248,184),36,out _);
             cards[i]=button.gameObject; cardPapers[i]=button.transform.Find("Paper").GetComponent<Image>();
-            var preview=Rect("Preview",button.transform,new Vector2(0,38),new Vector2(90,90));
+            var preview=Rect("Preview",button.transform,new Vector2(0,32),new Vector2(90,90));
             cardBodies[i]=SpriteImage("OriginalInkBody",preview,previewBodySprite,Vector2.zero,new Vector2(90,90));
             cardAccessories[i]=SpriteImage("Accessory",preview,null,Vector2.zero,Vector2.one);
             cardNames[i]=Label("Name",button.transform,"",30,new Vector2(0,-28),new Vector2(234,52),true);
-            cardStates[i]=Label("State",button.transform,"",27,new Vector2(0,-72),new Vector2(230,40),false);
+            cardStates[i]=Label("State",button.transform,"",27,new Vector2(0,-66),new Vector2(230,36),false);
             button.onClick.AddListener(()=>Select(id));
+        }
+        void BuildNeighbor(RectTransform stage, int side)
+        {
+            int step=side==0 ? -1 : 1;
+            var rect=Rect(side==0 ? "PreviousCostume" : "NextCostume",stage,new Vector2(step*285,35),new Vector2(220,240));
+            var hit=rect.gameObject.AddComponent<Image>(); hit.color=Color.clear;
+            var button=rect.gameObject.AddComponent<Button>(); button.targetGraphic=hit; button.transition=Selectable.Transition.None;
+            button.navigation=new Navigation { mode=Navigation.Mode.None };
+            button.onClick.AddListener(()=>StepSelection(step)); neighborButtons[side]=button;
+            var group=rect.gameObject.AddComponent<CanvasGroup>(); group.alpha=.56f;
+            neighborBodies[side]=SpriteImage("OriginalInkBody",rect,previewBodySprite,Vector2.zero,new Vector2(150,150));
+            neighborAccessories[side]=SpriteImage("Accessory",rect,null,Vector2.zero,Vector2.one);
+            neighborNames[side]=Label("Name",rect,"",26,new Vector2(0,-100),new Vector2(220,56),false);
         }
         void SetPreview(Image body, Image accessory, InkSkinId id, float size, bool hidden)
         {
@@ -192,10 +243,10 @@ namespace MukJump.Core
             if (safeRoot == null || Screen.width <= 0 || Screen.height <= 0) return;
             Rect safe = MobileUiLayout.CurrentSafeArea;
             MobileUiLayout.ApplySafeArea(safeRoot, safe, Screen.width, Screen.height);
-            float scale = MobileUiLayout.CalculateFitScale(new Vector2(960, 1760), safe, Screen.width, Screen.height, Vector2.one * 24);
+            float scale = MobileUiLayout.CalculateFitScale(new Vector2(960, 1880), safe, Screen.width, Screen.height, Vector2.one * 24);
             paper.localScale = Vector3.one * scale;
             backButton.transform.localScale = Vector3.one * scale;
-            backButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, -810 * scale);
+            backButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, -872 * scale);
         }
 
         static RectTransform Stretch(string name, Transform parent)

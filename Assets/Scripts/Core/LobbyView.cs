@@ -334,7 +334,7 @@ namespace MukJump.Core
                 primary: activeMenu == LobbyMenuSelection.Growth);
             LobbyMenuLayout.ApplyButton(
                 wardrobeButton,
-                "꾸미기",
+                "쇼룸",
                 LobbyMenuLayout.WardrobeAnchor,
                 primary: activeMenu == LobbyMenuSelection.Wardrobe);
             LobbyMenuLayout.ApplyButton(
