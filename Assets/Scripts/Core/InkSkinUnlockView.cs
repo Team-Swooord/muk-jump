@@ -261,7 +261,8 @@ namespace MukJump.Core
         }
         static UnityEngine.UI.Image Picture(string name, Transform parent, Sprite sprite, Vector2 position, Vector2 size)
         {
-            var image = Rect(name, parent, position, size).gameObject.AddComponent<UnityEngine.UI.Image>();
+            var rect = Rect(name, parent, position, size);
+            UnityEngine.UI.Image image = name=="Accessory" ? rect.gameObject.AddComponent<InkAccessoryImage>() : rect.gameObject.AddComponent<UnityEngine.UI.Image>();
             image.sprite = sprite; image.preserveAspect = true; image.raycastTarget = false; return image;
         }
         static UnityEngine.UI.Text Label(string name, Transform parent, string source, int size, Vector2 position, Vector2 bounds, bool strong)

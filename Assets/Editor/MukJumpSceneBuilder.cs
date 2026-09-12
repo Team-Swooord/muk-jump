@@ -256,6 +256,11 @@ namespace MukJump.EditorTools
                 importer.textureCompression = TextureImporterCompression.Compressed;
                 importer.filterMode = FilterMode.Bilinear;
                 importer.wrapMode = TextureWrapMode.Clamp;
+                var skinSettings = new TextureImporterSettings();
+                importer.ReadTextureSettings(skinSettings);
+                // 투명 여백까지 포함한 동일 프레임을 UI·게임의 착용 좌표로 사용한다.
+                skinSettings.spriteMeshType = SpriteMeshType.FullRect;
+                importer.SetTextureSettings(skinSettings);
                 importer.SaveAndReimport();
             }
         }

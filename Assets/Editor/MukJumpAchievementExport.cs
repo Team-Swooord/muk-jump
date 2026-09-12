@@ -38,12 +38,12 @@ namespace MukJump.EditorTools
                     ["icon"]=icon,["localizations"]=locales });
             }
             File.WriteAllText(Path.Combine(Output,"catalog.json"),new JObject {
-                ["appId"]="6804614765",["registrationStatus"]="NOT_REGISTERED",["totalPoints"]=740,["achievements"]=all }.ToString()+"\n");
-            Debug.Log("[Achievements] 37개 업적 / 한·영·일 / RGB 1024 아이콘 내보내기 완료. Apple 등록은 별도입니다.");
+                ["appId"]="6804614765",["registrationStatus"]="NOT_REGISTERED",["totalPoints"]=InkAchievementCatalog.Count*20,["achievements"]=all }.ToString()+"\n");
+            Debug.Log($"[Achievements] {InkAchievementCatalog.Count}개 업적 / 한·영·일 / RGB 1024 아이콘 내보내기 완료. Apple 등록은 별도입니다.");
         }
         static void ExportIcon(int index,string path)
         {
-            var id=index<InkSkinCatalog.Count?(InkSkinId)index:index==36?InkSkinId.SpiderMask:InkSkinId.CatEars;
+            var id=index<InkSkinCatalog.Count?(InkSkinId)index:index==InkSkinCatalog.Count?InkSkinId.SpiderMask:InkSkinId.CatEars;
             var body=AssetDatabase.LoadAllAssetsAtPath("Assets/Art/Character/Player/muk_spritesheet.png").OfType<Sprite>().First(s=>s.name=="idle");
             var accessory=InkSkinCatalog.Sprite(id);
             var target=RenderTexture.GetTemporary(1024,1024,0,RenderTextureFormat.ARGB32);
@@ -62,6 +62,16 @@ namespace MukJump.EditorTools
                     void Costume()
                     {
                         if(accessory==null) return;
+                        if(InkSkinCatalog.IsFootwear(id))
+                        {
+                            for(int side=0;side<2;side++)
+                            {
+                                Rect r=InkFootwearPose.DrawingRect(id,accessory,side==1);
+                                Vector2 p=center+new Vector2(r.center.x,-r.center.y)*size;
+                                Draw(InkFootwearPose.Part(id,side==1),new Rect(p-r.size*size*.5f,r.size*size));
+                            }
+                            return;
+                        }
                         float width=size*InkSkinCatalog.Width(id);
                         var position=center+Vector2.Scale(InkSkinCatalog.Offset(id)*size,new Vector2(1,-1));
                         var bounds=new Vector2(width,width*accessory.rect.height/accessory.rect.width);
@@ -82,6 +92,8 @@ namespace MukJump.EditorTools
         static void Draw(Sprite sprite,Rect bounds)
         {
             Rect r=sprite.textureRect; var texture=sprite.texture;
+            var scale=bounds.size/sprite.rect.size; var trim=r.size*scale; var pad=sprite.textureRectOffset*scale;
+            bounds=new Rect(bounds.position+new Vector2(pad.x,bounds.height-pad.y-trim.y),trim);
             Graphics.DrawTexture(bounds,texture,new Rect(r.x/texture.width,r.y/texture.height,r.width/texture.width,r.height/texture.height),0,0,0,0);
         }
     }

@@ -11,9 +11,9 @@
 Unity 메뉴 `MukJump > Export Game Center Achievement Catalog`는 `output/store/game-center-achievements/`에 catalog.json과 RGB 1024×1024 PNG를 생성한다. 기존 원먹·의상 스프라이트를 그대로 사용하며 외부 에셋을 도입하지 않는다.
 
 - 앱: 먹점프 / App Store ID 6804614765. SHIFT와 혼동하지 않는다.
-- 의상 35개: `mukjump.achievement.skin.01`~`.35`. 기존 InkSkinId 순서를 변경하지 않는다.
+- 의상 39개: `mukjump.achievement.skin.01`~`.39`. 기존 InkSkinId 0~35는 보존하고 학 날개·먹나비·버선·구름 장화만 36~39에 추가했다.
 - 일반 업적 2개: `mukjump.achievement.wall`, `mukjump.achievement.flight3`.
-- 각각 20점, 총 740점, 반복 달성 불가. 숨김 여부와 한·영·일 이름/달성 전후 설명은 catalog.json 기준.
+- 일반 업적 포함 41개, 각각 20점, 총 820점, 반복 달성 불가. 숨김 여부와 한·영·일 이름/달성 전후 설명은 catalog.json 기준.
 - 숨김 업적은 잠겨 있는 동안 0%도 보내지 않으며, 달성한 뒤 100%만 전송한다.
 
 App Store Connect 로그인 후 해당 ID의 기존 정의를 먼저 확인하여 중복 생성 없이 등록한다. 세 언어와 아이콘까지 저장하고 Game Center 사용을 다음 스킨 버전에 연결한다. 현재 제출한 버전을 취소/교체하거나 심사에 추가 제출하지 않는다.

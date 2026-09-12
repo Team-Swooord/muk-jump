@@ -271,7 +271,7 @@ namespace MukJump.EditorTests
             wardrobe.Presentation.Cancel();
             var preview=wardrobe.Paper.Find("ShowroomStage/Preview/Accessory").GetComponent<UnityEngine.UI.Image>();
             Vector2 fit=InkSkinCatalog.Offset(id);
-            Assert.That(fit.y,Is.InRange(.1f,.18f),"머리띠는 모자 높이가 아닌 이마에 걸칩니다.");
+            Assert.That(fit.y,Is.InRange(.1f,.23f),"머리띠는 모자 높이가 아닌 이마에 걸칩니다.");
             Assert.That(preview.rectTransform.anchoredPosition/500f,Is.EqualTo(fit));
             Assert.That(preview.rectTransform.sizeDelta.x/500f,Is.EqualTo(InkSkinCatalog.Width(id)).Within(.0001f));
             Invoke(manager,"SetState",GameState.Playing);

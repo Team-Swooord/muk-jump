@@ -15,6 +15,72 @@ namespace MukJump.EditorTests
     public sealed class InkShowroomPlayTests
     {
         [UnityTest, Timeout(120000)]
+        public IEnumerator RefittedAccessoriesAndFootwearRenderInWardrobeAndUnlock()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool oldBackground=Application.runInBackground; Application.runInBackground=true;
+            var settings=new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                Assert.That(SkinDebugSession.SetAllUnlocked(true),Is.True);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(),Is.True); yield return WaitForWardrobe();
+                var view=Object.FindAnyObjectByType<InkWardrobeView>(); GameLocalization.SetLanguage(GameLanguage.Korean);
+                foreach(var id in new[]{InkSkinId.RedHeadband,InkSkinId.Gat,InkSkinId.FoxMask,InkSkinId.InkGhost,InkSkinId.CloudCap,InkSkinId.Astronaut,InkSkinId.CraneWings,InkSkinId.ButterflyWings,InkSkinId.RedShoes,InkSkinId.CloudBoots})
+                {
+                    view.Select(id); yield return Wait(.55f); Canvas.ForceUpdateCanvases();
+                    var art=view.Paper.Find("ShowroomStage/Preview/Accessory").GetComponent<UnityEngine.UI.Image>();
+                    Assert.That(art.enabled,Is.True); Assert.That(art.canvasRenderer.cull,Is.False);
+                    if(InkSkinCatalog.IsFootwear(id))
+                    {
+                        Assert.That(art,Is.InstanceOf<InkAccessoryImage>());
+                        Assert.That(art.canvasRenderer.GetMesh().vertexCount,Is.EqualTo(8));
+                    }
+                    yield return Capture("fitted-"+id);
+                }
+                foreach(var language in new[]{GameLanguage.Korean,GameLanguage.English,GameLanguage.Japanese})
+                {
+                    GameLocalization.SetLanguage(language); view.ToggleCollection(); yield return Wait(.3f);
+                    Assert.That(view.CollectionExpanded,Is.True);
+                    foreach(var graphic in view.CollectionContent.GetComponentsInChildren<UnityEngine.UI.Image>())
+                        if(graphic.enabled && graphic.sprite!=null) Assert.That(graphic.canvasRenderer.cull,Is.False,graphic.name);
+                    yield return Capture("fitted-all-"+language);
+                    view.CollectionContent.Find("SkinCard39").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                    Assert.That(view.Selected,Is.EqualTo(InkSkinId.CloudBoots)); Assert.That(view.CollectionExpanded,Is.False);
+                }
+                view.BackButton.onClick.Invoke(); yield return Wait(2);
+                GameLocalization.SetLanguage(GameLanguage.Korean);
+                SkinUnlockSceneController.PreparePreview((1UL<<(int)InkSkinId.RedHeadband)|(1UL<<(int)InkSkinId.CloudBoots),PermanentGrowthProfile.SkinAccountToken);
+                yield return SceneManager.LoadSceneAsync(SkinUnlockSceneController.SceneName);
+                var unlock=Object.FindAnyObjectByType<InkSkinUnlockView>();
+                float revealDeadline=Time.realtimeSinceStartup+8;
+                while(!unlock.IsOpen && Time.realtimeSinceStartup<revealDeadline) yield return null;
+                Assert.That(unlock.IsOpen,Is.True);
+                yield return Wait(1.5f); yield return Capture("fitted-unlock-headband");
+                unlock.Advance(); yield return Wait(.2f);
+                // 낮은 에디터 프레임에서는 첫 누름이 연출 건너뛰기만 완료한다.
+                if(unlock.Current==InkSkinId.RedHeadband) unlock.Advance();
+                yield return Wait(1.5f);
+                Assert.That(unlock.Current,Is.EqualTo(InkSkinId.CloudBoots)); yield return Capture("fitted-unlock-boots");
+                unlock.AcknowledgeAll();
+            }
+            finally
+            {
+                SkinDebugSession.Reset(); Application.runInBackground=oldBackground;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+        [UnityTest, Timeout(120000)]
         public IEnumerator WideCollectionScrollsWithoutEquippingAndShowsAllInThreeLanguages()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
@@ -68,8 +134,8 @@ namespace MukJump.EditorTests
                 Assert.That(Vector2.Distance(offset,scroll.content.anchoredPosition),Is.LessThan(.1f));
                 scroll.verticalNormalizedPosition=0; yield return Wait(.1f);
                 yield return Capture("wardrobe-scroll-bottom");
-                var last=view.CollectionContent.Find("SkinCard35");
-                Assert.That(last.Find("PreviewViewport/QuestionMark").GetComponent<UnityEngine.UI.Text>().canvasRenderer.cull,Is.False);
+                var last=view.CollectionContent.Find("SkinCard"+(InkSkinCatalog.Count-1));
+                Assert.That(last.Find("PreviewViewport/Preview/Accessory").GetComponent<UnityEngine.UI.Image>().canvasRenderer.cull,Is.False);
                 scroll.velocity=new Vector2(0,200); MobileApplicationLifecycle.SetPlatformVisibility(false); yield return null;
                 Assert.That(scroll.velocity,Is.EqualTo(Vector2.zero)); Assert.That(scroll.enabled,Is.False);
                 MobileApplicationLifecycle.SetPlatformVisibility(true); yield return Wait(.1f);

@@ -19,7 +19,7 @@ namespace MukJump.EditorTests
             live.Sample(stats, 777, 65, 3, notices.Add); live.Sample(stats, 777, 65, 3, notices.Add);
             Assert.That(notices.Distinct().Count(), Is.EqualTo(notices.Count));
             Assert.That(notices, Has.Member((int)InkSkinId.BellRibbon));
-            Assert.That(notices, Has.Member(36)); Assert.That(notices, Has.Member(37));
+            Assert.That(notices, Has.Member(InkSkinCatalog.Count)); Assert.That(notices, Has.Member(InkSkinCatalog.Count+1));
             foreach (var id in new[]{InkSkinId.FirstRibbon, InkSkinId.LuckyDice, InkSkinId.ClockworkCat, InkSkinId.TigerMask, InkSkinId.PaperBoat})
                 Assert.That(notices, Has.No.Member((int)id));
             var saved = PermanentGrowthProfile.AchievementSnapshot();
@@ -58,7 +58,7 @@ namespace MukJump.EditorTests
                 Assert.That(progress.Any(x=>x.id == InkAchievementCatalog.Id(i)), Is.False);
             state.Grant(InkSkinId.NightBat);
             Assert.That(InkAchievementCatalog.SavedProgress(state,0).Single(x=>x.id == InkAchievementCatalog.Id(31)).percent, Is.EqualTo(100));
-            Assert.That(Enumerable.Range(1,37).Select(InkAchievementCatalog.Id).Distinct().Count(), Is.EqualTo(37));
+            Assert.That(Enumerable.Range(1,InkAchievementCatalog.Count).Select(InkAchievementCatalog.Id).Distinct().Count(), Is.EqualTo(InkAchievementCatalog.Count));
         }
         [Test] public void ConfirmedLegacyBestIsReadForGameCenterWithoutMutatingGrowth()
         {

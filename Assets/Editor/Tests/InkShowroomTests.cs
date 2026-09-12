@@ -93,7 +93,7 @@ namespace MukJump.EditorTests
             Assert.That(body.rectTransform.sizeDelta.x, Is.EqualTo(500));
             Assert.That(AssetDatabase.GetAssetPath(body.sprite), Is.EqualTo("Assets/Art/Character/Player/muk_spritesheet.png"));
             var strip = view.CollectionContent.Cast<Transform>().Cast<RectTransform>().ToArray();
-            Assert.That(strip.Length,Is.EqualTo(36));
+            Assert.That(strip.Length,Is.EqualTo(InkSkinCatalog.Count));
             Assert.That(strip.Select(t=>t.anchoredPosition.y).Distinct().Count(), Is.EqualTo(8));
             Assert.That(strip[0].sizeDelta, Is.EqualTo(new Vector2(180,190)));
             Assert.That(view.CollectionScroll.vertical && !view.CollectionScroll.horizontal,Is.True);
@@ -117,8 +117,7 @@ namespace MukJump.EditorTests
                     view.Select((InkSkinId)selected); Canvas.ForceUpdateCanvases();
                     var strip = view.CollectionContent.Cast<Transform>().Where(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf)
                         .Cast<RectTransform>().ToArray();
-                    Assert.That(strip.Length, Is.EqualTo(36));
-                    Vector3? previewScale = null, previewPosition = null;
+                    Assert.That(strip.Length, Is.EqualTo(InkSkinCatalog.Count));
                     for (int slot = 0; slot < strip.Length; slot++)
                     {
                         var card = strip[slot];
@@ -127,9 +126,8 @@ namespace MukJump.EditorTests
                         var viewport = (RectTransform)card.Find("PreviewViewport");
                         Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null);
                         var preview = (RectTransform)viewport.Find("Preview");
-                        previewScale ??= preview.localScale; previewPosition ??= preview.anchoredPosition;
-                        Assert.That(preview.localScale, Is.EqualTo(previewScale.Value));
-                        Assert.That((Vector3)preview.anchoredPosition, Is.EqualTo(previewPosition.Value));
+                        Assert.That(preview.localScale.x, Is.GreaterThan(0).And.LessThanOrEqualTo(1));
+                        if(slot==0) Assert.That(preview.localScale, Is.EqualTo(Vector3.one));
                         foreach (var image in preview.GetComponentsInChildren<Image>().Where(i=>i.enabled))
                             AssertInside(BoundsIn(viewport,image.rectTransform),viewport.rect,3.9f,card.name+"/"+image.name);
                         var state = card.Find("State").GetComponent<Text>();
@@ -495,7 +493,7 @@ namespace MukJump.EditorTests
             view.Select((InkSkinId)(InkSkinCatalog.Count-1)); view.StepSelection(1);
             Assert.That((int)view.Selected, Is.EqualTo(InkSkinCatalog.Count-1));
             Assert.That(view.Paper.Find("ShowroomStage/NextCostume").GetComponent<Button>().interactable, Is.False);
-            Assert.That(view.CollectionContent.Cast<Transform>().Count(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf), Is.EqualTo(36));
+            Assert.That(view.CollectionContent.Cast<Transform>().Count(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf), Is.EqualTo(InkSkinCatalog.Count));
         }
         [Test] public void ScrollPositionSurvivesRefreshAndAllViewFitsEveryCardWithoutLeakingSecrets()
         {
@@ -507,7 +505,7 @@ namespace MukJump.EditorTests
             Vector2 offset=scroll.content.anchoredPosition;
             Invoke(view,"RefreshSelection");
             Assert.That(scroll.content.anchoredPosition,Is.EqualTo(offset));
-            AssertInside(BoundsIn(scroll.viewport,(RectTransform)view.CollectionContent.Find("SkinCard35")),scroll.viewport.rect,0,"last card");
+            AssertInside(BoundsIn(scroll.viewport,(RectTransform)view.CollectionContent.Find("SkinCard"+(InkSkinCatalog.Count-1))),scroll.viewport.rect,0,"last card");
             view.ToggleCollection(); Canvas.ForceUpdateCanvases();
             Assert.That(view.CollectionExpanded,Is.True);
             Assert.That(Focus.parent.gameObject.activeSelf,Is.False);

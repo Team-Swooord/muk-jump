@@ -245,20 +245,18 @@ namespace MukJump.Core
         }
         void FitCardPreviews()
         {
-            // 수집 목록 전체가 먹 크기·기준선을 공유한다. 큰 장식도 칸을 벗어나지 않는다.
-            Vector2 min=Vector2.one*-50f, max=-min;
-            int first=0, end=cards.Length;
-            for(int i=first;i<end;i++)
+            // 큰 날개가 다른 의상의 먹까지 줄이지 않도록 각 칸 안에서만 맞춘다.
+            for(int i=0;i<cards.Length;i++)
             {
-                if(!cardAccessories[i].enabled) continue;
-                var rect=cardAccessories[i].rectTransform;
-                min=Vector2.Min(min,rect.anchoredPosition-rect.sizeDelta*.5f);
-                max=Vector2.Max(max,rect.anchoredPosition+rect.sizeDelta*.5f);
-            }
-            Vector2 size=max-min, available=cardViewports[first].sizeDelta-Vector2.one*8f;
-            float scale=Mathf.Min(1f,Mathf.Min(available.x/size.x,available.y/size.y));
-            for(int i=first;i<end;i++)
-            {
+                Vector2 min=Vector2.one*-50f, max=-min;
+                if(cardAccessories[i].enabled)
+                {
+                    var rect=cardAccessories[i].rectTransform;
+                    min=Vector2.Min(min,rect.anchoredPosition-rect.sizeDelta*.5f);
+                    max=Vector2.Max(max,rect.anchoredPosition+rect.sizeDelta*.5f);
+                }
+                Vector2 size=max-min, available=cardViewports[i].sizeDelta-Vector2.one*8f;
+                float scale=Mathf.Min(1f,Mathf.Min(available.x/size.x,available.y/size.y));
                 cardPreviews[i].localScale=Vector3.one*scale;
                 cardPreviews[i].anchoredPosition=-(min+max)*(.5f*scale);
             }
@@ -357,7 +355,9 @@ namespace MukJump.Core
             if (collectionGrid==null) return;
             StopCollection();
             collectionGrid.constraintCount=collectionExpanded ? 6 : 5;
-            collectionGrid.cellSize=collectionExpanded ? new Vector2(150,220) : new Vector2(180,190);
+            int rows=Mathf.CeilToInt(InkSkinCatalog.Count/6f);
+            float allHeight=Mathf.Min(220,(1560f-(rows-1)*16f)/rows);
+            collectionGrid.cellSize=collectionExpanded ? new Vector2(150,allHeight) : new Vector2(180,190);
             collectionRoot.anchoredPosition=collectionExpanded ? new Vector2(0,0) : new Vector2(0,-488);
             collectionRoot.sizeDelta=new Vector2(1000,collectionExpanded ? 1560 : 520);
             stage.gameObject.SetActive(!collectionExpanded);
@@ -371,10 +371,10 @@ namespace MukJump.Core
             {
                 if(cards[i]==null) continue;
                 cardPapers[i].rectTransform.sizeDelta=collectionGrid.cellSize;
-                cardViewports[i].anchoredPosition=new Vector2(0,18);
-                cardViewports[i].sizeDelta=new Vector2(collectionGrid.cellSize.x-24,collectionExpanded ? 150 : 112);
-                cardStates[i].rectTransform.anchoredPosition=new Vector2(0,-collectionGrid.cellSize.y*.5f+27);
-                cardStates[i].rectTransform.sizeDelta=new Vector2(collectionGrid.cellSize.x-24,28);
+                cardViewports[i].anchoredPosition=new Vector2(0,collectionExpanded ? 18 : 25);
+                cardViewports[i].sizeDelta=new Vector2(collectionGrid.cellSize.x-24,collectionExpanded ? Mathf.Min(150,allHeight-70) : 132);
+                cardStates[i].rectTransform.anchoredPosition=new Vector2(0,-collectionGrid.cellSize.y*.5f+31);
+                cardStates[i].rectTransform.sizeDelta=new Vector2(collectionGrid.cellSize.x-24,36);
             }
             collectionScroll.enabled=CanInteract();
         }
@@ -488,7 +488,8 @@ namespace MukJump.Core
         }
         static UnityEngine.UI.Image SpriteImage(string name, Transform parent, Sprite sprite, Vector2 position, Vector2 size)
         {
-            var image = Rect(name, parent, position, size).gameObject.AddComponent<UnityEngine.UI.Image>();
+            var rect = Rect(name, parent, position, size);
+            UnityEngine.UI.Image image = name=="Accessory" ? rect.gameObject.AddComponent<InkAccessoryImage>() : rect.gameObject.AddComponent<UnityEngine.UI.Image>();
             image.sprite = sprite; image.preserveAspect = true; image.raycastTarget = false;
             return image;
         }

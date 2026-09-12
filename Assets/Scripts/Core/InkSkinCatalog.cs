@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 namespace MukJump.Core
 {
-    public enum InkSkinId { Ink = 0, Gat = 1, SpiderMask = 2, FirstRibbon = 3, Scholar = 4, InkGhost = 5, BambooHat = 6, RedHeadband = 7, LotusCrown = 8, CatEars = 9, BellRibbon = 10, CloudCap = 11, PaperBoat = 12, TeaCupHat = 13, FeatherHairpin = 14, PeachFlower = 15, FoxMask = 16, CraneCrest = 17, YakshaMask = 18, TurtleShell = 19, StormScarf = 20, MoonCrown = 21, BrushMaster = 22, SpiritHalo = 23, KoiMask = 24, JadeCrown = 25, PhoenixCrown = 26, TigerMask = 27, MountainKing = 28, CloudDragon = 29, InkMecha = 30, NightBat = 31, Astronaut = 32, ClockworkCat = 33, LuckyDice = 34, OrigamiWings = 35 }
+    public enum InkSkinId { Ink = 0, Gat = 1, SpiderMask = 2, FirstRibbon = 3, Scholar = 4, InkGhost = 5, BambooHat = 6, RedHeadband = 7, LotusCrown = 8, CatEars = 9, BellRibbon = 10, CloudCap = 11, PaperBoat = 12, TeaCupHat = 13, FeatherHairpin = 14, PeachFlower = 15, FoxMask = 16, CraneCrest = 17, YakshaMask = 18, TurtleShell = 19, StormScarf = 20, MoonCrown = 21, BrushMaster = 22, SpiritHalo = 23, KoiMask = 24, JadeCrown = 25, PhoenixCrown = 26, TigerMask = 27, MountainKing = 28, CloudDragon = 29, InkMecha = 30, NightBat = 31, Astronaut = 32, ClockworkCat = 33, LuckyDice = 34, OrigamiWings = 35, CraneWings = 36, ButterflyWings = 37, RedShoes = 38, CloudBoots = 39 }
     public enum SkinTier { Basic, Easy, Medium, Hard, Hidden, UltraHidden }
     public enum SkinMetric { None, Best, Runs, Distance, DrawnLandings, InkDrops, Items, Survival, Clones, NightBest, Growth, NoItemBest, ZeroRun, Secret }
     public sealed class InkSkinDefinition
@@ -17,7 +17,7 @@ namespace MukJump.Core
     }
     public static class InkSkinCatalog
     {
-        public const int Count = 36;
+        public const int Count = 40;
         public const float AirJumpRatio = .4f;
         static readonly InkSkinDefinition[] definitions =
         {
@@ -56,7 +56,11 @@ namespace MukJump.Core
             new(InkSkinId.Astronaut,"달 여행자","Moon Traveler","月の旅人","skin_astronaut_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.ClockworkCat,"태엽 고양이","Clockwork Cat","ぜんまい猫","skin_clockwork_cat_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.LuckyDice,"일곱 번째 눈","Seventh Eye","七つ目の目","skin_lucky_dice_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
-            new(InkSkinId.OrigamiWings,"접힌 차원","Folded Dimension","折りたたむ次元","skin_origami_wings_v1",SkinTier.UltraHidden,SkinMetric.Secret,1)
+            new(InkSkinId.OrigamiWings,"접힌 차원","Folded Dimension","折りたたむ次元","skin_origami_wings_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
+            new(InkSkinId.CraneWings,"학의 날개","Crane Wings","鶴の翼","skin_crane_wings_v1",SkinTier.Medium,SkinMetric.Best,350),
+            new(InkSkinId.ButterflyWings,"먹나비 날개","Ink Butterfly","墨蝶の羽","skin_butterfly_wings_v1",SkinTier.Medium,SkinMetric.Items,50),
+            new(InkSkinId.RedShoes,"붉은 버선","Crimson Steps","紅の足袋","skin_red_shoes_v1",SkinTier.Easy,SkinMetric.DrawnLandings,15),
+            new(InkSkinId.CloudBoots,"구름 장화","Cloud Boots","雲の靴","skin_cloud_boots_v1",SkinTier.Medium,SkinMetric.Distance,3000)
         };
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
         public static InkSkinId Normalize(InkSkinId id) => IsValid(id) ? id : InkSkinId.Ink;
@@ -78,21 +82,48 @@ namespace MukJump.Core
             InkSkinId.PhoenixCrown => "한 판에 한 번 본체가 체력 1칸으로 살아남아 50m 올라가요.\n성장 부활과 횟수를 공유하며 분신에게는 적용되지 않아요.",
             _ => "원래 먹에 장식을 더해요.\n기존 점프와 성장 효과를 유지해요." };
         public static string ResourcePath(InkSkinId id) => Get(id) is { Asset: { Length: > 0 } } d ? "MukJump/Skins/" + d.Asset : "";
-        public static bool BehindBody(InkSkinId id) => id == InkSkinId.OrigamiWings;
-        public static float Width(InkSkinId id) => IsSignatureCostume(id) ? .75f : id switch {
-            InkSkinId.Gat or InkSkinId.BambooHat => .9f,
-            InkSkinId.SpiderMask or InkSkinId.FoxMask or InkSkinId.YakshaMask or InkSkinId.KoiMask or InkSkinId.TigerMask or InkSkinId.NightBat => .55f,
-            InkSkinId.InkGhost => .62f, InkSkinId.BellRibbon => .38f, InkSkinId.CatEars => .8f,
-            InkSkinId.OrigamiWings => 1.08f, InkSkinId.Astronaut => .85f, _ => .68f };
+        public static bool BehindBody(InkSkinId id) => id is InkSkinId.OrigamiWings or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.SpiritHalo;
+        public static bool IsFootwear(InkSkinId id) => id is InkSkinId.RedShoes or InkSkinId.CloudBoots;
+        // 1024 프레임 전체가 기준이다. 실제 먹 몸통은 약 0.7배 폭이며 넉넉한 착용선을 사용한다.
+        public static float Width(InkSkinId id) => id switch {
+            InkSkinId.Gat => .95f, InkSkinId.Scholar => .92f, InkSkinId.BambooHat => .90f,
+            InkSkinId.SpiderMask => .70f, InkSkinId.FoxMask => .70f,
+            InkSkinId.YakshaMask => .74f, InkSkinId.KoiMask => .70f,
+            InkSkinId.TigerMask => .70f, InkSkinId.NightBat => .68f,
+            InkSkinId.FirstRibbon => .42f, InkSkinId.InkGhost => .80f, InkSkinId.BellRibbon => .35f,
+            InkSkinId.RedHeadband => 1.00f, InkSkinId.StormScarf => 1.02f,
+            InkSkinId.LotusCrown => .85f, InkSkinId.CatEars => .98f, InkSkinId.CloudCap => .95f,
+            InkSkinId.PaperBoat => .80f, InkSkinId.TeaCupHat => .68f,
+            InkSkinId.FeatherHairpin => .43f, InkSkinId.PeachFlower => .80f,
+            InkSkinId.CraneCrest => .88f, InkSkinId.TurtleShell => 1.02f,
+            InkSkinId.MoonCrown => .95f, InkSkinId.BrushMaster => .90f,
+            InkSkinId.JadeCrown => .94f, InkSkinId.PhoenixCrown => .90f, InkSkinId.MountainKing => .90f,
+            InkSkinId.CloudDragon => 1.00f, InkSkinId.InkMecha => 1.00f, InkSkinId.Astronaut => 1.05f,
+            InkSkinId.ClockworkCat => 1.02f, InkSkinId.SpiritHalo => 1.04f, InkSkinId.LuckyDice => .88f,
+            InkSkinId.CraneWings => 1.35f, InkSkinId.ButterflyWings => 1.30f, InkSkinId.OrigamiWings => 1.30f,
+            InkSkinId.RedShoes or InkSkinId.CloudBoots => 1f, _ => .68f };
         public static Vector2 Offset(InkSkinId id)
         {
-            // 띠의 착용점은 모자 꼭대기가 아니라 원먹의 이마다. 오른쪽 매듭 여백도 보정한다.
-            if (id == InkSkinId.RedHeadband) return new Vector2(.07f, .14f);
+            // 뒤쪽 끈은 그리지 않는다. 이마 띠와 옆머리 매듭의 중심을 따로 맞춘다.
+            if (id == InkSkinId.RedHeadband) return new Vector2(.015f, .23f);
+            if (id == InkSkinId.FirstRibbon) return new Vector2(.23f, .25f);
+            if (id == InkSkinId.BellRibbon) return new Vector2(.25f, .18f);
+            if (id == InkSkinId.FeatherHairpin) return new Vector2(.22f, .27f);
+            if (id == InkSkinId.StormScarf) return new Vector2(.045f, .16f);
+            if (id == InkSkinId.ClockworkCat) return new Vector2(.04f, .10f);
             return new Vector2(0, id switch {
-                InkSkinId.CatEars => .14f, InkSkinId.ClockworkCat => .16f,
-                InkSkinId.CloudDragon or InkSkinId.InkMecha => .35f,
-                InkSkinId.OrigamiWings => -.015f, InkSkinId.InkGhost => .45f, InkSkinId.Astronaut => .085f,
-                InkSkinId.BellRibbon => .38f, _ => .4f });
+                InkSkinId.Gat => .32f, InkSkinId.Scholar => .34f, InkSkinId.BambooHat => .36f,
+                InkSkinId.LotusCrown => .33f, InkSkinId.CraneCrest => .31f, InkSkinId.PhoenixCrown => .40f,
+                InkSkinId.PaperBoat => .33f, InkSkinId.JadeCrown => .32f, InkSkinId.MountainKing => .36f,
+                InkSkinId.TeaCupHat => .37f, InkSkinId.BrushMaster => .36f,
+                InkSkinId.MoonCrown => .28f, InkSkinId.PeachFlower => .29f,
+                InkSkinId.SpiderMask => .085f, InkSkinId.FoxMask => .095f,
+                InkSkinId.YakshaMask => .055f, InkSkinId.KoiMask => .06f, InkSkinId.TigerMask => .075f, InkSkinId.NightBat => .095f,
+                InkSkinId.CatEars => .11f, InkSkinId.TurtleShell => .30f, InkSkinId.CloudCap => .22f,
+                InkSkinId.CloudDragon => .21f, InkSkinId.InkMecha => .10f, InkSkinId.SpiritHalo => .10f,
+                InkSkinId.InkGhost => .015f, InkSkinId.Astronaut => .06f,
+                InkSkinId.OrigamiWings => .03f, InkSkinId.CraneWings => .04f, InkSkinId.ButterflyWings => .03f,
+                InkSkinId.RedShoes or InkSkinId.CloudBoots => -.25f, InkSkinId.LuckyDice => .34f, _ => 0f });
         }
         static readonly System.Collections.Generic.Dictionary<InkSkinId, Sprite[]> sprites = new();
         public static Sprite Sprite(InkSkinId id, int frame = 0)

@@ -162,6 +162,8 @@ namespace MukJump.Player
                 Bounds bounds = bodyRenderer.bounds;
                 if (skinView != null && skinView.AccessoryRenderer != null && skinView.AccessoryRenderer.enabled)
                     bounds.Encapsulate(skinView.AccessoryRenderer.bounds);
+                if (skinView != null && skinView.RightShoeRenderer != null && skinView.RightShoeRenderer.enabled)
+                    bounds.Encapsulate(skinView.RightShoeRenderer.bounds);
                 return bounds;
             }
             if (bodyCollider != null && bodyCollider.enabled)

@@ -36,11 +36,11 @@ namespace MukJump.EditorTests
             LobbySettingsProfile.RestoreDefaultStoreForTests();
             ScoreManager.RestoreDefaultStoreForTests();
         }
-        public static IEnumerable<InkSkinId> Rewards => Enumerable.Range(1,35).Select(i=>(InkSkinId)i);
+        public static IEnumerable<InkSkinId> Rewards => Enumerable.Range(1,InkSkinCatalog.Count-1).Select(i=>(InkSkinId)i);
         [Test] public void CatalogHasRequestedCountsAndOnlyThreeSignatureCostumes()
         {
-            Assert.That(InkSkinCatalog.Count,Is.EqualTo(36));
-            var all=Rewards.Select(InkSkinCatalog.Get).ToArray();
+            Assert.That(InkSkinCatalog.Count,Is.EqualTo(40));
+            var all=Rewards.Take(35).Select(InkSkinCatalog.Get).ToArray();
             Assert.That(all.Count(x=>x.Tier is SkinTier.Basic or SkinTier.Hidden),Is.EqualTo(5));
             Assert.That(all.Count(x=>x.Tier==SkinTier.Easy),Is.EqualTo(10));
             Assert.That(all.Count(x=>x.Tier==SkinTier.Medium),Is.EqualTo(10));
@@ -48,7 +48,8 @@ namespace MukJump.EditorTests
             Assert.That(all.Count(x=>x.Tier==SkinTier.UltraHidden),Is.EqualTo(5));
             Assert.That(Rewards.Count(InkSkinCatalog.IsSignatureCostume),Is.EqualTo(3));
             Assert.That(all.Select(x=>x.Asset).Distinct().Count(),Is.EqualTo(35));
-            Assert.That(InkSkinAchievements.IsUnlocked((InkSkinId)36),Is.False);
+            Assert.That(Rewards.Select(id=>InkSkinCatalog.Get(id).Asset).Distinct().Count(),Is.EqualTo(39));
+            Assert.That(InkSkinAchievements.IsUnlocked((InkSkinId)InkSkinCatalog.Count),Is.False);
         }
         [TestCaseSource(nameof(Rewards))]
         public void EveryRewardStartsLockedHasArtAndTranslations(InkSkinId id)
@@ -244,7 +245,7 @@ namespace MukJump.EditorTests
             view.BuildForTests();view.SetNavigationPresentation(true,true);
             for(int page=0;page<6;page++)
             {
-                Assert.That(view.Paper.GetComponentsInChildren<UnityEngine.UI.Button>().Count(b=>b.name.StartsWith("SkinCard")),Is.EqualTo(36));
+                Assert.That(view.Paper.GetComponentsInChildren<UnityEngine.UI.Button>().Count(b=>b.name.StartsWith("SkinCard")),Is.EqualTo(InkSkinCatalog.Count));
                 view.ChangePage(1);
             }
             view.Select(InkSkinId.ClockworkCat);

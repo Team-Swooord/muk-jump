@@ -226,7 +226,7 @@ namespace MukJump.Core
         {
             var rect = Rect(name, parent, size);
             var image = rect.GetComponent<Image>();
-            if (image == null) image = rect.gameObject.AddComponent<Image>();
+            if (image == null) image = name=="OutgoingCostume" ? rect.gameObject.AddComponent<InkAccessoryImage>() : rect.gameObject.AddComponent<Image>();
             image.sprite = sprite; image.raycastTarget = false;
             return image;
         }

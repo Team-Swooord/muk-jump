@@ -6,7 +6,7 @@ namespace MukJump.Core
     { public string id; public double percent; }
     public static class InkAchievementCatalog
     {
-        public const int Count = 37;
+        public const int Count = InkSkinCatalog.Count + 1;
         public static string Id(int index) => index < InkSkinCatalog.Count
             ? $"mukjump.achievement.skin.{index:00}"
             : index == InkSkinCatalog.Count ? "mukjump.achievement.wall" : "mukjump.achievement.flight3";
