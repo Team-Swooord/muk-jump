@@ -2164,6 +2164,7 @@ namespace MukJump.Core
             if (player != null)
                 ScoreManager.Instance?.ResetOrigin(player.transform.position.y);
             debugScenario?.BeginPreparedRun();
+            SkinDebugSession.ExcludeTestRun();
             MukJumpAnalytics.BeginRun(currentRunId,
                 !DebugInvincible && ScoreManager.Instance != null && ScoreManager.Instance.RecordsAllowed,
                 PermanentGrowthProfile.OwnedNodeCount);

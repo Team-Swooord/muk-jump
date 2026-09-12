@@ -18,6 +18,7 @@ namespace MukJump.EditorTools
         IosLocalValidation,
         AndroidGooglePlay,
         AndroidLocalValidation,
+        IosSkinDebug,
     }
 
     /// App Store와 Google Play에 공통으로 사용하는 모바일 릴리스 설정을 재현한다.
@@ -628,6 +629,19 @@ namespace MukJump.EditorTools
                 intent: MukJumpNativeBuildIntent.IosTestFlightQa,
                 options: BuildOptions.None,
                 extraScriptingDefines: new[] { TestFlightQaAdsDefine, PrereleasePlayerReset.BuildDefine });
+        }
+
+        [MenuItem("MukJump/Release/Build iOS Skin Debug TestFlight (Preserve Accounts)")]
+        public static void BuildIosSkinDebugProject()
+        {
+            string next = ResolveNextIosTestFlightBuildNumber(
+                Environment.GetEnvironmentVariable("MUKJUMP_IOS_BUILD_NUMBER"), PlayerSettings.iOS.buildNumber);
+            ValidateAppStoreReadiness();
+            PlayerSettings.iOS.buildNumber = next;
+            AssetDatabase.SaveAssets();
+            BuildIosProjectAt("output/ios/MukJumpSkinDebug", $"의상 내부 TestFlight {next}",
+                requireReleaseIdentity: true, intent: MukJumpNativeBuildIntent.IosSkinDebug,
+                options: BuildOptions.None, extraScriptingDefines: new[] { TestFlightQaAdsDefine, SkinDebugSession.BuildDefine });
         }
 
         public static string NextIosBuildNumber(string currentBuildNumber)
@@ -1979,7 +1993,8 @@ namespace MukJump.EditorTools
                 MukJumpStoreBuild.ValidateAppleDeveloperTeamId(
                     PlayerSettings.iOS.appleDeveloperTeamID);
                 if (currentIntent == MukJumpNativeBuildIntent.IosAppStore ||
-                    currentIntent == MukJumpNativeBuildIntent.IosTestFlightQa)
+                    currentIntent == MukJumpNativeBuildIntent.IosTestFlightQa ||
+                    currentIntent == MukJumpNativeBuildIntent.IosSkinDebug)
                     ValidateBackend(BackendReleasePlatform.IOS);
                 return;
             }
@@ -2029,6 +2044,7 @@ namespace MukJump.EditorTools
             }
 
             bool iosIntent = intent == MukJumpNativeBuildIntent.IosAppStore ||
+                             intent == MukJumpNativeBuildIntent.IosSkinDebug ||
                              intent == MukJumpNativeBuildIntent.IosTestFlightQa ||
                              intent == MukJumpNativeBuildIntent.IosLocalValidation;
             bool androidIntent =
@@ -2060,6 +2076,7 @@ namespace MukJump.EditorTools
 
             bool productionStoreIntent =
                 intent == MukJumpNativeBuildIntent.IosAppStore ||
+                intent == MukJumpNativeBuildIntent.IosSkinDebug ||
                 intent == MukJumpNativeBuildIntent.IosTestFlightQa ||
                 intent == MukJumpNativeBuildIntent.AndroidGooglePlay;
             if (productionStoreIntent && !string.Equals(
@@ -2077,7 +2094,7 @@ namespace MukJump.EditorTools
                 issues.Add(
                     "네이티브 빌드에 전역 MUKJUMP_TEST_ADS 심볼이 남아 있습니다.");
             bool expectsPerBuildTestAds =
-                intent == MukJumpNativeBuildIntent.IosTestFlightQa;
+                intent == MukJumpNativeBuildIntent.IosTestFlightQa || intent == MukJumpNativeBuildIntent.IosSkinDebug;
             if (hasPerBuildTestAdsDefine != expectsPerBuildTestAds)
                 issues.Add(
                     expectsPerBuildTestAds
@@ -2113,6 +2130,14 @@ namespace MukJump.EditorTools
             string[] global = PlayerSettings.GetScriptingDefineSymbols(
                 target == BuildTarget.iOS ? NamedBuildTarget.iOS : NamedBuildTarget.Android).Split(';');
             ValidatePrereleaseResetScope(intent, global, extraDefines);
+            ValidateSkinDebugScope(intent, global, extraDefines);
+        }
+
+        public static void ValidateSkinDebugScope(MukJumpNativeBuildIntent intent, string[] global, string[] extraDefines)
+        {
+            bool Has(string[] symbols) => symbols != null && symbols.Any(s => s?.Trim() == SkinDebugSession.BuildDefine);
+            if (Has(global) || Has(extraDefines) != (intent == MukJumpNativeBuildIntent.IosSkinDebug))
+                throw new BuildFailedException("의상 DEBUG는 별도 내부 TestFlight의 일회성 심볼로만 허용합니다.");
         }
 
         public static void ValidatePrereleaseResetScope(MukJumpNativeBuildIntent intent,

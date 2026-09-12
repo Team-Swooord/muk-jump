@@ -25,3 +25,16 @@ App Store Connect 로그인 후 해당 ID의 기존 정의를 먼저 확인하�
 3. 오프라인 달성 → 재실행 → 온라인 복귀에서 현재 계정의 저장된 업적만 재전송되는지 확인한다.
 4. 게임 계정과 Game Center 계정을 각각 바꾸며 이전 요청 응답이 새 프로필을 변경하지 않는지 확인한다.
 5. Game Center 기존 달성 업적을 로컬 의상/점수/성장으로 가져오지 않는지 확인한다.
+# 내부 TestFlight 의상 시험 창
+
+`MukJump/Release/Build iOS Skin Debug TestFlight (Preserve Accounts)`는 일회성
+`MUKJUMP_SKIN_DEBUG`와 테스트 광고를 포함한 비 Development iOS 빌드다.
+로비 왼쪽 아래 DEBUG → 일반/히든 해금 연출, 전체 의상 해금 ON/OFF, 닫기를 제공한다.
+전체 해금과 시험 착용은 계정별 메모리에서만 유지하며 앱 재실행·계정 교체·OFF 때 폐기한다.
+시험 중 점수·성장·업적·리더보드는 저장하지 않고, 실제 해금과 장착 저장을 덮어쓰지 않는다.
+Game Center 동기화는 실제 저장된 업적만 사용한다.
+
+이 빌드는 **ExportOptions와 UploadOptions 모두 `testFlightInternalTestingOnly=true`**로 배포한다.
+정식 심사본 1.0.0(29)는 변경하지 않는다. 28번부터 정식 심사 전환된 기록 보존 정책을
+따르므로 서버 전원 삭제와 빌드별 로컬 초기화는 다시 켜지 않는다.
+정식 App Store 내보내기에서는 디버그 심볼을 거부하며 시험 창을 생성하지 않는다.

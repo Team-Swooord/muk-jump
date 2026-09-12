@@ -15,6 +15,14 @@ namespace MukJump.Core
         {
             var result = new Dictionary<string, (string, string)>
             {
+                ["의상 시험실"] = ("Outfit test room", "衣装テスト"),
+                ["닫기"] = ("Close", "閉じる"),
+                ["해금 연출 보기"] = ("Preview unlock", "解放演出を見る"),
+                ["히든 해금 연출"] = ("Preview secret unlock", "秘密の解放演出"),
+                ["전체 의상 해금 ON"] = ("Unlock all outfits ON", "全衣装を解放 ON"),
+                ["전체 의상 해금 OFF"] = ("Unlock all outfits OFF", "全衣装を解放 OFF"),
+                ["시험 착용 중 · 플레이 기록 저장 안 됨"] = ("Test outfits · runs are not saved", "試着中 · プレイ記録は保存されません"),
+                ["실제 기록은 바뀌지 않아요"] = ("Your real progress stays unchanged", "実際の進行状況は変わりません"),
                 ["쇼룸"] = ("Showroom", "ショールーム"),
                 ["새 의상 해금"] = ("Costume Unlocked", "衣装を解放"),
                 ["비밀 의상 발견"] = ("Secret Discovered", "秘密の衣装を発見"),

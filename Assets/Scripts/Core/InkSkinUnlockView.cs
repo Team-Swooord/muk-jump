@@ -22,7 +22,7 @@ namespace MukJump.Core
         int count, index;
         float elapsed, nextActionAt;
         uint inactiveGeneration;
-        bool visible, revealed;
+        bool visible, revealed, debugPreview;
         AudioClip revealSound;
         public bool IsOpen => visible;
         public int Count => count;
@@ -31,15 +31,19 @@ namespace MukJump.Core
         public bool IsRevealed => revealed;
 
         public bool Show(ulong mask, object owner, Action onCompleted, Action onInvalidated = null)
+            => ShowCore(mask, owner, onCompleted, onInvalidated, false);
+        public bool ShowPreview(ulong mask, object owner, Action onCompleted, Action onInvalidated = null)
+            => SkinDebugSession.Available && ShowCore(mask, owner, onCompleted, onInvalidated, true);
+        bool ShowCore(ulong mask, object owner, Action onCompleted, Action onInvalidated, bool preview)
         {
             if (visible || !ReferenceEquals(owner, PermanentGrowthProfile.SkinAccountToken)) return false;
             count = 0;
             for (int i = 1; i < InkSkinCatalog.Count; i++)
-                if ((mask & (1UL << i)) != 0 && InkSkinAchievements.IsUnlocked((InkSkinId)i))
+                if ((mask & (1UL << i)) != 0 && (preview || InkSkinAchievements.IsUnlocked((InkSkinId)i)))
                     rewards[count++] = (InkSkinId)i;
             if (count == 0) return false;
             Build();
-            account = owner; completed = onCompleted; invalidated = onInvalidated; index = 0; visible = true;
+            account = owner; completed = onCompleted; invalidated = onInvalidated; index = 0; visible = true; debugPreview = preview;
             group.alpha = 1f; group.interactable = group.blocksRaycasts = true;
             BindCurrent(); ApplyLayout(); PointerInput.SuppressUntilRelease();
             return true;
@@ -112,7 +116,7 @@ namespace MukJump.Core
             seal.gameObject.SetActive(true); seal.localScale = Vector3.one;
         }
         bool IsCurrentContext() => ReferenceEquals(account, PermanentGrowthProfile.SkinAccountToken) &&
-            InkSkinAchievements.IsUnlocked(Current) &&
+            (debugPreview && SkinDebugSession.Available || InkSkinAchievements.IsUnlocked(Current)) &&
             (MukJumpAccountRuntime.Instance == null || !MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync) &&
             (GameManager.Instance == null || GameManager.Instance.State == GameState.GameOver);
         bool CanAdvance() => visible && IsCurrentContext() && MobileApplicationLifecycle.IsApplicationActive &&

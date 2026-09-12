@@ -28,7 +28,7 @@ namespace MukJump.Core
         {
             var game = GameManager.Instance;
             var nav = LobbyScreenNavigator.Instance;
-            if (game == null || game.State != GameState.Lobby || game.IsPaused || game.IsTransitioning ||
+            if (SkinDebugSession.MenuOpen || game == null || game.State != GameState.Lobby || game.IsPaused || game.IsTransitioning ||
                 nav == null || nav.IsTransitioning || nav.CurrentSection != LobbyScreenNavigator.LobbySection.Lobby ||
                 LobbySettingsProfile.NeedsGameplayTutorial || FirstRunTutorialController.Instance?.IsActive == true ||
                 StartupBrandSplash.IsBlockingInput || !Application.isFocused ||

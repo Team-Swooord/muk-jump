@@ -101,6 +101,7 @@ namespace MukJump.Core
         static readonly InkSkinId[] sequence = { InkSkinId.Ink, InkSkinId.Gat, InkSkinId.Ink, InkSkinId.SpiderMask, InkSkinId.Ink };
         static bool Ready()
         {
+            if (SkinDebugSession.Active) { nightChanges = selectionStep = 0; return false; }
             if (PermanentGrowthProfile.RequiresRecovery ||
                 GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby ||
                 MukJumpAccountRuntime.Instance != null && MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync) return false;

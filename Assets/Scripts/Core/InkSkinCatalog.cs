@@ -145,6 +145,7 @@ namespace MukJump.Core
         {
             get
             {
+                if (SkinDebugSession.TryGetEquipped(out var preview)) return preview;
                 var chosen = InkSkinCatalog.Normalize((InkSkinId)store.GetInt(StorageKey, 0));
                 return InkSkinAchievements.IsUnlocked(chosen) ? chosen : InkSkinId.Ink;
             }
@@ -152,10 +153,11 @@ namespace MukJump.Core
 
         public static bool TryEquip(InkSkinId id)
         {
-            if (!InkSkinAchievements.IsUnlocked(id) ||
+            if (!SkinDebugSession.CanEquip(id) ||
                 GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby ||
                 MukJumpAccountRuntime.Instance != null && MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
                 return false;
+            if (SkinDebugSession.Active) return SkinDebugSession.TryEquip(id);
             int previous = store.GetInt(StorageKey, 0);
             if (previous == (int)id) return true;
             try

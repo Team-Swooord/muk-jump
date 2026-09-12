@@ -114,7 +114,7 @@ namespace MukJump.Core
             (!Application.isPlaying || paper.GetComponent<HanjiScrollFrame>().IsReady);
         void Equip()
         {
-            if (!CanInteract() || !InkSkinAchievements.IsUnlocked(selected) || InkSkinPreferences.Equipped == selected) return;
+            if (!CanInteract() || !SkinDebugSession.CanEquip(selected) || InkSkinPreferences.Equipped == selected) return;
             bool saved = InkSkinPreferences.TryEquip(selected);
             InkLocalizedText.SetSource(statusText, saved ? "" : "저장하지 못했어요. 다시 시도해 주세요");
             RefreshSelection();
@@ -128,8 +128,8 @@ namespace MukJump.Core
         }
         void RefreshSelection()
         {
-            bool hidden = InkSkinCatalog.IsConcealed(selected);
-            bool unlocked = InkSkinAchievements.IsUnlocked(selected);
+            bool hidden = SkinDebugSession.IsConcealed(selected);
+            bool unlocked = SkinDebugSession.CanEquip(selected);
             bool equipped = InkSkinPreferences.Equipped == selected;
             InkLocalizedText.SetSource(nameText, hidden ? "" : InkSkinCatalog.Name(selected));
             InkLocalizedText.SetSource(abilityText, hidden ? "" : InkSkinCatalog.Ability(selected));
@@ -139,8 +139,8 @@ namespace MukJump.Core
             if (!hasPreview || renderedSkin != selected || renderedHidden != hidden || renderedUnlocked != unlocked)
             {
                 // 히든 화면과 계정 교체 직후에는 이전 계정의 원화·색을 잔상으로도 노출하지 않는다.
-                presentation.PrepareCostumeChange(hasPreview && !hidden && !InkSkinCatalog.IsConcealed(renderedSkin) &&
-                    renderedUnlocked == InkSkinAchievements.IsUnlocked(renderedSkin));
+                presentation.PrepareCostumeChange(hasPreview && !hidden && !SkinDebugSession.IsConcealed(renderedSkin) &&
+                    renderedUnlocked == SkinDebugSession.CanEquip(renderedSkin));
                 SetPreview(previewBody, previewAccessory, selected, HeroSize, hidden, unlocked);
                 presentation.RememberCostumePose();
                 renderedSkin = selected; renderedHidden = hidden; renderedUnlocked = unlocked; hasPreview = true;
@@ -157,6 +157,7 @@ namespace MukJump.Core
             InkLocalizedText.SetSource(achievementText, hidden ? "" : InkSkinAchievements.Requirement(selected));
             achievementText.color = unlocked ? InkPalette.TextMuted : InkPalette.Red;
             int goal = hidden ? 0 : InkSkinAchievements.Goal(selected), progress = InkSkinAchievements.Progress(selected);
+            if (SkinDebugSession.Active) progress = goal;
             progressText.text = goal == 0 ? "" : $"{progress} / {goal}";
             // 저장 오류는 진행도 자리에 표시해 버튼·두루마리 테두리와 겹치지 않는다.
             bool saveFailed = !string.IsNullOrEmpty(statusText.text);
@@ -171,8 +172,8 @@ namespace MukJump.Core
                 cards[i].SetActive(active);
                 if (!active) continue;
                 var id = (InkSkinId)i;
-                bool concealed = InkSkinCatalog.IsConcealed(id);
-                bool cardUnlocked = InkSkinAchievements.IsUnlocked(id);
+                bool concealed = SkinDebugSession.IsConcealed(id);
+                bool cardUnlocked = SkinDebugSession.CanEquip(id);
                 cardPapers[i].color = id == selected ? InkPalette.Paper : new Color(.86f, .82f, .73f, .62f);
                 cardStates[i].color = id == selected ? InkPalette.Red : InkPalette.TextMuted;
                 SetPreview(cardBodies[i], cardAccessories[i], id, 80, concealed, cardUnlocked);

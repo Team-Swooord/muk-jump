@@ -254,7 +254,9 @@ namespace MukJump.EditorTests
             Assert.That(resolved[1].path,
                 Is.EqualTo(MukJumpSplashSceneBuilder.MainScenePath));
             Assert.That(resolved[1].enabled, Is.True);
-            Assert.That(resolved.Skip(2).All(scene => !scene.enabled), Is.True,
+            Assert.That(resolved[2].path, Is.EqualTo(MukJumpSkinUnlockSceneBuilder.ScenePath));
+            Assert.That(resolved[2].enabled, Is.True, "해금 공개는 정식 플레이 씬이다.");
+            Assert.That(resolved.Skip(3).All(scene => !scene.enabled), Is.True,
                 "개발·참조 씬은 목록에 보존하되 출시 빌드에서는 비활성화해야 합니다.");
         }
 
