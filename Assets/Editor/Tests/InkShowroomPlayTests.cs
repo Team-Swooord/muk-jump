@@ -15,7 +15,7 @@ namespace MukJump.EditorTests
     public sealed class InkShowroomPlayTests
     {
         [UnityTest, Timeout(120000)]
-        public IEnumerator PreviewBackdropAndFootShadowRenderWithoutBlockingBrowse()
+        public IEnumerator LargerWardrobeCopyRendersWithoutRedundantHints()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
             yield return new EnterPlayMode();
@@ -36,7 +36,7 @@ namespace MukJump.EditorTests
                 foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
                 {
                     GameLocalization.SetLanguage(language);
-                    foreach (var id in new[] { InkSkinId.Scholar, InkSkinId.Gat })
+                    foreach (var id in new[] { InkSkinId.Ink, InkSkinId.Scholar, InkSkinId.Gat, InkSkinId.SpiritHalo })
                     {
                         view.Select(id); yield return Wait(.6f); Canvas.ForceUpdateCanvases();
                         var stage = view.Paper.Find("ShowroomStage");
@@ -46,14 +46,21 @@ namespace MukJump.EditorTests
                             Assert.That(image.enabled && !image.canvasRenderer.cull, Is.True, path);
                             Assert.That(image.raycastTarget, Is.False, path);
                         }
-                        foreach (string label in new[] { "SkinName", "ItemLore", "Ability", "Description" })
+                        Assert.That(view.Paper.Find("CollectionGrouping"), Is.Null);
+                        if (id == InkSkinId.Ink)
+                        {
+                            var requirement = view.Paper.Find("Achievement").GetComponent<UnityEngine.UI.Text>();
+                            Assert.That(requirement.text, Is.Empty);
+                            Assert.That(requirement.gameObject.activeSelf, Is.False);
+                        }
+                        foreach (string label in new[] { "Title", "SkinName", "ItemLore", "Ability", "Description" })
                         {
                             var text = view.Paper.Find(label).GetComponent<UnityEngine.UI.Text>();
                             if (!text.gameObject.activeSelf) continue;
                             Assert.That(text.canvasRenderer.cull, Is.False, label);
                             Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + .1f), label);
                         }
-                        yield return Capture("item-details-" + language + "-" + id);
+                        yield return Capture("larger-copy-2026-09-13-" + language + "-" + id);
                     }
                 }
                 var next = InkSkinCatalog.BrowseAt(InkSkinCatalog.BrowseIndex(view.Selected) + 1);

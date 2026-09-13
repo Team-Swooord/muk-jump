@@ -162,7 +162,7 @@ namespace MukJump.EditorTests
                     Assert.That(detailPaper.gameObject.activeSelf, Is.True);
                     Assert.That(detailPaper.raycastTarget || divider.raycastTarget, Is.False);
                     float previousBottom = 260;
-                    foreach (string name in new[] { "SkinName", "ItemLore", "Ability", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "CollectionGrouping", "CollectionScroll" })
+                    foreach (string name in new[] { "SkinName", "ItemLore", "Ability", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "CollectionScroll" })
                     {
                         var row = (RectTransform)view.Paper.Find(name);
                         if (!row.gameObject.activeSelf) continue;
@@ -176,13 +176,22 @@ namespace MukJump.EditorTests
                         Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(row.rect.height + .1f), i + "/" + name + ": " + text.text);
                         if (name is "SkinName" or "ItemLore" or "Ability" or "Description")
                         {
-                            int size = name switch { "SkinName" => 68, "ItemLore" => 38, "Ability" => 48, _ => 42 };
+                            int size = name switch { "SkinName" => 84, "ItemLore" => 46, "Ability" => 56, _ => 50 };
                             Assert.That(text.fontSize, Is.EqualTo(language == GameLanguage.Japanese ? Mathf.RoundToInt(size * .76f) : size));
                             AssertInside(bounds, BoundsIn(view.Paper, detailPaper.rectTransform), 0, name);
                         }
                     }
                     Assert.That(view.CollectionScroll.viewport.rect.height, Is.GreaterThan(180));
                 }
+                Assert.That(view.Paper.Find("CollectionGrouping"), Is.Null);
+                view.Select(InkSkinId.Ink); Canvas.ForceUpdateCanvases();
+                var basicRequirement = view.Paper.Find("Achievement").GetComponent<Text>();
+                Assert.That(basicRequirement.text, Is.Empty);
+                Assert.That(basicRequirement.gameObject.activeSelf, Is.False);
+                Assert.That(view.Paper.Find("AchievementProgress").gameObject.activeSelf, Is.False);
+                Assert.That(view.Paper.Find("AchievementTrack").gameObject.activeSelf, Is.False);
+                Assert.That(BoundsIn(view.Paper, (RectTransform)view.Paper.Find("ItemLore")).yMin -
+                    BoundsIn(view.Paper, (RectTransform)view.Paper.Find("CollectionScroll")).yMax, Is.EqualTo(24f).Within(.1f));
                 view.ToggleCollection();
                 Assert.That(detailPaper.gameObject.activeSelf || divider.gameObject.activeSelf, Is.False);
                 view.ToggleCollection(); Assert.That(detailPaper.gameObject.activeSelf, Is.True);
