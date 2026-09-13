@@ -154,6 +154,9 @@ namespace MukJump.EditorTests
             Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
             var detailPaper = view.Paper.Find("ItemDetailsPaper").GetComponent<Image>();
             var divider = view.Paper.Find("ItemNameBrushLine").GetComponent<Image>();
+            var skillPaper = view.Paper.Find("SpecialSkillPaper").GetComponent<Image>();
+            var skillHeader = view.Paper.Find("SpecialSkillHeader").GetComponent<Image>();
+            var skillSeal = (RectTransform)view.Paper.Find("SpecialSkillSeal");
             try
             {
                 for (int i = 0; i < InkSkinCatalog.Count; i++)
@@ -161,6 +164,33 @@ namespace MukJump.EditorTests
                     view.Select((InkSkinId)i); view.Presentation.Cancel(); Canvas.ForceUpdateCanvases();
                     Assert.That(detailPaper.gameObject.activeSelf, Is.True);
                     Assert.That(detailPaper.raycastTarget || divider.raycastTarget, Is.False);
+                    bool special = InkSkinCatalog.HasAbility((InkSkinId)i);
+                    Assert.That(skillPaper.gameObject.activeSelf, Is.EqualTo(special));
+                    Assert.That(skillHeader.gameObject.activeSelf, Is.EqualTo(special));
+                    Assert.That(skillSeal.gameObject.activeSelf, Is.EqualTo(special));
+                    Assert.That(view.CollectionContent.Find("SkinCard" + i + "/SpecialSkillMark").gameObject.activeSelf,
+                        Is.EqualTo(special));
+                    if (special)
+                    {
+                        var ability = view.Paper.Find("Ability").GetComponent<Text>();
+                        Assert.That(ability.color, Is.EqualTo(InkPalette.TextLight));
+                        Assert.That(skillHeader.color, Is.EqualTo(InkPalette.Ink));
+                        Assert.That(skillPaper.color.a, Is.GreaterThanOrEqualTo(.85f));
+                        Assert.That(skillPaper.raycastTarget || skillHeader.raycastTarget, Is.False);
+                        Assert.That(((RectTransform)view.Paper.Find("Description")).rect.width,
+                            Is.LessThanOrEqualTo(skillPaper.rectTransform.rect.width - 160f));
+                        Assert.That(skillSeal.GetComponentsInChildren<Graphic>().All(g => !g.raycastTarget), Is.True);
+                        var badge = skillSeal.Find("Label").GetComponent<Text>();
+                        Assert.That(badge.text, Is.EqualTo(language switch {
+                            GameLanguage.English => "Special", GameLanguage.Japanese => "特殊能力", _ => "특수 능력" }));
+                        Assert.That(badge.preferredWidth, Is.LessThanOrEqualTo(badge.rectTransform.rect.width));
+                        Assert.That(badge.preferredHeight, Is.LessThanOrEqualTo(badge.rectTransform.rect.height));
+                        Assert.That(BoundsIn(view.Paper, skillSeal).xMax + 16,
+                            Is.LessThanOrEqualTo(BoundsIn(view.Paper, ability.rectTransform).xMin));
+                        AssertInside(BoundsIn(view.Paper, ability.rectTransform), BoundsIn(view.Paper, skillHeader.rectTransform), 0, "능력 제목");
+                        Assert.That(BoundsIn(view.Paper, skillPaper.rectTransform).yMax,
+                            Is.LessThan(BoundsIn(view.Paper, detailPaper.rectTransform).yMin));
+                    }
                     float previousBottom = 260;
                     foreach (string name in new[] { "SkinName", "ItemLore", "Ability", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "CollectionScroll" })
                     {
@@ -178,7 +208,8 @@ namespace MukJump.EditorTests
                         {
                             int size = name switch { "SkinName" => 84, "ItemLore" => 46, "Ability" => 56, _ => 50 };
                             Assert.That(text.fontSize, Is.EqualTo(language == GameLanguage.Japanese ? Mathf.RoundToInt(size * .76f) : size));
-                            AssertInside(bounds, BoundsIn(view.Paper, detailPaper.rectTransform), 0, name);
+                            var surface = special && (name is "Ability" or "Description") ? skillPaper : detailPaper;
+                            AssertInside(bounds, BoundsIn(view.Paper, surface.rectTransform), 0, name);
                         }
                     }
                     Assert.That(view.CollectionScroll.viewport.rect.height, Is.GreaterThan(180));
@@ -195,10 +226,15 @@ namespace MukJump.EditorTests
                 view.ToggleCollection();
                 Assert.That(detailPaper.gameObject.activeSelf || divider.gameObject.activeSelf, Is.False);
                 view.ToggleCollection(); Assert.That(detailPaper.gameObject.activeSelf, Is.True);
+                view.Select(InkSkinId.Gat); view.ToggleCollection();
+                Assert.That(skillPaper.gameObject.activeSelf || skillHeader.gameObject.activeSelf || skillSeal.gameObject.activeSelf, Is.False);
+                view.ToggleCollection(); Assert.That(skillPaper.gameObject.activeSelf, Is.True);
             }
             finally { SkinDebugSession.Reset(); }
             view.Select(InkSkinId.Astronaut);
             Assert.That(detailPaper.gameObject.activeSelf || divider.gameObject.activeSelf, Is.False);
+            Assert.That(skillPaper.gameObject.activeSelf || skillHeader.gameObject.activeSelf || skillSeal.gameObject.activeSelf, Is.False);
+            Assert.That(view.CollectionContent.Find("SkinCard" + (int)InkSkinId.Astronaut + "/SpecialSkillMark").gameObject.activeSelf, Is.False);
         }
         [Test] public void PreviewBackdropFramesTheBodyAndShadowStaysAtItsFeet()
         {

@@ -15,7 +15,7 @@ namespace MukJump.EditorTests
     public sealed class InkShowroomPlayTests
     {
         [UnityTest, Timeout(120000)]
-        public IEnumerator LargerWardrobeCopyRendersWithoutRedundantHints()
+        public IEnumerator SpecialSkillCardsRenderDistinctlyWithoutBlockingBrowse()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
             yield return new EnterPlayMode();
@@ -36,7 +36,7 @@ namespace MukJump.EditorTests
                 foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
                 {
                     GameLocalization.SetLanguage(language);
-                    foreach (var id in new[] { InkSkinId.Ink, InkSkinId.Scholar, InkSkinId.Gat, InkSkinId.SpiritHalo })
+                    foreach (var id in new[] { InkSkinId.Ink, InkSkinId.Gat, InkSkinId.SpiritHalo, InkSkinId.PhoenixCrown, InkSkinId.WindFan })
                     {
                         view.Select(id); yield return Wait(.6f); Canvas.ForceUpdateCanvases();
                         var stage = view.Paper.Find("ShowroomStage");
@@ -47,6 +47,8 @@ namespace MukJump.EditorTests
                             Assert.That(image.raycastTarget, Is.False, path);
                         }
                         Assert.That(view.Paper.Find("CollectionGrouping"), Is.Null);
+                        foreach (string surface in new[] { "SpecialSkillPaper", "SpecialSkillHeader", "SpecialSkillSeal" })
+                            Assert.That(view.Paper.Find(surface).gameObject.activeInHierarchy, Is.EqualTo(InkSkinCatalog.HasAbility(id)), surface);
                         if (id == InkSkinId.Ink)
                         {
                             var requirement = view.Paper.Find("Achievement").GetComponent<UnityEngine.UI.Text>();
@@ -59,8 +61,17 @@ namespace MukJump.EditorTests
                             if (!text.gameObject.activeSelf) continue;
                             Assert.That(text.canvasRenderer.cull, Is.False, label);
                             Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + .1f), label);
+                            // 높이 수치만 맞고 실제 마지막 글자가 잘리는 CJK 경계도 검사한다.
+                            if (label == "Description")
+                            {
+                                var complete = new TextGenerator();
+                                var fullSettings = text.GetGenerationSettings(text.rectTransform.rect.size);
+                                fullSettings.verticalOverflow = VerticalWrapMode.Overflow;
+                                complete.PopulateWithErrors(text.text, fullSettings, text.gameObject);
+                                Assert.That(text.cachedTextGenerator.verts.Count, Is.EqualTo(complete.verts.Count), language + "/" + id + "/설명 끝 글자");
+                            }
                         }
-                        yield return Capture("larger-copy-2026-09-13-" + language + "-" + id);
+                        yield return Capture("special-skill-2026-09-13-" + language + "-" + id);
                     }
                 }
                 var next = InkSkinCatalog.BrowseAt(InkSkinCatalog.BrowseIndex(view.Selected) + 1);
