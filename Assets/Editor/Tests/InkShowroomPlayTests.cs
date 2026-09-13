@@ -15,6 +15,7 @@ namespace MukJump.EditorTests
     public sealed class InkShowroomPlayTests
     {
         [UnityTest, Timeout(120000)]
+        [Category("SpecialSkillCleanLayout")]
         public IEnumerator SpecialSkillCardsRenderDistinctlyWithoutBlockingBrowse()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
@@ -36,7 +37,8 @@ namespace MukJump.EditorTests
                 foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
                 {
                     GameLocalization.SetLanguage(language);
-                    foreach (var id in new[] { InkSkinId.Ink, InkSkinId.Gat, InkSkinId.SpiritHalo, InkSkinId.PhoenixCrown, InkSkinId.WindFan })
+                    foreach (var id in new[] { InkSkinId.Ink, InkSkinId.Gat, InkSkinId.SpiderMask, InkSkinId.SpiritHalo,
+                        InkSkinId.TurtleShell, InkSkinId.PhoenixCrown, InkSkinId.BondKnot, InkSkinId.WindFan })
                     {
                         view.Select(id); yield return Wait(.6f); Canvas.ForceUpdateCanvases();
                         var stage = view.Paper.Find("ShowroomStage");
@@ -47,7 +49,7 @@ namespace MukJump.EditorTests
                             Assert.That(image.raycastTarget, Is.False, path);
                         }
                         Assert.That(view.Paper.Find("CollectionGrouping"), Is.Null);
-                        foreach (string surface in new[] { "SpecialSkillPaper", "SpecialSkillHeader", "SpecialSkillSeal" })
+                        foreach (string surface in new[] { "SpecialSkillPaper", "SpecialSkillDivider", "SpecialSkillLabel" })
                             Assert.That(view.Paper.Find(surface).gameObject.activeInHierarchy, Is.EqualTo(InkSkinCatalog.HasAbility(id)), surface);
                         if (id == InkSkinId.Ink)
                         {
@@ -71,7 +73,7 @@ namespace MukJump.EditorTests
                                 Assert.That(text.cachedTextGenerator.verts.Count, Is.EqualTo(complete.verts.Count), language + "/" + id + "/설명 끝 글자");
                             }
                         }
-                        yield return Capture("special-skill-2026-09-13-" + language + "-" + id);
+                        yield return Capture("special-skill-clean-" + language + "-" + id);
                     }
                 }
                 var next = InkSkinCatalog.BrowseAt(InkSkinCatalog.BrowseIndex(view.Selected) + 1);

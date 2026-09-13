@@ -11,8 +11,8 @@ namespace MukJump.Core
         CanvasGroup rootGroup;
         RectTransform safeRoot, paper;
         Image previewBody, previewAccessory, detailPaper, detailDivider;
-        UnityEngine.UI.Image skillPaper, skillHeader;
-        RectTransform skillSeal;
+        UnityEngine.UI.Image skillPaper, skillDivider;
+        UnityEngine.UI.Text skillLabel;
         float accessoryMotionTime;
         UnityEngine.UI.Text previewQuestion;
         readonly Button[] neighborButtons = new Button[2];
@@ -197,7 +197,7 @@ namespace MukJump.Core
             bool saveFailed = !string.IsNullOrEmpty(statusText.text);
             achievementText.enabled = progressText.enabled = !saveFailed;
             RefreshProgress(goal, progress, unlocked, saveFailed);
-            abilityText.color = InkPalette.TextLight;
+            abilityText.color = InkPalette.TextDark;
             equipButton.gameObject.SetActive(!hidden && !collectionExpanded);
             for (int i=0; i<cards.Length; i++)
             {
@@ -221,9 +221,10 @@ namespace MukJump.Core
             // 실제 능력과 미발견 히든 안내는 그대로 보존한다.
             abilityText.gameObject.SetActive(!collectionExpanded && !hidden && hasAbility);
             descriptionText.gameObject.SetActive(!collectionExpanded && (hidden || hasAbility));
-            // 갈필 한지의 불규칙한 양 끝에도 글자가 걸리지 않게 실제 문장 폭을 좁힌다.
+            // 제목과 효과는 같은 왼쪽 기준선, 히든 안내는 기존 중앙 정렬을 유지한다.
             descriptionText.rectTransform.sizeDelta = new Vector2(!hidden && hasAbility ? 840f : 920f,
                 descriptionText.rectTransform.sizeDelta.y);
+            descriptionText.alignment = hidden ? TextAnchor.MiddleCenter : TextAnchor.UpperLeft;
             // 번역 문장을 줄이거나 글씨를 축소하지 않고 실제 줄 수만큼 설명 칸을 늘린다.
             float loreHeight = Mathf.Max(92f, loreText.preferredHeight + 8f);
             float detailBottom = PlaceDetailRow(loreText.rectTransform, 126f, loreHeight);
@@ -233,19 +234,19 @@ namespace MukJump.Core
             PlaceDetailRow(detailPaper.rectTransform, 260f, 260f - detailBottom + 18f);
             bool showSkill = !collectionExpanded && !hidden && hasAbility;
             skillPaper.gameObject.SetActive(showSkill);
-            skillHeader.gameObject.SetActive(showSkill);
-            skillSeal.gameObject.SetActive(showSkill);
+            skillDivider.gameObject.SetActive(showSkill);
+            skillLabel.gameObject.SetActive(showSkill);
             if (hidden || hasAbility)
             {
-                float skillTop = detailBottom - 24f;
+                float skillTop = detailBottom - 28f;
                 if (!hidden)
                 {
-                    float headerHeight = Mathf.Max(96f, abilityText.preferredHeight + 24f);
-                    detailBottom = PlaceDetailRow(abilityText.rectTransform, skillTop - 12f, headerHeight - 24f);
-                    abilityText.rectTransform.anchoredPosition += new Vector2(94f, 0);
-                    PlaceDetailRow(skillHeader.rectTransform, skillTop, headerHeight);
-                    skillSeal.anchoredPosition = new Vector2(-350f, skillTop - headerHeight * .5f);
-                    detailBottom -= 12f;
+                    float headerHeight = Mathf.Max(64f, abilityText.preferredHeight + 8f, skillLabel.preferredHeight + 8f);
+                    detailBottom = PlaceDetailRow(abilityText.rectTransform, skillTop - 24f, headerHeight);
+                    abilityText.rectTransform.anchoredPosition += new Vector2(-120f, 0);
+                    PlaceDetailRow(skillLabel.rectTransform, skillTop - 24f, headerHeight);
+                    skillLabel.rectTransform.anchoredPosition += new Vector2(330f, 0);
+                    detailBottom = PlaceDetailRow(skillDivider.rectTransform, detailBottom - 10f, 2f);
                 }
                 detailBottom = PlaceDetailRow(descriptionText.rectTransform, detailBottom - 14f,
                     MeasureDescriptionHeight());
@@ -259,13 +260,24 @@ namespace MukJump.Core
             bool showProgress = !hidden && InkSkinAchievements.Goal(selected) > 0;
             achievementText.gameObject.SetActive(!collectionExpanded && showRequirement);
             progressText.gameObject.SetActive(!collectionExpanded && showProgress);
+            // 능력 설명이 길어도 의상 썸네일을 찌그러뜨리지 않도록 조건·진척을 한 줄로 묶는다.
+            bool compactUnlock = !hidden && hasAbility && showRequirement && showProgress;
+            achievementText.rectTransform.sizeDelta = new Vector2(compactUnlock ? 700f : 960f, 64f);
+            achievementText.alignment = compactUnlock ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter;
+            progressText.rectTransform.sizeDelta = new Vector2(compactUnlock ? 240f : 800f, 52f);
+            progressText.alignment = compactUnlock ? TextAnchor.MiddleRight : TextAnchor.MiddleCenter;
             // 기본 먹의 불필요한 안내와 빈 진행도 줄은 수집 목록에 돌려준다.
             float infoBottom = detailBottom;
             if (showRequirement) infoBottom = PlaceDetailRow(achievementText.rectTransform, infoBottom - 24f, 64f);
             if (showProgress)
             {
-                float progressBottom = PlaceDetailRow(progressText.rectTransform, infoBottom - 12f, 52f);
-                infoBottom = PlaceDetailRow(progressTrack, progressBottom - 10f, 30f);
+                if (compactUnlock)
+                {
+                    achievementText.rectTransform.anchoredPosition += new Vector2(-130f, 0);
+                    progressText.rectTransform.anchoredPosition = new Vector2(360f, achievementText.rectTransform.anchoredPosition.y);
+                }
+                else infoBottom = PlaceDetailRow(progressText.rectTransform, infoBottom - 12f, 52f);
+                infoBottom = PlaceDetailRow(progressTrack, infoBottom - 10f, 30f);
             }
             float statusBottom = PlaceDetailRow(statusText.rectTransform, detailBottom - 24f, 120f);
             if (!string.IsNullOrEmpty(statusText.text)) infoBottom = Mathf.Min(infoBottom, statusBottom);
@@ -412,21 +424,22 @@ namespace MukJump.Core
             nameText=Label("SkinName",paper,"",84,new Vector2(0,198),new Vector2(940,104),true);
             loreText=Label("ItemLore",paper,"",46,new Vector2(0,80),new Vector2(920,92),false);
             loreText.color=InkPalette.TextDark; loreText.lineSpacing=1.12f;
-            // 능력은 이야기와 분리된 한지 면·먹 제목 띠·낙관으로 구분한다. 장식에는 표시하지 않는다.
-            skillPaper=SpriteImage("SpecialSkillPaper",paper,InkUiStyle.ActionButtonSprite,Vector2.zero,new Vector2(1000,280));
-            skillPaper.preserveAspect=false; skillPaper.color=new Color(1,1,1,.88f);
-            skillHeader=SpriteImage("SpecialSkillHeader",paper,InkUiTextureFactory.CreateBrushSprite(),Vector2.zero,new Vector2(970,96));
-            skillHeader.preserveAspect=false; skillHeader.color=InkPalette.Ink;
-            skillSeal=Rect("SpecialSkillSeal",paper,Vector2.zero,new Vector2(172,68));
-            InkHudSurface.Ensure(skillSeal,true);
-            var skillLabel=Label("Label",skillSeal,"특수 능력",32,Vector2.zero,new Vector2(152,52),true);
-            skillLabel.color=InkPalette.TextLight;
+            // 두꺼운 먹 띠·낙관 대신 공통 한지 카드 한 장과 작은 붉은 분류명만 사용한다.
+            skillPaper=SpriteImage("SpecialSkillPaper",paper,InkUiStyle.ActionButtonSprite,Vector2.zero,new Vector2(960,288));
+            InkUiStyle.ConfigureHanjiSurface(skillPaper);
+            skillPaper.color=new Color(1,1,1,.7f);
+            skillDivider=SpriteImage("SpecialSkillDivider",paper,null,Vector2.zero,new Vector2(840,2));
+            skillDivider.preserveAspect=false;
+            var skillLineTint=InkPalette.Ink; skillLineTint.a=.14f; skillDivider.color=skillLineTint;
+            skillLabel=Label("SpecialSkillLabel",paper,"특수 능력",32,Vector2.zero,new Vector2(180,52),false);
+            skillLabel.color=InkPalette.Red; skillLabel.alignment=TextAnchor.MiddleRight;
             if(skillLabel.TryGetComponent<Outline>(out var skillOutline)) skillOutline.enabled=false;
             BuildCollection();
             for(int i=0;i<cards.Length;i++) BuildCard(InkSkinCatalog.BrowseAt(i));
             var toggle=Button("CollectionToggle",paper,"전체 보기",new Vector2(410,860),new Vector2(230,94),30,out collectionToggleText);
             toggle.onClick.AddListener(ToggleCollection);
-            abilityText=Label("Ability",paper,"",56,new Vector2(94,6),new Vector2(630,72),true);
+            abilityText=Label("Ability",paper,"",56,new Vector2(-120,6),new Vector2(600,72),true);
+            abilityText.alignment=TextAnchor.MiddleLeft;
             descriptionText=Label("Description",paper,"",50,new Vector2(0,-96),new Vector2(920,144),false);
             descriptionText.lineSpacing=1.12f;
             foreach(var text in new[]{nameText,loreText,abilityText,descriptionText})
