@@ -183,10 +183,10 @@ TextureImporter:
       name: paper_lanterns_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 627
-        width: 627
-        height: 627
+        x: 20
+        y: 600
+        width: 600
+        height: 600
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -205,10 +205,10 @@ TextureImporter:
       name: paper_lanterns_1
       rect:
         serializedVersion: 2
-        x: 627
-        y: 627
-        width: 627
-        height: 627
+        x: 647
+        y: 600
+        width: 600
+        height: 600
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -227,10 +227,10 @@ TextureImporter:
       name: paper_lanterns_2
       rect:
         serializedVersion: 2
-        x: 0
+        x: 20
         y: 0
-        width: 627
-        height: 627
+        width: 600
+        height: 600
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -249,10 +249,10 @@ TextureImporter:
       name: paper_lanterns_3
       rect:
         serializedVersion: 2
-        x: 627
+        x: 647
         y: 0
-        width: 627
-        height: 627
+        width: 600
+        height: 600
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}

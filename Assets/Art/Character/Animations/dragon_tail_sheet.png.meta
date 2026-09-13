@@ -147,10 +147,10 @@ TextureImporter:
       name: dragon_tail_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 627
-        width: 627
-        height: 627
+        x: 26
+        y: 633
+        width: 616
+        height: 616
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -169,10 +169,10 @@ TextureImporter:
       name: dragon_tail_1
       rect:
         serializedVersion: 2
-        x: 627
-        y: 627
-        width: 627
-        height: 627
+        x: 638
+        y: 633
+        width: 616
+        height: 616
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -191,10 +191,10 @@ TextureImporter:
       name: dragon_tail_2
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 627
-        height: 627
+        x: 26
+        y: 6
+        width: 616
+        height: 616
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -213,10 +213,10 @@ TextureImporter:
       name: dragon_tail_3
       rect:
         serializedVersion: 2
-        x: 627
-        y: 0
-        width: 627
-        height: 627
+        x: 638
+        y: 6
+        width: 616
+        height: 616
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}

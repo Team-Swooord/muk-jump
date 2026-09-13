@@ -34,8 +34,6 @@ namespace MukJump.EditorTools
             if (importer == null) throw new InvalidOperationException("그린 애니메이션 원화 누락: " + path);
             importer.GetSourceTextureWidthAndHeight(out int width, out int height);
             if (width < 4 || height < 4) throw new InvalidOperationException("2×2 프레임 격자가 맞지 않음: " + path);
-            // 홀수 크기로 내보낸 PNG는 가운데 투명 여백 1px만 제외하고 같은 크기로 자른다.
-            int cellWidth = width / 2, cellHeight = height / 2;
             if (!importer.DoesSourceTextureHaveAlpha()) throw new InvalidOperationException("투명 알파 채널 누락: " + path);
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Multiple;
@@ -66,7 +64,7 @@ namespace MukJump.EditorTools
                 string name = key + "_" + i;
                 var existing = previous.FirstOrDefault(r => r.name == name);
                 rects[i] = new SpriteRect { name = name, spriteID = existing?.spriteID ?? GUID.Generate(),
-                    rect = new Rect(i % 2 == 0 ? 0 : width - cellWidth, i < 2 ? height - cellHeight : 0, cellWidth, cellHeight),
+                    rect = SourceRect(key, i, width, height),
                     alignment = (int)SpriteAlignment.Center, pivot = new Vector2(.5f, .5f) };
             }
             provider.SetSpriteRects(rects);
@@ -88,6 +86,30 @@ namespace MukJump.EditorTools
             for (int i = 0; i < frames.Length; i++) entries.GetArrayElementAtIndex(i).objectReferenceValue = frames[i];
             serialized.FindProperty("framesPerSecond").floatValue = fps;
             serialized.ApplyModifiedPropertiesWithoutUndo(); EditorUtility.SetDirty(animation);
+        }
+        // 원화의 행/열 간격이 정확히 절반인 것은 아니다. 술·꼬리 끝이 아닌 실제 투명
+        // 경계로 자르되 네 프레임의 크기·비율은 동일하게 유지해 재생 중 확대/축소를 막는다.
+        public static Rect SourceRect(string key, int frame, int width, int height)
+        {
+            if (frame < 0 || frame > 3) throw new ArgumentOutOfRangeException(nameof(frame));
+            bool right = frame % 2 != 0, top = frame < 2;
+            if (key is "paper_lanterns" or "dragon_tail")
+            {
+                if (width != 1254 || height != 1254)
+                    throw new InvalidOperationException(key + " 원화 크기가 바뀌어 프레임 경계를 다시 확인해야 한다.");
+                return key == "paper_lanterns"
+                    ? new Rect(right ? 647 : 20, top ? 600 : 0, 600, 600)
+                    : new Rect(right ? 638 : 26, top ? 633 : 6, 616, 616);
+            }
+            if (key == "storm_scarf")
+            {
+                if (width != 1536 || height != 1024)
+                    throw new InvalidOperationException(key + " 원화 크기가 바뀌어 프레임 경계를 다시 확인해야 한다.");
+                return new Rect(right ? 808 : 56, top ? 528 : 16, 720, 480);
+            }
+            // 홀수 크기 원화는 중앙의 투명한 1px만 제외한다.
+            int cellWidth = width / 2, cellHeight = height / 2;
+            return new Rect(right ? width - cellWidth : 0, top ? height - cellHeight : 0, cellWidth, cellHeight);
         }
         static void EnsureFolder(string path)
         {

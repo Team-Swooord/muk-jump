@@ -159,10 +159,10 @@ TextureImporter:
       name: storm_scarf_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 512
-        width: 768
-        height: 512
+        x: 56
+        y: 528
+        width: 720
+        height: 480
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -181,10 +181,10 @@ TextureImporter:
       name: storm_scarf_1
       rect:
         serializedVersion: 2
-        x: 768
-        y: 512
-        width: 768
-        height: 512
+        x: 808
+        y: 528
+        width: 720
+        height: 480
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -203,10 +203,10 @@ TextureImporter:
       name: storm_scarf_2
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 768
-        height: 512
+        x: 56
+        y: 16
+        width: 720
+        height: 480
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -225,10 +225,10 @@ TextureImporter:
       name: storm_scarf_3
       rect:
         serializedVersion: 2
-        x: 768
-        y: 0
-        width: 768
-        height: 512
+        x: 808
+        y: 16
+        width: 720
+        height: 480
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
