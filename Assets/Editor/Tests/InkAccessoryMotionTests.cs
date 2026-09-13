@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Reflection;
 using MukJump.Core;
-using MukJump.Player;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,8 +9,6 @@ namespace MukJump.EditorTests
 {
     public sealed class InkAccessoryMotionTests
     {
-        static readonly InkSkinId[] animated = { InkSkinId.SpiritHalo, InkSkinId.BlueWisps, InkSkinId.PaperLanterns,
-            InkSkinId.MoonClouds, InkSkinId.CraneWings, InkSkinId.ButterflyWings, InkSkinId.OrigamiWings, InkSkinId.StormScarf };
         readonly List<Object> owned = new();
         [TearDown] public void Cleanup() { for (int i=owned.Count-1; i>=0; i--) if(owned[i]!=null) Object.DestroyImmediate(owned[i]); owned.Clear(); }
         GameObject Make(string name, Transform parent = null)
@@ -38,80 +35,82 @@ namespace MukJump.EditorTests
             progress.Settle(200,10,new SkinRunStats { version=1,inkDrops=1,items=1,maxLivingPlayers=1,startedAtNight=true },200,0);
             foreach(var id in new[]{InkSkinId.BlueWisps, InkSkinId.PaperLanterns, InkSkinId.MoonClouds}) Assert.That(progress.Has(id),Is.True);
         }
-        [Test] public void MotionIsBoundedContinuousAndDoesNotUseGameRandom()
+        [Test] public void EveryMovingAccessoryUsesFourDifferentAuthoredFrames()
         {
-            var random=Random.state;
-            foreach(var id in animated)
+            var random = Random.state;
+            for (int i = 0; i < InkSkinCatalog.Count; i++)
             {
-                float travel=0;
-                for(int t=0;t<80;t++) for(int x=0;x<=4;x++) for(int y=0;y<=4;y++)
+                var id = (InkSkinId)i;
+                if (!InkAccessoryMotion.Supports(id)) continue;
+                var clip = InkAccessoryMotion.Animation(id);
+                Assert.That(clip, Is.Not.Null, id.ToString());
+                Assert.That(clip.FrameCount, Is.EqualTo(4));
+                for (int frame = 0; frame < 4; frame++)
                 {
-                    var uv=new Vector2(x/4f,y/4f); var p=InkAccessoryMotion.Deform(id,uv,t*.1f,1);
-                    var next=InkAccessoryMotion.Deform(id,uv,t*.1f+1f/60,1);
-                    Assert.That(Mathf.Abs(p.x-uv.x),Is.LessThanOrEqualTo(InkAccessoryMotion.Padding+.00001f));
-                    Assert.That(Mathf.Abs(p.y-uv.y),Is.LessThanOrEqualTo(InkAccessoryMotion.Padding+.00001f));
-                    Assert.That(Vector2.Distance(p,next),Is.LessThan(.006f)); travel+=Vector2.Distance(p,next);
-                    Assert.That(InkAccessoryMotion.Deform(id,uv,t,0),Is.EqualTo(uv));
+                    var sprite = clip.Frame(frame);
+                    Assert.That(sprite, Is.Not.Null);
+                    Assert.That(sprite, Is.SameAs(clip.Sample((frame + .1f) / clip.FramesPerSecond)));
+                    Assert.That(sprite, Is.Not.SameAs(clip.Frame((frame + 1) % 4)));
+                    Assert.That(sprite.texture, Is.SameAs(clip.Frame(0).texture));
+                    Assert.That(sprite.rect.size, Is.EqualTo(clip.Frame(0).rect.size));
+                    Assert.That(sprite.vertices.Length, Is.EqualTo(4));
                 }
-                Assert.That(travel,Is.GreaterThan(.01f),id.ToString());
+                Assert.That(clip.Sample(clip.Duration), Is.SameAs(clip.Frame(0)));
+                Assert.That(clip.Sample(float.NaN), Is.SameAs(clip.Frame(0)));
+                Assert.That(clip.Sample(1.3f, false), Is.SameAs(clip.Frame(0)));
+                Assert.That(InkAccessoryMotion.Animation(id), Is.SameAs(clip));
             }
-            Assert.That(Random.state,Is.EqualTo(random));
-            Assert.That(InkAccessoryMotion.Supports(InkSkinId.Gat),Is.False);
-            Assert.That(InkAccessoryMotion.Supports(InkSkinId.RedShoes),Is.False);
+            Assert.That(Random.state, Is.EqualTo(random));
+            Assert.That(InkAccessoryMotion.Supports(InkSkinId.Gat), Is.False);
+            Assert.That(InkAccessoryMotion.Supports(InkSkinId.RedShoes), Is.False);
         }
-        [Test] public void WingRootsAndScarfForeheadStayAttached()
+        [Test] public void UiChangesSpriteReferencesNotMeshShapeAndRestoresStaticArt()
         {
-            for(int t=0;t<100;t++)
+            var ui = Make("UI").AddComponent<InkAccessoryImage>();
+            foreach (var id in new[] { InkSkinId.BlueWisps, InkSkinId.SpiritHalo, InkSkinId.DragonTail, InkSkinId.CraneWings })
             {
-                foreach(var id in new[]{InkSkinId.CraneWings,InkSkinId.ButterflyWings,InkSkinId.OrigamiWings})
-                    Assert.That(InkAccessoryMotion.Deform(id,new Vector2(.5f,.5f),t*.1f,1),Is.EqualTo(new Vector2(.5f,.5f)));
-                var forehead=new Vector2(.3f,.6f);
-                Assert.That(InkAccessoryMotion.Deform(InkSkinId.StormScarf,forehead,t*.1f,1),Is.EqualTo(forehead));
-            }
-        }
-        [Test] public void UiAndWorldUseSameWarpAndReuseTheirMeshes()
-        {
-            var go=Make("Source"); var source=go.AddComponent<SpriteRenderer>();
-            var draw=Make("Motion",go.transform).AddComponent<InkAccessoryMesh>();
-            var ui=Make("UI").AddComponent<InkAccessoryImage>(); ui.rectTransform.sizeDelta=Vector2.one*400; ui.raycastTarget=false;
-            foreach(var id in animated)
-            {
-                source.sprite=ui.sprite=InkSkinCatalog.Sprite(id);
-                ui.rectTransform.sizeDelta=new Vector2(400,400*source.sprite.rect.height/source.sprite.rect.width);
-                Assert.That(ui.HasMotion,Is.False);
-                ui.PresentMotion(id,.7f,1); Assert.That(ui.HasMotion,Is.True);
-                Assert.That(draw.Present(source,id,.7f,1),Is.True);
-                var mesh=draw.Mesh; var material=draw.Renderer.sharedMaterial;
-                using(var vh=new VertexHelper())
+                ui.sprite = InkSkinCatalog.Sprite(id);
+                ui.rectTransform.sizeDelta = new Vector2(400, 400 * ui.sprite.rect.height / ui.sprite.rect.width);
+                var clip = InkAccessoryMotion.Animation(id);
+                Vector3[] first = null;
+                for (int f = 0; f < 4; f++)
                 {
-                    typeof(InkAccessoryImage).GetMethod("OnPopulateMesh",BindingFlags.Instance|BindingFlags.NonPublic|BindingFlags.DeclaredOnly).Invoke(ui,new object[]{vh});
-                    Assert.That(vh.currentVertCount,Is.EqualTo(mesh.vertexCount));
-                    var points=mesh.vertices; var v=new UIVertex();
-                    for(int i=0;i<points.Length;i++)
+                    ui.PresentMotion(id, (f + .1f) / clip.FramesPerSecond, 1);
+                    Assert.That(ui.HasMotion, Is.True);
+                    Assert.That(ui.overrideSprite, Is.SameAs(clip.Frame(f)));
+                    using var vh = new VertexHelper();
+                    typeof(InkAccessoryImage).GetMethod("OnPopulateMesh", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly).Invoke(ui, new object[] { vh });
+                    Assert.That(vh.currentVertCount, Is.EqualTo(4));
+                    var points = new Vector3[4]; var vertex = new UIVertex();
+                    for (int v = 0; v < 4; v++) { vh.PopulateUIVertex(ref vertex, v); points[v] = vertex.position; }
+                    if (first == null) first = points; else Assert.That(points, Is.EqualTo(first), "그림만 교체하고 꼭짓점은 움직이지 않는다.");
+                }
+                ui.PresentMotion(id, 1, 0); Assert.That(ui.HasMotion, Is.False);
+                Assert.That(ui.overrideSprite, Is.SameAs(ui.sprite));
+            }
+        }
+        [Test] public void HeldFramesHaveDistinctFeetAndKeepAllFootwearInsideDragBounds()
+        {
+            var clip = InkAccessoryMotion.Held;
+            Assert.That(clip, Is.Not.Null); Assert.That(clip.FrameCount, Is.EqualTo(4));
+            foreach (var id in new[] { InkSkinId.RedShoes, InkSkinId.CloudBoots })
+            {
+                var source = InkSkinCatalog.Sprite(id);
+                var bounds = LobbySkinPreview.CostumeBounds(id, source);
+                for (int f = 0; f < 4; f++)
+                {
+                    var frame = clip.Frame(f);
+                    Assert.That(InkFootwearPose.Anchor(frame, false), Is.Not.EqualTo(InkFootwearPose.Anchor(null, false)));
+                    foreach (bool right in new[] { false, true })
                     {
-                        vh.PopulateUIVertex(ref v,i);
-                        Vector2 normalizedWorld=Vector2.Scale((Vector2)points[i]*source.sprite.pixelsPerUnit+source.sprite.pivot,
-                            new Vector2(1/source.sprite.rect.width,1/source.sprite.rect.height));
-                        var r=ui.rectTransform.rect;
-                        Vector2 normalizedUi=new((v.position.x-r.xMin)/r.width,(v.position.y-r.yMin)/r.height);
-                        Assert.That(Vector2.Distance(normalizedWorld,normalizedUi),Is.LessThan(.0001f));
+                        var rect = InkFootwearPose.DrawingRect(id, source, right, frame);
+                        Assert.That(rect.xMin, Is.GreaterThanOrEqualTo(bounds.xMin));
+                        Assert.That(rect.yMin, Is.GreaterThanOrEqualTo(bounds.yMin));
+                        Assert.That(rect.xMax, Is.LessThanOrEqualTo(bounds.xMax));
+                        Assert.That(rect.yMax, Is.LessThanOrEqualTo(bounds.yMax));
                     }
                 }
-                source.flipX=true; source.flipY=true; source.color=Color.red; source.sortingOrder=17;
-                draw.Present(source,id,1.3f,.55f);
-                Assert.That(draw.Mesh,Is.SameAs(mesh)); Assert.That(draw.Renderer.sharedMaterial,Is.SameAs(material));
-                Assert.That(draw.transform.localScale,Is.EqualTo(new Vector3(-1,-1,1))); Assert.That(draw.Renderer.sortingOrder,Is.EqualTo(17));
-                ui.PresentMotion(id,1,0); Assert.That(ui.HasMotion,Is.False);
             }
-            draw.Hide(); Assert.That(draw.Renderer.enabled,Is.False);
-        }
-        [Test] public void ClonedRenderersNeverShareMutableMeshOrMaterial()
-        {
-            var source=Make("Source").AddComponent<SpriteRenderer>(); source.sprite=InkSkinCatalog.Sprite(InkSkinId.BlueWisps);
-            var original=Make("Motion",source.transform).AddComponent<InkAccessoryMesh>(); original.Present(source,InkSkinId.BlueWisps,0,1);
-            var clone=Object.Instantiate(original.gameObject); owned.Add(clone);
-            var other=clone.GetComponent<InkAccessoryMesh>(); other.Present(source,InkSkinId.BlueWisps,1,1);
-            Assert.That(other.Mesh,Is.Not.SameAs(original.Mesh)); Assert.That(other.Renderer.sharedMaterial,Is.Not.SameAs(original.Renderer.sharedMaterial));
         }
     }
 }

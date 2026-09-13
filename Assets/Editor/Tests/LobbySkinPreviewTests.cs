@@ -36,26 +36,6 @@ namespace MukJump.EditorTests
             Assert.That(Random.state, Is.EqualTo(state));
         }
 
-        [Test, Category("LobbySwim")]
-        public void SwimStrokeKeepsFaceAndHatFixedWhileFeetAlternate()
-        {
-            foreach (var point in new[] { new Vector2(-.13f, .05f), new Vector2(.13f, .05f), new Vector2(.3f, .2f), new Vector2(-.3f, .2f) })
-            for (int i = 0; i < 90; i++) Assert.That(LobbyInkSwimMotion.DeformPoint(point, i / 30f, 1), Is.EqualTo(point));
-            Vector2 left = InkFootwearPose.Anchor(null, false), right = InkFootwearPose.Anchor(null, true);
-            Assert.That(LobbyInkSwimMotion.DeformPoint(left, 0, 1).y, Is.GreaterThan(left.y + .04f));
-            Assert.That(LobbyInkSwimMotion.DeformPoint(right, 0, 1).y, Is.LessThan(right.y - .04f));
-            Assert.That(LobbyInkSwimMotion.DeformPoint(left, LobbyInkSwimMotion.CycleSeconds / 2, 1).y, Is.LessThan(left.y - .04f));
-            for (int i = 0; i < 120; i++)
-            {
-                float t = i / 30f;
-                var p = LobbyInkSwimMotion.DeformPoint(left, t, 1);
-                Assert.That(Mathf.Abs(p.x - left.x), Is.LessThanOrEqualTo(LobbyInkSwimMotion.Padding.x));
-                Assert.That(Mathf.Abs(p.y - left.y), Is.LessThanOrEqualTo(LobbyInkSwimMotion.Padding.y));
-                Assert.That(Vector2.Distance(p, LobbyInkSwimMotion.DeformPoint(left, t + 1f / 60, 1)), Is.LessThan(.006f));
-                Assert.That(LobbyInkSwimMotion.DeformPoint(left, t, 0), Is.EqualTo(left));
-            }
-        }
-
         [Test, Category("LobbyDrift")]
         public void WallCornerAndLongFrameReflectWithoutEscaping()
         {
@@ -94,7 +74,7 @@ namespace MukJump.EditorTests
                 var preview = Object.FindAnyObjectByType<LobbySkinPreview>();
                 var lobby = Object.FindAnyObjectByType<LobbyView>();
                 var body = preview.transform.Find("Drift/Artwork/OriginalInkBody").GetComponent<UnityEngine.UI.Image>();
-                Assert.That(body.GetComponent<LobbyInkSwimMotion>(), Is.Null, "팔다리 젓기를 제거한다.");
+                Assert.That(body.GetComponents<UnityEngine.UI.BaseMeshEffect>(), Is.Empty, "본체 메시 변형을 사용하지 않는다.");
                 Assert.That(preview.Area.parent.name, Is.EqualTo("SafeAreaRoot"));
                 var safe = (RectTransform)preview.Area.parent;
                 Assert.That(preview.Area.rect.width, Is.EqualTo(safe.rect.width).Within(.01));
@@ -128,6 +108,7 @@ namespace MukJump.EditorTests
                 yield return CheckRaycast(origin, hit => Assert.That(hit, Is.EqualTo(preview.Drift.gameObject)));
                 yield return Touch(touch, 1, UnityEngine.InputSystem.TouchPhase.Began, origin);
                 Assert.That(preview.IsDragging, Is.True);
+                Assert.That(body.overrideSprite, Is.SameAs(InkAccessoryMotion.Held.Frame(0)));
                 Vector2 target = new(-preview.Travel.x * .7f, preview.Travel.y * .5f);
                 yield return Touch(touch, 1, UnityEngine.InputSystem.TouchPhase.Moved, ScreenPoint(preview, target));
                 Assert.That(Vector2.Distance(preview.Drift.anchoredPosition, target), Is.LessThan(1));
@@ -143,6 +124,8 @@ namespace MukJump.EditorTests
                 yield return Touch(touch, 1, UnityEngine.InputSystem.TouchPhase.Moved, startPoint);
                 yield return Touch(touch, 1, UnityEngine.InputSystem.TouchPhase.Ended, startPoint);
                 Assert.That(preview.IsDragging, Is.False);
+                Assert.That(body.overrideSprite, Is.SameAs(body.sprite));
+                Assert.That(body.rectTransform.anchoredPosition, Is.EqualTo(Vector2.zero));
                 Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby));
                 yield return CheckRaycast(startPoint, hit => Assert.That(hit.GetComponentInParent<UnityEngine.UI.Button>(), Is.EqualTo(lobby.StartButton),
                     "먹이 겹쳐도 시작 버튼의 탭이 우선이다."));
@@ -163,6 +146,14 @@ namespace MukJump.EditorTests
                 yield return Wait(.2f);
                 Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(held));
                 LobbySettingsProfile.SetReducedMotionEnabled(false);
+                preview.OnPointerDown(e);
+                var caughtFrame = body.overrideSprite;
+                float heldDeadline = Time.realtimeSinceStartup + 1;
+                while (body.overrideSprite == caughtFrame && Time.realtimeSinceStartup < heldDeadline) yield return null;
+                Assert.That(body.overrideSprite, Is.Not.SameAs(caughtFrame), "잡고 있으면 실제 원화 프레임이 바뀐다.");
+                yield return Capture("held-red-shoes");
+                preview.OnPointerUp(e);
+                Assert.That(body.overrideSprite, Is.SameAs(body.sprite));
                 var edge = new PointerEventData(EventSystem.current) { pointerId = 43, position = ScreenPoint(preview, held) };
                 preview.OnPointerDown(edge);
                 edge.position = ScreenPoint(preview, preview.Area.sizeDelta); preview.OnDrag(edge); preview.OnPointerUp(edge);
@@ -197,6 +188,67 @@ namespace MukJump.EditorTests
         }
         static Vector2 ScreenPoint(LobbySkinPreview preview, Vector2 local) =>
             RectTransformUtility.WorldToScreenPoint(null, preview.Area.TransformPoint(local));
+
+        [UnityTest, Timeout(90000)]
+        public IEnumerator HeldArtRegistrationKeepsAccessoriesOnEveryDrawnPose()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool background = Application.runInBackground; Application.runInBackground = true;
+            var settings = new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                SkinDebugSession.SetAllUnlocked(true);
+                var preview = Object.FindAnyObjectByType<LobbySkinPreview>();
+                var artwork = (RectTransform)preview.Drift.Find("Artwork");
+                var body = artwork.Find("OriginalInkBody").GetComponent<UnityEngine.UI.Image>();
+                var art = artwork.Find("Accessory").GetComponent<InkAccessoryImage>();
+                var clock = typeof(LobbySkinPreview).GetField("heldTime", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var present = typeof(LobbySkinPreview).GetMethod("PresentHeldPose", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                // 검수 화면만 확대한다. 씬/저장값/실제 로비 배율에는 반영하지 않는다.
+                preview.transform.SetAsLastSibling();
+                var lobby = Object.FindAnyObjectByType<LobbyView>();
+                lobby.LogoRect.gameObject.SetActive(false);
+                foreach (var button in lobby.GetComponentsInChildren<UnityEngine.UI.Button>(true))
+                    foreach (var graphic in button.GetComponentsInChildren<UnityEngine.UI.Graphic>(true)) graphic.enabled = false;
+                foreach (var id in new[] { InkSkinId.Ink, InkSkinId.RedHeadband, InkSkinId.Astronaut, InkSkinId.SpiderMask, InkSkinId.RedShoes, InkSkinId.CloudBoots })
+                {
+                    preview.enabled = true; artwork.localScale = Vector3.one;
+                    Assert.That(InkSkinPreferences.TryEquip(id), Is.True); yield return Wait(.1f);
+                    preview.enabled = false;
+                    preview.Drift.anchoredPosition = new Vector2(0, 100);
+                    artwork.localScale = Vector3.one * 4;
+                    var e = new PointerEventData(EventSystem.current) { pointerId = 87, position = ScreenPoint(preview, preview.Drift.anchoredPosition) };
+                    preview.OnPointerDown(e); Assert.That(preview.IsDragging, Is.True);
+                    for (int frame = 0; frame < 4; frame++)
+                    {
+                        clock.SetValue(preview, (frame + .1f) / InkAccessoryMotion.Held.FramesPerSecond);
+                        present.Invoke(preview, null); Canvas.ForceUpdateCanvases();
+                        Assert.That(body.overrideSprite, Is.SameAs(InkAccessoryMotion.Held.Frame(frame)));
+                        Assert.That(art.sprite == InkSkinCatalog.Sprite(id), Is.True);
+                        yield return Capture("held-fit-" + id + "-" + frame);
+                    }
+                    preview.OnPointerUp(e);
+                    Assert.That(body.overrideSprite, Is.SameAs(body.sprite));
+                    Assert.That(body.rectTransform.anchoredPosition, Is.EqualTo(Vector2.zero));
+                }
+            }
+            finally
+            {
+                SkinDebugSession.Reset(); MobileApplicationLifecycle.SetPlatformVisibility(true); Application.runInBackground = background;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
         static IEnumerator CheckRaycast(Vector2 point, System.Action<GameObject> assertion)
         {
             // EditMode 테스트의 바깥 콜백은 Screen 크기가 Test Runner 창 기준이다.
@@ -371,19 +423,13 @@ namespace MukJump.EditorTests
                 image.rectTransform.GetWorldCorners(corners);
                 if (image.name == "OriginalInkBody")
                 {
-                    Rect r = LobbySkinPreview.BodyDrawingBounds;
+                    Rect r = preview.IsDragging ? LobbySkinPreview.HeldDrawingBounds : LobbySkinPreview.BodyDrawingBounds;
+                    if (preview.IsDragging) r.position -= LobbySkinPreview.HeldArtOffset;
                     float size = image.rectTransform.rect.width;
                     corners[0] = image.transform.TransformPoint(new Vector3(r.xMin, r.yMin) * size);
                     corners[1] = image.transform.TransformPoint(new Vector3(r.xMin, r.yMax) * size);
                     corners[2] = image.transform.TransformPoint(new Vector3(r.xMax, r.yMax) * size);
                     corners[3] = image.transform.TransformPoint(new Vector3(r.xMax, r.yMin) * size);
-                    var swim = image.GetComponent<LobbyInkSwimMotion>();
-                    if (swim != null)
-                    {
-                        var points = new[] { r.min, new Vector2(r.xMin, r.yMax), r.max, new Vector2(r.xMax, r.yMin) };
-                        for (int i = 0; i < 4; i++) corners[i] = image.transform.TransformPoint(
-                            LobbyInkSwimMotion.DeformPoint(points[i], swim.MotionTime, InkAccessoryMotion.Strength) * size);
-                    }
                 }
                 // 신발은 빈 이미지 사각형 대신 실제 좌우 신발 메시를 검사한다.
                 if (image is InkAccessoryImage && InkSkinCatalog.IsFootwear(preview.DisplayedSkin))
@@ -420,8 +466,8 @@ namespace MukJump.EditorTests
             float until = Time.realtimeSinceStartup + 5;
             while (!File.Exists(path) && Time.realtimeSinceStartup < until) yield return null;
             Assert.That(File.Exists(path), Is.True);
-            Directory.CreateDirectory("output/qa/lobby-skin-preview");
-            File.Copy(path, "output/qa/lobby-skin-preview/" + name + ".png", true);
+            Directory.CreateDirectory("output/qa/sprite-animation-2026-09-13");
+            File.Copy(path, "output/qa/sprite-animation-2026-09-13/" + name + ".png", true);
             File.Delete(path);
         }
     }

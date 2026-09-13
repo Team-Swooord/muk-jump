@@ -14,6 +14,7 @@ namespace MukJump.Core
         // idle 원화의 알파 경계 (100, 152)~(924, 866)/1024에 여유를 더한 범위.
         // 투명 프레임 전체를 피팅하면 실제 먹이 너무 작아진다. 원본 그림은 자르지 않는다.
         public static readonly Rect BodyDrawingBounds = new(-.415f, -.36f, .83f, .725f);
+        public static readonly Rect HeldDrawingBounds = new(-.415f, -.45f, .83f, .815f);
         [SerializeField] LobbyView lobby;
         [SerializeField] RectTransform area, drift, artwork, logo, start;
         [SerializeField] Image body, hitbox;
@@ -22,7 +23,9 @@ namespace MukJump.Core
         Vector2 fittedSize;
         Vector2 travel;
         Vector2 velocity, grabOffset;
-        float elapsed;
+        float elapsed, heldTime;
+        InkSpriteAnimation heldAnimation;
+        public static readonly Vector2 HeldArtOffset = new(-.025f, -.045f);
         bool positioned, holding;
         int pointerId;
         uint inactiveGeneration;
@@ -58,6 +61,7 @@ namespace MukJump.Core
             view.artwork = CreateRect("Artwork", view.drift);
             view.body = CreateRect("OriginalInkBody", view.artwork).gameObject.AddComponent<UnityEngine.UI.Image>();
             view.body.sprite = idle; view.body.preserveAspect = true; view.body.raycastTarget = false;
+            view.heldAnimation = InkAccessoryMotion.Held;
             view.accessory = CreateRect("Accessory", view.artwork).gameObject.AddComponent<InkAccessoryImage>();
             view.accessory.preserveAspect = true; view.accessory.raycastTarget = false;
             view.RefreshSkin(InkSkinId.Ink);
@@ -82,6 +86,7 @@ namespace MukJump.Core
             {
                 float dt = Mathf.Min(Time.unscaledDeltaTime, .05f);
                 elapsed += dt;
+                if (holding) heldTime += dt;
                 if (!holding)
                 {
                     Vector2 position = drift.anchoredPosition;
@@ -92,6 +97,7 @@ namespace MukJump.Core
             // 기울이기·늘이기·발젓기 없이 착용한 형태 그대로 평행 이동한다.
             drift.localRotation = Quaternion.identity;
             drift.localScale = Vector3.one;
+            PresentHeldPose();
             accessory.PresentMotion(shown, elapsed, InkAccessoryMotion.Strength);
         }
 
@@ -158,6 +164,8 @@ namespace MukJump.Core
             holding = true; pointerId = e.pointerId;
             inactiveGeneration = MobileApplicationLifecycle.InactiveGeneration;
             grabOffset = drift.anchoredPosition - point;
+            heldTime = 0f;
+            PresentHeldPose();
         }
         public void OnBeginDrag(PointerEventData e) { }
         public void OnDrag(PointerEventData e)
@@ -171,7 +179,16 @@ namespace MukJump.Core
         }
         public void OnPointerUp(PointerEventData e) { if (holding && pointerId == e.pointerId) CancelDrag(); }
         public void OnEndDrag(PointerEventData e) => OnPointerUp(e);
-        void CancelDrag() => holding = false;
+        void CancelDrag() { holding = false; heldTime = 0f; PresentHeldPose(); }
+        void PresentHeldPose()
+        {
+            if (body == null) return;
+            heldAnimation ??= InkAccessoryMotion.Held;
+            Sprite pose = holding ? heldAnimation?.Sample(heldTime, !LobbySettingsProfile.ReducedMotionEnabled) : null;
+            body.overrideSprite = pose;
+            body.rectTransform.anchoredPosition = pose != null ? HeldArtOffset * body.rectTransform.rect.width : Vector2.zero;
+            accessory?.PresentBodyFrame(pose);
+        }
         void OnDisable() => CancelDrag();
         void OnApplicationPause(bool paused) { if (paused) CancelDrag(); }
         void OnApplicationFocus(bool focused) { if (!focused) CancelDrag(); }
@@ -200,7 +217,8 @@ namespace MukJump.Core
         }
         public static Rect CostumeBounds(InkSkinId id, Sprite sprite)
         {
-            Vector2 min = BodyDrawingBounds.min, max = BodyDrawingBounds.max;
+            Vector2 min = Vector2.Min(BodyDrawingBounds.min, HeldDrawingBounds.min);
+            Vector2 max = Vector2.Max(BodyDrawingBounds.max, HeldDrawingBounds.max);
             if (sprite != null)
             {
                 if (InkSkinCatalog.IsFootwear(id))
@@ -209,6 +227,12 @@ namespace MukJump.Core
                     {
                         Rect r = InkFootwearPose.DrawingRect(id, sprite, side == 1);
                         min = Vector2.Min(min, r.min); max = Vector2.Max(max, r.max);
+                        var held = InkAccessoryMotion.Held;
+                        if (held != null) for (int f = 0; f < held.FrameCount; f++)
+                        {
+                            r = InkFootwearPose.DrawingRect(id, sprite, side == 1, held.Frame(f));
+                            min = Vector2.Min(min, r.min); max = Vector2.Max(max, r.max);
+                        }
                     }
                 }
                 else

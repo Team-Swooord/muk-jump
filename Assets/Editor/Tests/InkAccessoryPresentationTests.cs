@@ -51,15 +51,21 @@ namespace MukJump.EditorTests
                 var stage=(RectTransform)wardrobe.Paper.Find("ShowroomStage");
                 var art=stage.Find("Preview/Accessory").GetComponent<InkAccessoryImage>();
                 var ids=new[]{InkSkinId.BlueWisps,InkSkinId.PaperLanterns,InkSkinId.MoonClouds,
-                    InkSkinId.SpiritHalo,InkSkinId.CraneWings,InkSkinId.ButterflyWings,InkSkinId.OrigamiWings,InkSkinId.StormScarf};
+                    InkSkinId.SpiritHalo,InkSkinId.CraneWings,InkSkinId.ButterflyWings,InkSkinId.OrigamiWings,InkSkinId.StormScarf,InkSkinId.DragonTail};
                 for(int i=0;i<ids.Length;i++)
                 {
                     GameLocalization.SetLanguage(i==1 ? GameLanguage.English : i==2 ? GameLanguage.Japanese : GameLanguage.Korean);
                     wardrobe.Select(ids[i]); yield return Wait(1.1f);
                     Assert.That(art.HasMotion,Is.True,ids[i].ToString());
-                    var before=art.canvasRenderer.GetMesh().vertices; yield return Wait(.4f);
+                    var before=art.canvasRenderer.GetMesh().vertices;
+                    var beforeSprite=art.overrideSprite;
+                    float frameDeadline=Time.realtimeSinceStartup+1;
+                    while(art.overrideSprite==beforeSprite && Time.realtimeSinceStartup<frameDeadline) yield return null;
+                    yield return null;
                     var after=art.canvasRenderer.GetMesh().vertices;
-                    Assert.That(before.Zip(after,(a,b)=>Vector3.Distance(a,b)).Max(),Is.GreaterThan(.01f));
+                    Assert.That(art.overrideSprite,Is.Not.SameAs(beforeSprite));
+                    Assert.That(before,Is.EqualTo(after),"프레임 교체에 메시 변형이 섞이면 안 된다.");
+                    Assert.That(after.Length,Is.EqualTo(4));
                     foreach(var vertex in after)
                         Assert.That(stage.rect.Contains(stage.InverseTransformPoint(art.transform.TransformPoint(vertex))),Is.True,ids[i]+" clip");
                     Assert.That(wardrobe.CollectionContent.GetComponentsInChildren<InkAccessoryImage>(true).All(a=>!a.HasMotion),Is.True);
@@ -82,13 +88,15 @@ namespace MukJump.EditorTests
                 while(GameManager.Instance.IsTransitioning && Time.realtimeSinceStartup<until) yield return null;
                 Assert.That(GameManager.Instance.IsTransitioning,Is.False);
                 var skin=Object.FindFirstObjectByType<InkSkinView>();
-                var motion=skin.GetComponentInChildren<InkAccessoryMesh>();
-                Assert.That(motion,Is.Not.Null); Assert.That(motion.Renderer.enabled,Is.True);
-                Assert.That(skin.AccessoryRenderer.forceRenderingOff,Is.True);
+                var animated=skin.AccessoryRenderer;
+                Assert.That(animated.enabled,Is.True);
+                Assert.That(animated.sprite.name,Does.StartWith("blue_wisps_"));
+                Assert.That(animated.forceRenderingOff,Is.False);
+                Assert.That(animated.GetComponentsInChildren<MeshRenderer>(),Is.Empty);
                 yield return Capture("world-wisps");
                 Assert.That(GameManager.Instance.PauseGame(),Is.True,GameManager.Instance.PauseReason.ToString()); yield return null;
-                var points=motion.Mesh.vertices; yield return Wait(.2f);
-                Assert.That(motion.Mesh.vertices,Is.EqualTo(points));
+                var pausedFrame=animated.sprite; yield return Wait(.2f);
+                Assert.That(animated.sprite,Is.SameAs(pausedFrame));
             }
             finally
             {
@@ -113,8 +121,8 @@ namespace MukJump.EditorTests
             float until=Time.realtimeSinceStartup+5;
             while(!File.Exists(path) && Time.realtimeSinceStartup<until) yield return null;
             Assert.That(File.Exists(path),Is.True);
-            Directory.CreateDirectory("output/qa/animated-accessories");
-            File.Copy(path,"output/qa/animated-accessories/"+name+".png",true); File.Delete(path);
+            Directory.CreateDirectory("output/qa/sprite-animation-2026-09-13");
+            File.Copy(path,"output/qa/sprite-animation-2026-09-13/"+name+".png",true); File.Delete(path);
         }
     }
 }

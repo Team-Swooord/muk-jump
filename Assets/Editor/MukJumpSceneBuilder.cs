@@ -194,6 +194,7 @@ namespace MukJump.EditorTools
             foreach (string atlasPath in AmbientThemeAtlasPaths) ConfigureAmbientCloudAtlas(atlasPath);
             ConfigureCharacterSheets();
             ConfigureSkinAccessories();
+            InkSpriteAnimationBuilder.Configure();
             ConfigureDeathSprites();
             ConfigureObstacleSprite();
             ConfigureDragonObstacleSprites();

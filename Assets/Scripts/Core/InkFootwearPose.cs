@@ -17,6 +17,9 @@ namespace MukJump.Core
             new(.345f,-.344f),new(.277f,-.247f),new(.324f,-.373f),new(.245f,-.361f),
             new(.198f,-.345f),new(.304f,-.356f),new(.299f,-.298f),new(.345f,-.345f) };
         static readonly Dictionary<int,Sprite> parts = new();
+        // 잡힌 원화 4장의 발바닥 접점. 그림 등록 오프셋까지 포함한다.
+        static readonly Vector2[] heldLeft = { new(-.2551f,-.3616f), new(-.1743f,-.4318f), new(-.2151f,-.3983f), new(-.2944f,-.3456f) };
+        static readonly Vector2[] heldRight = { new(.2203f,-.4318f), new(.1435f,-.4493f), new(.2966f,-.3297f), new(.2278f,-.3728f) };
         static readonly Dictionary<Sprite,(Vector2 left,Vector2 right)> frameAnchors = new();
         public static int FrameIndex(Sprite frame)
         {
@@ -37,6 +40,12 @@ namespace MukJump.Core
             // 분신 양발마다 네이티브 이름 문자열을 읽지 않고 프레임당 한 번만 판별한다.
             if(!frameAnchors.TryGetValue(frame,out var pose))
             {
+                if (frame.name.StartsWith("muk_held_") && int.TryParse(frame.name.Substring(9), out int heldIndex) && heldIndex >= 0 && heldIndex < 4)
+                {
+                    pose = (heldLeft[heldIndex], heldRight[heldIndex]);
+                    frameAnchors[frame] = pose;
+                    return right ? pose.right : pose.left;
+                }
                 int index=FrameIndex(frame);
                 bool damage=frame.name.Contains("hit_02") || frame.texture.name.Contains("hit_02");
                 pose=damage ? (damagedLeft[index],damagedRight[index])

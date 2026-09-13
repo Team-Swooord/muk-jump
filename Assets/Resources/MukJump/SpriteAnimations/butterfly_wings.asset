@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a347c1738fdb74255925d12e2331f724, type: 3}
+  m_Name: butterfly_wings
+  m_EditorClassIdentifier: Assembly-CSharp::MukJump.Core.InkSpriteAnimation
+  frames:
+  - {fileID: -386102632, guid: d9098525fdcfc43ff9dcab07daf266ef, type: 3}
+  - {fileID: -1977896930, guid: d9098525fdcfc43ff9dcab07daf266ef, type: 3}
+  - {fileID: 1115235310, guid: d9098525fdcfc43ff9dcab07daf266ef, type: 3}
+  - {fileID: 1100710326, guid: d9098525fdcfc43ff9dcab07daf266ef, type: 3}
+  framesPerSecond: 6

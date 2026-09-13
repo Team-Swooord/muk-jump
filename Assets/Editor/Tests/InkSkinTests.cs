@@ -739,7 +739,7 @@ namespace MukJump.EditorTests
         }
 
         [Test, Category("DragonTail")]
-        public void DragonTailHasLocalizedRequirementAndKeepsTheRootFixedWhileWagging()
+        public void DragonTailHasLocalizedRequirementAndPlaysAuthoredFrames()
         {
             Assert.That((int)InkSkinId.DragonTail, Is.EqualTo(45));
             Assert.That(InkSkinCatalog.Sprite(InkSkinId.DragonTail), Is.Not.Null);
@@ -748,17 +748,10 @@ namespace MukJump.EditorTests
             foreach (string source in new[] { InkSkinCatalog.Name(InkSkinId.DragonTail), InkSkinAchievements.Requirement(InkSkinId.DragonTail), InkSkinLore.Get(InkSkinId.DragonTail).ko })
                 foreach (bool japanese in new[] { false, true })
                     Assert.That(InkSkinTranslations.TryTranslate(source, japanese, out _), Is.True);
-            float travel = 0;
-            for (int t = 0; t < 80; t++)
-            {
-                var root = new Vector2(.2f, .5f); var tip = new Vector2(.9f, .5f);
-                Assert.That(InkAccessoryMotion.Deform(InkSkinId.DragonTail, root, t * .1f, 1), Is.EqualTo(root));
-                var moved = InkAccessoryMotion.Deform(InkSkinId.DragonTail, tip, t * .1f, 1);
-                float distance = Vector2.Distance(tip, moved); travel += distance;
-                Assert.That(distance, Is.LessThan(.04f));
-                Assert.That(InkAccessoryMotion.Deform(InkSkinId.DragonTail, tip, t, 0), Is.EqualTo(tip));
-            }
-            Assert.That(travel, Is.GreaterThan(.01f));
+            var animation = InkAccessoryMotion.Animation(InkSkinId.DragonTail);
+            Assert.That(animation, Is.Not.Null);
+            Assert.That(animation.FrameCount, Is.EqualTo(4));
+            Assert.That(animation.Sample(0), Is.Not.SameAs(animation.Sample(1f / animation.FramesPerSecond)));
         }
         static SkinRunStats DragonStats(GameManager manager) => (SkinRunStats)typeof(GameManager)
             .GetField("skinRunStats", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(manager);

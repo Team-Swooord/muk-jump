@@ -12,7 +12,6 @@ namespace MukJump.Player
         SpriteRenderer body;
         SpriteRenderer accessory;
         SpriteRenderer rightShoe;
-        InkAccessoryMesh motion;
         float motionTime;
         PlayerController player;
         InkSkinId displayed = (InkSkinId)(-1);
@@ -39,10 +38,9 @@ namespace MukJump.Player
                 rightShoe.transform.SetParent(transform,false);
             }
             rightShoe.enabled=false;
-            motion = accessory.transform.Find("Motion")?.GetComponent<InkAccessoryMesh>();
         }
 
-        void OnDisable() { if (accessory != null) { accessory.enabled = false; accessory.forceRenderingOff = false; } if(rightShoe!=null) rightShoe.enabled=false; motion?.Hide(); }
+        void OnDisable() { if (accessory != null) accessory.enabled = false; if(rightShoe!=null) rightShoe.enabled=false; }
 
         void LateUpdate()
         {
@@ -59,16 +57,26 @@ namespace MukJump.Player
             accessory.enabled = body.enabled && body.sprite != null && accessory.sprite != null &&
                                 (player == null || !player.IsDead);
             rightShoe.enabled=accessory.enabled && InkSkinCatalog.IsFootwear(id);
-            if (!accessory.enabled) { motion?.Hide(); return; }
+            if (!accessory.enabled) return;
             Sprite frame = body.sprite;
             Vector2 frameSize = frame.rect.size / frame.pixelsPerUnit;
             Vector2 center = (frame.rect.size * 0.5f - frame.pivot) / frame.pixelsPerUnit;
             if(InkSkinCatalog.IsFootwear(id))
             {
-                motion?.Hide();
                 ApplyShoe(accessory,id,frame,frameSize,center,false);
                 ApplyShoe(rightShoe,id,frame,frameSize,center,true);
                 return;
+            }
+            // 프레임은 장착할 때 캐시하고, 화면에 보이는 동안만 시계를 진행한다.
+            if (InkAccessoryMotion.Supports(id))
+            {
+                if (body.isVisible && MobileApplicationLifecycle.IsApplicationActive && Time.timeScale > 0f &&
+                    (GameManager.Instance == null || !GameManager.Instance.IsPaused))
+                    motionTime += Mathf.Min(.05f, Time.deltaTime);
+                accessory.sprite = InkAccessoryMotion.Strength > 0f
+                    ? InkAccessoryMotion.Sample(id, motionTime + Mathf.Abs(GetEntityId().GetHashCode() % 19) * .17f)
+                        ?? InkSkinCatalog.Sprite(id)
+                    : InkSkinCatalog.Sprite(id);
             }
             Vector2 offset = InkSkinCatalog.Offset(id) * frameSize;
             // 매듭 때문에 비대칭인 머리띠도 방향 반전 시 띠 중심이 먹의 이마에 남는다.
@@ -82,18 +90,6 @@ namespace MukJump.Player
             accessory.color = body.color;
             accessory.sortingLayerID = body.sortingLayerID;
             accessory.sortingOrder = body.sortingOrder + (InkSkinCatalog.BehindBody(id) ? -1 : 1);
-            if (!InkAccessoryMotion.Supports(id) || InkAccessoryMotion.Strength <= 0f)
-            { motion?.Hide(); return; }
-            if (motion == null)
-            {
-                var go = new GameObject("Motion"); go.transform.SetParent(accessory.transform, false);
-                go.layer = gameObject.layer; motion = go.AddComponent<InkAccessoryMesh>();
-            }
-            // 화면 밖·중단 중에는 장식 시계를 멈춘다. 분신은 자체 위상만 달리한다.
-            if (body.isVisible && MobileApplicationLifecycle.IsApplicationActive && Time.timeScale > 0f &&
-                (GameManager.Instance == null || !GameManager.Instance.IsPaused))
-                motionTime += Mathf.Min(.05f, Time.deltaTime);
-            accessory.forceRenderingOff = motion.Present(accessory, id, motionTime + (GetEntityId().GetHashCode() % 19)*.17f, InkAccessoryMotion.Strength);
         }
         void ApplyShoe(SpriteRenderer shoe,InkSkinId id,Sprite frame,Vector2 frameSize,Vector2 center,bool right)
         {
