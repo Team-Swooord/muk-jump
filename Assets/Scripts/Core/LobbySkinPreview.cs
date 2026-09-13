@@ -12,6 +12,14 @@ namespace MukJump.Core
         public const float PreviewScale = .85f;
         public const float DriftSpeed = 32f;
         public const float MaxThrowSpeed = 1800f;
+        // Canvas 기준의 약한 중력. 손에서 놓은 관성은 살리고 공기 저항·충돌 손실로 서서히 가라앉힌다.
+        public const float Gravity = 180f;
+        public const float AirDrag = .30f;
+        public const float Restitution = .60f;
+        public const float RestSpeed = 45f;
+        const float GroundFriction = 280f;
+        const float CushionImpactSpeed = 120f;
+        const float MotionStep = 1f / 120f;
         // idle 원화의 알파 경계 (100, 152)~(924, 866)/1024에 여유를 더한 범위.
         // 투명 프레임 전체를 피팅하면 실제 먹이 너무 작아진다. 원본 그림은 자르지 않는다.
         public static readonly Rect BodyDrawingBounds = new(-.415f, -.36f, .83f, .725f);
@@ -102,6 +110,7 @@ namespace MukJump.Core
                     object completedOwner = cushionAttempt.Record(PermanentGrowthProfile.SkinAccountToken, contacts);
                     if (completedOwner != null && SkinSecrets.CompletedThreeCushion(completedOwner) != 0)
                         GameManager.Instance?.GetComponent<InkAchievementToast>()?.EnqueueLobby((int)InkSkinId.ThreeCushion);
+                    if (velocity == Vector2.zero) cushionAttempt.Cancel();
                 }
             }
             // 기울이기·늘이기·발젓기 없이 착용한 형태 그대로 평행 이동한다.
@@ -275,35 +284,42 @@ namespace MukJump.Core
             }
         }
 
-        // 화면 밖으로 크게 끌거나 긴 프레임이 와도 외곽 안에서 반사한다. 게임 난수/물리는 사용하지 않는다.
+        // 게임 난수·물리와 분리된 로비 운동. 작은 시간 간격으로 계산해 고속 투척도 벽 밖으로 빠지지 않는다.
         public static int AdvanceBounce(ref Vector2 position, ref Vector2 speed, Vector2 limits, float dt)
         {
-            // 프레임 끝의 속도 부호만 보면 두 번 반사된 충돌을 놓친다. 접촉 시각을 먼저 계산한다.
-            int contacts = CountCushionContacts(position, speed, limits, dt);
-            BounceAxis(ref position.x, ref speed.x, limits.x, dt);
-            BounceAxis(ref position.y, ref speed.y, limits.y, dt);
-            return contacts;
-        }
-        static int CountCushionContacts(Vector2 position, Vector2 speed, Vector2 limits, float dt)
-        {
-            if (dt <= 0) return 0;
-            float First(float p, float v, float limit) => limit <= 0 || v == 0 ? float.PositiveInfinity :
-                (limit - Mathf.Clamp(p, -limit, limit) * Mathf.Sign(v)) / Mathf.Abs(v);
-            float nextX = First(position.x, speed.x, limits.x), nextY = First(position.y, speed.y, limits.y);
-            float periodX = speed.x == 0 ? float.PositiveInfinity : 2f * limits.x / Mathf.Abs(speed.x);
-            float periodY = speed.y == 0 ? float.PositiveInfinity : 2f * limits.y / Mathf.Abs(speed.y);
-            int count = 0;
-            // 해금에 필요한 세 번까지만 계산한다. 모서리 동시 접촉은 한 번으로 센다.
-            while (count < 3)
+            limits = Vector2.Max(Vector2.zero, limits);
+            position = new Vector2(Mathf.Clamp(position.x, -limits.x, limits.x), Mathf.Clamp(position.y, -limits.y, limits.y));
+            if (limits.x == 0f) speed.x = 0f;
+            if (limits.y == 0f) speed.y = 0f;
+            int contacts = 0;
+            float remaining = Mathf.Max(0f, dt);
+            while (remaining > 0f)
             {
-                float next = Mathf.Min(nextX, nextY);
-                if (next > dt) break;
-                bool hitX = Mathf.Abs(nextX - next) < .00001f, hitY = Mathf.Abs(nextY - next) < .00001f;
-                if (hitX) nextX += periodX;
-                if (hitY) nextY += periodY;
-                count++;
+                float step = Mathf.Min(MotionStep, remaining);
+                remaining -= step;
+                bool grounded = limits.y == 0f || (position.y <= -limits.y && speed.y == 0f);
+                float decay = Mathf.Exp(-AirDrag * step);
+                float travelTime = (1f - decay) / AirDrag;
+                if (grounded)
+                {
+                    speed.y = 0f;
+                    speed.x = Mathf.MoveTowards(speed.x * decay, 0f, GroundFriction * step);
+                    position.x += speed.x * step;
+                }
+                else
+                {
+                    position.x += speed.x * travelTime;
+                    position.y += (speed.y + Gravity / AirDrag) * travelTime - Gravity / AirDrag * step;
+                    speed.x *= decay;
+                    speed.y = speed.y * decay - Gravity * travelTime;
+                }
+                bool impact = BounceAxis(ref position.x, ref speed.x, limits.x, false);
+                impact |= BounceAxis(ref position.y, ref speed.y, limits.y, true);
+                // 모서리는 한 번, 바닥의 미세 떨림은 0번. 멈춘 먹으로 쓰리쿠션이 자동 달성되지 않는다.
+                if (impact) contacts = Mathf.Min(3, contacts + 1);
+                if (grounded && speed == Vector2.zero) break;
             }
-            return count;
+            return contacts;
         }
 
         /// 진행도는 저장하지 않는다. 재포획·화면 이탈·계정 전환으로 즉시 끊기는 한 번의 던지기다.
@@ -323,15 +339,18 @@ namespace MukJump.Core
                 return completed;
             }
         }
-        static void BounceAxis(ref float position, ref float speed, float limit, float dt)
+        static bool BounceAxis(ref float position, ref float speed, float limit, bool vertical)
         {
-            if (limit <= 0f) { position = 0f; return; }
-            float offset = Mathf.Clamp(position, -limit, limit) + speed * Mathf.Max(0f, dt) + limit;
-            float folded = Mathf.Repeat(offset, 4f * limit);
-            position = folded <= 2f * limit ? folded - limit : 3f * limit - folded;
-            if (folded > 2f * limit) speed = -speed;
-            if (position >= limit) speed = -Mathf.Abs(speed);
-            else if (position <= -limit) speed = Mathf.Abs(speed);
+            if (limit <= 0f) { position = 0f; speed = 0f; return false; }
+            bool upper = position >= limit && speed > 0f;
+            bool lower = position <= -limit && speed < 0f;
+            position = Mathf.Clamp(position, -limit, limit);
+            if (!upper && !lower) return false;
+            float incoming = Mathf.Abs(speed);
+            speed = -speed * Restitution;
+            // 작아진 바닥 반동은 정지시켜 중력이 매 프레임 다시 튕겨 올리지 않게 한다.
+            if (vertical && lower && speed < RestSpeed) speed = 0f;
+            return incoming >= CushionImpactSpeed;
         }
         public static Vector2 RotationEnvelope(Vector2 size)
         {

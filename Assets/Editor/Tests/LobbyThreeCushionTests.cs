@@ -36,16 +36,14 @@ namespace MukJump.EditorTests
 
         [Test] public void WallContactsCountImpactsNotFramesAndSimultaneousCornerCountsOnce()
         {
-            Vector2 p = Vector2.zero, v = new(10, 0), limit = Vector2.one * 10;
-            Assert.That(LobbySkinPreview.AdvanceBounce(ref p, ref v, limit, .9f), Is.Zero);
-            Assert.That(LobbySkinPreview.AdvanceBounce(ref p, ref v, limit, .1f), Is.EqualTo(1));
+            Vector2 p = new(99, 0), v = new(400, 0), limit = new(100, 1000);
+            Assert.That(LobbySkinPreview.AdvanceBounce(ref p, ref v, limit, .01f), Is.EqualTo(1));
             Assert.That(LobbySkinPreview.AdvanceBounce(ref p, ref v, limit, 0), Is.Zero);
-            Assert.That(LobbySkinPreview.AdvanceBounce(ref p, ref v, limit, .1f), Is.Zero, "같은 벽의 다음 프레임은 중복이 아니다.");
-            p = Vector2.zero; v = Vector2.one * 10;
-            Assert.That(LobbySkinPreview.AdvanceBounce(ref p, ref v, limit, 1f), Is.EqualTo(1));
-            Assert.That(LobbySkinPreview.AdvanceBounce(ref p, ref v, limit, 4f), Is.EqualTo(2));
-            p = Vector2.zero; v = new Vector2(10, 0);
-            Assert.That(LobbySkinPreview.AdvanceBounce(ref p, ref v, limit, 6f), Is.EqualTo(3), "긴 프레임의 다중 반사도 세 번까지 인정한다.");
+            Assert.That(LobbySkinPreview.AdvanceBounce(ref p, ref v, limit, .01f), Is.Zero, "같은 벽의 다음 프레임은 중복이 아니다.");
+            limit = Vector2.one * 100; p = limit; v = Vector2.one * 400;
+            Assert.That(LobbySkinPreview.AdvanceBounce(ref p, ref v, limit, .001f), Is.EqualTo(1));
+            p = Vector2.zero; v = new Vector2(LobbySkinPreview.MaxThrowSpeed, 0);
+            Assert.That(LobbySkinPreview.AdvanceBounce(ref p, ref v, limit, 3f), Is.EqualTo(3), "감쇠가 있어도 빠른 직접 투척으로 세 번을 달성할 수 있다.");
             Assert.That(LobbySkinPreview.AdvanceBounce(ref p, ref v, Vector2.zero, 1f), Is.Zero);
         }
 
@@ -170,23 +168,27 @@ namespace MukJump.EditorTests
                 var originalBody = body.sprite;
                 var toast = GameManager.Instance.GetComponent<InkAchievementToast>();
                 var e = new PointerEventData(EventSystem.current) { pointerId = 81 };
-                preview.Drift.anchoredPosition = Vector2.zero;
-                e.position = Screen(preview, Vector2.zero); preview.OnPointerDown(e);
+                Vector2 origin = new(-preview.Travel.x * .85f, 0);
+                preview.Drift.anchoredPosition = origin;
+                e.position = Screen(preview, origin); preview.OnPointerDown(e);
                 Assert.That(preview.IsDragging, Is.True);
                 for (int i = 1; i <= 3; i++)
                 {
                     yield return null;
-                    e.position = Screen(preview, new Vector2(i * 60, 0)); preview.OnDrag(e);
+                    e.position = Screen(preview, origin + new Vector2(i * 120, 0)); preview.OnDrag(e);
                 }
                 preview.OnPointerUp(e); preview.OnEndDrag(e);
                 Assert.That(preview.Velocity.x, Is.GreaterThan(0));
-                float previousVelocity = preview.Velocity.x, deadline = Time.realtimeSinceStartup + 25;
+                Vector2 previousVelocity = preview.Velocity;
+                float deadline = Time.realtimeSinceStartup + 25;
                 int bounces = 0;
                 while (!InkSkinAchievements.IsUnlocked(InkSkinId.ThreeCushion) && Time.realtimeSinceStartup < deadline)
                 {
                     yield return null;
-                    if (Mathf.Sign(previousVelocity) != Mathf.Sign(preview.Velocity.x)) bounces++;
-                    previousVelocity = preview.Velocity.x;
+                    bool side = Mathf.Abs(previousVelocity.x) >= 120f && previousVelocity.x * preview.Velocity.x < 0;
+                    bool floor = previousVelocity.y <= -120f && preview.Velocity.y > 0;
+                    if (side || floor) bounces++;
+                    previousVelocity = preview.Velocity;
                     Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.ThreeCushion), Is.EqualTo(bounces >= 3));
                 }
                 Assert.That(bounces, Is.EqualTo(3));

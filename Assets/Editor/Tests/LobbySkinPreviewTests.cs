@@ -19,20 +19,24 @@ namespace MukJump.EditorTests
     public sealed class LobbySkinPreviewTests
     {
         [Test, Category("LobbyDrift"), Category("LobbyThrow")]
-        public void SlowDriftBouncesWithoutTouchingGameRandom()
+        public void GentleGravitySettlesWithoutTouchingGameRandomOrChatteringOnFloor()
         {
             var state = Random.state;
             Vector2 position = Vector2.zero, velocity = new Vector2(3, 4).normalized * LobbySkinPreview.DriftSpeed;
             Vector2 limits = new(100, 200);
-            for (int i = 0; i < 36000; i++)
+            int contacts = 0;
+            for (int i = 0; i < 1200; i++)
             {
-                var before = position;
-                LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, 1f / 60f);
+                contacts += LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, 1f / 60f);
                 Assert.That(Mathf.Abs(position.x), Is.LessThanOrEqualTo(limits.x));
                 Assert.That(Mathf.Abs(position.y), Is.LessThanOrEqualTo(limits.y));
-                Assert.That(Vector2.Distance(before, position), Is.LessThanOrEqualTo(LobbySkinPreview.DriftSpeed / 60f + .0001f));
-                Assert.That(velocity.magnitude, Is.EqualTo(LobbySkinPreview.DriftSpeed).Within(.001f));
             }
+            Assert.That(position.y, Is.EqualTo(-limits.y));
+            Assert.That(velocity, Is.EqualTo(Vector2.zero));
+            Assert.That(contacts, Is.LessThan(3), "단순 낙하의 작은 반동으로 쓰리쿠션이 달성되면 안 된다.");
+            var resting = position;
+            Assert.That(LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, 20f), Is.Zero);
+            Assert.That(position, Is.EqualTo(resting));
             Assert.That(Random.state, Is.EqualTo(state));
         }
 
@@ -41,8 +45,9 @@ namespace MukJump.EditorTests
         {
             Vector2 position = new(9, 19), velocity = new(10, 10), limits = new(10, 20);
             LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, .2f);
-            Assert.That(position, Is.EqualTo(new Vector2(9, 19)));
-            Assert.That(velocity, Is.EqualTo(new Vector2(-10, -10)));
+            Assert.That(position.x, Is.LessThan(10));
+            Assert.That(velocity.x, Is.InRange(-6f, 0f));
+            Assert.That(velocity.y, Is.LessThan(0f));
             LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, 100f);
             Assert.That(Mathf.Abs(position.x), Is.LessThanOrEqualTo(10));
             Assert.That(Mathf.Abs(position.y), Is.LessThanOrEqualTo(20));
@@ -50,8 +55,9 @@ namespace MukJump.EditorTests
             LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, 1);
             Assert.That(position, Is.EqualTo(Vector2.zero));
             limits = Vector2.one * 10; position = new Vector2(-10, 10); velocity = new(-5, 5);
-            LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, 0);
-            Assert.That(velocity, Is.EqualTo(new Vector2(5, -5)));
+            LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, .01f);
+            Assert.That(velocity.x, Is.GreaterThan(0));
+            Assert.That(velocity.y, Is.LessThan(0));
         }
 
         [TestCase(30), TestCase(60), TestCase(120), Category("LobbyThrow")]
@@ -108,18 +114,38 @@ namespace MukJump.EditorTests
         }
 
         [Test, Category("LobbyThrow")]
-        public void FastPinballBouncesKeepEnergyAndStayInsideCostumeBoundary()
+        public void FastThrowLosesEnergyAtWallsAndEventuallyComesToRest()
         {
             Vector2 initial = new Vector2(3, -4).normalized * LobbySkinPreview.MaxThrowSpeed;
             Vector2 position = Vector2.zero, velocity = initial, limits = new(90, 170);
-            for (int i = 0; i < 600; i++)
+            float firstSideSpeed = 0f;
+            for (int i = 0; i < 1800; i++)
             {
-                LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, i % 10 == 0 ? .5f : 1f / 120f);
+                float previousX = velocity.x;
+                LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, 1f / 120f);
                 Assert.That(Mathf.Abs(position.x), Is.LessThanOrEqualTo(limits.x));
                 Assert.That(Mathf.Abs(position.y), Is.LessThanOrEqualTo(limits.y));
-                Assert.That(Mathf.Abs(velocity.x), Is.EqualTo(Mathf.Abs(initial.x)));
-                Assert.That(Mathf.Abs(velocity.y), Is.EqualTo(Mathf.Abs(initial.y)), "중력이나 임의 가속을 더하지 않는다.");
+                Assert.That(Mathf.Abs(velocity.x), Is.LessThanOrEqualTo(Mathf.Abs(previousX) + .001f));
+                if (firstSideSpeed == 0f && velocity.x < 0f) firstSideSpeed = Mathf.Abs(velocity.x);
             }
+            Assert.That(firstSideSpeed, Is.InRange(1f, Mathf.Abs(initial.x) * LobbySkinPreview.Restitution));
+            Assert.That(velocity, Is.EqualTo(Vector2.zero));
+            Assert.That(position.y, Is.EqualTo(-limits.y));
+        }
+
+        [TestCase(30), TestCase(60), TestCase(120), Category("LobbyThrow")]
+        public void GravityAndDragAreConsistentAcrossFrameRates(int fps)
+        {
+            Vector2 start = new(400, 250), limits = Vector2.one * 10000;
+            Vector2 position = Vector2.zero, velocity = start;
+            for (int i = 0; i < fps; i++) LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, 1f / fps);
+            float decay = Mathf.Exp(-LobbySkinPreview.AirDrag);
+            float travel = (1f - decay) / LobbySkinPreview.AirDrag;
+            Vector2 expected = new(start.x * travel,
+                (start.y + LobbySkinPreview.Gravity / LobbySkinPreview.AirDrag) * travel - LobbySkinPreview.Gravity / LobbySkinPreview.AirDrag);
+            Assert.That(Vector2.Distance(position, expected), Is.LessThan(.1f));
+            Assert.That(velocity.x, Is.EqualTo(start.x * decay).Within(.05f));
+            Assert.That(velocity.y, Is.EqualTo(start.y * decay - LobbySkinPreview.Gravity * travel).Within(.05f));
         }
 
         [UnityTest, Category("LobbyThrow"), Timeout(120000)]
@@ -163,7 +189,8 @@ namespace MukJump.EditorTests
                 for (int i = 0; i < 4; i++) yield return null;
                 Vector2 movement = preview.Drift.anchoredPosition - before;
                 Assert.That(Vector2.Dot(movement.normalized, released.normalized), Is.GreaterThan(.99f));
-                Assert.That(preview.Velocity, Is.EqualTo(released));
+                Assert.That(preview.Velocity.x, Is.LessThan(released.x));
+                Assert.That(preview.Velocity.y, Is.LessThan(released.y));
 
                 // 재포획과 정지 후 놓기: 실제 UI 이벤트 경로에서도 예전 던지기가 되살아나지 않는다.
                 var e = new PointerEventData(EventSystem.current) { pointerId = 41, position = ScreenPoint(preview, preview.Drift.anchoredPosition) };
@@ -174,8 +201,10 @@ namespace MukJump.EditorTests
                 yield return Wait(.15f);
                 preview.OnPointerUp(e); preview.OnEndDrag(e);
                 yield return Wait(.15f);
-                Assert.That(preview.Velocity, Is.EqualTo(Vector2.zero));
-                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(before));
+                Assert.That(preview.Velocity.x, Is.Zero);
+                Assert.That(preview.Velocity.y, Is.LessThan(0));
+                Assert.That(preview.Drift.anchoredPosition.x, Is.EqualTo(before.x));
+                Assert.That(preview.Drift.anchoredPosition.y, Is.LessThan(before.y), "정지해서 놓아도 이전 투척 없이 중력만 작용한다.");
 
                 // 시작 버튼 위에 놓아도 게임을 시작하지 않고, 다음 일반 탭은 여전히 버튼이 받는다.
                 // 던진 뒤 메뉴/로고 밑으로 들어갈 수 있으므로 다시 빈 로비 영역에서 잡는다. 메뉴 입력 우선은 유지한다.
@@ -202,9 +231,12 @@ namespace MukJump.EditorTests
                 yield return null;
                 e.position += Vector2.one * 30; preview.OnDrag(e); preview.OnPointerUp(e);
                 before = preview.Drift.anchoredPosition;
-                LobbySettingsProfile.SetReducedMotionEnabled(false); yield return Wait(.15f);
+                yield return Wait(.15f);
                 Assert.That(preview.Velocity, Is.EqualTo(Vector2.zero));
                 Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(before));
+                LobbySettingsProfile.SetReducedMotionEnabled(false); yield return Wait(.15f);
+                Assert.That(preview.Velocity.x, Is.Zero);
+                Assert.That(preview.Velocity.y, Is.LessThan(0));
             }
             finally
             {
@@ -239,6 +271,7 @@ namespace MukJump.EditorTests
                 var lobby = Object.FindAnyObjectByType<LobbyView>();
                 var body = preview.transform.Find("Drift/Artwork/OriginalInkBody").GetComponent<UnityEngine.UI.Image>();
                 Assert.That(body.GetComponents<UnityEngine.UI.BaseMeshEffect>(), Is.Empty, "본체 메시 변형을 사용하지 않는다.");
+                Vector2 clearOrigin = preview.Drift.anchoredPosition;
                 Assert.That(preview.Area.parent.name, Is.EqualTo("SafeAreaRoot"));
                 var safe = (RectTransform)preview.Area.parent;
                 Assert.That(preview.Area.rect.width, Is.EqualTo(safe.rect.width).Within(.01));
@@ -262,12 +295,16 @@ namespace MukJump.EditorTests
                 var before = preview.Drift.anchoredPosition;
                 yield return Wait(.4f);
                 float distance = Vector2.Distance(before, preview.Drift.anchoredPosition);
-                Assert.That(distance, Is.InRange(1f, 20f), "천천히 이동해야 한다.");
+                Assert.That(distance, Is.InRange(1f, 240f), "약한 중력으로 가라앉되 갑자기 빠르게 날아가면 안 된다.");
                 yield return Capture("slow-free-drift");
 
                 // 실제 Input System → UI 모듈 → 레이캐스트 → 드래그 경로. 시작 버튼 위에서 손을 떼도 시작하지 않는다.
                 touch = InputSystem.AddDevice<Touchscreen>();
                 LobbySettingsProfile.SetReducedMotionEnabled(true); yield return Wait(.1f);
+                // 자연 낙하로 버튼 뒤에 들어간 먹 대신, 처음의 빈 로비 영역에서 터치 검사를 시작한다.
+                // 메뉴와 겹쳤을 때 버튼 입력이 우선하는지는 아래에서 별도로 확인한다.
+                preview.Drift.anchoredPosition = clearOrigin;
+                Canvas.ForceUpdateCanvases();
                 Vector2 origin = ScreenPoint(preview, preview.Drift.anchoredPosition);
                 yield return CheckRaycast(origin, hit => Assert.That(hit, Is.EqualTo(preview.Drift.gameObject)));
                 yield return Touch(touch, 1, UnityEngine.InputSystem.TouchPhase.Began, origin);
@@ -451,10 +488,12 @@ namespace MukJump.EditorTests
         static IEnumerator Touch(Touchscreen touch, int id, UnityEngine.InputSystem.TouchPhase phase, Vector2 point)
         {
             bool queued = false;
+            int queuedFrame = -1;
             System.Action before = () =>
             {
                 if (queued || UnityEngine.InputSystem.LowLevel.InputState.currentUpdateType != InputUpdateType.Dynamic) return;
                 queued = true;
+                queuedFrame = Time.frameCount;
                 InputSystem.QueueStateEvent(touch, new TouchState { touchId = id, phase = phase, position = point });
             };
             InputSystem.onBeforeUpdate += before;
@@ -463,7 +502,9 @@ namespace MukJump.EditorTests
                 float deadline = Time.realtimeSinceStartup + 3;
                 while (!queued && Time.realtimeSinceStartup < deadline) yield return null;
                 Assert.That(queued, Is.True);
-                yield return null; yield return null;
+                // EditMode의 yield 횟수와 실제 Player 프레임은 다르다. UI 모듈이 이벤트를 처리할 때까지 기다린다.
+                while (Time.frameCount <= queuedFrame + 1 && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(Time.frameCount, Is.GreaterThan(queuedFrame + 1));
             }
             finally { InputSystem.onBeforeUpdate -= before; }
         }
