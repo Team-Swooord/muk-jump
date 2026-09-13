@@ -149,13 +149,16 @@ namespace MukJump.Core
         void RefreshSelection()
         {
             bool hidden = SkinDebugSession.IsConcealed(selected);
+            bool hasAbility = InkSkinCatalog.HasAbility(selected);
             bool unlocked = SkinDebugSession.CanEquip(selected);
             bool equipped = InkSkinPreferences.Equipped == selected;
             InkLocalizedText.SetSource(nameText, hidden ? "" : InkSkinCatalog.Name(selected));
             InkLocalizedText.SetSource(loreText, hidden ? "" : InkSkinLore.Get(selected).ko);
             InkLocalizedText.SetSource(groupText, "같은 해금 조건끼리");
-            InkLocalizedText.SetSource(abilityText, hidden ? "" : InkSkinCatalog.Ability(selected));
-            InkLocalizedText.SetSource(descriptionText, hidden ? "숨겨진 행동으로 발견해 보세요." : InkSkinCatalog.Description(selected));
+            InkLocalizedText.SetSource(abilityText, !hidden && hasAbility ? InkSkinCatalog.Ability(selected) : "");
+            InkLocalizedText.SetSource(descriptionText, hidden ? "숨겨진 행동으로 발견해 보세요." :
+                hasAbility ? InkSkinCatalog.Description(selected) : "");
+            RefreshDetailLayout(hidden, hasAbility);
             previewQuestion.enabled = hidden;
             // 주기적인 상태 갱신이 의상 교체 애니메이션의 위치를 덮어쓰지 않는다.
             if (!hasPreview || renderedSkin != selected || renderedHidden != hidden || renderedUnlocked != unlocked)
@@ -200,6 +203,25 @@ namespace MukJump.Core
                     id == InkSkinPreferences.Equipped ? "착용 중" : id == selected ? "선택됨" : "해금됨");
             }
             FitCardPreviews();
+        }
+        void RefreshDetailLayout(bool hidden, bool hasAbility)
+        {
+            // 장식 전용 의상은 반복 안내 대신 이름·이야기·해금 정보만 보여 준다.
+            // 실제 능력과 미발견 히든 안내는 그대로 보존한다.
+            abilityText.gameObject.SetActive(!collectionExpanded && !hidden && hasAbility);
+            descriptionText.gameObject.SetActive(!collectionExpanded && (hidden || hasAbility));
+            float reclaimedHeight = !hidden && !hasAbility ? 192f : 0f;
+            achievementText.rectTransform.anchoredPosition = new Vector2(0, -152 + reclaimedHeight);
+            progressText.rectTransform.anchoredPosition = new Vector2(0, -212 + reclaimedHeight);
+            progressTrack.anchoredPosition = new Vector2(0, -253 + reclaimedHeight);
+            statusText.rectTransform.anchoredPosition = new Vector2(0, -195 + reclaimedHeight);
+            groupText.rectTransform.anchoredPosition = new Vector2(0, -304 + reclaimedHeight);
+            if (!collectionExpanded)
+            {
+                // 목록 하단과 착용 버튼은 고정하고 비워진 설명 높이만 목록에 돌려준다.
+                collectionRoot.anchoredPosition = new Vector2(0, -548 + reclaimedHeight * .5f);
+                collectionRoot.sizeDelta = new Vector2(1000, 424 + reclaimedHeight);
+            }
         }
         void RefreshProgress(int goal, int value, bool unlocked, bool saveFailed)
         {

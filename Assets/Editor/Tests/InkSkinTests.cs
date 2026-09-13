@@ -279,6 +279,49 @@ namespace MukJump.EditorTests
             view.ToggleCollection(); view.Select(InkSkinId.Astronaut);
             Assert.That(view.Paper.Find("ItemLore").GetComponent<UnityEngine.UI.Text>().text,Is.Empty);
         }
+        [TestCase(GameLanguage.Korean)]
+        [TestCase(GameLanguage.English)]
+        [TestCase(GameLanguage.Japanese)]
+        public void CosmeticDetailsKeepLoreAndUnlocksWithoutGenericAbilityCopy(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language);
+            var view = Track(new GameObject("CompactCosmeticDetails")).AddComponent<InkWardrobeView>();
+            view.BuildForTests(Idle()); view.SetNavigationPresentation(true, true);
+            var ability = view.Paper.Find("Ability").GetComponent<UnityEngine.UI.Text>();
+            var description = view.Paper.Find("Description").GetComponent<UnityEngine.UI.Text>();
+            var achievement = view.Paper.Find("Achievement").GetComponent<UnityEngine.UI.Text>();
+            var collection = (RectTransform)view.Paper.Find("CollectionScroll");
+            Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+            try
+            {
+                foreach (var id in new[] { InkSkinId.CatEars, InkSkinId.RedHeadband, InkSkinId.DragonTail })
+                {
+                    view.Select(id); view.Presentation.Cancel(); Canvas.ForceUpdateCanvases();
+                    Assert.That(ability.text, Is.Empty); Assert.That(ability.gameObject.activeSelf, Is.False);
+                    Assert.That(description.text, Is.Empty); Assert.That(description.gameObject.activeSelf, Is.False);
+                    Assert.That(view.Paper.Find("ItemLore").GetComponent<UnityEngine.UI.Text>().text, Is.Not.Empty);
+                    Assert.That(achievement.text, Is.EqualTo(GameLocalization.Translate(InkSkinAchievements.Requirement(id))));
+                    Assert.That(view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>().text, Is.Not.Empty);
+                    Assert.That(achievement.rectTransform.anchoredPosition.y, Is.EqualTo(40));
+                    Assert.That(collection.sizeDelta.y, Is.EqualTo(616));
+                    Assert.That(collection.anchoredPosition.y - collection.sizeDelta.y * .5f, Is.EqualTo(-760));
+                }
+                view.ToggleCollection(); view.ToggleCollection();
+                Assert.That(description.gameObject.activeSelf, Is.False, "목록 왕복 후 공통 안내가 다시 나오면 안 된다");
+                view.Select(InkSkinId.Gat);
+                Assert.That(ability.gameObject.activeSelf && description.gameObject.activeSelf, Is.True);
+                Assert.That(description.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Description(InkSkinId.Gat))));
+                Assert.That(collection.sizeDelta.y, Is.EqualTo(424));
+                Assert.That(achievement.rectTransform.anchoredPosition.y, Is.EqualTo(-152));
+            }
+            finally { SkinDebugSession.Reset(); }
+            view.Select(InkSkinId.Astronaut);
+            Assert.That(ability.gameObject.activeSelf, Is.False);
+            Assert.That(description.gameObject.activeSelf, Is.True);
+            Assert.That(description.text, Is.EqualTo(GameLocalization.Translate("숨겨진 행동으로 발견해 보세요.")));
+            Assert.That(collection.sizeDelta.y, Is.EqualTo(424));
+        }
+
         [TestCase(InkSkinId.RedShoes)]
         [TestCase(InkSkinId.CloudBoots)]
         public void WardrobePolishFootwearUsesSameOutwardPartsInUiAndPlayer(InkSkinId id)

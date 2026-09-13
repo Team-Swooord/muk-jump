@@ -138,6 +138,7 @@ namespace MukJump.EditorTests
                         Assert.That(BoundsIn(card,viewport).yMin, Is.GreaterThanOrEqualTo(stateBounds.yMax+4));
                     }
                     string[] rows = { "SkinName", "Ability", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "CollectionScroll", "EquipButton" };
+                    rows = rows.Where(name => view.Paper.Find(name).gameObject.activeSelf).ToArray();
                     for (int row = 1; row < rows.Length; row++)
                         Assert.That(BoundsIn(view.Paper,(RectTransform)view.Paper.Find(rows[row-1])).yMin,
                             Is.GreaterThanOrEqualTo(BoundsIn(view.Paper,(RectTransform)view.Paper.Find(rows[row])).yMax+2),rows[row]);
