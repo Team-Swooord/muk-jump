@@ -17,6 +17,52 @@ namespace MukJump.EditorTests
 {
     public sealed class InkAchievementNoticeTests
     {
+        [Test, Category("AchievementCostumeIcon")]
+        public void RewardIconUsesOnlyTheEarnedCostumeAndLeavesRoomForLocalizedNames()
+        {
+            var settings = new MemoryLobbySettingsStore(); LobbySettingsProfile.UseStoreForTests(settings);
+            var host = new GameObject("CostumeNoticeTest");
+            try
+            {
+                var toast = host.AddComponent<InkAchievementToast>();
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(InkAchievementToast).GetMethod("Build", flags).Invoke(toast, null);
+                var show = typeof(InkAchievementToast).GetMethod("ShowReward", flags);
+                var panel = (RectTransform)host.transform.Find("AchievementToastCanvas/SafeArea/InkBanner");
+                var icon = panel.Find("CostumeIcon").GetComponent<UnityEngine.UI.Image>();
+                var label = (UnityEngine.UI.Text)typeof(InkAchievementToast).GetField("label", flags).GetValue(toast);
+                Assert.That(icon.GetType(), Is.EqualTo(typeof(UnityEngine.UI.Image)), "먹 몸체·착용 앵커 없이 원화 한 장만 표시");
+                Assert.That(icon.transform.childCount, Is.Zero);
+                Assert.That(icon.preserveAspect && !icon.raycastTarget, Is.True);
+                float textRight = label.rectTransform.anchoredPosition.x + label.rectTransform.rect.xMax;
+                float iconLeft = icon.rectTransform.anchoredPosition.x + icon.rectTransform.rect.xMin;
+                Assert.That(iconLeft - textRight, Is.GreaterThanOrEqualTo(20));
+                Assert.That(icon.rectTransform.anchoredPosition.x + icon.rectTransform.rect.xMax,
+                    Is.LessThanOrEqualTo(panel.rect.width * .5f - 8));
+                foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
+                {
+                    GameLocalization.SetLanguage(language);
+                    for (int id = 1; id < InkSkinCatalog.Count; id++)
+                    {
+                        show.Invoke(toast, new object[] { id });
+                        Assert.That(icon.enabled, Is.True, "보상 원화 누락: " + id);
+                        Assert.That(icon.sprite, Is.SameAs(InkSkinCatalog.Sprite((InkSkinId)id)));
+                        Assert.That(icon.color, Is.EqualTo(Color.white));
+                        Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height), id + " / " + language);
+                    }
+                }
+                foreach (int id in new[] { InkSkinCatalog.Count, InkSkinCatalog.Count + 1 })
+                {
+                    show.Invoke(toast, new object[] { id });
+                    Assert.That(icon.enabled, Is.False); Assert.That(icon.sprite, Is.Null);
+                }
+                show.Invoke(toast, new object[] { (int)InkSkinId.ZodiacRabbit });
+                typeof(InkAchievementToast).GetMethod("Clear", flags).Invoke(toast, null);
+                Assert.That(icon.enabled, Is.False); Assert.That(icon.sprite, Is.Null);
+            }
+            finally { Object.DestroyImmediate(host); LobbySettingsProfile.RestoreDefaultStoreForTests(); }
+        }
+
         [Test] public void TwoNoteCueIsShortDeterministicAndClickFree()
         {
             float[] samples = InkAchievementNoticeSound.BuildSamples();
@@ -36,7 +82,7 @@ namespace MukJump.EditorTests
             foreach (float sample in samples) file.Write((short)Math.Round(sample * InkAchievementNoticeSound.Volume * short.MaxValue));
         }
 
-        [UnityTest, Timeout(120000)]
+        [UnityTest, Category("AchievementCostumeIcon"), Timeout(120000)]
         public IEnumerator LiveCompletionShowsBriefNonBlockingInkNoticeAndOneCue()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
@@ -79,6 +125,8 @@ namespace MukJump.EditorTests
                 var panel = (RectTransform)root.Find("SafeArea/InkBanner");
                 var label = panel.GetComponentsInChildren<UnityEngine.UI.Text>().Single(t => t.text == "벽을 타는 먹");
                 var paper = panel.Find("Brush").GetComponent<UnityEngine.UI.Image>();
+                var icon = panel.Find("CostumeIcon").GetComponent<UnityEngine.UI.Image>();
+                Assert.That(icon.enabled, Is.False, "일반 업적에 코스튬을 임의로 넣지 않는다");
                 Assert.That(paper.sprite, Is.SameAs(InkUiStyle.ActionButtonSprite), "기존 흰 한지 버튼 자산 재사용");
                 Assert.That(paper.type, Is.EqualTo(UnityEngine.UI.Image.Type.Sliced));
                 Assert.That(paper.color.a, Is.EqualTo(.9f).Within(.001f), "배경만 90% 불투명도");
@@ -118,14 +166,26 @@ namespace MukJump.EditorTests
                     ", queued=" + ((System.Collections.ICollection)typeof(InkAchievementToast).GetField("queue", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(toast)).Count);
                 Assert.That(root.GetComponents<AudioSource>().Length, Is.EqualTo(1)); Assert.That(source.clip, Is.SameAs(clip));
 
-                toast.Enqueue((int)InkSkinId.Gat); yield return Wait(.1f);
+                GameLocalization.SetLanguage(GameLanguage.Korean);
+                toast.Enqueue((int)InkSkinId.Gat); toast.Enqueue((int)InkSkinId.ZodiacRabbit); yield return Wait(.1f);
                 Assert.That(toast.SoundPlayCountForTests, Is.EqualTo(2)); Assert.That(source.isPlaying, Is.True);
+                Assert.That(icon.enabled, Is.True); Assert.That(icon.sprite, Is.SameAs(InkSkinCatalog.Sprite(InkSkinId.Gat)));
+                yield return Wait(.25f); yield return Capture("costume-gat");
                 MobileApplicationLifecycle.SetPlatformVisibility(false); yield return Wait(.1f);
                 Assert.That(group.alpha, Is.Zero); Assert.That(source.isPlaying, Is.False);
                 MobileApplicationLifecycle.SetPlatformVisibility(true); yield return Wait(.1f);
                 Assert.That(toast.SoundPlayCountForTests, Is.EqualTo(2));
+                SetTime(toast, InkAchievementToast.Duration);
+                deadline = Time.realtimeSinceStartup + 5;
+                while ((icon.sprite != InkSkinCatalog.Sprite(InkSkinId.ZodiacRabbit) || group.alpha < .95f)
+                    && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(icon.sprite, Is.SameAs(InkSkinCatalog.Sprite(InkSkinId.ZodiacRabbit)), "다음 해금에 맞춰 그림 교체");
+                Assert.That(label.text, Is.EqualTo(InkSkinCatalog.Name(InkSkinId.ZodiacRabbit)));
+                Assert.That(group.alpha, Is.GreaterThan(.95f));
+                yield return Capture("costume-rabbit");
                 Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(), Is.True); yield return Wait(.1f);
                 Assert.That(group.alpha, Is.Zero); Assert.That(source.isPlaying, Is.False);
+                Assert.That(icon.enabled, Is.False); Assert.That(icon.sprite, Is.Null);
                 Object.Destroy(toast);
                 // EditMode에서 진입한 Play 검사는 yield 두 번이 실제 두 프레임을 보장하지 않는다.
                 // OnDestroy 안에서 예약한 음원 해제까지 완료되는지 제한 시간 내에 확인한다.

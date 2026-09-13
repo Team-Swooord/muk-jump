@@ -11,6 +11,7 @@ namespace MukJump.Core
         CanvasGroup group;
         RectTransform safe, panel;
         UnityEngine.UI.Text label;
+        UnityEngine.UI.Image costumeIcon;
         object owner;
         float time;
         bool showing;
@@ -42,24 +43,29 @@ namespace MukJump.Core
             group = root.GetComponent<CanvasGroup>(); group.blocksRaycasts = group.interactable = false;
             safe = Rect("SafeArea", root.transform, Vector2.zero, Vector2.zero);
             safe.anchorMin = Vector2.zero; safe.anchorMax = Vector2.one;
-            panel = Rect("InkBanner", safe, new Vector2(-24, -210), new Vector2(580, 116));
+            panel = Rect("InkBanner", safe, new Vector2(-24, -210), new Vector2(580, 136));
             panel.anchorMin = panel.anchorMax = panel.pivot = Vector2.one;
-            var brush = Rect("Brush", panel, Vector2.zero, new Vector2(610, 124));
+            var brush = Rect("Brush", panel, Vector2.zero, new Vector2(610, 144));
             // 게임의 흰 한지 버튼 면을 그대로 재사용한다. 배경만 비치고 글자는 또렷하게 유지한다.
             var paper = brush.gameObject.AddComponent<UnityEngine.UI.Image>();
             paper.raycastTarget = false;
             InkUiStyle.ConfigureHanjiSurface(paper);
             Color paperColor = paper.color; paperColor.a = .9f; paper.color = paperColor;
-            var stamp = Rect("Seal", panel, new Vector2(-226, 0), new Vector2(62, 62));
+            var stamp = Rect("Seal", panel, new Vector2(-246, 0), new Vector2(50, 50));
             InkHudSurface.Ensure(stamp, true);
-            Label(stamp, "해금", 25, Vector2.zero, new Vector2(60, 58));
-            var heading = Label(panel, "업적 달성", 26, new Vector2(38, 27), new Vector2(400, 36));
+            Label(stamp, "해금", 25, Vector2.zero, new Vector2(48, 48));
+            var heading = Label(panel, "업적 달성", 26, new Vector2(-24, 45), new Vector2(350, 28));
             heading.alignment = TextAnchor.MiddleLeft;
             heading.color = Color.Lerp(InkPalette.Ink, InkPalette.Paper, .24f);
             heading.fontStyle = FontStyle.Normal;
-            label = Label(panel, "", 36, new Vector2(38, -17), new Vector2(400, 52));
+            label = Label(panel, "", 36, new Vector2(-24, -15), new Vector2(350, 84));
             label.alignment = TextAnchor.MiddleLeft;
             label.color = InkPalette.Ink;
+            // 착용한 먹이 아니라 이번에 얻은 코스튬 원화만 오른쪽에 표시한다.
+            costumeIcon = Rect("CostumeIcon", panel, new Vector2(226, 0), new Vector2(104, 104))
+                .gameObject.AddComponent<UnityEngine.UI.Image>();
+            costumeIcon.preserveAspect = true; costumeIcon.raycastTarget = false;
+            costumeIcon.enabled = false;
             // 재생 중 조작음과 경쟁하지 않는 짧은 전용 알림. 캔버스 수명 동안 하나만 재사용한다.
             noticeSource = root.AddComponent<AudioSource>();
             noticeSource.playOnAwake = noticeSource.loop = false; noticeSource.spatialBlend = 0;
@@ -93,7 +99,7 @@ namespace MukJump.Core
             if (!showing)
             {
                 int id = queue.Dequeue(); showing = true; time = 0;
-                InkLocalizedText.SetSource(label, InkAchievementCatalog.Name(id));
+                ShowReward(id);
                 if (Application.isPlaying && LobbySettingsProfile.SfxVolume > 0)
                 {
                     noticeSource.volume = InkAchievementNoticeSound.Volume * LobbySettingsProfile.SfxVolume;
@@ -111,7 +117,18 @@ namespace MukJump.Core
             if (time >= Duration) { showing = false; group.alpha = 0; }
         }
         void Suspend() { if (group != null) group.alpha = 0; if (noticeSource != null) noticeSource.Stop(); }
-        void Clear() { queue.Clear(); announced.Clear(); showing = false; Suspend(); }
+        void ShowReward(int id)
+        {
+            InkLocalizedText.SetSource(label, InkAchievementCatalog.Name(id));
+            // 벽타기·연속 획득처럼 코스튬 보상이 없는 알림에는 이전 그림을 남기지 않는다.
+            costumeIcon.sprite = id > 0 && id < InkSkinCatalog.Count ? InkSkinCatalog.Sprite((InkSkinId)id) : null;
+            costumeIcon.enabled = costumeIcon.sprite != null;
+        }
+        void Clear()
+        {
+            queue.Clear(); announced.Clear(); showing = false; Suspend();
+            if (costumeIcon != null) { costumeIcon.sprite = null; costumeIcon.enabled = false; }
+        }
         void OnDisable() => Clear();
         void OnApplicationPause(bool paused) { if (paused) Suspend(); }
         void OnApplicationFocus(bool focused) { if (!focused) Suspend(); }
