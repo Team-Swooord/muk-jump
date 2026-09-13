@@ -2,7 +2,7 @@
 
 내장 image_gen 사용. 원화는 Assets/Resources/MukJump/Skins에 복사해 프로젝트 안에서 참조한다.
 
-## 당구장의 팔번공 — skin_three_cushion_v1.png
+## 팔번공 — skin_three_cushion_v1.png
 
 2026-09-13, 내장 imagegen으로 새 투명 원화 생성. 최종 에셋은 `Assets/Resources/MukJump/Skins/skin_three_cushion_v1.png`이다. 실제 출력은 1280×1280 RGBA이며 기존 씬 빌더가 Single Sprite, 최대 512, mipmap/readable OFF로 임포트한다. 원래 먹의 몸체·눈·팔다리는 그대로 유지하고 머리에 겹치는 팔번 공 모자만 추가했다. 로비 해금 알림, 꾸미기 착용 화면과 RGB 1024 Game Center 아이콘에서 맞춤을 확인했다.
 

@@ -85,7 +85,7 @@ namespace MukJump.Core
             new(InkSkinId.HaetaeCrest,"해태의 작은 뿔","Little Haetae Horn","ヘテの小さな角","skin_haetae_crest_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.ThreeLeggedCrow,"삼족오의 해","Three-Legged Sun Crow","三足烏の太陽","skin_three_legged_crow_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.NineTails,"구미호의 낮잠","Nine-Tailed Nap","九尾の昼寝","skin_nine_tails_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
-            new(InkSkinId.ThreeCushion,"당구장의 팔번공","Pool Hall Eight Ball","玉突き場の8番ボール","skin_three_cushion_v1",SkinTier.UltraHidden,SkinMetric.Secret,1)
+            new(InkSkinId.ThreeCushion,"팔번공","Eight Ball","8番ボール","skin_three_cushion_v1",SkinTier.UltraHidden,SkinMetric.Secret,1)
         };
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
         public static InkSkinId Normalize(InkSkinId id) => IsValid(id) ? id : InkSkinId.Ink;

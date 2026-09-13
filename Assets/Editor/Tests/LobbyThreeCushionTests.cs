@@ -152,9 +152,9 @@ namespace MukJump.EditorTests
             Assert.That(((JArray)entry["localizations"]).Count, Is.EqualTo(3));
             Assert.That(InkSkinAchievements.Goal(id), Is.EqualTo(1));
             var expected = new[] {
-                (locale: "ko", name: "당구장의 팔번공", lore: "큐대는 못 잡아도, 각은 제법 잘 본다.", requirement: "로비에서 한 번 던진 먹을 벽에 3회 연속 튕기기"),
-                (locale: "en-US", name: "Pool Hall Eight Ball", lore: "Can't hold a cue. Can still work the angles.", requirement: "In the lobby, get 3 wall bounces from one toss."),
-                (locale: "ja", name: "玉突き場の8番ボール", lore: "キューは持てないが、角度を読むのは得意。", requirement: "ロビーで墨を1回投げ、壁で連続3回跳ね返す")
+                (locale: "ko", name: "팔번공", lore: "큐대는 못 잡아도, 각은 제법 잘 본다.", requirement: "로비에서 한 번 던진 먹을 벽에 3회 연속 튕기기"),
+                (locale: "en-US", name: "Eight Ball", lore: "Can't hold a cue. Can still work the angles.", requirement: "In the lobby, get 3 wall bounces from one toss."),
+                (locale: "ja", name: "8番ボール", lore: "キューは持てないが、角度を読むのは得意。", requirement: "ロビーで墨を1回投げ、壁で連続3回跳ね返す")
             };
             foreach (var copy in expected)
             {
