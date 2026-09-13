@@ -181,7 +181,7 @@ namespace MukJump.Core
             if (id == InkSkinId.ClockworkCat) return new Vector2(.04f, .10f);
             if (id == InkSkinId.BondKnot) return new Vector2(.25f, .20f);
             if (id == InkSkinId.WindFan) return new Vector2(-.18f, .14f);
-            if (id == InkSkinId.DragonTail) return new Vector2(.29f, -.09f);
+            if (id == InkSkinId.DragonTail) return new Vector2(.29f, -.02f);
             if (id == InkSkinId.MoonClouds) return new Vector2(0, .12f);
             if (id == InkSkinId.ThreeCushion) return new Vector2(0, .26f);
             if (InkMythicSkins.Contains(id)) return new Vector2(0, id switch {

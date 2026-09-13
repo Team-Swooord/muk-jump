@@ -2,6 +2,18 @@
 
 내장 image_gen 사용. 원화는 Assets/Resources/MukJump/Skins에 복사해 프로젝트 안에서 참조한다.
 
+## 용꼬리의 두꺼운 뿌리 — dragon_tail_sheet.png
+
+2026-09-14, 내장 imagegen 사용. 적용 파일은 `Assets/Art/Character/Animations/dragon_tail_sheet.png`이다.
+기존 원화 편집 결과 두 개는 체크무늬가 실제 픽셀로 그려져 제외했고, 얇은 중간 시안도 제외했다.
+최종 1254×1254 RGBA는 굵은 뿌리·배에서 끝으로 좁아지는 네 프레임이며, 실제 투명 픽셀을 검사했다.
+목록과 동작 줄이기 그림도 이 시트의 첫 프레임을 사용한다. 원먹·의상 ID·해금 조건·능력은 바꾸지 않는다.
+행·열의 실제 원화 간격으로 같은 접점을 정렬하고, 등록 위치만 보정한다. 프레임 메시 변형은 없다.
+
+최종 생성 프롬프트:
+
+> A transparent-background PNG game sprite sheet: exactly FOUR gently wagging poses of a small cute IVORY DRAGON TAIL in a clean 2x2 grid. Real transparent alpha outside the silhouettes. Each tail is a chunky curved CRESCENT/SAUSAGE: rounded thick LEFT attachment base, broad thick curved belly in the MIDDLE, then a smooth slender upward-curving RIGHT end with a little three-point flame-shaped tip. The proximal LEFT TWO THIRDS must stay substantial and FAT, including the section under the THIRD spike: approximately 150 pixels of ivory flesh thickness at the left base and 115 pixels at the middle in each 625-pixel-wide cell. ONLY the final quarter narrows to the delicate flame-tipped stem. NOT a triangle that immediately thins into a cord, NOT a long thin string, NOT a flat axe or paddle. Three SMALL triangular dorsal spikes along the top of the thick belly, one tiny black wavy doodle on the side. Funny humble Korean ink game art: childlike slightly uneven charcoal/crayon black outlines, flat warm ivory paper-white filling, no realistic scales, no gradients or highlights. Same scale and same rounded root position in all four frames; only the distal end swishes a LITTLE through up / middle / slightly down / middle. Broad belly and root do not wobble or change size. Each entire tail comfortably contained inside its own square cell with 5% transparent margins and a clear center gutter. Transparent background; no paper, no floor, no background color, no checker pattern, no characters, no bodies, no heads, no legs, no lettering, no gridlines, no watermarks. Square image 1254x1254 if possible, 2 rows and 2 columns.
+
 ## 팔번공 — skin_three_cushion_v1.png
 
 2026-09-13, 내장 imagegen으로 새 투명 원화 생성. 최종 에셋은 `Assets/Resources/MukJump/Skins/skin_three_cushion_v1.png`이다. 실제 출력은 1280×1280 RGBA이며 기존 씬 빌더가 Single Sprite, 최대 512, mipmap/readable OFF로 임포트한다. 원래 먹의 몸체·눈·팔다리는 그대로 유지하고 머리에 겹치는 팔번 공 모자만 추가했다. 로비 해금 알림, 꾸미기 착용 화면과 RGB 1024 Game Center 아이콘에서 맞춤을 확인했다.

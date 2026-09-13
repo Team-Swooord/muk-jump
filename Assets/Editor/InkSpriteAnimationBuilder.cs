@@ -99,7 +99,9 @@ namespace MukJump.EditorTools
                     throw new InvalidOperationException(key + " 원화 크기가 바뀌어 프레임 경계를 다시 확인해야 한다.");
                 return key == "paper_lanterns"
                     ? new Rect(right ? 647 : 20, top ? 600 : 0, 600, 600)
-                    : new Rect(right ? 638 : 26, top ? 633 : 6, 616, 616);
+                    // 두꺼운 꼬리 원화는 행 간격 574px, 열 간격 597px이다.
+                    // 같은 몸체 접점으로 정렬하며 프레임마다 뿌리가 들썩이지 않게 한다.
+                    : new Rect(right ? 621 : 24, top ? 625 : 51, 610, 610);
             }
             if (key == "storm_scarf")
             {

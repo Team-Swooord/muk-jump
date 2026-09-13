@@ -98,8 +98,54 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinCatalog.Offset(InkSkinId.DragonTail).x, Is.LessThan(.32f), "꼬리 뿌리는 옆구리 안으로 들어간다");
         }
 
+        [Test, Category("DragonTailRootFit")]
+        public void ThickTailKeepsEveryPixelAndSharesTheStaticPoster()
+        {
+            AuthoredFramesKeepEveryPixelOnceAndNeverCutVisibleEdges("dragon_tail");
+            Assert.That(InkSkinCatalog.Sprite(InkSkinId.DragonTail),
+                Is.SameAs(InkAccessoryMotion.Animation(InkSkinId.DragonTail).Frame(0)));
+        }
+
+        [Test, Category("DragonTailRootFit")]
+        public void ThickTailRootAndBellyStaySubstantialAndRegisteredAcrossFrames()
+        {
+            var texture = new Texture2D(2, 2);
+            try
+            {
+                texture.LoadImage(File.ReadAllBytes(InkSpriteAnimationBuilder.ArtRoot + "/dragon_tail_sheet.png"));
+                var pixels = texture.GetPixels32();
+                Assert.That(pixels.Count(c => c.a < 8), Is.GreaterThan(pixels.Length * .65f), "가짜 체크무늬 배경은 허용하지 않는다");
+                float minCenter = float.MaxValue, maxCenter = float.MinValue;
+                for (int frame = 0; frame < 4; frame++)
+                {
+                    Rect r = InkSpriteAnimationBuilder.SourceRect("dragon_tail", frame, texture.width, texture.height);
+                    foreach (int localX in new[] { 70, (int)r.width / 2 })
+                    {
+                        int bottom = texture.height, top = -1;
+                        for (int y = (int)r.yMin; y < r.yMax; y++)
+                        {
+                            var c = pixels[y * texture.width + (int)r.xMin + localX];
+                            if (c.a <= 128 || c.r <= 150) continue;
+                            bottom = Mathf.Min(bottom, y); top = Mathf.Max(top, y);
+                        }
+                        Assert.That(top - bottom + 1, Is.GreaterThanOrEqualTo(localX == 70 ? 140 : 130), "뿌리뿐 아니라 노출되는 중간도 충분히 두껍다");
+                        if (localX != 70) continue;
+                        float center = (top + bottom) * .5f - r.yMin;
+                        minCenter = Mathf.Min(minCenter, center); maxCenter = Mathf.Max(maxCenter, center);
+                    }
+                }
+                Assert.That(maxCenter - minCenter, Is.LessThanOrEqualTo(6), "꼬리 끝만 흔들리고 뿌리는 같은 곳에 붙는다");
+            }
+            finally { Object.DestroyImmediate(texture); }
+        }
+
         [UnityTest, Timeout(150000)]
-        public IEnumerator ReportedAccessoriesFitInWardrobeAndAllFourFramesRemainVisible()
+        public IEnumerator ReportedAccessoriesFitInWardrobeAndAllFourFramesRemainVisible() => CaptureAccessories(Reported);
+
+        [UnityTest, Timeout(120000), Category("DragonTailRootFit")]
+        public IEnumerator ThickTailRendersAllFourFramesOnTheOriginalBody() => CaptureAccessories(new[] { InkSkinId.DragonTail });
+
+        IEnumerator CaptureAccessories(InkSkinId[] ids)
         {
             EditorWindow.GetWindow(typeof(Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
             yield return new EnterPlayMode();
@@ -123,7 +169,7 @@ namespace MukJump.EditorTests
                 var wardrobe = Object.FindFirstObjectByType<InkWardrobeView>();
                 var stage = (RectTransform)wardrobe.Paper.Find("ShowroomStage");
                 var art = stage.Find("Preview/Accessory").GetComponent<InkAccessoryImage>();
-                foreach (var id in Reported)
+                foreach (var id in ids)
                 {
                     wardrobe.Select(id); yield return Wait(.85f);
                     var clip = InkAccessoryMotion.Animation(id);
