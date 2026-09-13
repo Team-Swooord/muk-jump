@@ -184,7 +184,7 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat),Is.True);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Astronaut),Is.False);
         }
-        [Test, Category("NightSecret")] public void SecondNightHintsAndThirdNightAwardsOnce()
+        [Test, Category("NightSecret"), Category("SecondNightMoon")] public void SecondNightHintsAndThirdNightAwardsOnce()
         {
             Assert.That(SkinSecrets.AcceptedNightChange(true), Is.Zero);
             Assert.That(SkinSecrets.HasBatMoon, Is.False);
@@ -194,9 +194,11 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.False);
             Assert.That(SkinSecrets.AcceptedNightChange(false), Is.Zero);
             Assert.That(SkinSecrets.AcceptedNightChange(true), Is.EqualTo(1UL << (int)InkSkinId.NightBat));
+            Assert.That(SkinSecrets.HasBatMoon, Is.False, "세 번째 밤은 원래 달");
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.True);
             Assert.That(SkinSecrets.AcceptedNightChange(false), Is.EqualTo(1UL << (int)InkSkinId.Astronaut));
             Assert.That(SkinSecrets.AcceptedNightChange(true), Is.Zero);
+            Assert.That(SkinSecrets.HasBatMoon, Is.False, "네 번째 이후에도 원래 달");
         }
         [Test, Category("NightSecret")] public void RepeatedSamePhaseCannotFarmNightsOrTransitions()
         {

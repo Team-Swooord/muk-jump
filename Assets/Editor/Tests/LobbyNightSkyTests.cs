@@ -124,7 +124,7 @@ namespace MukJump.EditorTests
             Advance(LobbyNightSkyView.TransitionSeconds + .1f);
         }
 
-        [Test, Category("NightSecret")]
+        [Test, Category("NightSecret"), Category("SecondNightMoon")]
         public void ActualLogoTapsShowSecondNightShadowAndRestoringTheMoonDoesNotCount()
         {
             Night();
@@ -139,6 +139,11 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.False);
             Night(); Night();
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.True);
+            Assert.That(moon.sprite, Is.SameAs(InkUiTextureFactory.CreateHanjiMoonSprite()), "세 번째 밤 해금은 일반 달");
+            view.DisableForTests(); view.InitializeForTests(); view.TickForTests(0);
+            Assert.That(moon.sprite, Is.SameAs(InkUiTextureFactory.CreateHanjiMoonSprite()), "복원해도 박쥐 달이 되돌아오지 않는다");
+            Night(); Night();
+            Assert.That(moon.sprite, Is.SameAs(InkUiTextureFactory.CreateHanjiMoonSprite()), "네 번째 밤도 일반 달");
         }
 
         [Test, Category("NightSecret")]

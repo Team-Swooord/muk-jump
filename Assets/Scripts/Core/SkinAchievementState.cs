@@ -104,7 +104,8 @@ namespace MukJump.Core
         static int nightChanges, nightEntries, selectionStep;
         static bool? lastNight;
         static readonly InkSkinId[] sequence = { InkSkinId.Ink, InkSkinId.Gat, InkSkinId.Ink, InkSkinId.SpiderMask, InkSkinId.Ink };
-        public static bool HasBatMoon => !SkinDebugSession.Active && nightEntries >= 2 &&
+        // 박쥐 그림자는 두 번째 밤의 힌트만 담당한다. 세 번째 밤 해금 이후에는 원래 달로 돌아간다.
+        public static bool HasBatMoon => !SkinDebugSession.Active && nightEntries == 2 &&
             ReferenceEquals(owner, PermanentGrowthProfile.SkinAccountToken);
         static void ResetInputs() { nightChanges = nightEntries = selectionStep = 0; lastNight = null; }
         static bool Ready()

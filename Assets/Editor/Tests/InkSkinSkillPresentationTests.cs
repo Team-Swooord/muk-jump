@@ -15,8 +15,8 @@ namespace MukJump.EditorTests
 {
     public sealed class InkSkinSkillPresentationTests
     {
-        [UnityTest, Timeout(120000)]
-        public IEnumerator ThirdNightShowsBatMoonAndLobbyAchievementAfterArrival()
+        [UnityTest, Category("SecondNightMoon"), Timeout(120000)]
+        public IEnumerator OnlySecondNightShowsBatMoonAndThirdNightAwardsAfterArrival()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
             yield return new EnterPlayMode();
@@ -43,8 +43,12 @@ namespace MukJump.EditorTests
                 var toast = GameManager.Instance.GetComponent<InkAchievementToast>();
                 var moon = sky.transform.Find("LobbyMoon").GetComponent<SpriteRenderer>();
                 Assert.That(lobby.IsInteractive, Is.True);
-                for (int phase = 1; phase <= 5; phase++)
+                for (int phase = 1; phase <= 7; phase++)
                 {
+                    // 이전 밤/낮에서 이미 도착한 해금 알림과 다음 전환의 신규 알림을 구분한다.
+                    var previousNotice = toast.transform.Find("AchievementToastCanvas")?.GetComponent<CanvasGroup>();
+                    until = Time.realtimeSinceStartup + 6;
+                    while (previousNotice != null && previousNotice.alpha > 0 && Time.realtimeSinceStartup < until) yield return null;
                     sky.SetLogoForTests(lobby.LogoRect);
                     Vector2 point = RectTransformUtility.WorldToScreenPoint(null, lobby.LogoRect.TransformPoint(lobby.LogoRect.rect.center));
                     for (int tap = 0; tap < 10; tap++)
@@ -60,8 +64,8 @@ namespace MukJump.EditorTests
                     Assert.That(sky.IsTransitioning, Is.False);
                     if (phase % 2 == 0) continue;
                     Assert.That(moon.enabled, Is.True);
-                    Assert.That(moon.sprite.name, Is.EqualTo(phase == 1 ? "MukJump_HanjiMoon" : "MukJump_BatMoon"));
-                    Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.EqualTo(phase == 5));
+                    Assert.That(moon.sprite.name, Is.EqualTo(phase == 3 ? "MukJump_BatMoon" : "MukJump_HanjiMoon"));
+                    Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.EqualTo(phase >= 5));
                     if (phase == 5)
                     {
                         group = toast.transform.Find("AchievementToastCanvas")?.GetComponent<CanvasGroup>();

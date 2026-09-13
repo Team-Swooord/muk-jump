@@ -43,9 +43,9 @@ namespace MukJump.Core
             group = root.GetComponent<CanvasGroup>(); group.blocksRaycasts = group.interactable = false;
             safe = Rect("SafeArea", root.transform, Vector2.zero, Vector2.zero);
             safe.anchorMin = Vector2.zero; safe.anchorMax = Vector2.one;
-            panel = Rect("InkBanner", safe, new Vector2(-24, -210), new Vector2(580, 136));
+            panel = Rect("InkBanner", safe, new Vector2(-24, -210), new Vector2(580, 116));
             panel.anchorMin = panel.anchorMax = panel.pivot = Vector2.one;
-            var brush = Rect("Brush", panel, Vector2.zero, new Vector2(610, 144));
+            var brush = Rect("Brush", panel, Vector2.zero, new Vector2(610, 124));
             // 게임의 흰 한지 버튼 면을 그대로 재사용한다. 배경만 비치고 글자는 또렷하게 유지한다.
             var paper = brush.gameObject.AddComponent<UnityEngine.UI.Image>();
             paper.raycastTarget = false;
