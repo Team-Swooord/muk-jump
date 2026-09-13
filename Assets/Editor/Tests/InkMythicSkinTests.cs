@@ -108,7 +108,7 @@ namespace MukJump.EditorTests
             finally { PermanentGrowthProfile.RestoreDefaultStoreForTests(); }
         }
 
-        [Test]
+        [Test, Category("MythicAccessoryNaming")]
         public void NewSecretNamesFitTheExistingAchievementNoticeInAllLanguages()
         {
             var settings = new MemoryLobbySettingsStore(); LobbySettingsProfile.UseStoreForTests(settings);
@@ -130,6 +130,31 @@ namespace MukJump.EditorTests
                 }
             }
             finally { UnityEngine.Object.DestroyImmediate(host); LobbySettingsProfile.RestoreDefaultStoreForTests(); }
+        }
+
+        [Test, Category("MythicAccessoryNaming")]
+        public void AccessoryNamesHaveNoZodiacPrefixesAndKeepExistingRewardIds()
+        {
+            string[] names = { "밤쥐의 동그란 귀", "느긋한 소의 뿔", "산군의 줄무늬 두건", "달토끼의 접힌 귀",
+                "꼬마 용의 새싹 뿔", "실뱀의 느슨한 매듭", "바람말의 흩날린 갈기", "구름양의 돌돌 말린 뿔",
+                "잔꾀 원숭이의 둥근 귀", "새벽닭의 붉은 볏", "지킴개의 늘어진 귀", "복돼지의 분홍 귀" };
+            string[] assets = { "rat", "ox", "tiger", "rabbit", "dragon", "snake", "horse", "goat", "monkey", "rooster", "dog", "pig" };
+            for (int i=0; i<names.Length; i++)
+            {
+                var id=(InkSkinId)(46+i); var d=InkSkinCatalog.Get(id);
+                Assert.That(d.Id,Is.EqualTo(id));
+                Assert.That(d.Asset,Is.EqualTo("skin_zodiac_"+assets[i]+"_v1"));
+                Assert.That(d.Metric,Is.EqualTo(SkinMetric.Secret));
+                Assert.That(d.Tier,Is.EqualTo(SkinTier.Hidden));
+                Assert.That(d.Goal,Is.EqualTo(1));
+                Assert.That(d.Korean,Is.EqualTo(names[i]));
+                Assert.That(d.English.Contains("·") || d.Japanese.Contains("・"),Is.False);
+                Assert.That(InkSkinTranslations.TryTranslate(d.Korean,false,out var en),Is.True);
+                Assert.That(InkSkinTranslations.TryTranslate(d.Korean,true,out var ja),Is.True);
+                Assert.That(en,Is.Not.Empty.And.EqualTo(d.English));
+                Assert.That(ja,Is.Not.Empty.And.EqualTo(d.Japanese));
+            }
+            Assert.That(InkSkinCatalog.Name(InkSkinId.HaetaeCrest),Is.EqualTo("해태의 작은 뿔"));
         }
 
         [Test]

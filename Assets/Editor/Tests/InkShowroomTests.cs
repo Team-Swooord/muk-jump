@@ -150,7 +150,7 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
-        [Category("WardrobeCarouselLayout")]
+        [Category("WardrobeCarouselLayout"), Category("MythicAccessoryNaming")]
         public void EnlargedItemDetailsRemainReadableAndFitInTheirPaper(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
