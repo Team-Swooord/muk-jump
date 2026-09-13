@@ -117,7 +117,7 @@ namespace MukJump.EditorTests
             Assert.That(InkAchievementCatalog.SavedProgress(PermanentGrowthProfile.AchievementSnapshot(), 0), Is.Empty);
         }
 
-        [Test] public void BilliardsAssetAndCatalogHaveMatchingTranslationsHiddenFlagAndStableIds()
+        [Test, Category("ThreeCushionCopy")] public void BilliardsAssetAndCatalogHaveMatchingTranslationsHiddenFlagAndStableIds()
         {
             var id = InkSkinId.ThreeCushion;
             Assert.That((int)id, Is.EqualTo(61));
@@ -150,6 +150,76 @@ namespace MukJump.EditorTests
             Assert.That((bool)entry["hidden"], Is.True);
             Assert.That((int)catalog["totalPoints"], Is.EqualTo(980));
             Assert.That(((JArray)entry["localizations"]).Count, Is.EqualTo(3));
+            Assert.That(InkSkinAchievements.Goal(id), Is.EqualTo(1));
+            var expected = new[] {
+                (locale: "ko", name: "당구장의 팔번공", lore: "큐대는 못 잡아도, 각은 제법 잘 본다.", requirement: "로비에서 한 번 던진 먹을 벽에 3회 연속 튕기기"),
+                (locale: "en-US", name: "Pool Hall Eight Ball", lore: "Can't hold a cue. Can still work the angles.", requirement: "In the lobby, get 3 wall bounces from one toss."),
+                (locale: "ja", name: "玉突き場の8番ボール", lore: "キューは持てないが、角度を読むのは得意。", requirement: "ロビーで墨を1回投げ、壁で連続3回跳ね返す")
+            };
+            foreach (var copy in expected)
+            {
+                var localized = ((JArray)entry["localizations"]).Single(e => (string)e["locale"] == copy.locale);
+                Assert.That((string)localized["name"], Is.EqualTo(copy.name));
+                Assert.That((string)localized["beforeEarnedDescription"], Is.EqualTo(copy.requirement));
+                Assert.That((string)localized["afterEarnedDescription"], Is.EqualTo(copy.requirement));
+                var lore = InkSkinLore.Get(id);
+                Assert.That(copy.locale == "ko" ? lore.ko : copy.locale == "ja" ? lore.ja : lore.en, Is.EqualTo(copy.lore));
+            }
+        }
+
+        [UnityTest, Timeout(120000), Category("ThreeCushionCopy")]
+        public IEnumerator RevisedBilliardsCopyRendersInThreeLanguagesWithoutRevealingTheSecret()
+        {
+            EditorWindow.GetWindow(typeof(Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool background = Application.runInBackground; Application.runInBackground = true;
+            Setup(); LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True);
+                float deadline = Time.realtimeSinceStartup + 15;
+                while (LobbyScreenNavigator.Instance.IsTransitioning && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(LobbyScreenNavigator.Instance.IsTransitioning, Is.False);
+                var wardrobe = Object.FindAnyObjectByType<InkWardrobeView>();
+                foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
+                {
+                    GameLocalization.SetLanguage(language); wardrobe.Select(InkSkinId.ThreeCushion);
+                    yield return Wait(.5f); Canvas.ForceUpdateCanvases();
+                    string[] labels = { "SkinName", "ItemLore", "Achievement" };
+                    string[] sources = { InkSkinCatalog.Name(InkSkinId.ThreeCushion), InkSkinLore.Get(InkSkinId.ThreeCushion).ko,
+                        InkSkinAchievements.Requirement(InkSkinId.ThreeCushion) };
+                    for (int i = 0; i < labels.Length; i++)
+                    {
+                        string expected = sources[i];
+                        if (language != GameLanguage.Korean)
+                            Assert.That(InkSkinTranslations.TryTranslate(expected, language == GameLanguage.Japanese, out expected), Is.True);
+                        var label = wardrobe.Paper.Find(labels[i]).GetComponent<UnityEngine.UI.Text>();
+                        Assert.That(label.text, Is.EqualTo(expected));
+                        Assert.That(label.canvasRenderer.cull, Is.False);
+                        Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + .1f), labels[i]);
+                        foreach (char glyph in label.text.Where(c => !char.IsWhiteSpace(c)))
+                            Assert.That(label.font.HasCharacter(glyph), Is.True, "누락 글자: " + glyph);
+                    }
+                    Assert.That(wardrobe.Paper.Find("SpecialSkillPaper").gameObject.activeSelf, Is.False);
+                    yield return Capture("billiards-copy-" + language);
+                }
+                SkinDebugSession.Reset(); wardrobe.Select(InkSkinId.ThreeCushion);
+                yield return Wait(.3f);
+                Assert.That(wardrobe.Paper.Find("SkinName").GetComponent<UnityEngine.UI.Text>().text, Is.Empty);
+                Assert.That(wardrobe.Paper.Find("ItemLore").GetComponent<UnityEngine.UI.Text>().text, Is.Empty);
+                Assert.That(wardrobe.Paper.Find("Achievement").GetComponent<UnityEngine.UI.Text>().text, Is.Empty);
+                Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.ThreeCushion), Is.False);
+            }
+            finally
+            {
+                MobileApplicationLifecycle.SetPlatformVisibility(true); Application.runInBackground = background;
+                GameManager.RestorePendingGameOverSettlementStoreForTests(); Teardown();
+            }
+            yield return new ExitPlayMode();
         }
 
         [UnityTest, Timeout(120000)] public IEnumerator RealLobbyThrowAwardsOnThirdBounceAndShowsOnlyOneCostumeNotice()

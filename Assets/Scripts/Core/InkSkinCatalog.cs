@@ -85,7 +85,7 @@ namespace MukJump.Core
             new(InkSkinId.HaetaeCrest,"해태의 작은 뿔","Little Haetae Horn","ヘテの小さな角","skin_haetae_crest_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.ThreeLeggedCrow,"삼족오의 해","Three-Legged Sun Crow","三足烏の太陽","skin_three_legged_crow_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.NineTails,"구미호의 낮잠","Nine-Tailed Nap","九尾の昼寝","skin_nine_tails_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
-            new(InkSkinId.ThreeCushion,"쓰리쿠션 당구공","Three-Cushion Cap","スリークッション帽","skin_three_cushion_v1",SkinTier.UltraHidden,SkinMetric.Secret,1)
+            new(InkSkinId.ThreeCushion,"당구장의 팔번공","Pool Hall Eight Ball","玉突き場の8番ボール","skin_three_cushion_v1",SkinTier.UltraHidden,SkinMetric.Secret,1)
         };
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
         public static InkSkinId Normalize(InkSkinId id) => IsValid(id) ? id : InkSkinId.Ink;
@@ -249,7 +249,7 @@ namespace MukJump.Core
                     InkSkinId.ClockworkCat => "고양이 귀로 밤에 아이템 없이 60초 생존",
                     InkSkinId.LuckyDice => "정확히 777m로 한 판 완료",
                     InkSkinId.OrigamiWings => "먹 → 갓 → 먹 → 거미탈 → 먹 순서로 살펴보기",
-                    InkSkinId.ThreeCushion => "로비에서 먹을 한 번 던져 벽에 연속 세 번 튕기기",
+                    InkSkinId.ThreeCushion => "로비에서 한 번 던진 먹을 벽에 3회 연속 튕기기",
                     _ => "???" }
             };
         }
