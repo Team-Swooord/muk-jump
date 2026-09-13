@@ -10,7 +10,7 @@ namespace MukJump.Core
         [SerializeField] Sprite previewBodySprite;
         CanvasGroup rootGroup;
         RectTransform safeRoot, paper;
-        Image previewBody, previewAccessory;
+        Image previewBody, previewAccessory, detailPaper, detailDivider;
         float accessoryMotionTime;
         UnityEngine.UI.Text previewQuestion;
         readonly Button[] neighborButtons = new Button[2];
@@ -210,18 +210,37 @@ namespace MukJump.Core
             // 실제 능력과 미발견 히든 안내는 그대로 보존한다.
             abilityText.gameObject.SetActive(!collectionExpanded && !hidden && hasAbility);
             descriptionText.gameObject.SetActive(!collectionExpanded && (hidden || hasAbility));
-            float reclaimedHeight = !hidden && !hasAbility ? 192f : 0f;
-            achievementText.rectTransform.anchoredPosition = new Vector2(0, -152 + reclaimedHeight);
-            progressText.rectTransform.anchoredPosition = new Vector2(0, -212 + reclaimedHeight);
-            progressTrack.anchoredPosition = new Vector2(0, -253 + reclaimedHeight);
-            statusText.rectTransform.anchoredPosition = new Vector2(0, -195 + reclaimedHeight);
-            groupText.rectTransform.anchoredPosition = new Vector2(0, -304 + reclaimedHeight);
+            // 번역 문장을 줄이거나 글씨를 축소하지 않고 실제 줄 수만큼 설명 칸을 늘린다.
+            float loreHeight = Mathf.Max(76f, loreText.preferredHeight + 8f);
+            float detailBottom = PlaceDetailRow(loreText.rectTransform, 138f, loreHeight);
+            detailDivider.rectTransform.anchoredPosition = new Vector2(0, 148f);
+            if (hidden || hasAbility)
+            {
+                if (!hidden) detailBottom = PlaceDetailRow(abilityText.rectTransform, detailBottom - 24f, 64f);
+                detailBottom = PlaceDetailRow(descriptionText.rectTransform, detailBottom - 14f,
+                    Mathf.Max(128f, descriptionText.preferredHeight + 10f));
+            }
+            detailPaper.gameObject.SetActive(!collectionExpanded && !hidden);
+            detailDivider.gameObject.SetActive(!collectionExpanded && !hidden);
+            PlaceDetailRow(detailPaper.rectTransform, 260f, 260f - detailBottom + 18f);
+            float achievementBottom = PlaceDetailRow(achievementText.rectTransform, detailBottom - 24f, 64f);
+            float progressBottom = PlaceDetailRow(progressText.rectTransform, achievementBottom - 12f, 52f);
+            float trackBottom = PlaceDetailRow(progressTrack, progressBottom - 10f, 30f);
+            PlaceDetailRow(statusText.rectTransform, detailBottom - 24f, 120f);
+            float groupBottom = PlaceDetailRow(groupText.rectTransform, trackBottom - 18f, 40f);
             if (!collectionExpanded)
             {
-                // 목록 하단과 착용 버튼은 고정하고 비워진 설명 높이만 목록에 돌려준다.
-                collectionRoot.anchoredPosition = new Vector2(0, -548 + reclaimedHeight * .5f);
-                collectionRoot.sizeDelta = new Vector2(1000, 424 + reclaimedHeight);
+                // 하단 버튼은 고정하고 긴 설명 아래의 수집 목록만 스크롤 높이를 조절한다.
+                float top = groupBottom - 16f;
+                collectionRoot.anchoredPosition = new Vector2(0, (top - 760f) * .5f);
+                collectionRoot.sizeDelta = new Vector2(1000, top + 760f);
             }
+        }
+        static float PlaceDetailRow(RectTransform row, float top, float height)
+        {
+            row.anchoredPosition = new Vector2(0, top - height * .5f);
+            row.sizeDelta = new Vector2(row.sizeDelta.x, height);
+            return top - height;
         }
         void RefreshProgress(int goal, int value, bool unlocked, bool saveFailed)
         {
@@ -330,17 +349,27 @@ namespace MukJump.Core
             presentation=stage.gameObject.AddComponent<InkShowroomPresentation>(); presentation.Initialize(stage,preview);
             BuildPreviewBackdrop(preview);
             foreach (var arrow in neighborButtons) arrow.transform.SetAsLastSibling();
-            nameText=Label("SkinName",paper,"",56,new Vector2(0,199),new Vector2(920,70),true);
-            loreText=Label("ItemLore",paper,"",29,new Vector2(0,131),new Vector2(960,56),false);
-            loreText.color=InkPalette.TextMuted;
+            detailPaper=SpriteImage("ItemDetailsPaper",paper,InkUiStyle.ActionButtonSprite,
+                new Vector2(0,150),new Vector2(1000,220));
+            detailPaper.preserveAspect=false; detailPaper.color=new Color(1,1,1,.48f);
+            detailDivider=SpriteImage("ItemNameBrushLine",paper,InkUiTextureFactory.CreateBrushSprite(),
+                new Vector2(0,148),new Vector2(150,4));
+            detailDivider.preserveAspect=false;
+            var dividerTint=InkPalette.Red; dividerTint.a=.48f; detailDivider.color=dividerTint;
+            nameText=Label("SkinName",paper,"",68,new Vector2(0,198),new Vector2(940,88),true);
+            loreText=Label("ItemLore",paper,"",38,new Vector2(0,100),new Vector2(920,76),false);
+            loreText.color=InkPalette.TextDark; loreText.lineSpacing=1.12f;
             BuildCollection();
             for(int i=0;i<cards.Length;i++) BuildCard(InkSkinCatalog.BrowseAt(i));
             groupText=Label("CollectionGrouping",paper,"같은 해금 조건끼리",28,new Vector2(0,-304),new Vector2(940,40),false);
             groupText.color=InkPalette.TextMuted;
             var toggle=Button("CollectionToggle",paper,"전체 보기",new Vector2(410,860),new Vector2(230,94),30,out collectionToggleText);
             toggle.onClick.AddListener(ToggleCollection);
-            abilityText=Label("Ability",paper,"",42,new Vector2(0,62),new Vector2(940,58),true);
-            descriptionText=Label("Description",paper,"",36,new Vector2(0,-46),new Vector2(960,134),false);
+            abilityText=Label("Ability",paper,"",48,new Vector2(0,6),new Vector2(920,64),true);
+            descriptionText=Label("Description",paper,"",42,new Vector2(0,-96),new Vector2(920,128),false);
+            descriptionText.lineSpacing=1.12f;
+            foreach(var text in new[]{nameText,loreText,abilityText,descriptionText})
+                if(text.TryGetComponent<Outline>(out var outline)) outline.enabled=false;
             achievementText=Label("Achievement",paper,"",38,new Vector2(0,-152),new Vector2(960,64),true);
             progressText=Label("AchievementProgress",paper,"",40,new Vector2(0,-212),new Vector2(800,52),true); InkLocalizedText.Exclude(progressText);
             progressTrack=Rect("AchievementTrack",paper,new Vector2(0,-253),new Vector2(860,30));

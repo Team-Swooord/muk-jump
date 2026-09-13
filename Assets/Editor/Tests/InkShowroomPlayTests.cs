@@ -33,18 +33,28 @@ namespace MukJump.EditorTests
                 Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
                 Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return WaitForWardrobe();
                 var view = Object.FindAnyObjectByType<InkWardrobeView>();
-                GameLocalization.SetLanguage(GameLanguage.Korean);
-                foreach (var id in new[] { InkSkinId.Scholar, InkSkinId.Gat })
+                foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
                 {
-                    view.Select(id); yield return Wait(.6f); Canvas.ForceUpdateCanvases();
-                    var stage = view.Paper.Find("ShowroomStage");
-                    foreach (string path in new[] { "PreviewBackdrop/FocusPaperWash", "PreviewBackdrop/FocusBrushRing", "InkStageFloor" })
+                    GameLocalization.SetLanguage(language);
+                    foreach (var id in new[] { InkSkinId.Scholar, InkSkinId.Gat })
                     {
-                        var image = stage.Find(path).GetComponent<UnityEngine.UI.Image>();
-                        Assert.That(image.enabled && !image.canvasRenderer.cull, Is.True, path);
-                        Assert.That(image.raycastTarget, Is.False, path);
+                        view.Select(id); yield return Wait(.6f); Canvas.ForceUpdateCanvases();
+                        var stage = view.Paper.Find("ShowroomStage");
+                        foreach (string path in new[] { "PreviewBackdrop/FocusPaperWash", "PreviewBackdrop/FocusBrushRing", "InkStageFloor" })
+                        {
+                            var image = stage.Find(path).GetComponent<UnityEngine.UI.Image>();
+                            Assert.That(image.enabled && !image.canvasRenderer.cull, Is.True, path);
+                            Assert.That(image.raycastTarget, Is.False, path);
+                        }
+                        foreach (string label in new[] { "SkinName", "ItemLore", "Ability", "Description" })
+                        {
+                            var text = view.Paper.Find(label).GetComponent<UnityEngine.UI.Text>();
+                            if (!text.gameObject.activeSelf) continue;
+                            Assert.That(text.canvasRenderer.cull, Is.False, label);
+                            Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + .1f), label);
+                        }
+                        yield return Capture("item-details-" + language + "-" + id);
                     }
-                    yield return Capture("preview-backdrop-" + id);
                 }
                 var next = InkSkinCatalog.BrowseAt(InkSkinCatalog.BrowseIndex(view.Selected) + 1);
                 view.StepSelection(1); Assert.That(view.Selected, Is.EqualTo(next));

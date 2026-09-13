@@ -302,8 +302,8 @@ namespace MukJump.EditorTests
                     Assert.That(view.Paper.Find("ItemLore").GetComponent<UnityEngine.UI.Text>().text, Is.Not.Empty);
                     Assert.That(achievement.text, Is.EqualTo(GameLocalization.Translate(InkSkinAchievements.Requirement(id))));
                     Assert.That(view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>().text, Is.Not.Empty);
-                    Assert.That(achievement.rectTransform.anchoredPosition.y, Is.EqualTo(40));
-                    Assert.That(collection.sizeDelta.y, Is.EqualTo(616));
+                    Assert.That(achievement.rectTransform.anchoredPosition.y, Is.GreaterThan(-60));
+                    Assert.That(collection.sizeDelta.y, Is.GreaterThan(500));
                     Assert.That(collection.anchoredPosition.y - collection.sizeDelta.y * .5f, Is.EqualTo(-760));
                 }
                 view.ToggleCollection(); view.ToggleCollection();
@@ -311,15 +311,15 @@ namespace MukJump.EditorTests
                 view.Select(InkSkinId.Gat);
                 Assert.That(ability.gameObject.activeSelf && description.gameObject.activeSelf, Is.True);
                 Assert.That(description.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Description(InkSkinId.Gat))));
-                Assert.That(collection.sizeDelta.y, Is.EqualTo(424));
-                Assert.That(achievement.rectTransform.anchoredPosition.y, Is.EqualTo(-152));
+                Assert.That(collection.sizeDelta.y, Is.GreaterThan(180).And.LessThan(500));
+                Assert.That(achievement.rectTransform.anchoredPosition.y, Is.LessThan(-150));
             }
             finally { SkinDebugSession.Reset(); }
             view.Select(InkSkinId.Astronaut);
             Assert.That(ability.gameObject.activeSelf, Is.False);
             Assert.That(description.gameObject.activeSelf, Is.True);
             Assert.That(description.text, Is.EqualTo(GameLocalization.Translate("숨겨진 행동으로 발견해 보세요.")));
-            Assert.That(collection.sizeDelta.y, Is.EqualTo(424));
+            Assert.That(collection.sizeDelta.y, Is.GreaterThan(180));
         }
 
         [TestCase(InkSkinId.RedShoes)]

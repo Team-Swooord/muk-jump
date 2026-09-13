@@ -145,6 +145,52 @@ namespace MukJump.EditorTests
                 }
             }
         }
+        [TestCase(GameLanguage.Korean)]
+        [TestCase(GameLanguage.English)]
+        [TestCase(GameLanguage.Japanese)]
+        public void EnlargedItemDetailsRemainReadableAndFitInTheirPaper(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language);
+            Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+            var detailPaper = view.Paper.Find("ItemDetailsPaper").GetComponent<Image>();
+            var divider = view.Paper.Find("ItemNameBrushLine").GetComponent<Image>();
+            try
+            {
+                for (int i = 0; i < InkSkinCatalog.Count; i++)
+                {
+                    view.Select((InkSkinId)i); view.Presentation.Cancel(); Canvas.ForceUpdateCanvases();
+                    Assert.That(detailPaper.gameObject.activeSelf, Is.True);
+                    Assert.That(detailPaper.raycastTarget || divider.raycastTarget, Is.False);
+                    float previousBottom = 260;
+                    foreach (string name in new[] { "SkinName", "ItemLore", "Ability", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "CollectionGrouping", "CollectionScroll" })
+                    {
+                        var row = (RectTransform)view.Paper.Find(name);
+                        if (!row.gameObject.activeSelf) continue;
+                        var text = row.GetComponent<Text>();
+                        if (text != null && string.IsNullOrEmpty(text.text)) continue;
+                        Rect bounds = BoundsIn(view.Paper, row);
+                        Assert.That(bounds.yMax, Is.LessThanOrEqualTo(previousBottom - 2), i + "/" + name);
+                        previousBottom = bounds.yMin;
+                        if (text == null) continue;
+                        Assert.That(text.resizeTextForBestFit, Is.False);
+                        Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(row.rect.height + .1f), i + "/" + name + ": " + text.text);
+                        if (name is "SkinName" or "ItemLore" or "Ability" or "Description")
+                        {
+                            int size = name switch { "SkinName" => 68, "ItemLore" => 38, "Ability" => 48, _ => 42 };
+                            Assert.That(text.fontSize, Is.EqualTo(language == GameLanguage.Japanese ? Mathf.RoundToInt(size * .76f) : size));
+                            AssertInside(bounds, BoundsIn(view.Paper, detailPaper.rectTransform), 0, name);
+                        }
+                    }
+                    Assert.That(view.CollectionScroll.viewport.rect.height, Is.GreaterThan(180));
+                }
+                view.ToggleCollection();
+                Assert.That(detailPaper.gameObject.activeSelf || divider.gameObject.activeSelf, Is.False);
+                view.ToggleCollection(); Assert.That(detailPaper.gameObject.activeSelf, Is.True);
+            }
+            finally { SkinDebugSession.Reset(); }
+            view.Select(InkSkinId.Astronaut);
+            Assert.That(detailPaper.gameObject.activeSelf || divider.gameObject.activeSelf, Is.False);
+        }
         [Test] public void PreviewBackdropFramesTheBodyAndShadowStaysAtItsFeet()
         {
             var stage = (RectTransform)Focus.parent;
