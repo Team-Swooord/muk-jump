@@ -11,6 +11,7 @@ namespace MukJump.Core
     {
         public const float PreviewScale = .85f;
         public const float DriftSpeed = 32f;
+        public const float MaxThrowSpeed = 1800f;
         // idle 원화의 알파 경계 (100, 152)~(924, 866)/1024에 여유를 더한 범위.
         // 투명 프레임 전체를 피팅하면 실제 먹이 너무 작아진다. 원본 그림은 자르지 않는다.
         public static readonly Rect BodyDrawingBounds = new(-.415f, -.36f, .83f, .725f);
@@ -23,6 +24,7 @@ namespace MukJump.Core
         Vector2 fittedSize;
         Vector2 travel;
         Vector2 velocity, grabOffset;
+        readonly ThrowTracker throwTracker = new();
         float elapsed, heldTime;
         InkSpriteAnimation heldAnimation;
         public static readonly Vector2 HeldArtOffset = new(-.025f, -.045f);
@@ -82,6 +84,8 @@ namespace MukJump.Core
             bool reduced = LobbySettingsProfile.ReducedMotionEnabled;
             if (!CanInteract || inactiveGeneration != MobileApplicationLifecycle.InactiveGeneration) CancelDrag();
             hitbox.raycastTarget = CanInteract;
+            // 손을 멈춘 프레임도 기록해야 잡아 둔 뒤 놓을 때 예전 속도로 튀어나가지 않는다.
+            if (holding) throwTracker.Record(drift.anchoredPosition, Time.unscaledTimeAsDouble);
             if (CanInteract && !reduced)
             {
                 float dt = Mathf.Min(Time.unscaledDeltaTime, .05f);
@@ -164,6 +168,8 @@ namespace MukJump.Core
             holding = true; pointerId = e.pointerId;
             inactiveGeneration = MobileApplicationLifecycle.InactiveGeneration;
             grabOffset = drift.anchoredPosition - point;
+            velocity = Vector2.zero;
+            throwTracker.Reset(drift.anchoredPosition, Time.unscaledTimeAsDouble);
             heldTime = 0f;
             PresentHeldPose();
         }
@@ -172,14 +178,31 @@ namespace MukJump.Core
         {
             if (!holding || pointerId != e.pointerId) return;
             if (!CanInteract || inactiveGeneration != MobileApplicationLifecycle.InactiveGeneration) { CancelDrag(); return; }
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(area, e.position, e.pressEventCamera, out var point)) return;
-            Vector2 position = ClampPosition(point + grabOffset), delta = position - drift.anchoredPosition;
-            if (delta.sqrMagnitude > .01f) velocity = delta.normalized * DriftSpeed;
-            drift.anchoredPosition = position;
+            MoveHeldPointer(e);
         }
-        public void OnPointerUp(PointerEventData e) { if (holding && pointerId == e.pointerId) CancelDrag(); }
+        void MoveHeldPointer(PointerEventData e)
+        {
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(area, e.position, e.pressEventCamera, out var point)) return;
+            drift.anchoredPosition = ClampPosition(point + grabOffset);
+            throwTracker.Record(drift.anchoredPosition, Time.unscaledTimeAsDouble);
+        }
+        public void OnPointerUp(PointerEventData e)
+        {
+            if (!holding || pointerId != e.pointerId) return;
+            if (!CanInteract || inactiveGeneration != MobileApplicationLifecycle.InactiveGeneration) { CancelDrag(); return; }
+            // UI 모듈은 마지막 Drag보다 PointerUp을 먼저 보낼 수 있어 손을 뗀 좌표까지 직접 반영한다.
+            MoveHeldPointer(e);
+            Vector2 released = LobbySettingsProfile.ReducedMotionEnabled ? Vector2.zero : throwTracker.ReleaseVelocity;
+            CancelDrag();
+            velocity = released;
+        }
         public void OnEndDrag(PointerEventData e) => OnPointerUp(e);
-        void CancelDrag() { holding = false; heldTime = 0f; PresentHeldPose(); }
+        void CancelDrag()
+        {
+            // 화면 전환·백그라운드·의상 변경은 던지기가 아니다. 잡지 않은 자유 이동 속도는 보존한다.
+            if (holding) velocity = Vector2.zero;
+            holding = false; heldTime = 0f; PresentHeldPose();
+        }
         void PresentHeldPose()
         {
             if (body == null) return;
@@ -192,6 +215,53 @@ namespace MukJump.Core
         void OnDisable() => CancelDrag();
         void OnApplicationPause(bool paused) { if (paused) CancelDrag(); }
         void OnApplicationFocus(bool focused) { if (!focused) CancelDrag(); }
+
+        /// 마지막 80ms의 실제 UI 이동량을 사용한다. 화면 배율·프레임률과 게임 시간 배율에 독립적이다.
+        public sealed class ThrowTracker
+        {
+            public const double SampleWindow = .08;
+            const int Capacity = 32;
+            readonly Vector2[] positions = new Vector2[Capacity];
+            readonly double[] times = new double[Capacity];
+            int newest, count;
+
+            public void Reset(Vector2 position, double time)
+            {
+                newest = 0; count = 1; positions[0] = position; times[0] = time;
+            }
+            public void Record(Vector2 position, double time)
+            {
+                if (count == 0 || time < times[newest]) { Reset(position, time); return; }
+                if (time > times[newest]) { newest = (newest + 1) % Capacity; count = Mathf.Min(count + 1, Capacity); }
+                // 같은 프레임의 Drag → Up/EndDrag → LateUpdate는 한 시점으로 취급한다.
+                positions[newest] = position; times[newest] = time;
+            }
+            public Vector2 ReleaseVelocity
+            {
+                get
+                {
+                    if (count < 2) return Vector2.zero;
+                    double end = times[newest], cutoff = end - SampleWindow;
+                    int older = newest, newer = newest;
+                    for (int i = 1; i < count; i++)
+                    {
+                        newer = older; older = (older + Capacity - 1) % Capacity;
+                        if (times[older] <= cutoff) break;
+                    }
+                    double begin = times[older];
+                    Vector2 origin = positions[older];
+                    if (begin < cutoff)
+                    {
+                        origin = Vector2.Lerp(origin, positions[newer], (float)((cutoff - begin) / (times[newer] - begin)));
+                        begin = cutoff;
+                    }
+                    double duration = end - begin;
+                    if (duration < .001) return Vector2.zero;
+                    // 순간 입력 튐만 제한하고 평소 부유 속도로 되돌리거나 임의 방향을 섞지 않는다.
+                    return Vector2.ClampMagnitude((positions[newest] - origin) / (float)duration, MaxThrowSpeed);
+                }
+            }
+        }
 
         // 화면 밖으로 크게 끌거나 긴 프레임이 와도 외곽 안에서 반사한다. 게임 난수/물리는 사용하지 않는다.
         public static void AdvanceBounce(ref Vector2 position, ref Vector2 speed, Vector2 limits, float dt)
