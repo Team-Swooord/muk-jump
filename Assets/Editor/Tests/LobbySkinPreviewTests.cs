@@ -9,29 +9,30 @@ using NUnit.Framework;
 using UnityEditor.TestTools;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.TestTools;
 
 namespace MukJump.EditorTests
 {
     public sealed class LobbySkinPreviewTests
     {
-        [Test, Category("LobbySwim")] public void DriftIsContinuousAndBoundedWithoutTouchingGameRandom()
+        [Test, Category("LobbyDrift")]
+        public void SlowDriftBouncesWithoutTouchingGameRandom()
         {
             var state = Random.state;
-            float distance = 0f;
-            for (int i = 0; i < 3600; i++)
+            Vector2 position = Vector2.zero, velocity = new Vector2(3, 4).normalized * LobbySkinPreview.DriftSpeed;
+            Vector2 limits = new(100, 200);
+            for (int i = 0; i < 36000; i++)
             {
-                float t = i / 30f;
-                var p = LobbySkinPreview.DriftAt(t);
-                var next = LobbySkinPreview.DriftAt(t + 1f / 60f);
-                Assert.That(Mathf.Abs(p.x), Is.LessThanOrEqualTo(1));
-                Assert.That(Mathf.Abs(p.y), Is.LessThanOrEqualTo(1));
-                distance += Vector2.Distance(p, next);
-                Assert.That(Vector2.Distance(p, next), Is.LessThan(.06f));
-                Assert.That(Mathf.Abs(LobbySkinPreview.TiltAt(t)), Is.LessThanOrEqualTo(24));
-                Assert.That(Vector2.Distance(p, LobbySkinPreview.DriftAt(t, 981)), Is.GreaterThan(.00001f));
+                var before = position;
+                LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, 1f / 60f);
+                Assert.That(Mathf.Abs(position.x), Is.LessThanOrEqualTo(limits.x));
+                Assert.That(Mathf.Abs(position.y), Is.LessThanOrEqualTo(limits.y));
+                Assert.That(Vector2.Distance(before, position), Is.LessThanOrEqualTo(LobbySkinPreview.DriftSpeed / 60f + .0001f));
+                Assert.That(velocity.magnitude, Is.EqualTo(LobbySkinPreview.DriftSpeed).Within(.001f));
             }
-            Assert.That(distance, Is.GreaterThan(25f), "기존 느린 진동보다 활발하게 이동해야 한다.");
             Assert.That(Random.state, Is.EqualTo(state));
         }
 
@@ -55,25 +56,26 @@ namespace MukJump.EditorTests
             }
         }
 
-        [Test, Category("LobbySwim")]
-        public void SwimLeanFollowsTravelAndBreathingStaysWithinTheFittedEnvelope()
+        [Test, Category("LobbyDrift")]
+        public void WallCornerAndLongFrameReflectWithoutEscaping()
         {
-            for (int i = 0; i < 1800; i++)
-            {
-                float t = i / 30f;
-                float vx = (LobbySkinPreview.DriftAt(t + .02f).x - LobbySkinPreview.DriftAt(t - .02f).x) / .04f;
-                float angle = LobbySkinPreview.TiltAt(t);
-                if (Mathf.Abs(vx) > .1f) Assert.That(Mathf.Sign(angle), Is.EqualTo(-Mathf.Sign(vx)));
-                Assert.That(Mathf.Abs(angle - LobbySkinPreview.TiltAt(t + 1f / 60)), Is.LessThan(2.5f));
-                var scale = LobbySkinPreview.SwimScaleAt(t);
-                Assert.That(scale.x, Is.InRange(.975f, 1.025f));
-                Assert.That(scale.y, Is.InRange(.975f, 1.025f));
-                Assert.That(scale.z, Is.EqualTo(1));
-            }
+            Vector2 position = new(9, 19), velocity = new(10, 10), limits = new(10, 20);
+            LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, .2f);
+            Assert.That(position, Is.EqualTo(new Vector2(9, 19)));
+            Assert.That(velocity, Is.EqualTo(new Vector2(-10, -10)));
+            LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, 100f);
+            Assert.That(Mathf.Abs(position.x), Is.LessThanOrEqualTo(10));
+            Assert.That(Mathf.Abs(position.y), Is.LessThanOrEqualTo(20));
+            limits = Vector2.zero;
+            LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, 1);
+            Assert.That(position, Is.EqualTo(Vector2.zero));
+            limits = Vector2.one * 10; position = new Vector2(-10, 10); velocity = new(-5, 5);
+            LobbySkinPreview.AdvanceBounce(ref position, ref velocity, limits, 0);
+            Assert.That(velocity, Is.EqualTo(new Vector2(5, -5)));
         }
 
         [UnityTest, Timeout(120000)]
-        public IEnumerator SmallerLobbyPreviewSwimsWithItsShoesAndStopsOnOptionsAndReducedMotion()
+        public IEnumerator LobbyDriftTouchesBounceAndPauseWithoutStartingGame()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
             yield return new EnterPlayMode();
@@ -85,58 +87,107 @@ namespace MukJump.EditorTests
             ScoreManager.UseStoreForTests(new MemoryScoreStore());
             GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
             MobileApplicationLifecycle.SetPlatformVisibility(true);
+            Touchscreen touch = null, previousTouch = Touchscreen.current;
             try
             {
                 yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
                 var preview = Object.FindAnyObjectByType<LobbySkinPreview>();
                 var lobby = Object.FindAnyObjectByType<LobbyView>();
                 var body = preview.transform.Find("Drift/Artwork/OriginalInkBody").GetComponent<UnityEngine.UI.Image>();
-                var swim = body.GetComponent<LobbyInkSwimMotion>();
-                Assert.That(swim, Is.Not.Null);
+                Assert.That(body.GetComponent<LobbyInkSwimMotion>(), Is.Null, "팔다리 젓기를 제거한다.");
+                Assert.That(preview.Area.parent.name, Is.EqualTo("SafeAreaRoot"));
+                var safe = (RectTransform)preview.Area.parent;
+                Assert.That(preview.Area.rect.width, Is.EqualTo(safe.rect.width).Within(.01));
+                Assert.That(preview.Area.rect.height, Is.GreaterThan(safe.rect.height * .7f));
+                Assert.That(preview.Area.anchoredPosition.y + preview.Area.rect.yMax,
+                    Is.LessThanOrEqualTo(safe.rect.yMax - MobileUiLayout.ReferenceHeight * LobbyAdLayout.TopInsetFraction + .1f));
                 Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
-                foreach (var id in new[] { InkSkinId.Ink, InkSkinId.RedHeadband, InkSkinId.Astronaut, InkSkinId.RedShoes, InkSkinId.CloudBoots, InkSkinId.CraneWings, InkSkinId.DragonTail })
+                foreach (var id in new[] { InkSkinId.Ink, InkSkinId.RedHeadband, InkSkinId.Astronaut, InkSkinId.RedShoes, InkSkinId.CraneWings, InkSkinId.DragonTail })
                 {
                     Assert.That(InkSkinPreferences.TryEquip(id), Is.True); yield return Wait(.1f);
-                    var art = preview.transform.Find("Drift/Artwork/Accessory").GetComponent<InkAccessoryImage>();
-                    var envelope = LobbySkinPreview.RotationEnvelope(LobbySkinPreview.CostumeBounds(id, art.sprite).size);
-                    float oldSize = Mathf.Max(.01f, Mathf.Min(360f, Mathf.Min(preview.Area.rect.width * .48f / envelope.x,
-                        preview.Area.rect.height * .70f / envelope.y)));
-                    Assert.That(body.rectTransform.rect.width, Is.EqualTo(oldSize * .85f).Within(.01f));
-                    for (int pose = 0; pose < 6; pose++)
-                    {
-                        yield return Wait(.16f); Canvas.ForceUpdateCanvases(); CheckBounds(preview);
-                        Assert.That(body.canvasRenderer.GetMesh().vertexCount, Is.EqualTo(289));
-                        if (InkSkinCatalog.IsFootwear(id)) CheckSwimmingShoes(art, id, swim.MotionTime);
-                        if (id == InkSkinId.RedHeadband || id == InkSkinId.RedShoes)
-                            yield return Capture("swim-" + id + "-" + pose);
-                    }
+                    Assert.That(body.rectTransform.rect.width, Is.LessThanOrEqualTo(360f * .85f));
+                    Canvas.ForceUpdateCanvases(); CheckBounds(preview);
+                    Assert.That(body.canvasRenderer.GetMesh().vertexCount, Is.EqualTo(4));
+                    Assert.That(preview.Drift.localRotation, Is.EqualTo(Quaternion.identity));
+                    Assert.That(preview.Drift.localScale, Is.EqualTo(Vector3.one));
                 }
-                var before = swim.MotionTime; yield return Wait(.2f);
-                Assert.That(swim.MotionTime, Is.GreaterThan(before));
-                Assert.That(preview.GetComponentsInChildren<UnityEngine.UI.Graphic>(true).All(g => !g.raycastTarget), Is.True);
+                InkSkinPreferences.TryEquip(InkSkinId.RedShoes); yield return Wait(.1f);
+                CheckTouchTargets(preview);
                 Assert.That(preview.GetComponentsInChildren<Rigidbody2D>(true), Is.Empty);
                 Assert.That(preview.GetComponentsInChildren<Collider2D>(true), Is.Empty);
+                var before = preview.Drift.anchoredPosition;
+                yield return Wait(.4f);
+                float distance = Vector2.Distance(before, preview.Drift.anchoredPosition);
+                Assert.That(distance, Is.InRange(1f, 20f), "천천히 이동해야 한다.");
+                yield return Capture("slow-free-drift");
+
+                // 실제 Input System → UI 모듈 → 레이캐스트 → 드래그 경로. 시작 버튼 위에서 손을 떼도 시작하지 않는다.
+                touch = InputSystem.AddDevice<Touchscreen>();
+                LobbySettingsProfile.SetReducedMotionEnabled(true); yield return Wait(.1f);
+                Vector2 origin = ScreenPoint(preview, preview.Drift.anchoredPosition);
+                yield return CheckRaycast(origin, hit => Assert.That(hit, Is.EqualTo(preview.Drift.gameObject)));
+                yield return Touch(touch, 1, UnityEngine.InputSystem.TouchPhase.Began, origin);
+                Assert.That(preview.IsDragging, Is.True);
+                Vector2 target = new(-preview.Travel.x * .7f, preview.Travel.y * .5f);
+                yield return Touch(touch, 1, UnityEngine.InputSystem.TouchPhase.Moved, ScreenPoint(preview, target));
+                Assert.That(Vector2.Distance(preview.Drift.anchoredPosition, target), Is.LessThan(1));
+                foreach (var corner in new[] { new Vector2(-1, 1), new Vector2(1, 1), new Vector2(1, -1), new Vector2(-1, -1) })
+                {
+                    yield return Touch(touch, 1, UnityEngine.InputSystem.TouchPhase.Moved,
+                        ScreenPoint(preview, Vector2.Scale(corner, preview.Area.sizeDelta)));
+                    Canvas.ForceUpdateCanvases(); CheckBounds(preview);
+                    Assert.That(Vector2.Distance(preview.Drift.anchoredPosition, Vector2.Scale(corner, preview.Travel)), Is.LessThan(1));
+                }
+                yield return Capture("drag-bottom-left");
+                Vector2 startPoint = RectTransformUtility.WorldToScreenPoint(null, lobby.StartButton.transform.position);
+                yield return Touch(touch, 1, UnityEngine.InputSystem.TouchPhase.Moved, startPoint);
+                yield return Touch(touch, 1, UnityEngine.InputSystem.TouchPhase.Ended, startPoint);
+                Assert.That(preview.IsDragging, Is.False);
                 Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby));
+                yield return CheckRaycast(startPoint, hit => Assert.That(hit.GetComponentInParent<UnityEngine.UI.Button>(), Is.EqualTo(lobby.StartButton),
+                    "먹이 겹쳐도 시작 버튼의 탭이 우선이다."));
+
+                // 두 번째 손가락은 먼저 잡은 손가락을 가로채지 못한다.
+                var e = new PointerEventData(EventSystem.current) { pointerId = 41, position = ScreenPoint(preview, preview.Drift.anchoredPosition) };
+                preview.OnPointerDown(e); var held = preview.Drift.anchoredPosition;
+                var other = new PointerEventData(EventSystem.current) { pointerId = 42, position = Vector2.zero };
+                preview.OnPointerDown(other); preview.OnDrag(other); preview.OnPointerUp(other);
+                Assert.That(preview.IsDragging, Is.True);
+                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(held));
+                MobileApplicationLifecycle.SetPlatformVisibility(false);
+                MobileApplicationLifecycle.SetPlatformVisibility(true);
+                e.position += Vector2.one * 100; preview.OnDrag(e);
+                Assert.That(preview.IsDragging, Is.False);
+                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(held));
+                // 모션 줄이기 상태에서도 수동 이동은 가능하고 손을 떼면 그 자리에 남는다.
+                yield return Wait(.2f);
+                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(held));
+                LobbySettingsProfile.SetReducedMotionEnabled(false);
+                var edge = new PointerEventData(EventSystem.current) { pointerId = 43, position = ScreenPoint(preview, held) };
+                preview.OnPointerDown(edge);
+                edge.position = ScreenPoint(preview, preview.Area.sizeDelta); preview.OnDrag(edge); preview.OnPointerUp(edge);
+                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(preview.Travel));
+                yield return Wait(.2f);
+                Assert.That(preview.Velocity.x, Is.LessThan(0)); Assert.That(preview.Velocity.y, Is.LessThan(0));
+                Canvas.ForceUpdateCanvases(); CheckBounds(preview);
+                yield return Capture("top-right-bounce");
+
                 lobby.OptionsButton.onClick.Invoke(); yield return Wait(.5f);
-                before = swim.MotionTime; var position = preview.Drift.anchoredPosition; var scale = preview.Drift.localScale;
-                yield return Wait(.3f);
-                Assert.That(swim.MotionTime, Is.EqualTo(before));
-                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(position));
-                Assert.That(preview.Drift.localScale, Is.EqualTo(scale));
+                before = preview.Drift.anchoredPosition; yield return Wait(.3f);
+                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(before));
+                Assert.That(preview.Drift.GetComponent<UnityEngine.UI.Image>().raycastTarget, Is.False);
                 Object.FindAnyObjectByType<LobbyOptionsView>().Close(); yield return Wait(.5f);
                 MobileApplicationLifecycle.SetPlatformVisibility(false); yield return Wait(.1f);
-                before = swim.MotionTime; yield return Wait(.2f); Assert.That(swim.MotionTime, Is.EqualTo(before));
+                before = preview.Drift.anchoredPosition; yield return Wait(.2f);
+                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(before));
                 MobileApplicationLifecycle.SetPlatformVisibility(true);
-                LobbySettingsProfile.SetReducedMotionEnabled(true); yield return Wait(.1f); Canvas.ForceUpdateCanvases();
-                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(Vector2.zero));
-                Assert.That(preview.Drift.localRotation, Is.EqualTo(Quaternion.identity));
-                Assert.That(preview.Drift.localScale, Is.EqualTo(Vector3.one));
-                Assert.That(body.canvasRenderer.GetMesh().vertexCount, Is.EqualTo(4));
                 lobby.SetNavigationPresentation(false, false); yield return Wait(.1f);
                 Assert.That(preview.IsVisible, Is.False);
             }
             finally
             {
+                if (touch != null) InputSystem.RemoveDevice(touch);
+                previousTouch?.MakeCurrent();
                 SkinDebugSession.Reset(); MobileApplicationLifecycle.SetPlatformVisibility(true); Application.runInBackground = background;
                 InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
                 PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
@@ -144,17 +195,66 @@ namespace MukJump.EditorTests
             }
             yield return new ExitPlayMode();
         }
-        static void CheckSwimmingShoes(InkAccessoryImage image, InkSkinId id, float time)
+        static Vector2 ScreenPoint(LobbySkinPreview preview, Vector2 local) =>
+            RectTransformUtility.WorldToScreenPoint(null, preview.Area.TransformPoint(local));
+        static IEnumerator CheckRaycast(Vector2 point, System.Action<GameObject> assertion)
         {
-            var mesh = image.canvasRenderer.GetMesh(); Assert.That(mesh.vertexCount, Is.EqualTo(8));
-            float bodySize = image.rectTransform.rect.width / InkSkinCatalog.Width(id);
-            for (int side = 0; side < 2; side++)
+            // EditMode 테스트의 바깥 콜백은 Screen 크기가 Test Runner 창 기준이다.
+            // 실제 Game View의 Player 입력 프레임에서만 UI 레이캐스트를 수행한다.
+            bool sampled = false; GameObject target = null; System.Exception failure = null;
+            System.Action after = () =>
             {
-                var anchor = InkFootwearPose.Anchor(null, side == 1);
-                var expected = InkFootwearPose.DrawingRect(id, image.sprite, side == 1).min - InkSkinCatalog.Offset(id) +
-                    LobbyInkSwimMotion.DeformPoint(anchor, time, InkAccessoryMotion.Strength) - anchor;
-                Assert.That(Vector2.Distance(mesh.vertices[side * 4], expected * bodySize), Is.LessThan(.01f));
+                if (sampled || InputState.currentUpdateType != InputUpdateType.Dynamic) return;
+                sampled = true;
+                try { target = TopTarget(point); } catch (System.Exception e) { failure = e; }
+            };
+            InputSystem.onAfterUpdate += after;
+            try
+            {
+                float deadline = Time.realtimeSinceStartup + 3;
+                while (!sampled && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(sampled, Is.True);
+                Assert.That(failure, Is.Null, failure?.ToString());
+                assertion(target);
             }
+            finally { InputSystem.onAfterUpdate -= after; }
+        }
+        static GameObject TopTarget(Vector2 point)
+        {
+            var hits = new System.Collections.Generic.List<RaycastResult>();
+            EventSystem.current.RaycastAll(new PointerEventData(EventSystem.current) { position = point }, hits);
+            Assert.That(hits, Is.Not.Empty, $"point={point}, screen={Screen.width}x{Screen.height}, raycasters=" +
+                string.Join(";", Object.FindObjectsByType<UnityEngine.UI.GraphicRaycaster>(FindObjectsSortMode.None)
+                    .Select(r => $"{r.name}:{r.isActiveAndEnabled}:{r.GetComponent<Canvas>().renderMode}")) + "; graphics=" +
+                string.Join(";", Object.FindObjectsByType<UnityEngine.UI.Graphic>(FindObjectsSortMode.None)
+                    .Where(g => g.raycastTarget && g.GetComponentInParent<LobbyView>() != null)
+                    .Select(g => $"{g.name}:depth={g.depth},cull={g.canvasRenderer.cull},rect={RectTransformUtility.RectangleContainsScreenPoint(g.rectTransform,point)},filter={g.Raycast(point,null)},pos={g.transform.position}")));
+            return hits[0].gameObject;
+        }
+        static IEnumerator Touch(Touchscreen touch, int id, UnityEngine.InputSystem.TouchPhase phase, Vector2 point)
+        {
+            bool queued = false;
+            System.Action before = () =>
+            {
+                if (queued || UnityEngine.InputSystem.LowLevel.InputState.currentUpdateType != InputUpdateType.Dynamic) return;
+                queued = true;
+                InputSystem.QueueStateEvent(touch, new TouchState { touchId = id, phase = phase, position = point });
+            };
+            InputSystem.onBeforeUpdate += before;
+            try
+            {
+                float deadline = Time.realtimeSinceStartup + 3;
+                while (!queued && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(queued, Is.True);
+                yield return null; yield return null;
+            }
+            finally { InputSystem.onBeforeUpdate -= before; }
+        }
+        static void CheckTouchTargets(LobbySkinPreview preview)
+        {
+            var targets = preview.GetComponentsInChildren<UnityEngine.UI.Graphic>(true).Where(g => g.raycastTarget).ToArray();
+            Assert.That(targets.Length, Is.EqualTo(1), "먹 외곽만 터치할 수 있고 빈 화면은 막지 않는다.");
+            Assert.That(targets[0].transform, Is.EqualTo(preview.Drift));
         }
 
         [UnityTest, Timeout(120000)]
@@ -178,7 +278,7 @@ namespace MukJump.EditorTests
                 var preview = Object.FindAnyObjectByType<LobbySkinPreview>();
                 Assert.That(preview, Is.Not.Null);
                 Assert.That(preview.IsVisible, Is.True);
-                Assert.That(preview.GetComponentsInChildren<UnityEngine.UI.Graphic>(true).All(g => !g.raycastTarget), Is.True);
+                CheckTouchTargets(preview);
                 Assert.That(preview.GetComponentsInChildren<Rigidbody2D>(true), Is.Empty);
                 Assert.That(preview.GetComponentsInChildren<Collider2D>(true), Is.Empty);
                 Assert.That(preview.GetComponentsInChildren<PlayerController>(true), Is.Empty);
@@ -231,7 +331,7 @@ namespace MukJump.EditorTests
                 Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(paused));
                 MobileApplicationLifecycle.SetPlatformVisibility(true);
                 LobbySettingsProfile.SetReducedMotionEnabled(true); yield return Wait(.1f);
-                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(Vector2.zero));
+                Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(paused));
                 Assert.That(preview.Drift.localRotation, Is.EqualTo(Quaternion.identity));
                 LobbySettingsProfile.SetReducedMotionEnabled(false);
                 lobby.SetActiveMenu(LobbyMenuSelection.Options);
