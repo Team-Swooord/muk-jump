@@ -2,6 +2,14 @@
 
 내장 image_gen 사용. 원화는 Assets/Resources/MukJump/Skins에 복사해 프로젝트 안에서 참조한다.
 
+## 쓰리쿠션 당구공 — skin_three_cushion_v1.png
+
+2026-09-13, 내장 imagegen으로 새 투명 원화 생성. 최종 에셋은 `Assets/Resources/MukJump/Skins/skin_three_cushion_v1.png`이다. 실제 출력은 1280×1280 RGBA이며 기존 씬 빌더가 Single Sprite, 최대 512, mipmap/readable OFF로 임포트한다. 원래 먹의 몸체·눈·팔다리는 그대로 유지하고 머리에 겹치는 팔번 공 모자만 추가했다. 로비 해금 알림, 꾸미기 착용 화면과 RGB 1024 Game Center 아이콘에서 맞춤을 확인했다.
+
+최종 생성 프롬프트(1회, 외부 캐릭터 원화 없이 신규 생성):
+
+Use case: stylized-concept. Create ONE production 2D game accessory sprite for the little Korean ink-blot character in an achievement-unlocked billiards costume. Asset: a squat black EIGHT BALL HELMET/CAP worn over the top of a round head, NOT a separate full ball perched on top. Front view. A broad simple domed black cap with a gently curved open lower edge; one large off-white round badge on its front with a rough hand-drawn black numeral '8'. No straps, no visor, no brim, no human face, no eyes, no body, no cue sticks, no extra props. Naive child's charcoal/crayon doodle style, funny and humble, very thick wobbly black outlines, rough matte charcoal flat fill, one ivory flat badge, slightly asymmetrical. No realistic highlights or gradients, no polished 3D, no fine textures. Centered square 1024x1024 canvas; entire cap silhouette approximately x=150..874,y=300..700 with generous empty margins. This will overlay the top of the original spiky ink body while leaving its eyes and limbs completely visible. Isolated accessory only. GENUINELY TRANSPARENT PNG ALPHA BACKGROUND, no white rectangle and no painted checkerboard, no shadows, no text except the single digit 8.
+
 ## 바람 갓 — skin_gat_v1.png
 
 Use case: stylized-concept. Asset type: production transparent 2D game accessory sprite, NOT a whole character. Create one small traditional Korean black gat hat, straight-on frontal view with only a little visible top, very wide low elliptical brim and squat cylindrical crown. Hand brushed sumi-e black ink, rough dry-brush edges, subtle warm gray wash, readable simple silhouette. A short hanging dark-red ribbon at either side. Cute compact proportions for a round ink-drop creature. Restrained palette #1C1B1A, #EAE3D2, very small #AE1C3C accent. Isolated SINGLE hat centered, filling 85% canvas width. Genuine alpha transparent background, no white rectangle, no shadow/background, no text, no body, no face, no branding, no extra objects. All details within frame. This is an original accessory for an Eastern ink painting mobile game.

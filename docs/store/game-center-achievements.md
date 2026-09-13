@@ -11,6 +11,9 @@
 - 총 975점(Apple 화면에서 25점 남음), 숨김 21개, 반복 달성 불가 설정을 확인했다.
 - 기존 Game Center 순위표는 변경하지 않았다. 게임의 뒤끝 리더보드·계정 데이터와 현재 심사본 1.0.0(29)도 변경하지 않았다.
 
+같은 날 로비 쓰리쿠션 보상 `mukjump.achievement.skin.61`([쓰리쿠션 당구공 상세](https://appstoreconnect.apple.com/apps/6804614765/distribution/gamecenter/achievements/99759c33-bf1a-4ea7-aa57-9f1501238c33))을 추가했다.
+숨김·반복 불가·5점으로 저장했고 한·영(미국)·일 이름, 달성 전후 설명과 동일한 RGB 의상 아이콘 3개를 저장했다. 총 의상 업적은 61개, 현지화 183개, 980점(20점 남음), 숨김 22개다. 이번에는 신규 1개의 상세/현지화와 저장 상태를 확인했으며 기존 60개를 다시 전수 검사하지 않았다. 상태는 **제출 준비 중**이며 현재 심사본에는 추가하지 않았다.
+
 **콘솔 등록은 완료됐지만 실기기 전송 검증과 다음 스킨 버전의 업적 심사 제출은 아직 미완료**다. 아래 기기 검증이 끝나기 전 Game Center 동기화 완료 또는 출시 준비 완료로 보고하지 않는다.
 
 ## 등록 자료
@@ -21,9 +24,9 @@ Unity 메뉴 `MukJump > Export Game Center Achievement Catalog`는 `output/store
 아이콘과 점수 규격은 [Apple 업적 등록 기준](https://developer.apple.com/help/app-store-connect/reference/game-center/achievements/)을 따른다.
 
 - 앱: 먹점프 / App Store ID 6804614765. SHIFT와 혼동하지 않는다.
-- 의상 해금 60개: `mukjump.achievement.skin.01`~`.60`. 기존 ID는 재배열하지 않는다.
+- 의상 해금 61개: `mukjump.achievement.skin.01`~`.61`. 기존 ID는 재배열하지 않는다.
 - 기본 먹은 처음부터 보유하므로 업적을 만들지 않는다. 해금 보상이 없는 `mukjump.achievement.wall`, `mukjump.achievement.flight3`도 Apple 등록·전송에서 제외한다. 게임 내 기존 알림과 저장 비트는 유지한다.
-- 기존 45개는 각각 20점 유지, 십이지신·신화 15개는 각각 5점으로 총 975점이다. 반복 달성 불가. 숨김 여부와 한·영·일 이름/달성 전후 설명은 catalog.json 기준.
+- 기존 45개는 각각 20점 유지, 십이지신·신화 15개와 쓰리쿠션 1개는 각각 5점으로 총 980점이다. 반복 달성 불가. 숨김 여부와 한·영·일 이름/달성 전후 설명은 catalog.json 기준.
 - 숨김 업적은 잠겨 있는 동안 0%도 보내지 않으며, 달성한 뒤 100%만 전송한다.
 
 이후 변경은 등록된 동일 ID를 갱신하며 중복 생성하지 않는다. Game Center 사용과 업적 심사 제출은 다음 스킨 버전에 연결한다. 현재 제출한 버전을 취소/교체하거나 심사에 추가 제출하지 않는다.

@@ -81,6 +81,7 @@ namespace MukJump.Core
                 ["고양이 귀로 밤에 아이템 없이 60초 생존"] = ("Cat Ears: survive 60s at night without items", "猫耳で夜にアイテムなしで60秒生存"),
                 ["정확히 777m로 한 판 완료"] = ("Finish a run at exactly 777m", "ちょうど777mでプレイを終える"),
                 ["먹 → 갓 → 먹 → 거미탈 → 먹 순서로 살펴보기"] = ("Browse Ink → Wind Gat → Ink → Spider Mask → Ink", "墨 → 風の笠 → 墨 → 蜘蛛の面 → 墨の順に見る"),
+                ["로비에서 먹을 한 번 던져 벽에 연속 세 번 튕기기"] = ("Toss Ink once in the lobby for three wall bounces without grabbing again", "ロビーで墨を一度投げ、つかみ直さず壁に3回連続で跳ね返す"),
             };
             for (int i=0; i<InkSkinCatalog.Count; i++)
             {
@@ -163,6 +164,7 @@ namespace MukJump.Core
             InkSkinId.BondKnot => ("인연을 묶었더니 발이 먼저 떠올랐다.", "One little bond. Two feet off the ground.", "縁を結んだら、足が先に浮かんだ。"),
             InkSkinId.WindFan => ("불을 끄려다 주인부터 날려 버렸다.", "Meant to cool the fire. Blew its owner away.", "火を消すつもりが、持ち主を飛ばした。"),
             InkSkinId.DragonTail => ("한 번 부딪혔을 뿐인데 꼬리가 따라왔다.", "One little bump. A tail followed me home.", "一度ぶつかっただけなのに、しっぽがついてきた。"),
+            InkSkinId.ThreeCushion => ("큐대는 없었다. 벽이 세 번 도왔다.", "No cue needed. The walls helped three times.", "キューはなかった。壁が三度、手を貸した。"),
             _ => ("", "", "")
         };
     }

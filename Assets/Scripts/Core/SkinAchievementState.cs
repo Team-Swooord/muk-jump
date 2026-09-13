@@ -132,6 +132,14 @@ namespace MukJump.Core
         }
         static ulong GrantNew(InkSkinId id) => !InkSkinAchievements.IsUnlocked(id) &&
             PermanentGrowthProfile.GrantSkinSecret(id) ? 1UL << (int)id : 0;
+        // 던지기 시작 계정과 지금 저장 계정이 같아야 한다. 저장 실패·디버그에는 알리지 않는다.
+        public static ulong CompletedThreeCushion(object attemptOwner)
+        {
+            if (!Ready() || !ReferenceEquals(attemptOwner, PermanentGrowthProfile.SkinAccountToken) ||
+                InkSkinAchievements.IsUnlocked(InkSkinId.ThreeCushion)) return 0;
+            ulong reward = 1UL << (int)InkSkinId.ThreeCushion;
+            return PermanentGrowthProfile.TryGrantLiveAchievements(attemptOwner, reward, 0) ? reward : 0;
+        }
         public static void SelectedByUser(InkSkinId id)
         {
             if (!Ready()) return;

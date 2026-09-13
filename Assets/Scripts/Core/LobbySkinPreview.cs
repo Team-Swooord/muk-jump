@@ -25,6 +25,7 @@ namespace MukJump.Core
         Vector2 travel;
         Vector2 velocity, grabOffset;
         readonly ThrowTracker throwTracker = new();
+        readonly CushionAttempt cushionAttempt = new();
         float elapsed, heldTime;
         InkSpriteAnimation heldAnimation;
         public static readonly Vector2 HeldArtOffset = new(-.025f, -.045f);
@@ -83,6 +84,8 @@ namespace MukJump.Core
             RefreshLayout();
             bool reduced = LobbySettingsProfile.ReducedMotionEnabled;
             if (!CanInteract || inactiveGeneration != MobileApplicationLifecycle.InactiveGeneration) CancelDrag();
+            if (reduced || SkinDebugSession.Active || PermanentGrowthProfile.RequiresRecovery ||
+                MukJumpAccountRuntime.Instance?.BlocksGameplayForAccountSync == true) cushionAttempt.Cancel();
             hitbox.raycastTarget = CanInteract;
             // 손을 멈춘 프레임도 기록해야 잡아 둔 뒤 놓을 때 예전 속도로 튀어나가지 않는다.
             if (holding) throwTracker.Record(drift.anchoredPosition, Time.unscaledTimeAsDouble);
@@ -94,8 +97,11 @@ namespace MukJump.Core
                 if (!holding)
                 {
                     Vector2 position = drift.anchoredPosition;
-                    AdvanceBounce(ref position, ref velocity, travel, dt);
+                    int contacts = AdvanceBounce(ref position, ref velocity, travel, dt);
                     drift.anchoredPosition = position;
+                    object completedOwner = cushionAttempt.Record(PermanentGrowthProfile.SkinAccountToken, contacts);
+                    if (completedOwner != null && SkinSecrets.CompletedThreeCushion(completedOwner) != 0)
+                        GameManager.Instance?.GetComponent<InkAchievementToast>()?.EnqueueLobby((int)InkSkinId.ThreeCushion);
                 }
             }
             // 기울이기·늘이기·발젓기 없이 착용한 형태 그대로 평행 이동한다.
@@ -169,6 +175,7 @@ namespace MukJump.Core
             inactiveGeneration = MobileApplicationLifecycle.InactiveGeneration;
             grabOffset = drift.anchoredPosition - point;
             velocity = Vector2.zero;
+            cushionAttempt.Cancel();
             throwTracker.Reset(drift.anchoredPosition, Time.unscaledTimeAsDouble);
             heldTime = 0f;
             PresentHeldPose();
@@ -195,12 +202,17 @@ namespace MukJump.Core
             Vector2 released = LobbySettingsProfile.ReducedMotionEnabled ? Vector2.zero : throwTracker.ReleaseVelocity;
             CancelDrag();
             velocity = released;
+            // 자동 부유나 정지한 탭은 도전이 아니다. 직접 던진 한 번의 궤적만 이어서 센다.
+            if (released.sqrMagnitude > 1f && !SkinDebugSession.Active && !PermanentGrowthProfile.RequiresRecovery &&
+                MukJumpAccountRuntime.Instance?.BlocksGameplayForAccountSync != true)
+                cushionAttempt.Begin(PermanentGrowthProfile.SkinAccountToken);
         }
         public void OnEndDrag(PointerEventData e) => OnPointerUp(e);
         void CancelDrag()
         {
             // 화면 전환·백그라운드·의상 변경은 던지기가 아니다. 잡지 않은 자유 이동 속도는 보존한다.
             if (holding) velocity = Vector2.zero;
+            cushionAttempt.Cancel();
             holding = false; heldTime = 0f; PresentHeldPose();
         }
         void PresentHeldPose()
@@ -264,10 +276,52 @@ namespace MukJump.Core
         }
 
         // 화면 밖으로 크게 끌거나 긴 프레임이 와도 외곽 안에서 반사한다. 게임 난수/물리는 사용하지 않는다.
-        public static void AdvanceBounce(ref Vector2 position, ref Vector2 speed, Vector2 limits, float dt)
+        public static int AdvanceBounce(ref Vector2 position, ref Vector2 speed, Vector2 limits, float dt)
         {
+            // 프레임 끝의 속도 부호만 보면 두 번 반사된 충돌을 놓친다. 접촉 시각을 먼저 계산한다.
+            int contacts = CountCushionContacts(position, speed, limits, dt);
             BounceAxis(ref position.x, ref speed.x, limits.x, dt);
             BounceAxis(ref position.y, ref speed.y, limits.y, dt);
+            return contacts;
+        }
+        static int CountCushionContacts(Vector2 position, Vector2 speed, Vector2 limits, float dt)
+        {
+            if (dt <= 0) return 0;
+            float First(float p, float v, float limit) => limit <= 0 || v == 0 ? float.PositiveInfinity :
+                (limit - Mathf.Clamp(p, -limit, limit) * Mathf.Sign(v)) / Mathf.Abs(v);
+            float nextX = First(position.x, speed.x, limits.x), nextY = First(position.y, speed.y, limits.y);
+            float periodX = speed.x == 0 ? float.PositiveInfinity : 2f * limits.x / Mathf.Abs(speed.x);
+            float periodY = speed.y == 0 ? float.PositiveInfinity : 2f * limits.y / Mathf.Abs(speed.y);
+            int count = 0;
+            // 해금에 필요한 세 번까지만 계산한다. 모서리 동시 접촉은 한 번으로 센다.
+            while (count < 3)
+            {
+                float next = Mathf.Min(nextX, nextY);
+                if (next > dt) break;
+                bool hitX = Mathf.Abs(nextX - next) < .00001f, hitY = Mathf.Abs(nextY - next) < .00001f;
+                if (hitX) nextX += periodX;
+                if (hitY) nextY += periodY;
+                count++;
+            }
+            return count;
+        }
+
+        /// 진행도는 저장하지 않는다. 재포획·화면 이탈·계정 전환으로 즉시 끊기는 한 번의 던지기다.
+        public sealed class CushionAttempt
+        {
+            object owner;
+            int contacts;
+            public void Begin(object account) { owner = account; contacts = 0; }
+            public void Cancel() { owner = null; contacts = 0; }
+            public object Record(object currentAccount, int newContacts)
+            {
+                if (owner == null || !ReferenceEquals(owner, currentAccount)) { Cancel(); return null; }
+                contacts = Mathf.Min(3, contacts + Mathf.Clamp(newContacts, 0, 3));
+                if (contacts < 3) return null;
+                var completed = owner;
+                Cancel();
+                return completed;
+            }
         }
         static void BounceAxis(ref float position, ref float speed, float limit, float dt)
         {

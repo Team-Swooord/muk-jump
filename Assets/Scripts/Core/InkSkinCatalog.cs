@@ -5,7 +5,7 @@ namespace MukJump.Core
     public enum InkSkinId { Ink = 0, Gat = 1, SpiderMask = 2, FirstRibbon = 3, Scholar = 4, InkGhost = 5, BambooHat = 6, RedHeadband = 7, LotusCrown = 8, CatEars = 9, BellRibbon = 10, CloudCap = 11, PaperBoat = 12, TeaCupHat = 13, FeatherHairpin = 14, PeachFlower = 15, FoxMask = 16, CraneCrest = 17, YakshaMask = 18, TurtleShell = 19, StormScarf = 20, MoonCrown = 21, BrushMaster = 22, SpiritHalo = 23, KoiMask = 24, JadeCrown = 25, PhoenixCrown = 26, TigerMask = 27, MountainKing = 28, CloudDragon = 29, InkMecha = 30, NightBat = 31, Astronaut = 32, ClockworkCat = 33, LuckyDice = 34, OrigamiWings = 35, CraneWings = 36, ButterflyWings = 37, RedShoes = 38, CloudBoots = 39, BlueWisps = 40, PaperLanterns = 41, MoonClouds = 42, BondKnot = 43, WindFan = 44, DragonTail = 45,
         ZodiacRat = 46, ZodiacOx = 47, ZodiacTiger = 48, ZodiacRabbit = 49, ZodiacDragon = 50, ZodiacSnake = 51,
         ZodiacHorse = 52, ZodiacGoat = 53, ZodiacMonkey = 54, ZodiacRooster = 55, ZodiacDog = 56, ZodiacPig = 57,
-        HaetaeCrest = 58, ThreeLeggedCrow = 59, NineTails = 60 }
+        HaetaeCrest = 58, ThreeLeggedCrow = 59, NineTails = 60, ThreeCushion = 61 }
     public enum SkinTier { Basic, Easy, Medium, Hard, Hidden, UltraHidden }
     public enum SkinMetric { None, Best, Runs, Distance, DrawnLandings, InkDrops, Items, Survival, Clones, NightBest, Growth, NoItemBest, ZeroRun, Secret, AppleLink, DragonDeath }
     public sealed class InkSkinDefinition
@@ -20,7 +20,7 @@ namespace MukJump.Core
     }
     public static class InkSkinCatalog
     {
-        public const int Count = 61;
+        public const int Count = 62;
         public const float AirJumpRatio = .4f;
         static readonly InkSkinDefinition[] definitions =
         {
@@ -84,7 +84,8 @@ namespace MukJump.Core
             new(InkSkinId.ZodiacPig,"복돼지의 분홍 귀","Lucky Pig's Pink Ears","福ぶたの桃色耳","skin_zodiac_pig_v1",SkinTier.Hidden,SkinMetric.Secret,1),
             new(InkSkinId.HaetaeCrest,"해태의 작은 뿔","Little Haetae Horn","ヘテの小さな角","skin_haetae_crest_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.ThreeLeggedCrow,"삼족오의 해","Three-Legged Sun Crow","三足烏の太陽","skin_three_legged_crow_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
-            new(InkSkinId.NineTails,"구미호의 낮잠","Nine-Tailed Nap","九尾の昼寝","skin_nine_tails_v1",SkinTier.UltraHidden,SkinMetric.Secret,1)
+            new(InkSkinId.NineTails,"구미호의 낮잠","Nine-Tailed Nap","九尾の昼寝","skin_nine_tails_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
+            new(InkSkinId.ThreeCushion,"쓰리쿠션 당구공","Three-Cushion Cap","スリークッション帽","skin_three_cushion_v1",SkinTier.UltraHidden,SkinMetric.Secret,1)
         };
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
         public static InkSkinId Normalize(InkSkinId id) => IsValid(id) ? id : InkSkinId.Ink;
@@ -165,6 +166,7 @@ namespace MukJump.Core
             InkSkinId.ZodiacMonkey => 1.03f, InkSkinId.ZodiacDog => 1.05f, InkSkinId.ZodiacPig => .98f,
             InkSkinId.ZodiacRooster => .55f, InkSkinId.ZodiacSnake => .58f,
             InkSkinId.ZodiacHorse => .72f, InkSkinId.HaetaeCrest => .55f,
+            InkSkinId.ThreeCushion => .92f,
             InkSkinId.RedShoes or InkSkinId.CloudBoots => 1f, _ => InkMythicSkins.Contains(id) ? .94f : .68f };
         public static Vector2 Offset(InkSkinId id)
         {
@@ -178,6 +180,7 @@ namespace MukJump.Core
             if (id == InkSkinId.BondKnot) return new Vector2(.25f, .20f);
             if (id == InkSkinId.WindFan) return new Vector2(-.20f, .22f);
             if (id == InkSkinId.DragonTail) return new Vector2(.36f, -.13f);
+            if (id == InkSkinId.ThreeCushion) return new Vector2(0, .26f);
             if (InkMythicSkins.Contains(id)) return new Vector2(0, id switch {
                 InkSkinId.ThreeLeggedCrow => .27f, InkSkinId.NineTails => .02f,
                 InkSkinId.ZodiacRat => .29f, InkSkinId.ZodiacMonkey => .16f, InkSkinId.ZodiacPig => .25f,
@@ -246,6 +249,7 @@ namespace MukJump.Core
                     InkSkinId.ClockworkCat => "고양이 귀로 밤에 아이템 없이 60초 생존",
                     InkSkinId.LuckyDice => "정확히 777m로 한 판 완료",
                     InkSkinId.OrigamiWings => "먹 → 갓 → 먹 → 거미탈 → 먹 순서로 살펴보기",
+                    InkSkinId.ThreeCushion => "로비에서 먹을 한 번 던져 벽에 연속 세 번 튕기기",
                     _ => "???" }
             };
         }
