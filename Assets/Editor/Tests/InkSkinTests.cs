@@ -645,6 +645,27 @@ namespace MukJump.EditorTests
             Assert.That(growth.HasActiveSkinSkill, Is.False);
         }
 
+        [Test, Category("SkinSkills")] public void SkillDescriptionsUseDeclarativeKoreanAndRetainTranslations()
+        {
+            var skills = Enumerable.Range(0, InkSkinCatalog.Count).Select(i => (InkSkinId)i)
+                .Where(InkSkinCatalog.HasAbility).ToArray();
+            Assert.That(skills.Length, Is.EqualTo(7));
+            foreach (var id in skills)
+            {
+                string source = InkSkinCatalog.Description(id);
+                Assert.That(source, Does.Not.Contain("요."), id.ToString());
+                foreach (string sentence in source.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries))
+                    Assert.That(sentence.Trim(), Does.EndWith("다"), id.ToString());
+                foreach (var language in new[] { GameLanguage.English, GameLanguage.Japanese })
+                {
+                    GameLocalization.SetLanguage(language);
+                    string translated = GameLocalization.Translate(source);
+                    Assert.That(translated, Is.Not.Empty.And.Not.EqualTo(source), id + "/" + language);
+                    Assert.That(System.Text.RegularExpressions.Regex.IsMatch(translated, "[가-힣]"), Is.False, id + "/" + language);
+                }
+            }
+        }
+
         [Test, Category("SkinSkills")] public void NewSkillSkinsHaveStableIdsAndCompleteLocalizations()
         {
             Assert.That((int)InkSkinId.BondKnot, Is.EqualTo(43)); Assert.That((int)InkSkinId.WindFan, Is.EqualTo(44));

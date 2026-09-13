@@ -123,13 +123,13 @@ namespace MukJump.Core
             InkSkinId.BondKnot => "첫걸음 도약", InkSkinId.WindFan => "바람 도약",
             _ => "먹의 장식" };
         public static string Description(InkSkinId id) => id switch {
-            InkSkinId.Gat => "점프 정점에서 한 번 더 도약해요.\n첫 도약의 40% 힘으로 자동 발동해요.",
-            InkSkinId.SpiderMask => "양옆 벽에 붙었다가\n화면 안쪽으로 자동 도약해요.",
-            InkSkinId.SpiritHalo => "분신이 쓰러질 때마다 본체 체력을 1칸 회복해요.\n최대 체력을 넘거나 쓰러진 본체를 되살리지는 않아요.",
-            InkSkinId.TurtleShell => "매 판 본체에게 방어막 1개를 주고 시작해요.\n충돌·추락을 한 번 막으며 분신에게는 적용되지 않아요.",
-            InkSkinId.PhoenixCrown => "한 판에 한 번 본체가 체력 1칸으로 살아남아 50m 올라가요.\n성장 부활과 횟수를 공유하며 분신에게는 적용되지 않아요.",
-            InkSkinId.BondKnot => "매 판 시작에 먹방울 아이템으로 50m 올라가요.\n튜토리얼이 끝나면 발동하며 부활 때는 다시 주지 않아요.",
-            InkSkinId.WindFan => "전용 버튼으로 본체가 25m 도약해요.\n상승 중 피해를 막고, 20초 뒤 다시 쓸 수 있어요.",
+            InkSkinId.Gat => "점프 정점에서 한 번 더 도약한다.\n첫 도약의 40% 힘으로 자동 발동한다.",
+            InkSkinId.SpiderMask => "양옆 벽에 붙었다가\n화면 안쪽으로 자동 도약한다.",
+            InkSkinId.SpiritHalo => "분신이 쓰러질 때마다 본체 체력을 1칸 회복한다.\n최대 체력을 넘거나 쓰러진 본체를 되살리지는 않는다.",
+            InkSkinId.TurtleShell => "매 판 시작 시 본체에게 방어막 1개를 부여한다.\n충돌·추락을 한 번 막으며 분신에게는 적용되지 않는다.",
+            InkSkinId.PhoenixCrown => "한 판에 한 번 본체가 체력 1칸으로 살아남아 50m 상승한다.\n성장 부활과 횟수를 공유하며 분신에게는 적용되지 않는다.",
+            InkSkinId.BondKnot => "매 판 시작 시 먹방울 아이템으로 50m 상승한다.\n튜토리얼 종료 후 발동하며 부활 시에는 재발동하지 않는다.",
+            InkSkinId.WindFan => "전용 버튼으로 본체가 25m 도약한다.\n상승 중 피해를 막고, 20초 후 다시 사용할 수 있다.",
             _ => "원래 먹에 장식을 더해요.\n기존 점프와 성장 효과를 유지해요." };
         public static string ResourcePath(InkSkinId id) => Get(id) is { Asset: { Length: > 0 } } d ? "MukJump/Skins/" + d.Asset : "";
         public static bool BehindBody(InkSkinId id) => id is InkSkinId.OrigamiWings or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.SpiritHalo
