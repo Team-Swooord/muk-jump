@@ -328,6 +328,7 @@ namespace MukJump.Core
             preview.localScale=Vector3.one*heroScale;
             preview.anchoredPosition=-heroBounds.center*HeroSize*heroScale;
             presentation=stage.gameObject.AddComponent<InkShowroomPresentation>(); presentation.Initialize(stage,preview);
+            BuildPreviewBackdrop(preview);
             foreach (var arrow in neighborButtons) arrow.transform.SetAsLastSibling();
             nameText=Label("SkinName",paper,"",56,new Vector2(0,199),new Vector2(920,70),true);
             loreText=Label("ItemLore",paper,"",29,new Vector2(0,131),new Vector2(960,56),false);
@@ -494,6 +495,28 @@ namespace MukJump.Core
             var button=Button(side==0 ? "PreviousCostume" : "NextCostume",stage,side==0 ? "‹" : "›",
                 new Vector2(step*430,20),new Vector2(116,148),90,out _);
             button.onClick.AddListener(()=>StepSelection(step)); neighborButtons[side]=button;
+        }
+        void BuildPreviewBackdrop(RectTransform preview)
+        {
+            // 의상 전체가 아니라 실제 먹 몸체를 기준으로 원형 배경과 발밑 그림자를 맞춘다.
+            Rect drawing = LobbySkinPreview.BodyDrawingBounds;
+            float bodyScale = HeroSize * preview.localScale.x;
+            Vector2 center = preview.anchoredPosition + drawing.center * bodyScale;
+            float diameter = Mathf.Max(drawing.width, drawing.height) * bodyScale + 96f;
+            var backdrop = Rect("PreviewBackdrop", stage, center, Vector2.one * diameter);
+            backdrop.SetAsFirstSibling();
+            var paperWash = SpriteImage("FocusPaperWash", backdrop, InkUiTextureFactory.CreateBlobSprite(),
+                Vector2.zero, Vector2.one * diameter);
+            var paperTint = InkPalette.TextLight; paperTint.a = .84f; paperWash.color = paperTint;
+            var ring = SpriteImage("FocusBrushRing", backdrop,
+                Resources.Load<Sprite>("MukJump/UI/PermanentGrowth/pg_selected_ring"),
+                Vector2.zero, Vector2.one * diameter);
+            var ringTint = InkPalette.Ink; ringTint.a = .26f; ring.color = ringTint;
+            ring.enabled = ring.sprite != null;
+            var floor = (RectTransform)stage.Find("InkStageFloor");
+            floor.anchoredPosition = new Vector2(center.x,
+                preview.anchoredPosition.y + drawing.yMin * bodyScale - 12f);
+            floor.sizeDelta = new Vector2(drawing.width * bodyScale * 1.06f, 32f);
         }
         void SetPreview(Image body, Image accessory, InkSkinId id, float size, bool hidden, bool unlocked)
         {

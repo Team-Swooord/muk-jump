@@ -15,6 +15,51 @@ namespace MukJump.EditorTests
     public sealed class InkShowroomPlayTests
     {
         [UnityTest, Timeout(120000)]
+        public IEnumerator PreviewBackdropAndFootShadowRenderWithoutBlockingBrowse()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool oldBackground = Application.runInBackground; Application.runInBackground = true;
+            var settings = new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return WaitForWardrobe();
+                var view = Object.FindAnyObjectByType<InkWardrobeView>();
+                GameLocalization.SetLanguage(GameLanguage.Korean);
+                foreach (var id in new[] { InkSkinId.Scholar, InkSkinId.Gat })
+                {
+                    view.Select(id); yield return Wait(.6f); Canvas.ForceUpdateCanvases();
+                    var stage = view.Paper.Find("ShowroomStage");
+                    foreach (string path in new[] { "PreviewBackdrop/FocusPaperWash", "PreviewBackdrop/FocusBrushRing", "InkStageFloor" })
+                    {
+                        var image = stage.Find(path).GetComponent<UnityEngine.UI.Image>();
+                        Assert.That(image.enabled && !image.canvasRenderer.cull, Is.True, path);
+                        Assert.That(image.raycastTarget, Is.False, path);
+                    }
+                    yield return Capture("preview-backdrop-" + id);
+                }
+                var next = InkSkinCatalog.BrowseAt(InkSkinCatalog.BrowseIndex(view.Selected) + 1);
+                view.StepSelection(1); Assert.That(view.Selected, Is.EqualTo(next));
+                Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Ink));
+            }
+            finally
+            {
+                SkinDebugSession.Reset(); Application.runInBackground = oldBackground;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+        [UnityTest, Timeout(120000)]
         public IEnumerator RefittedAccessoriesAndFootwearRenderInWardrobeAndUnlock()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();

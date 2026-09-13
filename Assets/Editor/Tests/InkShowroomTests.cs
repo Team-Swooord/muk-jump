@@ -145,6 +145,36 @@ namespace MukJump.EditorTests
                 }
             }
         }
+        [Test] public void PreviewBackdropFramesTheBodyAndShadowStaysAtItsFeet()
+        {
+            var stage = (RectTransform)Focus.parent;
+            var floor = (RectTransform)stage.Find("InkStageFloor");
+            var backdrop = (RectTransform)stage.Find("PreviewBackdrop");
+            var ring = backdrop.Find("FocusBrushRing").GetComponent<Image>();
+            var wash = backdrop.Find("FocusPaperWash").GetComponent<Image>();
+            Assert.That(AssetDatabase.GetAssetPath(ring.sprite),
+                Is.EqualTo("Assets/Resources/MukJump/UI/PermanentGrowth/pg_selected_ring.png"));
+            Assert.That(ring.enabled && ring.preserveAspect, Is.True);
+            Assert.That(ring.raycastTarget || wash.raycastTarget, Is.False);
+            Assert.That(wash.color.a, Is.GreaterThanOrEqualTo(.8f));
+            Assert.That(backdrop.GetSiblingIndex(), Is.LessThan(Focus.GetSiblingIndex()));
+            foreach (var id in new[] { InkSkinId.Ink, InkSkinId.Scholar, InkSkinId.Gat, InkSkinId.Astronaut })
+            {
+                view.Select(id); view.Presentation.Cancel();
+                float scale = Focus.sizeDelta.x * Focus.localScale.x;
+                Rect body = LobbySkinPreview.BodyDrawingBounds;
+                Vector2 center = Focus.anchoredPosition + body.center * scale;
+                Assert.That(Vector2.Distance(backdrop.anchoredPosition, center), Is.LessThan(.01f));
+                Assert.That(Focus.anchoredPosition.y + body.yMin * scale - floor.anchoredPosition.y,
+                    Is.EqualTo(12f).Within(.01f), id.ToString());
+                Assert.That(backdrop.rect.width, Is.EqualTo(backdrop.rect.height));
+                Assert.That(backdrop.rect.width, Is.GreaterThan(body.width * scale + 80f));
+                AssertInside(BoundsIn(stage, backdrop), stage.rect, 0, "원형 배경");
+            }
+            view.ToggleCollection(); Assert.That(stage.gameObject.activeSelf, Is.False);
+            view.ToggleCollection(); Assert.That(stage.gameObject.activeSelf, Is.True);
+            Assert.That(ring.enabled, Is.True);
+        }
         [Test] public void ArrowsSwapOnlyClothesAndPeriodicRefreshDoesNotSnapTheAnimation()
         {
             view.Select(InkSkinId.Gat); view.Presentation.Cancel();
