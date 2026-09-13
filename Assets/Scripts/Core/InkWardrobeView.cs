@@ -19,7 +19,7 @@ namespace MukJump.Core
         InkShowroomPresentation presentation;
         InkShowroomSwipe swipe;
         Text nameText, loreText, abilityText, descriptionText, equipText, statusText, achievementText, progressText, collectionToggleText;
-        UnityEngine.UI.ScrollRect collectionScroll;
+        InkWardrobeScroll collectionScroll;
         UnityEngine.UI.GridLayoutGroup collectionGrid;
         RectTransform collectionContent, collectionRoot, stage;
         bool collectionExpanded;
@@ -33,7 +33,7 @@ namespace MukJump.Core
         Button equipButton, backButton;
         readonly GameObject[] cards = new GameObject[InkSkinCatalog.Count];
         readonly Image[] cardPapers = new Image[InkSkinCatalog.Count], cardBodies = new Image[InkSkinCatalog.Count], cardAccessories = new Image[InkSkinCatalog.Count];
-        readonly Text[] cardStates = new Text[InkSkinCatalog.Count];
+        readonly Text[] cardStates = new Text[InkSkinCatalog.Count], cardNames = new Text[InkSkinCatalog.Count];
         readonly RectTransform[] cardSkillMarks = new RectTransform[InkSkinCatalog.Count];
         readonly UnityEngine.UI.Text[] cardQuestions = new UnityEngine.UI.Text[InkSkinCatalog.Count];
         readonly RectTransform[] cardPreviews = new RectTransform[InkSkinCatalog.Count];
@@ -77,7 +77,7 @@ namespace MukJump.Core
             rootGroup.interactable = interactive; rootGroup.blocksRaycasts = show;
             collectionScroll.enabled = interactive && MobileApplicationLifecycle.IsApplicationActive;
             ApplyLayout();
-            if (show) RevealSelectedCard();
+            if (show) RevealSelectedCard(true);
         }
         void OnDisable()
         {
@@ -104,14 +104,21 @@ namespace MukJump.Core
             if (GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby) SetNavigationPresentation(false,false);
         }
         public void Select(InkSkinId id)
+            => SelectCore(id, true);
+        internal void SelectFromCarousel(int index)
         {
-            if (!CanInteract() || !InkSkinCatalog.IsValid(id)) return;
+            var id = InkSkinCatalog.BrowseAt(index);
+            if (id != selected) SelectCore(id, false);
+        }
+        void SelectCore(InkSkinId id, bool reveal)
+        {
+            if (!CanInteract() || collectionScroll.IsDragging || !InkSkinCatalog.IsValid(id)) return;
             int step = InkSkinCatalog.BrowseIndex(id) - InkSkinCatalog.BrowseIndex(selected);
             selected = id; page = InkSkinCatalog.BrowseIndex(id) / PageSize;
             SkinSecrets.SelectedByUser(id);
             InkLocalizedText.SetSource(statusText, "");
             RefreshSelection();
-            RevealSelectedCard();
+            if (reveal) RevealSelectedCard();
             if (step != 0) presentation.Browse(step);
         }
         public void StepSelection(int direction)
@@ -199,8 +206,9 @@ namespace MukJump.Core
                 bool cardUnlocked = SkinDebugSession.CanEquip(id);
                 cardPapers[i].color = id == selected ? InkPalette.Paper : new Color(.86f, .82f, .73f, .62f);
                 cardStates[i].color = id == selected ? InkPalette.Red : InkPalette.TextMuted;
-                SetPreview(cardBodies[i], cardAccessories[i], id, 100, concealed, cardUnlocked);
+                SetPreview(cardBodies[i], cardAccessories[i], id, 200, concealed, cardUnlocked);
                 cardQuestions[i].enabled = concealed;
+                InkLocalizedText.SetSource(cardNames[i], concealed ? "?" : InkSkinCatalog.Name(id));
                 cardSkillMarks[i].gameObject.SetActive(!concealed && InkSkinCatalog.HasAbility(id));
                 InkLocalizedText.SetSource(cardStates[i], concealed ? "" : !cardUnlocked ? "잠김" :
                     id == InkSkinPreferences.Equipped ? "착용 중" : id == selected ? "선택됨" : "해금됨");
@@ -265,8 +273,9 @@ namespace MukJump.Core
             {
                 // 하단 버튼은 고정하고 긴 설명 아래의 수집 목록만 스크롤 높이를 조절한다.
                 float top = infoBottom - 24f;
-                collectionRoot.anchoredPosition = new Vector2(0, (top - 760f) * .5f);
-                collectionRoot.sizeDelta = new Vector2(1000, top + 760f);
+                collectionRoot.anchoredPosition = new Vector2(0, (top - 748f) * .5f);
+                collectionRoot.sizeDelta = new Vector2(1000, top + 748f);
+                RefreshCardLayout();
             }
         }
         static float PlaceDetailRow(RectTransform row, float top, float height)
@@ -340,7 +349,7 @@ namespace MukJump.Core
             // 큰 날개가 다른 의상의 먹까지 줄이지 않도록 각 칸 안에서만 맞춘다.
             for(int i=0;i<cards.Length;i++)
             {
-                Vector2 min=Vector2.one*-50f, max=-min;
+                Vector2 min=cardBodies[i].rectTransform.sizeDelta*-.5f, max=-min;
                 if(cardAccessories[i].enabled)
                 {
                     var rect=cardAccessories[i].rectTransform;
@@ -452,7 +461,8 @@ namespace MukJump.Core
         void BuildCollection()
         {
             collectionRoot=Rect("CollectionScroll",paper,new Vector2(0,-548),new Vector2(1000,424));
-            collectionScroll=collectionRoot.gameObject.AddComponent<UnityEngine.UI.ScrollRect>();
+            collectionScroll=collectionRoot.gameObject.AddComponent<InkWardrobeScroll>();
+            collectionScroll.Owner=this;
             var viewport=Stretch("Viewport",collectionRoot);
             var hit=viewport.gameObject.AddComponent<UnityEngine.UI.Image>(); hit.color=Color.clear; hit.raycastTarget=true;
             viewport.gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
@@ -467,26 +477,34 @@ namespace MukJump.Core
             fitter.horizontalFit=UnityEngine.UI.ContentSizeFitter.FitMode.Unconstrained;
             fitter.verticalFit=UnityEngine.UI.ContentSizeFitter.FitMode.PreferredSize;
             collectionScroll.content=collectionContent; collectionScroll.viewport=viewport;
-            collectionScroll.horizontal=false; collectionScroll.vertical=true;
-            collectionScroll.movementType=UnityEngine.UI.ScrollRect.MovementType.Clamped;
-            collectionScroll.decelerationRate=.14f; collectionScroll.scrollSensitivity=42;
+            collectionScroll.movementType=UnityEngine.UI.ScrollRect.MovementType.Elastic;
+            collectionScroll.elasticity=.10f;
+            collectionScroll.decelerationRate=.055f; collectionScroll.scrollSensitivity=56;
         }
         public void ToggleCollection()
         {
             if (!CanInteract()) return;
             collectionExpanded=!collectionExpanded;
             presentation.Cancel(); swipe.Cancel();
-            ApplyCollectionLayout(); RefreshSelection(); RevealSelectedCard();
+            ApplyCollectionLayout(); RefreshSelection(); RevealSelectedCard(true);
         }
         void ApplyCollectionLayout()
         {
             if (collectionGrid==null) return;
             StopCollection();
-            collectionGrid.constraintCount=collectionExpanded ? 6 : 5;
-            int rows=Mathf.CeilToInt(InkSkinCatalog.Count/6f);
-            // 의상이 늘어도 먹 미리보기를 축소해 없애지 않는다. 남은 줄은 세로 스크롤한다.
-            float allHeight=Mathf.Clamp((1560f-(rows-1)*16f)/rows,180,220);
-            collectionGrid.cellSize=collectionExpanded ? new Vector2(150,allHeight) : new Vector2(180,190);
+            collectionScroll.horizontal=!collectionExpanded; collectionScroll.vertical=collectionExpanded;
+            collectionGrid.constraint=collectionExpanded ? GridLayoutGroup.Constraint.FixedColumnCount : GridLayoutGroup.Constraint.FixedRowCount;
+            collectionGrid.constraintCount=collectionExpanded ? 3 : 1;
+            collectionGrid.childAlignment=collectionExpanded ? TextAnchor.UpperCenter : TextAnchor.MiddleLeft;
+            collectionGrid.spacing=collectionExpanded ? new Vector2(20,24) : new Vector2(24,0);
+            collectionGrid.padding=collectionExpanded ? new RectOffset(5,5,8,8) : new RectOffset(380,380,0,0);
+            var fitter=collectionContent.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit=collectionExpanded ? ContentSizeFitter.FitMode.Unconstrained : ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit=collectionExpanded ? ContentSizeFitter.FitMode.PreferredSize : ContentSizeFitter.FitMode.Unconstrained;
+            collectionContent.anchorMin=collectionContent.anchorMax=collectionExpanded ? new Vector2(.5f,1) : new Vector2(0,.5f);
+            collectionContent.pivot=collectionContent.anchorMin;
+            collectionContent.sizeDelta=collectionExpanded ? new Vector2(980,0) : new Vector2(0,320);
+            collectionContent.anchoredPosition=Vector2.zero;
             collectionRoot.anchoredPosition=collectionExpanded ? new Vector2(0,0) : new Vector2(0,-548);
             collectionRoot.sizeDelta=new Vector2(1000,collectionExpanded ? 1560 : 424);
             stage.gameObject.SetActive(!collectionExpanded);
@@ -494,36 +512,78 @@ namespace MukJump.Core
                 if(label!=null) label.gameObject.SetActive(!collectionExpanded);
             if(progressTrack!=null) progressTrack.gameObject.SetActive(!collectionExpanded && hasProgress);
             InkLocalizedText.SetSource(collectionToggleText,collectionExpanded ? "크게 보기" : "전체 보기");
+            RefreshCardLayout(true);
+            collectionScroll.enabled=CanInteract();
+        }
+        void RefreshCardLayout(bool force=false)
+        {
+            if(collectionGrid==null) return;
+            var cell=collectionExpanded ? new Vector2(310,420) : new Vector2(240,Mathf.Clamp(collectionRoot.sizeDelta.y-24,180,320));
+            if(!force && collectionGrid.cellSize==cell) return;
+            // 설명이 길어져도 가로 스크롤 위치·속도는 유지하고 카드 높이만 조절한다.
+            collectionGrid.cellSize=cell;
+            if(!collectionExpanded) collectionContent.sizeDelta=new Vector2(collectionContent.sizeDelta.x,cell.y);
             UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(collectionContent);
             // 카드 자체는 Grid가, 내부 종이와 미리보기만 이 화면이 배치한다.
             for(int i=0;i<cards.Length;i++)
             {
                 if(cards[i]==null) continue;
-                cardPapers[i].rectTransform.sizeDelta=collectionGrid.cellSize;
-                cardViewports[i].anchoredPosition=Vector2.zero;
-                cardViewports[i].sizeDelta=new Vector2(collectionGrid.cellSize.x-24,collectionExpanded ? Mathf.Min(100,allHeight-115) : 86);
-                ((RectTransform)cards[i].transform.Find("UnlockMethod")).sizeDelta=new Vector2(collectionGrid.cellSize.x-14,50);
-                cardStates[i].rectTransform.anchoredPosition=new Vector2(0,-collectionGrid.cellSize.y*.5f+31);
-                cardStates[i].rectTransform.sizeDelta=new Vector2(collectionGrid.cellSize.x-24,36);
+                cardPapers[i].rectTransform.sizeDelta=cell;
+                cardViewports[i].anchoredPosition=collectionExpanded ? new Vector2(0,44) : Vector2.zero;
+                cardViewports[i].sizeDelta=new Vector2(cell.x-28,collectionExpanded ? 200 : cell.y-144);
+                cardBodies[i].rectTransform.sizeDelta=Vector2.one*200;
+                cardPreviews[i].sizeDelta=Vector2.one*200;
+                cardQuestions[i].rectTransform.sizeDelta=cardViewports[i].sizeDelta;
+                cardQuestions[i].fontSize=collectionExpanded ? 96 : 60;
+                var method=cards[i].transform.Find("UnlockMethod").GetComponent<Text>();
+                method.rectTransform.sizeDelta=new Vector2(cell.x-24,56);
+                method.rectTransform.anchoredPosition=new Vector2(0,-30);
+                method.fontSize=26;
+                cardNames[i].gameObject.SetActive(collectionExpanded);
+                cardNames[i].rectTransform.anchoredPosition=new Vector2(0,-102);
+                cardNames[i].rectTransform.sizeDelta=new Vector2(cell.x-28,80);
+                cardStates[i].fontSize=30;
+                cardStates[i].rectTransform.anchoredPosition=new Vector2(0,-cell.y*.5f+34);
+                cardStates[i].rectTransform.sizeDelta=new Vector2(cell.x-24,52);
             }
-            collectionScroll.enabled=CanInteract();
+            FitCardPreviews(); RefreshCardDepth();
         }
-        void RevealSelectedCard()
+        internal void RefreshCardDepth()
+        {
+            if(collectionScroll==null) return;
+            float center=-collectionContent.anchoredPosition.x/collectionScroll.CardStride;
+            bool motion=!collectionExpanded && !LobbySettingsProfile.ReducedMotionEnabled;
+            for(int slot=0;slot<InkSkinCatalog.Count;slot++)
+            {
+                var card=cards[(int)InkSkinCatalog.BrowseAt(slot)];
+                if(card==null) continue;
+                float distance=motion ? Mathf.Clamp(slot-center,-2,2) : 0;
+                var scale=Vector3.one*(1f-Mathf.Abs(distance)*.035f);
+                var rotation=Quaternion.Euler(0,0,-distance*1.5f);
+                if(card.transform.localScale!=scale) card.transform.localScale=scale;
+                if(!card.transform.localRotation.Equals(rotation)) card.transform.localRotation=rotation;
+            }
+        }
+        void RevealSelectedCard(bool immediate=false)
         {
             if(collectionScroll==null) return;
             UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(collectionContent);
+            if(!collectionExpanded)
+            {
+                collectionScroll.CenterOn(InkSkinCatalog.BrowseIndex(selected),immediate);
+                return;
+            }
             var card=(RectTransform)cards[(int)selected].transform;
             float top=-card.anchoredPosition.y-card.rect.height*.5f;
-            float bottom=top+card.rect.height, height=collectionScroll.viewport.rect.height;
-            float offset=collectionContent.anchoredPosition.y;
-            float target=top<offset ? top : bottom>offset+height ? bottom-height : offset;
+            float height=collectionScroll.viewport.rect.height;
             collectionScroll.StopMovement();
-            collectionContent.anchoredPosition=new Vector2(0,Mathf.Clamp(target,0,Mathf.Max(0,collectionContent.rect.height-height)));
+            // 전체보기 진입 시 선택된 줄의 위를 맞춰 반쯤 잘린 첫 줄로 시작하지 않는다.
+            collectionContent.anchoredPosition=new Vector2(0,Mathf.Clamp(top-8f,0,Mathf.Max(0,collectionContent.rect.height-height)));
         }
         void StopCollection()
         {
             if(collectionScroll==null) return;
-            collectionScroll.StopMovement(); collectionScroll.enabled=false;
+            collectionScroll.CancelMotion(); collectionScroll.enabled=false;
         }
         void OnApplicationPause(bool paused) { if(paused) StopCollection(); }
         void OnApplicationFocus(bool focused) { if(!focused) StopCollection(); }
@@ -558,6 +618,7 @@ namespace MukJump.Core
             // 물음표는 장식 크기에 맞추는 보정과 분리해 모든 히든 칸의 중앙에 고정한다.
             cardQuestions[i]=Label("QuestionMark",viewport,"?",48,Vector2.zero,new Vector2(104,90),true);
             cardStates[i]=Label("State",button.transform,"",24,new Vector2(0,-48),new Vector2(104,28),false);
+            cardNames[i]=Label("CardName",button.transform,"",34,Vector2.zero,new Vector2(282,80),true);
             var method=Label("UnlockMethod",button.transform,InkSkinCatalog.GroupName(id),24,new Vector2(0,-28),new Vector2(166,50),false);
             method.rectTransform.anchorMin=method.rectTransform.anchorMax=new Vector2(.5f,1);
             // 조건 라벨은 카드 상단, 착용 상태는 하단으로 분리한다.
@@ -573,7 +634,7 @@ namespace MukJump.Core
             cardSkillMarks[i]=skillMark;
             button.onClick.AddListener(()=>
             {
-                if(!CanInteract()) return;
+                if(!CanInteract() || collectionScroll.IsDragging) return;
                 if(collectionExpanded) ToggleCollection();
                 Select(id);
             });

@@ -75,7 +75,7 @@ namespace MukJump.EditorTests
             Assert.That(view.EquipButton.transform.Find("BrushBackground"),Is.Not.Null);
             Assert.That(view.CanBrowse,Is.True);
         }
-        [Test] public void OneLargeOriginalInkIsFramedByTwoArrowButtonsAndAWideCollection()
+        [Test, Category("WardrobeCarouselLayout")] public void OneLargeOriginalInkIsFramedByTwoArrowButtonsAndAWideCollection()
         {
             view.Select(InkSkinId.Gat);
             var body = Focus.Find("OriginalInkBody").GetComponent<Image>();
@@ -94,13 +94,16 @@ namespace MukJump.EditorTests
             Assert.That(AssetDatabase.GetAssetPath(body.sprite), Is.EqualTo("Assets/Art/Character/Player/muk_spritesheet.png"));
             var strip = view.CollectionContent.Cast<Transform>().Cast<RectTransform>().ToArray();
             Assert.That(strip.Length,Is.EqualTo(InkSkinCatalog.Count));
-            Assert.That(strip.Select(t=>t.anchoredPosition.y).Distinct().Count(), Is.EqualTo(8));
-            Assert.That(strip[0].sizeDelta, Is.EqualTo(new Vector2(180,190)));
-            Assert.That(view.CollectionScroll.vertical && !view.CollectionScroll.horizontal,Is.True);
+            Assert.That(strip.Select(t=>t.anchoredPosition.y).Distinct().Count(), Is.EqualTo(1));
+            Assert.That(strip[0].sizeDelta.x, Is.EqualTo(240));
+            Assert.That(view.CollectionScroll.horizontal && !view.CollectionScroll.vertical,Is.True);
+            var selected=(RectTransform)view.CollectionContent.Find("SkinCard1");
+            Assert.That(BoundsIn(view.CollectionScroll.viewport,selected).center.x,Is.EqualTo(0).Within(.1f));
         }
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
+        [Category("WardrobeCarouselLayout")]
         public void EveryCardFitsItsArtworkAndStateWithoutOverlappingTheNextRow(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
@@ -122,17 +125,16 @@ namespace MukJump.EditorTests
                     {
                         var card = strip[slot];
                         AssertInside(BoundsIn(view.CollectionContent,card),view.CollectionContent.rect,0,card.name);
-                        if(slot>=5) Assert.That(card.anchoredPosition.y,Is.LessThan(strip[slot-5].anchoredPosition.y-190));
+                        if(slot>0) Assert.That(card.anchoredPosition.x,Is.GreaterThan(strip[slot-1].anchoredPosition.x+240));
                         var viewport = (RectTransform)card.Find("PreviewViewport");
                         Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null);
                         var preview = (RectTransform)viewport.Find("Preview");
                         Assert.That(preview.localScale.x, Is.GreaterThan(0).And.LessThanOrEqualTo(1));
-                        if(slot==0) Assert.That(preview.localScale, Is.EqualTo(Vector3.one));
                         foreach (var image in preview.GetComponentsInChildren<Image>().Where(i=>i.enabled))
                             AssertInside(BoundsIn(viewport,image.rectTransform),viewport.rect,3.9f,card.name+"/"+image.name);
                         var state = card.Find("State").GetComponent<Text>();
                         Rect stateBounds = BoundsIn(card,state.rectTransform);
-                        AssertInside(stateBounds,card.rect,12,card.name+"/State");
+                        AssertInside(stateBounds,card.rect,6,card.name+"/State");
                         Assert.That(state.preferredWidth, Is.LessThanOrEqualTo(state.rectTransform.rect.width+.1f),state.text);
                         Assert.That(state.preferredHeight, Is.LessThanOrEqualTo(state.rectTransform.rect.height+.1f),state.text);
                         Assert.That(BoundsIn(card,viewport).yMin, Is.GreaterThanOrEqualTo(stateBounds.yMax+4));
@@ -148,6 +150,7 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
+        [Category("WardrobeCarouselLayout")]
         public void EnlargedItemDetailsRemainReadableAndFitInTheirPaper(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
@@ -608,34 +611,41 @@ namespace MukJump.EditorTests
             e.position=new Vector2(-Screen.width,0); swipe.OnEndDrag(e);
             Assert.That(view.Selected, Is.EqualTo(InkSkinId.Ink));
         }
-        [Test] public void NavigationStopsAtEndsAndKeepsAllCardsInTheScrollCollection()
+        [Test, Category("WardrobeCarouselLayout")] public void NavigationStopsAtEndsAndKeepsAllCardsInTheScrollCollection()
         {
             view.StepSelection(-1); Assert.That(view.Selected, Is.EqualTo(InkSkinId.Ink));
             Assert.That(view.Paper.Find("ShowroomStage/PreviousCostume").GetComponent<Button>().interactable, Is.False);
-            view.Select((InkSkinId)(InkSkinCatalog.Count-1)); view.StepSelection(1);
-            Assert.That((int)view.Selected, Is.EqualTo(InkSkinCatalog.Count-1));
+            view.Select(InkSkinCatalog.BrowseAt(InkSkinCatalog.Count-1)); view.StepSelection(1);
+            Assert.That(view.Selected, Is.EqualTo(InkSkinCatalog.BrowseAt(InkSkinCatalog.Count-1)));
             Assert.That(view.Paper.Find("ShowroomStage/NextCostume").GetComponent<Button>().interactable, Is.False);
             Assert.That(view.CollectionContent.Cast<Transform>().Count(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf), Is.EqualTo(InkSkinCatalog.Count));
         }
-        [Test] public void ScrollPositionSurvivesRefreshAndAllViewFitsEveryCardWithoutLeakingSecrets()
+        [Test, Category("WardrobeCarouselLayout")] public void ScrollPositionSurvivesRefreshAndAllViewFitsEveryCardWithoutLeakingSecrets()
         {
             Canvas.ForceUpdateCanvases();
             var scroll=view.CollectionScroll;
             Assert.That(scroll.viewport.GetComponent<RectMask2D>(),Is.Not.Null);
-            Assert.That(scroll.content.rect.height,Is.GreaterThan(scroll.viewport.rect.height));
-            scroll.verticalNormalizedPosition=0;
+            Assert.That(scroll.content.rect.width,Is.GreaterThan(scroll.viewport.rect.width));
+            scroll.horizontalNormalizedPosition=1;
             Vector2 offset=scroll.content.anchoredPosition;
             Invoke(view,"RefreshSelection");
             Assert.That(scroll.content.anchoredPosition,Is.EqualTo(offset));
-            AssertInside(BoundsIn(scroll.viewport,(RectTransform)view.CollectionContent.Find("SkinCard"+(InkSkinCatalog.Count-1))),scroll.viewport.rect,0,"last card");
+            AssertInside(BoundsIn(scroll.viewport,(RectTransform)view.CollectionContent.GetChild(InkSkinCatalog.Count-1)),scroll.viewport.rect,0,"last card");
             view.ToggleCollection(); Canvas.ForceUpdateCanvases();
             Assert.That(view.CollectionExpanded,Is.True);
             Assert.That(Focus.parent.gameObject.activeSelf,Is.False);
             Assert.That(view.EquipButton.gameObject.activeSelf,Is.False);
+            var grid=view.CollectionContent.GetComponent<GridLayoutGroup>();
+            Assert.That(grid.constraintCount,Is.EqualTo(3));
+            Assert.That(grid.cellSize,Is.EqualTo(new Vector2(310,420)));
+            Assert.That(scroll.vertical && !scroll.horizontal,Is.True);
             foreach(RectTransform card in view.CollectionContent)
-                AssertInside(BoundsIn(scroll.viewport,card),scroll.viewport.rect,0,card.name);
+                AssertInside(BoundsIn(view.CollectionContent,card),view.CollectionContent.rect,0,card.name);
+            scroll.verticalNormalizedPosition=0;
+            AssertInside(BoundsIn(scroll.viewport,(RectTransform)view.CollectionContent.GetChild(InkSkinCatalog.Count-1)),scroll.viewport.rect,0,"last large card");
             var hidden=view.CollectionContent.Find("SkinCard31/PreviewViewport/Preview/Accessory").GetComponent<Image>();
             Assert.That(hidden.sprite,Is.Null);
+            Assert.That(view.CollectionContent.Find("SkinCard31/CardName").GetComponent<Text>().text,Is.EqualTo("?"));
             view.CollectionContent.Find("SkinCard1").GetComponent<Button>().onClick.Invoke();
             Assert.That(view.CollectionExpanded,Is.False); Assert.That(view.Selected,Is.EqualTo(InkSkinId.Gat));
             Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
@@ -650,6 +660,36 @@ namespace MukJump.EditorTests
             view.SetNavigationPresentation(true,false); swipe.OnBeginDrag(e);
             view.SetNavigationPresentation(true,true); e.position=new Vector2(-Screen.width,0); swipe.OnEndDrag(e);
             Assert.That(view.Selected, Is.EqualTo(InkSkinId.Ink));
+        }
+        [Test, Category("WardrobeCarouselLayout")] public void CarouselCancelsInterruptedPointersAndReducedMotionSnapsWithoutEquipping()
+        {
+            eventHost=new GameObject("CarouselTestEvents",typeof(EventSystem));
+            var scroll=(InkWardrobeScroll)view.CollectionScroll;
+            var e=new PointerEventData(eventHost.GetComponent<EventSystem>()) { pointerId=11 };
+            e.position=RectTransformUtility.WorldToScreenPoint(null,scroll.viewport.position);
+            scroll.OnInitializePotentialDrag(e); scroll.OnBeginDrag(e);
+            e.position+=Vector2.left*200; scroll.OnDrag(e);
+            MobileApplicationLifecycle.SetPlatformVisibility(false); MobileApplicationLifecycle.SetPlatformVisibility(true);
+            scroll.OnEndDrag(e);
+            Assert.That(scroll.IsSettling,Is.False);
+            Assert.That(view.Selected,Is.EqualTo(InkSkinId.Ink));
+            LobbySettingsProfile.SetReducedMotionEnabled(true);
+            view.Select(InkSkinId.Ink);
+            scroll.OnInitializePotentialDrag(e); scroll.OnBeginDrag(e);
+            e.position+=Vector2.left*200; scroll.OnDrag(e); scroll.OnEndDrag(e);
+            Assert.That(scroll.IsSettling,Is.False);
+            Assert.That(scroll.velocity,Is.EqualTo(Vector2.zero));
+            Assert.That(scroll.content.anchoredPosition.x,Is.EqualTo(-InkSkinCatalog.BrowseIndex(view.Selected)*scroll.CardStride).Within(.1f));
+            Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
+            foreach(RectTransform card in view.CollectionContent)
+            { Assert.That(card.localScale,Is.EqualTo(Vector3.one)); Assert.That(card.localRotation,Is.EqualTo(Quaternion.identity)); }
+            scroll.content.anchoredPosition=new Vector2(-3.35f*scroll.CardStride,0);
+            scroll.OnPointerDown(e); scroll.OnPointerUp(e);
+            Assert.That(view.Selected,Is.EqualTo(InkSkinCatalog.BrowseAt(3)),"빈 공간을 잡았다 놓아도 중앙에 안착한다");
+            Assert.That(scroll.IsSettling,Is.False);
+            scroll.OnBeginDrag(e); view.SetNavigationPresentation(false,false); view.SetNavigationPresentation(true,true);
+            e.position+=Vector2.left*500; scroll.OnDrag(e); scroll.OnEndDrag(e);
+            Assert.That(view.Selected,Is.EqualTo(InkSkinId.Ink));
         }
         [Test] public void HostHideAndResumeWithoutIntermediateFrameInvalidatesDragAndEffect()
         {

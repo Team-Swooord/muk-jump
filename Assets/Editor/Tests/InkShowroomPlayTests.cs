@@ -123,7 +123,8 @@ namespace MukJump.EditorTests
                     GameLocalization.SetLanguage(language); view.ToggleCollection(); yield return Wait(.3f);
                     Assert.That(view.CollectionExpanded,Is.True);
                     foreach(var graphic in view.CollectionContent.GetComponentsInChildren<UnityEngine.UI.Image>())
-                        if(graphic.enabled && graphic.sprite!=null) Assert.That(graphic.canvasRenderer.cull,Is.False,graphic.name);
+                        if(graphic.enabled && graphic.sprite!=null && !IsClippedCollectionCard(view,graphic.transform))
+                            Assert.That(graphic.canvasRenderer.cull,Is.False,graphic.name);
                     yield return Capture("fitted-all-"+language);
                     view.CollectionContent.Find("SkinCard39").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                     Assert.That(view.Selected,Is.EqualTo(InkSkinId.CloudBoots)); Assert.That(view.CollectionExpanded,Is.False);
@@ -176,7 +177,7 @@ namespace MukJump.EditorTests
                 var view=Object.FindAnyObjectByType<InkWardrobeView>(); var scroll=view.CollectionScroll;
                 foreach(var language in new[]{GameLanguage.Korean,GameLanguage.English,GameLanguage.Japanese})
                 {
-                    GameLocalization.SetLanguage(language); view.Select(InkSkinId.SpiritHalo); yield return Wait(.5f);
+                    GameLocalization.SetLanguage(language); view.Select(InkSkinId.SpiritHalo); yield return WaitForCarousel(view);
                     foreach(string name in new[]{"SkinName","Ability","Description","Achievement"})
                     {
                         var label=view.Paper.Find(name).GetComponent<UnityEngine.UI.Text>();
@@ -188,27 +189,73 @@ namespace MukJump.EditorTests
                     Assert.That(view.CollectionExpanded,Is.True);
                     foreach(var image in view.CollectionContent.GetComponentsInChildren<UnityEngine.UI.Image>())
                     {
-                        if(!image.enabled || image.sprite==null) continue;
+                        if(!image.enabled || image.sprite==null || IsClippedCollectionCard(view,image.transform)) continue;
                         Assert.That(image.canvasRenderer.cull,Is.False,image.name);
+                    }
+                    foreach(var label in view.CollectionContent.GetComponentsInChildren<UnityEngine.UI.Text>())
+                    {
+                        if(!label.enabled || !label.gameObject.activeInHierarchy || string.IsNullOrEmpty(label.text)) continue;
+                        Assert.That(label.preferredHeight,Is.LessThanOrEqualTo(label.rectTransform.rect.height+.1f),language+"/"+label.name+"/"+label.text);
+                        if(!IsClippedCollectionCard(view,label.transform))
+                        {
+                            var complete=new TextGenerator();
+                            var fullSettings=label.GetGenerationSettings(label.rectTransform.rect.size);
+                            fullSettings.verticalOverflow=VerticalWrapMode.Overflow;
+                            complete.PopulateWithErrors(label.text,fullSettings,label.gameObject);
+                            Assert.That(label.cachedTextGenerator.verts.Count,Is.EqualTo(complete.verts.Count),language+"/"+label.name+"/"+label.text+" 실제 글자");
+                        }
                     }
                     yield return Capture("wardrobe-all-"+language);
                     view.CollectionContent.Find("SkinCard19").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                     Assert.That(view.CollectionExpanded,Is.False); Assert.That(view.Selected,Is.EqualTo(InkSkinId.TurtleShell));
                 }
-                view.Select(InkSkinId.Ink); yield return Wait(.2f);
+                view.Select(InkSkinId.Ink); yield return Wait(.7f);
                 var events=UnityEngine.EventSystems.EventSystem.current;
                 var e=new UnityEngine.EventSystems.PointerEventData(events) { button=UnityEngine.EventSystems.PointerEventData.InputButton.Left, pointerId=91 };
                 e.position=RectTransformUtility.WorldToScreenPoint(null,scroll.viewport.position);
                 scroll.OnInitializePotentialDrag(e); scroll.OnBeginDrag(e);
-                e.position+=new Vector2(0,300); scroll.OnDrag(e); scroll.OnEndDrag(e); scroll.StopMovement();
-                Assert.That(scroll.content.anchoredPosition.y,Is.GreaterThan(50));
+                for(int frame=0;frame<8;frame++)
+                {
+                    e.position+=new Vector2(-24,0); scroll.OnDrag(e); yield return null;
+                }
+                Assert.That(scroll.content.anchoredPosition.x,Is.LessThan(-100));
                 Assert.That(view.Selected,Is.EqualTo(InkSkinId.Ink)); Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
+                float releasedX=scroll.content.anchoredPosition.x;
+                scroll.OnEndDrag(e); yield return Wait(.12f);
+                Assert.That(scroll.content.anchoredPosition.x,Is.LessThan(releasedX-5),"손을 놓은 뒤 관성이 이어진다");
+                // 흐르는 도중 다시 잡으면 멈추고, 두 번째 손가락은 위치를 가로채지 않는다.
+                scroll.OnInitializePotentialDrag(e); scroll.OnBeginDrag(e);
+                var other=new UnityEngine.EventSystems.PointerEventData(events) { pointerId=92, position=e.position+Vector2.right*300 };
+                Vector2 held=scroll.content.anchoredPosition;
+                scroll.OnBeginDrag(other); scroll.OnDrag(other); scroll.OnEndDrag(other);
+                view.CollectionContent.Find("SkinCard1").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                Assert.That(view.Selected,Is.EqualTo(InkSkinId.Ink),"두 번째 손가락의 카드 탭은 진행 중인 드래그를 가로채지 않는다");
+                yield return Wait(.1f);
+                Assert.That(Vector2.Distance(held,scroll.content.anchoredPosition),Is.LessThan(.1f));
+                scroll.OnEndDrag(e); yield return Wait(1.2f);
+                var carousel=(InkWardrobeScroll)scroll;
+                Assert.That(carousel.IsSettling,Is.False);
+                Assert.That(view.Selected,Is.Not.EqualTo(InkSkinId.Ink));
+                Assert.That(scroll.content.anchoredPosition.x,Is.EqualTo(-InkSkinCatalog.BrowseIndex(view.Selected)*carousel.CardStride).Within(.1f));
+                Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
                 Vector2 offset=scroll.content.anchoredPosition; yield return Wait(.4f);
                 Assert.That(Vector2.Distance(offset,scroll.content.anchoredPosition),Is.LessThan(.1f));
-                scroll.verticalNormalizedPosition=0; yield return Wait(.1f);
+                yield return Capture("wardrobe-carousel-settled");
+                foreach(int edge in new[]{0,InkSkinCatalog.Count-1})
+                {
+                    view.Select(InkSkinCatalog.BrowseAt(edge)); yield return WaitForCarousel(view);
+                    e.position=RectTransformUtility.WorldToScreenPoint(null,scroll.viewport.position);
+                    scroll.OnInitializePotentialDrag(e); scroll.OnBeginDrag(e);
+                    for(int frame=0;frame<5;frame++)
+                    { e.position+=Vector2.right*(edge==0 ? 25 : -25); scroll.OnDrag(e); yield return null; }
+                    scroll.OnEndDrag(e); yield return WaitForCarousel(view);
+                    Assert.That(view.Selected,Is.EqualTo(InkSkinCatalog.BrowseAt(edge)));
+                    Assert.That(scroll.content.anchoredPosition.x,Is.EqualTo(-edge*carousel.CardStride).Within(.1f),"양 끝을 넘겨 밀어도 마지막 카드로 복귀한다");
+                }
+                view.ToggleCollection(); scroll.verticalNormalizedPosition=0; yield return Wait(.2f);
                 yield return Capture("wardrobe-scroll-bottom");
-                var last=view.CollectionContent.Find("SkinCard"+(InkSkinCatalog.Count-1));
-                Assert.That(last.Find("PreviewViewport/Preview/Accessory").GetComponent<UnityEngine.UI.Image>().canvasRenderer.cull,Is.False);
+                var last=view.CollectionContent.GetChild(InkSkinCatalog.Count-1);
+                Assert.That(last.Find("PreviewViewport/QuestionMark").GetComponent<UnityEngine.UI.Text>().canvasRenderer.cull,Is.False);
                 scroll.velocity=new Vector2(0,200); MobileApplicationLifecycle.SetPlatformVisibility(false); yield return null;
                 Assert.That(scroll.velocity,Is.EqualTo(Vector2.zero)); Assert.That(scroll.enabled,Is.False);
                 MobileApplicationLifecycle.SetPlatformVisibility(true); yield return Wait(.1f);
@@ -607,6 +654,14 @@ namespace MukJump.EditorTests
             var corners=new Vector3[4]; ((RectTransform)card).GetWorldCorners(corners);
             var viewport=view.CollectionScroll.viewport;
             return corners.Any(c=>!viewport.rect.Contains(viewport.InverseTransformPoint(c)));
+        }
+        static IEnumerator WaitForCarousel(InkWardrobeView view)
+        {
+            var carousel=(InkWardrobeScroll)view.CollectionScroll;
+            float deadline=Time.realtimeSinceStartup+3;
+            while(carousel.IsSettling && Time.realtimeSinceStartup<deadline) yield return null;
+            Assert.That(carousel.IsSettling,Is.False,"카드 중앙 안착 완료");
+            yield return null;
         }
         static IEnumerator WaitForWardrobe()
         {
