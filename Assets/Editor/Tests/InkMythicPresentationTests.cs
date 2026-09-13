@@ -14,6 +14,69 @@ namespace MukJump.EditorTests
 {
     public sealed class InkMythicPresentationTests
     {
+        [UnityTest, Category("NaturalAccessoryPresentation"), Timeout(120000)]
+        public IEnumerator NaturalAccessoriesAttachWithoutReplacingTheInkBody()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool background = Application.runInBackground; Application.runInBackground = true;
+            var settings = new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main");
+                float deadline = Time.realtimeSinceStartup + 25;
+                while ((GameManager.Instance == null || GameManager.Instance.IsTransitioning || StartupBrandSplash.IsBlockingInput)
+                    && Time.realtimeSinceStartup < deadline) yield return null;
+                yield return Wait(.4f);
+                Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True);
+                deadline = Time.realtimeSinceStartup + 20;
+                while (LobbyScreenNavigator.Instance.IsTransitioning && Time.realtimeSinceStartup < deadline) yield return null;
+                var wardrobe = Object.FindAnyObjectByType<InkWardrobeView>();
+                var stage = (RectTransform)wardrobe.Paper.Find("ShowroomStage");
+                var preview = (RectTransform)stage.Find("Preview");
+                var body = preview.Find("OriginalInkBody").GetComponent<UnityEngine.UI.Image>();
+                var accessory = preview.Find("Accessory").GetComponent<UnityEngine.UI.Image>();
+                var presentation = stage.GetComponent<InkShowroomPresentation>();
+                var original = body.sprite;
+                GameLocalization.SetLanguage(GameLanguage.Korean);
+                foreach (var id in InkNaturalAccessoryTests.Changed)
+                {
+                    wardrobe.Select(id);
+                    // 에디터 프레임 지연 시에도 실제 교체 연출이 끝난 착용 위치를 검사한다.
+                    deadline = Time.realtimeSinceStartup + 5;
+                    while (presentation.IsPlaying && Time.realtimeSinceStartup < deadline) yield return null;
+                    Assert.That(presentation.IsPlaying, Is.False, "교체 연출 완료: " + id);
+                    Canvas.ForceUpdateCanvases();
+                    Assert.That(body.sprite, Is.SameAs(original));
+                    Assert.That(accessory.sprite, Is.SameAs(InkSkinCatalog.Sprite(id)));
+                    Assert.That(accessory.transform.GetSiblingIndex() < body.transform.GetSiblingIndex(),
+                        Is.EqualTo(InkSkinCatalog.BehindBody(id)));
+                    var bounds = LobbySkinPreview.CostumeBounds(id, accessory.sprite);
+                    foreach (var point in new[] { bounds.min, bounds.max, new Vector2(bounds.xMin, bounds.yMax), new Vector2(bounds.xMax, bounds.yMin) })
+                        Assert.That(stage.rect.Contains(stage.InverseTransformPoint(preview.TransformPoint(point * preview.rect.width))), Is.True, "의상 잘림: " + id);
+                    yield return Capture("natural-" + id);
+                }
+                SkinDebugSession.SetAllUnlocked(false); wardrobe.Select(InkSkinId.ZodiacDragon); yield return Wait(.6f);
+                Assert.That(body.enabled || accessory.enabled, Is.False, "히든 미발견 상태는 유지한다");
+            }
+            finally
+            {
+                SkinDebugSession.Reset(); MobileApplicationLifecycle.SetPlatformVisibility(true);
+                Application.runInBackground = background; Time.timeScale = 1;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests(); PointerInput.ResetSuppressionForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+
         [UnityTest, Timeout(180000)]
         public IEnumerator NewSecretsAndRefinedTailFitOriginalInkInThreeLanguages()
         {

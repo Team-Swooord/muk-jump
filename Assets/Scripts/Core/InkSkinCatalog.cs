@@ -134,7 +134,11 @@ namespace MukJump.Core
         public static string ResourcePath(InkSkinId id) => Get(id) is { Asset: { Length: > 0 } } d ? "MukJump/Skins/" + d.Asset : "";
         public static bool BehindBody(InkSkinId id) => id is InkSkinId.OrigamiWings or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.SpiritHalo
             or InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds or InkSkinId.WindFan or InkSkinId.DragonTail
-            or InkSkinId.ThreeLeggedCrow or InkSkinId.NineTails;
+            or InkSkinId.ThreeLeggedCrow or InkSkinId.NineTails
+            // 띠 없는 뿔·귀의 뿌리는 원래 먹 실루엣 뒤로 자연스럽게 묻힌다.
+            or InkSkinId.ZodiacDragon or InkSkinId.ZodiacOx or InkSkinId.ZodiacGoat
+            or InkSkinId.ZodiacRat or InkSkinId.ZodiacRabbit or InkSkinId.ZodiacMonkey
+            or InkSkinId.ZodiacDog or InkSkinId.ZodiacPig or InkSkinId.HaetaeCrest;
         public static bool IsFootwear(InkSkinId id) => id is InkSkinId.RedShoes or InkSkinId.CloudBoots;
         // 1024 프레임 전체가 기준이다. 실제 먹 몸통은 약 0.7배 폭이며 넉넉한 착용선을 사용한다.
         public static float Width(InkSkinId id) => id switch {
@@ -156,6 +160,11 @@ namespace MukJump.Core
             InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds => 1.22f,
             InkSkinId.BondKnot => .40f, InkSkinId.WindFan => .90f, InkSkinId.DragonTail => .68f,
             InkSkinId.ThreeLeggedCrow => 1.12f, InkSkinId.NineTails => 1.24f,
+            InkSkinId.ZodiacDragon or InkSkinId.ZodiacOx => .90f,
+            InkSkinId.ZodiacGoat => 1.05f, InkSkinId.ZodiacRat => .91f, InkSkinId.ZodiacRabbit => .78f,
+            InkSkinId.ZodiacMonkey => 1.03f, InkSkinId.ZodiacDog => 1.05f, InkSkinId.ZodiacPig => .98f,
+            InkSkinId.ZodiacRooster => .55f, InkSkinId.ZodiacSnake => .58f,
+            InkSkinId.ZodiacHorse => .72f, InkSkinId.HaetaeCrest => .55f,
             InkSkinId.RedShoes or InkSkinId.CloudBoots => 1f, _ => InkMythicSkins.Contains(id) ? .94f : .68f };
         public static Vector2 Offset(InkSkinId id)
         {
@@ -171,9 +180,11 @@ namespace MukJump.Core
             if (id == InkSkinId.DragonTail) return new Vector2(.36f, -.13f);
             if (InkMythicSkins.Contains(id)) return new Vector2(0, id switch {
                 InkSkinId.ThreeLeggedCrow => .27f, InkSkinId.NineTails => .02f,
-                InkSkinId.ZodiacRat or InkSkinId.ZodiacMonkey or InkSkinId.ZodiacPig => .20f,
-                InkSkinId.ZodiacTiger or InkSkinId.ZodiacSnake or InkSkinId.ZodiacDragon => .24f,
-                InkSkinId.ZodiacRabbit => .39f, InkSkinId.ZodiacDog => .17f, _ => .30f });
+                InkSkinId.ZodiacRat => .29f, InkSkinId.ZodiacMonkey => .16f, InkSkinId.ZodiacPig => .25f,
+                InkSkinId.ZodiacDragon or InkSkinId.ZodiacOx => .42f, InkSkinId.ZodiacGoat => .23f,
+                InkSkinId.ZodiacTiger => .24f, InkSkinId.ZodiacSnake => .43f, InkSkinId.ZodiacHorse => .35f,
+                InkSkinId.ZodiacRooster => .39f, InkSkinId.HaetaeCrest => .43f,
+                InkSkinId.ZodiacRabbit => .43f, InkSkinId.ZodiacDog => .17f, _ => .30f });
             return new Vector2(0, id switch {
                 InkSkinId.Gat => .32f, InkSkinId.Scholar => .34f, InkSkinId.BambooHat => .36f,
                 InkSkinId.LotusCrown => .33f, InkSkinId.CraneCrest => .31f, InkSkinId.PhoenixCrown => .40f,
