@@ -52,6 +52,7 @@ namespace MukJump.EditorTests
         [TestCase(InkSkinId.Gat), TestCase(InkSkinId.CatEars), TestCase(InkSkinId.ZodiacTiger)]
         [TestCase(InkSkinId.HaetaeCrest), TestCase(InkSkinId.ZodiacPig), TestCase(InkSkinId.ZodiacMonkey)]
         [TestCase(InkSkinId.YakshaMask, Category = "MaskStrike")]
+        [TestCase(InkSkinId.SpiderMask, Category = "SpiderWeb")]
         [Category("SkinReworkAppearance")]
         public void NewArtHasRealAlphaAndCatHasNoConnectingBand(InkSkinId id)
         {
@@ -70,6 +71,28 @@ namespace MukJump.EditorTests
                     for (int y = 0; y < texture.height; y++)
                         Assert.That(pixels[y * texture.width + texture.width / 2].a, Is.Zero, "귀 사이에 머리띠 없음");
                 Assert.That(InkSkinCatalog.Sprite(id), Is.Not.Null);
+            }
+            finally { Object.DestroyImmediate(texture); }
+        }
+
+        [Test, Category("SpiderWeb")]
+        public void SpiderMaskHasRedBlueFabricAndTransparentEyeOpenings()
+        {
+            var texture = new Texture2D(2, 2);
+            try
+            {
+                texture.LoadImage(File.ReadAllBytes("Assets/Resources/" + InkSkinCatalog.ResourcePath(InkSkinId.SpiderMask) + ".png"));
+                var pixels = texture.GetPixels32();
+                Assert.That(pixels.Count(c => c.a > 200 && c.r > 150 && c.g < 100 && c.b < 100),
+                    Is.GreaterThan(pixels.Length * .1f), "흰 탈 대신 붉은 천");
+                Assert.That(pixels.Count(c => c.a > 200 && c.b > 150 && c.r < 100),
+                    Is.GreaterThan(pixels.Length * .025f), "좌우 푸른 천");
+                foreach (float centerX in new[] { .30f, .70f })
+                    for (int y = 0; y < 5; y++) for (int x = 0; x < 5; x++)
+                        Assert.That(texture.GetPixelBilinear(centerX + (x - 2) * .025f, .39f + (y - 2) * .04f).a,
+                            Is.LessThan(.02f), "기존 먹의 눈을 가리는 체크무늬나 불투명 배경이 없어야 한다");
+                Assert.That(InkSkinCatalog.BehindBody(InkSkinId.SpiderMask), Is.False);
+                Assert.That((int)InkSkinId.SpiderMask, Is.EqualTo(2), "기존 보유·업적 ID 유지");
             }
             finally { Object.DestroyImmediate(texture); }
         }

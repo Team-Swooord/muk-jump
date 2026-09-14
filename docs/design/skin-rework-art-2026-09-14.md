@@ -73,3 +73,13 @@ Replace these two monkey ears with ONE CURLY MONKEY TAIL accessory. Only the tai
 - 적용: `Assets/Art/Character/Animations/mask_strike_sheet.png`.
 - 생성 원본: `/Users/seungyeoning/.codex/generated_images/01a02807-53b4-7300-82fd-74057eea1a57/exec-774c8500-9553-45fa-9d89-260defc47ad1.png`.
 - 2×2 실제 4프레임 먹빛/낙관색 베기, 기본 격자 슬라이싱. AI 생성 원본 그대로 복사했으며 픽셀 가공하지 않음. 프레임 누락/중복/잘림 검사와 Play Mode 확인 완료.
+
+## 거미탈 — 적·청색 원화와 실제 투명 배경
+
+- 적용: `Assets/Resources/MukJump/Skins/skin_spider_mask_v1.png`. 기존 GUID·스킨 ID 2·착용 위치·해금 기록 유지.
+- 최종 생성 원본: `/Users/seungyeoning/.codex/generated_images/01a02807-53b4-7300-82fd-74057eea1a57/exec-1a2596d4-9733-4ca1-8592-a024a8f316ef.png`.
+- 이전 후보 `exec-027d76a8-ffd0-4025-aef9-5305dffd7363.png`의 체크무늬 배경을 built-in image generation으로 제거했다. 1448×1086 RGBA, 완전 투명 픽셀 67.55%. 출력 원본을 그대로 복사했으며 코드로 픽셀 편집하지 않았다. 기존 배경 제거 대체 방식 승인 대기는 더 이상 필요하지 않다.
+
+최종 프롬프트:
+
+Use case: background-extraction. Edit target is the provided red and blue paper game mask sprite. Remove the painted gray checkerboard and paper background completely, including the insides of both large round eye holes. Return an RGBA PNG with real alpha transparency (alpha zero) in all those background areas, NOT an illustration of a transparency grid. Keep the mask shape, big round holes, red and blue color, black web lines, rough hand-drawn ink/crayon style and composition unchanged. This is a cutout for a 2D game accessory, no character body, no text, no new objects.
