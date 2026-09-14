@@ -119,6 +119,16 @@ namespace MukJump.Obstacles
         {
             if (consumed) return;
             var player = other.GetComponentInParent<PlayerController>();
+            if (Kind == ObstacleKind.ChildDragon && player != null &&
+                RunGrowthController.Instance?.TryUseMaskStrike(player, transform.position) == true)
+            {
+                consumed = true;
+                circleTrigger.enabled = capsuleTrigger.enabled = false;
+                body.simulated = false; spriteRenderer.enabled = false;
+                if (ReleaseRequested != null) ReleaseRequested.Invoke(this);
+                else gameObject.SetActive(false);
+                return;
+            }
             if (player == null || !(Kind == ObstacleKind.ChildDragon ? player.TakeDragonHit() : player.TakeHit())) return;
 
             // 한 번 유효하게 피격시킨 장애물은 같은 물리 스텝의 다른 콜라이더나

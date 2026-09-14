@@ -747,6 +747,100 @@ namespace MukJump.EditorTests
             Assert.That(JsonUtility.FromJson<SkinAchievementState>(JsonUtility.ToJson(saved)).Has(InkSkinId.BondKnot), Is.True);
         }
 
+        [Test, Category("MaskStrike")]
+        public void MaskStrikeRemovesDragonBeforeDamageAndConsumesExactlyOneCharge()
+        {
+            var manager = StartMaskTest(out var growth, out var player);
+            int health = player.CurrentHealth, releases = 0;
+            var enemy = Track(new GameObject("MaskDragon")).AddComponent<MukJump.Obstacles.Obstacle>();
+            enemy.Configure(0, 0, 0, MukJump.Obstacles.ObstacleKind.ChildDragon);
+            enemy.ReleaseRequested += _ => releases++;
+            Invoke(enemy, "OnTriggerEnter2D", player.GetComponent<Collider2D>());
+            Invoke(enemy, "OnTriggerEnter2D", player.GetComponent<Collider2D>());
+            Assert.That(releases, Is.EqualTo(1));
+            Assert.That(player.CurrentHealth, Is.EqualTo(health));
+            Assert.That(DragonStats(manager).diedToDragon, Is.False);
+            Assert.That(growth.MaskStrikeCooldownRemaining, Is.EqualTo(30));
+            Assert.That(growth.TryUseMaskStrike(player, Vector3.right), Is.False);
+            typeof(GameManager).GetProperty("IsPaused").SetValue(manager, true);
+            Invoke(growth, "TickSkinCooldown", 30f);
+            Assert.That(growth.MaskStrikeCooldownRemaining, Is.EqualTo(30));
+            typeof(GameManager).GetProperty("IsPaused").SetValue(manager, false);
+            Invoke(manager, "SetState", GameState.GameOver);
+            Invoke(manager, "SetState", GameState.Playing);
+            Assert.That(growth.MaskStrikeCooldownRemaining, Is.EqualTo(30), "광고 부활은 재충전하지 않는다.");
+            Invoke(growth, "TickSkinCooldown", 29.99f);
+            Assert.That(growth.TryUseMaskStrike(player, Vector3.right), Is.False);
+            Invoke(growth, "TickSkinCooldown", .02f);
+            Assert.That(growth.TryUseMaskStrike(player, Vector3.right), Is.True);
+        }
+
+        [Test, Category("MaskStrike")]
+        public void MaskStrikeRemovesPouncingHaetaeAndDoesNotProtectAgainstSpikes()
+        {
+            StartMaskTest(out var growth, out var player);
+            int health = player.CurrentHealth, releases = 0;
+            var haetae = Track(new GameObject("MaskHaetae")).AddComponent<MukJump.Obstacles.HaetaeObstacle>();
+            haetae.Configure(new[] { Idle(), Idle(), Idle(), Idle() }, null, ~0, _ => releases++);
+            typeof(MukJump.Obstacles.HaetaeObstacle).GetProperty("State").SetValue(haetae, MukJump.Obstacles.HaetaeObstacleState.Pounce);
+            Assert.That(Invoke(haetae, "ResolveContact", player.GetComponent<Collider2D>()), Is.True);
+            Assert.That(releases, Is.EqualTo(1));
+            Assert.That(player.CurrentHealth, Is.EqualTo(health));
+            Invoke(growth, "TickSkinCooldown", 30f);
+            var spike = Track(new GameObject("MaskSpike")).AddComponent<MukJump.Obstacles.Obstacle>();
+            spike.Configure(0, 0, 0, MukJump.Obstacles.ObstacleKind.Spike);
+            Invoke(spike, "OnTriggerEnter2D", player.GetComponent<Collider2D>());
+            Assert.That(growth.MaskStrikeCooldownRemaining, Is.Zero);
+            Assert.That(player.CurrentHealth, Is.LessThan(health));
+        }
+
+        [TestCase("clone"), TestCase("dead"), TestCase("disabled"), TestCase("background"), TestCase("other"), Category("MaskStrike")]
+        public void MaskStrikeRejectsInvalidCasters(string scenario)
+        {
+            StartMaskTest(out var growth, out var player);
+            if (scenario == "clone") Field(player, "isRuntimeClone", true);
+            if (scenario == "dead") typeof(PlayerController).GetProperty("IsDead").SetValue(player, true);
+            if (scenario == "disabled") player.Body.simulated = false;
+            if (scenario == "background") MobileApplicationLifecycle.SetPlatformVisibility(false);
+            if (scenario == "other") Field(growth, "skinSnapshot", InkSkinId.Ink);
+            try { Assert.That(growth.TryUseMaskStrike(player, Vector3.right), Is.False); Assert.That(growth.MaskStrikeCooldownRemaining, Is.Zero); }
+            finally { MobileApplicationLifecycle.SetPlatformVisibility(true); }
+        }
+
+        [Test, Category("MaskStrike")]
+        public void MaskStrikeReusesFourAuthoredFramesAndPausesWithTheGame()
+        {
+            var manager = StartMaskTest(out _, out var player);
+            var vfx = manager.gameObject.AddComponent<InkSkinStrikeVfx>();
+            Invoke(vfx, "OnEnable");
+            Assert.That(vfx.Play(player, Vector3.right), Is.True);
+            var renderer = vfx.Renderer; var first = renderer.sprite;
+            Invoke(vfx, "Advance", .10f); Assert.That(renderer.sprite, Is.Not.SameAs(first));
+            float elapsed = vfx.Elapsed;
+            typeof(GameManager).GetProperty("IsPaused").SetValue(manager, true);
+            Invoke(vfx, "Advance", 1f); Assert.That(vfx.Elapsed, Is.EqualTo(elapsed)); Assert.That(renderer.enabled, Is.False);
+            typeof(GameManager).GetProperty("IsPaused").SetValue(manager, false);
+            Invoke(vfx, "Advance", .3f); Assert.That(vfx.IsPlaying, Is.False);
+            Assert.That(vfx.Play(player, Vector3.left), Is.True); Assert.That(vfx.Renderer, Is.SameAs(renderer));
+            LobbySettingsProfile.SetReducedMotionEnabled(true);
+            Invoke(vfx, "Advance", .21f); Assert.That(vfx.IsPlaying, Is.False);
+            var samples = InkSkinStrikeSound.BuildSamples();
+            Assert.That(samples.Length, Is.EqualTo((int)(22050 * .30f)));
+            Assert.That(samples.All(float.IsFinite), Is.True); Assert.That(samples.Max(Mathf.Abs), Is.EqualTo(.72f).Within(.001f));
+            foreach (string source in new[] { InkSkinCatalog.Ability(InkSkinId.YakshaMask), InkSkinCatalog.Description(InkSkinId.YakshaMask) })
+                foreach (bool ja in new[] { false, true }) Assert.That(InkSkinTranslations.TryTranslate(source, ja, out _), Is.True);
+        }
+
+        GameManager StartMaskTest(out RunGrowthController growth, out PlayerController player)
+        {
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            PermanentGrowthProfile.SettleRun("mask-unlock", 500, 500, 0, 60, true, SkinRunStats.Begin(false, InkSkinId.Ink));
+            Assert.That(InkSkinPreferences.TryEquip(InkSkinId.YakshaMask), Is.True);
+            var manager = Manager(out growth); Invoke(manager, "BeginPlayingAfterCover");
+            player = Player(); manager.RegisterPlayer(player);
+            return manager;
+        }
+
         GameManager Manager(out RunGrowthController growth)
         {
             var host = Track(new GameObject("SkinTestSystems"));

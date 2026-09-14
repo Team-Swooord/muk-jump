@@ -17,6 +17,7 @@ namespace MukJump.EditorTools
         {
             EnsureFolder(DataRoot);
             ConfigureSheet("muk_held", 6f);
+            ConfigureSheet("mask_strike", 11.111111f);
             for (int i = 0; i < InkSkinCatalog.Count; i++)
             {
                 var id = (InkSkinId)i; string key = InkAccessoryMotion.Key(id);

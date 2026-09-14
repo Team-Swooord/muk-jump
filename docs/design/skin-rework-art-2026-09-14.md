@@ -58,3 +58,8 @@ Change this pig-ear accessory into a single PIG SNOUT accessory only, no ears. A
 ### 원숭이 꼬리 — 최종 프롬프트
 
 Replace these two monkey ears with ONE CURLY MONKEY TAIL accessory. Only the tail, not an animal, not ears, no face or body. Simple orange-brown crayon fill and thick rough dark charcoal outline, exactly the same naive children's doodle style as reference. Tail begins with a thick rounded root on the LEFT at approx x18% y65%, then sweeps right in a relaxed shallow U and curls upward into an open inward spiral near the RIGHT at x75% y45%. Uniformly tubular long flexible tail with tapered rounded tip, no excessive double coil. This is a 2D side-attachment worn on the lower right hip of a tiny black inkblob, recognizable as a monkey's curly tail. Art comfortably centered, width75%canvas height55%canvas with transparent margins; single still accessory on genuine transparent RGBA background, no shadow, no checkerboard, no text, no additional objects. Simple and charming, not 3D.
+# 퇴마 타격 추가 원화
+
+- 적용: `Assets/Art/Character/Animations/mask_strike_sheet.png`.
+- 생성 원본: `/Users/seungyeoning/.codex/generated_images/01a02807-53b4-7300-82fd-74057eea1a57/exec-774c8500-9553-45fa-9d89-260defc47ad1.png`.
+- 2×2 실제 4프레임 먹빛/낙관색 베기, 기본 격자 슬라이싱. AI 생성 원본 그대로 복사했으며 픽셀 가공하지 않음. 프레임 누락/중복/잘림 검사와 Play Mode 확인 완료.

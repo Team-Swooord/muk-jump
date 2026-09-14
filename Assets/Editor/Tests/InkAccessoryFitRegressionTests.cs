@@ -77,6 +77,7 @@ namespace MukJump.EditorTests
         [TestCase("moon_clouds"), TestCase("blue_wisps"), TestCase("spirit_halo")]
         [TestCase("origami_wings"), TestCase("crane_wings"), TestCase("butterfly_wings")]
         [TestCase("nine_tails")]
+        [TestCase("mask_strike", Category = "MaskStrike")]
         public void AuthoredFramesKeepEveryPixelOnceAndNeverCutVisibleEdges(string key)
         {
             string path = InkSpriteAnimationBuilder.ArtRoot + "/" + key + "_sheet.png";
@@ -210,6 +211,9 @@ namespace MukJump.EditorTests
         [UnityTest, Timeout(120000), Category("CloudBoots")]
         public IEnumerator CloudBootsPanelFitsAndAnActualMapLandingTriggersTheJump() => CaptureAccessories(new[] { InkSkinId.CloudBoots });
 
+        [UnityTest, Timeout(120000), Category("MaskStrike")]
+        public IEnumerator MaskStrikeHasAReadablePanelAndAnAuthoredCombatEffect() => CaptureAccessories(new[] { InkSkinId.YakshaMask });
+
         IEnumerator CaptureAccessories(InkSkinId[] ids)
         {
             EditorWindow.GetWindow(typeof(Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
@@ -259,6 +263,21 @@ namespace MukJump.EditorTests
                             Assert.That(stage.rect.Contains(stage.InverseTransformPoint(art.transform.TransformPoint(vertex))), Is.True, id + " stage clip");
                         yield return Capture(id + "-" + f);
                     }
+                }
+                if (ids.Length == 1 && ids[0] == InkSkinId.YakshaMask)
+                {
+                    Assert.That(InkSkinPreferences.TryEquip(InkSkinId.YakshaMask), Is.True);
+                    Assert.That(LobbyScreenNavigator.Instance.ReturnToLobby(), Is.True);
+                    deadline = Time.realtimeSinceStartup + 20;
+                    while (LobbyScreenNavigator.Instance.IsTransitioning && Time.realtimeSinceStartup < deadline) yield return null;
+                    var manager = GameManager.Instance;
+                    typeof(GameManager).GetMethod("BeginPlayingAfterCover", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(manager, null);
+                    var player = manager.HighestLivingPlayer;
+                    Assert.That(player, Is.Not.Null);
+                    var vfx = manager.GetComponent<InkSkinStrikeVfx>();
+                    Assert.That(vfx, Is.Not.Null);
+                    Assert.That(vfx.Play(player, player.transform.position + Vector3.right), Is.True);
+                    yield return Capture("MaskStrike-combat");
                 }
                 if (ids.Length == 1 && ids[0] == InkSkinId.CloudBoots)
                 {

@@ -408,6 +408,12 @@ namespace MukJump.Obstacles
             if (player != null)
             {
                 if (player.IsDead) return false;
+                if (RunGrowthController.Instance?.TryUseMaskStrike(player, transform.position) == true)
+                {
+                    attackConsumed = true;
+                    ForceRelease();
+                    return true;
+                }
                 // TakeHit 결과와 무관하게 첫 살아 있는 캐릭터 접촉이 이번 습격의 전부다.
                 // 방어막·먹물방울·디버그 무적이어도 뒤의 분신까지 연속으로 쓸지 않는다.
                 attackConsumed = true;

@@ -31,6 +31,9 @@ namespace MukJump.Core
         bool skinStartShieldGranted;
         [SerializeField] bool skinStartBoostGranted;
         [SerializeField] float skinSkillCooldown;
+        [SerializeField] float maskStrikeCooldown;
+        public const float MaskStrikeCooldownSeconds = 30f;
+        public float MaskStrikeCooldownRemaining => maskStrikeCooldown;
         public const float SkinSkillCooldownSeconds = 20f;
         public const float SkinSkillJumpHeight = 25f;
         public float SkinSkillCooldownRemaining => skinSkillCooldown;
@@ -50,7 +53,10 @@ namespace MukJump.Core
         void TickSkinCooldown(float seconds)
         {
             if (CanTickSkinAbility && float.IsFinite(seconds) && seconds > 0)
+            {
                 skinSkillCooldown = Mathf.Max(0, skinSkillCooldown - seconds);
+                maskStrikeCooldown = Mathf.Max(0, maskStrikeCooldown - seconds);
+            }
         }
 
         PlayerController OriginalSkinPlayer()
@@ -85,6 +91,18 @@ namespace MukJump.Core
                 player.IsInkDropBoosted || player.Body == null || !player.Body.simulated)
                 return false;
             return ItemEffect.Apply(ItemType.InkDrop, player);
+        }
+
+        // 적의 실제 충돌 처리에서 피해보다 먼저 호출한다. 분신·광고 부활로 충전하지 않는다.
+        public bool TryUseMaskStrike(PlayerController player, Vector3 enemyPosition)
+        {
+            if (SkinSnapshot != InkSkinId.YakshaMask || maskStrikeCooldown > 0 || !CanTickSkinAbility ||
+                player == null || !player.isActiveAndEnabled || player.IsDead || player.IsRuntimeClone ||
+                player.Body == null || !player.Body.simulated)
+                return false;
+            maskStrikeCooldown = MaskStrikeCooldownSeconds;
+            GetComponent<InkSkinStrikeVfx>()?.Play(player, enemyPosition);
+            return true;
         }
 
         // 스킨 비기는 픽업이 아니다. 수집 업적·아이템 비행 연쇄를 늘리지 않는다.
@@ -341,6 +359,7 @@ namespace MukJump.Core
             skinStartShieldGranted = false;
             skinStartBoostGranted = false;
             skinSkillCooldown = 0;
+            maskStrikeCooldown = 0;
             stableHitReadyAt = float.NegativeInfinity;
             lastFallBrakeReadyAt = float.NegativeInfinity;
             SafetyJumpProgress = 0;

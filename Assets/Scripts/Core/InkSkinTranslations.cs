@@ -36,6 +36,9 @@ namespace MukJump.Core
                 ["첫걸음 도약"] = ("First Leap", "はじまりの跳躍"),
                 ["바람 도약"] = ("Wind Leap", "風の跳躍"),
                 ["구름 도약"] = ("Cloud Leap", "雲の跳躍"),
+                ["퇴마의 일격"] = ("Banishing Strike", "退魔の一撃"),
+                ["본체가 적과 충돌하면 피해 없이 적을 제거한다.\n30초마다 발동하며 가시·낙석에는 적용되지 않는다."] =
+                    ("Defeat an enemy on contact without taking damage.\nCooldown: 30s. Not effective against spikes or falling rocks.", "本体が敵に接触すると、ダメージを受けずに敵を倒す。\n30秒ごとに発動。トゲ・落石には無効。"),
                 ["본체가 맵 발판에 착지하면 먹방울 효과로 50m 상승한다.\n직접 그린 발판에는 발동하지 않는다."] =
                     ("Land on a map platform to boost Ink 50m with an Ink Drop.\nDoes not trigger on drawn platforms.", "本体がマップの足場に着地すると、墨滴の効果で50m上昇。\n描いた足場では発動しません。"),
                 ["도약"] = ("Leap", "跳躍"),
