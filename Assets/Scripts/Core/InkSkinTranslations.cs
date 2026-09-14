@@ -146,7 +146,7 @@ namespace MukJump.Core
             InkSkinId.PeachFlower => ("봄이 급히 두고 간 물건.", "Spring left this behind in a hurry.", "春があわてて置いていったもの。"),
             InkSkinId.FoxMask => ("속인 건 아무도 없고, 본인만 신났다.", "Fooled nobody. Had a wonderful time.", "誰もだませず、自分だけ大喜び。"),
             InkSkinId.CraneCrest => ("높이 날던 학도 빗질은 서툴렀다.", "A fine flier. A terrible hairdresser.", "高く飛ぶ鶴も、髪を整えるのは苦手。"),
-            InkSkinId.YakshaMask => ("무서운 얼굴은 동네 아이가 그렸다.", "A village child drew the scary face.", "怖い顔は、近所の子が描いた。"),
+            InkSkinId.YakshaMask => ("탈은 웃고 있지만 주먹은 웃지 않는다.", "The mask smiles. The fists do not.", "仮面は笑うが、拳は笑わない。"),
             InkSkinId.TurtleShell => ("느린 장인이 끝내 완성한 투구.", "A very slow craftsman finally finished it.", "のんびり屋の職人が、ついに仕上げた。"),
             InkSkinId.MoonCrown => ("달에서 빌렸다. 반납일은 모른다.", "Borrowed from the moon. No due date.", "月から借りた。返す日は知らない。"),
             InkSkinId.BrushMaster => ("장인은 붓을 찾고, 붓은 여기 있다.", "The master is looking for these brushes.", "職人は筆を探している。筆はここにある。"),

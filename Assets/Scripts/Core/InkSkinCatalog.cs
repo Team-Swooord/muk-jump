@@ -42,7 +42,7 @@ namespace MukJump.Core
             new(InkSkinId.PeachFlower,"복사꽃","Peach Blossom","桃の花","skin_peach_flower_v1",SkinTier.Easy,SkinMetric.Runs,5),
             new(InkSkinId.FoxMask,"여우탈","Fox Mask","狐の面","skin_fox_mask_v1",SkinTier.Medium,SkinMetric.Best,250),
             new(InkSkinId.CraneCrest,"학의 볏","Crane Crest","鶴の冠","skin_crane_crest_v1",SkinTier.Medium,SkinMetric.Distance,5000),
-            new(InkSkinId.YakshaMask,"야차탈","Yaksha Mask","夜叉の面","skin_yaksha_mask_v1",SkinTier.Medium,SkinMetric.Best,500),
+            new(InkSkinId.YakshaMask,"각시탈","Bridal Mask","花嫁の面","skin_yaksha_mask_v1",SkinTier.Medium,SkinMetric.Best,500),
             new(InkSkinId.TurtleShell,"거북 투구","Turtle Helm","亀のかぶと","skin_turtle_shell_v1",SkinTier.Medium,SkinMetric.Clones,3),
             // 은퇴 ID 20은 예전 저장을 읽기 위한 자리만 유지한다. 새 의상에 재사용하지 않는다.
             new(InkSkinId.StormScarf,"질풍 두건","Gale Scarf","疾風の頭巾","",SkinTier.Medium,SkinMetric.Survival,120),

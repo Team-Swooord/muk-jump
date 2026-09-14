@@ -60,6 +60,11 @@ Change this pig-ear accessory into a single PIG SNOUT accessory only, no ears. A
 Replace these two monkey ears with ONE CURLY MONKEY TAIL accessory. Only the tail, not an animal, not ears, no face or body. Simple orange-brown crayon fill and thick rough dark charcoal outline, exactly the same naive children's doodle style as reference. Tail begins with a thick rounded root on the LEFT at approx x18% y65%, then sweeps right in a relaxed shallow U and curls upward into an open inward spiral near the RIGHT at x75% y45%. Uniformly tubular long flexible tail with tapered rounded tip, no excessive double coil. This is a 2D side-attachment worn on the lower right hip of a tiny black inkblob, recognizable as a monkey's curly tail. Art comfortably centered, width75%canvas height55%canvas with transparent margins; single still accessory on genuine transparent RGBA background, no shadow, no checkerboard, no text, no additional objects. Simple and charming, not 3D.
 # 퇴마 타격 추가 원화
 
+## 각시탈
+
+- 기존 ID 18/원화 경로 `Assets/Resources/MukJump/Skins/skin_yaksha_mask_v1.png`를 유지하여 보유 기록을 보존한다.
+- 기존 야차 원화를 그림체·눈 위치 참조로 생성. 체크무늬 배경의 첫 출력 `exec-dc08d57f-26aa-4d68-8dcd-a3f8e5d6af6a.png`는 미사용. 이미지 도구로 배경만 재생성한 최종 `/Users/seungyeoning/.codex/generated_images/01a02807-53b4-7300-82fd-74057eea1a57/exec-ef378e03-2fb9-424d-81fe-26051da97ff3.png`를 그대로 적용. 실제 알파와 화면 착용 검사 완료.
+
 ## 천사 날개
 
 - 적용: `Assets/Art/Character/Animations/angel_wings_sheet.png`. 원본 `/Users/seungyeoning/.codex/generated_images/01a02807-53b4-7300-82fd-74057eea1a57/exec-ac94ffbb-f815-4080-80fd-0958f4f23648.png`.
