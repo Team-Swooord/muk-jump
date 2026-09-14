@@ -11,10 +11,19 @@ namespace MukJump.Core
         static ulong pending;
         static object owner;
         static bool preview;
+        static bool lobbyReveal;
+        static object wardrobeAfterReturn;
+        object returnAccount;
         bool leaving;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetPending() { pending = 0; owner = null; preview = false; }
-        public static void Prepare(ulong mask, object account) { pending = mask; owner = account; preview = false; }
+        static void ResetPending() { pending = 0; owner = null; preview = lobbyReveal = false; wardrobeAfterReturn = null; }
+        public static void Prepare(ulong mask, object account) { ResetPending(); pending = mask; owner = account; }
+        public static void PrepareLobby(ulong mask, object account) { Prepare(mask, account); lobbyReveal = true; }
+        public static object ConsumeWardrobeReturn()
+        {
+            object account = wardrobeAfterReturn; wardrobeAfterReturn = null;
+            return ReferenceEquals(account, PermanentGrowthProfile.SkinAccountToken) ? account : null;
+        }
         public static void PreparePreview(ulong mask, object account)
         {
             ResetPending();
@@ -27,7 +36,9 @@ namespace MukJump.Core
             // 붓 가림이 걷힌 뒤부터 의상 공개를 시작한다.
             yield return null;
             while (transition.IsPlaying) yield return null;
-            ulong mask = pending; object account = owner; bool testing = preview; ResetPending();
+            ulong mask = pending; object account = owner; bool testing = preview;
+            returnAccount = lobbyReveal ? account : null;
+            ResetPending();
             var view = GetComponent<InkSkinUnlockView>();
             if (!(testing ? view.ShowPreview(mask, account, ReturnToLobby, ReturnToLobby) :
                 view.Show(mask, account, ReturnToLobby, ReturnToLobby)))
@@ -40,6 +51,7 @@ namespace MukJump.Core
             PointerInput.SuppressUntilRelease();
             if (!GetComponent<BrushTransitionView>().TryPlay(() =>
             {
+                wardrobeAfterReturn = ReferenceEquals(returnAccount, PermanentGrowthProfile.SkinAccountToken) ? returnAccount : null;
                 BrushTransitionView.RequestRevealAfterSceneLoad();
                 SceneManager.LoadScene("Main");
             }, () => leaving = false)) leaving = false;

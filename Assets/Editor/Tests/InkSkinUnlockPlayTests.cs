@@ -14,7 +14,7 @@ namespace MukJump.EditorTests
 {
     public sealed class InkSkinUnlockPlayTests
     {
-        [UnityTest, Timeout(180000)]
+        [UnityTest, Timeout(180000), Category("SkinUnlockFlow")]
         public IEnumerator FinalResultRevealsOnceThenReturnsToLobbyWithSafeMotionAndAccountCancellation()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
@@ -77,13 +77,13 @@ namespace MukJump.EditorTests
                 Assert.That(view.Current,Is.EqualTo(next));
                 yield return Wait(.2f);
                 view.AcknowledgeAll(); view.AcknowledgeAll();
-                yield return Wait(3);
+                yield return WaitForMainLobby();
                 Assert.That(GameManager.Instance.State,Is.EqualTo(GameState.Lobby));
                 Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Gat),Is.True);
                 Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
                 // 같은 기록으로 또 끝나도 기존 해금 결과는 반복하지 않는다.
                 yield return BeginRun(); manager=GameManager.Instance; EndRun(manager,100);
-                yield return Wait(2); LobbyButton(manager).onClick.Invoke(); yield return Wait(3);
+                yield return Wait(2); LobbyButton(manager).onClick.Invoke(); yield return WaitForMainLobby();
                 Assert.That(GameManager.Instance.State,Is.EqualTo(GameState.Lobby));
                 Assert.That(Object.FindFirstObjectByType<InkSkinUnlockView>(),Is.Null);
                 // 로비에서 새로 발견한 비밀 의상도 다음 확정 종료에서 공개한다.
@@ -105,7 +105,7 @@ namespace MukJump.EditorTests
                 Assert.That(view.GetComponentInChildren<InkShowroomPresentation>().ParticleCount,Is.Zero);
                 // 이전 계정의 완료 콜백을 실행하지 않고 빈 결과에 갇히지 않게 화면만 로비로 돌아간다.
                 Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(),Is.True);
-                view.AcknowledgeAll(); yield return Wait(3);
+                view.AcknowledgeAll(); yield return WaitForMainLobby();
                 Assert.That(GameManager.Instance.State,Is.EqualTo(GameState.Lobby));
                 Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat),Is.False);
             }
@@ -118,6 +118,67 @@ namespace MukJump.EditorTests
             }
             yield return new ExitPlayMode();
         }
+        [UnityTest, Timeout(120000), Category("SkinUnlockFlow")]
+        public IEnumerator LobbyDiscoveryRevealsOnWardrobeEntryThenReturnsThereExactlyOnce()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool background = Application.runInBackground; Application.runInBackground = true;
+            var settings = new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true); SkinDebugSession.Reset();
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                GameLocalization.SetLanguage(GameLanguage.Korean);
+                Assert.That(MukJumpAccountRuntime.Instance == null || !MukJumpAccountRuntime.Instance.IsOnlineAuthenticated, Is.True);
+                Assert.That(PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat), Is.True);
+                var toast = GameManager.Instance.GetComponent<InkAchievementToast>();
+                toast.EnqueueLobby((int)InkSkinId.NightBat); toast.EnqueueLobby((int)InkSkinId.NightBat);
+                yield return Wait(.4f);
+                Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Main"));
+                Assert.That(Object.FindFirstObjectByType<InkSkinUnlockView>(), Is.Null);
+                yield return Capture("lobby-unlock-notice");
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True);
+                yield return WaitForUnlock();
+                var view = Object.FindFirstObjectByType<InkSkinUnlockView>();
+                Assert.That(view.Count, Is.EqualTo(1)); Assert.That(view.Current, Is.EqualTo(InkSkinId.NightBat));
+                yield return Wait(.4f); yield return Capture("lobby-unlock-reveal");
+                view.AcknowledgeAll();
+                float deadline = Time.realtimeSinceStartup + 15;
+                while ((LobbyScreenNavigator.Instance == null || LobbyScreenNavigator.Instance.CurrentSection != LobbyScreenNavigator.LobbySection.Wardrobe ||
+                    LobbyScreenNavigator.Instance.IsTransitioning) && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Main"));
+                Assert.That(LobbyScreenNavigator.Instance.CurrentSection, Is.EqualTo(LobbyScreenNavigator.LobbySection.Wardrobe));
+                Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.True);
+                Assert.That(SkinUnlockSceneController.ConsumeWardrobeReturn(), Is.Null);
+                yield return Capture("lobby-unlock-return-wardrobe");
+                Assert.That(LobbyScreenNavigator.Instance.ReturnToLobby(), Is.True); yield return WaitForNavigation();
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return WaitForNavigation();
+                Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Main"));
+                Assert.That(Object.FindFirstObjectByType<InkSkinUnlockView>(), Is.Null);
+                Assert.That(LobbyScreenNavigator.Instance.ReturnToLobby(), Is.True); yield return WaitForNavigation();
+                Assert.That(PermanentGrowthProfile.GrantSkinSecret(InkSkinId.Astronaut), Is.True);
+                GameManager.Instance.GetComponent<InkAchievementToast>().EnqueueLobby((int)InkSkinId.Astronaut);
+                Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(), Is.True);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return WaitForNavigation();
+                Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Main"));
+                Assert.That(Object.FindFirstObjectByType<InkSkinUnlockView>(), Is.Null, "이전 계정 보상을 새 계정에 표시하지 않는다.");
+            }
+            finally
+            {
+                Application.runInBackground = background; SkinDebugSession.Reset();
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+
         static IEnumerator BeginRun()
         {
             float deadline=Time.realtimeSinceStartup+8;
@@ -127,6 +188,23 @@ namespace MukJump.EditorTests
             GameManager.Instance.StartGameFromMenu(); deadline=Time.realtimeSinceStartup+8;
             while(!GameManager.Instance.IsGameplayTicking && Time.realtimeSinceStartup<deadline) yield return null;
             Assert.That(GameManager.Instance.IsGameplayTicking,Is.True,$"state={GameManager.Instance.State}, transition={GameManager.Instance.IsTransitioning}, pause={GameManager.Instance.PauseReason}, nav={LobbyScreenNavigator.Instance.CanStartGame}");
+        }
+        static IEnumerator WaitForNavigation()
+        {
+            float deadline = Time.realtimeSinceStartup + 10;
+            while ((LobbyScreenNavigator.Instance.IsTransitioning || GameManager.Instance.GetComponent<BrushTransitionView>().IsPlaying) &&
+                Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(LobbyScreenNavigator.Instance.IsTransitioning, Is.False);
+            yield return null;
+        }
+        static IEnumerator WaitForMainLobby()
+        {
+            float deadline = Time.realtimeSinceStartup + 15;
+            while ((GameManager.Instance == null || GameManager.Instance.State != GameState.Lobby || LobbyScreenNavigator.Instance == null ||
+                LobbyScreenNavigator.Instance.IsTransitioning || GameManager.Instance.GetComponent<BrushTransitionView>().IsPlaying) &&
+                Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(GameManager.Instance, Is.Not.Null);
+            Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby));
         }
         static IEnumerator WaitForUnlock()
         {

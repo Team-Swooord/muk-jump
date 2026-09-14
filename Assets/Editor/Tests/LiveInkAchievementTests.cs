@@ -76,7 +76,7 @@ namespace MukJump.EditorTests
             }
             finally { Object.DestroyImmediate(host); }
         }
-        [Test] public void GameCenterCatalogMatchesEveryUnlockAndAllThreeLanguages()
+        [Test, Category("SkinSyncRework")] public void GameCenterCatalogMatchesEveryUnlockAndAllThreeLanguages()
         {
             var catalog = MukJump.EditorTools.MukJumpAchievementExport.BuildCatalog();
             var entries = (Newtonsoft.Json.Linq.JArray)catalog["achievements"];
@@ -99,14 +99,18 @@ namespace MukJump.EditorTests
                         Assert.That(locale[field].Value<string>(), Is.Not.Empty.And.Not.EqualTo("???"), i + " / " + field);
             }
         }
-        [Test] public void EverySavedCostumeUnlockReportsItsOneMatchingGameCenterAchievement()
+        [Test, Category("SkinSyncRework")] public void EverySavedCostumeUnlockReportsItsOneMatchingGameCenterAchievement()
         {
             for (int i = 1; i < InkSkinCatalog.Count; i++)
             {
                 var state = new SkinAchievementState(); state.Grant((InkSkinId)i);
                 var progress = InkAchievementCatalog.SavedProgress(state, 0);
-                Assert.That(progress.Count, Is.EqualTo(1), "의상 " + i);
-                Assert.That(progress[0].id, Is.EqualTo(InkAchievementCatalog.Id(i)));
+                // 은퇴한 20번 보유 기록은 종이 날개(35)로 이전된다.
+                int expectedId = (int)InkSkinCatalog.Normalize((InkSkinId)i);
+                bool reportable = InkSkinCatalog.IsAvailable((InkSkinId)expectedId) && expectedId <= InkAchievementCatalog.RegisteredGameCenterCount;
+                Assert.That(progress.Count, Is.EqualTo(reportable ? 1 : 0), "의상 " + i);
+                if (!reportable) continue;
+                Assert.That(progress[0].id, Is.EqualTo(InkAchievementCatalog.Id(expectedId)));
                 Assert.That(progress[0].percent, Is.EqualTo(100));
             }
         }

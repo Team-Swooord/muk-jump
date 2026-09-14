@@ -57,10 +57,23 @@ namespace MukJump.Core
             ResetToLobbyImmediate();
         }
 
-        void Start()
+        IEnumerator Start()
         {
             ResolveDependencies();
             ResetToLobbyImmediate();
+            object account = SkinUnlockSceneController.ConsumeWardrobeReturn();
+            if (account == null) yield break;
+            yield return null; // 같은 프레임의 로비 뷰 Start가 끝난 뒤 가림 아래에서 전용 화면을 준비한다.
+            // 공개 씬에서 돌아올 때 로비가 잠깐 보였다가 다시 가려지지 않게, 첫 가림 아래 꾸미기를 준비한다.
+            CurrentSection = PendingSection = LobbySection.Wardrobe;
+            IsTransitioning = true;
+            int version = ++transitionVersion;
+            ApplySection(CurrentSection, interactive: false); ApplyMenuSelection(CurrentSection);
+            while (IsCurrentTransition(version) && transitionView != null && transitionView.IsPlaying) yield return null;
+            if (!IsCurrentTransition(version)) yield break;
+            if (!ReferenceEquals(account, PermanentGrowthProfile.SkinAccountToken) || manager == null || manager.State != GameState.Lobby)
+            { ResetToLobbyImmediate(); yield break; }
+            FinishTransition(version);
         }
 
         void OnDisable()
@@ -206,6 +219,7 @@ namespace MukJump.Core
         void HandleCovered(int version)
         {
             if (!IsCurrentTransition(version)) return;
+            if (PendingSection == LobbySection.Wardrobe && manager.TryOpenLobbySkinUnlock()) return;
             CurrentSection = PendingSection;
             ApplySection(CurrentSection, interactive: false);
         }

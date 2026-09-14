@@ -618,7 +618,8 @@ namespace MukJump.Core
                 !string.Equals(skinRewardOwner, CurrentAccountScope(), StringComparison.Ordinal) ||
                 !string.Equals(skinRewardOwner, PlayerPrefs.GetString(StoredAccountScopeKey, ""), StringComparison.Ordinal)) return;
             skinRewardRetryAt = Time.realtimeSinceStartup + InitialRetrySeconds;
-            PermanentGrowthProfile.TryGrantAppleLinkSkin(skinRewardProfileToken);
+            if (PermanentGrowthProfile.TryGrantAppleLinkSkin(skinRewardProfileToken))
+                GameManager.Instance?.GetComponent<InkAchievementToast>()?.EnqueueLobby((int)InkSkinId.BondKnot);
         }
 
         void HandleAppleAuthenticationPumpFailure(Exception exception)

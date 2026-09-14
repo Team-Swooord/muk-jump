@@ -191,6 +191,30 @@ namespace MukJump.Core
         BrushTransitionView transitionView;
         GameOverPopupView gameOverPopupView;
         readonly InkSkinUnlockState skinUnlocks = new();
+
+        public void QueueLobbySkinUnlock(int id)
+        {
+            if (State != GameState.Lobby || SkinDebugSession.Active || id <= 0 || id >= InkSkinCatalog.Count ||
+                !InkSkinCatalog.IsAvailable((InkSkinId)id) || !InkSkinAchievements.IsUnlocked((InkSkinId)id)) return;
+            skinUnlocks.QueueLobby(PermanentGrowthProfile.SkinAccountToken, 1UL << id, InkSkinUnlockState.ReadUnlocked());
+        }
+
+        // 꾸미기 전환의 가림이 완료된 시점에만 소비한다. 전환 실패/계정 변경은 보상을 지우지 않는다.
+        public bool TryOpenLobbySkinUnlock()
+        {
+            if (!Application.isPlaying || State != GameState.Lobby || SkinDebugSession.Active ||
+                PermanentGrowthProfile.RequiresRecovery || MukJumpAccountRuntime.Instance?.BlocksGameplayForAccountSync == true ||
+                !Application.CanStreamedLevelBeLoaded(SkinUnlockSceneController.SceneName)) return false;
+            object account = PermanentGrowthProfile.SkinAccountToken;
+            ulong unlocked = InkSkinUnlockState.ReadUnlocked();
+            ulong mask = skinUnlocks.PeekLobby(account, unlocked);
+            if (mask == 0) return false;
+            SkinUnlockSceneController.PrepareLobby(mask, account);
+            BrushTransitionView.RequestRevealAfterSceneLoad();
+            SceneManager.LoadScene(SkinUnlockSceneController.SceneName);
+            skinUnlocks.TakeLobby(account, unlocked);
+            return true;
+        }
         readonly LiveInkAchievements liveAchievements = new();
         int itemFlightSequence, itemFlightCount;
         int liveGameplayMask;

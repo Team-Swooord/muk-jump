@@ -7,6 +7,7 @@ using UnityEngine;
 
 namespace MukJump.EditorTests
 {
+    [Category("SkinUnlockFlow")]
     public sealed class InkSkinUnlockTests
     {
         GameObject host, scoreHost;
@@ -14,6 +15,51 @@ namespace MukJump.EditorTests
         MemoryPermanentGrowthStore growth;
         static GameOverResult Saved => new(100, 100, true, 1, 1, true);
         static ulong Bit(InkSkinId id) => 1UL << (int)id;
+
+        [Test] public void LobbyRevealConsumesOnlySavedNewRewardsAndCannotRepeatAfterAPlaySession()
+        {
+            object account = new object(); var state = new InkSkinUnlockState();
+            ulong before = Bit(InkSkinId.Gat), reward = Bit(InkSkinId.NightBat);
+            state.Initialize(account, before);
+            state.QueueLobby(account, before, before); Assert.That(state.PeekLobby(account, before), Is.Zero);
+            state.QueueLobby(account, reward, before); Assert.That(state.PeekLobby(account, before), Is.Zero, "저장 실패 보상은 예약하지 않는다.");
+            state.QueueLobby(account, reward, before | reward); state.QueueLobby(account, reward, before | reward);
+            Assert.That(state.PeekLobby(account, before | reward), Is.EqualTo(reward));
+            Assert.That(state.PeekLobby(account, before | reward), Is.EqualTo(reward), "전환 시작/취소는 조회만 하며 소비하지 않는다.");
+            Assert.That(state.TakeLobby(account, before | reward), Is.EqualTo(reward));
+            Assert.That(state.TakeLobby(account, before | reward), Is.Zero);
+            state.QueueLobby(account, reward, before | reward); Assert.That(state.PeekLobby(account, before | reward), Is.Zero);
+            state.BeginRun("next", account, before | reward);
+            Assert.That(state.Take("next", account, before | reward | Bit(InkSkinId.FirstRibbon), Saved), Is.EqualTo(Bit(InkSkinId.FirstRibbon)));
+        }
+
+        [Test] public void LobbyRewardCanWaitForGameOverButNeverLeaksAcrossAnAccountSwitch()
+        {
+            var account = new object(); var state = new InkSkinUnlockState(); ulong bit = Bit(InkSkinId.BondKnot);
+            state.Initialize(account, 0); state.QueueLobby(account, bit, bit);
+            state.BeginRun("run", account, bit);
+            Assert.That(state.PeekLobby(new object(), bit), Is.Zero);
+            var pending = new GameOverResult(10, 10, true, 1, 1, true, growthRewardSaved: false);
+            Assert.That(state.Take("run", account, bit, pending), Is.Zero);
+            Assert.That(state.PeekLobby(account, bit), Is.EqualTo(bit));
+            var rollback = new object(); state.FollowSettlement(account, rollback);
+            Assert.That(state.Take("run", rollback, bit, Saved), Is.EqualTo(bit));
+            Assert.That(state.TakeLobby(rollback, bit), Is.Zero);
+            state.Initialize(new object(), bit); Assert.That(state.PeekLobby(rollback, bit), Is.Zero);
+        }
+
+        [Test] public void LobbyQueueRejectsRetiredIdsAndUnownedOrFailedSecretGrants()
+        {
+            var state = new InkSkinUnlockState(); object account = PermanentGrowthProfile.SkinAccountToken;
+            state.Initialize(account, InkSkinUnlockState.ReadUnlocked());
+            growth.ThrowOnPrimarySave = true;
+            Assert.That(PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat), Is.False);
+            state.FollowSettlement(account, PermanentGrowthProfile.SkinAccountToken);
+            state.QueueLobby(PermanentGrowthProfile.SkinAccountToken, Bit(InkSkinId.NightBat), InkSkinUnlockState.ReadUnlocked());
+            Assert.That(state.PeekLobby(PermanentGrowthProfile.SkinAccountToken, ulong.MaxValue), Is.Zero);
+            state.QueueLobby(PermanentGrowthProfile.SkinAccountToken, Bit(InkSkinId.StormScarf), ulong.MaxValue);
+            Assert.That(state.PeekLobby(PermanentGrowthProfile.SkinAccountToken, ulong.MaxValue), Is.Zero);
+        }
         [SetUp] public void Setup()
         {
             growth = new MemoryPermanentGrowthStore();

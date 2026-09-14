@@ -26,6 +26,7 @@ namespace MukJump.Core
         void EnqueueForState(int id, bool inLobby)
         {
             if (id <= 0 || id > InkSkinCatalog.Count + 1) return;
+            if (inLobby) GameManager.Instance?.QueueLobbySkinUnlock(id);
             if (!ReferenceEquals(owner, PermanentGrowthProfile.SkinAccountToken) || lobbyNotice != inLobby) Clear();
             owner = PermanentGrowthProfile.SkinAccountToken;
             lobbyNotice = inLobby;

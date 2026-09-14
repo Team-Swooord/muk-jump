@@ -7,6 +7,7 @@ namespace MukJump.Core
     {
         object owner;
         ulong baseline;
+        ulong lobbyPending;
         string runId;
         bool initialized, consumed;
 
@@ -20,7 +21,25 @@ namespace MukJump.Core
         public void Initialize(object account, ulong unlocked)
         {
             owner = account; baseline = unlocked; runId = null;
+            lobbyPending = 0;
             initialized = true; consumed = false;
+        }
+        // 저장이 성공한 새 로비 보상의 알림에서만 예약한다. 서버에서 읽은 기존 보유 목록은 예약하지 않는다.
+        public void QueueLobby(object account, ulong reward, ulong unlocked)
+        {
+            reward &= unlocked & InkSkinCatalog.AvailableRewardMask;
+            if (reward == 0) return;
+            if (!initialized || !ReferenceEquals(owner, account)) Initialize(account, unlocked & ~reward);
+            lobbyPending |= reward & ~baseline;
+        }
+        public ulong PeekLobby(object account, ulong unlocked) => initialized && ReferenceEquals(owner, account)
+            ? lobbyPending & unlocked & InkSkinCatalog.AvailableRewardMask : 0;
+        public ulong TakeLobby(object account, ulong unlocked)
+        {
+            ulong mask = PeekLobby(account, unlocked);
+            lobbyPending &= ~mask;
+            baseline |= mask;
+            return mask;
         }
         public void BeginRun(string id, object account, ulong unlocked)
         {
@@ -44,8 +63,9 @@ namespace MukJump.Core
                 !result.RecordSaved || !result.GrowthRewardSaved ||
                 result.PersistenceState != GameOverPersistenceState.Complete) return 0;
             consumed = true;
-            ulong newlyUnlocked = unlocked & ~baseline & ~1UL;
+            ulong newlyUnlocked = unlocked & ~baseline & InkSkinCatalog.AvailableRewardMask;
             baseline = unlocked;
+            lobbyPending = 0;
             return newlyUnlocked;
         }
     }
