@@ -18,6 +18,104 @@ namespace MukJump.EditorTests
 {
     public sealed class LobbySkinPreviewTests
     {
+        [TestCase(30), TestCase(60), TestCase(120), Category("LobbyDrift")]
+        public void AutomaticFloatKeepsSpeedAndVisitsBothDirectionsWithoutGravity(int fps)
+        {
+            var random = Random.state;
+            Vector2 position = Vector2.zero, speed = new Vector2(3, 4).normalized * LobbySkinPreview.DriftSpeed;
+            Vector2 limits = new(90, 170);
+            bool up = false, down = false, left = false, right = false;
+            for (int i = 0; i < fps * 60; i++)
+            {
+                LobbySkinPreview.AdvanceFloat(ref position, ref speed, limits, 1f / fps);
+                Assert.That(Mathf.Abs(position.x), Is.LessThanOrEqualTo(limits.x));
+                Assert.That(Mathf.Abs(position.y), Is.LessThanOrEqualTo(limits.y));
+                Assert.That(speed.magnitude, Is.EqualTo(LobbySkinPreview.DriftSpeed).Within(.001f));
+                up |= speed.y > 0; down |= speed.y < 0; left |= speed.x < 0; right |= speed.x > 0;
+            }
+            Assert.That(up && down && left && right, Is.True);
+            Assert.That(Random.state, Is.EqualTo(random), "로비 부유가 게임 난수를 소비하지 않는다.");
+        }
+
+        [TestCase(30), TestCase(60), TestCase(120), Category("LobbyDrift")]
+        public void AutomaticFloatHasNoDownwardAccelerationAndIsFrameRateIndependent(int fps)
+        {
+            Vector2 position = Vector2.zero, speed = new Vector2(3, 4).normalized * LobbySkinPreview.DriftSpeed;
+            Vector2 expected = speed;
+            for (int i = 0; i < fps; i++)
+                LobbySkinPreview.AdvanceFloat(ref position, ref speed, Vector2.one * 100, 1f / fps);
+            Assert.That(Vector2.Distance(position, expected), Is.LessThan(.02f));
+            Assert.That(Vector2.Distance(speed, expected), Is.LessThan(.001f));
+        }
+
+        [Test, Category("LobbyDrift")]
+        public void AutomaticFloatLeavesFloorAndReflectsLongFramesWithoutLeavingCostumeBounds()
+        {
+            Vector2 limit = LobbySkinPreview.RotationTravel(new Vector2(250, 500), new Vector2(160, 240), 65f);
+            Vector2 position = new(0, -limit.y), speed = Vector2.zero;
+            LobbySkinPreview.AdvanceFloat(ref position, ref speed, limit, .1f);
+            Assert.That(position.y, Is.GreaterThan(-limit.y));
+            Assert.That(speed.y, Is.GreaterThan(0));
+            LobbySkinPreview.AdvanceFloat(ref position, ref speed, limit, 1000f);
+            Assert.That(Mathf.Abs(position.x), Is.LessThanOrEqualTo(limit.x));
+            Assert.That(Mathf.Abs(position.y), Is.LessThanOrEqualTo(limit.y));
+            LobbySkinPreview.AdvanceFloat(ref position, ref speed, Vector2.zero, 1f);
+            Assert.That(position, Is.EqualTo(Vector2.zero));
+            Assert.That(speed, Is.EqualTo(Vector2.zero));
+        }
+
+        [UnityTest, Category("LobbyDrift"), Timeout(120000)]
+        public IEnumerator UntouchedLobbyFloatsAndSettledReleaseResumesWithoutGrantingCushionReward()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool background = Application.runInBackground; Application.runInBackground = true;
+            var settings = new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                var preview = Object.FindAnyObjectByType<LobbySkinPreview>();
+                Assert.That(preview.IsVisible, Is.True);
+                Vector2 speed = preview.Velocity, before = preview.Drift.anchoredPosition;
+                yield return Wait(1.5f);
+                Assert.That(Vector2.Distance(preview.Velocity, speed), Is.LessThan(.01f));
+                Assert.That(preview.Velocity.magnitude, Is.EqualTo(LobbySkinPreview.DriftSpeed).Within(.01f));
+                Assert.That(Vector2.Distance(before, preview.Drift.anchoredPosition), Is.GreaterThan(10f));
+
+                // 바닥에 잡아 놓은 투척이 끝나도 그 자리에 굳지 않고 다시 부유한다.
+                var e = new PointerEventData(EventSystem.current) { pointerId = 42,
+                    position = ScreenPoint(preview, preview.Drift.anchoredPosition) };
+                preview.OnPointerDown(e);
+                Assert.That(preview.IsDragging, Is.True);
+                e.position = ScreenPoint(preview, new Vector2(0, -preview.Travel.y));
+                preview.OnDrag(e);
+                yield return Wait(.15f);
+                preview.OnPointerUp(e);
+                yield return Wait(.8f);
+                Assert.That(preview.IsDragging, Is.False);
+                Assert.That(preview.Velocity.y, Is.GreaterThan(0f));
+                Assert.That(preview.Drift.anchoredPosition.y, Is.GreaterThan(-preview.Travel.y + 5f));
+                Assert.That(preview.Velocity.magnitude, Is.EqualTo(LobbySkinPreview.DriftSpeed).Within(.01f));
+                Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.ThreeCushion), Is.False);
+                Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby));
+                CheckBounds(preview);
+            }
+            finally
+            {
+                MobileApplicationLifecycle.SetPlatformVisibility(true); Application.runInBackground = background;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+
         [TestCase(-1), TestCase(1), Category("LobbyTumble")]
         public void SlantedWallImpactSpinsInContactDirectionAndKeepsGravity(int side)
         {
@@ -262,7 +360,11 @@ namespace MukJump.EditorTests
                 Assert.That(preview.Velocity.magnitude, Is.LessThanOrEqualTo(LobbySkinPreview.MaxThrowSpeed + .01f));
                 Assert.That(body.overrideSprite, Is.SameAs(body.sprite));
                 Vector2 before = preview.Drift.anchoredPosition, released = preview.Velocity;
-                for (int i = 0; i < 4; i++) yield return null;
+                // EditMode 테스트의 yield 4회가 Player 프레임 4회를 보장하지 않는다.
+                int targetFrame = Time.frameCount + 4;
+                float movementDeadline = Time.realtimeSinceStartup + 3f;
+                while (Time.frameCount < targetFrame && Time.realtimeSinceStartup < movementDeadline) yield return null;
+                Assert.That(Time.frameCount, Is.GreaterThanOrEqualTo(targetFrame));
                 Vector2 movement = preview.Drift.anchoredPosition - before;
                 Assert.That(Vector2.Dot(movement.normalized, released.normalized), Is.GreaterThan(.99f));
                 Assert.That(preview.Velocity.x, Is.LessThan(released.x));
@@ -372,7 +474,7 @@ namespace MukJump.EditorTests
                 var before = preview.Drift.anchoredPosition;
                 yield return Wait(.4f);
                 float distance = Vector2.Distance(before, preview.Drift.anchoredPosition);
-                Assert.That(distance, Is.InRange(1f, 240f), "약한 중력으로 가라앉되 갑자기 빠르게 날아가면 안 된다.");
+                Assert.That(distance, Is.InRange(1f, 24f), "자동 부유는 중력 없이 일정한 저속을 유지한다.");
                 yield return Capture("slow-free-drift");
 
                 // 실제 Input System → UI 모듈 → 레이캐스트 → 드래그 경로. 시작 버튼 위에서 손을 떼도 시작하지 않는다.

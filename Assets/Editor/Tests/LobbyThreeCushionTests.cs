@@ -272,17 +272,36 @@ namespace MukJump.EditorTests
                 Assert.That(toast.SoundPlayCountForTests, Is.EqualTo(1));
                 Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby));
 
-                // 기존 꾸미기 화면에서 실제 착용과 해금 조건 표시를 확인한다.
+                // 로비 해금은 꾸미기 진입 시 전용 공개 씬을 먼저 거친 뒤 새 Main으로 복귀한다.
                 Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True);
                 deadline = Time.realtimeSinceStartup + 15;
-                while (LobbyScreenNavigator.Instance.IsTransitioning && Time.realtimeSinceStartup < deadline) yield return null;
+                InkSkinUnlockView reveal = null;
+                while (Time.realtimeSinceStartup < deadline)
+                {
+                    reveal = Object.FindAnyObjectByType<InkSkinUnlockView>();
+                    if (reveal != null && reveal.IsOpen) break;
+                    yield return null;
+                }
+                Assert.That(reveal, Is.Not.Null);
+                Assert.That(reveal.IsOpen, Is.True);
+                Assert.That(reveal.Current, Is.EqualTo(InkSkinId.ThreeCushion));
+                yield return Wait(.4f); // 공개 직후의 중복 입력 방지 시간이 지난 뒤 확인한다.
+                reveal.AcknowledgeAll();
+                deadline = Time.realtimeSinceStartup + 15;
+                while ((LobbyScreenNavigator.Instance == null || LobbyScreenNavigator.Instance.IsTransitioning ||
+                    LobbyScreenNavigator.Instance.CurrentSection != LobbyScreenNavigator.LobbySection.Wardrobe) &&
+                    Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(LobbyScreenNavigator.Instance, Is.Not.Null);
                 Assert.That(LobbyScreenNavigator.Instance.IsTransitioning, Is.False);
+                Assert.That(LobbyScreenNavigator.Instance.CurrentSection, Is.EqualTo(LobbyScreenNavigator.LobbySection.Wardrobe));
                 var wardrobe = Object.FindAnyObjectByType<InkWardrobeView>(); wardrobe.Select(InkSkinId.ThreeCushion);
                 yield return Wait(.4f);
                 Assert.That(wardrobe.EquipButton.interactable, Is.True);
                 wardrobe.EquipButton.onClick.Invoke();
                 Assert.That(InkSkinPreferences.PersistedEquipped, Is.EqualTo(InkSkinId.ThreeCushion));
-                Assert.That(body.sprite, Is.SameAs(originalBody));
+                var returnedPreview = Object.FindAnyObjectByType<LobbySkinPreview>();
+                var returnedBody = returnedPreview.transform.Find("Drift/Artwork/OriginalInkBody").GetComponent<UnityEngine.UI.Image>();
+                Assert.That(returnedBody.sprite, Is.SameAs(originalBody));
                 yield return Capture("three-cushion-wardrobe");
             }
             finally

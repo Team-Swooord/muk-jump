@@ -39,7 +39,7 @@ namespace MukJump.Core
         float elapsed, heldTime, rotation, angularVelocity;
         InkSpriteAnimation heldAnimation;
         public static readonly Vector2 HeldArtOffset = new(-.025f, -.045f);
-        bool positioned, holding;
+        bool positioned, holding, throwPhysics;
         int pointerId;
         uint inactiveGeneration;
         // 게임 난수·저장값과 분리된 시드. 로비를 새로 만들 때마다 다른 경로를 탄다.
@@ -108,14 +108,29 @@ namespace MukJump.Core
                 if (!holding)
                 {
                     Vector2 position = drift.anchoredPosition;
-                    int contacts = AdvanceTumble(ref position, ref velocity, ref rotation, ref angularVelocity,
-                        area.sizeDelta * .5f - Vector2.one * 4f, drift.sizeDelta, dt);
+                    if (throwPhysics)
+                    {
+                        int contacts = AdvanceTumble(ref position, ref velocity, ref rotation, ref angularVelocity,
+                            area.sizeDelta * .5f - Vector2.one * 4f, drift.sizeDelta, dt);
+                        object completedOwner = cushionAttempt.Record(PermanentGrowthProfile.SkinAccountToken, contacts);
+                        if (completedOwner != null && SkinSecrets.CompletedThreeCushion(completedOwner) != 0)
+                            GameManager.Instance?.GetComponent<InkAchievementToast>()?.EnqueueLobby((int)InkSkinId.ThreeCushion);
+                        // 던진 움직임이 끝나면 바닥에 남지 않고 다음 프레임부터 다시 부유한다.
+                        if (velocity == Vector2.zero && angularVelocity == 0f)
+                        {
+                            throwPhysics = false;
+                            cushionAttempt.Cancel();
+                        }
+                    }
+                    else
+                    {
+                        // 혼자 떠다닐 때는 중력·마찰·업적 충돌 집계를 적용하지 않는다.
+                        AdvanceFloat(ref position, ref velocity,
+                            RotationTravel(area.sizeDelta * .5f - Vector2.one * 4f, drift.sizeDelta, rotation), dt);
+                        angularVelocity = 0f;
+                    }
                     travel = RotationTravel(area.sizeDelta * .5f - Vector2.one * 4f, drift.sizeDelta, rotation);
                     drift.anchoredPosition = position;
-                    object completedOwner = cushionAttempt.Record(PermanentGrowthProfile.SkinAccountToken, contacts);
-                    if (completedOwner != null && SkinSecrets.CompletedThreeCushion(completedOwner) != 0)
-                        GameManager.Instance?.GetComponent<InkAchievementToast>()?.EnqueueLobby((int)InkSkinId.ThreeCushion);
-                    if (velocity == Vector2.zero) cushionAttempt.Cancel();
                 }
             }
             // 본체와 의상을 한 덩어리로 회전한다. 원화·프레임을 늘이거나 이동 방향으로 정면을 강제하지 않는다.
@@ -219,6 +234,7 @@ namespace MukJump.Core
             CancelDrag();
             velocity = released;
             angularVelocity = releasedSpin;
+            throwPhysics = true;
             // 자동 부유나 정지한 탭은 도전이 아니다. 직접 던진 한 번의 궤적만 이어서 센다.
             if (released.sqrMagnitude > 1f && !SkinDebugSession.Active && !PermanentGrowthProfile.RequiresRecovery &&
                 MukJumpAccountRuntime.Instance?.BlocksGameplayForAccountSync != true)
@@ -228,7 +244,7 @@ namespace MukJump.Core
         void CancelDrag()
         {
             // 화면 전환·백그라운드·의상 변경은 던지기가 아니다. 잡지 않은 자유 이동 속도는 보존한다.
-            if (holding) { velocity = Vector2.zero; angularVelocity = 0f; }
+            if (holding) { velocity = Vector2.zero; angularVelocity = 0f; throwPhysics = false; }
             cushionAttempt.Cancel();
             holding = false; heldTime = 0f; PresentHeldPose();
         }
@@ -292,7 +308,27 @@ namespace MukJump.Core
             }
         }
 
-        // 게임 난수·물리와 분리된 로비 운동. 작은 시간 간격으로 계산해 고속 투척도 벽 밖으로 빠지지 않는다.
+        /// 자동 부유는 속도를 잃거나 아래로 가속하지 않는다. 경계에서 남은 이동량까지 반사한다.
+        public static void AdvanceFloat(ref Vector2 position, ref Vector2 speed, Vector2 limits, float dt)
+        {
+            if (dt <= 0f) return;
+            speed = (speed.sqrMagnitude > .001f ? speed.normalized : new Vector2(3f, 4f).normalized) * DriftSpeed;
+            FloatAxis(ref position.x, ref speed.x, limits.x, dt);
+            FloatAxis(ref position.y, ref speed.y, limits.y, dt);
+        }
+
+        static void FloatAxis(ref float position, ref float speed, float limit, float dt)
+        {
+            if (limit <= 0f) { position = 0f; speed = 0f; return; }
+            float unfolded = Mathf.Clamp(position, -limit, limit) + speed * dt;
+            float phase = Mathf.Repeat(unfolded + limit, limit * 4f);
+            position = phase <= limit * 2f ? phase - limit : limit * 3f - phase;
+            if (phase > limit * 2f) speed = -speed;
+            if (position >= limit) speed = -Mathf.Abs(speed);
+            else if (position <= -limit) speed = Mathf.Abs(speed);
+        }
+
+        // 게임 난수·물리와 분리된 투척 운동. 작은 시간 간격으로 계산해 고속 투척도 벽 밖으로 빠지지 않는다.
         public static int AdvanceBounce(ref Vector2 position, ref Vector2 speed, Vector2 limits, float dt)
         {
             float angle = 0f, spin = 0f;
