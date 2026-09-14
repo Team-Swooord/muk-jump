@@ -15,6 +15,7 @@ namespace MukJump.Core
         {
             var result = new Dictionary<string, (string, string)>
             {
+                ["다시 피는 빛"] = ("Light Reborn", "よみがえる光"),
                 ["의상 시험실"] = ("Outfit test room", "衣装テスト"),
                 ["닫기"] = ("Close", "閉じる"),
                 ["해금 연출 보기"] = ("Preview unlock", "解放演出を見る"),
@@ -124,6 +125,7 @@ namespace MukJump.Core
     public static class InkSkinLore
     {
         public static (string ko, string en, string ja) Get(InkSkinId id) => InkMythicSkins.Contains(id) ? InkMythicSkins.Lore(id) : id switch {
+            InkSkinId.AngelWings => ("하늘과 지옥 사이에서도 퇴근 시간은 지킨다.", "Even between heaven and hell, it clocks out on time.", "天と地獄の間でも、定時には帰る。"),
             InkSkinId.Ink => ("벼루 밖으로 처음 굴러 나온 날.", "The day a drop rolled out of the inkstone.", "硯の外へ、はじめて転がり出た日。"),
             InkSkinId.Gat => ("쓰고 나면 어째서인지 바람처럼 스쳐 가는 노래가 들린다.", "Put it on, and an old street anthem drifts past on the wind.", "かぶると、なぜか風に乗って昔の街の歌が聞こえる。"),
             InkSkinId.SpiderMask => ("이웃의 빨래줄까지 지키는 작은 영웅.", "A little neighborhood hero. Even the clotheslines are safe.", "ご近所の物干しロープまで守る、小さなヒーロー。"),

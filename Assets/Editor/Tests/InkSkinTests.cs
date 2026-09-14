@@ -570,9 +570,13 @@ namespace MukJump.EditorTests
             Invoke(manager,"SetState",GameState.Lobby); Invoke(manager,"BeginPlayingAfterCover");
             Assert.That(original.HasShield,Is.True);
         }
-        [Test] public void PhoenixConsumesOneSharedRevivalAcrossBothDamageTypesAndAdResume()
+        [TestCase(InkSkinId.PhoenixCrown)]
+        [TestCase(InkSkinId.AngelWings, Category = "AngelWings")]
+        public void RevivalCostumeConsumesOneSharedRevivalAcrossBothDamageTypesAndAdResume(InkSkinId id)
         {
-            UnlockCombatSkins(); InkSkinPreferences.TryEquip(InkSkinId.PhoenixCrown);
+            UnlockCombatSkins();
+            PermanentGrowthProfile.SettleRun("angel-distance", 10000, 10000, 0, 60, true, SkinRunStats.Begin(false, InkSkinId.Ink));
+            Assert.That(InkSkinPreferences.TryEquip(id), Is.True);
             var manager=Manager(out var growth); Invoke(manager,"SetState",GameState.Playing);
             var original=Player(); manager.RegisterPlayer(original);
             var clone=Player(); Field(clone,"isRuntimeClone",true); manager.RegisterPlayer(clone);
@@ -839,6 +843,25 @@ namespace MukJump.EditorTests
             var manager = Manager(out growth); Invoke(manager, "BeginPlayingAfterCover");
             player = Player(); manager.RegisterPlayer(player);
             return manager;
+        }
+
+        [Test, Category("AngelWings")]
+        public void AngelWingsKeepSavedBitsAndUnlockOnlyAtTenThousandMetres()
+        {
+            var state = new SkinAchievementState();
+            Assert.That(state.Progress(InkSkinId.AngelWings, 9999, 0), Is.EqualTo(9999));
+            state.Settle(1, 1, SkinRunStats.Begin(false, InkSkinId.Ink), 9999, 0);
+            Assert.That(state.Has(InkSkinId.AngelWings), Is.False);
+            state.Settle(1, 1, SkinRunStats.Begin(false, InkSkinId.Ink), 10000, 0);
+            Assert.That(state.Has(InkSkinId.AngelWings), Is.True);
+            state.Grant(InkSkinId.ThreeCushion); state.Grant(InkSkinId.StormScarf);
+            var saved = JsonUtility.FromJson<SkinAchievementState>(JsonUtility.ToJson(state));
+            Assert.That(saved.IsValid, Is.True);
+            foreach (var id in new[] { InkSkinId.AngelWings, InkSkinId.ThreeCushion, InkSkinId.StormScarf }) Assert.That(saved.Has(id), Is.True);
+            Assert.That(InkAchievementCatalog.SavedProgress(saved, 10000).Any(x => x.id.EndsWith(".62")), Is.False, "미등록 Apple 업적을 보내 기존 배치를 실패시키지 않는다.");
+            foreach (string source in new[] { InkSkinCatalog.Name(InkSkinId.AngelWings), InkSkinCatalog.Ability(InkSkinId.AngelWings), InkSkinCatalog.Description(InkSkinId.AngelWings), InkSkinLore.Get(InkSkinId.AngelWings).ko })
+                foreach (bool ja in new[] { false, true }) Assert.That(InkSkinTranslations.TryTranslate(source, ja, out _), Is.True);
+            Assert.That(InkSkinCatalog.Sprite(InkSkinId.AngelWings), Is.SameAs(InkAccessoryMotion.Animation(InkSkinId.AngelWings).Frame(0)));
         }
 
         GameManager Manager(out RunGrowthController growth)

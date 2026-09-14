@@ -5,7 +5,7 @@ namespace MukJump.Core
     public enum InkSkinId { Ink = 0, Gat = 1, SpiderMask = 2, FirstRibbon = 3, Scholar = 4, InkGhost = 5, BambooHat = 6, RedHeadband = 7, LotusCrown = 8, CatEars = 9, BellRibbon = 10, CloudCap = 11, PaperBoat = 12, TeaCupHat = 13, FeatherHairpin = 14, PeachFlower = 15, FoxMask = 16, CraneCrest = 17, YakshaMask = 18, TurtleShell = 19, StormScarf = 20, MoonCrown = 21, BrushMaster = 22, SpiritHalo = 23, KoiMask = 24, JadeCrown = 25, PhoenixCrown = 26, TigerMask = 27, MountainKing = 28, CloudDragon = 29, InkMecha = 30, NightBat = 31, Astronaut = 32, ClockworkCat = 33, LuckyDice = 34, OrigamiWings = 35, CraneWings = 36, ButterflyWings = 37, RedShoes = 38, CloudBoots = 39, BlueWisps = 40, PaperLanterns = 41, MoonClouds = 42, BondKnot = 43, WindFan = 44, DragonTail = 45,
         ZodiacRat = 46, ZodiacOx = 47, ZodiacTiger = 48, ZodiacRabbit = 49, ZodiacDragon = 50, ZodiacSnake = 51,
         ZodiacHorse = 52, ZodiacGoat = 53, ZodiacMonkey = 54, ZodiacRooster = 55, ZodiacDog = 56, ZodiacPig = 57,
-        HaetaeCrest = 58, ThreeLeggedCrow = 59, NineTails = 60, ThreeCushion = 61 }
+        HaetaeCrest = 58, ThreeLeggedCrow = 59, NineTails = 60, ThreeCushion = 61, AngelWings = 62 }
     public enum SkinTier { Basic, Easy, Medium, Hard, Hidden, UltraHidden }
     public enum SkinMetric { None, Best, Runs, Distance, DrawnLandings, InkDrops, Items, Survival, Clones, NightBest, Growth, NoItemBest, ZeroRun, Secret, AppleLink, DragonDeath }
     public sealed class InkSkinDefinition
@@ -20,7 +20,7 @@ namespace MukJump.Core
     }
     public static class InkSkinCatalog
     {
-        public const int Count = 62;
+        public const int Count = 63;
         public const float AirJumpRatio = .4f;
         static readonly InkSkinDefinition[] definitions =
         {
@@ -86,7 +86,9 @@ namespace MukJump.Core
             new(InkSkinId.HaetaeCrest,"해태의 작은 뿔","Little Haetae Horn","ヘテの小さな角","skin_haetae_crest_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.ThreeLeggedCrow,"삼족오의 해","Three-Legged Sun Crow","三足烏の太陽","skin_three_legged_crow_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.NineTails,"구미호 꼬리","Nine Fox Tails","九尾のしっぽ","skin_nine_tails_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
-            new(InkSkinId.ThreeCushion,"팔번공","Eight Ball","8番ボール","skin_three_cushion_v1",SkinTier.UltraHidden,SkinMetric.Secret,1)
+            new(InkSkinId.ThreeCushion,"팔번공","Eight Ball","8番ボール","skin_three_cushion_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
+            // 정지 그림도 애니메이션 첫 프레임을 사용한다. 중복 PNG는 만들지 않는다.
+            new(InkSkinId.AngelWings,"천사 날개","Angel Wings","天使の翼","",SkinTier.Hard,SkinMetric.Distance,10000)
         };
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
         public static bool IsAvailable(InkSkinId id) => IsValid(id) && id != InkSkinId.StormScarf;
@@ -124,12 +126,13 @@ namespace MukJump.Core
         public static bool IsConcealed(InkSkinId id) => (Get(id)?.Tier is SkinTier.Hidden or SkinTier.UltraHidden) && !InkSkinAchievements.IsUnlocked(id);
         public static string Name(InkSkinId id) => IsValid(id) ? Get(Normalize(id))?.Korean ?? "???" : "???";
         public static bool HasAbility(InkSkinId id) => id is InkSkinId.Gat or InkSkinId.SpiderMask or
-            InkSkinId.SpiritHalo or InkSkinId.TurtleShell or InkSkinId.PhoenixCrown or InkSkinId.BondKnot or InkSkinId.WindFan or InkSkinId.CloudBoots or InkSkinId.YakshaMask;
+            InkSkinId.SpiritHalo or InkSkinId.TurtleShell or InkSkinId.PhoenixCrown or InkSkinId.BondKnot or InkSkinId.WindFan or InkSkinId.CloudBoots or InkSkinId.YakshaMask or InkSkinId.AngelWings;
         public static string Ability(InkSkinId id) => id switch {
             InkSkinId.Gat => "이단 도약", InkSkinId.SpiderMask => "거미 걸음",
             InkSkinId.SpiritHalo => "먹의 환원", InkSkinId.TurtleShell => "시작 방어막", InkSkinId.PhoenixCrown => "봉황의 숨결",
             InkSkinId.CloudBoots => "구름 도약",
             InkSkinId.YakshaMask => "퇴마의 일격",
+            InkSkinId.AngelWings => "다시 피는 빛",
             InkSkinId.BondKnot => "첫걸음 도약", InkSkinId.WindFan => "바람 도약",
             _ => "먹의 장식" };
         public static string Description(InkSkinId id) => id switch {
@@ -139,7 +142,7 @@ namespace MukJump.Core
             InkSkinId.CloudBoots => "본체가 맵 발판에 착지하면 먹방울 효과로 50m 상승한다.\n직접 그린 발판에는 발동하지 않는다.",
             InkSkinId.YakshaMask => "본체가 적과 충돌하면 피해 없이 적을 제거한다.\n30초마다 발동하며 가시·낙석에는 적용되지 않는다.",
             InkSkinId.TurtleShell => "매 판 시작 시 본체에게 방어막 1개를 부여한다.\n충돌·추락을 한 번 막으며 분신에게는 적용되지 않는다.",
-            InkSkinId.PhoenixCrown => "한 판에 한 번 본체가 체력 1칸으로 살아남아 50m 상승한다.\n성장 부활과 횟수를 공유하며 분신에게는 적용되지 않는다.",
+            InkSkinId.PhoenixCrown or InkSkinId.AngelWings => "한 판에 한 번 본체가 체력 1칸으로 살아남아 50m 상승한다.\n성장 부활과 횟수를 공유하며 분신에게는 적용되지 않는다.",
             InkSkinId.BondKnot => "매 판 시작 시 먹방울 아이템으로 50m 상승한다.\n튜토리얼 종료 후 발동하며 부활 시에는 재발동하지 않는다.",
             InkSkinId.WindFan => "전용 버튼으로 본체가 25m 도약한다.\n상승 중 피해를 막고, 20초 후 다시 사용할 수 있다.",
             _ => "원래 먹에 장식을 더해요.\n기존 점프와 성장 효과를 유지해요." };
@@ -147,7 +150,7 @@ namespace MukJump.Core
         // 귀·뿔·볏은 착용선이 보이도록 몸 앞에 둔다. 꼬리·날개·후광만 뒤쪽이다.
         public static bool BehindBody(InkSkinId id) => Normalize(id) is InkSkinId.OrigamiWings or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.SpiritHalo
             or InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds or InkSkinId.DragonTail
-            or InkSkinId.ThreeLeggedCrow or InkSkinId.NineTails or InkSkinId.ZodiacMonkey;
+            or InkSkinId.ThreeLeggedCrow or InkSkinId.NineTails or InkSkinId.ZodiacMonkey or InkSkinId.AngelWings;
         public static bool IsFootwear(InkSkinId id) => id is InkSkinId.RedShoes or InkSkinId.CloudBoots;
         // 1024 프레임 전체가 기준이다. 실제 먹 몸통은 약 0.7배 폭이며 넉넉한 착용선을 사용한다.
         public static float Width(InkSkinId id) => Normalize(id) switch {
@@ -166,6 +169,7 @@ namespace MukJump.Core
             InkSkinId.CloudDragon => 1.00f, InkSkinId.InkMecha => 1.00f, InkSkinId.Astronaut => 1.05f,
             InkSkinId.ClockworkCat => 1.02f, InkSkinId.SpiritHalo => 1.30f, InkSkinId.LuckyDice => .82f,
             InkSkinId.CraneWings => 1.35f, InkSkinId.ButterflyWings => 1.30f, InkSkinId.OrigamiWings => 1.30f,
+            InkSkinId.AngelWings => 1.52f,
             InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds => 1.22f,
             InkSkinId.BondKnot => .40f, InkSkinId.WindFan => .50f, InkSkinId.DragonTail => .72f,
             InkSkinId.ThreeLeggedCrow => 1.12f, InkSkinId.NineTails => 1.24f,
@@ -210,7 +214,7 @@ namespace MukJump.Core
                 InkSkinId.CatEars => .29f, InkSkinId.TurtleShell => .30f, InkSkinId.CloudCap => .22f,
                 InkSkinId.CloudDragon => .21f, InkSkinId.InkMecha => .10f, InkSkinId.SpiritHalo => .02f,
                 InkSkinId.InkGhost => .015f, InkSkinId.Astronaut => .06f,
-                InkSkinId.OrigamiWings => .03f, InkSkinId.CraneWings => .04f, InkSkinId.ButterflyWings => .03f,
+                InkSkinId.OrigamiWings => .03f, InkSkinId.CraneWings => .04f, InkSkinId.ButterflyWings => .03f, InkSkinId.AngelWings => .12f,
                 InkSkinId.RedShoes or InkSkinId.CloudBoots => -.25f, InkSkinId.LuckyDice => .29f, _ => 0f });
         }
         static readonly System.Collections.Generic.Dictionary<InkSkinId, Sprite[]> sprites = new();

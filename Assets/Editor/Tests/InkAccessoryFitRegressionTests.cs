@@ -78,6 +78,7 @@ namespace MukJump.EditorTests
         [TestCase("origami_wings"), TestCase("crane_wings"), TestCase("butterfly_wings")]
         [TestCase("nine_tails")]
         [TestCase("mask_strike", Category = "MaskStrike")]
+        [TestCase("angel_wings", Category = "AngelWings")]
         public void AuthoredFramesKeepEveryPixelOnceAndNeverCutVisibleEdges(string key)
         {
             string path = InkSpriteAnimationBuilder.ArtRoot + "/" + key + "_sheet.png";
@@ -213,6 +214,9 @@ namespace MukJump.EditorTests
 
         [UnityTest, Timeout(120000), Category("MaskStrike")]
         public IEnumerator MaskStrikeHasAReadablePanelAndAnAuthoredCombatEffect() => CaptureAccessories(new[] { InkSkinId.YakshaMask });
+
+        [UnityTest, Timeout(120000), Category("AngelWings")]
+        public IEnumerator AngelWingsFitTheOriginalBodyAcrossFourDrawnPoses() => CaptureAccessories(new[] { InkSkinId.AngelWings });
 
         IEnumerator CaptureAccessories(InkSkinId[] ids)
         {

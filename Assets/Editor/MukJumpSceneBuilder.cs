@@ -244,6 +244,8 @@ namespace MukJump.EditorTools
         {
             for (int i = 1; i < InkSkinCatalog.Count; i++)
             {
+                // 실제 프레임만 사용하는 의상은 아래 애니메이션 빌더에서 임포트한다.
+                if (InkSkinCatalog.Get((InkSkinId)i).Asset.Length == 0 && InkAccessoryMotion.Supports((InkSkinId)i)) continue;
                 string path = "Assets/Resources/" + InkSkinCatalog.ResourcePath((InkSkinId)i) + ".png";
                 var importer = AssetImporter.GetAtPath(path) as TextureImporter;
                 if (importer == null) throw new System.InvalidOperationException("스킨 원화 누락: " + path);

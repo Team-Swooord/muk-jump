@@ -355,7 +355,7 @@ namespace MukJump.Core
 
         void ResetSharedRunState()
         {
-            LastBreathAvailable = PermanentSnapshot.HasLastBreath || SkinSnapshot == InkSkinId.PhoenixCrown;
+            LastBreathAvailable = PermanentSnapshot.HasLastBreath || SkinSnapshot is InkSkinId.PhoenixCrown or InkSkinId.AngelWings;
             skinStartShieldGranted = false;
             skinStartBoostGranted = false;
             skinSkillCooldown = 0;

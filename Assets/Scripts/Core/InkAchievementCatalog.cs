@@ -9,7 +9,9 @@ namespace MukJump.Core
         public const int Count = InkSkinCatalog.Count + 1;
         // Apple에 등록·전송할 업적은 기본 먹을 제외한 의상 해금과 1:1이다.
         // 게임 내부 벽타기/연속 획득 알림 ID는 기존 저장 호환을 위해 유지한다.
-        public const int GameCenterCount = InkSkinCatalog.Count - 1;
+        // ASC 등록을 확인한 마지막 ID. 미등록 새 의상을 배치에 넣으면 기존 업적 전송도 실패한다.
+        // 천사 날개(62)는 ASC 등록 확인 뒤 이 상한을 올린다. 게임 저장/뒤끝 동기화에는 포함된다.
+        public const int GameCenterCount = 61;
         public static string Id(int index) => index < InkSkinCatalog.Count
             ? $"mukjump.achievement.skin.{index:00}"
             : index == InkSkinCatalog.Count ? "mukjump.achievement.wall" : "mukjump.achievement.flight3";
