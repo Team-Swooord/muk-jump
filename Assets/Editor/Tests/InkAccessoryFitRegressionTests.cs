@@ -76,6 +76,7 @@ namespace MukJump.EditorTests
         [TestCase("paper_lanterns"), TestCase("dragon_tail")]
         [TestCase("moon_clouds"), TestCase("blue_wisps"), TestCase("spirit_halo")]
         [TestCase("origami_wings"), TestCase("crane_wings"), TestCase("butterfly_wings")]
+        [TestCase("nine_tails")]
         public void AuthoredFramesKeepEveryPixelOnceAndNeverCutVisibleEdges(string key)
         {
             string path = InkSpriteAnimationBuilder.ArtRoot + "/" + key + "_sheet.png";
@@ -146,7 +147,7 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinCatalog.Offset(InkSkinId.DragonTail).x, Is.LessThan(.32f), "꼬리 뿌리는 옆구리 안으로 들어간다");
         }
 
-        [Test, Category("DragonTailRootFit")]
+        [Test, Category("DragonTailRootFit"), Category("SkinAnimationRework")]
         public void ThickTailKeepsEveryPixelAndSharesTheStaticPoster()
         {
             AuthoredFramesKeepEveryPixelOnceAndNeverCutVisibleEdges("dragon_tail");
@@ -202,6 +203,9 @@ namespace MukJump.EditorTests
 
         [UnityTest, Timeout(120000), Category("SkinRetirement")]
         public IEnumerator PaperWingsReplaceRetiredScarfWithoutAnEmptyCard() => CaptureAccessories(new[] { InkSkinId.OrigamiWings });
+
+        [UnityTest, Timeout(150000), Category("SkinAnimationRework")]
+        public IEnumerator ReworkedHaloAndTailsFitAllAuthoredFrames() => CaptureAccessories(new[] { InkSkinId.SpiritHalo, InkSkinId.DragonTail, InkSkinId.NineTails });
 
         IEnumerator CaptureAccessories(InkSkinId[] ids)
         {

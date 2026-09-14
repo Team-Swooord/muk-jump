@@ -48,7 +48,7 @@ namespace MukJump.Core
             new(InkSkinId.StormScarf,"질풍 두건","Gale Scarf","疾風の頭巾","",SkinTier.Medium,SkinMetric.Survival,120),
             new(InkSkinId.MoonCrown,"달빛 관","Moon Crown","月光の冠","skin_moon_crown_v1",SkinTier.Medium,SkinMetric.NightBest,100),
             new(InkSkinId.BrushMaster,"붓 장인","Brush Master","筆の匠","skin_brush_master_v1",SkinTier.Medium,SkinMetric.DrawnLandings,100),
-            new(InkSkinId.SpiritHalo,"도깨비 불","Spirit Halo","鬼火の輪","skin_spirit_halo_v1",SkinTier.Medium,SkinMetric.Items,30),
+            new(InkSkinId.SpiritHalo,"금빛 후광","Golden Halo","金色の後光","skin_spirit_halo_v1",SkinTier.Medium,SkinMetric.Items,30),
             new(InkSkinId.KoiMask,"잉어탈","Koi Mask","鯉の面","skin_koi_mask_v1",SkinTier.Medium,SkinMetric.Growth,5),
             new(InkSkinId.JadeCrown,"비취 용관","Jade Crown","翡翠の竜冠","skin_jade_crown_v1",SkinTier.Medium,SkinMetric.Distance,10000),
             new(InkSkinId.PhoenixCrown,"봉황 관","Phoenix Crown","鳳凰の冠","skin_phoenix_crown_v1",SkinTier.Hard,SkinMetric.Best,1000),
@@ -160,10 +160,10 @@ namespace MukJump.Core
             InkSkinId.MoonCrown => .95f, InkSkinId.BrushMaster => .90f,
             InkSkinId.JadeCrown => .94f, InkSkinId.PhoenixCrown => .90f, InkSkinId.MountainKing => .90f,
             InkSkinId.CloudDragon => 1.00f, InkSkinId.InkMecha => 1.00f, InkSkinId.Astronaut => 1.05f,
-            InkSkinId.ClockworkCat => 1.02f, InkSkinId.SpiritHalo => 1.04f, InkSkinId.LuckyDice => .82f,
+            InkSkinId.ClockworkCat => 1.02f, InkSkinId.SpiritHalo => 1.30f, InkSkinId.LuckyDice => .82f,
             InkSkinId.CraneWings => 1.35f, InkSkinId.ButterflyWings => 1.30f, InkSkinId.OrigamiWings => 1.30f,
             InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds => 1.22f,
-            InkSkinId.BondKnot => .40f, InkSkinId.WindFan => .50f, InkSkinId.DragonTail => .62f,
+            InkSkinId.BondKnot => .40f, InkSkinId.WindFan => .50f, InkSkinId.DragonTail => .72f,
             InkSkinId.ThreeLeggedCrow => 1.12f, InkSkinId.NineTails => 1.24f,
             InkSkinId.ZodiacDragon => .82f, InkSkinId.ZodiacOx => .78f, InkSkinId.ZodiacTiger => .86f,
             InkSkinId.ZodiacGoat => .86f, InkSkinId.ZodiacRat => .91f, InkSkinId.ZodiacRabbit => .78f,
@@ -183,13 +183,13 @@ namespace MukJump.Core
             if (id == InkSkinId.ClockworkCat) return new Vector2(.04f, .10f);
             if (id == InkSkinId.BondKnot) return new Vector2(.25f, .20f);
             if (id == InkSkinId.WindFan) return new Vector2(-.30f, -.23f);
-            if (id == InkSkinId.DragonTail) return new Vector2(.29f, -.02f);
+            if (id == InkSkinId.DragonTail) return new Vector2(.31f, -.02f);
             if (id == InkSkinId.ZodiacMonkey) return new Vector2(.31f, -.04f);
             if (id == InkSkinId.ZodiacTiger) return new Vector2(.02f, .26f);
             if (id == InkSkinId.MoonClouds) return new Vector2(0, .12f);
             if (id == InkSkinId.ThreeCushion) return new Vector2(0, .26f);
             if (InkMythicSkins.Contains(id)) return new Vector2(0, id switch {
-                InkSkinId.ThreeLeggedCrow => .27f, InkSkinId.NineTails => .02f,
+                InkSkinId.ThreeLeggedCrow => .27f, InkSkinId.NineTails => .26f,
                 InkSkinId.ZodiacRat => .29f, InkSkinId.ZodiacPig => -.08f,
                 InkSkinId.ZodiacDragon => .36f, InkSkinId.ZodiacOx => .31f, InkSkinId.ZodiacGoat => .23f,
                 InkSkinId.ZodiacSnake => .43f, InkSkinId.ZodiacHorse => .25f,
@@ -204,7 +204,7 @@ namespace MukJump.Core
                 InkSkinId.SpiderMask => .085f, InkSkinId.FoxMask => .095f,
                 InkSkinId.YakshaMask => .055f, InkSkinId.KoiMask => .06f, InkSkinId.TigerMask => .075f, InkSkinId.NightBat => .095f,
                 InkSkinId.CatEars => .29f, InkSkinId.TurtleShell => .30f, InkSkinId.CloudCap => .22f,
-                InkSkinId.CloudDragon => .21f, InkSkinId.InkMecha => .10f, InkSkinId.SpiritHalo => .10f,
+                InkSkinId.CloudDragon => .21f, InkSkinId.InkMecha => .10f, InkSkinId.SpiritHalo => .02f,
                 InkSkinId.InkGhost => .015f, InkSkinId.Astronaut => .06f,
                 InkSkinId.OrigamiWings => .03f, InkSkinId.CraneWings => .04f, InkSkinId.ButterflyWings => .03f,
                 InkSkinId.RedShoes or InkSkinId.CloudBoots => -.25f, InkSkinId.LuckyDice => .29f, _ => 0f });

@@ -16,7 +16,7 @@ namespace MukJump.Core
             InkSkinId.PaperLanterns => "paper_lanterns", InkSkinId.MoonClouds => "moon_clouds",
             InkSkinId.OrigamiWings => "origami_wings", InkSkinId.CraneWings => "crane_wings",
             InkSkinId.ButterflyWings => "butterfly_wings",
-            InkSkinId.DragonTail => "dragon_tail", _ => null
+            InkSkinId.DragonTail => "dragon_tail", InkSkinId.NineTails => "nine_tails", _ => null
         };
         public static InkSpriteAnimation Animation(InkSkinId id)
         {

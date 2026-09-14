@@ -21,8 +21,8 @@ namespace MukJump.EditorTools
             {
                 var id = (InkSkinId)i; string key = InkAccessoryMotion.Key(id);
                 if (key == null) continue;
-                float fps = id is InkSkinId.BlueWisps or InkSkinId.SpiritHalo ? 7f :
-                    id is InkSkinId.MoonClouds or InkSkinId.PaperLanterns ? 4f : 6f;
+                float fps = id == InkSkinId.BlueWisps ? 7f :
+                    id is InkSkinId.SpiritHalo or InkSkinId.NineTails or InkSkinId.MoonClouds or InkSkinId.PaperLanterns ? 4f : 6f;
                 ConfigureSheet(key, fps);
             }
             AssetDatabase.SaveAssets();
@@ -93,15 +93,14 @@ namespace MukJump.EditorTools
         {
             if (frame < 0 || frame > 3) throw new ArgumentOutOfRangeException(nameof(frame));
             bool right = frame % 2 != 0, top = frame < 2;
-            if (key is "paper_lanterns" or "dragon_tail")
+            if (key is "paper_lanterns" or "dragon_tail" or "nine_tails")
             {
                 if (width != 1254 || height != 1254)
                     throw new InvalidOperationException(key + " 원화 크기가 바뀌어 프레임 경계를 다시 확인해야 한다.");
-                return key == "paper_lanterns"
-                    ? new Rect(right ? 647 : 20, top ? 600 : 0, 600, 600)
-                    // 두꺼운 꼬리 원화는 행 간격 574px, 열 간격 597px이다.
-                    // 같은 몸체 접점으로 정렬하며 프레임마다 뿌리가 들썩이지 않게 한다.
-                    : new Rect(right ? 621 : 24, top ? 625 : 51, 610, 610);
+                if (key == "paper_lanterns") return new Rect(right ? 647 : 20, top ? 600 : 0, 600, 600);
+                // 아래로 굽히는 원화의 뿌리를 같은 높이에 둔다. 행 사이의 겹친 구간은 투명하다.
+                if (key == "dragon_tail") return new Rect(right ? 610 : 19, top ? 625 : 105, 610, 610);
+                return new Rect(right ? 627 : 0, top ? 620 : 70, 627, 600);
             }
             // 홀수 크기 원화는 중앙의 투명한 1px만 제외한다.
             int cellWidth = width / 2, cellHeight = height / 2;

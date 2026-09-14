@@ -140,7 +140,7 @@ namespace MukJump.Core
             InkSkinId.TurtleShell => ("느린 장인이 끝내 완성한 투구.", "A very slow craftsman finally finished it.", "のんびり屋の職人が、ついに仕上げた。"),
             InkSkinId.MoonCrown => ("달에서 빌렸다. 반납일은 모른다.", "Borrowed from the moon. No due date.", "月から借りた。返す日は知らない。"),
             InkSkinId.BrushMaster => ("장인은 붓을 찾고, 붓은 여기 있다.", "The master is looking for these brushes.", "職人は筆を探している。筆はここにある。"),
-            InkSkinId.SpiritHalo => ("꺼진 줄 알았던 불씨가 따라왔다.", "An ember thought extinguished followed home.", "消えたはずの火種が、ついてきた。"),
+            InkSkinId.SpiritHalo => ("뒤가 환해졌지만 득도한 것은 아니다.", "A radiant ring. Enlightenment sold separately.", "背中は輝いたが、悟ったわけではない。"),
             InkSkinId.KoiMask => ("용문 앞에서 잠깐 쉬어 가는 중.", "Taking a short rest before the Dragon Gate.", "竜門の手前で、ちょっとひと休み。"),
             InkSkinId.JadeCrown => ("돌인 줄 알고 문을 괴어 두던 용관.", "Once mistaken for a very good doorstop.", "ただの石だと思われ、戸止めにされていた。"),
             InkSkinId.PhoenixCrown => ("타지 않은 깃은 딱 다섯 개였다.", "Exactly five feathers escaped the fire.", "燃え残った羽は、ちょうど五枚だった。"),

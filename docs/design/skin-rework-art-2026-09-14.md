@@ -2,6 +2,26 @@
 
 2026-09-14, built-in image generation 사용. PNG 자체를 코드로 잘라 붙이거나 변형하지 않는다. 실제 적용은 기존 에셋 경로에 원본을 복사하고 씬 빌더로 임포트한다. 기존 GUID·저장 ID 유지.
 
+## 두 번째 단계 — 실제 프레임 애니메이션
+
+모두 원본과 같은 캐릭터를 쓰며 PNG를 변형하지 않고 생성 결과 그대로 적용한다. 후광/용꼬리는 기존 시트 GUID 유지, 구미호는 새 시트와 클립 추가. 단순 그림 재생이므로 새 파티클/재질/패키지와 반복 생성·삭제 없음. 기존 동작 줄이기 설정과 UI·월드 공통 프레임 캐시를 사용한다.
+
+- 금빛 후광 최종: `exec-71fa3ea7-c3b8-4010-82ae-2903c75e2ecd.png` → `Assets/Art/Character/Animations/spirit_halo_sheet.png`. 첫 결과 `exec-f2254748-0170-43c1-909e-52617e859395.png`의 가짜 체크무늬를 이미지 편집으로 제거했다. 불꽃 없는 한 개의 원형 후광, 동일 지름, 잔잔한 먹 선 이동 4프레임.
+- 용꼬리 최종: `exec-e6246636-af6b-4511-85b0-9eeda24e7dfc.png` → `Assets/Art/Character/Animations/dragon_tail_sheet.png`. 첫 결과 `exec-eca0910e-1a82-43d0-bbc8-c849ac3d0459.png`의 가짜 체크무늬를 제거했다. 두꺼운 뿌리, 위/수평/아래/복귀 4프레임. 빌더 슬라이스로 동일 접점 정렬.
+- 구미호 최종: `exec-d751872b-7b24-4805-a15c-5b59b925857a.png` → `Assets/Art/Character/Animations/nine_tails_sheet.png`. 직사각 시트 3개는 불투명/배경 오류로 미적용(`exec-37a3ebd1-d520-4f54-a8aa-480821dd37e3.png`, `exec-8f6e38f0-bc1e-442f-ab2f-d6e9252c8610.png`, `exec-c820340e-e2b7-4d37-88ec-99a987e0386a.png`). 정사각형 재생성 `exec-de99da5a-e583-424c-be90-d4acd86606d0.png`에서 두 프레임의 부족한 꼬리를 추가한 `exec-d71dd28a-144b-4c33-bb17-236b86d77ad6.png`를 거쳐 실제 투명 배경으로 완성.
+
+### 후광 생성 프롬프트
+
+Edit the attached existing 2x2 four-frame sprite animation sheet for MukJump. Replace every flame-decorated blue ring with a simple elegant Eastern ink-painting HALO ONLY, behind a round black ink creature. There must be NO flames, NO floating wisps, NO creature, no letters, no background. Four equal-sized cells in a strict 2x2 grid, reading top-left top-right bottom-left bottom-right. In each cell draw one perfectly front-facing circular halo centered at exactly the same anchor and exactly the same outer diameter. Use a thin imperfect charcoal-black hand-drawn ring edge, warm pale-gold paper-colored narrow ring fill, and a second very thin concentric ink trace. A few tiny ink dashes travel a little clockwise around the SAME fixed circle across four frames: quiet restrained looping motion, no wobbling geometry, no scaling or off-axis perspective. Retain the existing crude childish hand-drawn thick ink line and paper crayon texture, not polished realistic fantasy. The circle's middle and the whole background must have real transparent alpha; never draw a checkerboard. Keep broad clear transparent margins around each cell's drawing and generous empty gutters so each equal 2x2 cell can be sliced independently without clipping. The four circles must match placement/size closely. Output ONLY the single transparent PNG four-frame sheet.
+
+### 용꼬리 생성 프롬프트
+
+Edit this MukJump dragon-tail four-frame sprite animation sheet. Keep its simple childish ivory-paper dragon tail with thick uneven charcoal ink contour, three little triangular dorsal spines and a three-point leaf-shaped tuft. Keep the BIG THICK ROOT, not a skinny tube. The tail projects to the RIGHT and attaches offscreen on the LEFT; no creature, no eyes, no face, no text. Make a STRICT 2x2 equally divided sprite sheet with FOUR different animation poses in reading order: 1 tail curling UP, 2 tail nearly HORIZONTAL, 3 tail curling clearly DOWN with tip LOWER than its attachment root, 4 tail easing back HORIZONTAL. This must be genuine drawn bending, not rotating the whole identical tail. The thick oval attachment root MUST stay identical at exactly the same LOCAL position and height in all four cells: local x around 13% of cell width, local y at 50% of cell height, root vertical diameter 26% of cell height. Keep the lower half of each cell available for the downward-curved pose, and upper half for upward pose. Smoothly taper only near the tip. Root, line width and overall reach must match across frames. Wide margins at least 6% of each cell, each tail fully inside its own equal quadrant, no cropping and no neighboring pixels. Genuine transparent alpha background outside shapes, no checkered background. Same crude charming child-drawn ink-and-paper art, not glossy or realistic, no extra details. Output only one transparent PNG.
+
+### 구미호 최종 원화 지시
+
+정사각형 투명 PNG 2×2 시트. 아홉 개의 아이보리 꼬리와 분홍 끝, 굵고 투박한 먹 선. 왼쪽/정면/오른쪽/복귀로 부드럽게 굽히되 먹 몸체는 그리지 않음. 두 왼쪽 프레임은 8개로 생성되어 각각 분홍 끝 꼬리 1개를 추가, 오른쪽 프레임 9개는 유지. 그림 밖 배경은 실제 알파 0으로 제거. 원화 자체는 Python 등으로 편집하지 않음.
+
 ## 첫 단계
 
 출력 원본 폴더: `/Users/seungyeoning/.codex/generated_images/01a02807-53b4-7300-82fd-74057eea1a57/`

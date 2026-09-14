@@ -17,4 +17,4 @@ MonoBehaviour:
   - {fileID: 1645181939, guid: 775ee9a657a234c59927f6fb35bbb34c, type: 3}
   - {fileID: 718822664, guid: 775ee9a657a234c59927f6fb35bbb34c, type: 3}
   - {fileID: 240473754, guid: 775ee9a657a234c59927f6fb35bbb34c, type: 3}
-  framesPerSecond: 7
+  framesPerSecond: 4

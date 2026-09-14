@@ -147,7 +147,7 @@ TextureImporter:
       name: dragon_tail_0
       rect:
         serializedVersion: 2
-        x: 24
+        x: 19
         y: 625
         width: 610
         height: 610
@@ -169,7 +169,7 @@ TextureImporter:
       name: dragon_tail_1
       rect:
         serializedVersion: 2
-        x: 621
+        x: 610
         y: 625
         width: 610
         height: 610
@@ -191,8 +191,8 @@ TextureImporter:
       name: dragon_tail_2
       rect:
         serializedVersion: 2
-        x: 24
-        y: 51
+        x: 19
+        y: 105
         width: 610
         height: 610
       alignment: 0
@@ -213,8 +213,8 @@ TextureImporter:
       name: dragon_tail_3
       rect:
         serializedVersion: 2
-        x: 621
-        y: 51
+        x: 610
+        y: 105
         width: 610
         height: 610
       alignment: 0
