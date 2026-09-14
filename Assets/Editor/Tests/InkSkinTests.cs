@@ -244,6 +244,7 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
+        [Category("WardrobeSkillPopup")]
         public void WardrobePolishHasReadableLocalizedLoreAndLargerProgress(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
@@ -272,7 +273,7 @@ namespace MukJump.EditorTests
                 }
                 // 일본어는 기존 Kaisei Decol의 넓은 행 메트릭에 맞춘 .76배 보정을 유지한다.
                 float fontScale=language==GameLanguage.Japanese ? .76f : 1f;
-                Assert.That(view.Paper.Find("Description").GetComponent<UnityEngine.UI.Text>().fontSize,Is.EqualTo(Mathf.RoundToInt(36*fontScale)));
+                Assert.That(view.Paper.Find("Description").GetComponent<UnityEngine.UI.Text>().fontSize,Is.EqualTo(Mathf.RoundToInt(50*fontScale)));
                 Assert.That(view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>().fontSize,Is.EqualTo(Mathf.RoundToInt(40*fontScale)));
                 Assert.That(((RectTransform)view.Paper.Find("AchievementTrack")).rect.height,Is.GreaterThanOrEqualTo(30));
                 view.ToggleCollection();
@@ -285,44 +286,81 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
-        public void CosmeticDetailsKeepLoreAndUnlocksWithoutGenericAbilityCopy(GameLanguage language)
+        [Category("WardrobeSkillPopup")]
+        public void WardrobeDetailsKeepFixedCollectionAndShowSkillsOnlyInPopup(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
             var view = Track(new GameObject("CompactCosmeticDetails")).AddComponent<InkWardrobeView>();
             view.BuildForTests(Idle()); view.SetNavigationPresentation(true, true);
-            var ability = view.Paper.Find("Ability").GetComponent<UnityEngine.UI.Text>();
             var description = view.Paper.Find("Description").GetComponent<UnityEngine.UI.Text>();
             var achievement = view.Paper.Find("Achievement").GetComponent<UnityEngine.UI.Text>();
             var collection = (RectTransform)view.Paper.Find("CollectionScroll");
+            Vector2 size = collection.sizeDelta, position = collection.anchoredPosition;
+            Vector2 cell = view.CollectionContent.GetComponent<UnityEngine.UI.GridLayoutGroup>().cellSize;
             Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
             try
             {
-                foreach (var id in new[] { InkSkinId.CatEars, InkSkinId.RedHeadband, InkSkinId.DragonTail })
+                for (int i = 0; i < InkSkinCatalog.BrowseCount; i++)
                 {
+                    var id = InkSkinCatalog.BrowseAt(i);
                     view.Select(id); view.Presentation.Cancel(); Canvas.ForceUpdateCanvases();
-                    Assert.That(ability.text, Is.Empty); Assert.That(ability.gameObject.activeSelf, Is.False);
+                    Assert.That(view.SkillInfoButton.gameObject.activeSelf, Is.EqualTo(InkSkinCatalog.HasAbility(id)), id.ToString());
                     Assert.That(description.text, Is.Empty); Assert.That(description.gameObject.activeSelf, Is.False);
                     Assert.That(view.Paper.Find("ItemLore").GetComponent<UnityEngine.UI.Text>().text, Is.Not.Empty);
-                    Assert.That(achievement.text, Is.EqualTo(GameLocalization.Translate(InkSkinAchievements.Requirement(id))));
-                    Assert.That(view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>().text, Is.Not.Empty);
-                    Assert.That(achievement.rectTransform.anchoredPosition.y, Is.GreaterThan(-60));
-                    Assert.That(collection.sizeDelta.y, Is.GreaterThan(500));
-                    Assert.That(collection.anchoredPosition.y - collection.sizeDelta.y * .5f, Is.EqualTo(-760));
+                    if (id != InkSkinId.Ink)
+                        Assert.That(achievement.text, Is.EqualTo(GameLocalization.Translate(InkSkinAchievements.Requirement(id))));
+                    Assert.That(collection.sizeDelta, Is.EqualTo(size), id + " 목록 크기");
+                    Assert.That(collection.anchoredPosition, Is.EqualTo(position), id + " 목록 위치");
+                    Assert.That(view.CollectionContent.GetComponent<UnityEngine.UI.GridLayoutGroup>().cellSize, Is.EqualTo(cell));
+                    if (!InkSkinCatalog.HasAbility(id)) continue;
+                    view.SkillInfoButton.onClick.Invoke(); Canvas.ForceUpdateCanvases();
+                    Assert.That(view.IsSkillPopupOpen, Is.True, id.ToString());
+                    Assert.That(view.CanBrowse, Is.False);
+                    Assert.That(view.SkillTitleText.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Ability(id))));
+                    Assert.That(view.SkillDescriptionText.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Description(id))));
+                    Assert.That(view.SkillPopupPaper.Find("Confirm/Label").GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo(language == GameLanguage.Korean ? "닫기" : language == GameLanguage.English ? "Close" : "閉じる"));
+                    foreach (var text in new[] { view.SkillTitleText, view.SkillDescriptionText })
+                        Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 2), id + " / " + text.name);
+                    var equipped = InkSkinPreferences.Equipped;
+                    view.Select(InkSkinId.Ink); view.ToggleCollection(); view.EquipButton.onClick.Invoke();
+                    Assert.That(view.Selected, Is.EqualTo(id)); Assert.That(view.CollectionExpanded, Is.False);
+                    Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(equipped));
+                    view.CloseSkillPopup();
+                    Assert.That(view.IsSkillPopupOpen, Is.False); Assert.That(view.SkillDescriptionText.text, Is.Empty);
+                    Assert.That(collection.sizeDelta, Is.EqualTo(size));
                 }
                 view.ToggleCollection(); view.ToggleCollection();
                 Assert.That(description.gameObject.activeSelf, Is.False, "목록 왕복 후 공통 안내가 다시 나오면 안 된다");
-                view.Select(InkSkinId.Gat);
-                Assert.That(ability.gameObject.activeSelf && description.gameObject.activeSelf, Is.True);
-                Assert.That(description.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Description(InkSkinId.Gat))));
-                Assert.That(collection.sizeDelta.y, Is.GreaterThan(180).And.LessThan(500));
-                Assert.That(achievement.rectTransform.anchoredPosition.y, Is.LessThan(-150));
             }
             finally { SkinDebugSession.Reset(); }
             view.Select(InkSkinId.Astronaut);
-            Assert.That(ability.gameObject.activeSelf, Is.False);
+            Assert.That(view.SkillInfoButton.gameObject.activeSelf, Is.False);
+            view.OpenSkillPopup(); Assert.That(view.IsSkillPopupOpen, Is.False);
             Assert.That(description.gameObject.activeSelf, Is.True);
             Assert.That(description.text, Is.EqualTo(GameLocalization.Translate("숨겨진 행동으로 발견해 보세요.")));
-            Assert.That(collection.sizeDelta.y, Is.GreaterThan(180));
+            Assert.That(collection.sizeDelta, Is.EqualTo(size));
+            Assert.That(collection.anchoredPosition, Is.EqualTo(position));
+        }
+
+        [Test, Category("WardrobeSkillPopup")]
+        public void WardrobeSkillPopupClearsOnNavigationAccountChangeAndBackground()
+        {
+            var view = Track(new GameObject("SkillPopupLifecycle")).AddComponent<InkWardrobeView>();
+            view.BuildForTests(Idle()); view.SetNavigationPresentation(true, true); view.Select(InkSkinId.Gat);
+            view.OpenSkillPopup(); Assert.That(view.IsSkillPopupOpen, Is.True);
+            view.SetNavigationPresentation(false, false); Assert.That(view.IsSkillPopupOpen, Is.False);
+            view.SetNavigationPresentation(true, true); view.Select(InkSkinId.Gat); view.OpenSkillPopup();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            Invoke(view, "ValidateSkillPopup"); Assert.That(view.IsSkillPopupOpen, Is.False);
+            Assert.That(view.SkillTitleText.text, Is.Empty); Assert.That(view.SkillDescriptionText.text, Is.Empty);
+            view.OpenSkillPopup(); Assert.That(view.IsSkillPopupOpen, Is.True);
+            try
+            {
+                MobileApplicationLifecycle.SetPlatformVisibility(false); Invoke(view, "ValidateSkillPopup");
+                Assert.That(view.IsSkillPopupOpen, Is.False);
+            }
+            finally { MobileApplicationLifecycle.SetPlatformVisibility(true); }
         }
 
         [TestCase(InkSkinId.RedShoes)]

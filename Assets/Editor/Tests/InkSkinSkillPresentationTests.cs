@@ -8,6 +8,8 @@ using NUnit.Framework;
 using UnityEditor.TestTools;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
@@ -15,6 +17,114 @@ namespace MukJump.EditorTests
 {
     public sealed class InkSkinSkillPresentationTests
     {
+        [UnityTest, Category("WardrobeSkillPopupVisual"), Timeout(120000)]
+        public IEnumerator WardrobeSkillPopupKeepsCardsFixedAndBlocksUnderlyingTouches()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool background = Application.runInBackground; Application.runInBackground = true;
+            var settings = new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return Navigation();
+                var view = Object.FindAnyObjectByType<InkWardrobeView>();
+                var collection = (RectTransform)view.CollectionScroll.transform;
+                var listSize = collection.sizeDelta; var listPosition = collection.anchoredPosition;
+                foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
+                {
+                    GameLocalization.SetLanguage(language); view.Select(InkSkinId.CatEars); yield return Wait(.4f);
+                    Assert.That(view.SkillInfoButton.gameObject.activeSelf, Is.False);
+                    if (language == GameLanguage.Korean) yield return Capture("wardrobe-fixed-cosmetic");
+                    view.Select(InkSkinId.WindFan); yield return Wait(.4f);
+                    Assert.That(collection.sizeDelta, Is.EqualTo(listSize)); Assert.That(collection.anchoredPosition, Is.EqualTo(listPosition));
+                    if (language == GameLanguage.Korean) yield return Capture("wardrobe-fixed-skill");
+                    yield return PlayerInputFrame(() =>
+                    {
+                        var buttonRect = (RectTransform)view.SkillInfoButton.transform;
+                        var point = RectTransformUtility.WorldToScreenPoint(null, buttonRect.TransformPoint(buttonRect.rect.center));
+                        var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left, position = point };
+                        var hits = new System.Collections.Generic.List<RaycastResult>();
+                        EventSystem.current.RaycastAll(pointer, hits);
+                        Assert.That(hits.Count, Is.GreaterThan(0));
+                        Assert.That(ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject), Is.EqualTo(view.SkillInfoButton.gameObject));
+                        ExecuteEvents.ExecuteHierarchy(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler);
+                    });
+                    yield return Wait(.3f);
+                    Assert.That(view.IsSkillPopupOpen, Is.True); Assert.That(view.CanBrowse, Is.False);
+                    Assert.That(view.SkillDescriptionText.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Description(InkSkinId.WindFan))));
+                    yield return PlayerInputFrame(() =>
+                    {
+                        var corners = new Vector3[4]; view.SkillPopupPaper.GetWorldCorners(corners);
+                        foreach (var corner in corners)
+                            Assert.That(MobileUiLayout.CurrentSafeArea.Contains(RectTransformUtility.WorldToScreenPoint(null, corner)), Is.True);
+                    });
+                    yield return Capture("wardrobe-skill-popup-" + language);
+                    // 긴 운영 문구도 팝업에서 끝까지 읽을 수 있고 카드 높이에 영향을 주지 않는다.
+                    yield return PlayerInputFrame(() =>
+                    {
+                        InkLocalizedText.SetSource(view.SkillDescriptionText, string.Join("\n", System.Linq.Enumerable.Repeat("긴 설명을 확인한다.", 18)));
+                        typeof(InkWardrobeView).GetMethod("LayoutSkillPopup", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(view, null);
+                        var scroll = view.SkillDescriptionText.GetComponentInParent<UnityEngine.UI.ScrollRect>();
+                        Assert.That(scroll.content.rect.height, Is.GreaterThan(scroll.viewport.rect.height));
+                        scroll.verticalNormalizedPosition = 0; Canvas.ForceUpdateCanvases();
+                        Assert.That(scroll.content.anchoredPosition.y, Is.GreaterThan(0));
+                        // 팝업 밖의 목록 자리를 눌러도 뒤쪽 카드는 선택되지 않고 팝업만 닫힌다.
+                        var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left,
+                            position = new Vector2(Screen.width * .5f, Screen.height * .15f) };
+                        var hits = new System.Collections.Generic.List<RaycastResult>();
+                        EventSystem.current.RaycastAll(pointer, hits);
+                        Assert.That(hits, Is.Not.Empty);
+                        Assert.That(hits[0].gameObject.name, Is.EqualTo("Dismiss"));
+                        ExecuteEvents.Execute(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler);
+                    });
+                    Assert.That(view.IsSkillPopupOpen, Is.False); Assert.That(view.Selected, Is.EqualTo(InkSkinId.WindFan));
+                    Assert.That(collection.sizeDelta, Is.EqualTo(listSize)); Assert.That(collection.anchoredPosition, Is.EqualTo(listPosition));
+                }
+                GameLocalization.SetLanguage(GameLanguage.Korean);
+                view.ToggleCollection(); yield return Wait(.3f);
+                Assert.That(view.SkillInfoButton.gameObject.activeSelf, Is.False);
+                yield return Capture("wardrobe-fixed-expanded");
+                view.ToggleCollection(); Assert.That(collection.sizeDelta, Is.EqualTo(listSize));
+            }
+            finally
+            {
+                SkinDebugSession.Reset(); MobileApplicationLifecycle.SetPlatformVisibility(true);
+                Application.runInBackground = background; Time.timeScale = 1;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests(); PointerInput.ResetSuppressionForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+
+        static IEnumerator PlayerInputFrame(System.Action check)
+        {
+            // Test Runner 창의 Screen 크기 대신 실제 Game View 입력 프레임에서 검증한다.
+            bool sampled = false; System.Exception failure = null;
+            System.Action after = () =>
+            {
+                if (sampled || InputState.currentUpdateType != InputUpdateType.Dynamic) return;
+                sampled = true;
+                try { check(); } catch (System.Exception error) { failure = error; }
+            };
+            InputSystem.onAfterUpdate += after;
+            try
+            {
+                float until = Time.realtimeSinceStartup + 5;
+                while (!sampled && Time.realtimeSinceStartup < until) yield return null;
+                Assert.That(sampled, Is.True); Assert.That(failure, Is.Null, failure?.ToString());
+            }
+            finally { InputSystem.onAfterUpdate -= after; }
+        }
+
         [UnityTest, Category("SecondNightMoon"), Timeout(120000)]
         public IEnumerator OnlySecondNightShowsBatMoonAndThirdNightAwardsAfterArrival()
         {

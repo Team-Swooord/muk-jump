@@ -49,15 +49,15 @@ namespace MukJump.EditorTests
                             Assert.That(image.raycastTarget, Is.False, path);
                         }
                         Assert.That(view.Paper.Find("CollectionGrouping"), Is.Null);
-                        foreach (string surface in new[] { "SpecialSkillPaper", "SpecialSkillDivider", "SpecialSkillLabel" })
-                            Assert.That(view.Paper.Find(surface).gameObject.activeInHierarchy, Is.EqualTo(InkSkinCatalog.HasAbility(id)), surface);
+                        Assert.That(view.SkillInfoButton.gameObject.activeInHierarchy, Is.EqualTo(InkSkinCatalog.HasAbility(id)));
+                        Assert.That(view.IsSkillPopupOpen, Is.False);
                         if (id == InkSkinId.Ink)
                         {
                             var requirement = view.Paper.Find("Achievement").GetComponent<UnityEngine.UI.Text>();
                             Assert.That(requirement.text, Is.Empty);
                             Assert.That(requirement.gameObject.activeSelf, Is.False);
                         }
-                        foreach (string label in new[] { "Title", "SkinName", "ItemLore", "Ability", "Description" })
+                        foreach (string label in new[] { "Title", "SkinName", "ItemLore", "Description" })
                         {
                             var text = view.Paper.Find(label).GetComponent<UnityEngine.UI.Text>();
                             if (!text.gameObject.activeSelf) continue;

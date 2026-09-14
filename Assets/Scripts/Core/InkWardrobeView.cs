@@ -5,20 +5,18 @@ namespace MukJump.Core
 {
     /// 넓은 수집 목록을 스크롤하거나 전체 펼쳐 본다. 비밀 보상은 발견 전까지 감춘다.
     [DisallowMultipleComponent]
-    public sealed class InkWardrobeView : MonoBehaviour
+    public sealed partial class InkWardrobeView : MonoBehaviour
     {
         [SerializeField] Sprite previewBodySprite;
         CanvasGroup rootGroup;
         RectTransform safeRoot, paper;
         Image previewBody, previewAccessory, detailPaper, detailDivider;
-        UnityEngine.UI.Image skillPaper, skillDivider;
-        UnityEngine.UI.Text skillLabel;
         float accessoryMotionTime;
         UnityEngine.UI.Text previewQuestion;
         readonly Button[] neighborButtons = new Button[2];
         InkShowroomPresentation presentation;
         InkShowroomSwipe swipe;
-        Text nameText, loreText, abilityText, descriptionText, equipText, statusText, achievementText, progressText, collectionToggleText;
+        Text nameText, loreText, descriptionText, equipText, statusText, achievementText, progressText, collectionToggleText;
         InkWardrobeScroll collectionScroll;
         UnityEngine.UI.GridLayoutGroup collectionGrid;
         RectTransform collectionContent, collectionRoot, stage;
@@ -46,6 +44,8 @@ namespace MukJump.Core
         bool hasPreview, renderedHidden, renderedUnlocked;
         const int PageSize = 6;
         const float HeroSize = 500;
+        static readonly Vector2 CompactCollectionPosition = new(0, -515f);
+        static readonly Vector2 CompactCollectionSize = new(1000f, 466f);
         public bool IsOpen => visible && interactive;
         public InkSkinId Selected => selected;
         public RectTransform Paper => paper;
@@ -62,7 +62,7 @@ namespace MukJump.Core
         {
             if (show) EnsureBuilt();
             if (rootGroup == null) return;
-            if (!show || !allowInput) { presentation?.Cancel(); swipe?.Cancel(); SnapProgress(); StopCollection(); }
+            if (!show || !allowInput) { CloseSkillPopup(); presentation?.Cancel(); swipe?.Cancel(); SnapProgress(); StopCollection(); }
             if (show && !visible)
             {
                 selected = InkSkinPreferences.Equipped;
@@ -82,6 +82,7 @@ namespace MukJump.Core
         void OnDisable()
         {
             visible = interactive = false;
+            CloseSkillPopup();
             presentation?.Cancel(); swipe?.Cancel();
             StopCollection();
             SnapProgress();
@@ -92,6 +93,7 @@ namespace MukJump.Core
         {
             if (!visible) return;
             ApplyLayout();
+            ValidateSkillPopup();
             bool canScroll = CanInteract();
             if (!canScroll) StopCollection();
             else if (!collectionScroll.enabled) collectionScroll.enabled = true;
@@ -137,7 +139,8 @@ namespace MukJump.Core
             RevealSelectedCard();
             if (InkSkinCatalog.BrowseIndex(selected) != previous) presentation.Browse(InkSkinCatalog.BrowseIndex(selected) - previous);
         }
-        bool CanInteract() => IsOpen && MobileApplicationLifecycle.IsApplicationActive &&
+        bool CanInteract() => !IsSkillPopupOpen && CanUseWardrobe();
+        bool CanUseWardrobe() => IsOpen && MobileApplicationLifecycle.IsApplicationActive &&
             (GameManager.Instance == null || GameManager.Instance.State == GameState.Lobby) &&
             (LobbyScreenNavigator.Instance == null || !LobbyScreenNavigator.Instance.IsTransitioning) &&
             (MukJumpAccountRuntime.Instance == null || !MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync);
@@ -163,10 +166,9 @@ namespace MukJump.Core
             bool equipped = InkSkinPreferences.Equipped == selected;
             InkLocalizedText.SetSource(nameText, hidden ? "" : InkSkinCatalog.Name(selected));
             InkLocalizedText.SetSource(loreText, hidden ? "" : InkSkinLore.Get(selected).ko);
-            InkLocalizedText.SetSource(abilityText, !hidden && hasAbility ? InkSkinCatalog.Ability(selected) : "");
-            InkLocalizedText.SetSource(descriptionText, hidden ? "숨겨진 행동으로 발견해 보세요." :
-                hasAbility ? InkSkinCatalog.Description(selected) : "");
+            InkLocalizedText.SetSource(descriptionText, hidden ? "숨겨진 행동으로 발견해 보세요." : "");
             RefreshDetailLayout(hidden, hasAbility);
+            RefreshSkillPopup();
             previewQuestion.enabled = hidden;
             // 주기적인 상태 갱신이 의상 교체 애니메이션의 위치를 덮어쓰지 않는다.
             if (!hasPreview || renderedSkin != selected || renderedHidden != hidden || renderedUnlocked != unlocked)
@@ -196,7 +198,6 @@ namespace MukJump.Core
             bool saveFailed = !string.IsNullOrEmpty(statusText.text);
             achievementText.enabled = progressText.enabled = !saveFailed;
             RefreshProgress(goal, progress, unlocked, saveFailed);
-            abilityText.color = InkPalette.TextDark;
             equipButton.gameObject.SetActive(!hidden && !collectionExpanded);
             for (int i=0; i<cards.Length; i++)
             {
@@ -217,95 +218,31 @@ namespace MukJump.Core
         }
         void RefreshDetailLayout(bool hidden, bool hasAbility)
         {
-            // 장식 전용 의상은 반복 안내 대신 이름·이야기·해금 정보만 보여 준다.
-            // 실제 능력과 미발견 히든 안내는 그대로 보존한다.
-            abilityText.gameObject.SetActive(!collectionExpanded && !hidden && hasAbility);
-            descriptionText.gameObject.SetActive(!collectionExpanded && (hidden || hasAbility));
-            // 제목과 효과는 같은 왼쪽 기준선, 히든 안내는 기존 중앙 정렬을 유지한다.
-            descriptionText.rectTransform.sizeDelta = new Vector2(!hidden && hasAbility ? 840f : 920f,
-                descriptionText.rectTransform.sizeDelta.y);
-            descriptionText.alignment = hidden ? TextAnchor.MiddleCenter : TextAnchor.UpperLeft;
-            // 번역 문장을 줄이거나 글씨를 축소하지 않고 실제 줄 수만큼 설명 칸을 늘린다.
-            float loreHeight = Mathf.Max(92f, loreText.preferredHeight + 8f);
-            float detailBottom = PlaceDetailRow(loreText.rectTransform, 126f, loreHeight);
+            // 모든 의상에 같은 슬롯을 쓴다. 능력·숨김·해금 여부가 카드 크기와 스크롤 위치를 바꾸지 않는다.
+            skillInfoButton.gameObject.SetActive(!collectionExpanded && !hidden && hasAbility);
+            descriptionText.gameObject.SetActive(!collectionExpanded && hidden);
+            descriptionText.alignment = TextAnchor.MiddleCenter;
+            PlaceDetailRow(descriptionText.rectTransform, 198f, 144f);
+            PlaceDetailRow(loreText.rectTransform, 126f, 152f);
             detailDivider.rectTransform.anchoredPosition = new Vector2(0, 136f);
             detailPaper.gameObject.SetActive(!collectionExpanded && !hidden);
             detailDivider.gameObject.SetActive(!collectionExpanded && !hidden);
-            PlaceDetailRow(detailPaper.rectTransform, 260f, 260f - detailBottom + 18f);
-            bool showSkill = !collectionExpanded && !hidden && hasAbility;
-            skillPaper.gameObject.SetActive(showSkill);
-            skillDivider.gameObject.SetActive(showSkill);
-            skillLabel.gameObject.SetActive(showSkill);
-            if (hidden || hasAbility)
-            {
-                float skillTop = detailBottom - 28f;
-                if (!hidden)
-                {
-                    float headerHeight = Mathf.Max(64f, abilityText.preferredHeight + 8f, skillLabel.preferredHeight + 8f);
-                    detailBottom = PlaceDetailRow(abilityText.rectTransform, skillTop - 24f, headerHeight);
-                    abilityText.rectTransform.anchoredPosition += new Vector2(-120f, 0);
-                    PlaceDetailRow(skillLabel.rectTransform, skillTop - 24f, headerHeight);
-                    skillLabel.rectTransform.anchoredPosition += new Vector2(330f, 0);
-                    detailBottom = PlaceDetailRow(skillDivider.rectTransform, detailBottom - 10f, 2f);
-                }
-                detailBottom = PlaceDetailRow(descriptionText.rectTransform, detailBottom - 14f,
-                    MeasureDescriptionHeight());
-                if (!hidden)
-                {
-                    PlaceDetailRow(skillPaper.rectTransform, skillTop, skillTop - detailBottom + 20f);
-                    detailBottom -= 20f;
-                }
-            }
+            PlaceDetailRow(detailPaper.rectTransform, 260f, 306f);
             bool showRequirement = !hidden && selected != InkSkinId.Ink;
             bool showProgress = !hidden && InkSkinAchievements.Goal(selected) > 0;
             achievementText.gameObject.SetActive(!collectionExpanded && showRequirement);
             progressText.gameObject.SetActive(!collectionExpanded && showProgress);
-            // 능력 설명이 길어도 의상 썸네일을 찌그러뜨리지 않도록 조건·진척을 한 줄로 묶는다.
-            bool compactUnlock = !hidden && hasAbility && showRequirement && showProgress;
-            achievementText.rectTransform.sizeDelta = new Vector2(compactUnlock ? 700f : 960f, 64f);
-            achievementText.alignment = compactUnlock ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter;
-            progressText.rectTransform.sizeDelta = new Vector2(compactUnlock ? 240f : 800f, 52f);
-            progressText.alignment = compactUnlock ? TextAnchor.MiddleRight : TextAnchor.MiddleCenter;
-            // 기본 먹의 불필요한 안내와 빈 진행도 줄은 수집 목록에 돌려준다.
-            float infoBottom = detailBottom;
-            if (showRequirement) infoBottom = PlaceDetailRow(achievementText.rectTransform, infoBottom - 24f, 64f);
-            if (showProgress)
-            {
-                if (compactUnlock)
-                {
-                    achievementText.rectTransform.anchoredPosition += new Vector2(-130f, 0);
-                    progressText.rectTransform.anchoredPosition = new Vector2(360f, achievementText.rectTransform.anchoredPosition.y);
-                }
-                else infoBottom = PlaceDetailRow(progressText.rectTransform, infoBottom - 12f, 52f);
-                infoBottom = PlaceDetailRow(progressTrack, infoBottom - 10f, 30f);
-            }
-            float statusBottom = PlaceDetailRow(statusText.rectTransform, detailBottom - 24f, 120f);
-            if (!string.IsNullOrEmpty(statusText.text)) infoBottom = Mathf.Min(infoBottom, statusBottom);
-            if (!collectionExpanded)
-            {
-                // 하단 버튼은 고정하고 긴 설명 아래의 수집 목록만 스크롤 높이를 조절한다.
-                float top = infoBottom - 24f;
-                collectionRoot.anchoredPosition = new Vector2(0, (top - 748f) * .5f);
-                collectionRoot.sizeDelta = new Vector2(1000, top + 748f);
-                RefreshCardLayout();
-            }
+            achievementText.alignment = progressText.alignment = TextAnchor.MiddleCenter;
+            PlaceDetailRow(achievementText.rectTransform, -62f, 104f);
+            PlaceDetailRow(progressText.rectTransform, -166f, 52f);
+            PlaceDetailRow(progressTrack, -228f, 30f);
+            PlaceDetailRow(statusText.rectTransform, -62f, 156f);
         }
         static float PlaceDetailRow(RectTransform row, float top, float height)
         {
             row.anchoredPosition = new Vector2(0, top - height * .5f);
             row.sizeDelta = new Vector2(row.sizeDelta.x, height);
             return top - height;
-        }
-        float MeasureDescriptionHeight()
-        {
-            // preferredHeight는 픽셀 반올림된 폭, 실제 메시 생성은 원래 Rect 폭을 쓴다.
-            // CJK 끝 글자가 다음 줄로 밀리는 경계에서도 마지막 줄을 자르지 않도록 보수적으로 측정한다.
-            float width = Mathf.Min(descriptionText.rectTransform.rect.width, descriptionText.GetPixelAdjustedRect().width) - 4f;
-            var settings = descriptionText.GetGenerationSettings(new Vector2(Mathf.Max(1f, width), 0));
-            settings.verticalOverflow = VerticalWrapMode.Overflow;
-            float height = descriptionText.cachedTextGeneratorForLayout.GetPreferredHeight(descriptionText.text, settings) /
-                descriptionText.pixelsPerUnit;
-            return Mathf.Max(144f, height + 16f);
         }
         void RefreshProgress(int goal, int value, bool unlocked, bool saveFailed)
         {
@@ -423,29 +360,21 @@ namespace MukJump.Core
                 new Vector2(0,148),new Vector2(150,4));
             detailDivider.preserveAspect=false;
             var dividerTint=InkPalette.Red; dividerTint.a=.48f; detailDivider.color=dividerTint;
-            nameText=Label("SkinName",paper,"",84,new Vector2(0,198),new Vector2(940,104),true);
+            nameText=Label("SkinName",paper,"",84,new Vector2(-80,198),new Vector2(760,104),true);
             loreText=Label("ItemLore",paper,"",46,new Vector2(0,80),new Vector2(920,92),false);
             loreText.color=InkPalette.Ink; loreText.fontStyle=FontStyle.Bold; loreText.lineSpacing=1.12f;
-            // 두꺼운 먹 띠·낙관 대신 공통 한지 카드 한 장과 작은 붉은 분류명만 사용한다.
-            skillPaper=SpriteImage("SpecialSkillPaper",paper,InkUiStyle.ActionButtonSprite,Vector2.zero,new Vector2(960,288));
-            InkUiStyle.ConfigureHanjiSurface(skillPaper);
-            skillPaper.color=new Color(1,1,1,.7f);
-            skillDivider=SpriteImage("SpecialSkillDivider",paper,null,Vector2.zero,new Vector2(840,2));
-            skillDivider.preserveAspect=false;
-            var skillLineTint=InkPalette.Ink; skillLineTint.a=.14f; skillDivider.color=skillLineTint;
-            skillLabel=Label("SpecialSkillLabel",paper,"특수 능력",32,Vector2.zero,new Vector2(180,52),false);
-            skillLabel.color=InkPalette.Red; skillLabel.alignment=TextAnchor.MiddleRight;
-            if(skillLabel.TryGetComponent<Outline>(out var skillOutline)) skillOutline.enabled=false;
+            skillInfoButton=Button("SpecialSkillButton",paper,"특수 능력",new Vector2(420,198),new Vector2(160,92),32,out var skillButtonLabel);
+            skillButtonLabel.color=InkPalette.Red;
+            if(skillButtonLabel.TryGetComponent<Outline>(out var skillOutline)) skillOutline.enabled=false;
+            skillInfoButton.onClick.AddListener(OpenSkillPopup);
             BuildCollection();
             for(int i=0;i<InkSkinCatalog.BrowseCount;i++) BuildCard(InkSkinCatalog.BrowseAt(i));
             var toggle=Button("CollectionToggle",paper,"전체 보기",new Vector2(410,860),new Vector2(230,94),30,out collectionToggleText);
             toggle.onClick.AddListener(ToggleCollection);
-            abilityText=Label("Ability",paper,"",56,new Vector2(-120,6),new Vector2(600,72),true);
-            abilityText.alignment=TextAnchor.MiddleLeft;
             descriptionText=Label("Description",paper,"",50,new Vector2(0,-96),new Vector2(920,144),false);
             descriptionText.color=InkPalette.Ink; descriptionText.fontStyle=FontStyle.Bold;
             descriptionText.lineSpacing=1.12f;
-            foreach(var text in new[]{nameText,loreText,abilityText,descriptionText})
+            foreach(var text in new[]{nameText,loreText,descriptionText})
                 if(text.TryGetComponent<Outline>(out var outline)) outline.enabled=false;
             achievementText=Label("Achievement",paper,"",38,new Vector2(0,-152),new Vector2(960,64),true);
             progressText=Label("AchievementProgress",paper,"",40,new Vector2(0,-212),new Vector2(800,52),true); InkLocalizedText.Exclude(progressText);
@@ -471,6 +400,7 @@ namespace MukJump.Core
             backIcon.color=InkPalette.TextDark;
             backButton=backHit.gameObject.AddComponent<UnityEngine.UI.Button>();
             InkUiStyle.ConfigureButton(backButton,backIcon); backButton.onClick.AddListener(Back);
+            BuildSkillPopup();
             ApplyCollectionLayout();
             rootGroup.alpha=0; rootGroup.interactable=rootGroup.blocksRaycasts=false;
         }
@@ -521,10 +451,10 @@ namespace MukJump.Core
             collectionContent.pivot=collectionContent.anchorMin;
             collectionContent.sizeDelta=collectionExpanded ? new Vector2(980,0) : new Vector2(0,320);
             collectionContent.anchoredPosition=Vector2.zero;
-            collectionRoot.anchoredPosition=collectionExpanded ? new Vector2(0,0) : new Vector2(0,-548);
-            collectionRoot.sizeDelta=new Vector2(1000,collectionExpanded ? 1560 : 424);
+            collectionRoot.anchoredPosition=collectionExpanded ? Vector2.zero : CompactCollectionPosition;
+            collectionRoot.sizeDelta=collectionExpanded ? new Vector2(1000,1560) : CompactCollectionSize;
             stage.gameObject.SetActive(!collectionExpanded);
-            foreach(var label in new[]{nameText,loreText,abilityText,descriptionText,achievementText,progressText,statusText})
+            foreach(var label in new[]{nameText,loreText,descriptionText,achievementText,progressText,statusText})
                 if(label!=null) label.gameObject.SetActive(!collectionExpanded);
             if(progressTrack!=null) progressTrack.gameObject.SetActive(!collectionExpanded && hasProgress);
             InkLocalizedText.SetSource(collectionToggleText,collectionExpanded ? "크게 보기" : "전체 보기");
@@ -534,9 +464,9 @@ namespace MukJump.Core
         void RefreshCardLayout(bool force=false)
         {
             if(collectionGrid==null) return;
-            var cell=collectionExpanded ? new Vector2(310,420) : new Vector2(240,Mathf.Clamp(collectionRoot.sizeDelta.y-24,180,320));
+            var cell=collectionExpanded ? new Vector2(310,420) : new Vector2(240,320);
             if(!force && collectionGrid.cellSize==cell) return;
-            // 설명이 길어져도 가로 스크롤 위치·속도는 유지하고 카드 높이만 조절한다.
+            // 카드 높이는 모드별로 고정한다. 의상 설명 길이와 무관하게 같은 크기를 유지한다.
             collectionGrid.cellSize=cell;
             if(!collectionExpanded) collectionContent.sizeDelta=new Vector2(collectionContent.sizeDelta.x,cell.y);
             UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(collectionContent);
@@ -552,8 +482,8 @@ namespace MukJump.Core
                 cardQuestions[i].rectTransform.sizeDelta=cardViewports[i].sizeDelta;
                 cardQuestions[i].fontSize=collectionExpanded ? 96 : 60;
                 var method=cards[i].transform.Find("UnlockMethod").GetComponent<Text>();
-                method.rectTransform.sizeDelta=new Vector2(cell.x-24,56);
-                method.rectTransform.anchoredPosition=new Vector2(0,-30);
+                method.rectTransform.sizeDelta=new Vector2(cell.x-24,68);
+                method.rectTransform.anchoredPosition=new Vector2(0,-36);
                 method.fontSize=26;
                 cardNames[i].gameObject.SetActive(collectionExpanded);
                 cardNames[i].rectTransform.anchoredPosition=new Vector2(0,-102);
@@ -601,8 +531,8 @@ namespace MukJump.Core
             if(collectionScroll==null) return;
             collectionScroll.CancelMotion(); collectionScroll.enabled=false;
         }
-        void OnApplicationPause(bool paused) { if(paused) StopCollection(); }
-        void OnApplicationFocus(bool focused) { if(!focused) StopCollection(); }
+        void OnApplicationPause(bool paused) { if(paused) { CloseSkillPopup(); StopCollection(); } }
+        void OnApplicationFocus(bool focused) { if(!focused) { CloseSkillPopup(); StopCollection(); } }
         void BuildEquipButton()
         {
             // 성장하기와 같은 검정 먹 붓·밝은 글씨. 팝업용 종이 받침은 사용하지 않는다.
@@ -711,6 +641,7 @@ namespace MukJump.Core
             // 성장 화면과 같은 상단 기준. 꾸미기는 배너가 없으므로 노치만 제외한다.
             float topOffset=(safe.height*1920f/Screen.height-1920f*scale)*.5f;
             paper.anchoredPosition=new Vector2(0,topOffset);
+            if (IsSkillPopupOpen) LayoutSkillPopup();
         }
 
         static RectTransform Stretch(string name, Transform parent)
