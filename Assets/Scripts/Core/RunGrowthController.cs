@@ -34,6 +34,8 @@ namespace MukJump.Core
         [SerializeField] float maskStrikeCooldown;
         public const float MaskStrikeCooldownSeconds = 30f;
         public float MaskStrikeCooldownRemaining => maskStrikeCooldown;
+        [SerializeField] float webClimbCooldown = 30f;
+        public float WebClimbCooldownRemaining => webClimbCooldown;
         public const float SkinSkillCooldownSeconds = 20f;
         public const float SkinSkillJumpHeight = 25f;
         public float SkinSkillCooldownRemaining => skinSkillCooldown;
@@ -48,6 +50,8 @@ namespace MukJump.Core
         {
             TickSkinCooldown(Time.deltaTime);
             TryGrantSkinStartBoost();
+            if (SkinSnapshot == InkSkinId.SpiderMask && webClimbCooldown <= 0 && CanTickSkinAbility &&
+                GetComponent<InkWebClimb>()?.TryStart(OriginalSkinPlayer()) == true) webClimbCooldown = 30f;
         }
 
         void TickSkinCooldown(float seconds)
@@ -56,6 +60,7 @@ namespace MukJump.Core
             {
                 skinSkillCooldown = Mathf.Max(0, skinSkillCooldown - seconds);
                 maskStrikeCooldown = Mathf.Max(0, maskStrikeCooldown - seconds);
+                webClimbCooldown = Mathf.Max(0, webClimbCooldown - seconds);
             }
         }
 
@@ -360,6 +365,7 @@ namespace MukJump.Core
             skinStartBoostGranted = false;
             skinSkillCooldown = 0;
             maskStrikeCooldown = 0;
+            webClimbCooldown = 30f;
             stableHitReadyAt = float.NegativeInfinity;
             lastFallBrakeReadyAt = float.NegativeInfinity;
             SafetyJumpProgress = 0;

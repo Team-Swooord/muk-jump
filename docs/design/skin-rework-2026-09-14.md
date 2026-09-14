@@ -40,6 +40,8 @@
 
 ## 진행 메모
 
+- 21 능력 검증 완료: `SpiderWeb` 7개 통과. 기존 상시 벽 접착은 성장 기능에만 남기고, 의상은 30초마다 실제 벽을 향해 줄을 발사한 뒤 최대 18m 물리 속도로 상승한다. 일시정지/백그라운드 정지, 분신/다른 상승 제외, 타 아이템 점프가 시작되면 줄 해제, 광고 재충전 없음. 실제 화면 벽을 타고 10m 이상 상승한 Play Mode 검사와 `SpiderWeb-climb.png` 확인. 최초 Unity 컴포넌트 null 처리 오류 수정 후 통과. 증거 `output/qa/skin-rework-20260914/spider-ability-tests.json`. **적·청색 새 원화는 배경 투명화 생성 실패로 미적용, 21 완료 표시는 보류.**
+
 - 20 검증 완료: `AngelWings` 4개 통과. ID 62(부호 비트 이전 마지막 자리) 추가, 누적 10,000m 해금, 실제 4프레임 빛의 날개, 한 판 1회 본체 1칸 회복·50m 상승(성장 부활과 공유). 분신/광고 재충전 제외, 3언어 문구, 9999/10000 경계, JSON 기존 비트 보존과 Play Mode 4프레임 확인. 최초 정지 PNG를 요구하던 빌더를 애니메이션 전용 의상도 지원하도록 수정. 증거 `output/qa/skin-rework-20260914/angel-final-tests.json`, `output/qa/accessory-fit/AngelWings-0.png`. **출시 전 별도 확인:** Game Center 신규 업적 `mukjump.achievement.skin.62`는 ASC 등록 미확인. 등록 후 `GameCenterCount`를 62로 올릴 것. 현재 전송 상한 61은 기존 업적 배치 실패를 예방한다.
 
 - 작업 브랜치: 기존 `codex/ink-skins`. 시작 커밋 `47ca2ca1`, 시작 작업 트리 깨끗함. 심사 중인 main은 건드리지 않음.

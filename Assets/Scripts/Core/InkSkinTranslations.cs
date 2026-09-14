@@ -16,6 +16,8 @@ namespace MukJump.Core
             var result = new Dictionary<string, (string, string)>
             {
                 ["다시 피는 빛"] = ("Light Reborn", "よみがえる光"),
+                ["거미줄 오르기"] = ("Web Ascent", "糸のぼり"),
+                ["30초마다 가까운 벽에 거미줄을 쏘아 본체를 18m 끌어올린다.\n상승 중에는 피해를 막으며 다른 점프 효과가 발동하면 줄을 놓는다."] = ("Every 30 seconds, a web pulls the original Ink 18m toward a nearby wall.\nBlocks damage during ascent. Another launch effect releases the web.", "30秒ごとに近くの壁へ糸を放ち、本体を18m引き上げる。\n上昇中はダメージを防ぎ、別の跳躍効果が発動すると糸を離す。"),
                 ["의상 시험실"] = ("Outfit test room", "衣装テスト"),
                 ["닫기"] = ("Close", "閉じる"),
                 ["해금 연출 보기"] = ("Preview unlock", "解放演出を見る"),

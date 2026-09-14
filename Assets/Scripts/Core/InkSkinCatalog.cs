@@ -128,7 +128,7 @@ namespace MukJump.Core
         public static bool HasAbility(InkSkinId id) => id is InkSkinId.Gat or InkSkinId.SpiderMask or
             InkSkinId.SpiritHalo or InkSkinId.TurtleShell or InkSkinId.PhoenixCrown or InkSkinId.BondKnot or InkSkinId.WindFan or InkSkinId.CloudBoots or InkSkinId.YakshaMask or InkSkinId.AngelWings;
         public static string Ability(InkSkinId id) => id switch {
-            InkSkinId.Gat => "이단 도약", InkSkinId.SpiderMask => "거미 걸음",
+            InkSkinId.Gat => "이단 도약", InkSkinId.SpiderMask => "거미줄 오르기",
             InkSkinId.SpiritHalo => "먹의 환원", InkSkinId.TurtleShell => "시작 방어막", InkSkinId.PhoenixCrown => "봉황의 숨결",
             InkSkinId.CloudBoots => "구름 도약",
             InkSkinId.YakshaMask => "퇴마의 일격",
@@ -137,7 +137,7 @@ namespace MukJump.Core
             _ => "먹의 장식" };
         public static string Description(InkSkinId id) => id switch {
             InkSkinId.Gat => "점프 정점에서 한 번 더 도약한다.\n첫 도약의 40% 힘으로 자동 발동한다.",
-            InkSkinId.SpiderMask => "양옆 벽에 붙었다가\n화면 안쪽으로 자동 도약한다.",
+            InkSkinId.SpiderMask => "30초마다 가까운 벽에 거미줄을 쏘아 본체를 18m 끌어올린다.\n상승 중에는 피해를 막으며 다른 점프 효과가 발동하면 줄을 놓는다.",
             InkSkinId.SpiritHalo => "분신이 쓰러질 때마다 본체 체력을 1칸 회복한다.\n최대 체력을 넘거나 쓰러진 본체를 되살리지는 않는다.",
             InkSkinId.CloudBoots => "본체가 맵 발판에 착지하면 먹방울 효과로 50m 상승한다.\n직접 그린 발판에는 발동하지 않는다.",
             InkSkinId.YakshaMask => "본체가 적과 충돌하면 피해 없이 적을 제거한다.\n30초마다 발동하며 가시·낙석에는 적용되지 않는다.",

@@ -583,6 +583,7 @@ namespace MukJump.Player
         public void ArmAchievementItemFlight(int sequence) { if (!IsDead && IsInkDropBoosted) achievementItemFlight = sequence; }
         public void LaunchToHeight(float height)
         {
+            SpecialLaunchVersion++;
             achievementItemFlight = 0;
             if (!EnsureBody()) return;
             centeringAfterFall = false;
@@ -1180,8 +1181,8 @@ namespace MukJump.Player
             }
         }
 
-        bool HasWallClingAbility => ActivePermanentGrowth.HasWallCling ||
-            RunGrowthController.Instance != null && RunGrowthController.Instance.SkinSnapshot == InkSkinId.SpiderMask;
+        public int SpecialLaunchVersion { get; private set; }
+        bool HasWallClingAbility => ActivePermanentGrowth.HasWallCling;
 
         bool TryBeginWallCling(ScreenSideWall wall, float inwardDirection)
         {

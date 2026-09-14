@@ -111,7 +111,7 @@ namespace MukJump.EditorTests
         }
         [TestCase(InkSkinId.Ink, false)]
         [TestCase(InkSkinId.Gat, false)]
-        [TestCase(InkSkinId.SpiderMask, true)]
+        [TestCase(InkSkinId.SpiderMask, false)]
         public void SpiderClingsAndReleasesThroughAutomaticJumpOnly(InkSkinId id, bool expected)
         {
             InkSkinPreferences.TryEquip(id);
@@ -870,6 +870,79 @@ namespace MukJump.EditorTests
             var manager = host.AddComponent<GameManager>(); Invoke(manager, "OnEnable");
             growth = host.GetComponent<RunGrowthController>() ?? host.AddComponent<RunGrowthController>();
             Invoke(growth, "OnEnable");
+            return manager;
+        }
+
+        [Test, Category("SpiderWeb")]
+        public void SpiderWaitsThirtyActiveSecondsAndUsesAnActualWall()
+        {
+            var manager = StartSpiderTest(out var growth, out var player, out var web);
+            Assert.That(growth.WebClimbCooldownRemaining, Is.EqualTo(30));
+            Invoke(growth, "TickSkinCooldown", 29.9f); Invoke(growth, "Update");
+            Assert.That(web.IsClimbing, Is.False);
+            typeof(GameManager).GetProperty("IsPaused").SetValue(manager, true);
+            Invoke(growth, "TickSkinCooldown", 30f);
+            Assert.That(growth.WebClimbCooldownRemaining, Is.GreaterThan(0));
+            typeof(GameManager).GetProperty("IsPaused").SetValue(manager, false);
+            Invoke(growth, "TickSkinCooldown", 1f); Invoke(growth, "Update");
+            Assert.That(web.IsClimbing, Is.True); Assert.That(growth.WebClimbCooldownRemaining, Is.EqualTo(30));
+            Assert.That(web.Destination.x, Is.InRange(4f, 4.9f)); Assert.That(web.Destination.y, Is.EqualTo(18));
+            Assert.That(player.IsInkDropBoosted, Is.False, "발사된 줄이 붙기 전에 상승하지 않는다.");
+            Invoke(web, "Advance", .16f);
+            Assert.That(player.IsInkDropBoosted, Is.True); Assert.That(player.Body.linearVelocity.y, Is.GreaterThan(10));
+            Assert.That(DragonStats(manager).items, Is.Zero);
+            float elapsed = web.Elapsed;
+            MobileApplicationLifecycle.SetPlatformVisibility(false);
+            try { Invoke(web, "Advance", 1f); Assert.That(web.Elapsed, Is.EqualTo(elapsed)); }
+            finally { MobileApplicationLifecycle.SetPlatformVisibility(true); }
+            player.LaunchInkDrop(50); Vector2 velocity = player.Body.linearVelocity;
+            Invoke(web, "Advance", .02f); Assert.That(web.IsClimbing, Is.False);
+            Assert.That(player.Body.linearVelocity, Is.EqualTo(velocity), "다른 아이템 효과를 덮어쓰지 않는다.");
+            Invoke(manager, "SetState", GameState.GameOver); Invoke(manager, "SetState", GameState.Playing);
+            Assert.That(growth.WebClimbCooldownRemaining, Is.EqualTo(30));
+        }
+
+        [TestCase("clone"), TestCase("boost"), TestCase("no-wall"), TestCase("wrong-skin"), Category("SpiderWeb")]
+        public void SpiderDoesNotSpendChargeWhenItCannotClimb(string guard)
+        {
+            StartSpiderTest(out var growth, out var player, out var web);
+            if (guard == "clone") Field(player, "isRuntimeClone", true);
+            if (guard == "boost") player.LaunchInkDrop(50);
+            if (guard == "no-wall") cleanup.OfType<GameObject>().First(x => x.name == "WebTestWall").SetActive(false);
+            if (guard == "wrong-skin") Field(growth, "skinSnapshot", InkSkinId.Ink);
+            Physics2D.SyncTransforms();
+            Assert.That(web.TryStart(player), Is.False);
+        }
+
+        [Test, Category("SpiderWeb")]
+        public void SpiderReleasesInsideTheWallWithoutTeleportingOrLeavingAVisual()
+        {
+            StartSpiderTest(out _, out var player, out var web);
+            Assert.That(web.TryStart(player), Is.True);
+            Vector2 initial = player.Body.position;
+            Invoke(web, "Advance", .2f);
+            Assert.That(player.Body.position, Is.EqualTo(initial), "이동은 물리 속도로만 수행한다.");
+            player.Body.position = web.Destination;
+            Invoke(web, "Advance", .02f);
+            Assert.That(web.IsClimbing, Is.False);
+            Assert.That(player.Body.linearVelocity.x, Is.LessThan(0));
+            Assert.That(web.GetComponentsInChildren<LineRenderer>().All(x => !x.enabled), Is.True);
+            foreach (string source in new[] { InkSkinCatalog.Ability(InkSkinId.SpiderMask), InkSkinCatalog.Description(InkSkinId.SpiderMask) })
+                foreach (bool ja in new[] { false, true }) Assert.That(InkSkinTranslations.TryTranslate(source, ja, out _), Is.True);
+        }
+
+        GameManager StartSpiderTest(out RunGrowthController growth, out PlayerController player, out InkWebClimb web)
+        {
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            Assert.That(InkSkinPreferences.TryEquip(InkSkinId.SpiderMask), Is.True);
+            var manager = Manager(out growth); Invoke(manager, "BeginPlayingAfterCover");
+            player = Player(); manager.RegisterPlayer(player);
+            var wall = Track(new GameObject("WebTestWall"));
+            wall.transform.position = new Vector3(5.5f, 0, 0);
+            wall.AddComponent<BoxCollider2D>().size = new Vector2(.6f, 60);
+            wall.AddComponent<ScreenSideWall>().Initialize(null, false);
+            Physics2D.SyncTransforms();
+            web = manager.gameObject.AddComponent<InkWebClimb>(); Invoke(web, "OnEnable");
             return manager;
         }
 

@@ -218,6 +218,9 @@ namespace MukJump.EditorTests
         [UnityTest, Timeout(120000), Category("AngelWings")]
         public IEnumerator AngelWingsFitTheOriginalBodyAcrossFourDrawnPoses() => CaptureAccessories(new[] { InkSkinId.AngelWings });
 
+        [UnityTest, Timeout(120000), Category("SpiderWeb")]
+        public IEnumerator SpiderWebMovesThePlayerUpAnActualScreenWall() => CaptureAccessories(new[] { InkSkinId.SpiderMask });
+
         IEnumerator CaptureAccessories(InkSkinId[] ids)
         {
             EditorWindow.GetWindow(typeof(Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
@@ -282,6 +285,32 @@ namespace MukJump.EditorTests
                     Assert.That(vfx, Is.Not.Null);
                     Assert.That(vfx.Play(player, player.transform.position + Vector3.right), Is.True);
                     yield return Capture("MaskStrike-combat");
+                }
+                if (ids.Length == 1 && ids[0] == InkSkinId.SpiderMask)
+                {
+                    Assert.That(InkSkinPreferences.TryEquip(InkSkinId.SpiderMask), Is.True);
+                    Assert.That(LobbyScreenNavigator.Instance.ReturnToLobby(), Is.True);
+                    deadline = Time.realtimeSinceStartup + 20;
+                    while (LobbyScreenNavigator.Instance.IsTransitioning && Time.realtimeSinceStartup < deadline) yield return null;
+                    var manager = GameManager.Instance;
+                    var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                    typeof(GameManager).GetMethod("BeginPlayingAfterCover", flags).Invoke(manager, null);
+                    yield return Wait(.2f);
+                    var player = manager.HighestLivingPlayer;
+                    float initialY = player.Body.position.y;
+                    var growth = manager.GetComponent<RunGrowthController>();
+                    var web = manager.GetComponent<InkWebClimb>();
+                    Assert.That(web, Is.Not.Null);
+                    typeof(RunGrowthController).GetMethod("TickSkinCooldown", flags).Invoke(growth, new object[] { 30f });
+                    deadline = Time.realtimeSinceStartup + 3;
+                    while (!web.IsClimbing && Time.realtimeSinceStartup < deadline) yield return null;
+                    Assert.That(web.IsClimbing, Is.True);
+                    yield return Wait(.3f); yield return Capture("SpiderWeb-climb");
+                    deadline = Time.realtimeSinceStartup + 3;
+                    while (web.IsClimbing && Time.realtimeSinceStartup < deadline) yield return null;
+                    Assert.That(player.IsDead, Is.False);
+                    Assert.That(player.Body.position.y - initialY, Is.GreaterThan(10));
+                    Assert.That(web.IsClimbing, Is.False);
                 }
                 if (ids.Length == 1 && ids[0] == InkSkinId.CloudBoots)
                 {
