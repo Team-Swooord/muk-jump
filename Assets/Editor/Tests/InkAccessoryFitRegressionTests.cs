@@ -51,6 +51,7 @@ namespace MukJump.EditorTests
 
         [TestCase(InkSkinId.Gat), TestCase(InkSkinId.CatEars), TestCase(InkSkinId.ZodiacTiger)]
         [TestCase(InkSkinId.HaetaeCrest), TestCase(InkSkinId.ZodiacPig), TestCase(InkSkinId.ZodiacMonkey)]
+        [TestCase(InkSkinId.YakshaMask, Category = "MaskStrike")]
         [Category("SkinReworkAppearance")]
         public void NewArtHasRealAlphaAndCatHasNoConnectingBand(InkSkinId id)
         {
@@ -306,6 +307,9 @@ namespace MukJump.EditorTests
                     while (!web.IsClimbing && Time.realtimeSinceStartup < deadline) yield return null;
                     Assert.That(web.IsClimbing, Is.True);
                     yield return Wait(.3f); yield return Capture("SpiderWeb-climb");
+                    var webLine = web.transform.Find("SkinWebThread").GetComponent<LineRenderer>();
+                    Assert.That(webLine.sharedMaterial.mainTexture, Is.SameAs(Texture2D.whiteTexture), "붓 텍스처의 투명 끝 때문에 줄이 끊겨 보이지 않는다.");
+                    Assert.That(Vector3.Distance(webLine.GetPosition(0), player.transform.position), Is.LessThan(.05f), "줄의 시작점이 본체에서 떨어지지 않는다.");
                     deadline = Time.realtimeSinceStartup + 3;
                     while (web.IsClimbing && Time.realtimeSinceStartup < deadline) yield return null;
                     Assert.That(player.IsDead, Is.False);

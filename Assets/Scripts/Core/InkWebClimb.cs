@@ -11,6 +11,7 @@ namespace MukJump.Core
         public const float Height = 18f, Speed = 18f, CastSeconds = .14f;
         readonly RaycastHit2D[] hits = new RaycastHit2D[16];
         [SerializeField, HideInInspector] LineRenderer outline, thread;
+        Material threadMaterial;
         PlayerController player;
         ScreenSideWall wall;
         Vector2 anchor, destination;
@@ -23,6 +24,9 @@ namespace MukJump.Core
 
         void OnEnable()
         {
+            if (threadMaterial == null)
+                threadMaterial = new Material(FallbackInkStyle.SharedInkMaterial)
+                { name = "SkinWebSolid", mainTexture = Texture2D.whiteTexture, hideFlags = HideFlags.DontSave };
             outline = WarmLine("SkinWebOutline", .075f, InkPalette.Ink, 8);
             thread = WarmLine("SkinWebThread", .032f, InkPalette.Paper, 9);
             Stop(false);
@@ -33,7 +37,7 @@ namespace MukJump.Core
             if (child == null) { child = new GameObject(name).transform; child.SetParent(transform, false); }
             var line = child.GetComponent<LineRenderer>();
             if (line == null) line = child.gameObject.AddComponent<LineRenderer>();
-            line.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
+            line.sharedMaterial = threadMaterial;
             line.useWorldSpace = true; line.positionCount = 2;
             line.startWidth = line.endWidth = width; line.startColor = line.endColor = color;
             line.numCapVertices = 2; line.sortingOrder = order; line.enabled = false;
@@ -71,6 +75,8 @@ namespace MukJump.Core
         static bool CanTick() => GameManager.Instance != null && GameManager.Instance.IsGameplayTicking &&
             MobileApplicationLifecycle.IsApplicationActive && MukJumpAccountRuntime.Instance?.BlocksGameplayForAccountSync != true;
         void FixedUpdate() => Advance(Time.fixedDeltaTime);
+        // 물리 스텝 뒤 보간된 본체 위치에 줄 끝을 붙인다. 빠른 상승 중 한 프레임 떨어지는 틈을 막는다.
+        void LateUpdate() { if (IsClimbing && CanTick()) Present(); }
         void Advance(float seconds)
         {
             if (!IsClimbing) return;
@@ -111,6 +117,12 @@ namespace MukJump.Core
                 player.Body.linearVelocity = new Vector2(wall != null && wall.IsLeft ? 3 : -3, 3);
             player = null; wall = null; pulling = false; elapsed = 0; Show(false);
         }
-        void OnDisable() => Stop(false);
+        void OnDisable()
+        {
+            Stop(false);
+            if (threadMaterial == null) return;
+            var owned = threadMaterial; threadMaterial = null;
+            if (Application.isPlaying) Destroy(owned); else DestroyImmediate(owned);
+        }
     }
 }
