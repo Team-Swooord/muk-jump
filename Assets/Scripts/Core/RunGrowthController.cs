@@ -34,11 +34,23 @@ namespace MukJump.Core
         [SerializeField] float maskStrikeCooldown;
         public const float MaskStrikeCooldownSeconds = 30f;
         public float MaskStrikeCooldownRemaining => maskStrikeCooldown;
-        [SerializeField] float webClimbCooldown = 30f;
+        public const float WebClimbCooldownSeconds = 30f;
+        [SerializeField] float webClimbCooldown = WebClimbCooldownSeconds;
         public float WebClimbCooldownRemaining => webClimbCooldown;
         public const float SkinSkillCooldownSeconds = 20f;
         public const float SkinSkillJumpHeight = 25f;
         public float SkinSkillCooldownRemaining => skinSkillCooldown;
+        // HUD는 별도 타이머를 돌리지 않고 이번 판에 고정된 능력의 실제 시계를 읽는다.
+        public float EquippedAbilityCooldownDuration => SkinSnapshot switch {
+            InkSkinId.WindFan => SkinSkillCooldownSeconds,
+            InkSkinId.YakshaMask => MaskStrikeCooldownSeconds,
+            InkSkinId.SpiderMask => WebClimbCooldownSeconds,
+            _ => 0f };
+        public float EquippedAbilityCooldownRemaining => SkinSnapshot switch {
+            InkSkinId.WindFan => SkinSkillCooldownRemaining,
+            InkSkinId.YakshaMask => MaskStrikeCooldownRemaining,
+            InkSkinId.SpiderMask => WebClimbCooldownRemaining,
+            _ => 0f };
         public bool HasActiveSkinSkill => SkinSnapshot == InkSkinId.WindFan;
         public bool CanUseActiveSkinSkill => HasActiveSkinSkill && skinSkillCooldown <= 0 &&
             CanTickSkinAbility && OriginalSkinPlayer() is { IsInkDropBoosted: false };
@@ -51,7 +63,7 @@ namespace MukJump.Core
             TickSkinCooldown(Time.deltaTime);
             TryGrantSkinStartBoost();
             if (SkinSnapshot == InkSkinId.SpiderMask && webClimbCooldown <= 0 && CanTickSkinAbility &&
-                GetComponent<InkWebClimb>()?.TryStart(OriginalSkinPlayer()) == true) webClimbCooldown = 30f;
+                GetComponent<InkWebClimb>()?.TryStart(OriginalSkinPlayer()) == true) webClimbCooldown = WebClimbCooldownSeconds;
         }
 
         void TickSkinCooldown(float seconds)
@@ -365,7 +377,7 @@ namespace MukJump.Core
             skinStartBoostGranted = false;
             skinSkillCooldown = 0;
             maskStrikeCooldown = 0;
-            webClimbCooldown = 30f;
+            webClimbCooldown = WebClimbCooldownSeconds;
             stableHitReadyAt = float.NegativeInfinity;
             lastFallBrakeReadyAt = float.NegativeInfinity;
             SafetyJumpProgress = 0;

@@ -435,6 +435,7 @@ namespace MukJump.Core
             elapsedTimeCaption = EnsureElapsedText(elapsedTimeCaption, "ElapsedCaption", 28, -88f, 132f);
             InkLocalizedText.SetSource(elapsedTimeCaption, "소요시간");
             if (lastElapsedSecond < 0) elapsedTimeText.text = "00:00";
+            InkSkinCooldownHud.Ensure(topHudRoot);
 
             if (newBestIndicator != null)
             {
