@@ -119,8 +119,8 @@ namespace MukJump.Core
     {
         public static (string ko, string en, string ja) Get(InkSkinId id) => InkMythicSkins.Contains(id) ? InkMythicSkins.Lore(id) : id switch {
             InkSkinId.Ink => ("벼루 밖으로 처음 굴러 나온 날.", "The day a drop rolled out of the inkstone.", "硯の外へ、はじめて転がり出た日。"),
-            InkSkinId.Gat => ("주인은 날아갔고, 갓만 돌아왔다.", "The hat came back. Its owner did not.", "持ち主は飛んでいき、笠だけ戻った。"),
-            InkSkinId.SpiderMask => ("처마 밑 거미에게 빌린 얼굴.", "A face borrowed from a spider in the eaves.", "軒下の蜘蛛から借りた顔。"),
+            InkSkinId.Gat => ("쓰고 나면 어째서인지 바람처럼 스쳐 가는 노래가 들린다.", "Put it on, and an old street anthem drifts past on the wind.", "かぶると、なぜか風に乗って昔の街の歌が聞こえる。"),
+            InkSkinId.SpiderMask => ("이웃의 빨래줄까지 지키는 작은 영웅.", "A little neighborhood hero. Even the clotheslines are safe.", "ご近所の物干しロープまで守る、小さなヒーロー。"),
             InkSkinId.FirstRibbon => ("풀 줄 몰라서 아직 첫 매듭이다.", "Still the first knot. Nobody can untie it.", "ほどけないので、まだ最初の結び目。"),
             InkSkinId.Scholar => ("붓보다 낮잠에 더 익숙한 선비의 관.", "Its scholar preferred naps to calligraphy.", "書より昼寝が得意な書生の冠。"),
             InkSkinId.InkGhost => ("다 쓴 종이도 가끔 꿈을 꾼다.", "Even used paper dreams sometimes.", "使い終えた紙も、ときどき夢を見る。"),
@@ -149,7 +149,7 @@ namespace MukJump.Core
             InkSkinId.MountainKing => ("산꼭대기에 먼저 앉은 먹의 왕관.", "Crown of the first Ink to sit on the summit.", "山頂に一番乗りした墨の冠。"),
             InkSkinId.CloudDragon => ("승천 연습은 아직 구름 속에서만.", "Still practicing ascension inside a cloud.", "昇天の練習は、まだ雲の中だけ。"),
             InkSkinId.InkMecha => ("대장간의 실패작. 종이로는 첫 성공작.", "Failed in iron. A triumph in cardboard.", "鉄では失敗作。紙では初の成功作。"),
-            InkSkinId.NightBat => ("밤마다 지붕을 지킨다. 낮에는 잔다.", "Guards the rooftops by night. Naps by day.", "夜は屋根を守る。昼は寝る。"),
+            InkSkinId.NightBat => ("달에 신호가 뜨면, 이름 없는 지붕의 주인이 깨어난다.", "When the signal reaches the moon, a nameless rooftop guardian wakes.", "月に合図が浮かぶと、名もなき屋根の守り手が目を覚ます。"),
             InkSkinId.Astronaut => ("달에 떡이 있는지 확인하러 간다.", "Off to check if the moon has rice cakes.", "月にお餅があるか、確かめに行く。"),
             InkSkinId.ClockworkCat => ("태엽을 감으면 오히려 잠이 든다.", "Winding it up only puts it to sleep.", "ぜんまいを巻くと、かえって眠くなる。"),
             InkSkinId.LuckyDice => ("일곱 번째 눈은 굴린 먹만 보인다.", "Only the roller can see the seventh face.", "七つ目の目は、振った墨にしか見えない。"),

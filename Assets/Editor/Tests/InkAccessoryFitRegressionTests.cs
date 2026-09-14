@@ -25,6 +25,54 @@ namespace MukJump.EditorTests
             InkSkinId.TeaCupHat, InkSkinId.CatEars, InkSkinId.WindFan,
             InkSkinId.CraneCrest, InkSkinId.PaperLanterns, InkSkinId.StormScarf };
 
+        [Test, Category("SkinReworkAppearance")]
+        public void WearablesAreForegroundButTailsStayBehindAndNewNamesTranslate()
+        {
+            foreach (var id in new[] { InkSkinId.CatEars, InkSkinId.WindFan, InkSkinId.ZodiacOx,
+                InkSkinId.ZodiacTiger, InkSkinId.ZodiacGoat, InkSkinId.HaetaeCrest, InkSkinId.ZodiacPig,
+                InkSkinId.ZodiacRat, InkSkinId.ZodiacRabbit, InkSkinId.ZodiacDragon, InkSkinId.ZodiacDog,
+                InkSkinId.ZodiacRooster, InkSkinId.ZodiacHorse })
+                Assert.That(InkSkinCatalog.BehindBody(id), Is.False, id.ToString());
+            foreach (var id in new[] { InkSkinId.ZodiacMonkey, InkSkinId.DragonTail, InkSkinId.NineTails })
+                Assert.That(InkSkinCatalog.BehindBody(id), Is.True, id.ToString());
+            Assert.That(InkSkinCatalog.Offset(InkSkinId.ZodiacPig).y, Is.LessThan(0), "눈 아래 코");
+            Assert.That(InkSkinCatalog.Offset(InkSkinId.ZodiacHorse).y, Is.LessThan(.30f), "갈기가 머리에 걸쳐진다");
+            Assert.That(InkSkinCatalog.Name(InkSkinId.NineTails), Is.EqualTo("구미호 꼬리"));
+            foreach (var id in new[] { InkSkinId.Gat, InkSkinId.SpiderMask, InkSkinId.NightBat,
+                InkSkinId.ZodiacGoat, InkSkinId.ZodiacMonkey, InkSkinId.NineTails })
+            {
+                var lore = InkSkinLore.Get(id);
+                Assert.That(InkSkinTranslations.TryTranslate(lore.ko, false, out var en), Is.True);
+                Assert.That(InkSkinTranslations.TryTranslate(lore.ko, true, out var ja), Is.True);
+                Assert.That(en, Is.EqualTo(lore.en).And.Not.Empty);
+                Assert.That(ja, Is.EqualTo(lore.ja).And.Not.Empty);
+            }
+        }
+
+        [TestCase(InkSkinId.Gat), TestCase(InkSkinId.CatEars), TestCase(InkSkinId.ZodiacTiger)]
+        [TestCase(InkSkinId.HaetaeCrest), TestCase(InkSkinId.ZodiacPig), TestCase(InkSkinId.ZodiacMonkey)]
+        [Category("SkinReworkAppearance")]
+        public void NewArtHasRealAlphaAndCatHasNoConnectingBand(InkSkinId id)
+        {
+            var texture = new Texture2D(2, 2);
+            try
+            {
+                texture.LoadImage(File.ReadAllBytes("Assets/Resources/" + InkSkinCatalog.ResourcePath(id) + ".png"));
+                var pixels = texture.GetPixels32();
+                Assert.That(pixels.Count(c => c.a < 8), Is.GreaterThan(pixels.Length * .40f), id + " 투명한 원화");
+                for (int x = 0; x < texture.width; x++)
+                {
+                    Assert.That(pixels[x].a, Is.Zero, "하단 여백");
+                    Assert.That(pixels[(texture.height - 1) * texture.width + x].a, Is.Zero, "상단 여백");
+                }
+                if (id == InkSkinId.CatEars)
+                    for (int y = 0; y < texture.height; y++)
+                        Assert.That(pixels[y * texture.width + texture.width / 2].a, Is.Zero, "귀 사이에 머리띠 없음");
+                Assert.That(InkSkinCatalog.Sprite(id), Is.Not.Null);
+            }
+            finally { Object.DestroyImmediate(texture); }
+        }
+
         [TestCase("paper_lanterns"), TestCase("dragon_tail"), TestCase("storm_scarf")]
         [TestCase("moon_clouds"), TestCase("blue_wisps"), TestCase("spirit_halo")]
         [TestCase("origami_wings"), TestCase("crane_wings"), TestCase("butterfly_wings")]
@@ -87,8 +135,8 @@ namespace MukJump.EditorTests
         public void HeadRootsAreInsetAndPairedHornsStayCentered()
         {
             foreach (var id in new[] { InkSkinId.ZodiacDragon, InkSkinId.ZodiacRooster, InkSkinId.CatEars })
-                Assert.That(InkSkinCatalog.BehindBody(id), Is.True, id.ToString());
-            foreach (var id in new[] { InkSkinId.ZodiacTiger, InkSkinId.ZodiacDragon, InkSkinId.ZodiacRooster,
+                Assert.That(InkSkinCatalog.BehindBody(id), Is.False, id + " 착용 장식은 몸 앞");
+            foreach (var id in new[] { InkSkinId.ZodiacDragon, InkSkinId.ZodiacRooster,
                 InkSkinId.LuckyDice, InkSkinId.TeaCupHat, InkSkinId.CatEars, InkSkinId.CraneCrest })
             {
                 Assert.That(InkSkinCatalog.Offset(id).x, Is.Zero, id + " 머리 중앙 기준");
@@ -145,6 +193,13 @@ namespace MukJump.EditorTests
         [UnityTest, Timeout(120000), Category("DragonTailRootFit")]
         public IEnumerator ThickTailRendersAllFourFramesOnTheOriginalBody() => CaptureAccessories(new[] { InkSkinId.DragonTail });
 
+        [UnityTest, Timeout(150000), Category("SkinReworkAppearance")]
+        public IEnumerator ReworkedWearablesAndAnimalFeaturesFitTheOriginalBody() => CaptureAccessories(new[] {
+            InkSkinId.Gat, InkSkinId.CatEars, InkSkinId.WindFan, InkSkinId.ZodiacOx,
+            InkSkinId.ZodiacTiger, InkSkinId.ZodiacHorse, InkSkinId.ZodiacGoat, InkSkinId.HaetaeCrest,
+            InkSkinId.ZodiacPig, InkSkinId.ZodiacMonkey, InkSkinId.ZodiacRat, InkSkinId.ZodiacRabbit,
+            InkSkinId.ZodiacDragon, InkSkinId.ZodiacDog, InkSkinId.ZodiacRooster, InkSkinId.NineTails });
+
         IEnumerator CaptureAccessories(InkSkinId[] ids)
         {
             EditorWindow.GetWindow(typeof(Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
@@ -172,6 +227,16 @@ namespace MukJump.EditorTests
                 foreach (var id in ids)
                 {
                     wardrobe.Select(id); yield return Wait(.85f);
+                    if (id is InkSkinId.Gat or InkSkinId.WindFan)
+                    {
+                        foreach (string label in new[] { "ItemLore", "Description" })
+                        {
+                            var text = wardrobe.Paper.Find(label).GetComponent<UnityEngine.UI.Text>();
+                            Assert.That(text.color, Is.EqualTo(InkPalette.Ink));
+                            Assert.That(text.fontStyle, Is.EqualTo(FontStyle.Bold));
+                            Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 3));
+                        }
+                    }
                     var clip = InkAccessoryMotion.Animation(id);
                     if (clip == null) { yield return Capture(id.ToString()); continue; }
                     // 시간 기반 프레임을 그대로 관찰한다. 캡처를 위해 실제 재생 코드를 바꾸지 않는다.

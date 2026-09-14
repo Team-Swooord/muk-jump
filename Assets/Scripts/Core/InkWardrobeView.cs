@@ -423,7 +423,7 @@ namespace MukJump.Core
             var dividerTint=InkPalette.Red; dividerTint.a=.48f; detailDivider.color=dividerTint;
             nameText=Label("SkinName",paper,"",84,new Vector2(0,198),new Vector2(940,104),true);
             loreText=Label("ItemLore",paper,"",46,new Vector2(0,80),new Vector2(920,92),false);
-            loreText.color=InkPalette.TextDark; loreText.lineSpacing=1.12f;
+            loreText.color=InkPalette.Ink; loreText.fontStyle=FontStyle.Bold; loreText.lineSpacing=1.12f;
             // 두꺼운 먹 띠·낙관 대신 공통 한지 카드 한 장과 작은 붉은 분류명만 사용한다.
             skillPaper=SpriteImage("SpecialSkillPaper",paper,InkUiStyle.ActionButtonSprite,Vector2.zero,new Vector2(960,288));
             InkUiStyle.ConfigureHanjiSurface(skillPaper);
@@ -441,6 +441,7 @@ namespace MukJump.Core
             abilityText=Label("Ability",paper,"",56,new Vector2(-120,6),new Vector2(600,72),true);
             abilityText.alignment=TextAnchor.MiddleLeft;
             descriptionText=Label("Description",paper,"",50,new Vector2(0,-96),new Vector2(920,144),false);
+            descriptionText.color=InkPalette.Ink; descriptionText.fontStyle=FontStyle.Bold;
             descriptionText.lineSpacing=1.12f;
             foreach(var text in new[]{nameText,loreText,abilityText,descriptionText})
                 if(text.TryGetComponent<Outline>(out var outline)) outline.enabled=false;

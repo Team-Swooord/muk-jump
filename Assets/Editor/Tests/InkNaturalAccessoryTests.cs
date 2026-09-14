@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace MukJump.EditorTests
 {
-    [Category("NaturalAccessoryArt")]
+    [Category("NaturalAccessoryArt"), Category("SkinReworkAppearance")]
     public sealed class InkNaturalAccessoryTests
     {
         public static readonly InkSkinId[] Changed = {
@@ -18,7 +18,7 @@ namespace MukJump.EditorTests
             InkSkinId.ZodiacDog, InkSkinId.ZodiacPig, InkSkinId.HaetaeCrest };
         public static bool Paired(InkSkinId id) => id is InkSkinId.ZodiacRat or InkSkinId.ZodiacOx
             or InkSkinId.ZodiacRabbit or InkSkinId.ZodiacDragon or InkSkinId.ZodiacGoat
-            or InkSkinId.ZodiacMonkey or InkSkinId.ZodiacDog or InkSkinId.ZodiacPig;
+            or InkSkinId.ZodiacDog;
 
         [TestCaseSource(nameof(Changed))]
         public void NaturalShapesHaveRealTransparencyAndNoConnectingBand(InkSkinId id)
@@ -41,7 +41,7 @@ namespace MukJump.EditorTests
                         for (int x = texture.width * 47 / 100; x < texture.width * 53 / 100; x++)
                             if (pixels[y * texture.width + x].a > 128) centerInk++;
                     Assert.That(centerInk, Is.LessThan(20), "중앙의 연결 띠가 다시 생기지 않는다");
-                    Assert.That(InkSkinCatalog.BehindBody(id), Is.True, "뿌리는 원래 몸체 뒤에 묻힌다");
+                    Assert.That(InkSkinCatalog.BehindBody(id), Is.False, "귀·뿔의 착용선이 몸 앞에 보인다");
                 }
                 foreach (var part in parts)
                 {

@@ -83,7 +83,16 @@ namespace MukJump.EditorTests
             }
             finally { Object.DestroyImmediate(host); SkinDebugSession.Reset(); PermanentGrowthProfile.RestoreDefaultStoreForTests(); }
         }
-        [Test] public void DoodleCostumesDoNotCoverOriginalIdleEyes()
+        [Test] public void DoodleCostumesDoNotCoverOriginalIdleEyes() => VerifyEyes(AllAccessories);
+
+        [Test, Category("SkinReworkAppearance")]
+        public void ReworkedFrontLayersKeepOriginalEyesClear() => VerifyEyes(new[] {
+            InkSkinId.Gat, InkSkinId.CatEars, InkSkinId.WindFan, InkSkinId.ZodiacOx,
+            InkSkinId.ZodiacTiger, InkSkinId.ZodiacHorse, InkSkinId.ZodiacGoat, InkSkinId.HaetaeCrest,
+            InkSkinId.ZodiacPig, InkSkinId.ZodiacRat, InkSkinId.ZodiacRabbit, InkSkinId.ZodiacDragon,
+            InkSkinId.ZodiacDog, InkSkinId.ZodiacRooster });
+
+        static void VerifyEyes(InkSkinId[] ids)
         {
             var body=new Texture2D(2,2); var eyePoints=new System.Collections.Generic.List<Vector2>();
             try
@@ -96,7 +105,7 @@ namespace MukJump.EditorTests
                     if(color.a>.78f && Mathf.Min(color.r,Mathf.Min(color.g,color.b))>.67f)
                         eyePoints.Add(new Vector2(x/1024f-.5f,.5f-y/1024f));
                 }
-                foreach(var id in AllAccessories)
+                foreach(var id in ids)
                 {
                     if(InkSkinCatalog.BehindBody(id) || InkSkinCatalog.IsFootwear(id)) continue;
                     var art=new Texture2D(2,2);
