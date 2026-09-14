@@ -845,9 +845,16 @@ namespace MukJump.EditorTests
             return manager;
         }
 
-        [Test, Category("AngelWings")]
+        [Test, Category("AngelWings"), Category("AngelRingRename")]
         public void AngelWingsKeepSavedBitsAndUnlockOnlyAtTenThousandMetres()
         {
+            Assert.That(InkSkinCatalog.Name(InkSkinId.AngelWings), Is.EqualTo("천사링"));
+            Assert.That(InkAchievementCatalog.Name(62), Is.EqualTo("천사링"));
+            Assert.That(InkAchievementCatalog.Id(62), Is.EqualTo("mukjump.achievement.skin.62"));
+            Assert.That(InkSkinTranslations.TryTranslate("천사링", false, out var english), Is.True);
+            Assert.That(english, Is.EqualTo("Angel Ring"));
+            Assert.That(InkSkinTranslations.TryTranslate("천사링", true, out var japanese), Is.True);
+            Assert.That(japanese, Is.EqualTo("天使の輪"));
             var state = new SkinAchievementState();
             Assert.That(state.Progress(InkSkinId.AngelWings, 9999, 0), Is.EqualTo(9999));
             state.Settle(1, 1, SkinRunStats.Begin(false, InkSkinId.Ink), 9999, 0);

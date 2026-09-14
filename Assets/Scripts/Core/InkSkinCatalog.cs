@@ -88,7 +88,7 @@ namespace MukJump.Core
             new(InkSkinId.NineTails,"구미호 꼬리","Nine Fox Tails","九尾のしっぽ","skin_nine_tails_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.ThreeCushion,"팔번공","Eight Ball","8番ボール","skin_three_cushion_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             // 정지 그림도 애니메이션 첫 프레임을 사용한다. 중복 PNG는 만들지 않는다.
-            new(InkSkinId.AngelWings,"천사 날개","Angel Wings","天使の翼","",SkinTier.Hard,SkinMetric.Distance,10000)
+            new(InkSkinId.AngelWings,"천사링","Angel Ring","天使の輪","",SkinTier.Hard,SkinMetric.Distance,10000)
         };
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
         public static bool IsAvailable(InkSkinId id) => IsValid(id) && id != InkSkinId.StormScarf;
