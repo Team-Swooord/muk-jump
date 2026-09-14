@@ -67,7 +67,7 @@ namespace MukJump.EditorTests
             }
             deletionStringPrefs.Clear();
             foreach (string key in new[] { DeletionOwnerKey, "MukJump.Account.LastAuthenticatedOwner", "MukJump.Cloud.PendingLeaderboardOwner",
-                "MukJump.Cloud.Revision", "MukJump.Cloud.PendingOperationId",
+                "MukJump.Cloud.Revision", "MukJump.Cloud.PendingOperationId", "MukJump.Cloud.PendingLeaderboardRecord",
                 "MukJump.Account.LocalGuestSnapshot", "MukJump.Account.PendingLocalGuestImportOwner",
                 "MukJump.Account.PendingLocalGuestImportRestoredOwner", "MukJump.Account.PendingProfileResolutionOwner",
                 "MukJump.Account.PendingAuthorizedTransitionPreviousOwner",
@@ -988,6 +988,76 @@ namespace MukJump.EditorTests
             PermanentGrowthProfile.SettleRun("first-completed-zero", 0, 0, true);
             account.SubmitBestHeight(0);
             Assert.That(calls, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void FasterTieQueuedDuringRequestSurvivesOlderSuccess()
+        {
+            var account = CreateLeaderboardRuntime();
+            var scoreStore = new MemoryScoreStore { Best = 237, Seconds = 80 };
+            ScoreManager.UseStoreForTests(scoreStore);
+            System.Action<BackEnd.BackendReturnObject> complete = null;
+            SetPrivateField(account, "updateLeaderboardForTests",
+                new System.Action<int, System.Action<BackEnd.BackendReturnObject>>((height, callback) => complete = callback));
+            account.SubmitBestHeight(237);
+            scoreStore.Seconds = 55;
+            account.SubmitBestHeight(237);
+            complete(BackendResult(204));
+            Assert.That(PlayerPrefs.HasKey("MukJump.Cloud.PendingLeaderboardBest"), Is.True);
+            Assert.That(BestRunRecord.Decode(PlayerPrefs.GetString("MukJump.Cloud.PendingLeaderboardRecord")).Seconds, Is.EqualTo(55));
+            account.SubmitBestHeight(237);
+            complete(BackendResult(204));
+            Assert.That(PlayerPrefs.HasKey("MukJump.Cloud.PendingLeaderboardRecord"), Is.False);
+        }
+
+        [Test]
+        public void TimedLeaderboardDecodesServerOrderWithoutChangingHeightOrAppearance()
+        {
+            var account = CreateLeaderboardRuntime();
+            var config = Object.Instantiate((MukJumpBackendSettings)typeof(MukJumpAccountRuntime).GetField("settings",
+                BindingFlags.NonPublic | BindingFlags.Instance).GetValue(account));
+            SetPrivateField(account, "settings", config);
+            try
+            {
+                typeof(MukJumpBackendSettings).GetField("heightTimeRankUuid",
+                    BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, "timed-test-rank");
+                var record = new BestRunRecord(237, 55);
+                string json = RankedPlayerJson.Replace("183", record.RankScore.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .Replace("\"index\":0", "\"extraData\":\"JP|1|36\",\"index\":0");
+                SetPrivateField(account, "getLeaderboardForTests",
+                    new System.Action<System.Action<BackEnd.Leaderboard.BackendUserLeaderboardReturnObject>>(
+                        callback => callback(LeaderboardResult(json))));
+                account.RefreshLeaderboard();
+                Assert.That(account.LeaderboardEntries[0].Height, Is.EqualTo(237));
+                Assert.That(account.LeaderboardEntries[0].TimeSeconds, Is.EqualTo(55));
+                Assert.That(account.LeaderboardEntries[0].Rank, Is.EqualTo(1));
+                Assert.That(account.LeaderboardEntries[0].RegionCode, Is.EqualTo("JP"));
+                Assert.That(account.LeaderboardEntries[0].EquippedSkin, Is.EqualTo(InkSkinId.CraneWings));
+            }
+            finally { Object.DestroyImmediate(config); }
+        }
+
+        [TestCase(false, 80, 55)]
+        [TestCase(false, 45, 45)]
+        [TestCase(true, 80, 80)]
+        [TestCase(true, -1, -1)]
+        public void TimedCloudRecordMergeAndAccountReplacementKeepPair(bool replaceAccount, int serverSeconds, int expectedSeconds)
+        {
+            var account = CreateLeaderboardRuntime();
+            ScoreManager.UseStoreForTests(new MemoryScoreStore { Best = 237, Seconds = 55 });
+            var snapshot = CreateValidCloudSnapshot(2);
+            Assert.That(PermanentGrowthProfile.TryExportCloudJson(out snapshot.growthJson), Is.True);
+            SetPrivateField(account, "updateLeaderboardForTests",
+                new System.Action<int, System.Action<BackEnd.BackendReturnObject>>((_, _) => { }));
+            snapshot.bestHeight = snapshot.bestTimeHeight = 237;
+            snapshot.bestRecordVersion = 1;
+            snapshot.bestTimeSeconds = serverSeconds;
+            SetPrivateField(account, "replaceLocalFromServerOnNextLoad", replaceAccount);
+            Assert.That(InvokePrivate<bool>(account, "TryApplyCloudSnapshot", snapshot, false, false), Is.True);
+            Assert.That(ScoreManager.StoredRecord.Height, Is.EqualTo(237));
+            Assert.That(ScoreManager.StoredRecord.Seconds, Is.EqualTo(expectedSeconds));
+            Assert.That(BestRunRecord.Decode(PlayerPrefs.GetString("MukJump.Cloud.PendingLeaderboardRecord")).Seconds,
+                Is.EqualTo(expectedSeconds));
         }
 
         [TestCase("cloudLoadInFlight")]

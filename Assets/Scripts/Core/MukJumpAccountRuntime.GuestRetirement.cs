@@ -158,12 +158,7 @@ namespace MukJump.Core
 #endif
             MukJumpAccountDeletionCleanup.Run(guest, current,
                 cb => RequestMyGameData(settings.PlayerTableName, new Where(), cb),
-                (row, cb) =>
-                {
-                    var param = new Param(); param.Add(settings.BestHeightColumn, 0);
-                    Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(settings.AllTimeRankUuid,
-                        settings.PlayerTableName, row, param, bro => cb(bro));
-                },
+                InvalidateAllLeaderboardRows,
                 (row, cb) => Backend.GameData.DeleteV2(settings.PlayerTableName, row, guest, bro => cb(bro)),
                 cb => Backend.BMember.WithdrawAccount(bro => cb(bro)), done);
         }

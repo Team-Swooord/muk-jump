@@ -6,17 +6,26 @@ namespace MukJump.Core
     public interface IScoreStore
     {
         int LoadBest();
-        void SaveBest(int value);
+        int LoadBestTime(int height);
+        void SaveBest(int value, int seconds = -1);
     }
 
     sealed class PlayerPrefsScoreStore : IScoreStore
     {
         const string BestKey = "MukJump.BestHeight";
+        public const string TimeKey = "MukJump.BestRunRecord";
 
         public int LoadBest() => PlayerPrefs.GetInt(BestKey, 0);
 
-        public void SaveBest(int value)
+        public int LoadBestTime(int height)
         {
+            BestRunRecord record = BestRunRecord.Decode(PlayerPrefs.GetString(TimeKey, ""));
+            return record.Height == height ? record.Seconds : -1;
+        }
+
+        public void SaveBest(int value, int seconds = -1)
+        {
+            PlayerPrefs.SetString(TimeKey, new BestRunRecord(value, seconds).Encode());
             PlayerPrefs.SetInt(BestKey, Mathf.Max(0, value));
             PlayerPrefs.Save();
         }
@@ -28,9 +37,21 @@ namespace MukJump.Core
         public static ScoreManager Instance { get; private set; }
         static IScoreStore scoreStore = new PlayerPrefsScoreStore();
         static int uncertainBestCandidate;
+        static int uncertainBestSeconds = -1;
 
         public int Height { get; private set; }
         public int Best { get; private set; }
+        public int BestTimeSeconds { get; private set; } = -1;
+        public int HeightTimeSeconds { get; private set; } = -1;
+        public BestRunRecord BestRecord => new(Best, BestTimeSeconds);
+        public static BestRunRecord StoredRecord
+        {
+            get
+            {
+                int height = Mathf.Max(0, scoreStore.LoadBest());
+                return new BestRunRecord(height, scoreStore.LoadBestTime(height));
+            }
+        }
         public int RunBestToBeat { get; private set; }
         public bool IsNewBestThisRun { get; private set; }
         public bool RecordsAllowed { get; private set; } = true;
@@ -53,6 +74,7 @@ namespace MukJump.Core
             Instance = null;
             scoreStore = new PlayerPrefsScoreStore();
             uncertainBestCandidate = 0;
+            uncertainBestSeconds = -1;
         }
 
         // OnEnable: Play 중 스크립트 재컴파일로 static이 초기화돼도 다시 할당된다
@@ -82,6 +104,7 @@ namespace MukJump.Core
             try
             {
                 Best = Mathf.Max(0, scoreStore.LoadBest());
+                BestTimeSeconds = scoreStore.LoadBestTime(Best);
                 bestLoadValid = true;
             }
             catch (Exception exception)
@@ -118,7 +141,13 @@ namespace MukJump.Core
         /// 물리 콜백에서 마지막 먹방울이가 죽은 프레임도 Update 샘플을 놓치지 않는다.
         public void SampleWorldHeight(float worldY)
         {
-            Height = Mathf.Max(Height, Mathf.RoundToInt(worldY - startY));
+            int sampled = Mathf.Max(0, Mathf.RoundToInt(worldY - startY));
+            if (sampled > Height)
+            {
+                Height = sampled;
+                HeightTimeSeconds = GameManager.Instance != null
+                    ? Mathf.FloorToInt(GameManager.Instance.ActiveGameplaySeconds) : -1;
+            }
             if (bestLoadValid && RecordsAllowed && !IsNewBestThisRun &&
                 BeatsRecord(Height, RunBestToBeat))
             {
@@ -150,30 +179,37 @@ namespace MukJump.Core
                 return false;
 
             int requestedCandidate = Mathf.Max(0, candidateHeight);
-            if (requestedCandidate <= Best && uncertainBestCandidate <= 0)
+            BestRunRecord requested = new(requestedCandidate,
+                requestedCandidate == Height ? HeightTimeSeconds : -1);
+            if (!requested.IsBetterThan(BestRecord) && uncertainBestCandidate <= 0)
                 return true;
 
             int previousBest = Best;
+            int previousSeconds = BestTimeSeconds;
             bool wasPendingRetry = uncertainBestCandidate > 0;
-            int candidate = Mathf.Max(
-                Best,
-                Mathf.Max(requestedCandidate, uncertainBestCandidate));
+            BestRunRecord selected = BestRunRecord.Better(BestRecord,
+                BestRunRecord.Better(requested, new BestRunRecord(uncertainBestCandidate, uncertainBestSeconds)));
+            int candidate = selected.Height;
             try
             {
-                scoreStore.SaveBest(candidate);
+                scoreStore.SaveBest(candidate, selected.Seconds);
                 int persisted = Mathf.Max(0, scoreStore.LoadBest());
-                if (persisted < candidate)
+                BestRunRecord persistedRecord = new(persisted, scoreStore.LoadBestTime(persisted));
+                if (selected.IsBetterThan(persistedRecord))
                 {
                     // 저장 API가 예외 없이 끝나도 readback이 후보보다 낮으면
                     // 내구 저장을 확인한 것이 아니다. 다음 재시도까지 후보를 보존한다.
                     uncertainBestCandidate = Mathf.Max(
                         uncertainBestCandidate,
                         candidate);
+                    uncertainBestSeconds = selected.Seconds;
                     return false;
                 }
                 Best = Mathf.Max(previousBest, persisted);
+                BestTimeSeconds = persistedRecord.Seconds;
                 uncertainBestCandidate = 0;
-                NotifyBestCommittedIfChanged(previousBest, wasPendingRetry);
+                uncertainBestSeconds = -1;
+                NotifyBestCommittedIfChanged(previousBest, wasPendingRetry || previousSeconds != BestTimeSeconds);
                 return true;
             }
             catch (Exception exception)
@@ -183,8 +219,10 @@ namespace MukJump.Core
                 uncertainBestCandidate = Mathf.Max(
                     uncertainBestCandidate,
                     candidate);
+                uncertainBestSeconds = selected.Seconds;
                 bestLoadValid = false;
                 Best = previousBest;
+                BestTimeSeconds = previousSeconds;
                 Debug.LogWarning(
                     $"최고 기록 저장에 실패했지만 결과 화면은 계속 표시합니다: " +
                     exception.Message);
@@ -259,12 +297,15 @@ namespace MukJump.Core
             try
             {
                 int previousBest = Best;
-                Best = Mathf.Max(Best, Mathf.Max(0, scoreStore.LoadBest()));
+                int previousSeconds = BestTimeSeconds;
+                BestRunRecord loaded = BestRunRecord.Better(BestRecord, StoredRecord);
+                Best = loaded.Height;
+                BestTimeSeconds = loaded.Seconds;
                 bestLoadValid = true;
                 // flush 예외 뒤 PlayerPrefs 메모리 readback은 내구 저장 증거가 아니다.
                 // 보류 후보가 있으면 실제 재쓰기 성공 때만 완료 이벤트를 보낸다.
                 if (!HasPendingBestSaveRetry)
-                    NotifyBestCommittedIfChanged(previousBest);
+                    NotifyBestCommittedIfChanged(previousBest, previousSeconds != BestTimeSeconds);
                 return true;
             }
             catch (Exception exception)
@@ -297,13 +338,14 @@ namespace MukJump.Core
 
         /// 서버 동기화에서 확인된 최고 기록을 로컬의 단조 기록에 합친다.
         /// 낮은 서버 값이나 손상된 음수 값은 기존 기록을 낮추지 못한다.
-        public bool TryMergeVerifiedBest(int verifiedBest)
+        public bool TryMergeVerifiedBest(int verifiedBest, int verifiedSeconds = -1)
         {
             if (!TryEnsureBestLoaded())
                 return false;
 
-            int candidate = Mathf.Max(Best, Mathf.Max(0, verifiedBest));
-            if (candidate == Best)
+            BestRunRecord selected = BestRunRecord.Better(BestRecord, new BestRunRecord(verifiedBest, verifiedSeconds));
+            int candidate = selected.Height;
+            if (!selected.IsBetterThan(BestRecord))
                 return !HasPendingBestSaveRetry ||
                        TryCommitBestCandidate(candidate);
 
@@ -311,12 +353,14 @@ namespace MukJump.Core
             int previousBest = Best;
             try
             {
-                scoreStore.SaveBest(candidate);
+                scoreStore.SaveBest(candidate, selected.Seconds);
                 int persisted = Mathf.Max(0, scoreStore.LoadBest());
-                if (persisted < candidate)
+                BestRunRecord persistedRecord = new(persisted, scoreStore.LoadBestTime(persisted));
+                if (selected.IsBetterThan(persistedRecord))
                     return false;
                 Best = Mathf.Max(previousBest, persisted);
-                NotifyBestCommittedIfChanged(previousBest);
+                BestTimeSeconds = persistedRecord.Seconds;
+                NotifyBestCommittedIfChanged(previousBest, true);
                 return true;
             }
             catch (Exception exception)
@@ -332,14 +376,13 @@ namespace MukJump.Core
 
         /// 씬의 ScoreManager가 아직 생성되기 전에도 서버 최고 기록을 안전하게
         /// 로컬 저장소에 합친다. BeforeSceneLoad 계정 동기화에서 사용한다.
-        public static bool TryMergeVerifiedBestIntoStore(int verifiedBest)
+        public static bool TryMergeVerifiedBestIntoStore(int verifiedBest, int verifiedSeconds = -1)
         {
             try
             {
-                int current = Mathf.Max(0, scoreStore.LoadBest());
-                int candidate = Mathf.Max(current, Mathf.Max(0, verifiedBest));
-                scoreStore.SaveBest(candidate);
-                return Mathf.Max(0, scoreStore.LoadBest()) >= candidate;
+                BestRunRecord selected = BestRunRecord.Better(StoredRecord, new BestRunRecord(verifiedBest, verifiedSeconds));
+                scoreStore.SaveBest(selected.Height, selected.Seconds);
+                return !selected.IsBetterThan(StoredRecord);
             }
             catch (Exception exception)
             {
@@ -352,7 +395,7 @@ namespace MukJump.Core
         /// 계정을 명시적으로 전환할 때만 사용한다. 다른 계정의 로컬 최고 기록이
         /// 새 계정에 섞이지 않도록 서버에서 검증한 값으로 정확히 교체한다.
         public static bool TryReplaceVerifiedBestForAccountSwitch(
-            int verifiedBest)
+            int verifiedBest, int verifiedSeconds = -1)
         {
             if (GameManager.Instance != null &&
                 GameManager.Instance.State != GameState.Lobby)
@@ -364,8 +407,9 @@ namespace MukJump.Core
             try
             {
                 int candidate = Mathf.Max(0, verifiedBest);
-                scoreStore.SaveBest(candidate);
-                if (Mathf.Max(0, scoreStore.LoadBest()) != candidate)
+                BestRunRecord replacement = new(candidate, verifiedSeconds);
+                scoreStore.SaveBest(candidate, replacement.Seconds);
+                if (StoredRecord.RankScore != replacement.RankScore)
                     return false;
 
                 uncertainBestCandidate = 0;
@@ -373,6 +417,8 @@ namespace MukJump.Core
                 {
                     int previousBest = Instance.Best;
                     Instance.Best = candidate;
+                    Instance.BestTimeSeconds = replacement.Seconds;
+                    Instance.HeightTimeSeconds = -1;
                     Instance.Height = 0;
                     Instance.RunBestToBeat = candidate;
                     Instance.IsNewBestThisRun = false;
@@ -402,6 +448,8 @@ namespace MukJump.Core
                 {
                     int previousBest = Instance.Best;
                     Instance.Best = 0;
+                    Instance.BestTimeSeconds = -1;
+                    Instance.HeightTimeSeconds = -1;
                     Instance.Height = 0;
                     Instance.RunBestToBeat = 0;
                     Instance.IsNewBestThisRun = false;
@@ -438,6 +486,8 @@ namespace MukJump.Core
                 {
                     int previousBest = Instance.Best;
                     Instance.Best = persisted;
+                    Instance.BestTimeSeconds = scoreStore.LoadBestTime(persisted);
+                    Instance.HeightTimeSeconds = -1;
                     Instance.Height = 0;
                     Instance.RunBestToBeat = persisted;
                     Instance.IsNewBestThisRun = false;
@@ -465,6 +515,7 @@ namespace MukJump.Core
         {
             startY = worldY;
             Height = 0;
+            HeightTimeSeconds = -1;
             RunBestToBeat = Best;
             IsNewBestThisRun = false;
             RecordsAllowed = true;
@@ -508,6 +559,7 @@ namespace MukJump.Core
     public sealed class MemoryScoreStore : IScoreStore
     {
         public int Best { get; set; }
+        public int Seconds { get; set; } = -1;
         public int? ForcedLoadBest { get; set; }
         public bool ThrowOnLoad { get; set; }
         public bool ThrowOnSave { get; set; }
@@ -521,15 +573,21 @@ namespace MukJump.Core
             return ForcedLoadBest ?? Best;
         }
 
-        public void SaveBest(int value)
+        public int LoadBestTime(int height) => height == Best ? Seconds : -1;
+
+        public void SaveBest(int value, int seconds = -1)
         {
             if (ThrowOnSave)
             {
                 if (ApplyBeforeThrow)
+                {
                     Best = Mathf.Max(0, value);
+                    Seconds = seconds;
+                }
                 throw new InvalidOperationException("Injected score write failure");
             }
             Best = Mathf.Max(0, value);
+            Seconds = seconds;
             SaveCount++;
         }
     }

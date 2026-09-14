@@ -16,6 +16,7 @@ namespace MukJump.Core
         [SerializeField] string playerTableName = "MukJumpPlayer";
         [SerializeField] string bestHeightColumn = "bestHeight";
         [SerializeField] string allTimeRankUuid = string.Empty;
+        [SerializeField] string heightTimeRankUuid = string.Empty;
         [SerializeField] string androidGoogleWebClientId = string.Empty;
         [SerializeField] string androidAppleServiceId = string.Empty;
         [SerializeField] bool appleRevocationConfigurationVerified;
@@ -27,6 +28,8 @@ namespace MukJump.Core
         public string PlayerTableName => playerTableName.Trim();
         public string BestHeightColumn => bestHeightColumn.Trim();
         public string AllTimeRankUuid => allTimeRankUuid.Trim();
+        public bool UsesTimedLeaderboard => !string.IsNullOrWhiteSpace(heightTimeRankUuid);
+        public string ActiveRankUuid => UsesTimedLeaderboard ? heightTimeRankUuid.Trim() : AllTimeRankUuid;
         public string AndroidGoogleWebClientId =>
             androidGoogleWebClientId.Trim();
         public string AndroidAppleServiceId => androidAppleServiceId.Trim();

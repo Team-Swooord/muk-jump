@@ -66,6 +66,7 @@ namespace MukJump.Core
             "MukJump.Cloud.PendingLeaderboardBest";
         const string PendingLeaderboardOwnerKey =
             "MukJump.Cloud.PendingLeaderboardOwner";
+        const string PendingLeaderboardRecordKey = "MukJump.Cloud.PendingLeaderboardRecord";
         const string StoredAccountScopeKey =
             "MukJump.Account.LastAuthenticatedOwner";
         const string AutomaticAuthenticationSuppressedKey =
@@ -492,7 +493,7 @@ namespace MukJump.Core
             TryReconnectGuest();
             if (leaderboardAwaitingAuthentication && IsOnlineAuthenticated &&
                 Phase != MukJumpAccountPhase.Connecting && Phase != MukJumpAccountPhase.Deleting &&
-                settings != null && !string.IsNullOrWhiteSpace(settings.AllTimeRankUuid))
+                settings != null && !string.IsNullOrWhiteSpace(settings.ActiveRankUuid))
                 RefreshLeaderboard();
             if (resumeCloudLoadPending && IsOnlineAuthenticated &&
                 settings != null && !cloudLoadInFlight && !saveInFlight)
@@ -1420,6 +1421,7 @@ namespace MukJump.Core
                 PlayerPrefs.DeleteKey(PendingOperationIdKey);
                 PlayerPrefs.DeleteKey(PendingLeaderboardOwnerKey);
                 PlayerPrefs.DeleteKey(PendingLeaderboardBestKey);
+                PlayerPrefs.DeleteKey(PendingLeaderboardRecordKey);
                 PlayerPrefs.SetString(RevisionKey, "0");
                 PlayerPrefs.SetInt(KindKey, (int)MukJumpAccountKind.LocalGuest);
                 PlayerPrefs.SetInt(PendingSaveKey, 1);
@@ -2553,7 +2555,7 @@ namespace MukJump.Core
             PlayerPrefs.Save();
         }
 
-        bool StorePendingLeaderboardBest(string accountScope, int bestHeight)
+        bool StorePendingLeaderboardBest(string accountScope, int bestHeight, int seconds = int.MinValue)
         {
             string normalizedScope = accountScope?.Trim() ?? string.Empty;
             if (normalizedScope.Length == 0)
@@ -2566,15 +2568,20 @@ namespace MukJump.Core
                         PendingLeaderboardOwnerKey,
                         string.Empty),
                     normalizedScope);
-                int existingBest = sameOwner
-                    ? PlayerPrefs.GetInt(PendingLeaderboardBestKey, 0)
-                    : 0;
+                BestRunRecord pending = sameOwner ? ReadPendingLeaderboardRecord() : new BestRunRecord(0);
+                if (seconds == int.MinValue)
+                {
+                    BestRunRecord current = ScoreManager.StoredRecord;
+                    seconds = current.Height == bestHeight ? current.Seconds : -1;
+                }
+                BestRunRecord selected = BestRunRecord.Better(pending, new BestRunRecord(bestHeight, seconds));
                 PlayerPrefs.SetString(
                     PendingLeaderboardOwnerKey,
                     normalizedScope);
                 PlayerPrefs.SetInt(
                     PendingLeaderboardBestKey,
-                    Mathf.Max(Mathf.Max(0, bestHeight), existingBest));
+                    selected.Height);
+                PlayerPrefs.SetString(PendingLeaderboardRecordKey, selected.Encode());
                 PlayerPrefs.Save();
                 return true;
             }
@@ -2593,6 +2600,7 @@ namespace MukJump.Core
             {
                 PlayerPrefs.DeleteKey(PendingLeaderboardBestKey);
                 PlayerPrefs.DeleteKey(PendingLeaderboardOwnerKey);
+                PlayerPrefs.DeleteKey(PendingLeaderboardRecordKey);
                 if (saveImmediately)
                     PlayerPrefs.Save();
             }
@@ -2602,6 +2610,13 @@ namespace MukJump.Core
                     "[MukJump] 완료된 순위 재시도 기록을 지우지 못했습니다: " +
                     exception.Message);
             }
+        }
+
+        static BestRunRecord ReadPendingLeaderboardRecord()
+        {
+            int height = Mathf.Max(0, PlayerPrefs.GetInt(PendingLeaderboardBestKey, 0));
+            BestRunRecord record = BestRunRecord.Decode(PlayerPrefs.GetString(PendingLeaderboardRecordKey, ""));
+            return record.Height == height ? record : new BestRunRecord(height);
         }
 
         void LoadCloudSnapshot()
@@ -2841,15 +2856,12 @@ namespace MukJump.Core
 
             MukJumpCloudSnapshot server = pendingServerSnapshot;
             string serverRowInDate = pendingServerRowInDate;
-            int localBest = ScoreManager.Instance != null
-                ? ScoreManager.Instance.Best
-                : PlayerPrefs.GetInt("MukJump.BestHeight", 0);
-            int mergedBest = MukJumpCloudMergePolicy.MergeBestHeight(
-                localBest,
-                server.bestHeight);
+            if (!TryReadLocalBestRecord(out BestRunRecord previousRecord)) return;
+            int localBest = previousRecord.Height;
+            BestRunRecord mergedRecord = BestRunRecord.Better(previousRecord, server.BestRecord);
             bool bestApplied = ScoreManager.Instance != null
-                ? ScoreManager.Instance.TryMergeVerifiedBest(mergedBest)
-                : ScoreManager.TryMergeVerifiedBestIntoStore(mergedBest);
+                ? ScoreManager.Instance.TryMergeVerifiedBest(mergedRecord.Height, mergedRecord.Seconds)
+                : ScoreManager.TryMergeVerifiedBestIntoStore(mergedRecord.Height, mergedRecord.Seconds);
             if (!bestApplied)
             {
                 SetStatus(
@@ -2879,10 +2891,10 @@ namespace MukJump.Core
                 dirty = previousDirty;
                 localMutationVersion = previousMutationVersion;
                 saveAtRealtime = previousSaveAtRealtime;
-                bool bestRestored = mergedBest == localBest ||
+                bool bestRestored = mergedRecord.RankScore == previousRecord.RankScore ||
                                     ScoreManager
                                         .TryReplaceVerifiedBestForAccountSwitch(
-                                            localBest);
+                                            localBest, previousRecord.Seconds);
                 TryRestoreDeviceConflictMarkers(previousRevision);
                 BeginSyncConflict(server, serverRowInDate);
                 Debug.LogWarning(
@@ -2970,9 +2982,8 @@ namespace MukJump.Core
                 return false;
             }
 
-            int localBest = ScoreManager.Instance != null
-                ? ScoreManager.Instance.Best
-                : PlayerPrefs.GetInt("MukJump.BestHeight", 0);
+            if (!TryReadLocalBestRecord(out BestRunRecord localRecord)) return false;
+            int localBest = localRecord.Height;
             bool explicitAccountReplacement =
                 replaceLocalFromServerOnNextLoad &&
                 !keepPendingLocalProfile &&
@@ -2980,11 +2991,9 @@ namespace MukJump.Core
             // 평상시 같은 계정 동기화는 서버 값이 낮아도 로컬 기록을 내리지 않는다.
             // exact replace는 명시적 계정 전환에서만 허용한다.
             bool shouldMergeBest = !explicitAccountReplacement;
-            int resolvedBest = shouldMergeBest
-                ? MukJumpCloudMergePolicy.MergeBestHeight(
-                    localBest,
-                    server.bestHeight)
-                : server.bestHeight;
+            BestRunRecord resolvedRecord = shouldMergeBest
+                ? BestRunRecord.Better(localRecord, server.BestRecord) : server.BestRecord;
+            int resolvedBest = resolvedRecord.Height;
             bool growthApplied = true;
             bool bestApplied = false;
             string rollbackGrowthJson = string.Empty;
@@ -3023,11 +3032,11 @@ namespace MukJump.Core
                     bestApplied = shouldMergeBest
                         ? (ScoreManager.Instance != null
                             ? ScoreManager.Instance.TryMergeVerifiedBest(
-                                resolvedBest)
+                                resolvedBest, resolvedRecord.Seconds)
                             : ScoreManager.TryMergeVerifiedBestIntoStore(
-                                resolvedBest))
+                                resolvedBest, resolvedRecord.Seconds))
                         : ScoreManager.TryReplaceVerifiedBestForAccountSwitch(
-                            resolvedBest);
+                            resolvedBest, resolvedRecord.Seconds);
                     bestChanged = bestApplied;
                     if (!bestApplied && !keepPendingLocalProfile &&
                         !string.IsNullOrWhiteSpace(rollbackGrowthJson))
@@ -3053,7 +3062,7 @@ namespace MukJump.Core
                         rollbackSettings,
                         growthChanged,
                         bestChanged,
-                        settingsAttempted);
+                        settingsAttempted, localRecord.Seconds);
                 Debug.LogWarning(
                     "[MukJump] 서버 기록 전체 적용에 실패해 로컬 상태로 " +
                     "되돌렸습니다: " + exception.Message);
@@ -3090,7 +3099,7 @@ namespace MukJump.Core
                 PersistRevision();
                 dirty = keepPendingLocalProfile ||
                         growthUpgradePending ||
-                        resolvedBest > server.bestHeight;
+                        resolvedRecord.IsBetterThan(server.BestRecord);
                 if (!dirty)
                 {
                     PlayerPrefs.DeleteKey(PendingSaveKey);
@@ -3114,7 +3123,7 @@ namespace MukJump.Core
                         rollbackSettings,
                         growthChanged,
                         bestChanged,
-                        settingsAttempted);
+                        settingsAttempted, localRecord.Seconds);
                 suppressDirty = false;
                 revision = rollbackRevision;
                 dirty = rollbackDirty;
@@ -3142,13 +3151,28 @@ namespace MukJump.Core
             return true;
         }
 
+        bool TryReadLocalBestRecord(out BestRunRecord record)
+        {
+            try
+            {
+                record = ScoreManager.Instance != null ? ScoreManager.Instance.BestRecord : ScoreManager.StoredRecord;
+                return true;
+            }
+            catch (Exception)
+            {
+                record = default;
+                SetStatus("기기 기록을 읽지 못했습니다. 다시 시도해 주세요");
+                return false;
+            }
+        }
+
         static bool RollbackCloudSnapshotApplication(
             int previousBest,
             string previousGrowthJson,
             LobbyCloudSettingsSnapshot previousSettings,
             bool growthChanged,
             bool bestChanged,
-            bool settingsAttempted)
+            bool settingsAttempted, int previousSeconds = -1)
         {
             bool complete = true;
             if (settingsAttempted)
@@ -3156,7 +3180,7 @@ namespace MukJump.Core
                     previousSettings);
             if (bestChanged)
                 complete &= ScoreManager
-                    .TryReplaceVerifiedBestForAccountSwitch(previousBest);
+                    .TryReplaceVerifiedBestForAccountSwitch(previousBest, previousSeconds);
             if (growthChanged)
             {
                 if (string.IsNullOrWhiteSpace(previousGrowthJson))
@@ -5378,6 +5402,7 @@ namespace MukJump.Core
                 PendingLocalAccountDeletionAppleRevokeRequiredKey);
             PlayerPrefs.DeleteKey(PendingLeaderboardBestKey);
             PlayerPrefs.DeleteKey(PendingLeaderboardOwnerKey);
+            PlayerPrefs.DeleteKey(PendingLeaderboardRecordKey);
             PlayerPrefs.DeleteKey(StoredAccountScopeKey);
             suppressAutomaticAuthentication = false;
             PlayerPrefs.DeleteKey(AutomaticAuthenticationSuppressedKey);
@@ -5492,6 +5517,7 @@ namespace MukJump.Core
                 return false;
 
             int previousBest;
+            int previousSeconds = -1;
             string previousGrowthJson;
             LobbyCloudSettingsSnapshot previousSettings;
             bool previousDirty = dirty;
@@ -5507,6 +5533,7 @@ namespace MukJump.Core
                 previousBest = ScoreManager.Instance != null
                     ? ScoreManager.Instance.Best
                     : PlayerPrefs.GetInt("MukJump.BestHeight", 0);
+                previousSeconds = ScoreManager.StoredRecord.Seconds;
                 if (!PermanentGrowthProfile.TryExportCloudJson(
                         out previousGrowthJson) ||
                     string.IsNullOrWhiteSpace(previousGrowthJson))
@@ -5566,7 +5593,7 @@ namespace MukJump.Core
                     previousSettings,
                     growthAttempted,
                     scoreAttempted,
-                    settingsAttempted);
+                    settingsAttempted, previousSeconds);
                 dirty = previousDirty;
                 localMutationVersion = previousMutationVersion;
                 rollbackComplete &= TryRestoreAccountSwitchMarkers(
@@ -5634,6 +5661,7 @@ namespace MukJump.Core
             bool previousDirty = dirty;
             long previousMutationVersion = localMutationVersion;
             int previousBest = 0;
+            int previousSeconds = -1;
             string previousGrowthJson = string.Empty;
             LobbyCloudSettingsSnapshot previousSettings = default;
             bool rollbackStateCaptured = false;
@@ -5660,6 +5688,7 @@ namespace MukJump.Core
                 previousBest = ScoreManager.Instance != null
                     ? ScoreManager.Instance.Best
                     : PlayerPrefs.GetInt("MukJump.BestHeight", 0);
+                previousSeconds = ScoreManager.StoredRecord.Seconds;
                 if (!PermanentGrowthProfile.TryExportCloudJson(
                         out previousGrowthJson) ||
                     string.IsNullOrWhiteSpace(previousGrowthJson))
@@ -5678,7 +5707,7 @@ namespace MukJump.Core
                         "게스트 성장 기록을 적용하지 못했습니다.");
                 bestAttempted = true;
                 if (!ScoreManager.TryReplaceVerifiedBestForAccountSwitch(
-                        snapshot.bestHeight))
+                        snapshot.bestHeight, snapshot.BestRecord.Seconds))
                     throw new InvalidOperationException(
                         "게스트 최고 기록을 적용하지 못했습니다.");
                 settingsAttempted = true;
@@ -5701,7 +5730,7 @@ namespace MukJump.Core
                         previousSettings,
                         growthAttempted,
                         bestAttempted,
-                        settingsAttempted);
+                        settingsAttempted, previousSeconds);
                 dirty = previousDirty;
                 localMutationVersion = previousMutationVersion;
                 if (pendingMarkerCaptured)
@@ -5762,14 +5791,14 @@ namespace MukJump.Core
 
         // 서버 행의 소유자와 프로필을 확인한 지점에서만 예약한다.
         // 전환 잠금이 남아 있어도 예약은 보존하고 실제 전송은 기존 잠금에 맡긴다.
-        void QueueVerifiedLeaderboardBest(int bestHeight)
+        void QueueVerifiedLeaderboardBest(int bestHeight, int seconds = int.MinValue)
         {
             if (!IsOnlineAuthenticated || !PermanentGrowthProfile.HasCompletedRun ||
                 string.IsNullOrWhiteSpace(rowInDate))
                 return;
             string scope = CurrentAccountScope();
             if (!string.IsNullOrWhiteSpace(scope))
-                StorePendingLeaderboardBest(scope, Mathf.Max(0, bestHeight));
+                StorePendingLeaderboardBest(scope, Mathf.Max(0, bestHeight), seconds);
         }
 
         string leaderboardSubmissionFailure = string.Empty;
@@ -5793,7 +5822,7 @@ namespace MukJump.Core
                 string.IsNullOrWhiteSpace(rowInDate) ||
                 settings == null ||
                 !settings.HasRequiredRuntimeValues ||
-                string.IsNullOrWhiteSpace(settings.AllTimeRankUuid))
+                string.IsNullOrWhiteSpace(settings.ActiveRankUuid))
                 return;
 
             int normalizedBest = Mathf.Max(0, bestHeight);
@@ -5813,6 +5842,7 @@ namespace MukJump.Core
                 return;
             normalizedBest = Mathf.Max(normalizedBest,
                 PlayerPrefs.GetInt(PendingLeaderboardBestKey, 0));
+            BestRunRecord submittedRecord = ReadPendingLeaderboardRecord();
 
             leaderboardSaveInFlight = true;
             leaderboardSaveDeadlineRealtime =
@@ -5861,7 +5891,7 @@ namespace MukJump.Core
                                         PendingLeaderboardBestKey,
                                         0)
                                     : 0;
-                                if (pending <= normalizedBest)
+                                if (pending <= normalizedBest && !ReadPendingLeaderboardRecord().IsBetterThan(submittedRecord))
                                     ClearPendingLeaderboardSave(
                                         saveImmediately: false);
                                 leaderboardRetryAtRealtime =
@@ -5884,7 +5914,7 @@ namespace MukJump.Core
                             SetStatus(
                                 "기록 순위 등록은 연결 복구 후 다시 시도합니다");
                         }
-                    });
+                    }, submittedRecord.Seconds);
             }
             catch (Exception exception)
             {
@@ -5917,12 +5947,12 @@ namespace MukJump.Core
                 return;
             }
             if (!IsOnlineAuthenticated || settings == null ||
-                string.IsNullOrWhiteSpace(settings.AllTimeRankUuid) ||
+                string.IsNullOrWhiteSpace(settings.ActiveRankUuid) ||
                 Phase == MukJumpAccountPhase.Connecting || Phase == MukJumpAccountPhase.Deleting)
             {
                 leaderboardAwaitingAuthentication = !IsOnlineAuthenticated || Phase == MukJumpAccountPhase.Connecting;
                 LeaderboardStatus = Application.internetReachability == NetworkReachability.NotReachable ||
-                    settings == null || string.IsNullOrWhiteSpace(settings.AllTimeRankUuid) || suppressAutomaticAuthentication
+                    settings == null || string.IsNullOrWhiteSpace(settings.ActiveRankUuid) || suppressAutomaticAuthentication
                     ? "순위를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요"
                     : "최고 고도 순위를 불러오는 중";
                 if (!IsOnlineAuthenticated) TryReconnectGuest();
@@ -5973,11 +6003,12 @@ namespace MukJump.Core
                                         out int parsedRank)
                                     ? parsedRank
                                     : i + 1;
-                                int height = int.TryParse(
-                                        item.score,
-                                        out int parsedHeight)
-                                    ? parsedHeight
-                                    : 0;
+                                long.TryParse(item.score, System.Globalization.NumberStyles.Integer,
+                                    System.Globalization.CultureInfo.InvariantCulture, out long rawScore);
+                                BestRunRecord record = settings.UsesTimedLeaderboard
+                                    ? BestRunRecord.FromRankScore(rawScore)
+                                    : new BestRunRecord(rawScore >= 0 && rawScore <= int.MaxValue ? (int)rawScore : 0);
+                                int height = record.Height;
                                 // 탈퇴 직전 무효화한 순위와 구버전의 0m 유령 기록은
                                 // 뒤끝 정시 삭제를 기다리는 동안에도 노출하지 않는다.
                                 if (height <= 0)
@@ -5985,7 +6016,7 @@ namespace MukJump.Core
                                 LeaderboardAppearance.Decode(item.extraData, out string region, out InkSkinId skin);
                                 loadedEntries.Add(
                                     new MukJumpLeaderboardEntry(rank, height, item.nickname,
-                                        regionCode: region, equippedSkin: skin));
+                                        regionCode: region, equippedSkin: skin, timeSeconds: record.Seconds));
                             }
                         }
 
@@ -6438,21 +6469,36 @@ namespace MukJump.Core
                     (string.Equals(owner, CurrentAccountScope(), StringComparison.Ordinal) ||
                      withdrawalMayHaveCompleted && string.IsNullOrEmpty(CurrentAccountScope())),
                 done => RequestMyGameData(settings.PlayerTableName, new Where(), done),
-                (row, done) =>
-                {
-                    var param = new Param();
-                    param.Add(settings.BestHeightColumn, 0);
-                    Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
-                        settings.AllTimeRankUuid, settings.PlayerTableName, row, param,
-                        bro => done(bro));
-                },
+                InvalidateAllLeaderboardRows,
                 (row, done) => Backend.GameData.DeleteV2(
                     settings.PlayerTableName, row, owner, bro => done(bro)),
                 done => Backend.BMember.WithdrawAccount(bro => done(bro)),
                 callback);
         }
 
-        void RequestLeaderboardUpdate(int bestHeight, Action<BackendReturnObject> callback)
+        void InvalidateAllLeaderboardRows(string row, Action<BackendReturnObject> done)
+        {
+            var param = new Param();
+            param.Add(settings.BestHeightColumn, 0);
+            param.Add(BestRunRecord.RankColumn, 0L);
+            param.Add("bestTimeHeight", 0);
+            param.Add(BestRunRecord.TimeColumn, -1);
+            long generation = accountSessionGeneration;
+            string owner = CurrentAccountScope();
+            Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
+                settings.ActiveRankUuid, settings.PlayerTableName, row, param, first =>
+                {
+                    if (!IsCurrentAccountSession(generation, owner)) return;
+                    if (first == null || !first.IsSuccess() || !settings.UsesTimedLeaderboard ||
+                        string.IsNullOrWhiteSpace(settings.AllTimeRankUuid) || settings.AllTimeRankUuid == settings.ActiveRankUuid)
+                    { done(first); return; }
+                    // 전환 이전 앱의 순위에도 탈퇴한 계정이 남지 않게 한다.
+                    Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
+                        settings.AllTimeRankUuid, settings.PlayerTableName, row, param, result => done(result));
+                });
+        }
+
+        void RequestLeaderboardUpdate(int bestHeight, Action<BackendReturnObject> callback, int seconds = -1)
         {
 #if UNITY_EDITOR
             if (updateLeaderboardForTests != null)
@@ -6462,14 +6508,24 @@ namespace MukJump.Core
             }
 #endif
             Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
-                settings.AllTimeRankUuid, settings.PlayerTableName, rowInDate, CreateLeaderboardParam(bestHeight),
+                settings.ActiveRankUuid, settings.PlayerTableName, rowInDate, CreateTimedLeaderboardParam(new BestRunRecord(bestHeight, seconds)),
                 bro => callback(bro));
         }
 
         Param CreateLeaderboardParam(int bestHeight)
         {
+            BestRunRecord current = ScoreManager.StoredRecord;
+            return CreateTimedLeaderboardParam(new BestRunRecord(bestHeight, current.Height == bestHeight ? current.Seconds : -1));
+        }
+
+        Param CreateTimedLeaderboardParam(BestRunRecord record)
+        {
             var param = new Param();
-            param.Add(settings.BestHeightColumn, bestHeight);
+            param.Add(settings.BestHeightColumn, record.Height);
+            param.Add("bestRecordVersion", 1);
+            param.Add("bestTimeHeight", record.Height);
+            param.Add(BestRunRecord.TimeColumn, record.Seconds);
+            param.Add(BestRunRecord.RankColumn, record.RankScore);
             param.Add(DeviceRegion.Column, LeaderboardAppearance.Current);
             return param;
         }
@@ -6486,7 +6542,7 @@ namespace MukJump.Core
             }
 #endif
             Backend.Leaderboard.User.GetLeaderboard(
-                settings.AllTimeRankUuid,
+                settings.ActiveRankUuid,
                 10,
                 bro => callback(bro));
         }
@@ -6570,6 +6626,10 @@ namespace MukJump.Core
             param.Add("schemaVersion", snapshot.schemaVersion);
             param.Add(DeviceRegion.Column, LeaderboardAppearance.Current);
             param.Add(settings.BestHeightColumn, snapshot.bestHeight);
+            param.Add("bestRecordVersion", 1);
+            param.Add("bestTimeHeight", snapshot.bestHeight);
+            param.Add(BestRunRecord.TimeColumn, snapshot.BestRecord.Seconds);
+            param.Add(BestRunRecord.RankColumn, snapshot.BestRecord.RankScore);
             param.Add("growthJson", snapshot.growthJson);
             param.Add("bgmVolume", snapshot.bgmVolume);
             param.Add("sfxVolume", snapshot.sfxVolume);
@@ -6586,6 +6646,10 @@ namespace MukJump.Core
             {
                 schemaVersion = ReadInt(row, "schemaVersion"),
                 bestHeight = ReadInt(row, settings.BestHeightColumn),
+                bestRecordVersion = ReadInt(row, "bestRecordVersion"),
+                bestTimeHeight = ReadInt(row, "bestTimeHeight"),
+                bestTimeSeconds = int.TryParse(ReadString(row, BestRunRecord.TimeColumn),
+                    out int seconds) ? seconds : -1,
                 growthJson = ReadString(row, "growthJson"),
                 bgmVolume = ReadFloat(row, "bgmVolume", 1f),
                 sfxVolume = ReadFloat(row, "sfxVolume", 1f),
@@ -6635,7 +6699,7 @@ namespace MukJump.Core
             SetState(
                 MukJumpAccountPhase.OnlineReady,
                 dirty ? "새 변경 사항을 이어서 저장하는 중" : "동기화 완료");
-            QueueVerifiedLeaderboardBest(snapshot.bestHeight);
+            QueueVerifiedLeaderboardBest(snapshot.bestHeight, snapshot.BestRecord.Seconds);
         }
 
         public static bool ShouldKeepDirtyAfterSave(

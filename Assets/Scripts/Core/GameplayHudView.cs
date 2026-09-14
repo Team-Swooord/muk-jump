@@ -27,6 +27,8 @@ namespace MukJump.Core
         [SerializeField] Text heightCaption;
         [SerializeField] Text bestText;
         [SerializeField] Text bestCaption;
+        [SerializeField] Text elapsedTimeText;
+        [SerializeField] Text elapsedTimeCaption;
         [SerializeField] RectTransform itemTestControls;
         [SerializeField] RectTransform debugPanel;
         [SerializeField] Button debugToggleButton;
@@ -55,6 +57,7 @@ namespace MukJump.Core
 
         int lastHeight = int.MinValue;
         int lastBest = int.MinValue;
+        int lastElapsedSecond = -1;
         bool lastNewBest;
         int lastScreenWidth;
         int lastScreenHeight;
@@ -71,9 +74,11 @@ namespace MukJump.Core
             InkLocalizedText.Bind(bestText);
             InkLocalizedText.Bind(heightCaption);
             InkLocalizedText.Bind(bestCaption);
+            InkLocalizedText.Bind(elapsedTimeCaption);
             Instance = this;
             lastHeight = int.MinValue;
             lastBest = int.MinValue;
+            lastElapsedSecond = -1;
             lastNewBest = false;
             playerHealthBootstrapComplete = false;
             if (Application.isPlaying && GameManager.DebugToolsAvailable)
@@ -426,6 +431,11 @@ namespace MukJump.Core
                 windIndicator.ApplyPolishedLayout();
             }
 
+            elapsedTimeText = EnsureElapsedText(elapsedTimeText, "ElapsedTime", 34, 62f, 160f);
+            elapsedTimeCaption = EnsureElapsedText(elapsedTimeCaption, "ElapsedCaption", 28, -88f, 132f);
+            InkLocalizedText.SetSource(elapsedTimeCaption, "소요시간");
+            if (lastElapsedSecond < 0) elapsedTimeText.text = "00:00";
+
             if (newBestIndicator != null)
             {
                 newBestIndicator.transform.SetParent(topHudRoot, false);
@@ -439,6 +449,20 @@ namespace MukJump.Core
         {
             if (text == null) return;
             text.gameObject.SetActive(false);
+        }
+
+        Text EnsureElapsedText(Text current, string objectName, int size, float x, float width)
+        {
+            if (current == null) current = topHudRoot.Find(objectName)?.GetComponent<Text>();
+            if (current == null)
+            {
+                current = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Text))
+                    .GetComponent<UnityEngine.UI.Text>();
+                current.transform.SetParent(topHudRoot, false);
+            }
+            ConfigurePrimaryHudText(current, new Vector2(.5f, 0f), new Vector2(width, 42f), size, size);
+            current.rectTransform.anchoredPosition = new Vector2(x, -23f);
+            return current;
         }
 
         static void ConfigurePrimaryHudText(
@@ -791,6 +815,12 @@ namespace MukJump.Core
             RefreshVfxDebugStats(false);
 
             var score = ScoreManager.Instance;
+            int elapsed = Mathf.FloorToInt(GameManager.Instance.ActiveGameplaySeconds);
+            if (elapsedTimeText != null && elapsed != lastElapsedSecond)
+            {
+                lastElapsedSecond = elapsed;
+                elapsedTimeText.text = BestRunRecord.FormatTime(elapsed);
+            }
             int height = score != null ? score.Height : 0;
             if (height != lastHeight)
             {

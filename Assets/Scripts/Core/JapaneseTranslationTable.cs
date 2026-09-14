@@ -57,6 +57,7 @@ namespace MukJump.Core
                 ["See your rank in Toss Game Center."] = "順位はTossゲームセンターで確認できます。",
                 ["Could not connect to the leaderboard."] = "ランキングに接続できませんでした。",
                 ["Name"] = "名前", ["Height"] = "高度", ["Best -"] = "最高 -", ["Best"] = "最高", ["NEW"] = "新記録",
+                ["Time"] = "経過時間", ["Height / Time"] = "高度 / 時間",
                 ["Preparing game…"] = "準備中…", ["All Inklight earned"] = "墨光をすべて獲得", ["Each run's height adds up."] = "各プレイの高度が累積されます。",
                 ["All distance rewards claimed."] = "距離報酬をすべて獲得しました。", ["Google test ad · Top banner"] = "Googleテスト広告 · バナー",
                 ["Ready"] = "準備完了", ["Could not load the game"] = "ゲームを読み込めませんでした", ["Tap to retry"] = "タップして再試行",

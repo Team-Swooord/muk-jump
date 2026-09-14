@@ -39,6 +39,11 @@ namespace MukJump.Core
 
         public int schemaVersion = CurrentSchemaVersion;
         public int bestHeight;
+        public int bestRecordVersion;
+        public int bestTimeHeight;
+        public int bestTimeSeconds = -1;
+        public BestRunRecord BestRecord => new(bestHeight,
+            bestRecordVersion == 1 && bestTimeHeight == bestHeight ? bestTimeSeconds : -1);
         public string growthJson = string.Empty;
         public float bgmVolume = 1f;
         public float sfxVolume = 1f;
@@ -53,9 +58,13 @@ namespace MukJump.Core
             string operationId)
         {
             PermanentGrowthProfile.TryExportCloudJson(out string growth);
+            BestRunRecord stored = ScoreManager.StoredRecord;
             return new MukJumpCloudSnapshot
             {
                 bestHeight = Mathf.Max(0, bestHeight),
+                bestRecordVersion = 1,
+                bestTimeHeight = Mathf.Max(0, bestHeight),
+                bestTimeSeconds = stored.Height == bestHeight ? stored.Seconds : -1,
                 growthJson = growth ?? string.Empty,
                 bgmVolume = LobbySettingsProfile.BgmVolume,
                 sfxVolume = LobbySettingsProfile.SfxVolume,
@@ -90,16 +99,19 @@ namespace MukJump.Core
     {
         public int Rank { get; }
         public int Height { get; }
+        public int TimeSeconds { get; }
         public string DisplayName { get; }
         public string Source { get; }
         public string RegionCode { get; }
         public InkSkinId EquippedSkin { get; }
 
         public MukJumpLeaderboardEntry(int rank, int height, string displayName = null,
-            string source = "BACKND", string regionCode = null, InkSkinId equippedSkin = InkSkinId.Ink)
+            string source = "BACKND", string regionCode = null, InkSkinId equippedSkin = InkSkinId.Ink,
+            int timeSeconds = -1)
         {
             Rank = Mathf.Max(1, rank);
             Height = Mathf.Max(0, height);
+            TimeSeconds = new BestRunRecord(height, timeSeconds).Seconds;
             DisplayName = CleanDisplayName(displayName);
             RegionCode = DeviceRegion.Normalize(regionCode);
             // 다른 플레이어의 착용은 내 해금 여부와 무관하게 표시한다.

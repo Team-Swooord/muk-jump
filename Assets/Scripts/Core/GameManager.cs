@@ -31,6 +31,10 @@ namespace MukJump.Core
         public string runId = string.Empty;
         public int swarmProgressHeight;
         public int scoreHeight;
+        public int scoreTimeVersion;
+        public int scoreTimeSeconds = -1;
+        public BestRunRecord ScoreRecord => new(scoreHeight,
+            scoreTimeVersion == 1 ? scoreTimeSeconds : -1);
         public int previousBest;
         public float activeGameplaySeconds;
         public bool eligible;
@@ -165,6 +169,15 @@ namespace MukJump.Core
         /// 게임 규칙·스폰·물리가 한 틱 진행되어도 되는 공통 계약.
         public bool IsGameplayTicking =>
             State == GameState.Playing && !IsPaused && !IsTransitioning;
+        public float ActiveGameplaySeconds
+        {
+            get
+            {
+                if (IsGameplayTicking && MobileApplicationLifecycle.IsApplicationActive)
+                    SampleActiveGameplayTime();
+                return activeGameplaySeconds;
+            }
+        }
         public bool DebugInvincible { get; private set; }
         /// 스포너·연출이 GameManager 구현을 직접 폴링하지 않고 세션 경계에 반응하는 계약.
         public event Action<GameState, GameState> StateChanged;
@@ -828,7 +841,8 @@ namespace MukJump.Core
 
         void SampleActiveGameplayTime()
         {
-            if (lastActiveTimeSampleFrame == Time.frameCount)
+            if (!IsGameplayTicking || !MobileApplicationLifecycle.IsApplicationActive ||
+                lastActiveTimeSampleFrame == Time.frameCount)
                 return;
             activeGameplaySeconds += Time.unscaledDeltaTime;
             skinRunStats.maxLivingPlayers = Mathf.Max(skinRunStats.maxLivingPlayers, LivingPlayerCount);
@@ -1944,6 +1958,8 @@ namespace MukJump.Core
                 runId = currentRunId,
                 swarmProgressHeight = Mathf.FloorToInt(SwarmProgressHeight),
                 scoreHeight = Mathf.Max(0, score.Height),
+                scoreTimeVersion = 1,
+                scoreTimeSeconds = score.HeightTimeSeconds,
                 previousBest = Mathf.Max(0, score.RunBestToBeat),
                 activeGameplaySeconds = Mathf.Max(0f, activeGameplaySeconds),
                 eligible = score.RecordsAllowed,
@@ -2114,9 +2130,9 @@ namespace MukJump.Core
             bool recordSaved = !snapshot.eligible ||
                 (ScoreManager.Instance != null
                     ? ScoreManager.Instance.TryMergeVerifiedBest(
-                        snapshot.scoreHeight)
+                        snapshot.scoreHeight, snapshot.ScoreRecord.Seconds)
                     : ScoreManager.TryMergeVerifiedBestIntoStore(
-                        snapshot.scoreHeight));
+                        snapshot.scoreHeight, snapshot.ScoreRecord.Seconds));
             if (!recordSaved)
                 return false;
 

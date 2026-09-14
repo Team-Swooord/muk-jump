@@ -87,6 +87,7 @@ namespace MukJump.Core
         RectTransform syncConflictRoot;
         RectTransform accountSyncPendingRoot;
         readonly Text[] leaderboardRows = new Text[10];
+        readonly Text[] leaderboardTimes = new Text[10];
         readonly Text[] leaderboardRanks = new Text[10];
         readonly Text[] leaderboardNames = new Text[10];
         readonly Image[] leaderboardFlags = new Image[10];
@@ -1040,7 +1041,7 @@ namespace MukJump.Core
             InkLocalizedText.OverrideEnglish(rankHeading, "Rank");
             CreateReadableText("NameHeading", panel, "이름", 36, new Vector2(-65f, 430f),
                 new Vector2(110f, 50f), InkPalette.TextDark, TextAnchor.MiddleLeft, strong: true);
-            CreateReadableText("HeightHeading", panel, "고도", 36, new Vector2(245f, 430f),
+            CreateReadableText("HeightHeading", panel, "고도 / 시간", 30, new Vector2(245f, 430f),
                 new Vector2(190f, 50f), InkPalette.TextDark, TextAnchor.MiddleRight, strong: true);
             CreateDivider(panel, "LeaderboardDivider", 390f, 680f);
             for (int i = 0; i < leaderboardRows.Length; i++)
@@ -1066,9 +1067,12 @@ namespace MukJump.Core
                 leaderboardNames[i].supportRichText = false;
                 leaderboardNames[i].horizontalOverflow = HorizontalWrapMode.Overflow;
                 leaderboardNames[i].resizeTextForBestFit = false;
-                leaderboardRows[i] = CreateReadableText($"LeaderboardRow{i + 1}", panel, "", 42,
-                    new Vector2(245f, y), new Vector2(190f, 62f),
+                leaderboardRows[i] = CreateReadableText($"LeaderboardRow{i + 1}", panel, "", 38,
+                    new Vector2(245f, y + 17f), new Vector2(190f, 42f),
                     InkPalette.TextDark, TextAnchor.MiddleRight, strong: true);
+                leaderboardTimes[i] = CreateReadableText($"LeaderboardTime{i + 1}", panel, "", 30,
+                    new Vector2(245f, y - 24f), new Vector2(190f, 36f),
+                    InkPalette.TextDark, TextAnchor.MiddleRight);
             }
             leaderboardRefresh = CreatePaperButton("LeaderboardRefresh", panel, "다시 확인",
                 new Vector2(0f, -624f), new Vector2(300f, 76f), 36);
@@ -1195,6 +1199,8 @@ namespace MukJump.Core
                 if (leaderboardRanks[i] != null)
                     leaderboardRanks[i].text = entries != null && i < entries.Count ? $"{entries[i].Rank}" : string.Empty;
                 bool hasEntry = entries != null && i < entries.Count;
+                if (leaderboardTimes[i] != null)
+                    leaderboardTimes[i].text = hasEntry ? BestRunRecord.FormatTime(entries[i].TimeSeconds) : string.Empty;
                 leaderboardAvatars[i]?.Set(hasEntry ? entries[i] : null);
                 if (leaderboardFlags[i] != null)
                 {
