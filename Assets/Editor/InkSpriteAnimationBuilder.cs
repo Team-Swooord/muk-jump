@@ -103,12 +103,6 @@ namespace MukJump.EditorTools
                     // 같은 몸체 접점으로 정렬하며 프레임마다 뿌리가 들썩이지 않게 한다.
                     : new Rect(right ? 621 : 24, top ? 625 : 51, 610, 610);
             }
-            if (key == "storm_scarf")
-            {
-                if (width != 1536 || height != 1024)
-                    throw new InvalidOperationException(key + " 원화 크기가 바뀌어 프레임 경계를 다시 확인해야 한다.");
-                return new Rect(right ? 808 : 56, top ? 528 : 16, 720, 480);
-            }
             // 홀수 크기 원화는 중앙의 투명한 1px만 제외한다.
             int cellWidth = width / 2, cellHeight = height / 2;
             return new Rect(right ? width - cellWidth : 0, top ? height - cellHeight : 0, cellWidth, cellHeight);

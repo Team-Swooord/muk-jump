@@ -80,11 +80,11 @@ namespace MukJump.Core
                 ["낮과 밤을 여섯 번 바꾸기"] = ("Switch day and night six times", "昼と夜を6回切り替える"),
                 ["고양이 귀로 밤에 아이템 없이 60초 생존"] = ("Cat Ears: survive 60s at night without items", "猫耳で夜にアイテムなしで60秒生存"),
                 ["정확히 777m로 한 판 완료"] = ("Finish a run at exactly 777m", "ちょうど777mでプレイを終える"),
-                ["먹 → 갓 → 먹 → 거미탈 → 먹 순서로 살펴보기"] = ("Browse Ink → Wind Gat → Ink → Spider Mask → Ink", "墨 → 風の笠 → 墨 → 蜘蛛の面 → 墨の順に見る"),
                 ["로비에서 한 번 던진 먹을 벽에 3회 연속 튕기기"] = ("In the lobby, get 3 wall bounces from one toss.", "ロビーで墨を1回投げ、壁で連続3回跳ね返す"),
             };
             for (int i=0; i<InkSkinCatalog.Count; i++)
             {
+                if (!InkSkinCatalog.IsAvailable((InkSkinId)i)) continue;
                 var id=(InkSkinId)i; var d=InkSkinCatalog.Get(id); int n=d.Goal;
                 result[d.Korean]=(d.English,d.Japanese);
                 var lore=InkSkinLore.Get(id);
@@ -138,7 +138,6 @@ namespace MukJump.Core
             InkSkinId.CraneCrest => ("높이 날던 학도 빗질은 서툴렀다.", "A fine flier. A terrible hairdresser.", "高く飛ぶ鶴も、髪を整えるのは苦手。"),
             InkSkinId.YakshaMask => ("무서운 얼굴은 동네 아이가 그렸다.", "A village child drew the scary face.", "怖い顔は、近所の子が描いた。"),
             InkSkinId.TurtleShell => ("느린 장인이 끝내 완성한 투구.", "A very slow craftsman finally finished it.", "のんびり屋の職人が、ついに仕上げた。"),
-            InkSkinId.StormScarf => ("바람을 묶으려다 두건이 되었다.", "An attempt to tie up the wind.", "風を結ぼうとしたら、頭巾になった。"),
             InkSkinId.MoonCrown => ("달에서 빌렸다. 반납일은 모른다.", "Borrowed from the moon. No due date.", "月から借りた。返す日は知らない。"),
             InkSkinId.BrushMaster => ("장인은 붓을 찾고, 붓은 여기 있다.", "The master is looking for these brushes.", "職人は筆を探している。筆はここにある。"),
             InkSkinId.SpiritHalo => ("꺼진 줄 알았던 불씨가 따라왔다.", "An ember thought extinguished followed home.", "消えたはずの火種が、ついてきた。"),
@@ -153,7 +152,7 @@ namespace MukJump.Core
             InkSkinId.Astronaut => ("달에 떡이 있는지 확인하러 간다.", "Off to check if the moon has rice cakes.", "月にお餅があるか、確かめに行く。"),
             InkSkinId.ClockworkCat => ("태엽을 감으면 오히려 잠이 든다.", "Winding it up only puts it to sleep.", "ぜんまいを巻くと、かえって眠くなる。"),
             InkSkinId.LuckyDice => ("일곱 번째 눈은 굴린 먹만 보인다.", "Only the roller can see the seventh face.", "七つ目の目は、振った墨にしか見えない。"),
-            InkSkinId.OrigamiWings => ("접는 순서를 틀렸더니 문이 열렸다.", "One wrong fold opened a doorway.", "折る順番を間違えたら、扉が開いた。"),
+            InkSkinId.OrigamiWings => ("끝까지 버틴 종이는 날개가 된다.", "Paper that holds on becomes a pair of wings.", "最後まで持ちこたえた紙は、翼になる。"),
             InkSkinId.CraneWings => ("빌린 날개라 깃털은 돌려줘야 한다.", "Borrowed wings. Please return every feather.", "借りた翼なので、羽は全部返すこと。"),
             InkSkinId.ButterflyWings => ("먹이 묻은 줄 모르고 날아온 나비.", "A butterfly unaware of its ink stains.", "墨がついたとも知らず、飛んできた蝶。"),
             InkSkinId.RedShoes => ("발자국부터 먼저 길을 나섰다.", "The footprints set off before their owner.", "足跡のほうが、先に旅に出た。"),

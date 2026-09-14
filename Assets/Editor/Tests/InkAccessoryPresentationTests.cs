@@ -51,7 +51,7 @@ namespace MukJump.EditorTests
                 var stage=(RectTransform)wardrobe.Paper.Find("ShowroomStage");
                 var art=stage.Find("Preview/Accessory").GetComponent<InkAccessoryImage>();
                 var ids=new[]{InkSkinId.BlueWisps,InkSkinId.PaperLanterns,InkSkinId.MoonClouds,
-                    InkSkinId.SpiritHalo,InkSkinId.CraneWings,InkSkinId.ButterflyWings,InkSkinId.OrigamiWings,InkSkinId.StormScarf,InkSkinId.DragonTail};
+                    InkSkinId.SpiritHalo,InkSkinId.CraneWings,InkSkinId.ButterflyWings,InkSkinId.OrigamiWings,InkSkinId.DragonTail};
                 for(int i=0;i<ids.Length;i++)
                 {
                     GameLocalization.SetLanguage(i==1 ? GameLanguage.English : i==2 ? GameLanguage.Japanese : GameLanguage.Korean);

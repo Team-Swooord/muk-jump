@@ -81,7 +81,7 @@ namespace MukJump.Core
         public void CenterOn(int index, bool immediate)
         {
             CancelMotion();
-            targetIndex = Mathf.Clamp(index, 0, InkSkinCatalog.Count - 1);
+            targetIndex = Mathf.Clamp(index, 0, InkSkinCatalog.BrowseCount - 1);
             inactiveGeneration = MobileApplicationLifecycle.InactiveGeneration;
             if (immediate || Reduced || !Application.isPlaying)
             {
@@ -105,7 +105,7 @@ namespace MukJump.Core
         }
         void SnapNearest(bool immediate)
         {
-            targetIndex = Mathf.Clamp(Mathf.RoundToInt(-content.anchoredPosition.x / CardStride), 0, InkSkinCatalog.Count - 1);
+            targetIndex = Mathf.Clamp(Mathf.RoundToInt(-content.anchoredPosition.x / CardStride), 0, InkSkinCatalog.BrowseCount - 1);
             StopMovement();
             snapVelocity = 0;
             snapping = true;

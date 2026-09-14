@@ -108,7 +108,7 @@ namespace MukJump.EditorTests
         {
             GameLocalization.SetLanguage(language);
             PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat);
-            PermanentGrowthProfile.GrantSkinSecret(InkSkinId.OrigamiWings);
+            PermanentGrowthProfile.SettleRun("paper-wings", 1, 1, 0, 120, true, SkinRunStats.Begin(false, InkSkinId.Ink));
             int objects=view.GetComponentsInChildren<Transform>(true).Length;
             foreach(var id in new[]{InkSkinId.Gat,InkSkinId.CloudDragon,InkSkinId.PhoenixCrown,InkSkinId.NightBat,InkSkinId.OrigamiWings})
             {

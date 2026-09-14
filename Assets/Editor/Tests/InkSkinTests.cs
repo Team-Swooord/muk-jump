@@ -190,6 +190,7 @@ namespace MukJump.EditorTests
             wardrobe.SetNavigationPresentation(true, true);
             for (int i = 0; i < InkSkinCatalog.Count; i++)
             {
+                if (!InkSkinCatalog.IsAvailable((InkSkinId)i)) continue;
                 wardrobe.Select((InkSkinId)i);
                 Canvas.ForceUpdateCanvases();
                 foreach (var text in wardrobe.GetComponentsInChildren<UnityEngine.UI.Text>(true))
@@ -214,11 +215,12 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinCatalog.Ability(InkSkinId.Gat), Is.EqualTo("이단 도약"));
             Assert.That(InkSkinCatalog.Ability(InkSkinId.SpiderMask), Is.EqualTo("거미 걸음"));
         }
-        [Test]
+        [Test, Category("SkinRetirement")]
         public void WardrobePolishOrdersByGoalWithoutChangingSavedIds()
         {
-            var order=Enumerable.Range(0,InkSkinCatalog.Count).Select(InkSkinCatalog.BrowseAt).ToArray();
-            Assert.That(order.Distinct().Count(),Is.EqualTo(InkSkinCatalog.Count));
+            var order=Enumerable.Range(0,InkSkinCatalog.BrowseCount).Select(InkSkinCatalog.BrowseAt).ToArray();
+            Assert.That(order.Distinct().Count(),Is.EqualTo(InkSkinCatalog.BrowseCount));
+            Assert.That(order, Has.No.Member(InkSkinId.StormScarf));
             var view=Track(new GameObject("SortedWardrobe")).AddComponent<InkWardrobeView>();
             view.BuildForTests(Idle()); view.SetNavigationPresentation(true,true);
             for(int i=0;i<order.Length;i++)
@@ -253,6 +255,7 @@ namespace MukJump.EditorTests
                 for(int i=0;i<InkSkinCatalog.Count;i++)
                 {
                     var id=(InkSkinId)i;
+                    if (!InkSkinCatalog.IsAvailable(id)) continue;
                     var lore=InkSkinLore.Get(id);
                     Assert.That(lore.ko,Is.Not.Empty); Assert.That(lore.en,Is.Not.Empty); Assert.That(lore.ja,Is.Not.Empty);
                     view.Select(id); Canvas.ForceUpdateCanvases();

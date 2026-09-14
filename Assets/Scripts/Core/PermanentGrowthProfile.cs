@@ -481,7 +481,7 @@ namespace MukJump.Core
         {
             EnsureLoaded();
             if (writeBlocked || !ReferenceEquals(owner, data)) return false;
-            mask &= ((1UL << InkSkinCatalog.Count) - 1) & ~1UL;
+            mask &= InkSkinCatalog.AvailableRewardMask;
             gameplay &= 3;
             if (((ulong)data.skinAchievements.unlockedMask & mask) == mask &&
                 (data.skinAchievements.gameplayMask & gameplay) == gameplay) return true;
@@ -510,7 +510,7 @@ namespace MukJump.Core
         public static bool GrantSkinSecret(InkSkinId id)
         {
             EnsureLoaded();
-            if (writeBlocked || id is not (InkSkinId.NightBat or InkSkinId.Astronaut or InkSkinId.OrigamiWings)) return false;
+            if (writeBlocked || id is not (InkSkinId.NightBat or InkSkinId.Astronaut)) return false;
             if (data.skinAchievements.Has(id)) return true;
             var snapshot = CaptureMutationSnapshot();
             data.skinAchievements.Grant(id);

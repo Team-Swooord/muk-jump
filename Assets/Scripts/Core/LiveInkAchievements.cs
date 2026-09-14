@@ -22,6 +22,7 @@ namespace MukJump.Core
             ulong mask = InkMythicSkins.Evaluate(stats, height, seconds, false);
             for (int i = 1; i < InkSkinCatalog.Count; i++)
             {
+                if (!InkSkinCatalog.IsAvailable((InkSkinId)i)) continue;
                 var d = InkSkinCatalog.Get((InkSkinId)i);
                 long value = d.Metric switch
                 {

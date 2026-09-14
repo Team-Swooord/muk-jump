@@ -45,7 +45,8 @@ namespace MukJump.Core
             if (visible || !ReferenceEquals(owner, PermanentGrowthProfile.SkinAccountToken)) return false;
             count = 0;
             for (int i = 1; i < InkSkinCatalog.Count; i++)
-                if ((mask & (1UL << i)) != 0 && (preview || InkSkinAchievements.IsUnlocked((InkSkinId)i)))
+                if (InkSkinCatalog.IsAvailable((InkSkinId)i) && (mask & (1UL << i)) != 0 &&
+                    (preview || InkSkinAchievements.IsUnlocked((InkSkinId)i)))
                     rewards[count++] = (InkSkinId)i;
             if (count == 0) return false;
             Build();

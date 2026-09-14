@@ -23,7 +23,7 @@ namespace MukJump.Core
         static bool hasEquipped;
         public static bool Active { get { ValidateOwner(); return Available && allUnlocked; } }
         public static bool MenuOpen { get { ValidateOwner(); return Available && menuOpen; } }
-        public static bool CanEquip(InkSkinId id) => InkSkinCatalog.IsValid(id) &&
+        public static bool CanEquip(InkSkinId id) => InkSkinCatalog.IsAvailable(id) &&
             (Active || InkSkinAchievements.IsUnlocked(id));
         public static bool IsConcealed(InkSkinId id) => !Active && InkSkinCatalog.IsConcealed(id);
         static void ValidateOwner()
@@ -48,7 +48,7 @@ namespace MukJump.Core
         { id = equipped; return Active && hasEquipped; }
         public static bool TryEquip(InkSkinId id)
         {
-            if (!Active || !InkSkinCatalog.IsValid(id) ||
+            if (!Active || !InkSkinCatalog.IsAvailable(id) ||
                 GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby) return false;
             equipped = id; hasEquipped = true; return true;
         }

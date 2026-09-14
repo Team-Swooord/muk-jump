@@ -27,6 +27,7 @@ namespace MukJump.Core
             for (int i = 1; i <= GameCenterCount; i++)
             {
                 var id = (InkSkinId)i;
+                if (!InkSkinCatalog.IsAvailable(id)) continue;
                 double percent = Math.Min(100, Math.Floor(100d * state.Progress(id, distance, state.growth) / InkSkinAchievements.Goal(id)));
                 // 0%도 비밀 업적을 공개하므로 잠긴 비밀은 요청에 포함하지 않는다.
                 if (percent <= 0 || Hidden(i) && percent < 100) continue;

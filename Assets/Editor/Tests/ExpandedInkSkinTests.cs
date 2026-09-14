@@ -36,19 +36,19 @@ namespace MukJump.EditorTests
             LobbySettingsProfile.RestoreDefaultStoreForTests();
             ScoreManager.RestoreDefaultStoreForTests();
         }
-        public static IEnumerable<InkSkinId> Rewards => Enumerable.Range(1,InkSkinCatalog.Count-1).Select(i=>(InkSkinId)i);
+        public static IEnumerable<InkSkinId> Rewards => Enumerable.Range(1,InkSkinCatalog.Count-1).Select(i=>(InkSkinId)i).Where(InkSkinCatalog.IsAvailable);
         [Test] public void CatalogHasRequestedCountsAndOnlyThreeSignatureCostumes()
         {
             Assert.That(InkSkinCatalog.Count,Is.EqualTo(62));
-            var all=Rewards.Take(35).Select(InkSkinCatalog.Get).ToArray();
+            var all=Rewards.Where(id => (int)id <= 35).Select(InkSkinCatalog.Get).ToArray();
             Assert.That(all.Count(x=>x.Tier is SkinTier.Basic or SkinTier.Hidden),Is.EqualTo(5));
             Assert.That(all.Count(x=>x.Tier==SkinTier.Easy),Is.EqualTo(10));
             Assert.That(all.Count(x=>x.Tier==SkinTier.Medium),Is.EqualTo(10));
             Assert.That(all.Count(x=>x.Tier==SkinTier.Hard),Is.EqualTo(5));
-            Assert.That(all.Count(x=>x.Tier==SkinTier.UltraHidden),Is.EqualTo(5));
+            Assert.That(all.Count(x=>x.Tier==SkinTier.UltraHidden),Is.EqualTo(4));
             Assert.That(Rewards.Count(InkSkinCatalog.IsSignatureCostume),Is.EqualTo(3));
-            Assert.That(all.Select(x=>x.Asset).Distinct().Count(),Is.EqualTo(35));
-            Assert.That(Rewards.Select(id=>InkSkinCatalog.Get(id).Asset).Distinct().Count(),Is.EqualTo(InkSkinCatalog.Count - 1));
+            Assert.That(all.Select(x=>x.Asset).Distinct().Count(),Is.EqualTo(34));
+            Assert.That(Rewards.Select(id=>InkSkinCatalog.Get(id).Asset).Distinct().Count(),Is.EqualTo(InkSkinCatalog.BrowseCount - 1));
             Assert.That(InkSkinAchievements.IsUnlocked((InkSkinId)InkSkinCatalog.Count),Is.False);
         }
         [TestCaseSource(nameof(Rewards))]
@@ -253,12 +253,13 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinTranslations.TryTranslate(requirement, japanese, out string translated), Is.True);
             Assert.That(translated, Does.Contain(japanese ? "三度目" : "third night"));
         }
-        [Test] public void WardrobeSecretRequiresOrderedExplicitSelection()
+        [Test, Category("SkinRetirement")] public void OldWardrobeSequenceNoLongerGrantsPaperWings()
         {
             SkinSecrets.SelectedByUser(InkSkinId.Gat);SkinSecrets.SelectedByUser(InkSkinId.SpiderMask);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.OrigamiWings),Is.False);
             foreach(var id in new[]{InkSkinId.Ink,InkSkinId.Gat,InkSkinId.Ink,InkSkinId.SpiderMask,InkSkinId.Ink}) SkinSecrets.SelectedByUser(id);
-            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.OrigamiWings),Is.True);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.OrigamiWings),Is.False);
+            Assert.That(PermanentGrowthProfile.GrantSkinSecret(InkSkinId.OrigamiWings), Is.False);
         }
         [Test] public void PendingSnapshotPreservesRunStatsAndOldSnapshotsAreNotMeasured()
         {

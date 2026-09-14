@@ -58,6 +58,8 @@ namespace MukJump.Core
             var d = InkSkinCatalog.Get(id);
             if (d == null) return 0;
             if (Has(id)) return d.Goal;
+            // 은퇴한 두건의 보유자는 조건 이전 후 종이 날개를 잃지 않는다.
+            if (id == InkSkinId.OrigamiWings && Has(InkSkinId.StormScarf)) return d.Goal;
             return d.Metric switch
             {
                 SkinMetric.Best => best, SkinMetric.Runs => runs, SkinMetric.Distance => distance,
@@ -91,6 +93,7 @@ namespace MukJump.Core
             for (int i = 1; i < InkSkinCatalog.Count; i++)
             {
                 var id = (InkSkinId)i;
+                if (!InkSkinCatalog.IsAvailable(id)) continue;
                 if (Progress(id, distance, ownedGrowth) >= InkSkinAchievements.Goal(id)) Grant(id);
             }
         }
@@ -101,13 +104,12 @@ namespace MukJump.Core
     public static class SkinSecrets
     {
         static object owner;
-        static int nightChanges, nightEntries, selectionStep;
+        static int nightChanges, nightEntries;
         static bool? lastNight;
-        static readonly InkSkinId[] sequence = { InkSkinId.Ink, InkSkinId.Gat, InkSkinId.Ink, InkSkinId.SpiderMask, InkSkinId.Ink };
         // 박쥐 그림자는 두 번째 밤의 힌트만 담당한다. 세 번째 밤 해금 이후에는 원래 달로 돌아간다.
         public static bool HasBatMoon => !SkinDebugSession.Active && nightEntries == 2 &&
             ReferenceEquals(owner, PermanentGrowthProfile.SkinAccountToken);
-        static void ResetInputs() { nightChanges = nightEntries = selectionStep = 0; lastNight = null; }
+        static void ResetInputs() { nightChanges = nightEntries = 0; lastNight = null; }
         static bool Ready()
         {
             if (SkinDebugSession.Active) { ResetInputs(); return false; }
@@ -142,9 +144,7 @@ namespace MukJump.Core
         }
         public static void SelectedByUser(InkSkinId id)
         {
-            if (!Ready()) return;
-            selectionStep = sequence[selectionStep] == id ? selectionStep + 1 : id == sequence[0] ? 1 : 0;
-            if (selectionStep == sequence.Length) { selectionStep = 0; PermanentGrowthProfile.GrantSkinSecret(InkSkinId.OrigamiWings); }
+            // 이전 씬/콜백과의 호환만 유지한다. 종이 날개는 120초 생존으로만 새로 해금한다.
         }
     }
 }

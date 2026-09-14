@@ -23,7 +23,7 @@ namespace MukJump.EditorTests
             InkSkinId.ZodiacTiger, InkSkinId.ZodiacDragon, InkSkinId.ZodiacRooster,
             InkSkinId.LuckyDice, InkSkinId.DragonTail, InkSkinId.MoonClouds,
             InkSkinId.TeaCupHat, InkSkinId.CatEars, InkSkinId.WindFan,
-            InkSkinId.CraneCrest, InkSkinId.PaperLanterns, InkSkinId.StormScarf };
+            InkSkinId.CraneCrest, InkSkinId.PaperLanterns };
 
         [Test, Category("SkinReworkAppearance")]
         public void WearablesAreForegroundButTailsStayBehindAndNewNamesTranslate()
@@ -73,7 +73,7 @@ namespace MukJump.EditorTests
             finally { Object.DestroyImmediate(texture); }
         }
 
-        [TestCase("paper_lanterns"), TestCase("dragon_tail"), TestCase("storm_scarf")]
+        [TestCase("paper_lanterns"), TestCase("dragon_tail")]
         [TestCase("moon_clouds"), TestCase("blue_wisps"), TestCase("spirit_halo")]
         [TestCase("origami_wings"), TestCase("crane_wings"), TestCase("butterfly_wings")]
         public void AuthoredFramesKeepEveryPixelOnceAndNeverCutVisibleEdges(string key)
@@ -199,6 +199,9 @@ namespace MukJump.EditorTests
             InkSkinId.ZodiacTiger, InkSkinId.ZodiacHorse, InkSkinId.ZodiacGoat, InkSkinId.HaetaeCrest,
             InkSkinId.ZodiacPig, InkSkinId.ZodiacMonkey, InkSkinId.ZodiacRat, InkSkinId.ZodiacRabbit,
             InkSkinId.ZodiacDragon, InkSkinId.ZodiacDog, InkSkinId.ZodiacRooster, InkSkinId.NineTails });
+
+        [UnityTest, Timeout(120000), Category("SkinRetirement")]
+        public IEnumerator PaperWingsReplaceRetiredScarfWithoutAnEmptyCard() => CaptureAccessories(new[] { InkSkinId.OrigamiWings });
 
         IEnumerator CaptureAccessories(InkSkinId[] ids)
         {

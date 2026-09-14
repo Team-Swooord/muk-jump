@@ -44,7 +44,8 @@ namespace MukJump.Core
             new(InkSkinId.CraneCrest,"학의 볏","Crane Crest","鶴の冠","skin_crane_crest_v1",SkinTier.Medium,SkinMetric.Distance,5000),
             new(InkSkinId.YakshaMask,"야차탈","Yaksha Mask","夜叉の面","skin_yaksha_mask_v1",SkinTier.Medium,SkinMetric.Best,500),
             new(InkSkinId.TurtleShell,"거북 투구","Turtle Helm","亀のかぶと","skin_turtle_shell_v1",SkinTier.Medium,SkinMetric.Clones,3),
-            new(InkSkinId.StormScarf,"질풍 두건","Gale Scarf","疾風の頭巾","skin_storm_scarf_v1",SkinTier.Medium,SkinMetric.Survival,120),
+            // 은퇴 ID 20은 예전 저장을 읽기 위한 자리만 유지한다. 새 의상에 재사용하지 않는다.
+            new(InkSkinId.StormScarf,"질풍 두건","Gale Scarf","疾風の頭巾","",SkinTier.Medium,SkinMetric.Survival,120),
             new(InkSkinId.MoonCrown,"달빛 관","Moon Crown","月光の冠","skin_moon_crown_v1",SkinTier.Medium,SkinMetric.NightBest,100),
             new(InkSkinId.BrushMaster,"붓 장인","Brush Master","筆の匠","skin_brush_master_v1",SkinTier.Medium,SkinMetric.DrawnLandings,100),
             new(InkSkinId.SpiritHalo,"도깨비 불","Spirit Halo","鬼火の輪","skin_spirit_halo_v1",SkinTier.Medium,SkinMetric.Items,30),
@@ -59,7 +60,7 @@ namespace MukJump.Core
             new(InkSkinId.Astronaut,"달 여행자","Moon Traveler","月の旅人","skin_astronaut_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.ClockworkCat,"태엽 고양이","Clockwork Cat","ぜんまい猫","skin_clockwork_cat_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.LuckyDice,"일곱 번째 눈","Seventh Eye","七つ目の目","skin_lucky_dice_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
-            new(InkSkinId.OrigamiWings,"접힌 차원","Folded Dimension","折りたたむ次元","skin_origami_wings_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
+            new(InkSkinId.OrigamiWings,"종이 날개","Paper Wings","紙の翼","skin_origami_wings_v1",SkinTier.Medium,SkinMetric.Survival,120),
             new(InkSkinId.CraneWings,"학의 날개","Crane Wings","鶴の翼","skin_crane_wings_v1",SkinTier.Medium,SkinMetric.Best,350),
             new(InkSkinId.ButterflyWings,"먹나비 날개","Ink Butterfly","墨蝶の羽","skin_butterfly_wings_v1",SkinTier.Medium,SkinMetric.Items,50),
             new(InkSkinId.RedShoes,"붉은 버선","Crimson Steps","紅の足袋","skin_red_shoes_v1",SkinTier.Easy,SkinMetric.DrawnLandings,15),
@@ -88,14 +89,20 @@ namespace MukJump.Core
             new(InkSkinId.ThreeCushion,"팔번공","Eight Ball","8番ボール","skin_three_cushion_v1",SkinTier.UltraHidden,SkinMetric.Secret,1)
         };
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
-        public static InkSkinId Normalize(InkSkinId id) => IsValid(id) ? id : InkSkinId.Ink;
+        public static bool IsAvailable(InkSkinId id) => IsValid(id) && id != InkSkinId.StormScarf;
+        public const ulong AvailableRewardMask = ((1UL << Count) - 1) & ~1UL & ~(1UL << (int)InkSkinId.StormScarf);
+        public static InkSkinId Normalize(InkSkinId id) => id == InkSkinId.StormScarf ? InkSkinId.OrigamiWings :
+            IsValid(id) ? id : InkSkinId.Ink;
         public static InkSkinDefinition Get(InkSkinId id) => IsValid(id) ? definitions[(int)id] : null;
         // 표시 순서만 변경한다. 서버·해금·장착에 저장된 ID는 절대로 재배열하지 않는다.
         static readonly InkSkinId[] browseOrder = BuildBrowseOrder();
+        public static int BrowseCount => browseOrder.Length;
         static InkSkinId[] BuildBrowseOrder()
         {
-            var order = new InkSkinId[Count];
-            for (int i = 0; i < Count; i++) order[i] = (InkSkinId)i;
+            var available = new System.Collections.Generic.List<InkSkinId>();
+            for (int i = 0; i < Count; i++)
+                if (IsAvailable((InkSkinId)i)) available.Add((InkSkinId)i);
+            var order = available.ToArray();
             Array.Sort(order, (a, b) => {
                 int group = BrowseGroup(a).CompareTo(BrowseGroup(b));
                 if (group != 0) return group;
@@ -106,7 +113,7 @@ namespace MukJump.Core
         }
         public static int BrowseGroup(InkSkinId id) => Get(id)?.Tier is SkinTier.Hidden or SkinTier.UltraHidden
             ? 100 : (int)(Get(id)?.Metric ?? SkinMetric.None);
-        public static InkSkinId BrowseAt(int index) => browseOrder[Mathf.Clamp(index, 0, Count - 1)];
+        public static InkSkinId BrowseAt(int index) => browseOrder[Mathf.Clamp(index, 0, BrowseCount - 1)];
         public static int BrowseIndex(InkSkinId id) => Array.IndexOf(browseOrder, Normalize(id));
         public static string GroupName(InkSkinId id) => BrowseGroup(id) == 100 ? "비밀 의상" : Get(id)?.Metric switch {
             SkinMetric.Best => "최고 고도", SkinMetric.Runs => "플레이 횟수", SkinMetric.Distance => "누적 고도",
@@ -115,7 +122,7 @@ namespace MukJump.Core
             SkinMetric.Growth => "성장", SkinMetric.NoItemBest => "아이템 없는 도전", SkinMetric.AppleLink => "연동 보상", SkinMetric.DragonDeath => "용과의 만남", _ => "기본 의상" };
         public static bool IsSignatureCostume(InkSkinId id) => id is InkSkinId.CloudDragon or InkSkinId.InkMecha or InkSkinId.ClockworkCat;
         public static bool IsConcealed(InkSkinId id) => (Get(id)?.Tier is SkinTier.Hidden or SkinTier.UltraHidden) && !InkSkinAchievements.IsUnlocked(id);
-        public static string Name(InkSkinId id) => Get(id)?.Korean ?? "???";
+        public static string Name(InkSkinId id) => IsValid(id) ? Get(Normalize(id))?.Korean ?? "???" : "???";
         public static bool HasAbility(InkSkinId id) => id is InkSkinId.Gat or InkSkinId.SpiderMask or
             InkSkinId.SpiritHalo or InkSkinId.TurtleShell or InkSkinId.PhoenixCrown or InkSkinId.BondKnot or InkSkinId.WindFan;
         public static string Ability(InkSkinId id) => id switch {
@@ -132,20 +139,20 @@ namespace MukJump.Core
             InkSkinId.BondKnot => "매 판 시작 시 먹방울 아이템으로 50m 상승한다.\n튜토리얼 종료 후 발동하며 부활 시에는 재발동하지 않는다.",
             InkSkinId.WindFan => "전용 버튼으로 본체가 25m 도약한다.\n상승 중 피해를 막고, 20초 후 다시 사용할 수 있다.",
             _ => "원래 먹에 장식을 더해요.\n기존 점프와 성장 효과를 유지해요." };
-        public static string ResourcePath(InkSkinId id) => Get(id) is { Asset: { Length: > 0 } } d ? "MukJump/Skins/" + d.Asset : "";
+        public static string ResourcePath(InkSkinId id) => Get(Normalize(id)) is { Asset: { Length: > 0 } } d ? "MukJump/Skins/" + d.Asset : "";
         // 귀·뿔·볏은 착용선이 보이도록 몸 앞에 둔다. 꼬리·날개·후광만 뒤쪽이다.
-        public static bool BehindBody(InkSkinId id) => id is InkSkinId.OrigamiWings or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.SpiritHalo
+        public static bool BehindBody(InkSkinId id) => Normalize(id) is InkSkinId.OrigamiWings or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.SpiritHalo
             or InkSkinId.BlueWisps or InkSkinId.PaperLanterns or InkSkinId.MoonClouds or InkSkinId.DragonTail
             or InkSkinId.ThreeLeggedCrow or InkSkinId.NineTails or InkSkinId.ZodiacMonkey;
         public static bool IsFootwear(InkSkinId id) => id is InkSkinId.RedShoes or InkSkinId.CloudBoots;
         // 1024 프레임 전체가 기준이다. 실제 먹 몸통은 약 0.7배 폭이며 넉넉한 착용선을 사용한다.
-        public static float Width(InkSkinId id) => id switch {
+        public static float Width(InkSkinId id) => Normalize(id) switch {
             InkSkinId.Gat => .95f, InkSkinId.Scholar => .92f, InkSkinId.BambooHat => .90f,
             InkSkinId.SpiderMask => .70f, InkSkinId.FoxMask => .70f,
             InkSkinId.YakshaMask => .74f, InkSkinId.KoiMask => .70f,
             InkSkinId.TigerMask => .70f, InkSkinId.NightBat => .68f,
             InkSkinId.FirstRibbon => .42f, InkSkinId.InkGhost => .80f, InkSkinId.BellRibbon => .35f,
-            InkSkinId.RedHeadband => 1.00f, InkSkinId.StormScarf => 1.02f,
+            InkSkinId.RedHeadband => 1.00f,
             InkSkinId.LotusCrown => .85f, InkSkinId.CatEars => .86f, InkSkinId.CloudCap => .95f,
             InkSkinId.PaperBoat => .80f, InkSkinId.TeaCupHat => .66f,
             InkSkinId.FeatherHairpin => .43f, InkSkinId.PeachFlower => .80f,
@@ -167,12 +174,12 @@ namespace MukJump.Core
             InkSkinId.RedShoes or InkSkinId.CloudBoots => 1f, _ => InkMythicSkins.Contains(id) ? .94f : .68f };
         public static Vector2 Offset(InkSkinId id)
         {
+            id = Normalize(id);
             // 뒤쪽 끈은 그리지 않는다. 이마 띠와 옆머리 매듭의 중심을 따로 맞춘다.
             if (id == InkSkinId.RedHeadband) return new Vector2(.015f, .23f);
             if (id == InkSkinId.FirstRibbon) return new Vector2(.23f, .25f);
             if (id == InkSkinId.BellRibbon) return new Vector2(.25f, .18f);
             if (id == InkSkinId.FeatherHairpin) return new Vector2(.22f, .27f);
-            if (id == InkSkinId.StormScarf) return new Vector2(.12f, .13f);
             if (id == InkSkinId.ClockworkCat) return new Vector2(.04f, .10f);
             if (id == InkSkinId.BondKnot) return new Vector2(.25f, .20f);
             if (id == InkSkinId.WindFan) return new Vector2(-.30f, -.23f);
@@ -205,6 +212,7 @@ namespace MukJump.Core
         static readonly System.Collections.Generic.Dictionary<InkSkinId, Sprite[]> sprites = new();
         public static Sprite Sprite(InkSkinId id, int frame = 0)
         {
+            id = Normalize(id);
             if (id == InkSkinId.Ink || !IsValid(id)) return null;
             // 목록·리더보드·동작 줄이기도 실제 재생 원화의 첫 프레임을 공유한다.
             // 별도 정지 원화는 여백/배치가 달라 선택 순간 장식이 커지거나 이동했었다.
@@ -224,7 +232,7 @@ namespace MukJump.Core
     {
         public static int Goal(InkSkinId id) => InkSkinCatalog.Get(id)?.Goal ?? int.MaxValue;
         public static int Progress(InkSkinId id) => (int)Math.Min(Goal(id), PermanentGrowthProfile.SkinProgress(id));
-        public static bool IsUnlocked(InkSkinId id) => InkSkinCatalog.IsValid(id) &&
+        public static bool IsUnlocked(InkSkinId id) => InkSkinCatalog.IsAvailable(id) &&
             (id == InkSkinId.Ink || Goal(id) > 0 && Progress(id) >= Goal(id));
         public static string Requirement(InkSkinId id)
         {

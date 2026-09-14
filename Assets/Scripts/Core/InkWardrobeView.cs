@@ -112,10 +112,9 @@ namespace MukJump.Core
         }
         void SelectCore(InkSkinId id, bool reveal)
         {
-            if (!CanInteract() || collectionScroll.IsDragging || !InkSkinCatalog.IsValid(id)) return;
+            if (!CanInteract() || collectionScroll.IsDragging || !InkSkinCatalog.IsAvailable(id)) return;
             int step = InkSkinCatalog.BrowseIndex(id) - InkSkinCatalog.BrowseIndex(selected);
             selected = id; page = InkSkinCatalog.BrowseIndex(id) / PageSize;
-            SkinSecrets.SelectedByUser(id);
             InkLocalizedText.SetSource(statusText, "");
             RefreshSelection();
             if (reveal) RevealSelectedCard();
@@ -124,14 +123,14 @@ namespace MukJump.Core
         public void StepSelection(int direction)
         {
             if (!CanInteract() || direction == 0) return;
-            int next = Mathf.Clamp(InkSkinCatalog.BrowseIndex(selected) + (direction > 0 ? 1 : -1), 0, InkSkinCatalog.Count - 1);
+            int next = Mathf.Clamp(InkSkinCatalog.BrowseIndex(selected) + (direction > 0 ? 1 : -1), 0, InkSkinCatalog.BrowseCount - 1);
             if (InkSkinCatalog.BrowseAt(next) != selected) Select(InkSkinCatalog.BrowseAt(next));
         }
         public void ChangePage(int direction)
         {
             if (!CanInteract()) return;
             int previous = InkSkinCatalog.BrowseIndex(selected);
-            page = Mathf.Clamp(page + direction, 0, (InkSkinCatalog.Count-1)/PageSize);
+            page = Mathf.Clamp(page + direction, 0, (InkSkinCatalog.BrowseCount-1)/PageSize);
             selected = InkSkinCatalog.BrowseAt(page * PageSize);
             InkLocalizedText.SetSource(statusText, "");
             RefreshSelection();
@@ -182,7 +181,7 @@ namespace MukJump.Core
             for (int side = 0; side < 2; side++)
             {
                 int index = InkSkinCatalog.BrowseIndex(selected) + (side == 0 ? -1 : 1);
-                bool exists = index >= 0 && index < InkSkinCatalog.Count;
+                bool exists = index >= 0 && index < InkSkinCatalog.BrowseCount;
                 neighborButtons[side].interactable = exists;
             }
             InkLocalizedText.SetSource(equipText, !unlocked ? "업적 달성 필요" : equipped ? "착용 중" : "착용하기");
@@ -201,6 +200,7 @@ namespace MukJump.Core
             equipButton.gameObject.SetActive(!hidden && !collectionExpanded);
             for (int i=0; i<cards.Length; i++)
             {
+                if (cards[i] == null) continue;
                 var id = (InkSkinId)i;
                 bool concealed = SkinDebugSession.IsConcealed(id);
                 bool cardUnlocked = SkinDebugSession.CanEquip(id);
@@ -361,6 +361,7 @@ namespace MukJump.Core
             // 큰 날개가 다른 의상의 먹까지 줄이지 않도록 각 칸 안에서만 맞춘다.
             for(int i=0;i<cards.Length;i++)
             {
+                if (cards[i] == null) continue;
                 Vector2 min=cardBodies[i].rectTransform.sizeDelta*-.5f, max=-min;
                 if(cardAccessories[i].enabled)
                 {
@@ -404,6 +405,7 @@ namespace MukJump.Core
             for(int i=1;i<InkSkinCatalog.Count;i++)
             {
                 var id=(InkSkinId)i;
+                if (!InkSkinCatalog.IsAvailable(id)) continue;
                 Rect bounds=LobbySkinPreview.CostumeBounds(id,InkSkinCatalog.Sprite(id));
                 heroBounds=UnityEngine.Rect.MinMaxRect(Mathf.Min(heroBounds.xMin,bounds.xMin),Mathf.Min(heroBounds.yMin,bounds.yMin),
                     Mathf.Max(heroBounds.xMax,bounds.xMax),Mathf.Max(heroBounds.yMax,bounds.yMax));
@@ -435,7 +437,7 @@ namespace MukJump.Core
             skillLabel.color=InkPalette.Red; skillLabel.alignment=TextAnchor.MiddleRight;
             if(skillLabel.TryGetComponent<Outline>(out var skillOutline)) skillOutline.enabled=false;
             BuildCollection();
-            for(int i=0;i<cards.Length;i++) BuildCard(InkSkinCatalog.BrowseAt(i));
+            for(int i=0;i<InkSkinCatalog.BrowseCount;i++) BuildCard(InkSkinCatalog.BrowseAt(i));
             var toggle=Button("CollectionToggle",paper,"전체 보기",new Vector2(410,860),new Vector2(230,94),30,out collectionToggleText);
             toggle.onClick.AddListener(ToggleCollection);
             abilityText=Label("Ability",paper,"",56,new Vector2(-120,6),new Vector2(600,72),true);
@@ -567,7 +569,7 @@ namespace MukJump.Core
             if(collectionScroll==null) return;
             float center=-collectionContent.anchoredPosition.x/collectionScroll.CardStride;
             bool motion=!collectionExpanded && !LobbySettingsProfile.ReducedMotionEnabled;
-            for(int slot=0;slot<InkSkinCatalog.Count;slot++)
+            for(int slot=0;slot<InkSkinCatalog.BrowseCount;slot++)
             {
                 var card=cards[(int)InkSkinCatalog.BrowseAt(slot)];
                 if(card==null) continue;
