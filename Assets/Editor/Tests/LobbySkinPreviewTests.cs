@@ -18,6 +18,82 @@ namespace MukJump.EditorTests
 {
     public sealed class LobbySkinPreviewTests
     {
+        [TestCase(-1), TestCase(1), Category("LobbyTumble")]
+        public void SlantedWallImpactSpinsInContactDirectionAndKeepsGravity(int side)
+        {
+            Vector2 arena = new(300, 600), size = new(120, 160);
+            Vector2 position = new(side * 240, 50), speed = new(side * 700, -360);
+            float angle = 0f, spin = 0f;
+            int contacts = LobbySkinPreview.AdvanceTumble(ref position, ref speed, ref angle, ref spin, arena, size, .2f);
+            Assert.That(contacts, Is.EqualTo(1));
+            Assert.That(speed.x * side, Is.LessThan(0));
+            Assert.That(speed.y, Is.LessThan(-360));
+            Assert.That(spin * side, Is.GreaterThan(40));
+            Assert.That(angle * side, Is.GreaterThan(5));
+            var limits = LobbySkinPreview.RotationTravel(arena, size, angle);
+            Assert.That(Mathf.Abs(position.x), Is.LessThanOrEqualTo(limits.x));
+        }
+
+        [Test, Category("LobbyTumble")]
+        public void ThrowSpinUsesGripOffsetAndDoesNotInventSpinForCenteredGrip()
+        {
+            var size = new Vector2(120, 160);
+            Assert.That(LobbySkinPreview.ReleaseSpin(Vector2.zero, new Vector2(700, 300), size), Is.Zero);
+            float above = LobbySkinPreview.ReleaseSpin(new Vector2(0, 50), new Vector2(600, 0), size);
+            float below = LobbySkinPreview.ReleaseSpin(new Vector2(0, -50), new Vector2(600, 0), size);
+            Assert.That(above, Is.LessThan(0));
+            Assert.That(below, Is.EqualTo(-above));
+            Assert.That(LobbySkinPreview.ReleaseSpin(new Vector2(100, 100), Vector2.up * 10000, size), Is.EqualTo(LobbySkinPreview.MaxSpin));
+        }
+
+        [TestCase(-1), TestCase(1), Category("LobbyTumble")]
+        public void GroundRollFollowsTravelWithoutExceedingSpinCap(int direction)
+        {
+            Vector2 arena = new(10000, 500), size = new(40, 40);
+            Vector2 position = new(0, -480), speed = new(direction * LobbySkinPreview.MaxThrowSpeed, 0);
+            float angle = 0, spin = 0;
+            for (int i = 0; i < 60; i++)
+            {
+                LobbySkinPreview.AdvanceTumble(ref position, ref speed, ref angle, ref spin, arena, size, 1f / 120f);
+                Assert.That(spin * direction, Is.LessThan(0));
+                Assert.That(Mathf.Abs(spin), Is.LessThanOrEqualTo(LobbySkinPreview.MaxSpin));
+            }
+        }
+
+        [TestCase(30), TestCase(60), TestCase(120), Category("LobbyTumble")]
+        public void FreeRotationHasNoUprightClampAndIsFrameRateIndependent(int fps)
+        {
+            Vector2 position = Vector2.zero, speed = new(200, 500), arena = Vector2.one * 10000, size = new(120, 160);
+            float angle = 70, spin = 420;
+            for (int i = 0; i < fps; i++)
+                LobbySkinPreview.AdvanceTumble(ref position, ref speed, ref angle, ref spin, arena, size, 1f / fps);
+            float rotation = 70f + 420f * (1f - Mathf.Exp(-.65f)) / .65f;
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(angle, rotation)), Is.LessThan(.02f));
+            Assert.That(spin, Is.EqualTo(420f * Mathf.Exp(-.65f)).Within(.02f));
+        }
+
+        [Test, Category("LobbyTumble")]
+        public void RotatingCostumeStaysInsideWallsAndSettlesWithoutRegainingEnergy()
+        {
+            Vector2 position = Vector2.zero, speed = new(1000, -400), arena = new(250, 500), size = new(160, 240);
+            float angle = 35, spin = 360;
+            var random = Random.state;
+            for (int i = 0; i < 2400; i++)
+            {
+                LobbySkinPreview.AdvanceTumble(ref position, ref speed, ref angle, ref spin, arena, size, 1f / 120f);
+                Vector2 limits = LobbySkinPreview.RotationTravel(arena, size, angle);
+                Assert.That(Mathf.Abs(position.x), Is.LessThanOrEqualTo(limits.x + .001f));
+                Assert.That(Mathf.Abs(position.y), Is.LessThanOrEqualTo(limits.y + .001f));
+                Assert.That(Mathf.Abs(spin), Is.LessThanOrEqualTo(LobbySkinPreview.MaxSpin));
+            }
+            Assert.That(speed, Is.EqualTo(Vector2.zero));
+            Assert.That(spin, Is.Zero);
+            float settledAngle = angle;
+            Assert.That(LobbySkinPreview.AdvanceTumble(ref position, ref speed, ref angle, ref spin, arena, size, 3f), Is.Zero);
+            Assert.That(angle, Is.EqualTo(settledAngle));
+            Assert.That(Random.state, Is.EqualTo(random));
+        }
+
         [Test, Category("LobbyDrift"), Category("LobbyThrow")]
         public void GentleGravitySettlesWithoutTouchingGameRandomOrChatteringOnFloor()
         {
@@ -250,7 +326,7 @@ namespace MukJump.EditorTests
             yield return new ExitPlayMode();
         }
 
-        [UnityTest, Timeout(120000)]
+        [UnityTest, Category("LobbyTumble"), Timeout(120000)]
         public IEnumerator LobbyDriftTouchesBounceAndPauseWithoutStartingGame()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
@@ -285,7 +361,8 @@ namespace MukJump.EditorTests
                     Assert.That(body.rectTransform.rect.width, Is.LessThanOrEqualTo(360f * .85f));
                     Canvas.ForceUpdateCanvases(); CheckBounds(preview);
                     Assert.That(body.canvasRenderer.GetMesh().vertexCount, Is.EqualTo(4));
-                    Assert.That(preview.Drift.localRotation, Is.EqualTo(Quaternion.identity));
+                    Assert.That(preview.Drift.localRotation.x, Is.Zero);
+                    Assert.That(preview.Drift.localRotation.y, Is.Zero);
                     Assert.That(preview.Drift.localScale, Is.EqualTo(Vector3.one));
                 }
                 InkSkinPreferences.TryEquip(InkSkinId.RedShoes); yield return Wait(.1f);
@@ -365,9 +442,39 @@ namespace MukJump.EditorTests
                 Canvas.ForceUpdateCanvases(); CheckBounds(preview);
                 yield return Capture("top-right-bounce");
 
+                // 정면 고정 회귀: 실제 LateUpdate에서 비스듬한 벽 충돌을 시켜 본체·의상을 함께 회전한다.
+                preview.Drift.anchoredPosition = new Vector2(preview.Travel.x, preview.Travel.y * .25f);
+                var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+                typeof(LobbySkinPreview).GetField("velocity", flags).SetValue(preview, new Vector2(800, -400));
+                typeof(LobbySkinPreview).GetField("angularVelocity", flags).SetValue(preview, 0f);
+                float beforeAngle = preview.Drift.eulerAngles.z;
+                yield return Wait(.35f);
+                Assert.That(preview.Velocity.x, Is.LessThan(0));
+                Assert.That(preview.AngularVelocity, Is.GreaterThan(10));
+                Assert.That(Mathf.Abs(Mathf.DeltaAngle(beforeAngle, preview.Drift.eulerAngles.z)), Is.GreaterThan(5));
+                Canvas.ForceUpdateCanvases(); CheckBounds(preview);
+                var costume = preview.transform.Find("Drift/Artwork/Accessory");
+                Assert.That(Quaternion.Angle(body.transform.rotation, costume.rotation), Is.LessThan(.01f));
+                yield return Capture("oblique-wall-tumble");
+
+                var regrab = new PointerEventData(EventSystem.current) { pointerId = 44,
+                    position = ScreenPoint(preview, preview.Drift.anchoredPosition) };
+                preview.OnPointerDown(regrab);
+                var heldRotation = preview.Drift.localRotation;
+                yield return Wait(.15f);
+                Assert.That(preview.AngularVelocity, Is.Zero);
+                Assert.That(preview.Drift.localRotation, Is.EqualTo(heldRotation), "잡힌 각도에서 정지하고 정면으로 튀지 않는다.");
+                preview.OnPointerUp(regrab);
+                LobbySettingsProfile.SetReducedMotionEnabled(true);
+                yield return Wait(.15f);
+                Assert.That(preview.Drift.localRotation, Is.EqualTo(heldRotation));
+                LobbySettingsProfile.SetReducedMotionEnabled(false);
+
                 lobby.OptionsButton.onClick.Invoke(); yield return Wait(.5f);
-                before = preview.Drift.anchoredPosition; yield return Wait(.3f);
+                before = preview.Drift.anchoredPosition;
+                var pausedRotation = preview.Drift.localRotation; yield return Wait(.3f);
                 Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(before));
+                Assert.That(preview.Drift.localRotation, Is.EqualTo(pausedRotation));
                 Assert.That(preview.Drift.GetComponent<UnityEngine.UI.Image>().raycastTarget, Is.False);
                 Object.FindAnyObjectByType<LobbyOptionsView>().Close(); yield return Wait(.5f);
                 MobileApplicationLifecycle.SetPlatformVisibility(false); yield return Wait(.1f);
@@ -585,12 +692,13 @@ namespace MukJump.EditorTests
                 Assert.That(lobby.IsInteractive,Is.True);
 
                 MobileApplicationLifecycle.SetPlatformVisibility(false); yield return Wait(.1f);
-                var paused = preview.Drift.anchoredPosition; yield return Wait(.15f);
+                var paused = preview.Drift.anchoredPosition;
+                var pausedRotation = preview.Drift.localRotation; yield return Wait(.15f);
                 Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(paused));
                 MobileApplicationLifecycle.SetPlatformVisibility(true);
                 LobbySettingsProfile.SetReducedMotionEnabled(true); yield return Wait(.1f);
                 Assert.That(preview.Drift.anchoredPosition, Is.EqualTo(paused));
-                Assert.That(preview.Drift.localRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(preview.Drift.localRotation, Is.EqualTo(pausedRotation));
                 LobbySettingsProfile.SetReducedMotionEnabled(false);
                 lobby.SetActiveMenu(LobbyMenuSelection.Options);
                 // 실제 옵션 창을 열어 메뉴 상태가 다음 프레임에도 유지되게 한다.

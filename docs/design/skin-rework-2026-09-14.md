@@ -40,6 +40,8 @@
 
 ## 진행 메모
 
+- 추가 요청 완료 — 로비 먹 벽 반사 회전: 정면 고정을 제거했다. 비스듬한 벽 접촉의 마찰과 손으로 잡은 위치에 따라 회전 방향·세기가 달라지고, 본체·의상이 함께 자유 회전한다. 중력·반발 손실은 유지하며 바닥에서는 구르다 멈춘다. 회전된 의상 외곽 충돌, 잡힌 각도 유지, 모션 줄이기/옵션/백그라운드 정지 확인. `LobbyTumble` 10/10, 기존 `LobbyThrow` 12/12 통과. 실제 Play Mode 화면 `output/qa/sprite-animation-2026-09-13/oblique-wall-tumble.png` 확인. 검사 결과는 `output/qa/skin-rework-20260914/lobby-tumble-tests.json`, `lobby-throw-tests.json`. 이 추가 요청은 아래 기존 24항목 집계와 별도이며, 빌드·업로드는 하지 않았다.
+
 - 최종 대조: **23/24 완료, 21번 새 원화만 보류**. 관련 검사만 실행했다. 최신 `SkinUnlockFlow` 18/18, `SkinSyncRework` 2/2, `MaskStrike` 11/11, `AngelWings` 4/4, `SpiderWeb` 7/7 통과. 등록용 Game Center 목록은 62번까지 3언어로 생성되며, 실제 보고는 등록 확인된 61번까지/은퇴 20번은 종이 날개 35번으로 이전되는 것을 확인. 빌더로 세 씬 재생성 후 `mukjump_audit`: sceneSourceCurrent=true, readyForValidation=true, missingScripts=0, playerSafetyIssues=[]; 최신 Editor 로그에 C# 오류/예외 없음. 전체 맵 회귀, 운영 서버 계정 조작, iOS 빌드·업로드는 수행하지 않았다.
 
 - 22·23 검증 완료: `SkinUnlockFlow` 18개 통과. 저장된 새 로비 보상만 계정별 일회성 대기에 넣고, 꾸미기 가림 완료 후 기존 별도 해금 씬으로 이동한다. 확인하면 로비를 다시 보이지 않고 꾸미기로 복귀한다. 이미 공개한 의상은 다음 판 종료에 중복 공개하지 않으며, 꾸미기에 먼저 가지 않고 플레이했다면 종료 시 공개한다. Apple 연동 보상도 저장 성공 후 작은 알림/공개 대기에 포함. 계정 전환/삭제, 저장 실패, 이전 소유/은퇴 의상 제외 확인. 기존 게임 중 작은 알림→정산 후 큰 공개 흐름과 3언어 화면 확인. 테스트의 고정 2~3초 기다림은 실제 전환 완료 확인으로 바꾸었다. 증거 `output/qa/skin-rework-20260914/unlock-final-tests.json`, `output/qa/ink-showroom/lobby-unlock-*`.

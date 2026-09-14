@@ -20,6 +20,8 @@ namespace MukJump.Core
         const float GroundFriction = 280f;
         const float CushionImpactSpeed = 120f;
         const float MotionStep = 1f / 120f;
+        public const float MaxSpin = 540f;
+        const float AngularDrag = .65f;
         // idle 원화의 알파 경계 (100, 152)~(924, 866)/1024에 여유를 더한 범위.
         // 투명 프레임 전체를 피팅하면 실제 먹이 너무 작아진다. 원본 그림은 자르지 않는다.
         public static readonly Rect BodyDrawingBounds = new(-.415f, -.36f, .83f, .725f);
@@ -34,7 +36,7 @@ namespace MukJump.Core
         Vector2 velocity, grabOffset;
         readonly ThrowTracker throwTracker = new();
         readonly CushionAttempt cushionAttempt = new();
-        float elapsed, heldTime;
+        float elapsed, heldTime, rotation, angularVelocity;
         InkSpriteAnimation heldAnimation;
         public static readonly Vector2 HeldArtOffset = new(-.025f, -.045f);
         bool positioned, holding;
@@ -49,6 +51,7 @@ namespace MukJump.Core
         public bool IsDragging => holding;
         public Vector2 Velocity => velocity;
         public Vector2 Travel => travel;
+        public float AngularVelocity => angularVelocity;
 
         bool CanInteract => IsVisible && lobby != null && lobby.IsInteractive &&
             lobby.ActiveMenu != LobbyMenuSelection.Options && !StartupBrandSplash.IsBlockingInput &&
@@ -105,7 +108,9 @@ namespace MukJump.Core
                 if (!holding)
                 {
                     Vector2 position = drift.anchoredPosition;
-                    int contacts = AdvanceBounce(ref position, ref velocity, travel, dt);
+                    int contacts = AdvanceTumble(ref position, ref velocity, ref rotation, ref angularVelocity,
+                        area.sizeDelta * .5f - Vector2.one * 4f, drift.sizeDelta, dt);
+                    travel = RotationTravel(area.sizeDelta * .5f - Vector2.one * 4f, drift.sizeDelta, rotation);
                     drift.anchoredPosition = position;
                     object completedOwner = cushionAttempt.Record(PermanentGrowthProfile.SkinAccountToken, contacts);
                     if (completedOwner != null && SkinSecrets.CompletedThreeCushion(completedOwner) != 0)
@@ -113,8 +118,8 @@ namespace MukJump.Core
                     if (velocity == Vector2.zero) cushionAttempt.Cancel();
                 }
             }
-            // 기울이기·늘이기·발젓기 없이 착용한 형태 그대로 평행 이동한다.
-            drift.localRotation = Quaternion.identity;
+            // 본체와 의상을 한 덩어리로 회전한다. 원화·프레임을 늘이거나 이동 방향으로 정면을 강제하지 않는다.
+            drift.localRotation = Quaternion.Euler(0f, 0f, rotation);
             drift.localScale = Vector3.one;
             PresentHeldPose();
             accessory.PresentMotion(shown, elapsed, InkAccessoryMotion.Strength);
@@ -161,7 +166,7 @@ namespace MukJump.Core
             }
             // 액세서리를 포함한 외곽으로 벽을 판정한다. 투명한 터치 영역도 이 범위를 넘지 않는다.
             drift.sizeDelta = bounds.size * size;
-            travel = Vector2.Max(Vector2.zero, (area.sizeDelta - drift.sizeDelta) * .5f - Vector2.one * 4f);
+            travel = RotationTravel(area.sizeDelta * .5f - Vector2.one * 4f, drift.sizeDelta, rotation);
             if (!positioned)
             {
                 drift.anchoredPosition = new Vector2(0, (top + bottom) * .5f - area.anchoredPosition.y);
@@ -184,6 +189,7 @@ namespace MukJump.Core
             inactiveGeneration = MobileApplicationLifecycle.InactiveGeneration;
             grabOffset = drift.anchoredPosition - point;
             velocity = Vector2.zero;
+            angularVelocity = 0f;
             cushionAttempt.Cancel();
             throwTracker.Reset(drift.anchoredPosition, Time.unscaledTimeAsDouble);
             heldTime = 0f;
@@ -209,8 +215,10 @@ namespace MukJump.Core
             // UI 모듈은 마지막 Drag보다 PointerUp을 먼저 보낼 수 있어 손을 뗀 좌표까지 직접 반영한다.
             MoveHeldPointer(e);
             Vector2 released = LobbySettingsProfile.ReducedMotionEnabled ? Vector2.zero : throwTracker.ReleaseVelocity;
+            float releasedSpin = ReleaseSpin(-grabOffset, released, drift.sizeDelta);
             CancelDrag();
             velocity = released;
+            angularVelocity = releasedSpin;
             // 자동 부유나 정지한 탭은 도전이 아니다. 직접 던진 한 번의 궤적만 이어서 센다.
             if (released.sqrMagnitude > 1f && !SkinDebugSession.Active && !PermanentGrowthProfile.RequiresRecovery &&
                 MukJumpAccountRuntime.Instance?.BlocksGameplayForAccountSync != true)
@@ -220,7 +228,7 @@ namespace MukJump.Core
         void CancelDrag()
         {
             // 화면 전환·백그라운드·의상 변경은 던지기가 아니다. 잡지 않은 자유 이동 속도는 보존한다.
-            if (holding) velocity = Vector2.zero;
+            if (holding) { velocity = Vector2.zero; angularVelocity = 0f; }
             cushionAttempt.Cancel();
             holding = false; heldTime = 0f; PresentHeldPose();
         }
@@ -287,10 +295,34 @@ namespace MukJump.Core
         // 게임 난수·물리와 분리된 로비 운동. 작은 시간 간격으로 계산해 고속 투척도 벽 밖으로 빠지지 않는다.
         public static int AdvanceBounce(ref Vector2 position, ref Vector2 speed, Vector2 limits, float dt)
         {
-            limits = Vector2.Max(Vector2.zero, limits);
+            float angle = 0f, spin = 0f;
+            return AdvanceTumble(ref position, ref speed, ref angle, ref spin, limits, Vector2.zero, dt);
+        }
+
+        public static float ReleaseSpin(Vector2 gripFromCenter, Vector2 speed, Vector2 size)
+        {
+            float radius = Mathf.Max(1f, Mathf.Min(size.x, size.y) * .5f);
+            // 중심을 잡으면 직선 투척, 가장자리를 잡아 던지면 손의 힘이 회전으로 전달된다.
+            return Mathf.Clamp((gripFromCenter.x * speed.y - gripFromCenter.y * speed.x) /
+                (radius * radius) * Mathf.Rad2Deg * .45f, -MaxSpin, MaxSpin);
+        }
+
+        public static Vector2 RotationTravel(Vector2 arenaHalf, Vector2 size, float angle)
+        {
+            float cos = Mathf.Abs(Mathf.Cos(angle * Mathf.Deg2Rad));
+            float sin = Mathf.Abs(Mathf.Sin(angle * Mathf.Deg2Rad));
+            return Vector2.Max(Vector2.zero, arenaHalf - new Vector2(
+                size.x * cos + size.y * sin, size.x * sin + size.y * cos) * .5f);
+        }
+
+        public static int AdvanceTumble(ref Vector2 position, ref Vector2 speed, ref float angle, ref float spin,
+            Vector2 arenaHalf, Vector2 size, float dt)
+        {
+            Vector2 limits = RotationTravel(arenaHalf, size, angle);
             position = new Vector2(Mathf.Clamp(position.x, -limits.x, limits.x), Mathf.Clamp(position.y, -limits.y, limits.y));
             if (limits.x == 0f) speed.x = 0f;
             if (limits.y == 0f) speed.y = 0f;
+            float radius = Mathf.Min(size.x, size.y) * .5f;
             int contacts = 0;
             float remaining = Mathf.Max(0f, dt);
             while (remaining > 0f)
@@ -313,13 +345,41 @@ namespace MukJump.Core
                     speed.x *= decay;
                     speed.y = speed.y * decay - Gravity * travelTime;
                 }
+                if (radius > 0f)
+                {
+                    if (grounded)
+                    {
+                        // 바닥에서는 진행 방향으로 구르다 마찰로 멎는다. 멈췄다고 정면으로 되감지 않는다.
+                        float rolling = Mathf.Clamp(-speed.x / radius * Mathf.Rad2Deg, -MaxSpin, MaxSpin);
+                        spin = Mathf.Lerp(spin, rolling, 1f - Mathf.Exp(-8f * step));
+                        if (speed == Vector2.zero && Mathf.Abs(spin) < 1f) spin = 0f;
+                    }
+                    float spinDecay = Mathf.Exp(-AngularDrag * step);
+                    angle = Mathf.Repeat(angle + spin * (1f - spinDecay) / AngularDrag + 180f, 360f) - 180f;
+                    spin *= spinDecay;
+                    // 회전한 의상 외곽까지 매 스텝 반영하여 모자·날개가 벽 밖으로 잘리지 않는다.
+                    limits = RotationTravel(arenaHalf, size, angle);
+                    if (grounded) position.y = -limits.y;
+                    if ((position.x >= limits.x && speed.x > 0f) || (position.x <= -limits.x && speed.x < 0f))
+                        ApplyImpactSpin(ref spin, speed, new Vector2(-Mathf.Sign(speed.x), 0f), radius);
+                    if ((position.y >= limits.y && speed.y > 0f) || (position.y <= -limits.y && speed.y < 0f))
+                        ApplyImpactSpin(ref spin, speed, new Vector2(0f, -Mathf.Sign(speed.y)), radius);
+                }
                 bool impact = BounceAxis(ref position.x, ref speed.x, limits.x, false);
                 impact |= BounceAxis(ref position.y, ref speed.y, limits.y, true);
                 // 모서리는 한 번, 바닥의 미세 떨림은 0번. 멈춘 먹으로 쓰리쿠션이 자동 달성되지 않는다.
                 if (impact) contacts = Mathf.Min(3, contacts + 1);
-                if (grounded && speed == Vector2.zero) break;
+                if (grounded && speed == Vector2.zero && spin == 0f) break;
             }
             return contacts;
+        }
+
+        static void ApplyImpactSpin(ref float spin, Vector2 speed, Vector2 normal, float radius)
+        {
+            // 벽 접선 방향의 미끄러짐이 회전을 만든다. 반대쪽 벽·입사 방향에서는 회전 방향도 반대다.
+            float rolling = (normal.x * speed.y - normal.y * speed.x) / radius * Mathf.Rad2Deg;
+            float impulse = Mathf.Abs(Vector2.Dot(speed, normal)) * (1f + Restitution) / radius * Mathf.Rad2Deg * .5f;
+            spin = Mathf.Clamp(Mathf.MoveTowards(spin, rolling, impulse), -MaxSpin, MaxSpin);
         }
 
         /// 진행도는 저장하지 않는다. 재포획·화면 이탈·계정 전환으로 즉시 끊기는 한 번의 던지기다.
@@ -354,7 +414,7 @@ namespace MukJump.Core
         }
         public static Vector2 RotationEnvelope(Vector2 size)
         {
-            // 이전 버전의 미리보기 크기만 보존한다. 실제 먹은 더 이상 기울이지 않는다.
+            // 이전 버전의 미리보기 크기는 보존하고 실제 회전 충돌 범위는 RotationTravel에서 계산한다.
             float s = Mathf.Sin(24f * Mathf.Deg2Rad);
             return new Vector2(size.x + size.y * s, size.y + size.x * s);
         }
