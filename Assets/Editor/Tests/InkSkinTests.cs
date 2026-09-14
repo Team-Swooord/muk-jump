@@ -587,6 +587,68 @@ namespace MukJump.EditorTests
             Assert.That(growth.LastBreathAvailable,Is.True);
         }
 
+        [Test, Category("CloudBoots")]
+        public void CloudBootsUseRealJumpEffectOncePerLandingWithoutFakeItemCredit()
+        {
+            var manager = StartCloudBootsTest(out var growth, out var original, out var platform);
+            Assert.That(growth.TryTriggerCloudBootsLanding(original, platform), Is.True);
+            Assert.That(original.IsInkDropBoosted, Is.True);
+            float speed = Mathf.Sqrt(2 * Mathf.Abs(Physics2D.gravity.y * original.Body.gravityScale) * 50);
+            Assert.That(original.Body.linearVelocity.y, Is.EqualTo(speed).Within(.01));
+            Assert.That(growth.TryTriggerCloudBootsLanding(original, platform), Is.False);
+            Assert.That(original.Body.linearVelocity.y, Is.EqualTo(speed).Within(.01));
+            var stats = (SkinRunStats)typeof(GameManager).GetField("skinRunStats", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(manager);
+            Assert.That(stats.items, Is.Zero); Assert.That(stats.inkDrops, Is.Zero);
+            Assert.That(original.AchievementItemFlight, Is.Zero);
+            // 다음 착지 시에는 다시 발동한다. 아이템 상승이 끝난 상태를 재현한다.
+            typeof(PlayerController).GetProperty("IsInkDropBoosted").SetValue(original, false);
+            Assert.That(growth.TryTriggerCloudBootsLanding(original, platform), Is.True);
+        }
+
+        [TestCase("drawn"), TestCase("starter"), TestCase("safety"), TestCase("paused")]
+        [TestCase("background"), TestCase("clone"), TestCase("dead"), TestCase("already-rising")]
+        [TestCase("disabled"), TestCase("other-skin"), TestCase("gameover"), Category("CloudBoots")]
+        public void CloudBootsRejectWrongSurfaceAndInactiveGameplay(string scenario)
+        {
+            var manager = StartCloudBootsTest(out var growth, out var player, out var platform);
+            if (scenario is "drawn" or "starter") Field(platform, "mapRestPlatform", false);
+            if (scenario == "starter") Field(platform, "lifetime", 0f);
+            if (scenario == "safety") Field(platform, "growthSafetyPlatform", true);
+            if (scenario == "paused") typeof(GameManager).GetProperty("IsPaused").SetValue(manager, true);
+            if (scenario == "background") MobileApplicationLifecycle.SetPlatformVisibility(false);
+            if (scenario == "clone") Field(player, "isRuntimeClone", true);
+            if (scenario == "dead") typeof(PlayerController).GetProperty("IsDead").SetValue(player, true);
+            if (scenario == "already-rising") player.LaunchInkDrop(25f);
+            if (scenario == "disabled") player.Body.simulated = false;
+            if (scenario == "other-skin") Field(growth, "skinSnapshot", InkSkinId.Ink);
+            if (scenario == "gameover") Invoke(manager, "SetState", GameState.GameOver);
+            try { Assert.That(growth.TryTriggerCloudBootsLanding(player, platform), Is.False); }
+            finally { MobileApplicationLifecycle.SetPlatformVisibility(true); }
+        }
+
+        [Test, Category("CloudBoots")]
+        public void CloudBootsAbilityCopyIsLocalizedAndKeepsTheExistingUnlock()
+        {
+            Assert.That(InkSkinCatalog.HasAbility(InkSkinId.CloudBoots), Is.True);
+            Assert.That(InkSkinCatalog.Get(InkSkinId.CloudBoots).Metric, Is.EqualTo(SkinMetric.Distance));
+            Assert.That(InkSkinCatalog.Get(InkSkinId.CloudBoots).Goal, Is.EqualTo(3000));
+            foreach (string text in new[] { InkSkinCatalog.Ability(InkSkinId.CloudBoots), InkSkinCatalog.Description(InkSkinId.CloudBoots) })
+                foreach (bool japanese in new[] { false, true })
+                    Assert.That(InkSkinTranslations.TryTranslate(text, japanese, out _), Is.True);
+        }
+
+        GameManager StartCloudBootsTest(out RunGrowthController growth, out PlayerController player, out MukJump.Drawing.PlatformCollider platform)
+        {
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            PermanentGrowthProfile.SettleRun("cloud-boots", 3000, 3000, 0, 60, true, SkinRunStats.Begin(false, InkSkinId.Ink));
+            Assert.That(InkSkinPreferences.TryEquip(InkSkinId.CloudBoots), Is.True);
+            var manager = Manager(out growth); player = Player(); manager.RegisterPlayer(player);
+            platform = Track(new GameObject("BootsMapPlatform")).AddComponent<MukJump.Drawing.PlatformCollider>();
+            Field(platform, "mapRestPlatform", true); Field(platform, "lifetime", 0f);
+            Invoke(manager, "BeginPlayingAfterCover");
+            return manager;
+        }
+
         [Test, Category("SkinSkills")] public void AppleSkinStartsWithExactlyOneRealInkDropAfterTutorialAndNeverOnRevive()
         {
             MobileApplicationLifecycle.SetPlatformVisibility(true);

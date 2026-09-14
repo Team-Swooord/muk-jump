@@ -75,6 +75,18 @@ namespace MukJump.Core
             return true;
         }
 
+        // 구름 장화는 맵의 쉬터 발판에 본체가 착지할 때만 발동한다.
+        // 상승 상태가 같은 착지의 다중 Collider 콜백을 막으며, 실제 아이템 수집으로 세지 않는다.
+        public bool TryTriggerCloudBootsLanding(PlayerController player, PlatformCollider platform)
+        {
+            if (SkinSnapshot != InkSkinId.CloudBoots || !CanTickSkinAbility ||
+                platform == null || !platform.IsMapRestPlatform || platform.IsGrowthSafetyPlatform ||
+                player == null || !player.isActiveAndEnabled || player.IsDead || player.IsRuntimeClone ||
+                player.IsInkDropBoosted || player.Body == null || !player.Body.simulated)
+                return false;
+            return ItemEffect.Apply(ItemType.InkDrop, player);
+        }
+
         // 스킨 비기는 픽업이 아니다. 수집 업적·아이템 비행 연쇄를 늘리지 않는다.
         public bool TryUseActiveSkinSkill()
         {

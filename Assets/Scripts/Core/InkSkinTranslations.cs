@@ -35,6 +35,9 @@ namespace MukJump.Core
                 ["Apple 계정 연동 완료"] = ("Link your Apple account", "Appleアカウントを連携"),
                 ["첫걸음 도약"] = ("First Leap", "はじまりの跳躍"),
                 ["바람 도약"] = ("Wind Leap", "風の跳躍"),
+                ["구름 도약"] = ("Cloud Leap", "雲の跳躍"),
+                ["본체가 맵 발판에 착지하면 먹방울 효과로 50m 상승한다.\n직접 그린 발판에는 발동하지 않는다."] =
+                    ("Land on a map platform to boost Ink 50m with an Ink Drop.\nDoes not trigger on drawn platforms.", "本体がマップの足場に着地すると、墨滴の効果で50m上昇。\n描いた足場では発動しません。"),
                 ["도약"] = ("Leap", "跳躍"),
                 ["준비"] = ("Ready", "準備完了"),
                 ["대기"] = ("Wait", "待機"),

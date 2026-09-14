@@ -207,6 +207,9 @@ namespace MukJump.EditorTests
         [UnityTest, Timeout(150000), Category("SkinAnimationRework")]
         public IEnumerator ReworkedHaloAndTailsFitAllAuthoredFrames() => CaptureAccessories(new[] { InkSkinId.SpiritHalo, InkSkinId.DragonTail, InkSkinId.NineTails });
 
+        [UnityTest, Timeout(120000), Category("CloudBoots")]
+        public IEnumerator CloudBootsPanelFitsAndAnActualMapLandingTriggersTheJump() => CaptureAccessories(new[] { InkSkinId.CloudBoots });
+
         IEnumerator CaptureAccessories(InkSkinId[] ids)
         {
             EditorWindow.GetWindow(typeof(Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
@@ -234,7 +237,7 @@ namespace MukJump.EditorTests
                 foreach (var id in ids)
                 {
                     wardrobe.Select(id); yield return Wait(.85f);
-                    if (id is InkSkinId.Gat or InkSkinId.WindFan)
+                    if (id is InkSkinId.Gat or InkSkinId.WindFan or InkSkinId.CloudBoots)
                     {
                         foreach (string label in new[] { "ItemLore", "Description" })
                         {
@@ -256,6 +259,31 @@ namespace MukJump.EditorTests
                             Assert.That(stage.rect.Contains(stage.InverseTransformPoint(art.transform.TransformPoint(vertex))), Is.True, id + " stage clip");
                         yield return Capture(id + "-" + f);
                     }
+                }
+                if (ids.Length == 1 && ids[0] == InkSkinId.CloudBoots)
+                {
+                    Assert.That(InkSkinPreferences.TryEquip(InkSkinId.CloudBoots), Is.True);
+                    Assert.That(LobbyScreenNavigator.Instance.ReturnToLobby(), Is.True);
+                    deadline = Time.realtimeSinceStartup + 20;
+                    while (LobbyScreenNavigator.Instance.IsTransitioning && Time.realtimeSinceStartup < deadline) yield return null;
+                    Assert.That(LobbyScreenNavigator.Instance.IsTransitioning, Is.False);
+                    var manager = GameManager.Instance;
+                    typeof(GameManager).GetMethod("BeginPlayingAfterCover", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(manager, null);
+                    var player = manager.HighestLivingPlayer;
+                    Assert.That(player, Is.Not.Null);
+                    player.GetComponent<MukJump.Player.AutoJump>().enabled = false;
+                    player.transform.position = new Vector3(0, 20, 0);
+                    player.Body.position = new Vector2(0, 20);
+                    player.Body.linearVelocity = Vector2.down * 2;
+                    var platform = MukJump.Drawing.PlatformCollider.SpawnMapRestPlatform(
+                        new System.Collections.Generic.List<Vector2> { new(-2, 18.5f), new(2, 18.5f) });
+                    Assert.That(platform, Is.Not.Null);
+                    Physics2D.SyncTransforms();
+                    deadline = Time.realtimeSinceStartup + 4;
+                    while (!player.IsInkDropBoosted && !player.IsDead && Time.realtimeSinceStartup < deadline) yield return null;
+                    Assert.That(player.IsInkDropBoosted, Is.True, "실제 위쪽 접촉 콜백에서 장화 효과가 발동해야 한다");
+                    Assert.That(player.Body.linearVelocity.y, Is.GreaterThan(20));
+                    yield return Capture("CloudBoots-flight");
                 }
             }
             finally

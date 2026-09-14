@@ -1055,6 +1055,9 @@ namespace MukJump.Player
                 GetComponent<AutoJump>()?.NotifyLanding(drawnPlatform);
                 if (hasTopContact)
                     GameManager.Instance?.NotifyPlayerLanded(this, platform);
+                // 위쪽 착지에서만 실행한다. 측면 접촉·Stay 콜백으로 점프 효과를 반복하지 않는다.
+                if (RunGrowthController.Instance?.TryTriggerCloudBootsLanding(this, platform) == true)
+                    return;
             }
 
             var sideWall = collision.collider.GetComponent<ScreenSideWall>();

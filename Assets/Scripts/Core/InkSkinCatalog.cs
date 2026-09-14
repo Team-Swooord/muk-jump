@@ -124,16 +124,18 @@ namespace MukJump.Core
         public static bool IsConcealed(InkSkinId id) => (Get(id)?.Tier is SkinTier.Hidden or SkinTier.UltraHidden) && !InkSkinAchievements.IsUnlocked(id);
         public static string Name(InkSkinId id) => IsValid(id) ? Get(Normalize(id))?.Korean ?? "???" : "???";
         public static bool HasAbility(InkSkinId id) => id is InkSkinId.Gat or InkSkinId.SpiderMask or
-            InkSkinId.SpiritHalo or InkSkinId.TurtleShell or InkSkinId.PhoenixCrown or InkSkinId.BondKnot or InkSkinId.WindFan;
+            InkSkinId.SpiritHalo or InkSkinId.TurtleShell or InkSkinId.PhoenixCrown or InkSkinId.BondKnot or InkSkinId.WindFan or InkSkinId.CloudBoots;
         public static string Ability(InkSkinId id) => id switch {
             InkSkinId.Gat => "이단 도약", InkSkinId.SpiderMask => "거미 걸음",
             InkSkinId.SpiritHalo => "먹의 환원", InkSkinId.TurtleShell => "시작 방어막", InkSkinId.PhoenixCrown => "봉황의 숨결",
+            InkSkinId.CloudBoots => "구름 도약",
             InkSkinId.BondKnot => "첫걸음 도약", InkSkinId.WindFan => "바람 도약",
             _ => "먹의 장식" };
         public static string Description(InkSkinId id) => id switch {
             InkSkinId.Gat => "점프 정점에서 한 번 더 도약한다.\n첫 도약의 40% 힘으로 자동 발동한다.",
             InkSkinId.SpiderMask => "양옆 벽에 붙었다가\n화면 안쪽으로 자동 도약한다.",
             InkSkinId.SpiritHalo => "분신이 쓰러질 때마다 본체 체력을 1칸 회복한다.\n최대 체력을 넘거나 쓰러진 본체를 되살리지는 않는다.",
+            InkSkinId.CloudBoots => "본체가 맵 발판에 착지하면 먹방울 효과로 50m 상승한다.\n직접 그린 발판에는 발동하지 않는다.",
             InkSkinId.TurtleShell => "매 판 시작 시 본체에게 방어막 1개를 부여한다.\n충돌·추락을 한 번 막으며 분신에게는 적용되지 않는다.",
             InkSkinId.PhoenixCrown => "한 판에 한 번 본체가 체력 1칸으로 살아남아 50m 상승한다.\n성장 부활과 횟수를 공유하며 분신에게는 적용되지 않는다.",
             InkSkinId.BondKnot => "매 판 시작 시 먹방울 아이템으로 50m 상승한다.\n튜토리얼 종료 후 발동하며 부활 시에는 재발동하지 않는다.",

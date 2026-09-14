@@ -26,7 +26,7 @@
 
 ## 3. 특수 능력·해금 조건
 
-- [ ] 17 구름 장화: 기존 맵 발판에 착지하면 점프 아이템 효과. 그린 발판 제외, 같은 착지 중 중복 발동 방지.
+- [x] 17 구름 장화: 기존 맵 발판에 착지하면 점프 아이템 효과. 그린 발판 제외, 같은 착지 중 중복 발동 방지.
 - [x] 18 접힌 차원: 이름·해금 조건 변경. 기존 보유 기록 보존.
 - [ ] 19 야차탈: 30초마다 적 충돌 시 적 제거. 동양풍 타격 이펙트·효과음 포함.
 - [ ] 20 천사 날개: 원래 먹 형태를 유지하는 빛의 날개·부활 능력.
@@ -50,3 +50,4 @@
 - 1단계 검증 완료: `SkinReworkAppearance` 22개 통과, 실패·건너뜀 0. 원화 알파/부착 접점/눈 가림/이름·해금 ID·3언어 문구/설명 글씨 색·굵기·영역 검사. 실제 Play Mode 착용 PNG 16종을 열어 확인. 증거 `output/qa/skin-rework-20260914/appearance-final-tests.json`, `output/qa/accessory-fit/`. 새 아이템인 천사 날개의 오마주 문구는 20번 작업에 포함.
 - 14·18 검증 완료: `SkinRetirement` 9개 통과, 실패·건너뜀 0. ID 20/35 유지, 이전 보유·착용 기록의 읽기 전용 호환, 119.99/120초 경계와 실시간/정산 일치, 3언어, 목록·화살표·실제 4프레임 화면 확인. 은퇴 의상 원화·시트·클립과 meta 6개는 제거했으며 Git에서 복구 가능. Game Center의 기존 ID를 삭제하지 않고 새 클라이언트의 ID 20 보고만 중단. 증거 `output/qa/skin-rework-20260914/retirement-tests.json`, `output/qa/accessory-fit/OrigamiWings-0.png`.
 - 13·15·16 검증 완료: `SkinAnimationRework` 11개 통과, 실패·건너뜀 0. 실제 투명 배경, 프레임 누락/중복/테두리 잘림, 용꼬리 뿌리·중간 두께와 고정 접점, 위/아래 굽힘, 구미호 매 프레임의 분리된 분홍 끝 9개를 검사했다. 후광은 '금빛 후광'으로 3언어 이름·설명 변경, 분신 회복 능력은 유지. 도깨비불 나들이 원화와 조건은 변경 없음. 구미호는 발밑처럼 보이던 첫 배치에서 몸 뒤쪽으로 올렸다. 세 의상 4프레임 Play Mode 캡처 완료. 증거 `output/qa/skin-rework-20260914/animation-final-tests.json`, `output/qa/accessory-fit/`의 `SpiritHalo-*`, `DragonTail-*`, `NineTails-*`. 원화 출처는 `skin-rework-art-2026-09-14.md`.
+- 17 검증 완료: `CloudBoots` 14개 통과, 실패·건너뜀 0. 본체의 실제 맵 발판 위쪽 충돌에서 기존 먹방울 아이템과 같은 50m 상승·연출 호출. 그린 발판/시작 지형/성장 안전 발판/분신/사망/상승 중/일시정지/백그라운드/다른 의상/게임 종료 상태는 제외. 한 착지의 다중 호출 방지, 다음 착지 재발동, 아이템 수집·연속 획득 업적 부풀림 방지 확인. 기존 누적 3000m 해금 유지, 특수 능력 패널과 3언어 문구 반영. 증거 `output/qa/skin-rework-20260914/cloud-boots-tests.json`, `output/qa/accessory-fit/CloudBoots.png`, `CloudBoots-flight.png`.
