@@ -41,11 +41,7 @@ namespace MukJump.Core
         public const float SkinSkillJumpHeight = 25f;
         public float SkinSkillCooldownRemaining => skinSkillCooldown;
         // HUD는 별도 타이머를 돌리지 않고 이번 판에 고정된 능력의 실제 시계를 읽는다.
-        public float EquippedAbilityCooldownDuration => SkinSnapshot switch {
-            InkSkinId.WindFan => SkinSkillCooldownSeconds,
-            InkSkinId.YakshaMask => MaskStrikeCooldownSeconds,
-            InkSkinId.SpiderMask => WebClimbCooldownSeconds,
-            _ => 0f };
+        public float EquippedAbilityCooldownDuration => InkSkinChart.Cooldown(SkinSnapshot);
         public float EquippedAbilityCooldownRemaining => SkinSnapshot switch {
             InkSkinId.WindFan => SkinSkillCooldownRemaining,
             InkSkinId.YakshaMask => MaskStrikeCooldownRemaining,
@@ -63,7 +59,7 @@ namespace MukJump.Core
             TickSkinCooldown(Time.deltaTime);
             TryGrantSkinStartBoost();
             if (SkinSnapshot == InkSkinId.SpiderMask && webClimbCooldown <= 0 && CanTickSkinAbility &&
-                GetComponent<InkWebClimb>()?.TryStart(OriginalSkinPlayer()) == true) webClimbCooldown = WebClimbCooldownSeconds;
+                GetComponent<InkWebClimb>()?.TryStart(OriginalSkinPlayer()) == true) webClimbCooldown = EquippedAbilityCooldownDuration;
         }
 
         void TickSkinCooldown(float seconds)
@@ -117,7 +113,7 @@ namespace MukJump.Core
                 player == null || !player.isActiveAndEnabled || player.IsDead || player.IsRuntimeClone ||
                 player.Body == null || !player.Body.simulated)
                 return false;
-            maskStrikeCooldown = MaskStrikeCooldownSeconds;
+            maskStrikeCooldown = EquippedAbilityCooldownDuration;
             GetComponent<InkSkinStrikeVfx>()?.Play(player, enemyPosition);
             return true;
         }
@@ -128,7 +124,7 @@ namespace MukJump.Core
             if (!CanUseActiveSkinSkill) return false;
             var player = OriginalSkinPlayer();
             if (player == null) return false;
-            skinSkillCooldown = SkinSkillCooldownSeconds;
+            skinSkillCooldown = EquippedAbilityCooldownDuration;
             player.LaunchInkDrop(SkinSkillJumpHeight);
             player.GetComponent<InkDropJumpVfx>()?.Play();
             return true;
@@ -377,7 +373,7 @@ namespace MukJump.Core
             skinStartBoostGranted = false;
             skinSkillCooldown = 0;
             maskStrikeCooldown = 0;
-            webClimbCooldown = WebClimbCooldownSeconds;
+            webClimbCooldown = InkSkinChart.Cooldown(InkSkinId.SpiderMask);
             stableHitReadyAt = float.NegativeInfinity;
             lastFallBrakeReadyAt = float.NegativeInfinity;
             SafetyJumpProgress = 0;

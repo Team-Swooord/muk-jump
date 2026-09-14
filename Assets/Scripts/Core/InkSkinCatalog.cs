@@ -95,9 +95,11 @@ namespace MukJump.Core
         public const ulong AvailableRewardMask = ((1UL << Count) - 1) & ~1UL & ~(1UL << (int)InkSkinId.StormScarf);
         public static InkSkinId Normalize(InkSkinId id) => id == InkSkinId.StormScarf ? InkSkinId.OrigamiWings :
             IsValid(id) ? id : InkSkinId.Ink;
-        public static InkSkinDefinition Get(InkSkinId id) => IsValid(id) ? definitions[(int)id] : null;
+        public static InkSkinDefinition BuiltIn(InkSkinId id) => IsValid(id) ? definitions[(int)id] : null;
+        public static InkSkinDefinition Get(InkSkinId id) => InkSkinChart.Definition(id);
         // 표시 순서만 변경한다. 서버·해금·장착에 저장된 ID는 절대로 재배열하지 않는다.
-        static readonly InkSkinId[] browseOrder = BuildBrowseOrder();
+        static InkSkinId[] browseOrder = BuildBrowseOrder();
+        public static void RefreshBrowseOrder() => browseOrder = BuildBrowseOrder();
         public static int BrowseCount => browseOrder.Length;
         static InkSkinId[] BuildBrowseOrder()
         {
@@ -127,7 +129,8 @@ namespace MukJump.Core
         public static string Name(InkSkinId id) => IsValid(id) ? Get(Normalize(id))?.Korean ?? "???" : "???";
         public static bool HasAbility(InkSkinId id) => id is InkSkinId.Gat or InkSkinId.SpiderMask or
             InkSkinId.SpiritHalo or InkSkinId.TurtleShell or InkSkinId.PhoenixCrown or InkSkinId.BondKnot or InkSkinId.WindFan or InkSkinId.CloudBoots or InkSkinId.YakshaMask or InkSkinId.AngelWings;
-        public static string Ability(InkSkinId id) => id switch {
+        public static string Ability(InkSkinId id) => InkSkinChart.Text(id, "abilityNameKo", BuiltInAbility(id));
+        public static string BuiltInAbility(InkSkinId id) => id switch {
             InkSkinId.Gat => "이단 도약", InkSkinId.SpiderMask => "거미줄 오르기",
             InkSkinId.SpiritHalo => "먹의 환원", InkSkinId.TurtleShell => "시작 방어막", InkSkinId.PhoenixCrown => "봉황의 숨결",
             InkSkinId.CloudBoots => "구름 도약",
@@ -135,7 +138,8 @@ namespace MukJump.Core
             InkSkinId.AngelWings => "다시 피는 빛",
             InkSkinId.BondKnot => "첫걸음 도약", InkSkinId.WindFan => "바람 도약",
             _ => "먹의 장식" };
-        public static string Description(InkSkinId id) => id switch {
+        public static string Description(InkSkinId id) => InkSkinChart.Text(id, "abilityDescriptionKo", BuiltInDescription(id));
+        public static string BuiltInDescription(InkSkinId id) => id switch {
             InkSkinId.Gat => "점프 정점에서 한 번 더 도약한다.\n첫 도약의 40% 힘으로 자동 발동한다.",
             InkSkinId.SpiderMask => "30초마다 가까운 벽에 거미줄을 쏘아 본체를 18m 끌어올린다.\n상승 중에는 피해를 막으며 다른 점프 효과가 발동하면 줄을 놓는다.",
             InkSkinId.SpiritHalo => "분신이 쓰러질 때마다 본체 체력을 1칸 회복한다.\n최대 체력을 넘거나 쓰러진 본체를 되살리지는 않는다.",

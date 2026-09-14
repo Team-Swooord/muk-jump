@@ -52,11 +52,15 @@ namespace MukJump.Core
         static readonly Regex RichTag = new(@"(<[^>]+>)");
         static readonly Regex LeaderboardRetry = new(@"^기록은 저장됐지만 순위 등록을 재시도 중입니다 \(([0-9]{3}|응답 없음)\)$");
 
-        public static string Translate(string source)
+        public static string Translate(string source) => Translate(source, Language);
+
+        // 차트 내보내기는 사용자의 언어 설정을 저장·변경하지 않고 기존 번역을 읽는다.
+        public static string Translate(string source, GameLanguage language)
         {
-            if (string.IsNullOrEmpty(source) || Language == GameLanguage.Korean) return source ?? string.Empty;
-            if (InkSkinTranslations.TryTranslate(source, IsJapanese, out string skinText)) return skinText;
-            return IsJapanese ? JapaneseTranslationTable.Translate(source, English(source)) : English(source);
+            if (string.IsNullOrEmpty(source) || language == GameLanguage.Korean) return source ?? string.Empty;
+            bool japanese = language == GameLanguage.Japanese;
+            if (InkSkinTranslations.TryTranslate(source, japanese, out string skinText)) return skinText;
+            return japanese ? JapaneseTranslationTable.Translate(source, English(source)) : English(source);
         }
 
         static string English(string source)

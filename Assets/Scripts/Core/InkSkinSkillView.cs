@@ -47,7 +47,7 @@ namespace MukJump.Core
                 lastSeconds = seconds;
                 InkLocalizedText.SetSource(remaining, seconds > 0 ? seconds.ToString() : seconds == -2 ? "대기" : "준비");
             }
-            fill.fillAmount = 1 - Mathf.Clamp01(growth.SkinSkillCooldownRemaining / RunGrowthController.SkinSkillCooldownSeconds);
+            fill.fillAmount = 1 - Mathf.Clamp01(growth.SkinSkillCooldownRemaining / Mathf.Max(1, growth.EquippedAbilityCooldownDuration));
         }
 
         void Build()

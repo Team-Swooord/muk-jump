@@ -5,9 +5,11 @@ namespace MukJump.Core
     /// 기존 한국어 원문 기반 UI 번역 체계를 그대로 확장한다.
     public static class InkSkinTranslations
     {
-        static readonly Dictionary<string, (string en, string ja)> entries = Build();
+        static Dictionary<string, (string en, string ja)> entries = Build();
+        public static void Refresh() => entries = Build();
         public static bool TryTranslate(string source, bool japanese, out string text)
         {
+            if (InkSkinChart.TryTranslate(source, japanese, out text)) return true;
             if (entries.TryGetValue(source, out var pair)) { text = japanese ? pair.ja : pair.en; return true; }
             text = null; return false;
         }
@@ -126,7 +128,12 @@ namespace MukJump.Core
     /// 효과 수치와 분리된 짧은 창작 뒷이야기. 발견 전 비밀 의상에는 표시하지 않는다.
     public static class InkSkinLore
     {
-        public static (string ko, string en, string ja) Get(InkSkinId id) => InkMythicSkins.Contains(id) ? InkMythicSkins.Lore(id) : id switch {
+        public static (string ko, string en, string ja) Get(InkSkinId id)
+        {
+            var d = BuiltIn(id);
+            return (InkSkinChart.Text(id, "loreKo", d.ko), InkSkinChart.Text(id, "loreEn", d.en), InkSkinChart.Text(id, "loreJa", d.ja));
+        }
+        public static (string ko, string en, string ja) BuiltIn(InkSkinId id) => InkMythicSkins.Contains(id) ? InkMythicSkins.Lore(id) : id switch {
             InkSkinId.AngelWings => ("하늘과 지옥 사이에서도 퇴근 시간은 지킨다.", "Even between heaven and hell, it clocks out on time.", "天と地獄の間でも、定時には帰る。"),
             InkSkinId.Ink => ("벼루 밖으로 처음 굴러 나온 날.", "The day a drop rolled out of the inkstone.", "硯の外へ、はじめて転がり出た日。"),
             InkSkinId.Gat => ("쓰고 나면 어째서인지 바람처럼 스쳐 가는 노래가 들린다.", "Put it on, and an old street anthem drifts past on the wind.", "かぶると、なぜか風に乗って昔の街の歌が聞こえる。"),
