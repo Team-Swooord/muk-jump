@@ -114,6 +114,7 @@ namespace MukJump.Core
                 ["순위에 연결하지 못했어요"] = "Could not connect to the leaderboard.",
                 ["이름"] = "Name",
                 ["고도"] = "Height",
+                ["시간"] = "Time",
                 ["소요시간"] = "Time",
                 ["고도 / 시간"] = "Height / Time",
                 ["최고 —"] = "Best -",

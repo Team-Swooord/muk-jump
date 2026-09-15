@@ -53,12 +53,20 @@ namespace MukJump.EditorTests
                     var height = page.Find("LeaderboardRow" + i).GetComponent<Text>();
                     var time = page.Find("LeaderboardTime" + i).GetComponent<Text>();
                     Assert.That(time.text, Is.EqualTo(BestRunRecord.FormatTime(entries[i - 1].TimeSeconds)));
-                    Assert.That(time.rectTransform.anchoredPosition.y + time.rectTransform.rect.yMax,
-                        Is.LessThanOrEqualTo(height.rectTransform.anchoredPosition.y + height.rectTransform.rect.yMin));
+                    var name = (RectTransform)page.Find("NameCell" + i);
+                    Assert.That(name.anchoredPosition.x + name.rect.xMax,
+                        Is.LessThan(time.rectTransform.anchoredPosition.x + time.rectTransform.rect.xMin));
+                    Assert.That(time.rectTransform.anchoredPosition.x + time.rectTransform.rect.xMax,
+                        Is.LessThan(height.rectTransform.anchoredPosition.x + height.rectTransform.rect.xMin));
+                    Assert.That(time.rectTransform.anchoredPosition.y, Is.EqualTo(height.rectTransform.anchoredPosition.y));
                 }
                 foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
                 {
                     GameLocalization.SetLanguage(language); yield return Wait(.3f);
+                    Assert.That(page.Find("TimeHeading").GetComponent<Text>().text,
+                        Is.EqualTo(language == GameLanguage.Korean ? "시간" : language == GameLanguage.English ? "Time" : "時間"));
+                    Assert.That(page.Find("HeightHeading").GetComponent<Text>().text,
+                        Is.EqualTo(language == GameLanguage.Korean ? "고도" : language == GameLanguage.English ? "Height" : "高度"));
                     yield return Capture("leaderboard-" + language);
                 }
                 view.Close(); yield return Wait(.5f);

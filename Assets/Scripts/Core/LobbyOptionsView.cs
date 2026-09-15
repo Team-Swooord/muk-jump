@@ -1041,8 +1041,10 @@ namespace MukJump.Core
             InkLocalizedText.OverrideEnglish(rankHeading, "Rank");
             CreateReadableText("NameHeading", panel, "이름", 36, new Vector2(-65f, 430f),
                 new Vector2(110f, 50f), InkPalette.TextDark, TextAnchor.MiddleLeft, strong: true);
-            CreateReadableText("HeightHeading", panel, "고도 / 시간", 30, new Vector2(245f, 430f),
-                new Vector2(190f, 50f), InkPalette.TextDark, TextAnchor.MiddleRight, strong: true);
+            CreateReadableText("TimeHeading", panel, "시간", 36, new Vector2(132f, 430f),
+                new Vector2(120f, 50f), InkPalette.TextDark, TextAnchor.MiddleRight, strong: true);
+            CreateReadableText("HeightHeading", panel, "고도", 36, new Vector2(272f, 430f),
+                new Vector2(136f, 50f), InkPalette.TextDark, TextAnchor.MiddleRight, strong: true);
             CreateDivider(panel, "LeaderboardDivider", 390f, 680f);
             for (int i = 0; i < leaderboardRows.Length; i++)
             {
@@ -1051,7 +1053,7 @@ namespace MukJump.Core
                     new Vector2(-292f, y), new Vector2(96, 62),
                     i < 3 ? InkPalette.Red : InkPalette.TextDark, TextAnchor.MiddleLeft, strong: true);
                 var cell = CreateRect($"NameCell{i + 1}", panel,
-                    new Vector2(-7.5f, y), new Vector2(225f, 62f));
+                    new Vector2(-30f, y), new Vector2(180f, 62f));
                 leaderboardAvatars[i] = new InkLeaderboardAvatar(panel, $"SkinAvatar{i + 1}",
                     new Vector2(-216f, y), 44f, leaderboardBodySprite);
                 leaderboardFlags[i] = CreateImage($"RegionFlag{i + 1}", panel,
@@ -1062,17 +1064,24 @@ namespace MukJump.Core
                 leaderboardFlags[i].enabled = false;
                 cell.gameObject.AddComponent<RectMask2D>();
                 leaderboardNames[i] = CreateReadableText($"Name{i + 1}", cell, "", 40,
-                    Vector2.zero, new Vector2(225f, 62f), InkPalette.TextDark,
+                    Vector2.zero, new Vector2(180f, 62f), InkPalette.TextDark,
                     TextAnchor.MiddleLeft, strong: true);
                 leaderboardNames[i].supportRichText = false;
                 leaderboardNames[i].horizontalOverflow = HorizontalWrapMode.Overflow;
                 leaderboardNames[i].resizeTextForBestFit = false;
-                leaderboardRows[i] = CreateReadableText($"LeaderboardRow{i + 1}", panel, "", 38,
-                    new Vector2(245f, y + 17f), new Vector2(190f, 42f),
-                    InkPalette.TextDark, TextAnchor.MiddleRight, strong: true);
-                leaderboardTimes[i] = CreateReadableText($"LeaderboardTime{i + 1}", panel, "", 30,
-                    new Vector2(245f, y - 24f), new Vector2(190f, 36f),
-                    InkPalette.TextDark, TextAnchor.MiddleRight);
+                leaderboardRows[i] = CreateReadableText($"LeaderboardRow{i + 1}", panel, "", 36,
+                    new Vector2(272f, y), new Vector2(136f, 62f),
+                    InkPalette.TextDark, TextAnchor.MiddleRight, strong: true, wrap: false);
+                leaderboardTimes[i] = CreateReadableText($"LeaderboardTime{i + 1}", panel, "", 36,
+                    new Vector2(132f, y), new Vector2(120f, 62f),
+                    InkPalette.TextDark, TextAnchor.MiddleRight, wrap: false);
+                // 긴 분 단위 시간과 고도도 한 줄 안에서만 표시해 옆 열을 침범하지 않는다.
+                foreach (Text number in new[] { leaderboardRows[i], leaderboardTimes[i] })
+                {
+                    number.resizeTextForBestFit = true;
+                    number.resizeTextMinSize = 18;
+                    number.resizeTextMaxSize = 36;
+                }
             }
             leaderboardRefresh = CreatePaperButton("LeaderboardRefresh", panel, "다시 확인",
                 new Vector2(0f, -624f), new Vector2(300f, 76f), 36);

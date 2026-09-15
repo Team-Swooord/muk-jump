@@ -467,15 +467,24 @@ public class SettingsScrollTests
             var nameCell = ranking.Find("NameCell" + i).GetComponent<RectTransform>();
             var name = nameCell.Find("Name" + i).GetComponent<Text>();
             var score = ranking.Find("LeaderboardRow" + i).GetComponent<Text>();
+            var time = ranking.Find("LeaderboardTime" + i).GetComponent<Text>();
             Assert.That(ranking.Find("Source" + i), Is.Null);
             Assert.That(name.supportRichText, Is.False);
             Assert.That(name.resizeTextForBestFit, Is.False);
             Assert.That(name.fontSize, Is.GreaterThanOrEqualTo(36));
             Assert.That(nameCell.GetComponent<RectMask2D>(), Is.Not.Null);
             Assert.That(nameCell.anchoredPosition.x + nameCell.rect.width / 2,
+                Is.LessThan(time.rectTransform.anchoredPosition.x - time.rectTransform.rect.width / 2));
+            Assert.That(time.rectTransform.anchoredPosition.x + time.rectTransform.rect.width / 2,
                 Is.LessThan(score.rectTransform.anchoredPosition.x - score.rectTransform.rect.width / 2));
+            Assert.That(time.rectTransform.anchoredPosition.y, Is.EqualTo(score.rectTransform.anchoredPosition.y));
+            Assert.That(time.rectTransform.anchoredPosition.x,
+                Is.EqualTo(((RectTransform)ranking.Find("TimeHeading")).anchoredPosition.x));
+            Assert.That(score.rectTransform.anchoredPosition.x,
+                Is.EqualTo(((RectTransform)ranking.Find("HeightHeading")).anchoredPosition.x));
             Assert.That(name.text, Is.Empty, "서버 응답 전에는 가짜 이름을 표시하지 않습니다.");
             Assert.That(score.text, Is.Empty);
+            Assert.That(time.text, Is.Empty);
             Assert.That(score.alignment, Is.EqualTo(TextAnchor.MiddleRight));
         }
     }
@@ -489,17 +498,18 @@ public class SettingsScrollTests
     public void WorstCaseNamesFitTheActualFontWidthWithoutShrinking(string value)
     {
         var text = panel.Find("LeaderboardPage/NameCell1/Name1").GetComponent<Text>();
+        string normalized = value.Normalize(System.Text.NormalizationForm.FormC);
         foreach (float width in new[] { 90f, 340f })
         {
             text.rectTransform.sizeDelta = new Vector2(width, 56f);
             text.supportRichText = false;
-            text.text = value;
+            text.text = normalized;
             bool overflow = text.preferredWidth > width - 4f;
             LobbyOptionsView.FitLeaderboardName(text, value);
             Canvas.ForceUpdateCanvases();
             Assert.That(text.text, Is.Not.Empty);
             if (overflow) Assert.That(text.text, Does.EndWith("…"));
-            else Assert.That(text.text, Is.EqualTo(value));
+            else Assert.That(text.text, Is.EqualTo(normalized));
             Assert.That(text.supportRichText, Is.False);
             Assert.That(text.resizeTextForBestFit, Is.False);
             Assert.That(text.fontSize, Is.EqualTo(40));

@@ -109,6 +109,7 @@ namespace MukJump.Core
         internal static string Translate(string source, string english)
         {
             if (source == "한국어") return "日本語";
+            if (source == "시간") return "時間";
             return TranslateEnglish(english);
         }
 
