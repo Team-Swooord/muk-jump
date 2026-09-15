@@ -17,8 +17,8 @@ namespace MukJump.EditorTests
 {
     public sealed class InkSkinSkillPresentationTests
     {
-        [UnityTest, Category("WardrobeSkillPopupVisual"), Timeout(120000)]
-        public IEnumerator WardrobeSkillPopupKeepsCardsFixedAndBlocksUnderlyingTouches()
+        [UnityTest, Category("WardrobeInlineVisual"), Timeout(120000)]
+        public IEnumerator WardrobeHanjiDetailsKeepCardsFixedAndAllowBrowsing()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
             yield return new EnterPlayMode();
@@ -41,57 +41,46 @@ namespace MukJump.EditorTests
                 foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
                 {
                     GameLocalization.SetLanguage(language); view.Select(InkSkinId.CatEars); yield return Wait(.4f);
-                    Assert.That(view.SkillInfoButton.gameObject.activeSelf, Is.False);
-                    if (language == GameLanguage.Korean) yield return Capture("wardrobe-fixed-cosmetic");
+                    Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.False);
+                    if (language == GameLanguage.Korean) yield return Capture("wardrobe-hanji-cosmetic");
                     view.Select(InkSkinId.WindFan); yield return Wait(.4f);
                     Assert.That(collection.sizeDelta, Is.EqualTo(listSize)); Assert.That(collection.anchoredPosition, Is.EqualTo(listPosition));
-                    if (language == GameLanguage.Korean) yield return Capture("wardrobe-fixed-skill");
-                    yield return PlayerInputFrame(() =>
-                    {
-                        var buttonRect = (RectTransform)view.SkillInfoButton.transform;
-                        var point = RectTransformUtility.WorldToScreenPoint(null, buttonRect.TransformPoint(buttonRect.rect.center));
-                        var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left, position = point };
-                        var hits = new System.Collections.Generic.List<RaycastResult>();
-                        EventSystem.current.RaycastAll(pointer, hits);
-                        Assert.That(hits.Count, Is.GreaterThan(0));
-                        Assert.That(ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject), Is.EqualTo(view.SkillInfoButton.gameObject));
-                        ExecuteEvents.ExecuteHierarchy(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler);
-                    });
-                    yield return Wait(.3f);
-                    Assert.That(view.IsSkillPopupOpen, Is.True); Assert.That(view.CanBrowse, Is.False);
+                    Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.True);
+                    Assert.That(view.CanBrowse, Is.True);
                     Assert.That(view.SkillDescriptionText.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Description(InkSkinId.WindFan))));
                     yield return PlayerInputFrame(() =>
                     {
-                        var corners = new Vector3[4]; view.SkillPopupPaper.GetWorldCorners(corners);
+                        var corners = new Vector3[4]; view.SkillDetailsRoot.GetWorldCorners(corners);
                         foreach (var corner in corners)
                             Assert.That(MobileUiLayout.CurrentSafeArea.Contains(RectTransformUtility.WorldToScreenPoint(null, corner)), Is.True);
                     });
-                    yield return Capture("wardrobe-skill-popup-" + language);
-                    // 긴 운영 문구도 팝업에서 끝까지 읽을 수 있고 카드 높이에 영향을 주지 않는다.
+                    yield return Capture("wardrobe-hanji-" + language);
+                    // 긴 운영 문구는 같은 한지 안에서 읽으며 카드 높이를 바꾸지 않는다.
                     yield return PlayerInputFrame(() =>
                     {
                         InkLocalizedText.SetSource(view.SkillDescriptionText, string.Join("\n", System.Linq.Enumerable.Repeat("긴 설명을 확인한다.", 18)));
-                        typeof(InkWardrobeView).GetMethod("LayoutSkillPopup", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(view, null);
+                        typeof(InkWardrobeView).GetMethod("LayoutInlineSkill", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(view, null);
                         var scroll = view.SkillDescriptionText.GetComponentInParent<UnityEngine.UI.ScrollRect>();
                         Assert.That(scroll.content.rect.height, Is.GreaterThan(scroll.viewport.rect.height));
                         scroll.verticalNormalizedPosition = 0; Canvas.ForceUpdateCanvases();
                         Assert.That(scroll.content.anchoredPosition.y, Is.GreaterThan(0));
-                        // 팝업 밖의 목록 자리를 눌러도 뒤쪽 카드는 선택되지 않고 팝업만 닫힌다.
+                        // 설명을 읽는 중에도 다음 의상 버튼을 실제로 누를 수 있다.
+                        var next = (RectTransform)view.Paper.Find("ShowroomStage/NextCostume");
                         var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left,
-                            position = new Vector2(Screen.width * .5f, Screen.height * .15f) };
+                            position = RectTransformUtility.WorldToScreenPoint(null, next.TransformPoint(next.rect.center)) };
                         var hits = new System.Collections.Generic.List<RaycastResult>();
                         EventSystem.current.RaycastAll(pointer, hits);
                         Assert.That(hits, Is.Not.Empty);
-                        Assert.That(hits[0].gameObject.name, Is.EqualTo("Dismiss"));
-                        ExecuteEvents.Execute(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler);
+                        Assert.That(ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject), Is.EqualTo(next.gameObject));
+                        ExecuteEvents.ExecuteHierarchy(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler);
                     });
-                    Assert.That(view.IsSkillPopupOpen, Is.False); Assert.That(view.Selected, Is.EqualTo(InkSkinId.WindFan));
+                    Assert.That(view.Selected, Is.Not.EqualTo(InkSkinId.WindFan));
                     Assert.That(collection.sizeDelta, Is.EqualTo(listSize)); Assert.That(collection.anchoredPosition, Is.EqualTo(listPosition));
                 }
                 GameLocalization.SetLanguage(GameLanguage.Korean);
                 view.ToggleCollection(); yield return Wait(.3f);
-                Assert.That(view.SkillInfoButton.gameObject.activeSelf, Is.False);
-                yield return Capture("wardrobe-fixed-expanded");
+                Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.False);
+                yield return Capture("wardrobe-hanji-expanded");
                 view.ToggleCollection(); Assert.That(collection.sizeDelta, Is.EqualTo(listSize));
             }
             finally

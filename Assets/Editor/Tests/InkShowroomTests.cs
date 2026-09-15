@@ -152,14 +152,14 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
         [Category("WardrobeCarouselLayout"), Category("MythicAccessoryNaming"), Category("SpecialSkillCleanLayout")]
-        [Category("WardrobeSkillPopup")]
+        [Category("WardrobeInlineDetails")]
         public void EnlargedItemDetailsRemainReadableAndFitInTheirPaper(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
             Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
             var detailPaper = view.Paper.Find("ItemDetailsPaper").GetComponent<Image>();
             var divider = view.Paper.Find("ItemNameBrushLine").GetComponent<Image>();
-            var badge = view.SkillInfoButton.transform.Find("Label").GetComponent<Text>();
+            var badge = view.SkillDetailsRoot.Find("Category").GetComponent<Text>();
             var collectionSize = ((RectTransform)view.CollectionScroll.transform).sizeDelta;
             Assert.That(view.Paper.Find("SpecialSkillHeader"), Is.Null, "검은 제목 띠를 되살리지 않는다");
             Assert.That(view.Paper.Find("SpecialSkillSeal"), Is.Null, "큰 붉은 낙관을 되살리지 않는다");
@@ -172,33 +172,30 @@ namespace MukJump.EditorTests
                     Assert.That(detailPaper.gameObject.activeSelf, Is.True);
                     Assert.That(detailPaper.raycastTarget || divider.raycastTarget, Is.False);
                     bool special = InkSkinCatalog.HasAbility((InkSkinId)i);
-                    Assert.That(view.SkillInfoButton.gameObject.activeSelf, Is.EqualTo(special));
+                    Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.EqualTo(special));
                     Assert.That(view.CollectionContent.Find("SkinCard" + i + "/SpecialSkillMark").gameObject.activeSelf,
                         Is.EqualTo(special));
                     if (special)
                     {
-                        view.OpenSkillPopup(); Canvas.ForceUpdateCanvases();
-                        Assert.That(view.IsSkillPopupOpen, Is.True);
-                        var skillPaper = view.SkillPopupPaper.GetComponent<Image>();
                         var ability = view.SkillTitleText;
                         var description = view.SkillDescriptionText;
                         Assert.That(ability.color, Is.EqualTo(InkPalette.TextDark));
-                        Assert.That(ability.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+                        Assert.That(ability.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
                         Assert.That(description.alignment, Is.EqualTo(TextAnchor.UpperLeft));
                         Assert.That(badge.color, Is.EqualTo(InkPalette.Red));
-                        Assert.That(skillPaper.type, Is.EqualTo(Image.Type.Sliced));
-                        Assert.That(skillPaper.raycastTarget, Is.True, "팝업 내부 클릭은 뒤쪽 카드로 전달하지 않는다");
+                        Assert.That(detailPaper.type, Is.EqualTo(Image.Type.Sliced));
+                        Assert.That(detailPaper.raycastTarget, Is.False);
                         Assert.That(description.rectTransform.rect.width,
-                            Is.LessThanOrEqualTo(skillPaper.rectTransform.rect.width - 120f));
+                            Is.LessThanOrEqualTo(detailPaper.rectTransform.rect.width - 100f));
                         Assert.That(badge.text, Is.EqualTo(language switch {
                             GameLanguage.English => "Special", GameLanguage.Japanese => "特殊能力", _ => "특수 능력" }));
                         Assert.That(badge.preferredWidth, Is.LessThanOrEqualTo(badge.rectTransform.rect.width));
                         Assert.That(badge.preferredHeight, Is.LessThanOrEqualTo(badge.rectTransform.rect.height));
-                        AssertInside(BoundsIn(view.SkillPopupPaper, ability.rectTransform), view.SkillPopupPaper.rect, 20, "능력 이름");
-                        view.CloseSkillPopup();
+                        AssertInside(BoundsIn(view.Paper, view.SkillDetailsRoot), BoundsIn(view.Paper, detailPaper.rectTransform), 0, "능력 영역");
+                        Assert.That(view.CanBrowse, Is.True, "능력을 읽는 동안에도 스킨을 넘길 수 있다");
                     }
                     float previousBottom = 260;
-                    foreach (string name in new[] { "SkinName", "ItemLore", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "CollectionScroll" })
+                    foreach (string name in new[] { "SkinName", "ItemLore", "InlineSkillDetails", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "CollectionScroll" })
                     {
                         var row = (RectTransform)view.Paper.Find(name);
                         if (!row.gameObject.activeSelf) continue;
@@ -213,7 +210,7 @@ namespace MukJump.EditorTests
                         Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(row.rect.height + .1f), i + "/" + name + ": " + text.text);
                         if (name is "SkinName" or "ItemLore" or "Description")
                         {
-                            int size = name switch { "SkinName" => 84, "ItemLore" => 46, _ => 50 };
+                            int size = name switch { "SkinName" => 76, "ItemLore" => 44, _ => 50 };
                             Assert.That(text.fontSize, Is.EqualTo(language == GameLanguage.Japanese ? Mathf.RoundToInt(size * .76f) : size));
                             AssertInside(bounds, BoundsIn(view.Paper, detailPaper.rectTransform), 0, name);
                         }
@@ -232,13 +229,13 @@ namespace MukJump.EditorTests
                 Assert.That(detailPaper.gameObject.activeSelf || divider.gameObject.activeSelf, Is.False);
                 view.ToggleCollection(); Assert.That(detailPaper.gameObject.activeSelf, Is.True);
                 view.Select(InkSkinId.Gat); view.ToggleCollection();
-                Assert.That(view.SkillInfoButton.gameObject.activeSelf || view.IsSkillPopupOpen, Is.False);
-                view.ToggleCollection(); Assert.That(view.SkillInfoButton.gameObject.activeSelf, Is.True);
+                Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.False);
+                view.ToggleCollection(); Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.True);
             }
             finally { SkinDebugSession.Reset(); }
             view.Select(InkSkinId.Astronaut);
             Assert.That(detailPaper.gameObject.activeSelf || divider.gameObject.activeSelf, Is.False);
-            Assert.That(view.SkillInfoButton.gameObject.activeSelf || view.IsSkillPopupOpen, Is.False);
+            Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.False);
             Assert.That(view.CollectionContent.Find("SkinCard" + (int)InkSkinId.Astronaut + "/SpecialSkillMark").gameObject.activeSelf, Is.False);
         }
         [Test] public void PreviewBackdropFramesTheBodyAndShadowStaysAtItsFeet()
