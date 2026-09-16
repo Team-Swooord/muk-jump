@@ -40,6 +40,13 @@ namespace MukJump.EditorTests
             for (int i = 1; i < InkSkinCatalog.Count; i++)
             {
                 var id = (InkSkinId)i;
+                // 삭제된 의상은 전체 해금 디버그에서도 착용할 수 없다.
+                if (!InkSkinCatalog.IsAvailable(id))
+                {
+                    Assert.That(SkinDebugSession.CanEquip(id), Is.False, id.ToString());
+                    Assert.That(InkSkinPreferences.TryEquip(id), Is.False, id.ToString());
+                    continue;
+                }
                 Assert.That(SkinDebugSession.CanEquip(id), Is.True);
                 Assert.That(SkinDebugSession.IsConcealed(id), Is.False);
                 Assert.That(InkSkinPreferences.TryEquip(id), Is.True);
