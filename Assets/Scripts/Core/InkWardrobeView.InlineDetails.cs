@@ -28,6 +28,7 @@ namespace MukJump.Core
             skillTitleText = Label("SkillTitle", skillDetailsRoot, "", 50,
                 new Vector2(-50, 50), new Vector2(520, 68), true);
             skillTitleText.alignment = TextAnchor.MiddleLeft;
+            skillTitleText.color = InkPalette.Ink;
             skillCooldownBadge = Rect("CooldownBadge", skillDetailsRoot, new Vector2(350, 65), new Vector2(160, 72));
             var badge = skillCooldownBadge.gameObject.AddComponent<UnityEngine.UI.Image>();
             badge.sprite = InkUiStyle.ActionButtonSprite;
@@ -35,6 +36,7 @@ namespace MukJump.Core
             badge.color = new Color(1, 1, 1, .7f);
             badge.raycastTarget = false;
             skillCooldownText = Label("Cooldown", skillCooldownBadge, "", 38, Vector2.zero, new Vector2(140, 58), true);
+            skillCooldownText.color = InkPalette.Ink;
             InkLocalizedText.Exclude(skillCooldownText);
 
             var scroll = Rect("DescriptionScroll", skillDetailsRoot, new Vector2(0, -56), new Vector2(820, 144));

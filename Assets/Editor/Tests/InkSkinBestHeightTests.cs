@@ -137,7 +137,7 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Korean, "최고 237m", "기록 없음")]
         [TestCase(GameLanguage.English, "Best 237m", "No record")]
         [TestCase(GameLanguage.Japanese, "最高 237m", "記録なし")]
-        public void CompactAndExpandedCardsShowBoldLocalizedPersonalRecords(GameLanguage language, string record, string empty)
+        public void BoldInkStaysInsideDetailsAndPersonalRecordsKeepNormalTypography(GameLanguage language, string record, string empty)
         {
             Finish("card", InkSkinId.Ink, 237);
             GameLocalization.SetLanguage(language);
@@ -146,6 +146,16 @@ namespace MukJump.EditorTests
             var sprite = UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/Art/Character/Player/muk_spritesheet.png").OfType<Sprite>().First();
             view.BuildForTests(sprite);
             view.SetNavigationPresentation(true, true);
+            view.Select(InkSkinId.WindFan);
+            Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.True);
+            var detailLabels = view.Paper.GetComponentsInChildren<UnityEngine.UI.Text>(true);
+            foreach (string name in new[] { "SkinName", "ItemLore", "Category", "SkillTitle", "Cooldown", "SkillDescription" })
+            {
+                var label = detailLabels.Single(x => x.name == name);
+                Assert.That(label.fontStyle, Is.EqualTo(FontStyle.Bold), name);
+                Assert.That(label.color, Is.EqualTo(name == "Category" ? InkPalette.Red : InkPalette.Ink), name);
+                Assert.That(label.GetComponent<UnityEngine.UI.Outline>().enabled, Is.False, name);
+            }
             foreach (bool expanded in new[] { false, true })
             {
                 if (view.CollectionExpanded != expanded) view.ToggleCollection();
@@ -154,9 +164,9 @@ namespace MukJump.EditorTests
                 var gat = labels.Single(x => x.transform.parent.name == "SkinCard" + (int)InkSkinId.Gat);
                 Assert.That(ink.text, Is.EqualTo(record));
                 Assert.That(gat.text, Is.EqualTo(empty));
-                Assert.That(ink.fontStyle, Is.EqualTo(FontStyle.Bold));
-                Assert.That(ink.color, Is.EqualTo(InkPalette.Ink));
-                Assert.That(ink.fontSize, Is.EqualTo(language == GameLanguage.Japanese ? 24 : 32));
+                Assert.That(labels.All(x => x.fontStyle == FontStyle.Normal), Is.True);
+                Assert.That(labels.All(x => x.color == InkPalette.TextMuted), Is.True);
+                Assert.That(ink.fontSize, Is.EqualTo(language == GameLanguage.Japanese ? 20 : 26));
                 Assert.That(view.CollectionContent.GetComponentsInChildren<UnityEngine.UI.Text>(true).Any(x => x.name == "UnlockMethod"), Is.False);
             }
         }

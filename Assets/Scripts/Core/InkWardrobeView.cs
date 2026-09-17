@@ -363,6 +363,8 @@ namespace MukJump.Core
             detailDivider.preserveAspect=false;
             var dividerTint=InkPalette.Ink; dividerTint.a=.20f; detailDivider.color=dividerTint;
             nameText=Label("SkinName",paper,"",76,new Vector2(0,188),new Vector2(900,92),true);
+            // 진한 먹색 강조는 한지 설명칸 안에만 적용한다.
+            nameText.color=InkPalette.Ink;
             loreText=Label("ItemLore",paper,"",44,new Vector2(0,84),new Vector2(900,108),false);
             loreText.color=InkPalette.Ink; loreText.fontStyle=FontStyle.Bold; loreText.lineSpacing=1.12f;
             BuildInlineSkill();
@@ -482,7 +484,7 @@ namespace MukJump.Core
                 var bestHeight=cardBestHeights[i];
                 bestHeight.rectTransform.sizeDelta=new Vector2(cell.x-24,68);
                 bestHeight.rectTransform.anchoredPosition=new Vector2(0,-36);
-                bestHeight.fontSize=32;
+                bestHeight.fontSize=26;
                 InkLocalizedFont.Bind(bestHeight);
                 cardNames[i].gameObject.SetActive(collectionExpanded);
                 cardNames[i].rectTransform.anchoredPosition=new Vector2(0,-102);
@@ -564,13 +566,12 @@ namespace MukJump.Core
             cardQuestions[i]=Label("QuestionMark",viewport,"?",48,Vector2.zero,new Vector2(104,90),true);
             cardStates[i]=Label("State",button.transform,"",24,new Vector2(0,-48),new Vector2(104,28),false);
             cardNames[i]=Label("CardName",button.transform,"",34,Vector2.zero,new Vector2(282,80),true);
-            var bestHeight=Label("BestHeight",button.transform,"기록 없음",32,new Vector2(0,-28),new Vector2(166,50),true);
+            var bestHeight=Label("BestHeight",button.transform,"기록 없음",26,new Vector2(0,-28),new Vector2(166,50),false);
             cardBestHeights[i]=bestHeight;
             bestHeight.rectTransform.anchorMin=bestHeight.rectTransform.anchorMax=new Vector2(.5f,1);
             // 해금 조건 분류 대신 이 의상을 착용하고 정상 정산한 개인 최고 고도를 표시한다.
             bestHeight.rectTransform.anchoredPosition=new Vector2(0,-28);
-            bestHeight.color=InkPalette.Ink;
-            bestHeight.fontStyle=FontStyle.Bold;
+            bestHeight.color=InkPalette.TextMuted;
             // 해금 여부를 뜻하는 체크와 구분되는 작은 능력 낙관. 숨겨진 의상에서는 표시하지 않는다.
             var skillMark=Rect("SpecialSkillMark",button.transform,Vector2.zero,new Vector2(28,34));
             skillMark.anchorMin=skillMark.anchorMax=new Vector2(1,1);
