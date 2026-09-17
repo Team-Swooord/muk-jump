@@ -93,6 +93,7 @@ namespace MukJump.Core
         void Update()
         {
             if (!visible) return;
+            if (IsSkillDetailsOpen && !CanUseWardrobe()) CloseSkillDetails();
             ApplyLayout();
             bool canScroll = CanInteract();
             if (!canScroll) StopCollection();
@@ -139,7 +140,7 @@ namespace MukJump.Core
             RevealSelectedCard();
             if (InkSkinCatalog.BrowseIndex(selected) != previous) presentation.Browse(InkSkinCatalog.BrowseIndex(selected) - previous);
         }
-        bool CanInteract() => CanUseWardrobe();
+        bool CanInteract() => CanUseWardrobe() && !IsSkillDetailsOpen;
         bool CanUseWardrobe() => IsOpen && MobileApplicationLifecycle.IsApplicationActive &&
             (GameManager.Instance == null || GameManager.Instance.State == GameState.Lobby) &&
             (LobbyScreenNavigator.Instance == null || !LobbyScreenNavigator.Instance.IsTransitioning) &&
@@ -154,6 +155,7 @@ namespace MukJump.Core
         }
         void Back()
         {
+            if (IsSkillDetailsOpen) { CloseSkillDetails(); return; }
             if (!CanInteract()) return;
             PointerInput.SuppressUntilRelease();
             (LobbyScreenNavigator.Instance != null ? LobbyScreenNavigator.Instance : GetComponent<LobbyScreenNavigator>())?.ReturnToLobby();
@@ -224,20 +226,22 @@ namespace MukJump.Core
             descriptionText.gameObject.SetActive(!collectionExpanded && hidden);
             descriptionText.alignment = TextAnchor.MiddleCenter;
             PlaceDetailRow(descriptionText.rectTransform, 198f, 144f);
-            PlaceDetailRow(loreText.rectTransform, 138f, 108f);
-            detailDivider.rectTransform.anchoredPosition = new Vector2(0, 28f);
+            nameText.rectTransform.anchoredPosition = new Vector2(hasAbility && !hidden ? -170 : 0, 200);
+            nameText.rectTransform.sizeDelta = new Vector2(hasAbility && !hidden ? 620 : 900, 124);
+            PlaceDetailRow(loreText.rectTransform, 126f, 108f);
+            detailDivider.rectTransform.anchoredPosition = new Vector2(0, 14f);
             detailPaper.gameObject.SetActive(!collectionExpanded && !hidden);
             detailDivider.gameObject.SetActive(!collectionExpanded && !hidden && hasAbility);
-            PlaceDetailRow(detailPaper.rectTransform, 280f, 520f);
+            PlaceDetailRow(detailPaper.rectTransform, 280f, 360f);
             bool showRequirement = !hidden && selected != InkSkinId.Ink;
             bool showProgress = !hidden && InkSkinAchievements.Goal(selected) > 0;
             achievementText.gameObject.SetActive(!collectionExpanded && showRequirement);
             progressText.gameObject.SetActive(!collectionExpanded && showProgress);
             achievementText.alignment = progressText.alignment = TextAnchor.MiddleCenter;
-            PlaceDetailRow(achievementText.rectTransform, -252f, 76f);
-            PlaceDetailRow(progressText.rectTransform, -332f, 42f);
-            PlaceDetailRow(progressTrack, -378f, 30f);
-            PlaceDetailRow(statusText.rectTransform, -252f, 120f);
+            PlaceDetailRow(achievementText.rectTransform, -100f, 76f);
+            PlaceDetailRow(progressText.rectTransform, -200f, 42f);
+            PlaceDetailRow(progressTrack, -270f, 30f);
+            PlaceDetailRow(statusText.rectTransform, -100f, 120f);
         }
         static float PlaceDetailRow(RectTransform row, float top, float height)
         {
@@ -643,6 +647,7 @@ namespace MukJump.Core
             // 성장 화면과 같은 상단 기준. 꾸미기는 배너가 없으므로 노치만 제외한다.
             float topOffset=(safe.height*1920f/Screen.height-1920f*scale)*.5f;
             paper.anchoredPosition=new Vector2(0,topOffset);
+            LayoutSkillPopup();
         }
 
         static RectTransform Stretch(string name, Transform parent)

@@ -286,8 +286,8 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
-        [Category("WardrobeInlineDetails")]
-        public void WardrobeDetailsKeepFixedCollectionAndShowSkillsInline(GameLanguage language)
+        [Category("WardrobeSkillPopup")]
+        public void WardrobeSummaryOpensDetailsAndKeepsTheCollectionFixed(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
             var view = Track(new GameObject("CompactCosmeticDetails")).AddComponent<InkWardrobeView>();
@@ -304,7 +304,8 @@ namespace MukJump.EditorTests
                 {
                     var id = InkSkinCatalog.BrowseAt(i);
                     view.Select(id); view.Presentation.Cancel(); Canvas.ForceUpdateCanvases();
-                    Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.EqualTo(InkSkinCatalog.HasAbility(id)), id.ToString());
+                    Assert.That(view.SkillButton.gameObject.activeSelf, Is.EqualTo(InkSkinCatalog.HasAbility(id)), id.ToString());
+                    Assert.That(view.IsSkillDetailsOpen, Is.False);
                     Assert.That(description.text, Is.Empty); Assert.That(description.gameObject.activeSelf, Is.False);
                     Assert.That(view.Paper.Find("ItemLore").GetComponent<UnityEngine.UI.Text>().text, Is.Not.Empty);
                     if (id != InkSkinId.Ink)
@@ -313,13 +314,25 @@ namespace MukJump.EditorTests
                     Assert.That(collection.anchoredPosition, Is.EqualTo(position), id + " 목록 위치");
                     Assert.That(view.CollectionContent.GetComponent<UnityEngine.UI.GridLayoutGroup>().cellSize, Is.EqualTo(cell));
                     if (!InkSkinCatalog.HasAbility(id)) continue;
-                    Assert.That(view.Paper.Find("SpecialSkillButton"), Is.Null);
-                    Assert.That(view.transform.Find("InkWardrobeCanvas/SkillDetailsOverlay"), Is.Null);
                     Assert.That(view.CanBrowse, Is.True);
+                    var beforeOpen = view.CollectionContent.anchoredPosition;
+                    view.SkillButton.onClick.Invoke();
+                    Assert.That(view.IsSkillDetailsOpen, Is.True);
+                    Assert.That(view.CanBrowse, Is.False);
                     Assert.That(view.SkillTitleText.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Ability(id))));
                     Assert.That(view.SkillDescriptionText.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Description(id))));
                     foreach (var text in new[] { view.SkillTitleText, view.SkillDescriptionText })
                         Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 2), id + " / " + text.name);
+                    view.Select(InkSkinId.Ink);
+                    view.ToggleCollection();
+                    Assert.That(view.Selected, Is.EqualTo(id), "상세 팝업 뒤의 선택은 잠근다");
+                    Assert.That(view.CollectionExpanded, Is.False);
+                    view.SkillDetailsRoot.Find("ConfirmButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                    Assert.That(view.IsSkillDetailsOpen, Is.False);
+                    Assert.That(view.CollectionContent.anchoredPosition, Is.EqualTo(beforeOpen));
+                    Assert.That(view.OpenSkillDetails(), Is.True);
+                    view.SkillDetailsRoot.Find("CloseButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                    Assert.That(view.IsSkillDetailsOpen, Is.False);
                     view.Select(InkSkinId.Ink);
                     Assert.That(view.Selected, Is.EqualTo(InkSkinId.Ink));
                     Assert.That(view.SkillDescriptionText.text, Is.Empty);
@@ -337,23 +350,26 @@ namespace MukJump.EditorTests
             Assert.That(collection.anchoredPosition, Is.EqualTo(position));
         }
 
-        [Test, Category("WardrobeInlineDetails")]
-        public void WardrobeInlineSkillClearsHiddenAccountContentAndStopsBackgroundScroll()
+        [Test, Category("WardrobeSkillPopup")]
+        public void WardrobeSkillPopupClearsHiddenAccountContentAndStopsBackgroundScroll()
         {
             var view = Track(new GameObject("InlineSkillLifecycle")).AddComponent<InkWardrobeView>();
             view.BuildForTests(Idle()); view.SetNavigationPresentation(true, true);
             Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
             view.Select(InkSkinId.PhoenixCrown);
+            Assert.That(view.OpenSkillDetails(), Is.True);
             Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.True);
             SkinDebugSession.Reset();
             PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
             Invoke(view, "RefreshSelection");
             Assert.That(view.SkillDetailsRoot.Find("CostumeIcon").GetComponent<UnityEngine.UI.Image>().color, Is.EqualTo(Color.black));
+            view.CloseSkillDetails();
             view.Select(InkSkinId.Astronaut);
             Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.False);
             Assert.That(view.SkillTitleText.text, Is.Empty); Assert.That(view.SkillDescriptionText.text, Is.Empty);
             Assert.That(view.SkillDetailsRoot.Find("CostumeIcon").GetComponent<UnityEngine.UI.Image>().sprite, Is.Null);
             view.Select(InkSkinId.Gat);
+            Assert.That(view.OpenSkillDetails(), Is.True);
             var scroll = view.SkillDescriptionText.GetComponentInParent<UnityEngine.UI.ScrollRect>();
             try
             {
@@ -361,6 +377,7 @@ namespace MukJump.EditorTests
                 Invoke(view, "OnApplicationPause", true);
                 MobileApplicationLifecycle.SetPlatformVisibility(false);
                 Assert.That(scroll.velocity, Is.EqualTo(Vector2.zero));
+                Assert.That(view.IsSkillDetailsOpen, Is.False);
                 Assert.That(view.CanBrowse, Is.False);
             }
             finally { MobileApplicationLifecycle.SetPlatformVisibility(true); }

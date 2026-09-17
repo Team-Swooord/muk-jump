@@ -17,12 +17,13 @@ namespace MukJump.EditorTests
 {
     public sealed class InkSkinSkillPresentationTests
     {
-        [UnityTest, Category("WardrobeInlineVisual"), Timeout(120000)]
-        public IEnumerator WardrobeHanjiDetailsKeepCardsFixedAndAllowBrowsing()
+        [UnityTest, Category("WardrobeSkillPopupVisual"), Timeout(120000)]
+        public IEnumerator WardrobeAOpensCAndReturnsToTheSameCostume()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
             yield return new EnterPlayMode();
             bool background = Application.runInBackground; Application.runInBackground = true;
+            if (MukJumpAccountRuntime.Instance != null) MukJumpAccountRuntime.Instance.enabled = false;
             var settings = new MemoryLobbySettingsStore();
             InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
             LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
@@ -33,6 +34,7 @@ namespace MukJump.EditorTests
             try
             {
                 yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                if (MukJumpAccountRuntime.Instance != null) MukJumpAccountRuntime.Instance.enabled = false;
                 Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
                 Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return Navigation();
                 var view = Object.FindAnyObjectByType<InkWardrobeView>();
@@ -45,8 +47,14 @@ namespace MukJump.EditorTests
                     if (language == GameLanguage.Korean) yield return Capture("wardrobe-hanji-cosmetic");
                     view.Select(InkSkinId.WindFan); yield return Wait(.4f);
                     Assert.That(collection.sizeDelta, Is.EqualTo(listSize)); Assert.That(collection.anchoredPosition, Is.EqualTo(listPosition));
-                    Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.True);
+                    Assert.That(view.SkillButton.gameObject.activeSelf, Is.True);
+                    Assert.That(view.IsSkillDetailsOpen, Is.False);
                     Assert.That(view.CanBrowse, Is.True);
+                    yield return Capture("wardrobe-A-" + language);
+                    var contentPosition = view.CollectionContent.anchoredPosition;
+                    yield return PlayerInputFrame(() => Click(view.SkillButton.GetComponent<RectTransform>()));
+                    Assert.That(view.IsSkillDetailsOpen, Is.True);
+                    Assert.That(view.CanBrowse, Is.False);
                     Assert.That(view.SkillDescriptionText.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Description(InkSkinId.WindFan))));
                     yield return PlayerInputFrame(() =>
                     {
@@ -54,8 +62,8 @@ namespace MukJump.EditorTests
                         foreach (var corner in corners)
                             Assert.That(MobileUiLayout.CurrentSafeArea.Contains(RectTransformUtility.WorldToScreenPoint(null, corner)), Is.True);
                     });
-                    yield return Capture("wardrobe-hanji-" + language);
-                    // 긴 운영 문구는 같은 한지 안에서 읽으며 카드 높이를 바꾸지 않는다.
+                    yield return Capture("wardrobe-C-" + language);
+                    // 긴 운영 문구는 상세 팝업 안에서 읽으며 뒤쪽 카드 위치를 바꾸지 않는다.
                     yield return PlayerInputFrame(() =>
                     {
                         InkLocalizedText.SetSource(view.SkillDescriptionText, string.Join("\n", System.Linq.Enumerable.Repeat("긴 설명을 확인한다.", 18)));
@@ -64,16 +72,22 @@ namespace MukJump.EditorTests
                         Assert.That(scroll.content.rect.height, Is.GreaterThan(scroll.viewport.rect.height));
                         scroll.verticalNormalizedPosition = 0; Canvas.ForceUpdateCanvases();
                         Assert.That(scroll.content.anchoredPosition.y, Is.GreaterThan(0));
-                        // 설명을 읽는 중에도 다음 의상 버튼을 실제로 누를 수 있다.
+                        // 팝업 뒤 다음 버튼에는 터치가 도달하지 않는다.
                         var next = (RectTransform)view.Paper.Find("ShowroomStage/NextCostume");
                         var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left,
                             position = RectTransformUtility.WorldToScreenPoint(null, next.TransformPoint(next.rect.center)) };
                         var hits = new System.Collections.Generic.List<RaycastResult>();
                         EventSystem.current.RaycastAll(pointer, hits);
                         Assert.That(hits, Is.Not.Empty);
-                        Assert.That(ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject), Is.EqualTo(next.gameObject));
-                        ExecuteEvents.ExecuteHierarchy(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler);
+                        Assert.That(ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject), Is.Not.EqualTo(next.gameObject));
+                        view.StepSelection(1);
+                        Assert.That(view.Selected, Is.EqualTo(InkSkinId.WindFan));
+                        Click((RectTransform)view.SkillDetailsRoot.Find("ConfirmButton"));
                     });
+                    Assert.That(view.IsSkillDetailsOpen, Is.False);
+                    Assert.That(view.Selected, Is.EqualTo(InkSkinId.WindFan));
+                    Assert.That(view.CollectionContent.anchoredPosition, Is.EqualTo(contentPosition));
+                    yield return PlayerInputFrame(() => Click((RectTransform)view.Paper.Find("ShowroomStage/NextCostume")));
                     Assert.That(view.Selected, Is.Not.EqualTo(InkSkinId.WindFan));
                     Assert.That(collection.sizeDelta, Is.EqualTo(listSize)); Assert.That(collection.anchoredPosition, Is.EqualTo(listPosition));
                 }
@@ -92,6 +106,17 @@ namespace MukJump.EditorTests
                 GameManager.RestorePendingGameOverSettlementStoreForTests(); PointerInput.ResetSuppressionForTests();
             }
             yield return new ExitPlayMode();
+        }
+
+        static void Click(RectTransform target)
+        {
+            var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left,
+                position = RectTransformUtility.WorldToScreenPoint(null, target.TransformPoint(target.rect.center)) };
+            var hits = new System.Collections.Generic.List<RaycastResult>();
+            EventSystem.current.RaycastAll(pointer, hits);
+            Assert.That(hits, Is.Not.Empty, target.name);
+            Assert.That(ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject), Is.EqualTo(target.gameObject), target.name);
+            ExecuteEvents.ExecuteHierarchy(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler);
         }
 
         static IEnumerator PlayerInputFrame(System.Action check)

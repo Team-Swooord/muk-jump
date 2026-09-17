@@ -205,7 +205,7 @@ namespace MukJump.EditorTests
                             Assert.That(label.font.HasCharacter(glyph), Is.True, "누락 글자: " + glyph);
                     }
                     Assert.That(wardrobe.SkillDetailsRoot.gameObject.activeSelf, Is.False);
-                    Assert.That(wardrobe.Paper.Find("SpecialSkillButton"), Is.Null);
+                    Assert.That(wardrobe.SkillButton.gameObject.activeSelf, Is.False);
                     yield return Capture("billiards-copy-" + language);
                 }
                 SkinDebugSession.Reset(); wardrobe.Select(InkSkinId.ThreeCushion);

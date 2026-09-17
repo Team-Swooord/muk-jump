@@ -147,15 +147,17 @@ namespace MukJump.EditorTests
             view.BuildForTests(sprite);
             view.SetNavigationPresentation(true, true);
             view.Select(InkSkinId.WindFan);
+            Assert.That(view.OpenSkillDetails(), Is.True);
             Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.True);
-            var detailLabels = view.Paper.GetComponentsInChildren<UnityEngine.UI.Text>(true);
+            var detailLabels = view.GetComponentsInChildren<UnityEngine.UI.Text>(true);
             foreach (string name in new[] { "SkinName", "ItemLore", "Category", "SkillTitle", "Cooldown", "SkillDescription" })
             {
                 var label = detailLabels.Single(x => x.name == name);
                 Assert.That(label.fontStyle, Is.EqualTo(FontStyle.Bold), name);
-                Assert.That(label.color, Is.EqualTo(name == "Category" ? InkPalette.Red : InkPalette.Ink), name);
+                Assert.That(label.color, Is.EqualTo(name is "Category" or "Cooldown" ? InkPalette.Red : InkPalette.Ink), name);
                 Assert.That(label.GetComponent<UnityEngine.UI.Outline>().enabled, Is.False, name);
             }
+            view.CloseSkillDetails();
             foreach (bool expanded in new[] { false, true })
             {
                 if (view.CollectionExpanded != expanded) view.ToggleCollection();
