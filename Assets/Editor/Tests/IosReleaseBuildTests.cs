@@ -548,8 +548,7 @@ namespace MukJump.EditorTests
                 MukJumpStoreBuild.ValidateAppleDeveloperTeamId(null));
         }
 
-        [TestCase("appstore-iphone-69", 1320, 2868)]
-        [TestCase("appstore-iphone-65", 1284, 2778)]
+        [TestCase("app-store-connect", 1284, 2778)]
         public void AppStoreScreenshotsMeetAppleIphoneSpecification(
             string deviceFolder,
             int expectedWidth,

@@ -100,11 +100,13 @@ App Review의 연락처 이메일에는 개발자 계정 공식 연락처 `choiy
 
 ### App Store 스크린샷
 
-- iPhone 6.9인치(1320×2868): `store-screenshots/appstore-iphone-69/`의 PNG 6장
-- iPhone 6.5인치(1284×2778): `store-screenshots/appstore-iphone-65/`의 PNG 6장
-- 업로드 순서: 한 줄 그리기 → 발판 각도 → 먹분신 → 즉시 재도전 → 튜토리얼 → 영구 성장 먹나무
+- 등록본 보관 위치: `store-screenshots/app-store-connect/`의 PNG 6장만 유지한다.
+- 2026-09-17 App Store Connect의 iOS 1.0.0에 등록된 iPhone 6.5인치
+  (1284×2778) 원본을 내려받아 보관했다. 미등록 시안과 촬영 원본은 보관하지 않는다.
+- 실제 등록 순서: `01-mountain-jump.png` → `04-lotus-golden.png` →
+  `03-gate-clones.png` → `06-growth.png` → `02-cliff-shield.png` → `05-river-boost.png`
+- 영어(미국)·일본어 및 다른 iPhone 디스플레이 크기는 한국어 6.5인치 등록본을 사용한다.
 - 앱이 iPhone 전용이므로 iPad 스크린샷은 생성하지 않는다.
-- 두 폴더에는 App Store Connect에 바로 올릴 최종 PNG만 유지한다.
 
 ### 수출 규정
 
