@@ -32,6 +32,7 @@ namespace MukJump.Core
         readonly GameObject[] cards = new GameObject[InkSkinCatalog.Count];
         readonly Image[] cardPapers = new Image[InkSkinCatalog.Count], cardBodies = new Image[InkSkinCatalog.Count], cardAccessories = new Image[InkSkinCatalog.Count];
         readonly Text[] cardStates = new Text[InkSkinCatalog.Count], cardNames = new Text[InkSkinCatalog.Count];
+        readonly Text[] cardBestHeights = new Text[InkSkinCatalog.Count];
         readonly RectTransform[] cardSkillMarks = new RectTransform[InkSkinCatalog.Count];
         readonly UnityEngine.UI.Text[] cardQuestions = new UnityEngine.UI.Text[InkSkinCatalog.Count];
         readonly RectTransform[] cardPreviews = new RectTransform[InkSkinCatalog.Count];
@@ -209,6 +210,8 @@ namespace MukJump.Core
                 SetPreview(cardBodies[i], cardAccessories[i], id, 200, concealed, cardUnlocked);
                 cardQuestions[i].enabled = concealed;
                 InkLocalizedText.SetSource(cardNames[i], concealed ? "?" : InkSkinCatalog.Name(id));
+                int bestHeight = PermanentGrowthProfile.SkinBestHeight(id);
+                InkLocalizedText.SetSource(cardBestHeights[i], bestHeight < 0 ? "기록 없음" : $"최고 {bestHeight}m");
                 cardSkillMarks[i].gameObject.SetActive(!concealed && InkSkinCatalog.HasAbility(id));
                 InkLocalizedText.SetSource(cardStates[i], concealed ? "" : !cardUnlocked ? "잠김" :
                     id == InkSkinPreferences.Equipped ? "착용 중" : id == selected ? "선택됨" : "해금됨");
@@ -476,10 +479,11 @@ namespace MukJump.Core
                 cardPreviews[i].sizeDelta=Vector2.one*200;
                 cardQuestions[i].rectTransform.sizeDelta=cardViewports[i].sizeDelta;
                 cardQuestions[i].fontSize=collectionExpanded ? 96 : 60;
-                var method=cards[i].transform.Find("UnlockMethod").GetComponent<Text>();
-                method.rectTransform.sizeDelta=new Vector2(cell.x-24,68);
-                method.rectTransform.anchoredPosition=new Vector2(0,-36);
-                method.fontSize=26;
+                var bestHeight=cardBestHeights[i];
+                bestHeight.rectTransform.sizeDelta=new Vector2(cell.x-24,68);
+                bestHeight.rectTransform.anchoredPosition=new Vector2(0,-36);
+                bestHeight.fontSize=32;
+                InkLocalizedFont.Bind(bestHeight);
                 cardNames[i].gameObject.SetActive(collectionExpanded);
                 cardNames[i].rectTransform.anchoredPosition=new Vector2(0,-102);
                 cardNames[i].rectTransform.sizeDelta=new Vector2(cell.x-28,80);
@@ -560,11 +564,13 @@ namespace MukJump.Core
             cardQuestions[i]=Label("QuestionMark",viewport,"?",48,Vector2.zero,new Vector2(104,90),true);
             cardStates[i]=Label("State",button.transform,"",24,new Vector2(0,-48),new Vector2(104,28),false);
             cardNames[i]=Label("CardName",button.transform,"",34,Vector2.zero,new Vector2(282,80),true);
-            var method=Label("UnlockMethod",button.transform,InkSkinCatalog.GroupName(id),24,new Vector2(0,-28),new Vector2(166,50),false);
-            method.rectTransform.anchorMin=method.rectTransform.anchorMax=new Vector2(.5f,1);
-            // 조건 라벨은 카드 상단, 착용 상태는 하단으로 분리한다.
-            method.rectTransform.anchoredPosition=new Vector2(0,-28);
-            method.color=InkPalette.TextMuted;
+            var bestHeight=Label("BestHeight",button.transform,"기록 없음",32,new Vector2(0,-28),new Vector2(166,50),true);
+            cardBestHeights[i]=bestHeight;
+            bestHeight.rectTransform.anchorMin=bestHeight.rectTransform.anchorMax=new Vector2(.5f,1);
+            // 해금 조건 분류 대신 이 의상을 착용하고 정상 정산한 개인 최고 고도를 표시한다.
+            bestHeight.rectTransform.anchoredPosition=new Vector2(0,-28);
+            bestHeight.color=InkPalette.Ink;
+            bestHeight.fontStyle=FontStyle.Bold;
             // 해금 여부를 뜻하는 체크와 구분되는 작은 능력 낙관. 숨겨진 의상에서는 표시하지 않는다.
             var skillMark=Rect("SpecialSkillMark",button.transform,Vector2.zero,new Vector2(28,34));
             skillMark.anchorMin=skillMark.anchorMax=new Vector2(1,1);

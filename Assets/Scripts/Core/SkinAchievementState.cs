@@ -35,10 +35,33 @@ namespace MukJump.Core
         public int runs, best, drawnLandings, items, inkDrops, survival, clones, nightBest, noItemBest, growth;
         public long unlockedMask;
         public int gameplayMask;
+        // 의상 ID별 정상 정산 최고 고도. -1은 미기록이며 0m와 구분한다.
+        // 구 저장에는 이 선택 필드가 없다. 전체 최고점으로 과거 착용 기록을 추정하지 않는다.
+        public int[] skinBestHeights = Array.Empty<int>();
         public bool IsValid => (version == 1 || version == 2) && gameplayMask >= 0 && gameplayMask <= 3 && runs >= 0 && best >= 0 && drawnLandings >= 0 &&
             items >= 0 && inkDrops >= 0 && inkDrops <= items && survival >= 0 && clones >= 0 &&
             nightBest >= 0 && noItemBest >= 0 && growth >= 0 && unlockedMask >= 0 &&
-            (unlockedMask >> InkSkinCatalog.Count) == 0;
+            (unlockedMask >> InkSkinCatalog.Count) == 0 && ValidSkinBestHeights();
+        bool ValidSkinBestHeights()
+        {
+            if (skinBestHeights == null) return true;
+            if (skinBestHeights.Length > InkSkinCatalog.Count) return false;
+            foreach (int height in skinBestHeights)
+                if (height < -1 || height > best) return false;
+            return true;
+        }
+        public int BestHeightForSkin(InkSkinId id) => InkSkinCatalog.IsValid(id) &&
+            skinBestHeights != null && (int)id < skinBestHeights.Length ? skinBestHeights[(int)id] : -1;
+        void RecordSkinBestHeight(InkSkinId id, int height)
+        {
+            int previousLength = skinBestHeights?.Length ?? 0;
+            if (previousLength < InkSkinCatalog.Count)
+            {
+                Array.Resize(ref skinBestHeights, InkSkinCatalog.Count);
+                for (int i = previousLength; i < skinBestHeights.Length; i++) skinBestHeights[i] = -1;
+            }
+            skinBestHeights[(int)id] = Math.Max(skinBestHeights[(int)id], height);
+        }
         public static bool HasCompletePayload(string json)
         {
             var match = System.Text.RegularExpressions.Regex.Match(json,
@@ -49,6 +72,9 @@ namespace MukJump.Core
                 if (!System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"" + field + "\"\\s*:")) return false;
             if (System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"version\"\\s*:\\s*2\\b") &&
                 !System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"gameplayMask\"\\s*:")) return false;
+            if (System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"skinBestHeights\"\\s*:") &&
+                !System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value,
+                    "\"skinBestHeights\"\\s*:\\s*\\[(?:\\s*-?\\d+\\s*(?:,\\s*-?\\d+\\s*)*)?\\]")) return false;
             return true;
         }
         public void Grant(InkSkinId id) { if (InkSkinCatalog.IsValid(id)) unlockedMask |= 1L << (int)id; }
@@ -75,6 +101,9 @@ namespace MukJump.Core
             growth = Math.Max(growth, ownedGrowth);
             if (stats.IsMeasured)
             {
+                // 현재 미리보기/장착 설정이 아닌, 판 시작 때 확정한 의상에 기록한다.
+                if (height >= 0 && seconds >= 0 && !float.IsNaN(seconds) && !float.IsInfinity(seconds))
+                    RecordSkinBestHeight(stats.startingSkin, height);
                 drawnLandings = Add(drawnLandings, stats.drawnLandings);
                 items = Add(items, stats.items);
                 inkDrops = Add(inkDrops, stats.inkDrops);

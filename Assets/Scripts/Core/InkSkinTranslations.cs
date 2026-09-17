@@ -29,6 +29,7 @@ namespace MukJump.Core
                 ["시험 착용 중 · 플레이 기록 저장 안 됨"] = ("Test outfits · runs are not saved", "試着中 · プレイ記録は保存されません"),
                 ["실제 기록은 바뀌지 않아요"] = ("Your real progress stays unchanged", "実際の進行状況は変わりません"),
                 ["꾸미기"] = ("Wardrobe", "着せ替え"),
+                ["기록 없음"] = ("No record", "記録なし"),
                 ["특수 능력"] = ("Special", "特殊能力"),
                 ["전체 보기"] = ("View all", "一覧"),
                 ["크게 보기"] = ("Preview", "試着"),

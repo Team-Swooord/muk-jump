@@ -467,6 +467,11 @@ namespace MukJump.Core
             return JsonUtility.FromJson<SkinAchievementState>(JsonUtility.ToJson(data.skinAchievements));
         }
         public static long AchievementDistance { get { EnsureLoaded(); return writeBlocked ? 0 : data.cumulativeDistanceMeters; } }
+        public static int SkinBestHeight(InkSkinId id)
+        {
+            EnsureLoaded();
+            return writeBlocked ? -1 : data.skinAchievements?.BestHeightForSkin(id) ?? -1;
+        }
         public static SkinAchievementState AchievementSyncSnapshot()
         {
             var state = AchievementSnapshot();
