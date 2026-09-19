@@ -152,10 +152,18 @@ xcodebuild -workspace Unity-iPhone.xcworkspace -scheme Unity-iPhone \
   검증 자료는 `output/release-appstore/2026-09-20-build-40/`에 있다.
   UnityRuntime.framework의 dSYM 누락 경고는 남았으며 업로드 실패는 아니다.
   App Store Connect에는 1.0.1 초안, 한·영·일 변경 사항, 심사 메모와 Game Center 사용을 저장했다.
-  업적 두 개(바람 갓·거미탈)는 같은 심사 초안에 추가했으나,
-  **40번 빌드 선택·나머지 사용 중인 업적 추가·최종 심사 제출은 아직 완료하지 않았다.**
-  Chrome 창이 제어 도구에서 빈 상태로 반환되어 복구를 요청한 상태다.
+  02:44 KST `1.0.1(40)`과 사용 중인 등록 업적 60개를 같은 제출에 넣고,
+  Apple의 **61개 항목 제출됨 / 심사 대기 중** 응답을 확인했다.
+  제출 ID: `7c561087-424e-46c5-818a-048ff092393b`.
+  [심사 상세](https://appstoreconnect.apple.com/apps/6804614765/distribution/reviewsubmissions/details/7c561087-424e-46c5-818a-048ff092393b).
+  기존 스크린샷과 수동 출시 설정을 유지했다. 심사 제출은 승인 또는 공개 출시 완료를 뜻하지 않는다.
+  브라우저 연결과 만료된 Apple 로그인 세션을 복구했으며, 첫 먹매듭의 일본어 이미지
+  처리 오류는 같은 PNG 재업로드 후 심사 편입 성공으로 확인했다.
+  통합 완료된 로컬 `codex/ink-skins` 브랜치 참조만 삭제했다. 해당 커밋
+  `2e1b1cdf62fa9e34d6a23a45e1a6befcee72d957`과 모든 변경 이력은 `main`에 남아 있다.
   미등록 천사링 `.62`는 코드에서도 전송하지 않으며, 제외된 질풍 두건 `.20`을 심사에 추가하지 않는다.
+  정식 광고 설정과 업로드 성공은 AdMob 실광고 송출 성공을 보장하지 않는다.
+  실기기 Game Center 전송과 AdMob 실광고 노출은 별도 미검증 상태다.
 
 - 로컬 성장 저장과 뒤끝 행에는 각각 스키마 버전을 둔다. 기존 스키마를 읽지 못하면 덮어쓰지
   않고 로컬 복구본을 보존한다.
