@@ -521,6 +521,9 @@ namespace MukJump.EditorTests
         public void EmptyAccountNicknameDisplaysStableGuestNameUntilServerNameArrives(MukJumpAccountKind kind)
         {
             CreateAccount(kind);
+            // 이름이 아직 없는 상황을 검증한다. 공통 픽스처의 등록된 게스트 이름은 제외한다.
+            Set(account, "identityInfoForTests", new Action<Action<BackendReturnObject>>(cb => cb(UserInfo(""))));
+            Set(account, "nicknameUpdateForTests", new Action<string, Action<BackendReturnObject>>((_, cb) => cb(Result(503))));
             var view = host.AddComponent<LobbyOptionsView>();
             view.BuildForTests();
             var label = host.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/OptionsPage/Nickname").GetComponent<Text>();

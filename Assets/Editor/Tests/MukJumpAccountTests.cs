@@ -162,7 +162,7 @@ namespace MukJump.EditorTests
                 PermanentGrowthProfile.TryReplaceFromCloudJson(
                     ValidGrowthJson),
                 Is.True);
-            Assert.That(growthStore.Json, Does.Contain("\"balanceVersion\":11"));
+            Assert.That(growthStore.Json, Does.Contain("\"balanceVersion\":12"));
             Assert.That(growthStore.BackupJson, Is.EqualTo(growthStore.Json));
         }
 
@@ -191,7 +191,7 @@ namespace MukJump.EditorTests
             Assert.That(ReadPrivateBool(account, "dirty"), Is.True);
             Assert.That(PlayerPrefs.GetInt("MukJump.Cloud.PendingSave", 0), Is.EqualTo(1));
             Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string canonical), Is.True);
-            Assert.That(canonical, Does.Contain("\"balanceVersion\":11"));
+            Assert.That(canonical, Does.Contain("\"balanceVersion\":12"));
 
             server.growthJson = canonical;
             SetPrivateField(account, "dirty", false);
@@ -1223,6 +1223,19 @@ namespace MukJump.EditorTests
                 var account = CreateLeaderboardRuntime();
                 typeof(MukJumpAccountRuntime).GetProperty(nameof(MukJumpAccountRuntime.AccountKind))
                     .SetValue(account, MukJumpAccountKind.Apple);
+                // 실제 닉네임 변경은 서버 시각과 14일 변경 예약을 확인한 뒤 저장한다.
+                SetPrivateField(account, "nicknameTimeForTests",
+                    new System.Action<System.Action<BackEnd.BackendReturnObject>>(callback =>
+                        callback(BackendResult(200, "{\"utcTime\":\"2026-09-20T00:00:00Z\"}"))));
+                SetPrivateField(account, "identityInfoForTests",
+                    new System.Action<System.Action<BackEnd.BackendReturnObject>>(callback =>
+                        callback(BackendResult(200, "{\"row\":{\"nickname\":\"이전먹방울\"}}"))));
+                var nicknamePolicy = new MukJumpNicknameChange.State { Row = "row-1" };
+                SetPrivateField(account, "nicknamePolicyReadForTests",
+                    new System.Action<System.Action<MukJumpNicknameChange.State>>(callback => callback(nicknamePolicy)));
+                SetPrivateField(account, "nicknamePolicyWriteForTests",
+                    new System.Action<MukJumpNicknameChange.State, System.Action<bool>>((state, callback) =>
+                    { nicknamePolicy = state; callback(true); }));
                 SetPrivateField(account, "nicknameUpdateForTests",
                     new System.Action<string, System.Action<BackEnd.BackendReturnObject>>((name, callback) =>
                         callback(BackendResult(204))));
@@ -1352,7 +1365,7 @@ namespace MukJump.EditorTests
                 Assert.That(primary.GetComponentInChildren<UnityEngine.UI.Text>(true).text,
                     Is.EqualTo(GameLocalization.Translate("알겠습니다")));
                 Assert.That(secondary.GetComponentInChildren<UnityEngine.UI.Text>(true).text,
-                    Is.EqualTo(GameLocalization.Translate("로컬 게스트로 진행하기")));
+                    Is.EqualTo(GameLocalization.Translate("게스트로 계속하기")));
                 foreach (var text in dialog.GetComponentsInChildren<UnityEngine.UI.Text>(true))
                     Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1f),
                         language + ": " + text.name + " 글자가 영역 밖으로 잘리지 않아야 합니다.");
@@ -1582,6 +1595,35 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void AuthenticatedGuestRecoveryCannotCreateAnotherLocalGuest()
+        {
+            MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
+            try
+            {
+                var account = CreateReadySaveRuntime();
+                typeof(MukJumpAccountRuntime).GetProperty(nameof(account.AccountKind))
+                    .SetValue(account, MukJumpAccountKind.BackendGuest);
+                SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => "guest-owner"));
+                Assert.That(InvokePrivate<bool>(account, "BeginPendingAuthorizedTransition",
+                    "guest-owner", MukJumpAccountKind.Apple, true, false), Is.True);
+                int logouts = 0;
+                SetBackendRequestHook(account, "logoutForTests", _ => logouts++);
+                PermanentGrowthProfile.TryExportCloudJson(out string before);
+
+                Assert.That(account.CanReturnToLocalGuestDuringAccountSync, Is.False);
+                account.ReturnToLocalGuestDuringAccountSync();
+
+                Assert.That(logouts, Is.Zero);
+                Assert.That(account.AccountKind, Is.EqualTo(MukJumpAccountKind.BackendGuest));
+                Assert.That(account.IsOnlineAuthenticated, Is.True);
+                Assert.That(account.HasPendingAuthorizedTransition, Is.True);
+                PermanentGrowthProfile.TryExportCloudJson(out string after);
+                Assert.That(after, Is.EqualTo(before));
+            }
+            finally { MukJumpIdentityProfile.UseStoreForTests(null); }
+        }
+
+        [Test]
         public void AbandonedAppleTransitionIsClearedOnlyAfterConfirmedLocalGuestReturn()
         {
             MukJumpIdentityProfile.UseStoreForTests(new MemoryIdentityStore());
@@ -1595,8 +1637,14 @@ namespace MukJump.EditorTests
                 InvokeLifecycle(score, "Awake");
                 SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => "guest-owner"));
                 BuildExistingAppleAccountDialog(account);
+                Assert.That(InvokePrivate<bool>(account, "SaveCurrentProfileAsLocalGuest"), Is.True);
                 Assert.That(InvokePrivate<bool>(account, "BeginPendingAuthorizedTransition",
                     "guest-owner", MukJumpAccountKind.Apple, true, false), Is.True);
+                // 이미 Apple 인증까지 진행된 계정만 원격 로그아웃 후 로컬 백업으로 복귀한다.
+                typeof(MukJumpAccountRuntime).GetProperty(nameof(account.AccountKind))
+                    .SetValue(account, MukJumpAccountKind.Apple);
+                SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => "apple-owner"));
+                SetPrivateField(account, "profileResolutionPending", true);
                 typeof(MukJumpAccountRuntime).GetProperty(nameof(account.Phase))
                     .SetValue(account, MukJumpAccountPhase.Error);
                 SetPrivateField(account, "clearGuestInfoForTests", new System.Action(() => { }));

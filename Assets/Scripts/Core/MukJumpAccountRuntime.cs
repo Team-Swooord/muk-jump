@@ -101,7 +101,9 @@ namespace MukJump.Core
         public bool IsTemporaryBackendPaused => temporaryBackendPause;
         public bool HasVerifiedAppsInTossIdentity => false;
         public bool CanReturnToLocalGuestDuringAccountSync =>
-            !accountDeletionCleanupPending && !federationRequestInFlight && !HasPendingGuestRetirement;
+            !accountDeletionCleanupPending && !federationRequestInFlight && !HasPendingGuestRetirement &&
+            (!IsOnlineAuthenticated || AccountKind == MukJumpAccountKind.Apple ||
+             AccountKind == MukJumpAccountKind.Google);
         public bool HasPendingAuthorizedTransition =>
             PlayerPrefs.HasKey(PendingAuthorizedTransitionKindKey) || HasPendingGuestRetirement;
         public bool BlocksGameplayForAccountSync
@@ -4046,6 +4048,10 @@ namespace MukJump.Core
                 RetryPendingProfileResolution();
                 return;
             }
+            // 인증된 게스트의 기록을 새 로컬 계정으로 복제하지 않는다.
+            // 복구 UI에도 실행할 수 없는 게스트 로그아웃을 표시하지 않는다.
+            if (!CanReturnToLocalGuestDuringAccountSync)
+                return;
             if (localLogoutRemoteConfirmed)
             {
                 SignOutFederationAndFinishLocalLogout();
