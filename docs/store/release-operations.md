@@ -142,6 +142,21 @@ xcodebuild -workspace Unity-iPhone.xcworkspace -scheme Unity-iPhone \
 
 ## 버전과 롤백
 
+- 2026-09-20 스킨 통합 정식 업데이트 `1.0.1(40)`을 `main`에서 빌드했다.
+  실제 광고·디버그 없음 조건이며 서버 삭제·빌드별 로컬 초기화는 적용하지 않았다.
+  계정/닉네임/광고/리더보드/출시 대상 자동 검사 682개와 플레이 시간 UI 검사 1개가 통과했다.
+  실기기 Release 빌드, Archive, 배포 IPA의 Apple 로그인·Game Center entitlement,
+  `ITSAppUsesNonExemptEncryption` Boolean false 및 엄격한 전체 서명을 확인했다.
+  01:54 KST Apple에서 `Upload succeeded`와 `Uploaded package is processing`을 반환했다.
+  Archive: `/Users/seungyeoning/Library/Developer/Xcode/Archives/2026-09-20/MukJump-1.0.1-40.xcarchive`.
+  검증 자료는 `output/release-appstore/2026-09-20-build-40/`에 있다.
+  UnityRuntime.framework의 dSYM 누락 경고는 남았으며 업로드 실패는 아니다.
+  App Store Connect에는 1.0.1 초안, 한·영·일 변경 사항, 심사 메모와 Game Center 사용을 저장했다.
+  업적 두 개(바람 갓·거미탈)는 같은 심사 초안에 추가했으나,
+  **40번 빌드 선택·나머지 사용 중인 업적 추가·최종 심사 제출은 아직 완료하지 않았다.**
+  Chrome 창이 제어 도구에서 빈 상태로 반환되어 복구를 요청한 상태다.
+  미등록 천사링 `.62`는 코드에서도 전송하지 않으며, 제외된 질풍 두건 `.20`을 심사에 추가하지 않는다.
+
 - 로컬 성장 저장과 뒤끝 행에는 각각 스키마 버전을 둔다. 기존 스키마를 읽지 못하면 덮어쓰지
   않고 로컬 복구본을 보존한다.
 - 출시 뒤 최우선 순위는 실행 불가·저장 손실·계정 삭제 실패·광고 후 진행 불가·결제 오인 순이다.
