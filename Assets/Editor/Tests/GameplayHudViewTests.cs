@@ -13,6 +13,60 @@ public class GameplayHudViewTests
 {
     [TestCase(GameLanguage.Korean)]
     [TestCase(GameLanguage.English)]
+    [TestCase(GameLanguage.Japanese)]
+    public void ElapsedTimeFitsInsidePaperToTheLeftOfAltitude(GameLanguage language)
+    {
+        LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+        GameLocalization.SetLanguage(language);
+        var scene = MukJumpSceneBuilder.BuildForTests();
+        try
+        {
+            var hud = scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<GameplayHudView>(true)).Single();
+            hud.ApplySharedPaperLayout();
+            var top = (RectTransform)hud.transform.Find("TopHudRoot");
+            var paper = (RectTransform)top.Find("HudHanjiCard");
+            var timer = top.Find("ElapsedTime").GetComponent<Text>();
+            var caption = top.Find("ElapsedCaption").GetComponent<Text>();
+            var height = (RectTransform)top.Find("HeightDisplay/HeightText");
+            var wind = (RectTransform)top.Find("WindInkIndicator/WindStateText");
+            foreach (var text in new[] { timer, caption })
+            {
+                Assert.That(text.rectTransform.anchorMin.y, Is.EqualTo(.5f));
+                var bounds = RectIn(top, text.rectTransform);
+                var band = RectIn(top, paper);
+                Assert.That(bounds.yMin, Is.GreaterThanOrEqualTo(band.yMin + 8));
+                Assert.That(bounds.yMax, Is.LessThanOrEqualTo(band.yMax - 8));
+                Assert.That(bounds.xMin, Is.GreaterThan(RectIn(top, wind).xMax));
+                Assert.That(bounds.xMax, Is.LessThan(RectIn(top, height).xMin));
+                Assert.That(text.raycastTarget, Is.False);
+            }
+            Assert.That(caption.preferredWidth, Is.LessThanOrEqualTo(caption.rectTransform.rect.width));
+            foreach (var clock in new[] { "00:00", "59:59", "01:23:45" })
+            {
+                timer.text = clock;
+                Assert.That(timer.preferredWidth, Is.LessThanOrEqualTo(timer.rectTransform.rect.width), clock);
+            }
+            Assert.That(((RectTransform)top.Find("SkinAbilityCooldown")).anchoredPosition,
+                Is.EqualTo(new Vector2(0, -135)), "스킬 슬롯은 이번 시간 위치 수정에서 이동하지 않는다.");
+        }
+        finally
+        {
+            MukJumpSceneBuilder.CloseTestScene(scene);
+            LobbySettingsProfile.RestoreDefaultStoreForTests();
+            InkLocalizedText.RefreshAll();
+        }
+    }
+
+    static Rect RectIn(RectTransform parent, RectTransform child)
+    {
+        var corners = new Vector3[4]; child.GetWorldCorners(corners);
+        Vector3 min = parent.InverseTransformPoint(corners[0]);
+        Vector3 max = parent.InverseTransformPoint(corners[2]);
+        return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+    }
+
+    [TestCase(GameLanguage.Korean)]
+    [TestCase(GameLanguage.English)]
     public void UpdraftIndicatorUsesOneAlignedArrowAndLabel(GameLanguage language)
     {
         LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());

@@ -394,7 +394,7 @@ namespace MukJump.Core
 
                 ConfigurePrimaryHudText(
                     heightText, new Vector2(0.5f, 0.5f),
-                    new Vector2(290f, 84f), 64, 64);
+                    new Vector2(270f, 84f), 58, 58);
                 ApplyRecordScoreLayout(ScoreManager.Instance != null && ScoreManager.Instance.IsNewBestThisRun);
             }
 
@@ -431,8 +431,10 @@ namespace MukJump.Core
                 windIndicator.ApplyPolishedLayout();
             }
 
-            elapsedTimeText = EnsureElapsedText(elapsedTimeText, "ElapsedTime", 34, 62f, 160f);
-            elapsedTimeCaption = EnsureElapsedText(elapsedTimeCaption, "ElapsedCaption", 28, -88f, 132f);
+            // 소요시간은 고도 왼쪽, 같은 한지 띠 안에 최고 기록과 동일한 두 줄 정렬로 둔다.
+            elapsedTimeText = EnsureElapsedText(elapsedTimeText, "ElapsedTime", 38, -16f, 46f);
+            elapsedTimeCaption = EnsureElapsedText(elapsedTimeCaption, "ElapsedCaption", 26, 22f, 30f);
+            elapsedTimeCaption.color = InkPalette.TextMuted;
             InkLocalizedText.SetSource(elapsedTimeCaption, "소요시간");
             if (lastElapsedSecond < 0) elapsedTimeText.text = "00:00";
             InkSkinCooldownHud.Ensure(topHudRoot);
@@ -452,7 +454,7 @@ namespace MukJump.Core
             text.gameObject.SetActive(false);
         }
 
-        Text EnsureElapsedText(Text current, string objectName, int size, float x, float width)
+        Text EnsureElapsedText(Text current, string objectName, int size, float y, float height)
         {
             if (current == null) current = topHudRoot.Find(objectName)?.GetComponent<Text>();
             if (current == null)
@@ -461,8 +463,8 @@ namespace MukJump.Core
                     .GetComponent<UnityEngine.UI.Text>();
                 current.transform.SetParent(topHudRoot, false);
             }
-            ConfigurePrimaryHudText(current, new Vector2(.5f, 0f), new Vector2(width, 42f), size, size);
-            current.rectTransform.anchoredPosition = new Vector2(x, -23f);
+            ConfigurePrimaryHudText(current, new Vector2(.5f, .5f), new Vector2(142f, height), size, size);
+            current.rectTransform.anchoredPosition = new Vector2(-211f, y);
             return current;
         }
 
@@ -601,8 +603,8 @@ namespace MukJump.Core
             if (heightText == null) return;
             var rect = heightText.rectTransform;
             rect.anchoredPosition = new Vector2(0f, newBest ? RecordScoreOffsetY : 0f);
-            rect.sizeDelta = new Vector2(290f, newBest ? RecordScoreHeight : 84f);
-            heightText.fontSize = newBest ? 44 : 64;
+            rect.sizeDelta = new Vector2(270f, newBest ? RecordScoreHeight : 84f);
+            heightText.fontSize = newBest ? 44 : 58;
             heightText.resizeTextMaxSize = heightText.fontSize;
             heightText.resizeTextMinSize = newBest ? 38 : 46;
         }

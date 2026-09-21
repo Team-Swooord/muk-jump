@@ -97,6 +97,16 @@ namespace MukJump.EditorTests
                 foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
                 {
                     GameLocalization.SetLanguage(language); yield return Wait(.2f);
+                    var top = (RectTransform)GameplayHudView.Instance.transform.Find("TopHudRoot");
+                    var paper = (RectTransform)top.Find("HudHanjiCard");
+                    foreach (string field in new[] { "ElapsedTime", "ElapsedCaption" })
+                    {
+                        var corners = new Vector3[4];
+                        ((RectTransform)top.Find(field)).GetWorldCorners(corners);
+                        foreach (var corner in corners)
+                            Assert.That(paper.rect.Contains(paper.InverseTransformPoint(corner)), Is.True,
+                                "실제 플레이 중 시간 표시가 한지 칸 밖으로 내려가면 안 됩니다: " + field);
+                    }
                     yield return Capture("hud-" + language);
                 }
                 Assert.That(account.IsOnlineAuthenticated, Is.False);

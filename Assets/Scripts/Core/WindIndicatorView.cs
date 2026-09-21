@@ -72,10 +72,10 @@ namespace MukJump.Core
         {
             if (transform is RectTransform root)
             {
-                root.anchorMin = root.anchorMax = new Vector2(0.17f, 0.5f);
+                root.anchorMin = root.anchorMax = new Vector2(0.1f, 0.5f);
                 root.pivot = new Vector2(0.5f, 0.5f);
                 root.anchoredPosition = Vector2.zero;
-                root.sizeDelta = new Vector2(220f, 82f);
+                root.sizeDelta = new Vector2(172f, 82f);
             }
 
             var oldCard = GetComponent<Graphic>();
@@ -86,8 +86,8 @@ namespace MukJump.Core
                 directionArrow.anchorMin = directionArrow.anchorMax =
                     new Vector2(0.5f, 0.5f);
                 directionArrow.pivot = new Vector2(0.5f, 0.5f);
-                directionArrow.anchoredPosition = new Vector2(-80f, 0f);
-                directionArrow.sizeDelta = new Vector2(44f, 44f);
+                directionArrow.anchoredPosition = new Vector2(-62f, 0f);
+                directionArrow.sizeDelta = new Vector2(40f, 40f);
                 EnsureBrushArrow();
             }
 
@@ -96,15 +96,15 @@ namespace MukJump.Core
                 var rect = stateText.rectTransform;
                 rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
                 rect.pivot = new Vector2(0.5f, 0.5f);
-                rect.anchoredPosition = new Vector2(0f, -26f);
-                rect.sizeDelta = new Vector2(210f, 30f);
+                rect.anchoredPosition = new Vector2(18f, 0f);
+                rect.sizeDelta = new Vector2(112f, 60f);
                 stateText.fontSize = 28;
                 stateText.fontStyle = FontStyle.Bold;
                 stateText.alignment = TextAnchor.MiddleCenter;
                 stateText.resizeTextForBestFit = false;
                 stateText.alignByGeometry = true;
-                stateText.verticalOverflow = VerticalWrapMode.Overflow;
-                stateText.horizontalOverflow = HorizontalWrapMode.Overflow;
+                stateText.verticalOverflow = VerticalWrapMode.Truncate;
+                stateText.horizontalOverflow = HorizontalWrapMode.Wrap;
                 stateText.enabled = true;
                 EnsureTextWeight(stateText);
             }
@@ -150,13 +150,13 @@ namespace MukJump.Core
             if (directionArrow != null)
             {
                 directionArrow.anchorMin = directionArrow.anchorMax = new Vector2(.5f, .5f);
-                directionArrow.anchoredPosition = new Vector2(-80f, 0f);
-                directionArrow.sizeDelta = new Vector2(44f, 44f);
+                directionArrow.anchoredPosition = new Vector2(-62f, 0f);
+                directionArrow.sizeDelta = new Vector2(40f, 40f);
             }
             if (stateText != null)
             {
-                stateText.rectTransform.anchoredPosition = new Vector2(26f, 0f);
-                stateText.rectTransform.sizeDelta = new Vector2(150f, 60f);
+                stateText.rectTransform.anchoredPosition = new Vector2(18f, 0f);
+                stateText.rectTransform.sizeDelta = new Vector2(112f, 60f);
                 stateText.horizontalOverflow = HorizontalWrapMode.Wrap;
                 stateText.verticalOverflow = VerticalWrapMode.Truncate;
                 var outline = stateText.GetComponent<Outline>();
@@ -284,7 +284,7 @@ namespace MukJump.Core
             if (stateText != null)
             {
                 stateText.font = InkPalette.UiFont;
-                stateText.fontSize = 34;
+                stateText.fontSize = 28;
                 stateText.fontStyle = FontStyle.Bold;
                 stateText.color = InkPalette.Ink;
             }
