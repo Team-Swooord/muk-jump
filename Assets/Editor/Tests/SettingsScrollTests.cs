@@ -34,6 +34,44 @@ public class SettingsScrollTests
     }
 
     [Test]
+    public void BannerStaysOnBrowsingPagesButNotAccountPrivacyOrTutorial()
+    {
+        void Call(string name, params object[] args) => typeof(LobbyOptionsView)
+            .GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, args);
+        var safe = new Rect(0, 102, 1179, 2277);
+        var root = (RectTransform)panel.parent;
+        try
+        {
+            LobbyAdLayout.ReserveDefaultTopInset();
+            LobbyAdLayout.SetTopInsetFraction(.12f);
+            view.SetDisplayMetricsForTests(1179, 2556, safe);
+            Call("SetVisible", true);
+            foreach (string pageMethod in new[] { "ShowOptionsPageImmediate", "ShowLeaderboardPageImmediate" })
+            {
+                Call(pageMethod);
+                Assert.That(view.CanShowTopBanner, Is.True, pageMethod);
+                Assert.That(root.anchorMax.y * 2556,
+                    Is.EqualTo(safe.yMax - 2556 * .12f - 10).Within(.01f));
+                typeof(LobbyOptionsView).GetField("scrollPageTransition", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(view, true);
+                Assert.That(view.CanShowTopBanner, Is.False, "종이가 넘어가는 동안 배너를 숨긴다.");
+                Call("CancelScrollPageTransition");
+            }
+            foreach (string pageMethod in new[] { "ShowAccountPageImmediate", "ShowLanguagePageImmediate" })
+            {
+                Call(pageMethod);
+                Assert.That(view.CanShowTopBanner, Is.False, pageMethod);
+                Assert.That(root.anchorMax.y * 2556, Is.EqualTo(safe.yMax).Within(.01f));
+            }
+            view.OpenTutorialForTests();
+            Assert.That(view.CanShowTopBanner, Is.False);
+            Call("SetPageVisible", panel.Find("AnalyticsPrivacyPage").GetComponent<CanvasGroup>(), true);
+            Assert.That(view.CanShowTopBanner, Is.False);
+        }
+        finally { LobbyAdLayout.ClearTopInset(); }
+    }
+
+    [Test]
     public void MainSettingsHasThreeCompactTogglesNoMotionOptionAndReadableLabels()
     {
         Assert.That(panel.Find("PaperCore"), Is.Null);

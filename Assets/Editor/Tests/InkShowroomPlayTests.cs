@@ -15,6 +15,96 @@ namespace MukJump.EditorTests
     public sealed class InkShowroomPlayTests
     {
         [UnityTest, Timeout(120000)]
+        public IEnumerator MenuBannersRemainVisibleWithoutCoveringWardrobeOrOptions()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool oldBackground = Application.runInBackground;
+            Application.runInBackground = true;
+            var settings = new MemoryLobbySettingsStore();
+            LobbySettingsProfile.UseStoreForTests(settings); InkSkinPreferences.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                Assert.That(MukJumpAccountRuntime.Instance.IsOnlineAuthenticated, Is.False);
+                Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+                var navigator = LobbyScreenNavigator.Instance;
+                Assert.That(navigator.OpenWardrobe(), Is.True);
+                Assert.That(navigator.CanShowTopBanner, Is.False, "화면 전환 중에는 숨긴다.");
+                yield return WaitForWardrobe(); yield return Wait(.2f);
+                var view = Object.FindAnyObjectByType<InkWardrobeView>();
+                var banner = (RectTransform)Object.FindAnyObjectByType<EditorTestAdsRuntime>().transform
+                    .Find("EditorGoogleTestAdsCanvas/SafeAreaRoot/GoogleTestBanner");
+                foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
+                {
+                    GameLocalization.SetLanguage(language); view.Select(InkSkinId.WindFan);
+                    yield return Wait(.4f);
+                    Assert.That(LobbyAdLayout.IsBannerVisible, Is.True);
+                    AssertBelowMenuBanner(banner, view.Paper);
+                    yield return Capture("banner-wardrobe-" + language);
+                }
+                view.ToggleCollection(); yield return Wait(.5f);
+                Assert.That(view.CollectionExpanded, Is.True);
+                Assert.That(LobbyAdLayout.IsBannerVisible, Is.True);
+                AssertBelowMenuBanner(banner, view.Paper);
+                yield return Capture("banner-wardrobe-collection");
+                view.ToggleCollection(); yield return Wait(.3f);
+                view.SkillButton.onClick.Invoke(); yield return Wait(.3f);
+                Assert.That(view.IsSkillDetailsOpen, Is.True);
+                Assert.That(LobbyAdLayout.IsBannerVisible, Is.False, "특수능력 팝업은 광고로 가리지 않는다.");
+                view.CloseSkillDetails(); yield return Wait(.3f);
+                Assert.That(LobbyAdLayout.IsBannerVisible, Is.True);
+                Assert.That(navigator.ReturnToLobby(), Is.True);
+                float lobbyDeadline = Time.realtimeSinceStartup + 10f;
+                while ((navigator.IsTransitioning || GameManager.Instance.IsTransitioning) &&
+                    Time.realtimeSinceStartup < lobbyDeadline) yield return null;
+                Assert.That(navigator.IsTransitioning, Is.False);
+                Assert.That(navigator.CurrentSection, Is.EqualTo(LobbyScreenNavigator.LobbySection.Lobby));
+                var options = Object.FindAnyObjectByType<LobbyOptionsView>();
+                GameLocalization.SetLanguage(GameLanguage.Korean);
+                options.Open(); yield return Wait(1);
+                var panel = (RectTransform)options.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll");
+                Assert.That(options.CanShowTopBanner, Is.True, $"설정 열림={options.IsOpen}, 계정 페이지={options.IsAccountOpen}");
+                Assert.That(LobbyAdLayout.IsBannerVisible, Is.True, $"설정 배너: 섹션={navigator.CurrentSection}, 전환={navigator.IsTransitioning}, 게임 정지={GameManager.Instance.IsPaused}");
+                AssertBelowMenuBanner(banner, panel);
+                yield return Capture("banner-settings");
+                options.Close(); yield return Wait(.5f);
+                options.OpenLeaderboard(); yield return Wait(1);
+                Assert.That(options.CanShowTopBanner && LobbyAdLayout.IsBannerVisible, Is.True);
+                AssertBelowMenuBanner(banner, panel);
+                yield return Capture("banner-leaderboard");
+                options.OpenTutorialForTests(); yield return Wait(.3f);
+                Assert.That(LobbyAdLayout.IsBannerVisible, Is.False);
+                options.Close(); yield return Wait(.5f);
+                Assert.That(LobbyAdLayout.IsBannerVisible, Is.True, "메뉴에서 돌아오면 기존 배너를 재사용한다.");
+                Assert.That(Object.FindObjectsByType<EditorTestAdsRuntime>(FindObjectsSortMode.None).Length, Is.EqualTo(1));
+                Assert.That(MukJumpAccountRuntime.Instance.IsOnlineAuthenticated, Is.False);
+            }
+            finally
+            {
+                SkinDebugSession.Reset(); Application.runInBackground = oldBackground;
+                LobbySettingsProfile.RestoreDefaultStoreForTests(); InkSkinPreferences.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+
+        static void AssertBelowMenuBanner(RectTransform banner, RectTransform content)
+        {
+            Canvas.ForceUpdateCanvases();
+            var adCorners = new Vector3[4]; var contentCorners = new Vector3[4];
+            banner.GetWorldCorners(adCorners); content.GetWorldCorners(contentCorners);
+            Assert.That(contentCorners[1].y, Is.LessThan(adCorners[0].y - 5f), content.name);
+            Assert.That(contentCorners[0].y, Is.GreaterThanOrEqualTo(MobileUiLayout.CurrentSafeArea.yMin - 1f));
+        }
+
+        [UnityTest, Timeout(120000)]
         [Category("SpecialSkillCleanLayout")]
         public IEnumerator SpecialSkillCardsRenderDistinctlyWithoutBlockingBrowse()
         {
@@ -569,7 +659,7 @@ namespace MukJump.EditorTests
                 var wardrobeCanvas=view.Paper.GetComponentInParent<Canvas>();
                 Assert.That(wardrobeCanvas.GetComponentsInChildren<HanjiScrollFrame>(true),Is.Empty);
                 Assert.That(LobbyScreenNavigator.Instance.CanStartGame,Is.False);
-                Assert.That(LobbyScreenNavigator.Instance.CanShowTopBanner,Is.False);
+                Assert.That(LobbyScreenNavigator.Instance.CanShowTopBanner,Is.True);
                 Assert.That(wardrobeCanvas.transform.Find("LobbyBackgroundInputBlocker")
                     .GetComponent<UnityEngine.UI.Image>().color,Is.EqualTo(Color.clear));
                 var measured = SkinRunStats.Begin(true, InkSkinId.CatEars);

@@ -77,6 +77,17 @@ namespace MukJump.Core
                 0f,
                 MaximumTopInsetFraction);
 
+        /// 메뉴 본문은 노치 아래 실제 배너와 터치 간격을 제외한 영역에만 배치한다.
+        /// 상세 팝업에서 광고를 잠시 숨겨도 뒤쪽 목록은 움직이지 않는다.
+        public static Rect CalculateMenuSafeArea(Rect safeArea, int width, int height)
+        {
+            if (width <= 0 || height <= 0) return Rect.zero;
+            Rect safe = MobileUiLayout.SanitizeSafeArea(safeArea, width, height);
+            if (GameplayTopInsetFraction > 0f)
+                safe.height = Mathf.Max(1f, safe.height - height * GameplayTopInsetFraction - 10f);
+            return safe;
+        }
+
         public static bool IsPointerInBannerSlot(Vector2 position) =>
             IsPointerInBannerSlot(position, MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height);
 

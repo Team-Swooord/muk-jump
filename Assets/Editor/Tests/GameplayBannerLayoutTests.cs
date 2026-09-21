@@ -12,6 +12,26 @@ namespace MukJump.EditorTests
 
         [TestCase(540, 960, 0, 0)]
         [TestCase(1179, 2556, 102, 177)]
+        [TestCase(1488, 2266, 48, 50)]
+        public void MenuBannerReservesSpaceAndKeepsItWhenTemporarilyHidden(int width, int height, int bottom, int top)
+        {
+            var safe = new Rect(0, bottom, width, height - bottom - top);
+            Assert.That(LobbyAdLayout.CalculateMenuSafeArea(safe, width, height), Is.EqualTo(safe));
+            LobbyAdLayout.ReserveDefaultTopInset();
+            foreach (float fraction in new[] { .04f, .08f, .12f })
+            {
+                LobbyAdLayout.SetTopInsetFraction(fraction);
+                Rect content = LobbyAdLayout.CalculateMenuSafeArea(safe, width, height);
+                Assert.That(content.yMin, Is.EqualTo(safe.yMin));
+                Assert.That(content.width, Is.EqualTo(safe.width));
+                Assert.That(safe.yMax - content.yMax, Is.EqualTo(height * fraction + 10f).Within(.001f));
+                LobbyAdLayout.MarkBannerHidden();
+                Assert.That(LobbyAdLayout.CalculateMenuSafeArea(safe, width, height), Is.EqualTo(content));
+            }
+        }
+
+        [TestCase(540, 960, 0, 0)]
+        [TestCase(1179, 2556, 102, 177)]
         public void GrowthReservesTheActualBannerBelowTheNotch(int width, int height, int bottom, int top)
         {
             var safe = new Rect(0, bottom, width, height - bottom - top);

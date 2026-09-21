@@ -107,6 +107,7 @@ namespace MukJump.Core
         Rect lastSafeArea;
         int lastScreenWidth;
         int lastScreenHeight;
+        float lastBannerInsetFraction = -1f;
         int currentTutorialPage;
         bool suppressSliderCallbacks;
         bool showingSettingsPage;
@@ -126,6 +127,10 @@ namespace MukJump.Core
 
         public bool IsOpen =>
             rootGroup != null && rootGroup.blocksRaycasts;
+        // 탐색 메뉴에만 배너를 유지한다. 계정 입력·동의·튜토리얼·전환은 가리지 않는다.
+        bool UsesTopBannerLayout { get; set; }
+        public bool CanShowTopBanner => IsOpen && UsesTopBannerLayout &&
+            rootGroup.interactable && !scrollPageTransition && !IsNicknameOpen;
         public bool IsTutorialOpen =>
             IsOpen && tutorialGroup != null && tutorialGroup.blocksRaycasts;
         public bool IsDebugScenarioOpen =>
@@ -237,7 +242,8 @@ namespace MukJump.Core
                 Close();
             if (UiScreenWidth != lastScreenWidth ||
                 UiScreenHeight != lastScreenHeight ||
-                UiSafeArea != lastSafeArea)
+                UiSafeArea != lastSafeArea ||
+                !Mathf.Approximately(lastBannerInsetFraction, LobbyAdLayout.GameplayTopInsetFraction))
                 ApplySafeArea();
             SyncNativeAppleSignInButton();
             AdvanceAccountToast(Time.unscaledDeltaTime,
@@ -2261,6 +2267,10 @@ namespace MukJump.Core
                 UiScreenHeight <= 0)
                 return;
             Rect safe = UiSafeArea;
+            lastSafeArea = safe;
+            lastBannerInsetFraction = LobbyAdLayout.GameplayTopInsetFraction;
+            if (UsesTopBannerLayout)
+                safe = LobbyAdLayout.CalculateMenuSafeArea(safe, UiScreenWidth, UiScreenHeight);
             MobileUiLayout.ApplySafeArea(
                 safeAreaRoot,
                 safe,
@@ -2268,7 +2278,6 @@ namespace MukJump.Core
                 UiScreenHeight);
             lastScreenWidth = UiScreenWidth;
             lastScreenHeight = UiScreenHeight;
-            lastSafeArea = safe;
 
             // 계정 종이는 안전영역 정중앙에 둔다. 외부 닫기 버튼까지 들어갈 때만
             // 기존 배율을 유지하고, 낮은 화면에서는 중심을 옮기지 않고 축소한다.
@@ -2387,6 +2396,7 @@ namespace MukJump.Core
                 if (!privacy) SetPageVisible(analyticsPrivacyGroup, false);
                 if (!choosingLanguage) SetPageVisible(languageGroup, false);
                 showingSettingsPage = ReferenceEquals(group, optionsGroup);
+                UsesTopBannerLayout = showingSettingsPage || ReferenceEquals(group, leaderboardGroup);
                 showingTutorialPage = ReferenceEquals(group, tutorialGroup);
                 showingAccountPage = ReferenceEquals(group, accountGroup) && !UsesTossSettings;
                 bool tutorial = ReferenceEquals(group, tutorialGroup);

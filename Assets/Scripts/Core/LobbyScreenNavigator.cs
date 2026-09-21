@@ -34,6 +34,8 @@ namespace MukJump.Core
         public bool IsTransitioning { get; private set; }
         public bool CanShowTopBanner => !IsTransitioning &&
             (CurrentSection == LobbySection.Lobby ||
+             CurrentSection == LobbySection.Wardrobe &&
+             (wardrobeView == null || !wardrobeView.IsSkillDetailsOpen) ||
              CurrentSection == LobbySection.PermanentGrowth &&
              (growthView == null || !growthView.HasBlockingOverlay));
         public bool CanStartGame =>

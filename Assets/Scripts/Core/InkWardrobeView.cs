@@ -640,11 +640,12 @@ namespace MukJump.Core
         void ApplyLayout()
         {
             if (safeRoot == null || Screen.width <= 0 || Screen.height <= 0) return;
-            Rect safe = MobileUiLayout.CurrentSafeArea;
+            Rect safe = LobbyAdLayout.CalculateMenuSafeArea(
+                MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height);
             MobileUiLayout.ApplySafeArea(safeRoot, safe, Screen.width, Screen.height);
             float scale = MobileUiLayout.CalculateFitScale(new Vector2(1080, 1920), safe, Screen.width, Screen.height, Vector2.zero);
             paper.localScale = Vector3.one * scale;
-            // 성장 화면과 같은 상단 기준. 꾸미기는 배너가 없으므로 노치만 제외한다.
+            // 성장 화면과 같은 상단 기준. 배너 아래에서 전체보기·착용 버튼까지 함께 맞춘다.
             float topOffset=(safe.height*1920f/Screen.height-1920f*scale)*.5f;
             paper.anchoredPosition=new Vector2(0,topOffset);
             LayoutSkillPopup();
