@@ -4,10 +4,10 @@ using UnityEngine;
 
 namespace MukJump.Core
 {
-    /// Apps in Toss AdMob의 load → show 이벤트 모델을 게임 공통 광고 경계로 변환한다.
+    /// 토스 통합 광고 2.0의 load → show 이벤트 모델을 게임 공통 광고 경계로 변환한다.
     public sealed class AppsInTossAdProvider : IFullScreenAdProvider, IDisposable
     {
-        const float LoadTimeoutSeconds = 30f;
+        const float LoadTimeoutSeconds = 75f;
         const float RetryDelaySeconds = 15f;
         const float ShowTimeoutSeconds = 90f;
         static readonly Action<bool> IgnoreCompletion = _ => { };
@@ -55,6 +55,9 @@ namespace MukJump.Core
             return IsRewarded(placement) ? rewardedReady : interstitialReady;
         }
 
+        public bool IsLoading => rewardedLoading || interstitialLoading;
+        public bool DeferLoading { get; set; }
+
         public void Tick()
         {
             if (disposed)
@@ -84,9 +87,17 @@ namespace MukJump.Core
 
         public void Preload(FullScreenAdPlacement placement)
         {
-            if (disposed)
+            if (disposed || pendingCompletion != null || DeferLoading)
                 return;
             bool rewarded = IsRewarded(placement);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (MukJumpTossFullScreenAdsSupported() == 0)
+            {
+                if (rewarded) nextRewardedLoadTime = Time.realtimeSinceStartupAsDouble + RetryDelaySeconds;
+                else nextInterstitialLoadTime = Time.realtimeSinceStartupAsDouble + RetryDelaySeconds;
+                return;
+            }
+#endif
             string adGroupId = rewarded
                 ? rewardedAdGroupId
                 : interstitialAdGroupId;
@@ -227,6 +238,11 @@ namespace MukJump.Core
             return placement != FullScreenAdPlacement.PostRunInterstitial;
         }
 
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        static extern int MukJumpTossFullScreenAdsSupported();
+#endif
+
         bool IsCurrentLoad(bool rewarded, long generation)
         {
             return !disposed && (rewarded
@@ -244,9 +260,9 @@ namespace MukJump.Core
             if (loadRequestForTests != null)
                 return loadRequestForTests(adGroupId, onLoaded, onError);
 #endif
-            return AIT.GoogleAdMobLoadAppsInTossAdMob(
+            return AIT.LoadFullScreenAd(
+                adGroupId,
                 result => onLoaded?.Invoke(result?.Type == "loaded"),
-                new LoadAdMobOptions { AdGroupId = adGroupId },
                 _ => onError?.Invoke());
         }
 
@@ -259,9 +275,9 @@ namespace MukJump.Core
             if (showRequestForTests != null)
                 return showRequestForTests(adGroupId, onEvent, onError);
 #endif
-            return AIT.GoogleAdMobShowAppsInTossAdMob(
+            return AIT.ShowFullScreenAd(
+                adGroupId,
                 result => onEvent?.Invoke(result?.Type),
-                new ShowAdMobOptions { AdGroupId = adGroupId },
                 _ => onError?.Invoke());
         }
 

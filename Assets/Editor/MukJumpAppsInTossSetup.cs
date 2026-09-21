@@ -16,7 +16,9 @@ namespace MukJump.EditorTools
 {
     public static class MukJumpAppsInTossSetup
     {
-        public const string DefaultAppName = "muk-jump";
+        public const string DefaultAppName = "mukjump";
+        public const string DefaultIconUrl =
+            "https://static.toss.im/appsintoss/22975/6bab321c-5519-455e-bd58-5ba1d27435b0.png";
         public const string AdSettingsPath =
             "Assets/Resources/MukJump/Settings/AppsInTossAdSettings.asset";
         public const string BackendToolkitAssemblyPath =
@@ -78,11 +80,22 @@ namespace MukJump.EditorTools
             config.webViewType = 0;
             config.navigationBarTransparentBackground = true;
             config.runInBackground = 0;
+            config.productionProfile = AITBuildProfile.CreateProductionProfile();
+            config.memorySize = 128;
+            // SDK의 구 memorySize 설정과 별개로 Unity 6의 실제 초기 힙을 지정한다.
+            PlayerSettings.WebGL.initialMemorySize = 128;
+            config.threadsSupport = 0;
+            config.stripEngineCode = true;
+            // 토스 CDN의 헤더에 의존하지 않고 Brotli 산출물을 읽는다.
+            config.decompressionFallback = 1;
+            config.exceptionSupport = (int)WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
 
             string iconUrl = Environment.GetEnvironmentVariable(
                 "MUKJUMP_AIT_ICON_URL");
             if (!string.IsNullOrWhiteSpace(iconUrl))
                 config.iconUrl = iconUrl.Trim();
+            else
+                config.iconUrl = DefaultIconUrl;
 
             EditorUtility.SetDirty(config);
             ConfigureAdSettings();
@@ -114,6 +127,13 @@ namespace MukJump.EditorTools
             StartOrRunBuild("probe");
         }
 
+        [MenuItem("MukJump/Release/Build Apps in Toss Test Package (Not For Release)")]
+        public static void BuildTestPackage()
+        {
+            Configure();
+            StartOrRunBuild("test-package");
+        }
+
         [MenuItem("MukJump/Release/Return to iOS Build Target")]
         public static void ReturnToIosBuildTarget()
         {
@@ -128,18 +148,18 @@ namespace MukJump.EditorTools
         {
             if (string.IsNullOrEmpty(SessionState.GetString(PendingBuildKey, "")))
                 return;
-            EditorApplication.delayCall += ResumePendingBuildWhenReady;
+            // Inspector 갱신이 없는 백그라운드 에디터에서도 타깃 전환 후 계속 진행한다.
+            EditorApplication.update -= ResumePendingBuildWhenReady;
+            EditorApplication.update += ResumePendingBuildWhenReady;
         }
 
         static void ResumePendingBuildWhenReady()
         {
             if (EditorApplication.isCompiling || EditorApplication.isUpdating)
-            {
-                EditorApplication.delayCall += ResumePendingBuildWhenReady;
                 return;
-            }
 
             string action = SessionState.GetString(PendingBuildKey, "");
+            EditorApplication.update -= ResumePendingBuildWhenReady;
             if (string.IsNullOrEmpty(action))
                 return;
             BuildTarget previousTarget = (BuildTarget)SessionState.GetInt(
@@ -174,20 +194,31 @@ namespace MukJump.EditorTools
 
         static void RunBuild(string action, BuildTarget previousTarget)
         {
-            bool package = action == "package";
+            bool testOnly = action == "test-package";
+            bool package = action == "package" || testOnly;
             AITEditorScriptObject config = UnityUtil.GetEditorConf();
             Dictionary<string, string> previousAitArtifacts = package
                 ? CaptureAitArtifactHashes("ait-build")
                 : null;
             try
             {
+                using var testAds = testOnly ? new MukJumpTossTestAdScope() : null;
+                if (package)
+                {
+                    List<string> issues = CollectReleaseIssues(testOnly);
+                    if (issues.Count > 0)
+                        throw new BuildFailedException(string.Join("\n", issues));
+                }
                 PrepareFullscreenTemplateOrThrow();
+                // 설정 자산은 Resources 안에 있으면 미사용이어도 번들에 들어간다.
+                // 네이티브 인증·광고 설정을 빌드 동안만 Editor 폴더로 격리한다.
+                using var nativeResources = new MukJumpWebNativeResourceScope();
                 AITConvertCore.AITExportError result = AITConvertCore.DoExport(
                     buildWebGL: true,
                     doPackaging: package,
                     cleanBuild: true,
                     profile: config.productionProfile,
-                    profileName: package
+                    profileName: testOnly ? "MukJump Test Ads - Not For Release" : package
                         ? "MukJump Release"
                         : "MukJump Size Probe");
                 if (result != AITConvertCore.AITExportError.SUCCEED)
@@ -220,9 +251,17 @@ namespace MukJump.EditorTools
                             "Apps in Toss .ait runtimeVersion 검증에 실패했습니다. " +
                             $"기대값={ExpectedAitRuntimeVersion}, " +
                             $"실제값={runtimeVersion ?? "(없음)"}. {metadataError}");
+                    if (testOnly)
+                    {
+                        string testPath = Path.Combine(Path.GetDirectoryName(aitPath),
+                            "mukjump-test-only-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".ait");
+                        File.Move(aitPath, testPath);
+                        aitPath = testPath;
+                    }
                     Debug.Log(
                         $"[MukJump] Apps in Toss 패키징 완료: {aitPath} " +
-                        $"({FormatBytes(new FileInfo(aitPath).Length)})");
+                        $"({FormatBytes(new FileInfo(aitPath).Length)})" +
+                        (testOnly ? " — 공식 테스트 광고 사용, 출시 제출 금지" : ""));
                 }
             }
             finally
@@ -241,7 +280,7 @@ namespace MukJump.EditorTools
             Debug.Log("[MukJump] Apps in Toss 출시 설정 검증 완료");
         }
 
-        public static List<string> CollectReleaseIssues()
+        public static List<string> CollectReleaseIssues(bool testAdsAllowed = false)
         {
             var issues = new List<string>();
             AITEditorScriptObject config = UnityUtil.GetEditorConf();
@@ -251,7 +290,7 @@ namespace MukJump.EditorTools
                     config.appName,
                     DefaultAppName,
                     StringComparison.Ordinal))
-                issues.Add("• appName은 콘솔과 같은 muk-jump여야 합니다.");
+                issues.Add("• appName은 콘솔과 같은 mukjump여야 합니다.");
             if (config.displayName != "먹점프")
                 issues.Add("• 표시 이름은 먹점프여야 합니다.");
             if (!Uri.TryCreate(config.iconUrl, UriKind.Absolute, out Uri icon) ||
@@ -289,7 +328,7 @@ namespace MukJump.EditorTools
             if (adSettings == null ||
                 string.IsNullOrWhiteSpace(adSettings.BannerAdGroupId))
                 issues.Add("• 토스 배너 광고 그룹 ID를 입력해야 합니다.");
-            issues.AddRange(CollectAdPolicyIssues(adSettings));
+            issues.AddRange(CollectAdPolicyIssues(adSettings, testAdsAllowed));
 
             List<string> backendPlugins =
                 MukJumpPlatformPluginFilter
@@ -303,14 +342,14 @@ namespace MukJump.EditorTools
         }
 
         public static List<string> CollectAdPolicyIssues(
-            AppsInTossAdSettings adSettings)
+            AppsInTossAdSettings adSettings, bool testAdsAllowed = false)
         {
             var issues = new List<string>();
-            if (adSettings != null && IsTestAdGroupId(
+            if (!testAdsAllowed && adSettings != null && IsTestAdGroupId(
                     adSettings.RewardedAdGroupId))
                 issues.Add(
                     "• Production 토스 보상형 광고에 공식 테스트 광고 ID를 사용할 수 없습니다.");
-            if (adSettings != null && IsTestAdGroupId(
+            if (!testAdsAllowed && adSettings != null && IsTestAdGroupId(
                     adSettings.BannerAdGroupId))
                 issues.Add(
                     "• Production 토스 배너 광고에 공식 테스트 광고 ID를 사용할 수 없습니다.");

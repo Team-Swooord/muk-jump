@@ -242,6 +242,8 @@ namespace MukJump.Core
     }
     public static class InkSkinAchievements
     {
+        public static string IdentityLinkRequirement(bool appsInToss) => appsInToss
+            ? "토스 사용자 확인 완료" : "Apple 계정 연동 완료";
         public static int Goal(InkSkinId id) => InkSkinCatalog.Get(id)?.Goal ?? int.MaxValue;
         public static int Progress(InkSkinId id) => (int)Math.Min(Goal(id), PermanentGrowthProfile.SkinProgress(id));
         public static bool IsUnlocked(InkSkinId id) => InkSkinCatalog.IsAvailable(id) &&
@@ -265,7 +267,7 @@ namespace MukJump.Core
                 SkinMetric.Growth => $"성장 노드 {d.Goal}개 획득",
                 SkinMetric.NoItemBest => $"아이템 없이 {d.Goal}m 달성",
                 SkinMetric.ZeroRun => "그린 발판에 착지하지 않고 한 판 완료",
-                SkinMetric.AppleLink => "Apple 계정 연동 완료",
+                SkinMetric.AppleLink => IdentityLinkRequirement(Application.platform == RuntimePlatform.WebGLPlayer),
                 SkinMetric.DragonDeath => "본체가 용과 충돌해 사망하기",
                 _ => id switch {
                     InkSkinId.NightBat => "로비를 세 번째 밤으로 바꾸기",

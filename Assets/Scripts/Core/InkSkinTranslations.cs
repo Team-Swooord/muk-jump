@@ -42,6 +42,7 @@ namespace MukJump.Core
                 ["용과의 만남"] = ("Dragon encounter", "竜との出会い"),
                 ["본체가 용과 충돌해 사망하기"] = ("Let the original Ink die from a dragon collision", "本体が竜との衝突で倒れる"),
                 ["Apple 계정 연동 완료"] = ("Link your Apple account", "Appleアカウントを連携"),
+                ["토스 사용자 확인 완료"] = ("Verify your Toss identity", "トスユーザー確認完了"),
                 ["인연의 이끌림"] = ("Bond's Pull", "縁の導き"),
                 ["바람 도약"] = ("Wind Leap", "風の跳躍"),
                 ["구름 도약"] = ("Cloud Leap", "雲の跳躍"),

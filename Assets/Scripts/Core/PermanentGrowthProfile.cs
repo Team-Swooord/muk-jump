@@ -526,6 +526,10 @@ namespace MukJump.Core
 
         // 인증 제공자·서버 프로필 확인이 끝난 런타임만 호출한다. 계정 교체나 저장 실패에는 지급하지 않는다.
         public static bool TryGrantAppleLinkSkin(object owner)
+            => TryGrantIdentityLinkSkin(owner);
+
+        // 토스판도 사용자 확인과 로컬 소유자 복원이 끝난 뒤 같은 보상을 저장한다.
+        public static bool TryGrantIdentityLinkSkin(object owner)
         {
             EnsureLoaded();
             if (writeBlocked || !ReferenceEquals(owner, data)) return false;

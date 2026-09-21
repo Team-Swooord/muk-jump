@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7c3cbd8251a0c434481614bbcd8082ff, type: 3}
   m_Name: AITConfig
   m_EditorClassIdentifier: AppsInTossSDKEditor::AppsInToss.AITEditorScriptObject
-  appName: muk-jump
+  appName: mukjump
   displayName: "\uBA39\uC810\uD504"
-  version: 1.0.1
+  version: 1.0.2
   description: "\uC190\uAC00\uB77D\uC73C\uB85C \uBA39\uC120\uC744 \uADF8\uB824 \uC791\uC740
     \uBA39\uBC29\uC6B8\uC744 \uC704\uB85C \uC62C\uB9AC\uB294 \uC138\uB85C\uD615 \uB4DC\uB85C\uC789
     \uC810\uD504 \uAC8C\uC784"
   primaryColor: '#AE1C3C'
-  iconUrl: 
+  iconUrl: https://static.toss.im/appsintoss/22975/6bab321c-5519-455e-bd58-5ba1d27435b0.png
   bridgeColorMode: 0
   webViewType: 0
   navigationBarTransparentBackground: 1
@@ -47,8 +47,8 @@ MonoBehaviour:
     compressionFormat: -1
     managedStrippingLevel: -1
     debugSymbolsExternal: 1
-  memorySize: -1
-  threadsSupport: -1
+  memorySize: 128
+  threadsSupport: 0
   dataCaching: -1
   nameFilesAsHashes: 1
   devicePixelRatio: -1
@@ -56,9 +56,9 @@ MonoBehaviour:
   il2cppConfiguration: -1
   powerPreference: -1
   wasmStreaming: 1
-  exceptionSupport: -1
+  exceptionSupport: 1
   showUnityLogo: -1
-  decompressionFallback: -1
+  decompressionFallback: 1
   runInBackground: 0
   webAssemblyArithmeticExceptions: -1
   enableBuildOptimizationCheck: 0

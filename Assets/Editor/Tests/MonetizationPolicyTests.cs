@@ -126,6 +126,60 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void AppsInTossDefersRewardedLoadUntilBannerLoadCompletes()
+        {
+            var provider = new AppsInTossAdProvider("rewarded", string.Empty);
+            int loads = 0;
+            Action<bool> loaded = null;
+            SetField(provider, "loadRequestForTests", new Func<string, Action<bool>, Action, Action>((_, onLoaded, __) =>
+            { loads++; loaded = onLoaded; return () => { }; }));
+            try
+            {
+                provider.DeferLoading = true;
+                provider.Tick();
+                provider.Preload(FullScreenAdPlacement.GameOverReviveReward);
+                Assert.That(loads, Is.Zero);
+                provider.DeferLoading = false;
+                provider.Tick();
+                Assert.That(loads, Is.EqualTo(1));
+                Assert.That(provider.IsLoading, Is.True);
+                provider.Tick();
+                Assert.That(loads, Is.EqualTo(1));
+                loaded(true);
+                Assert.That(provider.IsLoading, Is.False);
+                Assert.That(provider.IsReady(FullScreenAdPlacement.GameOverReviveReward), Is.True);
+            }
+            finally { provider.Dispose(); }
+        }
+
+        [Test]
+        public void AppsInTossDoesNotLoadAnotherAdBeforeCurrentAdCloses()
+        {
+            var provider = new AppsInTossAdProvider("rewarded", string.Empty);
+            Action<string> emit = null;
+            int loads = 0, completions = 0;
+            SetField(provider, "rewardedReady", true);
+            SetField(provider, "loadRequestForTests", new Func<string, Action<bool>, Action, Action>(
+                (_, _, _) => { loads++; return null; }));
+            SetField(provider, "showRequestForTests", new Func<string, Action<string>, Action, Action>(
+                (_, onEvent, _) => { emit = onEvent; return null; }));
+            try
+            {
+                provider.Show(FullScreenAdPlacement.GameOverReviveReward, earned => { Assert.That(earned, Is.True); completions++; });
+                provider.Tick();
+                provider.Preload(FullScreenAdPlacement.GameOverReviveReward);
+                Assert.That(loads, Is.Zero);
+                emit("userEarnedReward");
+                Assert.That(completions, Is.Zero);
+                emit("dismissed");
+                emit("dismissed");
+                Assert.That(completions, Is.EqualTo(1));
+                Assert.That(loads, Is.EqualTo(1));
+            }
+            finally { provider.Dispose(); }
+        }
+
+        [Test]
         public void AppsInTossLoadRequestThrowReleasesLatchAndSchedulesRetry()
         {
             var provider = new AppsInTossAdProvider("rewarded", string.Empty);

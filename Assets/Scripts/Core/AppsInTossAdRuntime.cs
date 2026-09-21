@@ -21,6 +21,9 @@ namespace MukJump.Core
         LobbyOptionsView lobbyOptions;
         float nextBannerRetryAt;
         bool runtimeActive;
+        bool bannerLoading;
+        bool bannerLoadFailed;
+        float bannerLoadDeadline;
 
 #if UNITY_EDITOR
         Action<string> showBannerForTests;
@@ -55,21 +58,28 @@ namespace MukJump.Core
 
             // 현재 출시 흐름은 부활 보상형만 필수다. 전면형 ID가 비어 있어도
             // 배너와 보상형 광고는 각각 독립적으로 동작해야 한다.
-            if (string.IsNullOrWhiteSpace(rewardedId))
+            if (string.IsNullOrWhiteSpace(rewardedId) && string.IsNullOrWhiteSpace(bannerId))
             {
                 LobbyAdLayout.ClearTopInset();
                 return;
             }
 
-            provider = new AppsInTossAdProvider(rewardedId, interstitialId);
-            MonetizationAds.RegisterProvider(provider);
-            provider.Preload(FullScreenAdPlacement.GameOverReviveReward);
+            if (!string.IsNullOrWhiteSpace(rewardedId))
+            {
+                provider = new AppsInTossAdProvider(rewardedId, interstitialId);
+                MonetizationAds.RegisterProvider(provider);
+                provider.Preload(FullScreenAdPlacement.GameOverReviveReward);
+            }
             AITBannerAd.OnAdEvent += HandleBannerEvent;
             AITBannerAd.OnError += HandleBannerError;
         }
 
         void Update()
         {
+            if (bannerLoading && Time.realtimeSinceStartup >= bannerLoadDeadline)
+                ScheduleBannerRetry();
+            if (provider != null)
+                provider.DeferLoading = bannerLoading;
             provider?.Tick();
             if (lobbyNavigator == null)
                 lobbyNavigator = LobbyScreenNavigator.Instance;
@@ -86,6 +96,9 @@ namespace MukJump.Core
 
             if (shouldShowBanner)
             {
+                // 일부 토스 버전은 배너와 보상형 동시 로드의 콜백을 누락한다.
+                if (provider != null && provider.IsLoading)
+                    return;
                 // 다시 표시할 때 이미 받은 실제 크기를 기본 예약값으로 덮지 않는다.
                 if (LobbyAdLayout.MeasuredTopInsetFraction <= 0f)
                     LobbyAdLayout.SetTopInsetFraction(DefaultBannerInsetFraction);
@@ -101,6 +114,7 @@ namespace MukJump.Core
             }
             else
             {
+                bannerLoading = false;
                 bannerVisible = false;
                 LobbyAdLayout.MarkBannerHidden();
                 TryHideBanner();
@@ -111,6 +125,9 @@ namespace MukJump.Core
         {
             if (!runtimeActive || bannerEvent == null)
                 return;
+            if (bannerEvent.Kind == AITBannerAdEventKind.Rendered ||
+                bannerEvent.Kind == AITBannerAdEventKind.Viewable)
+                bannerLoading = false;
             if (bannerEvent.Kind == AITBannerAdEventKind.Resized &&
                 bannerEvent.HeightFraction > 0f)
             {
@@ -135,6 +152,8 @@ namespace MukJump.Core
 
         void ScheduleBannerRetry()
         {
+            bannerLoading = false;
+            bannerLoadFailed = true;
             bannerVisible = false;
             LobbyAdLayout.MarkBannerHidden();
             nextBannerRetryAt =
@@ -144,6 +163,7 @@ namespace MukJump.Core
 
         void OnDisable()
         {
+            bannerLoading = false;
             runtimeActive = false;
             bannerVisible = false;
             LobbyAdLayout.MarkBannerHidden();
@@ -188,6 +208,9 @@ namespace MukJump.Core
         {
             try
             {
+                bannerLoadFailed = false;
+                bannerLoading = true;
+                bannerLoadDeadline = Time.realtimeSinceStartup + 75f;
 #if UNITY_EDITOR
                 if (showBannerForTests != null)
                     showBannerForTests.Invoke(bannerId);
@@ -199,10 +222,11 @@ namespace MukJump.Core
                         AITBannerTheme.Light,
                         AITBannerTone.Grey,
                         AITBannerVariant.Expanded);
-                return true;
+                return !bannerLoadFailed;
             }
             catch (Exception exception)
             {
+                bannerLoading = false;
                 Debug.LogWarning(
                     "먹점프 토스 배너 표시 실패: " + exception.Message);
                 return false;

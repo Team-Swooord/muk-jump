@@ -7034,6 +7034,7 @@ namespace MukJump.Core
         int identityResolutionGeneration;
         float retryDelaySeconds = InitialRetrySeconds;
         float retryAtUnscaledTime = float.PositiveInfinity;
+        float identityRewardRetryAt;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Bootstrap()
@@ -7069,6 +7070,14 @@ namespace MukJump.Core
                 Phase == MukJumpAccountPhase.Error &&
                 Time.unscaledTime >= retryAtUnscaledTime)
                 BeginIdentityResolution();
+            if (Phase == MukJumpAccountPhase.OnlineReady && HasVerifiedAppsInTossIdentity &&
+                !InkSkinAchievements.IsUnlocked(InkSkinId.BondKnot) &&
+                Time.unscaledTime >= identityRewardRetryAt)
+            {
+                identityRewardRetryAt = Time.unscaledTime + InitialRetrySeconds;
+                if (PermanentGrowthProfile.TryGrantIdentityLinkSkin(PermanentGrowthProfile.SkinAccountToken))
+                    GameManager.Instance?.GetComponent<InkAchievementToast>()?.EnqueueLobby((int)InkSkinId.BondKnot);
+            }
         }
 
         public void SignInWithGoogle() { }

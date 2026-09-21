@@ -496,11 +496,29 @@ Android Build Support·SDK·NDK·OpenJDK와 배포용 서명 설정이 필요합
 
 iOS/Android 네이티브와 별도로 WebGL을 빌드하고 `.ait`로 패키징합니다.
 Unity의 `AIT > Configuration` 앱 ID는 토스 콘솔의 `appName`과 일치해야 합니다.
+먹점프의 등록값은 `mukjump`이며, 최신 iOS 1.0.2(41) 기반 웹 작업은
+`codex/apps-in-toss-web` 브랜치에서 진행합니다.
 
 `Configure Apps in Toss Settings` → `Build Apps in Toss Size Probe` →
 `Build Apps in Toss Package` 순서로 설정·용량·패키지를 확인합니다.
 뒤끝 네이티브 SDK 대신 토스의 식별·게임센터·광고 경로를 사용합니다.
 공개 아이콘 URL·광고 그룹·콘솔 승인과 실제 토스 앱 검증이 필요합니다.
+
+- 보상형은 토스 통합 광고 `loadFullScreenAd` / `showFullScreenAd`를 사용합니다.
+  지원 여부와 보상 획득 이벤트를 확인하고 중복 지급을 막습니다.
+  배너와 보상형 로드가 겹치지 않도록 순서대로 요청하며, 무응답은 제한 시간 뒤 재시도합니다.
+- 배너는 토스 공식 상단 확장형을 사용합니다. 네이티브 AdMob ID를 재사용하지 않습니다.
+- 공식 게임센터에 완료된 판의 최고 고도를 제출합니다. 소요시간은 게임 안에 유지하며
+  토스 점수에 시간과 고도를 임의로 합쳐 보내지 않습니다.
+- Apple 로그인 대신 토스 사용자 확인을 마치면 무스비를 지급합니다.
+- 뒤끝·Apple 로그인·네이티브 광고 경로는 WebGL에서 제외합니다. 네이티브 설정 자산도
+  내보내는 동안 Editor 폴더로 옮겨 번들 수집에서 제외한 뒤 원래 위치로 복원합니다.
+  중단된 빌드는 `MukJump > Release > Restore Native Settings After Interrupted Web Build`로 복원합니다.
+- 실광고 그룹 ID가 없는 상태에서는 출시 패키지 생성을 차단합니다. Size Probe는
+  용량·WebGL 검증용으로만 사용하며 제출 가능 판정이나 실광고 검증을 대신하지 않습니다.
+- `Build Apps in Toss Test Package (Not For Release)`는 공식 테스트 광고 ID를 빌드 동안만
+  적용해 `ait-build/mukjump-test-only-날짜.ait`를 만듭니다. Mock·개발 빌드·디버그는 켜지 않습니다.
+  이 파일은 실제 토스 앱 QR 테스트 전용이며 출시 심사에 제출하지 않습니다.
 
 현재 토스 성장 데이터는 로컬에 저장됩니다. 향후 기기 간 동기화에는 별도 서버 저장 구현이 필요하며,
 식별키를 얻는 것만으로 성장 클라우드 저장이 완료되지는 않습니다.

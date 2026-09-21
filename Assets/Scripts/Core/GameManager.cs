@@ -353,7 +353,13 @@ namespace MukJump.Core
             if (Application.isPlaying)
                 EditorTestAdsRuntime.EnsureExists();
 #endif
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // 웹에서는 브라우저의 requestAnimationFrame에 맞춰 프레임을 예약한다.
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = -1;
+#else
             Application.targetFrameRate = 60;
+#endif
             State = GameState.Lobby;
             if (!TryRecoverPendingGameOverSettlement())
                 Debug.LogWarning(

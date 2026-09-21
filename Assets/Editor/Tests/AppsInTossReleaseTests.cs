@@ -14,6 +14,81 @@ namespace MukJump.EditorTests
 {
     public sealed class AppsInTossReleaseTests
     {
+        [Test]
+        public void TestAdScopeRestoresOperatingSettingsEvenWhenBuildThrows()
+        {
+            var settings = UnityEditor.AssetDatabase.LoadAssetAtPath<AppsInTossAdSettings>(MukJumpAppsInTossSetup.AdSettingsPath);
+            string rewarded = settings.RewardedAdGroupId, interstitial = settings.InterstitialAdGroupId, banner = settings.BannerAdGroupId;
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                using var scope = new MukJumpTossTestAdScope();
+                Assert.That(settings.RewardedAdGroupId, Is.EqualTo(AppsInTossAdRuntime.TestRewardedId));
+                Assert.That(settings.BannerAdGroupId, Is.EqualTo(AppsInTossAdRuntime.TestBannerId));
+                Assert.That(settings.InterstitialAdGroupId, Is.Empty);
+                throw new InvalidOperationException("simulated build failure");
+            });
+            Assert.That(settings.RewardedAdGroupId, Is.EqualTo(rewarded));
+            Assert.That(settings.InterstitialAdGroupId, Is.EqualTo(interstitial));
+            Assert.That(settings.BannerAdGroupId, Is.EqualTo(banner));
+        }
+
+        [Test]
+        public void OfficialTestAdsAreAllowedOnlyForExplicitTestPackage()
+        {
+            var settings = ScriptableObject.CreateInstance<AppsInTossAdSettings>();
+            try
+            {
+                settings.Configure(AppsInTossAdRuntime.TestRewardedId, "", AppsInTossAdRuntime.TestBannerId);
+                Assert.That(MukJumpAppsInTossSetup.CollectAdPolicyIssues(settings), Has.Count.EqualTo(2));
+                Assert.That(MukJumpAppsInTossSetup.CollectAdPolicyIssues(settings, true), Is.Empty);
+                settings.Configure(AppsInTossAdRuntime.TestRewardedId, "forced-interstitial", AppsInTossAdRuntime.TestBannerId);
+                Assert.That(MukJumpAppsInTossSetup.CollectAdPolicyIssues(settings, true), Is.Not.Empty);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(settings); }
+        }
+
+        [Test]
+        public void BannerRenderedOrFailedReleasesSequentialLoadGate()
+        {
+            var host = new GameObject("TossBannerLoadGate");
+            host.SetActive(false);
+            var runtime = host.AddComponent<AppsInTossAdRuntime>();
+            try
+            {
+                SetPrivateField(runtime, "runtimeActive", true);
+                SetPrivateField(runtime, "bannerLoading", true);
+                SetPrivateField(runtime, "hideBannerForTests", new Action(() => { }));
+                InvokePrivate(runtime, "HandleBannerEvent", new AppsInToss.AITBannerAdEvent { Kind = AppsInToss.AITBannerAdEventKind.Rendered });
+                Assert.That(GetPrivateField<bool>(runtime, "bannerLoading"), Is.False);
+                SetPrivateField(runtime, "bannerLoading", true);
+                InvokePrivate(runtime, "ScheduleBannerRetry");
+                Assert.That(GetPrivateField<bool>(runtime, "bannerLoading"), Is.False);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(host); LobbyAdLayout.ClearTopInset(); }
+        }
+
+        [Test]
+        public void TossAppNameMatchesRegisteredConsoleApp()
+        {
+            Assert.That(MukJumpAppsInTossSetup.DefaultAppName, Is.EqualTo("mukjump"));
+            Assert.That(new Uri(MukJumpAppsInTossSetup.DefaultIconUrl).Host, Is.EqualTo("static.toss.im"));
+        }
+
+        [Test]
+        public void TossLinkRewardDoesNotRequireAppleLogin()
+        {
+            Assert.That(InkSkinAchievements.IdentityLinkRequirement(true), Is.EqualTo("토스 사용자 확인 완료"));
+            Assert.That(InkSkinAchievements.IdentityLinkRequirement(false), Is.EqualTo("Apple 계정 연동 완료"));
+        }
+
+        [Test]
+        public void WebPayloadRejectsNativeResourcesButKeepsTossAds()
+        {
+            foreach (string path in MukJumpWebNativeResourceScope.NativeResourcePaths)
+                Assert.That(MukJumpWebNativeResourceScope.IsNativeResource(path), Is.True);
+            Assert.That(MukJumpWebNativeResourceScope.IsNativeResource(MukJumpAppsInTossSetup.AdSettingsPath), Is.False);
+        }
+
         [TestCase(false)]
         [TestCase(true)]
         public void TossSettingsIdIsOnlyAvailableWhileIdentityIsVerified(bool verified)
@@ -606,7 +681,7 @@ namespace MukJump.EditorTests
             AppsInToss.AITEditorScriptObject config =
                 AppsInToss.UnityUtil.GetEditorConf();
             Assert.That(config, Is.Not.Null);
-            Assert.That(config.appName, Is.EqualTo("muk-jump"));
+            Assert.That(config.appName, Is.EqualTo("mukjump"));
             Assert.That(config.displayName, Is.EqualTo("먹점프"));
             Assert.That(config.primaryColor, Is.EqualTo("#AE1C3C"));
             Assert.That(config.productionProfile.enableMockBridge, Is.False);
