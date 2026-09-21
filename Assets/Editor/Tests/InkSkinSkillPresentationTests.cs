@@ -55,6 +55,7 @@ namespace MukJump.EditorTests
                     yield return Capture("wardrobe-locked-progress-" + language);
                     yield return PlayerInputFrame(() => Click((RectTransform)view.Paper.Find("CollectionToggle")));
                     Assert.That(view.Paper.Find("ItemDetailsLockOverlay").gameObject.activeSelf, Is.False);
+                    yield return Capture("wardrobe-header-expanded-" + language);
                     yield return PlayerInputFrame(() => Click((RectTransform)view.Paper.Find("CollectionToggle")));
                 }
                 GameLocalization.SetLanguage(GameLanguage.Korean);

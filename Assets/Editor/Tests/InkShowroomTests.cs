@@ -54,7 +54,26 @@ namespace MukJump.EditorTests
         public void ShowroomTitleMatchesLocale(GameLanguage language, string expected)
         {
             GameLocalization.SetLanguage(language);
-            Assert.That(view.Paper.Find("Title").GetComponent<Text>().text, Is.EqualTo(expected));
+            var title = view.Paper.Find("Title").GetComponent<UnityEngine.UI.Text>();
+            Assert.That(title.text, Is.EqualTo(expected));
+            float fontScale = language == GameLanguage.Japanese ? .76f : 1f;
+            Assert.That(title.fontSize, Is.EqualTo(Mathf.RoundToInt(104 * fontScale)));
+            var toggle = (RectTransform)view.Paper.Find("CollectionToggle");
+            var label = toggle.Find("Label").GetComponent<UnityEngine.UI.Text>();
+            Assert.That(toggle.sizeDelta, Is.EqualTo(new Vector2(280, 120)));
+            Assert.That(label.fontSize, Is.EqualTo(Mathf.RoundToInt(44 * fontScale)));
+            Assert.That(BoundsIn(view.Paper, title.rectTransform).Overlaps(BoundsIn(view.Paper, toggle)), Is.False);
+            AssertInside(BoundsIn(view.Paper, toggle), view.Paper.rect, 12, "전체 보기 버튼");
+            foreach (bool expanded in new[] { false, true })
+            {
+                if (expanded) view.ToggleCollection();
+                Canvas.ForceUpdateCanvases();
+                foreach (var text in new[] { title, label })
+                {
+                    Assert.That(text.preferredWidth, Is.LessThanOrEqualTo(text.rectTransform.rect.width + 1), text.text);
+                    Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1), text.text);
+                }
+            }
         }
         [Test] public void WardrobeIsADedicatedLandscapeScreenWithoutParchmentOrModalDim()
         {

@@ -342,7 +342,7 @@ namespace MukJump.Core
             blocker.color=Color.clear; blocker.raycastTarget=true;
             safeRoot=Stretch("SafeAreaRoot",root.transform);
             paper=Rect("WardrobeScreen",safeRoot,Vector2.zero,new Vector2(1080,1920));
-            Label("Title",paper,"꾸미기",84,new Vector2(0,860),new Vector2(520,108),true);
+            Label("Title",paper,"꾸미기",104,new Vector2(0,860),new Vector2(480,136),true);
             stage=Rect("ShowroomStage",paper,new Vector2(0,515),new Vector2(1000,560));
             // 큰 장식·파동은 제목과 하단 의상 목록을 침범하지 않는다.
             stage.gameObject.AddComponent<RectMask2D>().softness=new Vector2Int(10,16);
@@ -386,7 +386,7 @@ namespace MukJump.Core
             BuildInlineSkill();
             BuildCollection();
             for(int i=0;i<InkSkinCatalog.BrowseCount;i++) BuildCard(InkSkinCatalog.BrowseAt(i));
-            var toggle=Button("CollectionToggle",paper,"전체 보기",new Vector2(410,860),new Vector2(230,94),30,out collectionToggleText);
+            var toggle=Button("CollectionToggle",paper,"전체 보기",new Vector2(385,860),new Vector2(280,120),44,out collectionToggleText);
             toggle.onClick.AddListener(ToggleCollection);
             // 이름·설명과 같은 한지 모양을 검게 덮는다. 조건과 힌트는 그 위의 한 슬롯을 공유한다.
             detailLockOverlay=SpriteImage("ItemDetailsLockOverlay",paper,InkUiStyle.ActionButtonSprite,
