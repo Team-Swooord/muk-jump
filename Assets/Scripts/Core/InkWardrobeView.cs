@@ -11,6 +11,7 @@ namespace MukJump.Core
         CanvasGroup rootGroup;
         RectTransform safeRoot, paper;
         Image previewBody, previewAccessory, detailPaper, detailDivider;
+        UnityEngine.UI.Image detailLockOverlay;
         float accessoryMotionTime;
         UnityEngine.UI.Text previewQuestion;
         readonly Button[] neighborButtons = new Button[2];
@@ -169,8 +170,8 @@ namespace MukJump.Core
             InkLocalizedText.SetSource(nameText, hidden ? "" : InkSkinCatalog.Name(selected));
             InkLocalizedText.SetSource(loreText, hidden ? "" : InkSkinLore.Get(selected).ko);
             InkLocalizedText.SetSource(descriptionText, hidden ? InkSkinLore.Get(selected).ko : "");
-            RefreshDetailLayout(hidden, hasAbility);
-            RefreshInlineSkill(hidden, hasAbility);
+            RefreshDetailLayout(hidden, hasAbility, unlocked);
+            RefreshInlineSkill(hidden, hasAbility && unlocked);
             previewQuestion.enabled = hidden;
             // 주기적인 상태 갱신이 의상 교체 애니메이션의 위치를 덮어쓰지 않는다.
             if (!hasPreview || renderedSkin != selected || renderedHidden != hidden || renderedUnlocked != unlocked)
@@ -192,7 +193,7 @@ namespace MukJump.Core
             equipButton.gameObject.SetActive(!hidden);
             equipButton.interactable = unlocked && !equipped;
             InkLocalizedText.SetSource(achievementText, hidden || selected == InkSkinId.Ink ? "" : InkSkinAchievements.Requirement(selected));
-            achievementText.color = unlocked ? InkPalette.TextMuted : InkPalette.Red;
+            achievementText.color = InkPalette.TextLight;
             int goal = hidden ? 0 : InkSkinAchievements.Goal(selected), progress = InkSkinAchievements.Progress(selected);
             if (SkinDebugSession.Active) progress = goal;
             progressText.text = goal == 0 ? "" : $"{progress} / {goal}";
@@ -220,12 +221,15 @@ namespace MukJump.Core
             }
             FitCardPreviews();
         }
-        void RefreshDetailLayout(bool hidden, bool hasAbility)
+        void RefreshDetailLayout(bool hidden, bool hasAbility, bool unlocked)
         {
             // 모든 의상에 같은 슬롯을 쓴다. 능력·숨김·해금 여부가 카드 크기와 스크롤 위치를 바꾸지 않는다.
+            bool locked = !unlocked;
+            nameText.gameObject.SetActive(!collectionExpanded && !locked);
+            loreText.gameObject.SetActive(!collectionExpanded && !locked);
             descriptionText.gameObject.SetActive(!collectionExpanded && hidden);
             descriptionText.alignment = TextAnchor.MiddleCenter;
-            PlaceDetailRow(descriptionText.rectTransform, 198f, 144f);
+            PlaceDetailRow(descriptionText.rectTransform, 260f, 320f);
             bool showAbility = hasAbility && !hidden;
             // 능력명은 위, 상세 버튼은 아래에 둬 코스튬 이름의 중앙과 전체 폭을 보존한다.
             nameText.alignment = TextAnchor.MiddleCenter;
@@ -233,19 +237,23 @@ namespace MukJump.Core
             nameText.rectTransform.sizeDelta = new Vector2(900, showAbility ? 90f : 124f);
             PlaceDetailRow(loreText.rectTransform, showAbility ? 120f : 126f, 108f);
             detailDivider.rectTransform.anchoredPosition = new Vector2(0, 10f);
-            detailPaper.gameObject.SetActive(!collectionExpanded && !hidden);
-            detailDivider.gameObject.SetActive(!collectionExpanded && !hidden && hasAbility);
+            detailPaper.gameObject.SetActive(!collectionExpanded);
+            detailDivider.gameObject.SetActive(!collectionExpanded && !locked && hasAbility);
             // 갈필 안쪽 테두리까지 고려해 능력명·버튼과 종이 끝 사이에 최소 60의 여백을 둔다.
             // 일반 의상도 같은 높이를 사용해 선택할 때 레이아웃이 흔들리지 않는다.
             PlaceDetailRow(detailPaper.rectTransform, 340f, 480f);
-            bool showRequirement = !hidden && selected != InkSkinId.Ink;
+            detailLockOverlay.rectTransform.anchoredPosition = detailPaper.rectTransform.anchoredPosition;
+            detailLockOverlay.rectTransform.sizeDelta = detailPaper.rectTransform.sizeDelta;
+            detailLockOverlay.gameObject.SetActive(!collectionExpanded && locked);
+            bool showRequirement = !hidden && locked && selected != InkSkinId.Ink;
             bool showProgress = !hidden && InkSkinAchievements.Goal(selected) > 0;
             achievementText.gameObject.SetActive(!collectionExpanded && showRequirement);
             progressText.gameObject.SetActive(!collectionExpanded && showProgress);
             achievementText.alignment = progressText.alignment = TextAnchor.MiddleCenter;
-            PlaceDetailRow(achievementText.rectTransform, -164f, 76f);
-            PlaceDetailRow(progressText.rectTransform, -250f, 42f);
-            PlaceDetailRow(progressTrack, -320f, 30f);
+            PlaceDetailRow(achievementText.rectTransform, 260f, 320f);
+            // 숫자는 굵어진 게이지 위에 겹쳐 그려 채움 비율과 무관하게 읽히게 한다.
+            PlaceDetailRow(progressText.rectTransform, -220f, 92f);
+            PlaceDetailRow(progressTrack, -220f, 92f);
             PlaceDetailRow(statusText.rectTransform, -164f, 120f);
         }
         static float PlaceDetailRow(RectTransform row, float top, float height)
@@ -270,7 +278,7 @@ namespace MukJump.Core
             bool changedSkin = !hasProgress || progressSkin != selected;
             bool changedValue = !Mathf.Approximately(progressTarget, target);
             progressComplete = unlocked && target >= 1f;
-            progressText.color = progressComplete ? InkPalette.Red : InkPalette.TextMuted;
+            progressText.color = InkPalette.TextLight;
             if (changedSkin || changedValue)
             {
                 // 주기적인 갱신은 번짐을 재시작하지 않는다. 계정 초기화로 줄어든 값은 즉시 반영한다.
@@ -381,19 +389,29 @@ namespace MukJump.Core
             for(int i=0;i<InkSkinCatalog.BrowseCount;i++) BuildCard(InkSkinCatalog.BrowseAt(i));
             var toggle=Button("CollectionToggle",paper,"전체 보기",new Vector2(410,860),new Vector2(230,94),30,out collectionToggleText);
             toggle.onClick.AddListener(ToggleCollection);
-            descriptionText=Label("Description",paper,"",50,new Vector2(0,-96),new Vector2(920,144),false);
-            descriptionText.color=InkPalette.Ink; descriptionText.fontStyle=FontStyle.Bold;
+            // 이름·설명과 같은 한지 모양을 검게 덮는다. 조건과 힌트는 그 위의 한 슬롯을 공유한다.
+            detailLockOverlay=SpriteImage("ItemDetailsLockOverlay",paper,InkUiStyle.ActionButtonSprite,
+                new Vector2(0,100),new Vector2(1000,480));
+            InkUiStyle.ConfigureHanjiSurface(detailLockOverlay);
+            detailLockOverlay.color=InkPalette.Ink;
+            var lockMark=SpriteImage("LockWatermark",detailLockOverlay.transform,InkUiTextureFactory.CreateLockIconSprite(),
+                Vector2.zero,Vector2.one*310f);
+            lockMark.color=new Color(1,1,1,.12f);
+            descriptionText=Label("Description",paper,"",60,new Vector2(0,100),new Vector2(840,320),false);
+            descriptionText.color=InkPalette.TextLight; descriptionText.fontStyle=FontStyle.Bold;
             descriptionText.lineSpacing=1.12f;
             foreach(var text in new[]{nameText,loreText,descriptionText})
                 if(text.TryGetComponent<Outline>(out var outline)) outline.enabled=false;
-            achievementText=Label("Achievement",paper,"",38,new Vector2(0,-152),new Vector2(960,64),true);
-            progressText=Label("AchievementProgress",paper,"",40,new Vector2(0,-212),new Vector2(800,52),true); InkLocalizedText.Exclude(progressText);
-            progressTrack=Rect("AchievementTrack",paper,new Vector2(0,-253),new Vector2(860,30));
+            achievementText=Label("Achievement",paper,"",60,new Vector2(0,100),new Vector2(840,320),true);
+            achievementText.lineSpacing=1.12f;
+            if(achievementText.TryGetComponent<Outline>(out var requirementOutline)) requirementOutline.enabled=false;
+            progressText=Label("AchievementProgress",paper,"",52,new Vector2(0,-266),new Vector2(760,92),true); InkLocalizedText.Exclude(progressText);
+            progressTrack=Rect("AchievementTrack",paper,new Vector2(0,-266),new Vector2(840,92));
             var brush=InkUiTextureFactory.CreateBrushSprite();
             var trackImage=progressTrack.gameObject.AddComponent<UnityEngine.UI.Image>();
-            trackImage.sprite=brush; trackImage.color=new Color(.11f,.106f,.102f,.16f); trackImage.raycastTarget=false;
+            trackImage.sprite=brush; trackImage.color=new Color(.11f,.106f,.102f,.78f); trackImage.raycastTarget=false;
             progressFill=Stretch("Progress",progressTrack).gameObject.AddComponent<UnityEngine.UI.Image>();
-            progressFill.sprite=brush; progressFill.color=InkPalette.Ink; progressFill.raycastTarget=false;
+            progressFill.sprite=brush; progressFill.color=InkPalette.Red; progressFill.raycastTarget=false;
             progressFill.type=UnityEngine.UI.Image.Type.Filled;
             progressFill.fillMethod=UnityEngine.UI.Image.FillMethod.Horizontal; progressFill.fillOrigin=0;
             progressFill.fillAmount=0f;
@@ -402,6 +420,7 @@ namespace MukJump.Core
             InkHudSurface.Ensure(completionSeal,true);
             var sealMark=SpriteImage("Mark",completionSeal,InkUiTextureFactory.CreateGrowthConfirmIconSprite(),Vector2.zero,Vector2.one*34f);
             sealMark.color=InkPalette.Paper; completionSeal.gameObject.SetActive(false);
+            progressText.transform.SetAsLastSibling();
             BuildEquipButton(); equipButton.onClick.AddListener(Equip);
             statusText=Label("SaveStatus",paper,"",36,new Vector2(0,-195),new Vector2(940,120),false); statusText.color=InkPalette.Red;
             var backHit=Rect("BackButton",paper,new Vector2(-420,860),new Vector2(220,120)).gameObject.AddComponent<UnityEngine.UI.Image>();

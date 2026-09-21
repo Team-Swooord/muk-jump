@@ -178,7 +178,7 @@ namespace MukJump.Core
 
         public bool OpenSkillDetails()
         {
-            if (!CanInteract() || collectionExpanded || SkinDebugSession.IsConcealed(selected) || !InkSkinCatalog.HasAbility(selected)) return false;
+            if (!CanInteract() || collectionExpanded || !SkinDebugSession.CanEquip(selected) || SkinDebugSession.IsConcealed(selected) || !InkSkinCatalog.HasAbility(selected)) return false;
             StopCollection(); swipe?.Cancel(); presentation?.Cancel();
             skillOverlay.SetAsLastSibling();
             skillOverlay.gameObject.SetActive(true); skillDetailsRoot.gameObject.SetActive(true);

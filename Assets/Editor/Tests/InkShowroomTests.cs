@@ -139,7 +139,7 @@ namespace MukJump.EditorTests
                         Assert.That(state.preferredHeight, Is.LessThanOrEqualTo(state.rectTransform.rect.height+.1f),state.text);
                         Assert.That(BoundsIn(card,viewport).yMin, Is.GreaterThanOrEqualTo(stateBounds.yMax+4));
                     }
-                    string[] rows = { "SkinName", "ItemLore", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "CollectionScroll", "EquipButton" };
+                    string[] rows = { "SkinName", "ItemLore", "Description", "Achievement", "AchievementTrack", "CollectionScroll", "EquipButton" };
                     rows = rows.Where(name => view.Paper.Find(name).gameObject.activeSelf &&
                         (view.Paper.Find(name).GetComponent<Text>() == null || !string.IsNullOrEmpty(view.Paper.Find(name).GetComponent<Text>().text))).ToArray();
                     for (int row = 1; row < rows.Length; row++)
@@ -152,7 +152,7 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
         [Category("WardrobeCarouselLayout"), Category("MythicAccessoryNaming"), Category("SpecialSkillCleanLayout")]
-        [Category("WardrobeSkillPopup")]
+        [Category("WardrobeSkillPopup"), Category("WardrobeUnlockPresentation")]
         public void EnlargedItemDetailsRemainReadableAndFitInTheirPaper(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
@@ -208,7 +208,7 @@ namespace MukJump.EditorTests
                             BoundsIn(view.Paper, detailPaper.rectTransform), 0, "능력 버튼");
                     }
                     float previousBottom = 280;
-                    foreach (string name in new[] { "SkillSummary", "SkinName", "ItemLore", "SpecialSkillButton", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "CollectionScroll" })
+                    foreach (string name in new[] { "SkillSummary", "SkinName", "ItemLore", "SpecialSkillButton", "Description", "Achievement", "AchievementTrack", "CollectionScroll" })
                     {
                         var row = (RectTransform)view.Paper.Find(name);
                         if (!row.gameObject.activeSelf) continue;
@@ -234,7 +234,7 @@ namespace MukJump.EditorTests
                         Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(row.rect.height + .1f), i + "/" + name + ": " + text.text);
                         if (name is "SkinName" or "ItemLore" or "Description")
                         {
-                            int size = name switch { "SkinName" => 76, "ItemLore" => 44, _ => 50 };
+                            int size = name switch { "SkinName" => 76, "ItemLore" => 44, _ => 60 };
                             Assert.That(text.fontSize, Is.EqualTo(language == GameLanguage.Japanese ? Mathf.RoundToInt(size * .76f) : size));
                             AssertInside(bounds, BoundsIn(view.Paper, detailPaper.rectTransform), 0, name);
                         }
@@ -259,7 +259,9 @@ namespace MukJump.EditorTests
             }
             finally { SkinDebugSession.Reset(); }
             view.Select(InkSkinId.Astronaut);
-            Assert.That(detailPaper.gameObject.activeSelf || divider.gameObject.activeSelf, Is.False);
+            Assert.That(detailPaper.gameObject.activeSelf, Is.True);
+            Assert.That(view.Paper.Find("ItemDetailsLockOverlay").gameObject.activeSelf, Is.True);
+            Assert.That(divider.gameObject.activeSelf, Is.False);
             Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.False);
             Assert.That(view.CollectionContent.Find("SkinCard" + (int)InkSkinId.Astronaut + "/SpecialSkillMark").gameObject.activeSelf, Is.False);
         }
@@ -355,6 +357,7 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
+        [Category("WardrobeUnlockPresentation")]
         public void SaveFailureFitsBetweenDescriptionAndEquipAndRestoresProgressOnRetry(GameLanguage language)
         {
             GameLocalization.SetLanguage(language); view.Select(InkSkinId.Gat);
@@ -378,6 +381,7 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
+        [Category("WardrobeUnlockPresentation")]
         public void BrushProgressUsesAccurateFillAndHidesTheSealWhenResetOrConcealed(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
@@ -420,6 +424,79 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
+        [Category("WardrobeUnlockPresentation")]
+        public void LockedDetailsUseAnOpaqueCoverAndLargeConditionsWithoutMovingCards(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language); SkinDebugSession.Reset();
+            Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(), Is.True);
+            Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(436), Is.True);
+            var overlay = view.Paper.Find("ItemDetailsLockOverlay").GetComponent<UnityEngine.UI.Image>();
+            var paper = (RectTransform)view.Paper.Find("ItemDetailsPaper");
+            var requirement = view.Paper.Find("Achievement").GetComponent<UnityEngine.UI.Text>();
+            var hint = view.Paper.Find("Description").GetComponent<UnityEngine.UI.Text>();
+            var track = (RectTransform)view.Paper.Find("AchievementTrack");
+            var number = view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>();
+            var collection = (RectTransform)view.CollectionScroll.transform;
+            Vector2 collectionPosition = collection.anchoredPosition, collectionSize = collection.sizeDelta;
+            for (int i = 0; i < InkSkinCatalog.BrowseCount; i++)
+            {
+                var id = InkSkinCatalog.BrowseAt(i);
+                view.Select(id); view.Presentation.Cancel(); Canvas.ForceUpdateCanvases();
+                bool locked = !SkinDebugSession.CanEquip(id), hidden = SkinDebugSession.IsConcealed(id);
+                Assert.That(overlay.gameObject.activeSelf, Is.EqualTo(locked), id.ToString());
+                Assert.That(overlay.color.a, Is.EqualTo(1f));
+                Assert.That(overlay.raycastTarget, Is.False);
+                Assert.That(overlay.rectTransform.anchoredPosition, Is.EqualTo(paper.anchoredPosition));
+                Assert.That(overlay.rectTransform.sizeDelta, Is.EqualTo(paper.sizeDelta));
+                var watermark = overlay.transform.Find("LockWatermark").GetComponent<UnityEngine.UI.Image>();
+                Assert.That(watermark.sprite, Is.SameAs(InkUiTextureFactory.CreateLockIconSprite()));
+                Assert.That(watermark.color.a, Is.GreaterThan(0).And.LessThan(.2f));
+                Assert.That(watermark.raycastTarget, Is.False);
+                Assert.That(view.Paper.Find("SkinName").gameObject.activeSelf, Is.EqualTo(!locked));
+                Assert.That(requirement.gameObject.activeSelf, Is.EqualTo(locked && !hidden));
+                Assert.That(hint.gameObject.activeSelf, Is.EqualTo(hidden));
+                if (locked)
+                {
+                    var label = hidden ? hint : requirement;
+                    Assert.That(label.text, Is.Not.Empty);
+                    Assert.That(label.color, Is.EqualTo(InkPalette.TextLight));
+                    Assert.That(label.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+                    Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 2), id + "/" + label.text);
+                    AssertInside(BoundsIn(view.Paper, label.rectTransform), BoundsIn(view.Paper, paper), 40, id.ToString());
+                    Assert.That(label.transform.GetSiblingIndex(), Is.GreaterThan(overlay.transform.GetSiblingIndex()));
+                    Assert.That(view.OpenSkillDetails(), Is.False);
+                }
+                if (track.gameObject.activeSelf)
+                {
+                    Assert.That(track.rect.height, Is.EqualTo(92));
+                    AssertInside(BoundsIn(view.Paper, number.rectTransform), BoundsIn(view.Paper, track), 0, "게이지 숫자");
+                    Assert.That(number.transform.GetSiblingIndex(), Is.GreaterThan(track.GetSiblingIndex()));
+                    Assert.That(number.color, Is.EqualTo(InkPalette.TextLight));
+                    Assert.That(number.preferredHeight, Is.LessThanOrEqualTo(number.rectTransform.rect.height));
+                }
+                if (hidden) Assert.That(track.gameObject.activeSelf, Is.False);
+                Assert.That(collection.anchoredPosition, Is.EqualTo(collectionPosition));
+                Assert.That(collection.sizeDelta, Is.EqualTo(collectionSize));
+            }
+            view.Select(InkSkinId.CloudDragon);
+            Assert.That(number.text, Is.EqualTo("436 / 2000"));
+            Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(2000), Is.True);
+            Invoke(view, "RefreshSelection");
+            Assert.That(overlay.gameObject.activeSelf, Is.False);
+            Assert.That(view.Paper.Find("SkinName").gameObject.activeSelf, Is.True);
+            Assert.That(requirement.gameObject.activeSelf, Is.False);
+            view.ToggleCollection();
+            Assert.That(overlay.gameObject.activeSelf, Is.False);
+            Assert.That(track.gameObject.activeSelf, Is.False);
+            view.ToggleCollection();
+            Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(0), Is.True);
+            Invoke(view, "RefreshSelection");
+            Assert.That(overlay.gameObject.activeSelf, Is.True, "계정 기록 초기화 시 잠금 복원");
+        }
+        [TestCase(GameLanguage.Korean)]
+        [TestCase(GameLanguage.English)]
+        [TestCase(GameLanguage.Japanese)]
+        [Category("WardrobeUnlockPresentation")]
         public void CompletionSealFitsBesideBrushAndDisappearsDuringSaveFailure(GameLanguage language)
         {
             GameLocalization.SetLanguage(language); view.Select(InkSkinId.Gat); Canvas.ForceUpdateCanvases();

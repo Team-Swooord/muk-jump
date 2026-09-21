@@ -244,7 +244,7 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
-        [Category("WardrobeInlineDetails")]
+        [Category("WardrobeInlineDetails"), Category("WardrobeUnlockPresentation")]
         public void WardrobePolishHasReadableLocalizedLoreAndLargerProgress(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
@@ -273,9 +273,9 @@ namespace MukJump.EditorTests
                 }
                 // 일본어는 기존 Kaisei Decol의 넓은 행 메트릭에 맞춘 .76배 보정을 유지한다.
                 float fontScale=language==GameLanguage.Japanese ? .76f : 1f;
-                Assert.That(view.Paper.Find("Description").GetComponent<UnityEngine.UI.Text>().fontSize,Is.EqualTo(Mathf.RoundToInt(50*fontScale)));
-                Assert.That(view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>().fontSize,Is.EqualTo(Mathf.RoundToInt(40*fontScale)));
-                Assert.That(((RectTransform)view.Paper.Find("AchievementTrack")).rect.height,Is.GreaterThanOrEqualTo(30));
+                Assert.That(view.Paper.Find("Description").GetComponent<UnityEngine.UI.Text>().fontSize,Is.EqualTo(Mathf.RoundToInt(60*fontScale)));
+                Assert.That(view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>().fontSize,Is.EqualTo(Mathf.RoundToInt(52*fontScale)));
+                Assert.That(((RectTransform)view.Paper.Find("AchievementTrack")).rect.height,Is.GreaterThanOrEqualTo(92));
                 view.ToggleCollection();
                 Assert.That(view.Paper.Find("ItemLore").gameObject.activeSelf,Is.False);
             }
@@ -286,7 +286,7 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
-        [Category("WardrobeSkillPopup")]
+        [Category("WardrobeSkillPopup"), Category("WardrobeUnlockPresentation")]
         public void WardrobeSummaryOpensDetailsAndKeepsTheCollectionFixed(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
@@ -366,7 +366,7 @@ namespace MukJump.EditorTests
             Assert.That(collection.anchoredPosition, Is.EqualTo(position));
         }
 
-        [Test, Category("HiddenSkinHints")]
+        [Test, Category("HiddenSkinHints"), Category("WardrobeUnlockPresentation")]
         public void HiddenSkinsShowOnlyHintsUntilDiscoveredInEveryLanguage()
         {
             InkSkinChart.Reset(); SkinDebugSession.Reset();
@@ -414,7 +414,7 @@ namespace MukJump.EditorTests
             finally { SkinDebugSession.Reset(); GameLocalization.SetLanguage(languageBefore); }
         }
 
-        [Test, Category("WardrobeSkillPopup")]
+        [Test, Category("WardrobeSkillPopup"), Category("WardrobeUnlockPresentation")]
         public void WardrobeSkillPopupClearsHiddenAccountContentAndStopsBackgroundScroll()
         {
             var view = Track(new GameObject("InlineSkillLifecycle")).AddComponent<InkWardrobeView>();
@@ -426,6 +426,7 @@ namespace MukJump.EditorTests
             SkinDebugSession.Reset();
             PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
             Invoke(view, "RefreshSelection");
+            Assert.That(view.IsSkillDetailsOpen, Is.False, "계정 교체로 잠긴 능력 팝업은 닫는다");
             Assert.That(view.SkillDetailsRoot.Find("CostumeIcon").GetComponent<UnityEngine.UI.Image>().color, Is.EqualTo(Color.black));
             view.CloseSkillDetails();
             view.Select(InkSkinId.Astronaut);

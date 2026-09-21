@@ -17,7 +17,7 @@ namespace MukJump.EditorTests
 {
     public sealed class InkSkinSkillPresentationTests
     {
-        [UnityTest, Category("HiddenSkinHints"), Timeout(120000)]
+        [UnityTest, Category("HiddenSkinHints"), Category("WardrobeUnlockVisual"), Timeout(120000)]
         public IEnumerator HiddenHintsAreReadableBeforeAndAfterDiscovery()
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
@@ -37,6 +37,7 @@ namespace MukJump.EditorTests
                 Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return Navigation();
                 var view = Object.FindAnyObjectByType<InkWardrobeView>();
                 var description = view.Paper.Find("Description").GetComponent<UnityEngine.UI.Text>();
+                Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(436), Is.True);
                 foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
                 {
                     GameLocalization.SetLanguage(language); view.Select(InkSkinId.ThreeCushion); yield return Wait(.5f);
@@ -44,7 +45,21 @@ namespace MukJump.EditorTests
                     Assert.That(description.text, Is.EqualTo(GameLocalization.Translate(InkSkinLore.Get(InkSkinId.ThreeCushion).ko)));
                     Assert.That(description.preferredHeight, Is.LessThanOrEqualTo(description.rectTransform.rect.height + 2));
                     yield return Capture("hidden-hint-" + language);
+                    Assert.That(view.Paper.Find("ItemDetailsLockOverlay").gameObject.activeSelf, Is.True);
+                    view.Select(InkSkinId.CloudDragon); yield return Wait(.5f);
+                    Assert.That(view.Paper.Find("Achievement").GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo(GameLocalization.Translate(InkSkinAchievements.Requirement(InkSkinId.CloudDragon))));
+                    Assert.That(view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>().text, Is.EqualTo("436 / 2000"));
+                    yield return Capture("wardrobe-locked-progress-" + language);
+                    yield return PlayerInputFrame(() => Click((RectTransform)view.Paper.Find("CollectionToggle")));
+                    Assert.That(view.Paper.Find("ItemDetailsLockOverlay").gameObject.activeSelf, Is.False);
+                    yield return PlayerInputFrame(() => Click((RectTransform)view.Paper.Find("CollectionToggle")));
                 }
+                GameLocalization.SetLanguage(GameLanguage.Korean);
+                Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(2000), Is.True);
+                yield return Wait(.5f);
+                Assert.That(view.Paper.Find("ItemDetailsLockOverlay").gameObject.activeSelf, Is.False);
+                yield return Capture("wardrobe-unlocked-progress-Korean");
                 GameLocalization.SetLanguage(GameLanguage.Korean); SkinDebugSession.SetAllUnlocked(true);
                 view.Select(InkSkinId.ThreeCushion); yield return Wait(.6f);
                 Assert.That(description.gameObject.activeSelf, Is.False);

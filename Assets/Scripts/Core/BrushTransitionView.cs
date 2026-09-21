@@ -611,8 +611,8 @@ namespace MukJump.Core
         static Texture2D hanjiMoonTexture;
         static Texture2D batMoonTexture;
         static Texture2D growthPaperRibbonTexture;
-        static readonly Sprite[] growthNavigationSprites = new Sprite[3];
-        static readonly Texture2D[] growthNavigationTextures = new Texture2D[3];
+        static readonly Sprite[] growthNavigationSprites = new Sprite[4];
+        static readonly Texture2D[] growthNavigationTextures = new Texture2D[4];
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ReleaseRuntimeAssets()
@@ -686,8 +686,9 @@ namespace MukJump.Core
         public static Sprite CreateGrowthBackIconSprite() => CreateGrowthNavigationIcon(0);
         public static Sprite CreateGrowthResetIconSprite() => CreateGrowthNavigationIcon(1);
         public static Sprite CreateGrowthConfirmIconSprite() => CreateGrowthNavigationIcon(2);
+        public static Sprite CreateLockIconSprite() => CreateGrowthNavigationIcon(3);
 
-        // 배경판 없이 같은 먹선 굵기로 그린 뒤로·되돌림·확인 아이콘. 생성은 종류별 한 번뿐이다.
+        // 배경판 없이 같은 먹선 굵기로 그린 뒤로·되돌림·확인·잠금 아이콘. 생성은 종류별 한 번뿐이다.
         static Sprite CreateGrowthNavigationIcon(int kind)
         {
             if (growthNavigationSprites[kind] != null) return growthNavigationSprites[kind];
@@ -709,8 +710,22 @@ namespace MukJump.Core
                 Vector2 tip = arc[32];
                 paths = new[] { arc, new[] { tip + new Vector2(-.02f, .18f), tip, tip + new Vector2(.18f, -.025f) } };
             }
-            else
+            else if (kind == 2)
                 paths = new[] { new[] { new Vector2(.20f, .49f), new Vector2(.42f, .28f), new Vector2(.80f, .75f) } };
+            else
+            {
+                var shackle = new Vector2[19];
+                shackle[0] = new Vector2(.30f, .53f);
+                for (int i = 0; i <= 16; i++)
+                {
+                    float angle = Mathf.PI * (1f - i / 16f);
+                    shackle[i + 1] = new Vector2(.5f, .66f) + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * .20f;
+                }
+                shackle[18] = new Vector2(.70f, .53f);
+                paths = new[] { shackle,
+                    new[] { new Vector2(.23f,.53f), new Vector2(.77f,.53f), new Vector2(.77f,.17f), new Vector2(.23f,.17f), new Vector2(.23f,.53f) },
+                    new[] { new Vector2(.50f,.40f), new Vector2(.50f,.29f) } };
+            }
 
             const int size = 128;
             var pixels = new Color32[size * size];
@@ -735,7 +750,7 @@ namespace MukJump.Core
             texture.SetPixels32(pixels);
             texture.Apply(false, true);
             Sprite sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(.5f, .5f), 100f);
-            sprite.name = kind == 0 ? "GrowthBackIcon" : kind == 1 ? "GrowthResetIcon" : "GrowthConfirmIcon";
+            sprite.name = kind == 0 ? "GrowthBackIcon" : kind == 1 ? "GrowthResetIcon" : kind == 2 ? "GrowthConfirmIcon" : "WardrobeLockIcon";
             growthNavigationTextures[kind] = texture;
             growthNavigationSprites[kind] = sprite;
             return sprite;
