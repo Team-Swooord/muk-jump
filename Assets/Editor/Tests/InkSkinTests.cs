@@ -345,9 +345,57 @@ namespace MukJump.EditorTests
             view.Select(InkSkinId.Astronaut);
             Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.False);
             Assert.That(description.gameObject.activeSelf, Is.True);
-            Assert.That(description.text, Is.EqualTo(GameLocalization.Translate("숨겨진 행동으로 발견해 보세요.")));
+            Assert.That(description.text, Is.EqualTo(GameLocalization.Translate(InkSkinLore.Get(InkSkinId.Astronaut).ko)));
             Assert.That(collection.sizeDelta, Is.EqualTo(size));
             Assert.That(collection.anchoredPosition, Is.EqualTo(position));
+        }
+
+        [Test, Category("HiddenSkinHints")]
+        public void HiddenSkinsShowOnlyHintsUntilDiscoveredInEveryLanguage()
+        {
+            InkSkinChart.Reset(); SkinDebugSession.Reset();
+            var view = Track(new GameObject("HiddenHintDetails")).AddComponent<InkWardrobeView>();
+            view.BuildForTests(Idle()); view.SetNavigationPresentation(true, true);
+            var description = view.Paper.Find("Description").GetComponent<UnityEngine.UI.Text>();
+            var name = view.Paper.Find("SkinName").GetComponent<UnityEngine.UI.Text>();
+            var lore = view.Paper.Find("ItemLore").GetComponent<UnityEngine.UI.Text>();
+            var preview = view.Paper.Find("ShowroomStage/Preview");
+            var body = preview.Find("OriginalInkBody").GetComponent<UnityEngine.UI.Image>();
+            var accessory = preview.Find("Accessory").GetComponent<UnityEngine.UI.Image>();
+            var collection = (RectTransform)view.CollectionScroll.transform;
+            Vector2 size = collection.sizeDelta, position = collection.anchoredPosition;
+            var hidden = Enumerable.Range(0, InkSkinCatalog.Count).Select(i => (InkSkinId)i)
+                .Where(id => InkSkinCatalog.BuiltIn(id).Tier is SkinTier.Hidden or SkinTier.UltraHidden).ToArray();
+            var languageBefore = GameLocalization.Language;
+            try
+            {
+                foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
+                {
+                    GameLocalization.SetLanguage(language);
+                    foreach (var id in hidden)
+                    {
+                        view.Select(id); view.Presentation.Cancel(); Canvas.ForceUpdateCanvases();
+                        Assert.That(InkSkinCatalog.IsConcealed(id), Is.True, id.ToString());
+                        Assert.That(description.gameObject.activeSelf, Is.True);
+                        Assert.That(description.text, Is.EqualTo(GameLocalization.Translate(InkSkinLore.Get(id).ko)));
+                        Assert.That(description.preferredHeight, Is.LessThanOrEqualTo(description.rectTransform.rect.height + 2));
+                        Assert.That(name.text, Is.Empty); Assert.That(lore.text, Is.Empty);
+                        Assert.That(body.enabled || accessory.enabled || view.SkillButton.gameObject.activeSelf, Is.False);
+                        Assert.That(collection.sizeDelta, Is.EqualTo(size));
+                        Assert.That(collection.anchoredPosition, Is.EqualTo(position));
+                    }
+                }
+                Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+                foreach (var id in hidden)
+                {
+                    view.Select(id); view.Presentation.Cancel();
+                    Assert.That(description.gameObject.activeSelf, Is.False);
+                    Assert.That(name.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Name(id))));
+                    Assert.That(lore.text, Is.EqualTo(GameLocalization.Translate(InkSkinLore.Get(id).ko)));
+                    Assert.That(body.enabled && accessory.enabled, Is.True);
+                }
+            }
+            finally { SkinDebugSession.Reset(); GameLocalization.SetLanguage(languageBefore); }
         }
 
         [Test, Category("WardrobeSkillPopup")]

@@ -86,6 +86,7 @@ namespace MukJump.Core
                                     _ => text
                                 };
                             }
+                            if (field == "lore") text = InkSkinLore.UpgradeLegacyHiddenHint(id, lang, text);
                             text = UpgradeLegacyCopy(id, field + lang, text);
                             if (field == "abilityDescription" && cooldown > 0 && !text.Contains("{cooldown}"))
                                 throw new FormatException(field + lang + " 쿨타임 치환자 필요");

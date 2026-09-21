@@ -168,7 +168,7 @@ namespace MukJump.Core
             bool equipped = InkSkinPreferences.Equipped == selected;
             InkLocalizedText.SetSource(nameText, hidden ? "" : InkSkinCatalog.Name(selected));
             InkLocalizedText.SetSource(loreText, hidden ? "" : InkSkinLore.Get(selected).ko);
-            InkLocalizedText.SetSource(descriptionText, hidden ? "숨겨진 행동으로 발견해 보세요." : "");
+            InkLocalizedText.SetSource(descriptionText, hidden ? InkSkinLore.Get(selected).ko : "");
             RefreshDetailLayout(hidden, hasAbility);
             RefreshInlineSkill(hidden, hasAbility);
             previewQuestion.enabled = hidden;

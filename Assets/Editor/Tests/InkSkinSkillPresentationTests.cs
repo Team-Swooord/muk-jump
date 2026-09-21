@@ -17,6 +17,52 @@ namespace MukJump.EditorTests
 {
     public sealed class InkSkinSkillPresentationTests
     {
+        [UnityTest, Category("HiddenSkinHints"), Timeout(120000)]
+        public IEnumerator HiddenHintsAreReadableBeforeAndAfterDiscovery()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool background = Application.runInBackground; Application.runInBackground = true;
+            var settings = new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true); SkinDebugSession.Reset();
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                if (MukJumpAccountRuntime.Instance != null) MukJumpAccountRuntime.Instance.enabled = false;
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return Navigation();
+                var view = Object.FindAnyObjectByType<InkWardrobeView>();
+                var description = view.Paper.Find("Description").GetComponent<UnityEngine.UI.Text>();
+                foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
+                {
+                    GameLocalization.SetLanguage(language); view.Select(InkSkinId.ThreeCushion); yield return Wait(.5f);
+                    Assert.That(view.Paper.Find("SkinName").GetComponent<UnityEngine.UI.Text>().text, Is.Empty);
+                    Assert.That(description.text, Is.EqualTo(GameLocalization.Translate(InkSkinLore.Get(InkSkinId.ThreeCushion).ko)));
+                    Assert.That(description.preferredHeight, Is.LessThanOrEqualTo(description.rectTransform.rect.height + 2));
+                    yield return Capture("hidden-hint-" + language);
+                }
+                GameLocalization.SetLanguage(GameLanguage.Korean); SkinDebugSession.SetAllUnlocked(true);
+                view.Select(InkSkinId.ThreeCushion); yield return Wait(.6f);
+                Assert.That(description.gameObject.activeSelf, Is.False);
+                Assert.That(view.Paper.Find("SkinName").GetComponent<UnityEngine.UI.Text>().text, Is.EqualTo("팔번공"));
+                Assert.That(view.Paper.Find("ItemLore").GetComponent<UnityEngine.UI.Text>().text, Is.EqualTo("한 번 던져, 벽에 세 번"));
+                yield return Capture("hidden-hint-discovered");
+            }
+            finally
+            {
+                SkinDebugSession.Reset(); MobileApplicationLifecycle.SetPlatformVisibility(true);
+                Application.runInBackground = background; Time.timeScale = 1;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests(); PointerInput.ResetSuppressionForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+
         [UnityTest, Category("WardrobeSkillPopupVisual"), Timeout(120000)]
         public IEnumerator WardrobeAOpensCAndReturnsToTheSameCostume()
         {

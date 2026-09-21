@@ -51,21 +51,21 @@ namespace MukJump.Core
             _ => ("???", "???", "???") };
 
         public static (string ko, string en, string ja) Lore(InkSkinId id) => id switch {
-            InkSkinId.ZodiacRat => ("달 뜨면 벼루 창고가 한 칸 빈다.", "Moon up. One shelf of ink goes missing.", "月が出ると、硯の棚がひとつ空く。"),
-            InkSkinId.ZodiacOx => ("서두르지 않았는데 제일 먼저 왔다.", "Never hurried. Arrived first anyway.", "急がなかったのに、いちばん乗り。"),
-            InkSkinId.ZodiacTiger => ("아직 포효보다 하품이 더 크다.", "Its yawn is still louder than its roar.", "雄叫びより、あくびの方が大きい。"),
-            InkSkinId.ZodiacRabbit => ("떡은 두고 귀만 빌려 왔다.", "Left the rice cakes. Borrowed the ears.", "お餅は置いて、耳だけ借りてきた。"),
-            InkSkinId.ZodiacDragon => ("승천 연습은 낮잠 다음에.", "Ascension practice comes after a nap.", "昇天の練習は、お昼寝のあと。"),
-            InkSkinId.ZodiacSnake => ("리본인 줄 알고 묶을 뻔했다.", "Almost tied it. Thought it was a ribbon.", "リボンと思って、結ぶところだった。"),
-            InkSkinId.ZodiacHorse => ("발굽 대신 바람 소리만 남겼다.", "Left a breeze instead of hoofprints.", "ひづめの跡の代わりに、風の音。"),
-            InkSkinId.ZodiacGoat => ("산길은 곧게 걷고, 뿔만 둥글게 말았다.", "Walked the mountain trail straight. Only the horns took a turn.", "山道はまっすぐ歩いた。巻いたのは角だけ。"),
-            InkSkinId.ZodiacMonkey => ("손이 모자라면 꼬리부터 내민다.", "Short a hand? The tail volunteers first.", "手が足りなければ、しっぽが先に伸びる。"),
-            InkSkinId.ZodiacRooster => ("해보다 조금 늦게 일어난다.", "Wakes just a little after the sun.", "お日さまより、少し寝坊する。"),
-            InkSkinId.ZodiacDog => ("문 대신 친구의 그림자를 지킨다.", "Guards a friend's shadow, not a gate.", "門ではなく、友だちの影を守る。"),
-            InkSkinId.ZodiacPig => ("복을 불렀더니 간식도 왔다.", "Called for luck. Snacks came too.", "福を呼んだら、おやつも来た。"),
-            InkSkinId.HaetaeCrest => ("나쁜 꿈만 콕 찌르는 작은 뿔.", "A tiny horn for poking bad dreams away.", "悪い夢だけ、ちくりと追い払う角。"),
-            InkSkinId.ThreeLeggedCrow => ("세 발로도 아침엔 자꾸 헛디딘다.", "Three feet. Still stumbles in the morning.", "三本足でも、朝はつまずく。"),
-            InkSkinId.NineTails => ("꼬리는 아홉인데, 속마음은 하나도 안 보인다.", "Nine tails. Not a single clue what it is thinking.", "尾は九つ。心の内はひとつも見えない。"),
+            InkSkinId.ZodiacRat => ("밤참 세 개, 50만큼", "Three night snacks, up to 50", "夜食は三つ、50まで"),
+            InkSkinId.ZodiacOx => ("스무 번 꾹꾹, 일 분 버티기", "Twenty firm steps, one minute", "二十回ふみふみ、一分がまん"),
+            InkSkinId.ZodiacTiger => ("밤사냥은 빈손으로", "Night hunting, empty-handed", "夜の狩りは手ぶらで"),
+            InkSkinId.ZodiacRabbit => ("달을 쓰고 밤길 200", "Wear the moon, climb 200 at night", "月をかぶって、夜道を200"),
+            InkSkinId.ZodiacDragon => ("꼬리 달고 300까지", "Tail on, up to 300", "しっぽをつけて300まで"),
+            InkSkinId.ZodiacSnake => ("거미는 열두 번 콩콩", "The spider hops twelve times", "蜘蛛は十二回ぴょんぴょん"),
+            InkSkinId.ZodiacHorse => ("300까지 일 분이면 돼", "One minute to finish at 300", "300まで、一分あればいい"),
+            InkSkinId.ZodiacGoat => ("서른 번 딛고 200까지", "Thirty steps, up to 200", "三十回ふんで200まで"),
+            InkSkinId.ZodiacMonkey => ("셋이서 간식 다섯 개", "Three friends, five snacks", "三人でおやつ五つ"),
+            InkSkinId.ZodiacRooster => ("해 뜨면 먹방울 셋", "Sun's up, three Ink Drops", "日が出たら墨滴三つ"),
+            InkSkinId.ZodiacDog => ("둘이서 일 분 반", "Two friends, a minute and a half", "二人で一分半"),
+            InkSkinId.ZodiacPig => ("열둘 먹고 꿀꿀", "Twelve treats, oink oink", "十二個食べて、ぶうぶう"),
+            InkSkinId.HaetaeCrest => ("현무는 250까지 빈손", "Hyunmu goes to 250 empty-handed", "玄武は250まで手ぶら"),
+            InkSkinId.ThreeLeggedCrow => ("밤에는 셋셋셋", "Three-three-three by night", "夜は三・三・三"),
+            InkSkinId.NineTails => ("여우 셋이서 300까지", "Three foxes, up to 300", "三匹の狐で300まで"),
             _ => ("???", "???", "???") };
     }
 }

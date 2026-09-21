@@ -129,13 +129,46 @@ namespace MukJump.Core
             return result;
         }
     }
-    /// 효과 수치와 분리된 짧은 창작 뒷이야기. 발견 전 비밀 의상에는 표시하지 않는다.
+    /// 일반 의상은 짧은 이야기, 비밀 의상은 발견 전에도 읽을 수 있는 한 줄 해금 힌트.
     public static class InkSkinLore
     {
         public static (string ko, string en, string ja) Get(InkSkinId id)
         {
             var d = BuiltIn(id);
             return (InkSkinChart.Text(id, "loreKo", d.ko), InkSkinChart.Text(id, "loreEn", d.en), InkSkinChart.Text(id, "loreJa", d.ja));
+        }
+        // 구 차트의 창작 이야기만 힌트로 바꾼다. 엑셀에서 새로 작성한 힌트는 그대로 보존한다.
+        internal static string UpgradeLegacyHiddenHint(InkSkinId id, string language, string text)
+        {
+            (string ko, string en, string ja) legacy = id switch
+            {
+                InkSkinId.InkGhost => ("다 쓴 종이도 가끔 꿈을 꾼다.", "Even used paper dreams sometimes.", "使い終えた紙も、ときどき夢を見る。"),
+                InkSkinId.NightBat => ("달에 신호가 뜨면, 이름 없는 지붕의 주인이 깨어난다.", "When the signal reaches the moon, a nameless rooftop guardian wakes.", "月に合図が浮かぶと、名もなき屋根の守り手が目を覚ます。"),
+                InkSkinId.Astronaut => ("달에 떡이 있는지 확인하러 간다.", "Off to check if the moon has rice cakes.", "月にお餅があるか、確かめに行く。"),
+                InkSkinId.ClockworkCat => ("태엽을 감으면 오히려 잠이 든다.", "Winding it up only puts it to sleep.", "ぜんまいを巻くと、かえって眠くなる。"),
+                InkSkinId.LuckyDice => ("일곱 번째 눈은 굴린 먹만 보인다.", "Only the roller can see the seventh face.", "七つ目の目は、振った墨にしか見えない。"),
+                InkSkinId.ZodiacRat => ("달 뜨면 벼루 창고가 한 칸 빈다.", "Moon up. One shelf of ink goes missing.", "月が出ると、硯の棚がひとつ空く。"),
+                InkSkinId.ZodiacOx => ("서두르지 않았는데 제일 먼저 왔다.", "Never hurried. Arrived first anyway.", "急がなかったのに、いちばん乗り。"),
+                InkSkinId.ZodiacTiger => ("아직 포효보다 하품이 더 크다.", "Its yawn is still louder than its roar.", "雄叫びより、あくびの方が大きい。"),
+                InkSkinId.ZodiacRabbit => ("떡은 두고 귀만 빌려 왔다.", "Left the rice cakes. Borrowed the ears.", "お餅は置いて、耳だけ借りてきた。"),
+                InkSkinId.ZodiacDragon => ("승천 연습은 낮잠 다음에.", "Ascension practice comes after a nap.", "昇天の練習は、お昼寝のあと。"),
+                InkSkinId.ZodiacSnake => ("리본인 줄 알고 묶을 뻔했다.", "Almost tied it. Thought it was a ribbon.", "リボンと思って、結ぶところだった。"),
+                InkSkinId.ZodiacHorse => ("발굽 대신 바람 소리만 남겼다.", "Left a breeze instead of hoofprints.", "ひづめの跡の代わりに、風の音。"),
+                InkSkinId.ZodiacGoat => ("산길은 곧게 걷고, 뿔만 둥글게 말았다.", "Walked the mountain trail straight. Only the horns took a turn.", "山道はまっすぐ歩いた。巻いたのは角だけ。"),
+                InkSkinId.ZodiacMonkey => ("손이 모자라면 꼬리부터 내민다.", "Short a hand? The tail volunteers first.", "手が足りなければ、しっぽが先に伸びる。"),
+                InkSkinId.ZodiacRooster => ("해보다 조금 늦게 일어난다.", "Wakes just a little after the sun.", "お日さまより、少し寝坊する。"),
+                InkSkinId.ZodiacDog => ("문 대신 친구의 그림자를 지킨다.", "Guards a friend's shadow, not a gate.", "門ではなく、友だちの影を守る。"),
+                InkSkinId.ZodiacPig => ("복을 불렀더니 간식도 왔다.", "Called for luck. Snacks came too.", "福を呼んだら、おやつも来た。"),
+                InkSkinId.HaetaeCrest => ("나쁜 꿈만 콕 찌르는 작은 뿔.", "A tiny horn for poking bad dreams away.", "悪い夢だけ、ちくりと追い払う角。"),
+                InkSkinId.ThreeLeggedCrow => ("세 발로도 아침엔 자꾸 헛디딘다.", "Three feet. Still stumbles in the morning.", "三本足でも、朝はつまずく。"),
+                InkSkinId.NineTails => ("꼬리는 아홉인데, 속마음은 하나도 안 보인다.", "Nine tails. Not a single clue what it is thinking.", "尾は九つ。心の内はひとつも見えない。"),
+                InkSkinId.ThreeCushion => ("큐대는 못 잡아도, 각은 제법 잘 본다.", "Can't hold a cue. Can still work the angles.", "キューは持てないが、角度を読むのは得意。"),
+                _ => (null, null, null)
+            };
+            string previous = language switch { "Ko" => legacy.ko, "En" => legacy.en, _ => legacy.ja };
+            if (previous == null || text != previous) return text;
+            var hint = BuiltIn(id);
+            return language switch { "Ko" => hint.ko, "En" => hint.en, _ => hint.ja };
         }
         public static (string ko, string en, string ja) BuiltIn(InkSkinId id) => InkMythicSkins.Contains(id) ? InkMythicSkins.Lore(id) : id switch {
             InkSkinId.AngelWings => ("돌아갈 곳을 잃은 빛이 먹 위에 머문다", "A light with nowhere to return rests above Ink", "帰る場所を失った光が、墨の上にとどまる"),
@@ -144,7 +177,7 @@ namespace MukJump.Core
             InkSkinId.SpiderMask => ("거미에게 물린 적은 없다", "Never been bitten by a spider", "蜘蛛に噛まれたことはない"),
             InkSkinId.FirstRibbon => ("풀 줄 몰라서 아직 첫 매듭이다.", "Still the first knot. Nobody can untie it.", "ほどけないので、まだ最初の結び目。"),
             InkSkinId.Scholar => ("붓보다 낮잠에 더 익숙한 선비의 관.", "Its scholar preferred naps to calligraphy.", "書より昼寝が得意な書生の冠。"),
-            InkSkinId.InkGhost => ("다 쓴 종이도 가끔 꿈을 꾼다.", "Even used paper dreams sometimes.", "使い終えた紙も、ときどき夢を見る。"),
+            InkSkinId.InkGhost => ("그린 길은 밟지 않아", "Drawn paths? Not stepping there", "描いた道は踏まないよ"),
             InkSkinId.BambooHat => ("비는 막아도 먹 번짐은 못 막는다.", "Keeps out rain. Ink stains, not so much.", "雨は防げても、墨のにじみは防げない。"),
             InkSkinId.RedHeadband => ("백 번 넘어져도 매듭은 그대로였다.", "A hundred falls. The knot held firm.", "百回転んでも、結び目はそのまま。"),
             InkSkinId.LotusCrown => ("연못지기가 잃어버린 작은 왕관.", "The pond keeper's missing little crown.", "池の番人がなくした小さな冠。"),
@@ -169,10 +202,10 @@ namespace MukJump.Core
             InkSkinId.MountainKing => ("산꼭대기에 먼저 앉은 먹의 왕관.", "Crown of the first Ink to sit on the summit.", "山頂に一番乗りした墨の冠。"),
             InkSkinId.CloudDragon => ("승천 연습은 아직 구름 속에서만.", "Still practicing ascension inside a cloud.", "昇天の練習は、まだ雲の中だけ。"),
             InkSkinId.InkMecha => ("대장간의 실패작. 종이로는 첫 성공작.", "Failed in iron. A triumph in cardboard.", "鉄では失敗作。紙では初の成功作。"),
-            InkSkinId.NightBat => ("달에 신호가 뜨면, 이름 없는 지붕의 주인이 깨어난다.", "When the signal reaches the moon, a nameless rooftop guardian wakes.", "月に合図が浮かぶと、名もなき屋根の守り手が目を覚ます。"),
-            InkSkinId.Astronaut => ("달에 떡이 있는지 확인하러 간다.", "Off to check if the moon has rice cakes.", "月にお餅があるか、確かめに行く。"),
-            InkSkinId.ClockworkCat => ("태엽을 감으면 오히려 잠이 든다.", "Winding it up only puts it to sleep.", "ぜんまいを巻くと、かえって眠くなる。"),
-            InkSkinId.LuckyDice => ("일곱 번째 눈은 굴린 먹만 보인다.", "Only the roller can see the seventh face.", "七つ目の目は、振った墨にしか見えない。"),
+            InkSkinId.NightBat => ("로비의 세 번째 밤", "The lobby's third night", "ロビーの三度目の夜"),
+            InkSkinId.Astronaut => ("낮밤낮밤낮밤", "Day, night, day, night, day, night", "昼夜昼夜昼夜"),
+            InkSkinId.ClockworkCat => ("밤고양이는 60초째 빈손", "Night cat, empty paws for 60s", "夜の猫、60秒ずっと手ぶら"),
+            InkSkinId.LuckyDice => ("딱 777이 좋아", "Exactly 777, please", "ぴったり777が好き"),
             InkSkinId.OrigamiWings => ("끝까지 버틴 종이는 날개가 된다.", "Paper that holds on becomes a pair of wings.", "最後まで持ちこたえた紙は、翼になる。"),
             InkSkinId.CraneWings => ("빌린 날개라 깃털은 돌려줘야 한다.", "Borrowed wings. Please return every feather.", "借りた翼なので、羽は全部返すこと。"),
             InkSkinId.ButterflyWings => ("먹이 묻은 줄 모르고 날아온 나비.", "A butterfly unaware of its ink stains.", "墨がついたとも知らず、飛んできた蝶。"),
@@ -184,7 +217,7 @@ namespace MukJump.Core
             InkSkinId.BondKnot => ("서로 다른 시간을 하나로 묶은 매듭", "A knot that binds different times together", "異なる時間をひとつに結んだ結び目"),
             InkSkinId.WindFan => ("부채를 펼치면, 바람의 흐름이 바뀔거같다.", "Open the fan, and the wind might change its course.", "扇を開けば、風の流れが変わりそうだ。"),
             InkSkinId.DragonTail => ("한 번 부딪혔을 뿐인데 꼬리가 따라왔다.", "One little bump. A tail followed me home.", "一度ぶつかっただけなのに、しっぽがついてきた。"),
-            InkSkinId.ThreeCushion => ("큐대는 못 잡아도, 각은 제법 잘 본다.", "Can't hold a cue. Can still work the angles.", "キューは持てないが、角度を読むのは得意。"),
+            InkSkinId.ThreeCushion => ("한 번 던져, 벽에 세 번", "One toss, three wall bounces", "一度投げて、壁に三回"),
             _ => ("", "", "")
         };
     }
