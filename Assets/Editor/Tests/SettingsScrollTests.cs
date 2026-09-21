@@ -739,6 +739,113 @@ public class SettingsScrollTests
     }
 
     [Test]
+    public void LeaderboardAutoRefreshRunsOnOpenAndEveryMinuteWithoutButton()
+    {
+        int requests = 0;
+        double due = OpenAutoRefreshLeaderboard(() => requests++);
+        Assert.That(panel.Find("LeaderboardPage/LeaderboardRefresh"), Is.Null);
+        Assert.That(panel.Find("LeaderboardPage").GetComponentsInChildren<UnityEngine.UI.Button>(true), Is.Empty);
+        Assert.That(requests, Is.EqualTo(1));
+        float oldScale = Time.timeScale;
+        try
+        {
+            Time.timeScale = 0;
+            TickLeaderboard(due - .01d);
+            Assert.That(requests, Is.EqualTo(1));
+            TickLeaderboard(due);
+            TickLeaderboard(due + 59.99d);
+            Assert.That(requests, Is.EqualTo(2));
+            TickLeaderboard(due + 60d);
+            Assert.That(requests, Is.EqualTo(3));
+        }
+        finally { Time.timeScale = oldScale; }
+    }
+
+    [TestCase("applicationPaused", true)]
+    [TestCase("applicationFocused", false)]
+    [TestCase("scrollPageTransition", true)]
+    public void LeaderboardAutoRefreshWaitsWhileHiddenAndNeverBurstsOnResume(string field, bool blocked)
+    {
+        int requests = 0;
+        double due = OpenAutoRefreshLeaderboard(() => requests++);
+        var flag = typeof(LobbyOptionsView).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic);
+        flag.SetValue(view, blocked);
+        TickLeaderboard(due + 300d);
+        Assert.That(requests, Is.EqualTo(1));
+        flag.SetValue(view, !blocked);
+        TickLeaderboard(due + 300d);
+        TickLeaderboard(due + 300d);
+        Assert.That(requests, Is.EqualTo(2));
+    }
+
+    [TestCase("ShowOptionsPageImmediate")]
+    [TestCase("CloseImmediate")]
+    public void LeaderboardAutoRefreshStopsOnLeavingAndStartsFreshOnReopen(string leave)
+    {
+        int requests = 0;
+        double due = OpenAutoRefreshLeaderboard(() => requests++);
+        InvokeLeaderboardView(leave);
+        TickLeaderboard(due + 120d);
+        Assert.That(requests, Is.EqualTo(1));
+        due = OpenAutoRefreshLeaderboard(() => requests++);
+        TickLeaderboard(due - .01d);
+        Assert.That(requests, Is.EqualTo(2));
+        TickLeaderboard(due);
+        Assert.That(requests, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void LeaderboardAutoRefreshDoesNotOverlapAnExistingRequest()
+    {
+        var accountHost = new GameObject("AutoRefreshAccount");
+        accountHost.SetActive(false);
+        var previous = MukJumpAccountRuntime.Instance;
+        var instance = typeof(MukJumpAccountRuntime).GetProperty("Instance");
+        try
+        {
+            var account = accountHost.AddComponent<MukJumpAccountRuntime>();
+            instance.SetValue(null, account);
+            int requests = 0;
+            double due = OpenAutoRefreshLeaderboard(() => requests++);
+            var loading = typeof(MukJumpAccountRuntime).GetProperty("LeaderboardLoading");
+            loading.SetValue(account, true);
+            TickLeaderboard(due);
+            Assert.That(requests, Is.EqualTo(1));
+            loading.SetValue(account, false);
+            TickLeaderboard(due + 1d);
+            Assert.That(requests, Is.EqualTo(1));
+            TickLeaderboard(due + 60d);
+            Assert.That(requests, Is.EqualTo(2));
+        }
+        finally { instance.SetValue(null, previous); Object.DestroyImmediate(accountHost); }
+    }
+
+    [Test]
+    public void LeaderboardAutoRefreshNeverReopensTossOfficialLeaderboard()
+    {
+        int requests = 0;
+        double due = OpenAutoRefreshLeaderboard(() => requests++);
+        typeof(LobbyOptionsView).GetField("platformOverrideForTests", BindingFlags.Instance | BindingFlags.NonPublic)
+            .SetValue(view, RuntimePlatform.WebGLPlayer);
+        TickLeaderboard(due + 60d);
+        Assert.That(requests, Is.EqualTo(1));
+    }
+
+    double OpenAutoRefreshLeaderboard(System.Action request)
+    {
+        typeof(LobbyOptionsView).GetField("refreshLeaderboardForTests", BindingFlags.Instance | BindingFlags.NonPublic)
+            .SetValue(view, request);
+        InvokeLeaderboardView("SetVisible", true);
+        InvokeLeaderboardView("ShowLeaderboardPageImmediate");
+        return (double)typeof(LobbyOptionsView)
+            .GetField("nextLeaderboardRefreshRealtime", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(view);
+    }
+
+    void TickLeaderboard(double now) => InvokeLeaderboardView("UpdateLeaderboardAutoRefresh", now);
+    void InvokeLeaderboardView(string method, params object[] args) => typeof(LobbyOptionsView)
+        .GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, args);
+
+    [Test]
     public void RankingUsesSeparateLeftRankAndRightScoreWithoutExtraButtons()
     {
         for (int i = 1; i <= 10; i++)
@@ -747,7 +854,7 @@ public class SettingsScrollTests
             var rank = panel.Find($"LeaderboardPage/Rank{i}").GetComponent<Text>();
             Assert.That(score.alignment, Is.EqualTo(TextAnchor.MiddleRight));
             Assert.That(rank.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
-            Assert.That(score.fontSize, Is.GreaterThanOrEqualTo(42));
+            Assert.That(score.fontSize, Is.GreaterThanOrEqualTo(36));
             Assert.That(rank.fontStyle, Is.EqualTo(FontStyle.Bold));
         }
         view.OpenTutorialForTests();

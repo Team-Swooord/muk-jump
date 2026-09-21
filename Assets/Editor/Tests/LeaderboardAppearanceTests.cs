@@ -100,10 +100,21 @@ namespace MukJump.EditorTests
                     InkSkinId.CloudBoots, InkSkinId.SpiderMask, InkSkinId.ButterflyWings, InkSkinId.Ink, InkSkinId.FoxMask, InkSkinId.CloudDragon };
                 for (int i = 0; i < 10; i++) entries.Add(new MukJumpLeaderboardEntry(i + 1, 2370 - i * 100,
                     new[] { "guest12345", "먹방울친구", "月の旅人", "InkJumper" }[i % 4],
-                    regionCode: new[] { "KR", "US", "JP" }[i % 3], equippedSkin: skins[i]));
+                    regionCode: new[] { "KR", "US", "JP" }[i % 3], equippedSkin: skins[i], timeSeconds: 90 + i * 17));
                 var view = Object.FindAnyObjectByType<LobbyOptionsView>();
+                int refreshes = 0;
+                typeof(LobbyOptionsView).GetField("refreshLeaderboardForTests", BindingFlags.NonPublic | BindingFlags.Instance)
+                    .SetValue(view, new System.Action(() => refreshes++));
                 view.OpenLeaderboard(); yield return Wait(1);
                 var page = view.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/LeaderboardPage");
+                Assert.That(page.Find("LeaderboardRefresh"), Is.Null);
+                Assert.That(refreshes, Is.EqualTo(1));
+                // Update에서 타이머가 실제로 호출되는지 확인하되 검증을 위해 1분을 기다리지는 않는다.
+                typeof(LobbyOptionsView).GetField("nextLeaderboardRefreshRealtime", BindingFlags.NonPublic | BindingFlags.Instance)
+                    .SetValue(view, Time.realtimeSinceStartupAsDouble - 1d);
+                yield return null;
+                yield return null;
+                Assert.That(refreshes, Is.EqualTo(2));
                 for (int i = 1; i <= 10; i++)
                 {
                     var rank = (RectTransform)page.Find("Rank" + i);

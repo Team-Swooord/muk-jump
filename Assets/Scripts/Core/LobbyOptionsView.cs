@@ -18,6 +18,7 @@ namespace MukJump.Core
         const float CloseFooterHeight = 190f;
         const float SafeAreaPadding = 24f;
         const float DeleteConfirmationMinimumDelay = 0.45f;
+        const double LeaderboardRefreshIntervalSeconds = 60d;
         const string CustomerSupportEmail = "cysbandcs@gmail.com";
         [SerializeField] Sprite leaderboardBodySprite;
 
@@ -95,7 +96,10 @@ namespace MukJump.Core
         readonly Text[] leaderboardSources = new Text[10];
         readonly Image[] leaderboardSeals = new Image[10];
         bool leaderboardFromLobby;
-        Button leaderboardRefresh;
+        double nextLeaderboardRefreshRealtime = double.PositiveInfinity;
+#if UNITY_EDITOR
+        System.Action refreshLeaderboardForTests;
+#endif
         Image tutorialImage;
         Text tutorialTitle;
         Text tutorialDescription;
@@ -255,6 +259,7 @@ namespace MukJump.Core
             UpdateNicknameUi();
             UpdateDeleteConfirmation();
             if (IsOpen && ShowingAnalyticsPrivacy) RefreshAdvertisingPrivacy();
+            UpdateLeaderboardAutoRefresh(Time.realtimeSinceStartupAsDouble);
         }
 
         public void Open() => OpenLobbyPage(false);
@@ -1089,10 +1094,6 @@ namespace MukJump.Core
                     number.resizeTextMaxSize = 36;
                 }
             }
-            leaderboardRefresh = CreatePaperButton("LeaderboardRefresh", panel, "다시 확인",
-                new Vector2(0f, -624f), new Vector2(300f, 76f), 36);
-            leaderboardRefresh.GetComponentInChildren<Text>().fontSize = 36;
-            leaderboardRefresh.onClick.AddListener(RefreshSelectedLeaderboard);
             RefreshLeaderboardPage();
         }
 
@@ -1180,16 +1181,32 @@ namespace MukJump.Core
             SetPageVisible(leaderboardGroup, true);
             BindAccountRuntime();
             RefreshLeaderboardPage();
-#if !UNITY_EDITOR
-            if (!UsesTossSettings) MukJumpAccountRuntime.Instance?.RefreshLeaderboard();
-#endif
+            nextLeaderboardRefreshRealtime = Time.realtimeSinceStartupAsDouble + LeaderboardRefreshIntervalSeconds;
+            RequestLeaderboardRefresh();
         }
 
-        void RefreshSelectedLeaderboard()
+        void UpdateLeaderboardAutoRefresh(double realtime)
         {
-            if (UsesTossSettings) AppsInTossGameCenterRuntime.OpenLeaderboard();
-            else MukJumpAccountRuntime.Instance?.RefreshLeaderboard();
-            RefreshLeaderboardPage();
+            if (!IsOpen || !rootGroup.interactable || !ShowingLeaderboardPage || UsesTossSettings ||
+                scrollPageTransition || !applicationFocused || applicationPaused ||
+                realtime < nextLeaderboardRefreshRealtime)
+                return;
+
+            // 메뉴의 timeScale=0과 무관한 실제 시간. 복귀 시 밀린 요청을 몰아서 보내지 않는다.
+            nextLeaderboardRefreshRealtime = realtime + LeaderboardRefreshIntervalSeconds;
+            RequestLeaderboardRefresh();
+        }
+
+        void RequestLeaderboardRefresh()
+        {
+            if (UsesTossSettings || MukJumpAccountRuntime.Instance?.LeaderboardLoading == true)
+                return;
+#if UNITY_EDITOR
+            // 에디터 UI 검증은 운영 서버를 호출하지 않는다.
+            refreshLeaderboardForTests?.Invoke();
+#else
+            MukJumpAccountRuntime.Instance?.RefreshLeaderboard();
+#endif
         }
 
         void RefreshLeaderboardPage()
@@ -1202,8 +1219,6 @@ namespace MukJump.Core
             {
                 entries = null;
             }
-            if (leaderboardRefresh != null)
-                leaderboardRefresh.interactable = UsesTossSettings || runtime == null || !runtime.LeaderboardLoading;
             for (int i = 0; i < leaderboardRows.Length; i++)
             {
                 if (leaderboardRows[i] == null)
@@ -2240,6 +2255,7 @@ namespace MukJump.Core
             else frame.ResetPresentation();
             if (!visible)
             {
+                nextLeaderboardRefreshRealtime = double.PositiveInfinity;
                 scrollPageTransition = false;
                 ClearAccountToast();
                 lastAccountToastStatus = null;
