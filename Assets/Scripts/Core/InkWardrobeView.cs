@@ -189,8 +189,7 @@ namespace MukJump.Core
                 bool exists = index >= 0 && index < InkSkinCatalog.BrowseCount;
                 neighborButtons[side].interactable = exists;
             }
-            InkLocalizedText.SetSource(equipText, !unlocked ? "업적 달성 필요" : equipped ? "착용 중" : "착용하기");
-            equipButton.gameObject.SetActive(!hidden);
+            InkLocalizedText.SetSource(equipText, !unlocked ? "" : equipped ? "착용 중" : "착용하기");
             equipButton.interactable = unlocked && !equipped;
             InkLocalizedText.SetSource(achievementText, hidden || selected == InkSkinId.Ink ? "" : InkSkinAchievements.Requirement(selected));
             achievementText.color = InkPalette.TextLight;
@@ -201,7 +200,7 @@ namespace MukJump.Core
             bool saveFailed = !string.IsNullOrEmpty(statusText.text);
             achievementText.enabled = progressText.enabled = !saveFailed;
             RefreshProgress(goal, progress, unlocked, saveFailed);
-            equipButton.gameObject.SetActive(!hidden && !collectionExpanded);
+            equipButton.gameObject.SetActive(unlocked && !hidden && !collectionExpanded);
             for (int i=0; i<cards.Length; i++)
             {
                 if (cards[i] == null) continue;

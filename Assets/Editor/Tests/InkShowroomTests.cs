@@ -443,6 +443,7 @@ namespace MukJump.EditorTests
                 var id = InkSkinCatalog.BrowseAt(i);
                 view.Select(id); view.Presentation.Cancel(); Canvas.ForceUpdateCanvases();
                 bool locked = !SkinDebugSession.CanEquip(id), hidden = SkinDebugSession.IsConcealed(id);
+                Assert.That(view.EquipButton.gameObject.activeSelf, Is.EqualTo(!locked), id + " 착용 버튼");
                 Assert.That(overlay.gameObject.activeSelf, Is.EqualTo(locked), id.ToString());
                 Assert.That(overlay.color.a, Is.EqualTo(1f));
                 Assert.That(overlay.raycastTarget, Is.False);
@@ -485,13 +486,16 @@ namespace MukJump.EditorTests
             Assert.That(overlay.gameObject.activeSelf, Is.False);
             Assert.That(view.Paper.Find("SkinName").gameObject.activeSelf, Is.True);
             Assert.That(requirement.gameObject.activeSelf, Is.False);
+            Assert.That(view.EquipButton.gameObject.activeSelf, Is.True);
             view.ToggleCollection();
             Assert.That(overlay.gameObject.activeSelf, Is.False);
             Assert.That(track.gameObject.activeSelf, Is.False);
+            Assert.That(view.EquipButton.gameObject.activeSelf, Is.False);
             view.ToggleCollection();
             Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(0), Is.True);
             Invoke(view, "RefreshSelection");
             Assert.That(overlay.gameObject.activeSelf, Is.True, "계정 기록 초기화 시 잠금 복원");
+            Assert.That(view.EquipButton.gameObject.activeSelf, Is.False);
         }
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]

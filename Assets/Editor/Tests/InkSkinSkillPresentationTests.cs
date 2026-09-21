@@ -44,12 +44,14 @@ namespace MukJump.EditorTests
                     Assert.That(view.Paper.Find("SkinName").GetComponent<UnityEngine.UI.Text>().text, Is.Empty);
                     Assert.That(description.text, Is.EqualTo(GameLocalization.Translate(InkSkinLore.Get(InkSkinId.ThreeCushion).ko)));
                     Assert.That(description.preferredHeight, Is.LessThanOrEqualTo(description.rectTransform.rect.height + 2));
+                    Assert.That(view.EquipButton.gameObject.activeSelf, Is.False);
                     yield return Capture("hidden-hint-" + language);
                     Assert.That(view.Paper.Find("ItemDetailsLockOverlay").gameObject.activeSelf, Is.True);
                     view.Select(InkSkinId.CloudDragon); yield return Wait(.5f);
                     Assert.That(view.Paper.Find("Achievement").GetComponent<UnityEngine.UI.Text>().text,
                         Is.EqualTo(GameLocalization.Translate(InkSkinAchievements.Requirement(InkSkinId.CloudDragon))));
                     Assert.That(view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>().text, Is.EqualTo("436 / 2000"));
+                    Assert.That(view.EquipButton.gameObject.activeSelf, Is.False);
                     yield return Capture("wardrobe-locked-progress-" + language);
                     yield return PlayerInputFrame(() => Click((RectTransform)view.Paper.Find("CollectionToggle")));
                     Assert.That(view.Paper.Find("ItemDetailsLockOverlay").gameObject.activeSelf, Is.False);
@@ -59,6 +61,9 @@ namespace MukJump.EditorTests
                 Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(2000), Is.True);
                 yield return Wait(.5f);
                 Assert.That(view.Paper.Find("ItemDetailsLockOverlay").gameObject.activeSelf, Is.False);
+                Assert.That(view.EquipButton.gameObject.activeSelf, Is.True);
+                yield return PlayerInputFrame(() => Click((RectTransform)view.EquipButton.transform));
+                Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.CloudDragon));
                 yield return Capture("wardrobe-unlocked-progress-Korean");
                 GameLocalization.SetLanguage(GameLanguage.Korean); SkinDebugSession.SetAllUnlocked(true);
                 view.Select(InkSkinId.ThreeCushion); yield return Wait(.6f);
