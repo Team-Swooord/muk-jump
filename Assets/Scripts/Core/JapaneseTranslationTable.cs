@@ -20,7 +20,7 @@ namespace MukJump.Core
                 ["Reach a best height of 100m"] = "最高高度100mを達成",
                 ["Complete 10 eligible runs"] = "通常プレイを10回完了",
                 ["Available from the start"] = "最初から使用可能",
-                ["Leap again near the top of each jump.\nAutomatic, at 40% of the first jump's speed."] = "跳躍の頂点付近でもう一度ジャンプ。\n最初の40%の速さで自動発動します。",
+                ["Leap again near the top of each jump\nAutomatic, at 40% of the first jump's speed"] = "跳躍の頂点付近でもう一度ジャンプ\n最初の40%の速さで自動発動します",
                 ["Cling to either side wall, then\nautomatically leap back inward."] = "左右の壁に張りついてから、\n画面の内側へ自動で跳びます。",
                 ["Your original inkdrop, unadorned.\nKeeps the usual jump and growth effects."] = "飾りのない、いつもの墨の姿。\nこれまでの跳躍と成長効果を保ちます。",
                 ["English"] = "日本語", ["Language"] = "言語",

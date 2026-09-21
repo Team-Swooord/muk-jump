@@ -140,16 +140,16 @@ namespace MukJump.Core
             _ => "먹의 장식" };
         public static string Description(InkSkinId id) => InkSkinChart.Text(id, "abilityDescriptionKo", BuiltInDescription(id));
         public static string BuiltInDescription(InkSkinId id) => id switch {
-            InkSkinId.Gat => "점프 정점에서 한 번 더 도약한다.\n첫 도약의 40% 힘으로 자동 발동한다.",
-            InkSkinId.SpiderMask => "30초마다 가까운 벽에 거미줄을 쏘아 본체를 18m 끌어올린다.\n상승 중에는 피해를 막으며 다른 점프 효과가 발동하면 줄을 놓는다.",
-            InkSkinId.SpiritHalo => "분신이 쓰러질 때마다 본체 체력을 1칸 회복한다.\n최대 체력을 넘거나 쓰러진 본체를 되살리지는 않는다.",
-            InkSkinId.CloudBoots => "본체가 맵 발판에 착지하면 먹방울 효과로 50m 상승한다.\n직접 그린 발판에는 발동하지 않는다.",
-            InkSkinId.YakshaMask => "본체가 적과 충돌하면 피해 없이 적을 제거한다.\n30초마다 발동하며 가시·낙석에는 적용되지 않는다.",
-            InkSkinId.TurtleShell => "매 판 시작 시 본체에게 방어막 1개를 부여한다.\n충돌·추락을 한 번 막으며 분신에게는 적용되지 않는다.",
-            InkSkinId.PhoenixCrown or InkSkinId.AngelWings => "한 판에 한 번 본체가 체력 1칸으로 살아남아 50m 상승한다.\n성장 부활과 횟수를 공유하며 분신에게는 적용되지 않는다.",
-            InkSkinId.BondKnot => "매 판 시작 시 먹방울 아이템으로 50m 상승한다.\n튜토리얼 종료 후 발동하며 부활 시에는 재발동하지 않는다.",
-            InkSkinId.WindFan => "전용 버튼으로 본체가 25m 도약한다.\n상승 중 피해를 막고, 20초 후 다시 사용할 수 있다.",
-            _ => "원래 먹에 장식을 더해요.\n기존 점프와 성장 효과를 유지해요." };
+            InkSkinId.Gat => "점프 정점에서 한 번 더 도약한다\n첫 도약의 40% 힘으로 자동 발동한다",
+            InkSkinId.SpiderMask => "30초마다 가까운 벽에 거미줄을 쏘아 본체를 18m 끌어올린다\n상승 중에는 피해를 막으며 다른 점프 효과가 발동하면 줄을 놓는다",
+            InkSkinId.SpiritHalo => "분신이 쓰러질 때마다 본체 체력을 1칸 회복한다\n최대 체력을 넘거나 쓰러진 본체를 되살리지는 않는다",
+            InkSkinId.CloudBoots => "본체가 맵 발판에 착지하면 먹방울 효과로 50m 상승한다\n직접 그린 발판에는 발동하지 않는다",
+            InkSkinId.YakshaMask => "본체가 적과 충돌하면 피해 없이 적을 제거한다\n30초마다 발동하며 가시·낙석에는 적용되지 않는다",
+            InkSkinId.TurtleShell => "매 판 시작 시 본체에게 방어막 1개를 부여한다\n충돌·추락을 한 번 막으며 분신에게는 적용되지 않는다",
+            InkSkinId.PhoenixCrown or InkSkinId.AngelWings => "한 판에 한 번 본체가 체력 1칸으로 살아남아 50m 상승한다\n성장 부활과 횟수를 공유하며 분신에게는 적용되지 않는다",
+            InkSkinId.BondKnot => "매 판 시작 시 먹방울 아이템으로 50m 상승한다\n튜토리얼 종료 후 발동하며 부활 시에는 재발동하지 않는다",
+            InkSkinId.WindFan => "전용 버튼으로 본체가 25m 도약한다\n상승 중 피해를 막고, 20초 후 다시 사용할 수 있다",
+            _ => "원래 먹에 장식을 더해요\n기존 점프와 성장 효과를 유지해요" };
         public static string ResourcePath(InkSkinId id) => Get(Normalize(id)) is { Asset: { Length: > 0 } } d ? "MukJump/Skins/" + d.Asset : "";
         // 귀·뿔·볏은 착용선이 보이도록 몸 앞에 둔다. 꼬리·날개·후광만 뒤쪽이다.
         public static bool BehindBody(InkSkinId id) => Normalize(id) is InkSkinId.OrigamiWings or InkSkinId.CraneWings or InkSkinId.ButterflyWings or InkSkinId.SpiritHalo

@@ -1,12 +1,41 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Workbook, SpreadsheetFile } from '@oai/artifact-tool';
+import { Workbook, SpreadsheetFile, FileBlob } from '@oai/artifact-tool';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const rows = JSON.parse(await fs.readFile(path.join(dir, 'skin-catalog.json'), 'utf8'));
 const headers = Object.keys(rows[0]);
 const numeric = new Set(['schemaVersion', 'skinId', 'unlockGoal', 'cooldownSeconds']);
+if (process.argv.includes('--preview-current') || process.argv.includes('--clean-descriptions')) {
+  const file = path.join(dir, '먹점프_스킨_뒤끝차트_v1.xlsx');
+  const current = await SpreadsheetFile.importXlsx(await FileBlob.load(file));
+  const skinSheet = current.worksheets.getItem('Skins');
+  const before = skinSheet.getRange('A1:Y63').values;
+  const clean = text => text.replace(/。(?=\S)/g, ' ').replace(/。/g, '').replace(/(?<!\.)\.(?!\.)(?=\s|$)/g, '');
+  if (process.argv.includes('--clean-descriptions')) {
+    for (const area of ['G2:I63', 'U2:W63']) {
+      const cells = skinSheet.getRange(area);
+      cells.values = cells.values.map(row => row.map(value => typeof value === 'string' ? clean(value) : value));
+    }
+    current.recalculate();
+    const after = skinSheet.getRange('A1:Y63').values;
+    let changed = 0;
+    for (let r = 0; r < before.length; r++) for (let c = 0; c < before[r].length; c++) {
+      const expected = r > 0 && [6, 7, 8, 20, 21, 22].includes(c) && typeof before[r][c] === 'string'
+        ? clean(before[r][c]) : before[r][c];
+      if (after[r][c] !== expected) throw Error(`Unexpected edit at ${r}:${c}`);
+      if (after[r][c] !== before[r][c]) changed++;
+    }
+    await (await SpreadsheetFile.exportXlsx(current)).save(file);
+    console.log(JSON.stringify({ changedDescriptionCells: changed, preservedOtherCells: true }));
+  }
+  const preview = await current.render({ sheetName: 'Skins', range: 'D2:I4', scale: 1.4, format: 'png' });
+  const previewPath = path.resolve(dir, '../../output/qa/skin-skills/description-sheet.png');
+  await fs.writeFile(previewPath, new Uint8Array(await preview.arrayBuffer()));
+  console.log(previewPath);
+  process.exit(0);
+}
 if (rows.length !== 62 || new Set(rows.map(x => x.skinId)).size !== 62 || rows.some(x => x.skinId === '20')) throw Error('Invalid skin inventory');
 for (const row of rows) for (const [key, value] of Object.entries(row)) {
   if (!/^[A-Za-z][A-Za-z0-9]*$/.test(key) || key === 'id' || value.includes('\\')) throw Error('BACKND format violation');

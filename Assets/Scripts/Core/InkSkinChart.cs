@@ -88,6 +88,7 @@ namespace MukJump.Core
                             }
                             if (field == "lore") text = InkSkinLore.UpgradeLegacyHiddenHint(id, lang, text);
                             text = UpgradeLegacyCopy(id, field + lang, text);
+                            if (field is "lore" or "abilityDescription") text = WithoutSentencePeriods(text);
                             if (field == "abilityDescription" && cooldown > 0 && !text.Contains("{cooldown}"))
                                 throw new FormatException(field + lang + " 쿨타임 치환자 필요");
                             row[field + lang] = text;
@@ -110,6 +111,12 @@ namespace MukJump.Core
             catch (Exception ex) when (ex is JsonException or FormatException or ArgumentException or OverflowException)
             { error = ex.Message; return false; }
         }
+        // 설명의 문장 마침표만 뺀다. 말줄임표·소수점·줄바꿈은 보존한다.
+        internal static string WithoutSentencePeriods(string text) =>
+            System.Text.RegularExpressions.Regex.Replace(
+                System.Text.RegularExpressions.Regex.Replace(text ?? "", @"。(?=\S)", " "),
+                @"。|(?<!\.)\.(?!\.)(?=\s|$)", "");
+
         // 이전 기본 문구만 이관한다. 차트에서 별도로 작성한 문구·수치·식별자는 그대로 둔다.
         static string UpgradeLegacyCopy(InkSkinId id, string field, string text) => (id, field, text) switch
         {

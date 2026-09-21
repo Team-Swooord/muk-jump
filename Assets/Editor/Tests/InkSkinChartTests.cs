@@ -13,6 +13,62 @@ namespace MukJump.EditorTests
     {
         [SetUp] public void Before() => InkSkinChart.Reset();
         [TearDown] public void After() => InkSkinChart.Reset();
+        [Test, Category("SkinDescriptionPunctuation")]
+        public void BuiltInDescriptionsOmitSentencePeriodsInEveryLanguage()
+        {
+            var rows = InkSkinChartExport.Rows();
+            foreach (var row in rows)
+            foreach (string field in new[] { "loreKo", "loreEn", "loreJa", "abilityDescriptionKo", "abilityDescriptionEn", "abilityDescriptionJa" })
+            {
+                string text = (string)row[field];
+                if ((string)row["skinKey"] == "Gat" && field.StartsWith("lore"))
+                    Assert.That(text, Does.EndWith("...."), field);
+                else
+                    Assert.That(text, Does.Not.Contain(".").And.Not.Contain("。"), row["skinKey"] + "/" + field);
+            }
+            Assert.That(Parse(rows, out var snapshot), Is.True);
+            InkSkinChart.Apply(snapshot);
+            Assert.That(JToken.DeepEquals(rows, InkSkinChartExport.Rows()), Is.True);
+        }
+
+        [Test, Category("SkinDescriptionPunctuation")]
+        public void OldChartDescriptionPeriodsAreRemovedWithoutChangingNamesOrRules()
+        {
+            var rows = InkSkinChartExport.Rows();
+            var row = rows.Single(x => (string)x["skinKey"] == "WindFan");
+            row["loreKo"] = "바람이 분다.";
+            row["loreEn"] = "The wind blows.";
+            row["loreJa"] = "風が吹く。";
+            row["abilityDescriptionKo"] = "{cooldown}초 대기.\n25.5m 도약.";
+            row["abilityDescriptionEn"] = "Wait {cooldown}s.\nLeap 25.5m.";
+            row["abilityDescriptionJa"] = "{cooldown}秒待つ。\n25.5m跳躍。";
+            row["nameKo"] = "바람부채.";
+            var original = (JArray)rows.DeepClone();
+            Assert.That(Parse(rows, out var snapshot), Is.True);
+            InkSkinChart.Apply(snapshot);
+            Assert.That(InkSkinLore.Get(InkSkinId.WindFan), Is.EqualTo(("바람이 분다", "The wind blows", "風が吹く")));
+            string description = InkSkinCatalog.Description(InkSkinId.WindFan);
+            Assert.That(description, Is.EqualTo("20초 대기\n25.5m 도약"));
+            Assert.That(GameLocalization.Translate(description, GameLanguage.English), Is.EqualTo("Wait 20s\nLeap 25.5m"));
+            Assert.That(GameLocalization.Translate(description, GameLanguage.Japanese), Is.EqualTo("20秒待つ\n25.5m跳躍"));
+            var exported = InkSkinChartExport.Rows();
+            for (int i = 0; i < original.Count; i++)
+            foreach (var property in ((JObject)original[i]).Properties())
+            {
+                if (property.Name.StartsWith("lore") || property.Name.StartsWith("abilityDescription")) continue;
+                Assert.That(JToken.DeepEquals(exported[i][property.Name], property.Value), Is.True, property.Name);
+            }
+        }
+
+        [Test, Category("SkinDescriptionPunctuation")]
+        public void SentenceCleanupPreservesEllipsesDecimalsAndLineBreaks()
+        {
+            const string source = "바람.... 1.5초.\n도약한다.\n光が戻る。また始まる。";
+            const string expected = "바람.... 1.5초\n도약한다\n光が戻る また始まる";
+            var method = typeof(InkSkinChart).GetMethod("WithoutSentencePeriods", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(method.Invoke(null, new object[] { source }), Is.EqualTo(expected));
+        }
+
         static bool Parse(JArray rows, out InkSkinChart.Snapshot snapshot) =>
             InkSkinChart.TryParse(rows.ToString(Formatting.None), out snapshot, out _);
         static readonly (InkSkinId id, string oldKo, string oldEn, string oldJa, string hint)[] hiddenHints =
@@ -130,13 +186,13 @@ namespace MukJump.EditorTests
         }
         [TestCase(InkSkinId.Gat, "바람 갓", "바람처럼 스쳐가는....", "이단 도약")]
         [TestCase(InkSkinId.SpiderMask, "거미탈", "거미에게 물린 적은 없다", "먹슈트")]
-        [TestCase(InkSkinId.YakshaMask, "각시탈", "정체는 비밀인거같다.", "탈춤")]
-        [TestCase(InkSkinId.TurtleShell, "현무", "느린 장인이 끝내 완성한 투구.", "금강")]
+        [TestCase(InkSkinId.YakshaMask, "각시탈", "정체는 비밀인거같다", "탈춤")]
+        [TestCase(InkSkinId.TurtleShell, "현무", "느린 장인이 끝내 완성한 투구", "금강")]
         [TestCase(InkSkinId.SpiritHalo, "윤회의 고리", "끝은 또다른 시작", "윤회")]
-        [TestCase(InkSkinId.PhoenixCrown, "봉황 관", "타지 않은 깃은 딱 다섯 개였다.", "봉황의 숨결")]
-        [TestCase(InkSkinId.CloudBoots, "구름 장화", "비 오는 날엔 양말까지 구름이 된다.", "구름 도약")]
+        [TestCase(InkSkinId.PhoenixCrown, "봉황 관", "타지 않은 깃은 딱 다섯 개였다", "봉황의 숨결")]
+        [TestCase(InkSkinId.CloudBoots, "구름 장화", "비 오는 날엔 양말까지 구름이 된다", "구름 도약")]
         [TestCase(InkSkinId.BondKnot, "무스비", "서로 다른 시간을 하나로 묶은 매듭", "인연의 이끌림")]
-        [TestCase(InkSkinId.WindFan, "바람부채", "부채를 펼치면, 바람의 흐름이 바뀔거같다.", "바람 도약")]
+        [TestCase(InkSkinId.WindFan, "바람부채", "부채를 펼치면, 바람의 흐름이 바뀔거같다", "바람 도약")]
         [TestCase(InkSkinId.AngelWings, "여명의 고리", "돌아갈 곳을 잃은 빛이 먹 위에 머문다", "다시 피는 빛")]
         public void RequestedSkinCopyMatchesBuiltInAndChart(InkSkinId id, string name, string lore, string ability)
         {
