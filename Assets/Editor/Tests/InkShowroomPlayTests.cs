@@ -14,6 +14,58 @@ namespace MukJump.EditorTests
 {
     public sealed class InkShowroomPlayTests
     {
+        [UnityTest, Timeout(120000), Category("HyunmuPresentation")]
+        public IEnumerator TurtleAndHyunmuRenderSeparatelyWithOnlyHyunmuSkill()
+        {
+            UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
+            yield return new EnterPlayMode();
+            bool oldBackground = Application.runInBackground; Application.runInBackground = true;
+            var settings = new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return WaitForWardrobe();
+                var view = Object.FindAnyObjectByType<InkWardrobeView>();
+                foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
+                foreach (var id in new[] { InkSkinId.TurtleShell, InkSkinId.HyunmuHelm })
+                {
+                    GameLocalization.SetLanguage(language); view.Select(id); yield return Wait(.6f);
+                    Canvas.ForceUpdateCanvases();
+                    Assert.That(view.SkillButton.gameObject.activeInHierarchy, Is.EqualTo(id == InkSkinId.HyunmuHelm));
+                    var art = view.Paper.Find("ShowroomStage/Preview/Accessory").GetComponent<UnityEngine.UI.Image>();
+                    Assert.That(art.enabled && !art.canvasRenderer.cull, Is.True);
+                    Assert.That(art.sprite, Is.SameAs(InkSkinCatalog.Sprite(id)));
+                    foreach (string label in new[] { "SkinName", "ItemLore", "SkillSummary" })
+                    {
+                        var text = view.Paper.Find(label)?.GetComponent<UnityEngine.UI.Text>();
+                        if (text == null || !text.gameObject.activeInHierarchy) continue;
+                        Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + .1f), language + "/" + label);
+                    }
+                    yield return Capture("hyunmu-split-" + id + "-" + language);
+                    if (id != InkSkinId.HyunmuHelm) continue;
+                    view.SkillButton.onClick.Invoke(); yield return Wait(.3f);
+                    Assert.That(view.IsSkillDetailsOpen, Is.True);
+                    yield return Capture("hyunmu-skill-" + language);
+                    view.CloseSkillDetails(); yield return Wait(.3f);
+                }
+            }
+            finally
+            {
+                SkinDebugSession.Reset(); Application.runInBackground = oldBackground;
+                InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+
         [UnityTest, Timeout(120000)]
         public IEnumerator MenuBannersRemainVisibleWithoutCoveringWardrobeOrOptions()
         {

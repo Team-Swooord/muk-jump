@@ -85,6 +85,9 @@ namespace MukJump.EditorTests
         }
         [Test] public void DoodleCostumesDoNotCoverOriginalIdleEyes() => VerifyEyes(AllAccessories);
 
+        [Test, Category("HyunmuSplit")]
+        public void HyunmuHelmetLeavesOriginalEyesVisible() => VerifyEyes(new[] { InkSkinId.HyunmuHelm });
+
         [Test, Category("SkinReworkAppearance")]
         public void ReworkedFrontLayersKeepOriginalEyesClear() => VerifyEyes(new[] {
             InkSkinId.Gat, InkSkinId.CatEars, InkSkinId.WindFan, InkSkinId.ZodiacOx,

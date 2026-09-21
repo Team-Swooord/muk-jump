@@ -193,3 +193,9 @@ Subject: PAIR of funny soft red ankle shoes with thick wobbly black outline, eac
 ### 39 — skin_cloud_boots_v1.png
 
 Subject: PAIR of goofy short grey boots with off-white cuffs, each ONE large ivory cloud spiral and blunt outward toes, thick crooked crayon outlines. No patterns/details/shadows. Wide2:1 sheet: left shoe centered at20% width, right at80%, each20% canvas width, bothcentered55% down and same bottomat78% height. Center entirely transparent, no body/legs.
+
+### 63 — skin_hyunmu_helm_v1.png
+
+Built-in imagegen 원화. 기존 거북 투구와 분리한 동양풍 현무 투구. 정지 스프라이트 1장, 실제 투명 배경이며 기존 빌더의 Single/FullRect/최대 512px 임포트를 사용한다. 착용 폭 1.02, 세로 오프셋 0.31. 본체 앞에서 그리되 얼굴·두 눈을 가리지 않는다.
+
+Prompt brief: A single detached front-view Hyunmu helmet for MukJump, East Asian black tortoise and serpent. Low broad dark blue-grey shell with four or five simple plates, one small ivory snake curled across the crest, broad transparent face opening and short side guards. Thick wobbly child-drawn ink/crayon outlines, muted celadon and ivory trim, simple flat fills. No character, face, gold, realistic metal, ornament, scenery or background; real alpha transparency.

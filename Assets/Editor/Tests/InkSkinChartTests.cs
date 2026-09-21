@@ -36,7 +36,7 @@ namespace MukJump.EditorTests
         [Test] public void ExportsEveryAvailableSkinWithoutReusingRetiredId()
         {
             var rows = InkSkinChartExport.Rows();
-            Assert.That(rows.Count, Is.EqualTo(62));
+            Assert.That(rows.Count, Is.EqualTo(63));
             Assert.That(rows.Any(x => (string)x["skinId"] == "20"), Is.False);
             Assert.That(Parse(rows, out _), Is.True);
             foreach (var r in rows.OfType<JObject>()) foreach (var p in r.Properties())
