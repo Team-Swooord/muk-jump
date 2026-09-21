@@ -142,6 +142,37 @@ xcodebuild -workspace Unity-iPhone.xcworkspace -scheme Unity-iPhone \
 
 ## 버전과 롤백
 
+- 2026-09-21 해금 곡선 조정 정식 업데이트 **1.0.2(42)**를 `main`에서 클린 빌드했다.
+  일반 첫 플레이의 대량 해금을 줄이고 누적·최고 기록 보상을 단계화했다.
+  용꼬리는 용에게 당해 종료된 플레이 3회, 십이지·신화 의상은 시작 의상과
+  한 판 도전 조건으로 변경했다. 기존 보유 의상·계정·기록은 유지하며
+  서버 삭제·빌드별 로컬 초기화는 적용하지 않았다.
+  해금·이전 저장 보존·차트 호환·계정·리더보드·출시 관련 자동 검사
+  **1,022개 통과, 실패/건너뜀 0개** 및 씬 감사를 확인했다.
+  스킨 관리 엑셀과 JSON도 동일 목표로 동기화했다. 구버전 클라이언트 호환을 위해
+  뒤끝 운영 차트에는 새 파일을 게시하지 않았으며, 빌드 42는 구형 기본 목표를 자동 보정한다.
+  이전 생성 Xcode 출력·빌드 41 DerivedData와 중간 출력은
+  `/Users/seungyeoning/.Trash/mukjump-clean-build-42.y1ttCq/`로 옮겼으며 복구 가능하다.
+  소스·기존 Archive·검증 로그는 보존했다.
+  CocoaPods 설치가 끝난 `.xcworkspace`에서 실기기 Release 빌드·Archive·배포를 수행했다.
+  Archive와 배포 IPA의 버전, Bundle ID `com.CYSB.MukJump`, 팀 `8AU359WZZ2`,
+  Apple 로그인 `Default`·Game Center entitlement, 암호화 Boolean false,
+  엄격한 전체 코드 서명을 검증했다. 배포 IPA는 `get-task-allow=false`,
+  `MukJumpPrereleaseReset=false`, 실제 광고·디버그 없음 조건이다. Meta SDK는 사용하지 않는다.
+  **23:12:42 KST `Upload succeeded` / `Uploaded package is processing`**를 확인했고
+  TestFlight에서 빌드 42 처리 완료 및 기존 내부 그룹 `11` 연결을 확인했다.
+  빌드 ID: `d9aeca28-954a-48ca-afbf-abd2fc167cf0`.
+  Archive: `/Users/seungyeoning/Library/Developer/Xcode/Archives/2026-09-21/MukJump-1.0.2-42.xcarchive`.
+  검증 자료: `output/release-appstore/2026-09-21-build-42/`.
+  앞선 41번 빌드의 심사를 취소하고 42번으로 교체했으며 한·영·일 변경 사항과
+  심사 메모를 갱신했다. **23:55 KST 앱 1개와 업적 설명 수정본 54개, 총 55개 항목의
+  제출 성공 및 심사 대기 중** 상태를 확인했다.
+  제출 ID: `05e09c67-a2f7-4a1c-a44a-7c69be9c3f5c`.
+  [심사 상세](https://appstoreconnect.apple.com/apps/6804614765/distribution/reviewsubmissions/details/05e09c67-a2f7-4a1c-a44a-7c69be9c3f5c).
+  기존 스크린샷·평점·수동 출시 설정은 유지했다. 승인 또는 공개 출시 완료는 아니다.
+  UnityRuntime.framework dSYM 누락 경고는 남았으나 업로드는 성공했다.
+  실기기 광고 송출과 Game Center 전송은 이번 자동 검사로 검증한 범위가 아니다.
+
 - 2026-09-21 정식 업데이트 `1.0.2(41)`을 `main`에서 클린 빌드했다.
   꾸미기 이름·설명·특수능력 안내, 잠금 조건·진행 게이지·제목 크기와
   시간·리더보드·광고 변경을 포함하며, 실제 광고·디버그 없음 조건이다.
