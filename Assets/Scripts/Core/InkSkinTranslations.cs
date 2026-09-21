@@ -69,7 +69,6 @@ namespace MukJump.Core
                 ["아이템 없는 도전"] = ("No-item challenge", "アイテムなしの挑戦"),
                 ["먹의 환원"] = ("Ink Return", "墨の還元"),
                 ["시작 방어막"] = ("Starting Shield", "開幕の盾"),
-                ["수호"] = ("Protection", "守護"),
                 ["봉황의 숨결"] = ("Phoenix Breath", "鳳凰の息吹"),
                 ["분신이 쓰러질 때마다 본체 체력을 1칸 회복한다.\n최대 체력을 넘거나 쓰러진 본체를 되살리지는 않는다."] =
                     ("Each fallen clone restores 1 HP to Ink.\nCannot exceed max HP or revive Ink.", "分身が倒れるたび、本体の体力を1回復。\n最大体力を超えず、倒れた本体は蘇りません。"),
@@ -160,7 +159,6 @@ namespace MukJump.Core
             InkSkinId.CraneCrest => ("높이 날던 학도 빗질은 서툴렀다.", "A fine flier. A terrible hairdresser.", "高く飛ぶ鶴も、髪を整えるのは苦手。"),
             InkSkinId.YakshaMask => ("탈은 웃고 있지만 주먹은 웃지 않는다.", "The mask smiles. The fists do not.", "仮面は笑うが、拳は笑わない。"),
             InkSkinId.TurtleShell => ("느린 장인이 끝내 완성한 투구.", "A very slow craftsman finally finished it.", "のんびり屋の職人が、ついに仕上げた。"),
-            InkSkinId.HyunmuHelm => ("북쪽을 지키던 등갑을 잠시 빌렸다.", "A shell borrowed from the guardian of the north.", "北を守る甲羅を、しばらく借りてきた。"),
             InkSkinId.MoonCrown => ("달에서 빌렸다. 반납일은 모른다.", "Borrowed from the moon. No due date.", "月から借りた。返す日は知らない。"),
             InkSkinId.BrushMaster => ("장인은 붓을 찾고, 붓은 여기 있다.", "The master is looking for these brushes.", "職人は筆を探している。筆はここにある。"),
             InkSkinId.SpiritHalo => ("뒤가 환해졌지만 득도한 것은 아니다.", "A radiant ring. Enlightenment sold separately.", "背中は輝いたが、悟ったわけではない。"),

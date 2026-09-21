@@ -614,9 +614,9 @@ namespace MukJump.EditorTests
             }
             finally { MobileApplicationLifecycle.SetPlatformVisibility(true); }
         }
-        [Test, Category("HyunmuSplit")] public void HyunmuStartsOnlyOriginalWithOneShieldAndDoesNotRefillOnResume()
+        [Test] public void TurtleStartsOnlyOriginalWithOneShieldAndDoesNotRefillOnResume()
         {
-            UnlockCombatSkins(); Assert.That(InkSkinPreferences.TryEquip(InkSkinId.HyunmuHelm), Is.True);
+            UnlockCombatSkins(); InkSkinPreferences.TryEquip(InkSkinId.TurtleShell);
             var manager=Manager(out var growth);
             var original=Player(); manager.RegisterPlayer(original);
             var clone=Player(); Field(clone,"isRuntimeClone",true); manager.RegisterPlayer(clone);
@@ -629,17 +629,6 @@ namespace MukJump.EditorTests
             Assert.That(growth.TryGrantSkinStartShield(original),Is.False);
             Invoke(manager,"SetState",GameState.Lobby); Invoke(manager,"BeginPlayingAfterCover");
             Assert.That(original.HasShield,Is.True);
-        }
-        [Test, Category("HyunmuSplit")] public void TurtleRemainsEquipableButNoLongerGrantsShield()
-        {
-            UnlockCombatSkins(); Assert.That(InkSkinPreferences.TryEquip(InkSkinId.TurtleShell), Is.True);
-            var manager = Manager(out var growth);
-            var original = Player(); manager.RegisterPlayer(original);
-            Invoke(manager, "BeginPlayingAfterCover");
-            Assert.That(growth.SkinSnapshot, Is.EqualTo(InkSkinId.TurtleShell));
-            Assert.That(original.HasShield, Is.False);
-            Assert.That(growth.TryGrantSkinStartShield(original), Is.False);
-            Assert.That(InkSkinCatalog.HasAbility(InkSkinId.TurtleShell), Is.False);
         }
         [TestCase(InkSkinId.PhoenixCrown)]
         [TestCase(InkSkinId.AngelWings, Category = "AngelWings")]

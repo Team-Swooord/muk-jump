@@ -77,7 +77,7 @@ namespace MukJump.EditorTests
         public void HighBitsRoundTripWithoutChangingOldIdsAndStayConcealedUntilSaved()
         {
             Assert.That((int)InkSkinId.DragonTail, Is.EqualTo(45));
-            Assert.That(InkSkinCatalog.Count, Is.LessThanOrEqualTo(64));
+            Assert.That(InkSkinCatalog.Count, Is.LessThanOrEqualTo(63));
             var store = new MemoryPermanentGrowthStore();
             PermanentGrowthProfile.UseStoreForTests(store);
             try

@@ -191,7 +191,7 @@ namespace MukJump.Core
         /// 새 판의 체력 초기화 직후 본체에게만 지급한다. 광고 부활·분신 생성은 재충전하지 않는다.
         public bool TryGrantSkinStartShield(PlayerController player)
         {
-            if (skinStartShieldGranted || SkinSnapshot != InkSkinId.HyunmuHelm ||
+            if (skinStartShieldGranted || SkinSnapshot != InkSkinId.TurtleShell ||
                 player == null || !player.isActiveAndEnabled || player.IsDead || player.IsRuntimeClone ||
                 manager == null || manager.State != GameState.Playing)
                 return false;

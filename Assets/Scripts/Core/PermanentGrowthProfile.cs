@@ -488,11 +488,11 @@ namespace MukJump.Core
             if (writeBlocked || !ReferenceEquals(owner, data)) return false;
             mask &= InkSkinCatalog.AvailableRewardMask;
             gameplay &= 3;
-            if ((data.skinAchievements.UnlockedMask & mask) == mask &&
+            if (((ulong)data.skinAchievements.unlockedMask & mask) == mask &&
                 (data.skinAchievements.gameplayMask & gameplay) == gameplay) return true;
             var snapshot = CaptureMutationSnapshot();
             data.skinAchievements.version = 2;
-            data.skinAchievements.GrantMask(mask);
+            data.skinAchievements.unlockedMask |= (long)mask;
             data.skinAchievements.gameplayMask |= gameplay;
             if (!Save(snapshot)) return false;
             NotifyChangedSafely();

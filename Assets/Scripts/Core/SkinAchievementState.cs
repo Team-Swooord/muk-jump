@@ -34,10 +34,6 @@ namespace MukJump.Core
         public int version = 2;
         public int runs, best, drawnLandings, items, inkDrops, survival, clones, nightBest, noItemBest, growth;
         public long unlockedMask;
-        // 구 저장의 양수 long은 그대로 둔다. ID 63의 부호 비트만 별도 선택 필드에 보존한다.
-        public int unlockedMaskHigh;
-        [Newtonsoft.Json.JsonIgnore]
-        public ulong UnlockedMask => (ulong)unlockedMask | ((ulong)unlockedMaskHigh << 63);
         public int gameplayMask;
         // 의상 ID별 정상 정산 최고 고도. -1은 미기록이며 0m와 구분한다.
         // 구 저장에는 이 선택 필드가 없다. 전체 최고점으로 과거 착용 기록을 추정하지 않는다.
@@ -45,8 +41,7 @@ namespace MukJump.Core
         public bool IsValid => (version == 1 || version == 2) && gameplayMask >= 0 && gameplayMask <= 3 && runs >= 0 && best >= 0 && drawnLandings >= 0 &&
             items >= 0 && inkDrops >= 0 && inkDrops <= items && survival >= 0 && clones >= 0 &&
             nightBest >= 0 && noItemBest >= 0 && growth >= 0 && unlockedMask >= 0 &&
-            unlockedMaskHigh >= 0 && unlockedMaskHigh <= 1 &&
-            (UnlockedMask & ~InkSkinCatalog.ValidIdMask) == 0 && ValidSkinBestHeights();
+            (unlockedMask >> InkSkinCatalog.Count) == 0 && ValidSkinBestHeights();
         bool ValidSkinBestHeights()
         {
             if (skinBestHeights == null) return true;
@@ -82,20 +77,13 @@ namespace MukJump.Core
                     "\"skinBestHeights\"\\s*:\\s*\\[(?:\\s*-?\\d+\\s*(?:,\\s*-?\\d+\\s*)*)?\\]")) return false;
             return true;
         }
-        public void GrantMask(ulong mask)
-        {
-            unlockedMask |= (long)(mask & long.MaxValue);
-            unlockedMaskHigh |= (int)(mask >> 63);
-        }
-        public void Grant(InkSkinId id) { if (InkSkinCatalog.IsValid(id)) GrantMask(1UL << (int)id); }
-        public bool Has(InkSkinId id) => InkSkinCatalog.IsValid(id) && (UnlockedMask & (1UL << (int)id)) != 0;
+        public void Grant(InkSkinId id) { if (InkSkinCatalog.IsValid(id)) unlockedMask |= 1L << (int)id; }
+        public bool Has(InkSkinId id) => InkSkinCatalog.IsValid(id) && (unlockedMask & (1L << (int)id)) != 0;
         public long Progress(InkSkinId id, long distance, int ownedGrowth)
         {
             var d = InkSkinCatalog.Get(id);
             if (d == null) return 0;
             if (Has(id)) return d.Goal;
-            // 이미 거북을 해금한 계정은 분리된 방어 의상도 그대로 사용할 수 있다.
-            if (id == InkSkinId.HyunmuHelm && Has(InkSkinId.TurtleShell)) return d.Goal;
             // 은퇴한 두건의 보유자는 조건 이전 후 종이 날개를 잃지 않는다.
             if (id == InkSkinId.OrigamiWings && Has(InkSkinId.StormScarf)) return d.Goal;
             return d.Metric switch
@@ -129,7 +117,7 @@ namespace MukJump.Core
                 if (height == 777) Grant(InkSkinId.LuckyDice);
                 if (stats.startedAtNight && stats.startingSkin == InkSkinId.CatEars && stats.items == 0 &&
                     seconds >= 60 && !float.IsInfinity(seconds)) Grant(InkSkinId.ClockworkCat);
-                GrantMask(InkMythicSkins.Evaluate(stats, height, seconds, true));
+                unlockedMask |= (long)InkMythicSkins.Evaluate(stats, height, seconds, true);
             }
             for (int i = 1; i < InkSkinCatalog.Count; i++)
             {

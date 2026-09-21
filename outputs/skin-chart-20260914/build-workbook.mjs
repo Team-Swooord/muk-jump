@@ -7,15 +7,14 @@ const dir = path.dirname(fileURLToPath(import.meta.url));
 const rows = JSON.parse(await fs.readFile(path.join(dir, 'skin-catalog.json'), 'utf8'));
 const headers = Object.keys(rows[0]);
 const numeric = new Set(['schemaVersion', 'skinId', 'unlockGoal', 'cooldownSeconds']);
-if (rows.length !== 63 || new Set(rows.map(x => x.skinId)).size !== 63 || rows.some(x => x.skinId === '20')) throw Error('Invalid skin inventory');
-const lastRow = rows.length + 1;
+if (rows.length !== 62 || new Set(rows.map(x => x.skinId)).size !== 62 || rows.some(x => x.skinId === '20')) throw Error('Invalid skin inventory');
 for (const row of rows) for (const [key, value] of Object.entries(row)) {
   if (!/^[A-Za-z][A-Za-z0-9]*$/.test(key) || key === 'id' || value.includes('\\')) throw Error('BACKND format violation');
 }
 const wb = Workbook.create();
 const sheet = wb.worksheets.add('Skins');
 const values = [headers, ...rows.map(row => headers.map(key => numeric.has(key) ? Number(row[key]) : row[key]))];
-const grid = sheet.getRange(`A1:Y${lastRow}`);
+const grid = sheet.getRange('A1:Y63');
 grid.values = values;
 grid.format.font = { name: 'Apple SD Gothic Neo', size: 11, color: '#333333' };
 grid.format.fill = '#F3F2EE';
@@ -29,10 +28,10 @@ sheet.tabColor = '#AE1C3C';
 const widths = [18,10,22,25,27,25,40,44,40,15,21,14,17,42,46,44,21,22,23,23,52,58,54,21,33];
 headers.forEach((key, i) => {
   const column = String.fromCharCode(65 + i);
-  sheet.getRange(`${column}1:${column}${lastRow}`).format.columnWidth = widths[i];
-  if (numeric.has(key)) sheet.getRange(`${column}2:${column}${lastRow}`).setNumberFormat('0');
+  sheet.getRange(`${column}1:${column}63`).format.columnWidth = widths[i];
+  if (numeric.has(key)) sheet.getRange(`${column}2:${column}63`).setNumberFormat('0');
 });
-for (const area of [`D2:I${lastRow}`, `R2:W${lastRow}`]) {
+for (const area of ['D2:I63', 'R2:W63']) {
   sheet.getRange(area).format.fill = '#FFF6DF';
   sheet.getRange(area).format.font.color = '#71461A';
 }
@@ -50,15 +49,15 @@ rows.forEach((row, i) => {
   }
   if (row.abilityKey === 'None') sheet.getRange(`R${r}:W${r}`).format.fill = '#F3F2EE';
 });
-const table = sheet.tables.add(`A1:Y${lastRow}`, true, 'MukJumpSkinConfig');
+const table = sheet.tables.add('A1:Y63', true, 'MukJumpSkinConfig');
 table.style = 'TableStyleLight1';
 table.showFilterButton = true;
 sheet.getRange('A1:Y1').format.fill = '#282623';
 sheet.getRange('A1:Y1').format.font = { bold: true, color: '#FFFFFF', size: 11 };
 sheet.getRange('A1:Y1').format.rowHeight = 38;
-sheet.getRange(`D2:F${lastRow}`).format.font.bold = true;
-sheet.getRange(`A2:B${lastRow}`).format.horizontalAlignment = 'center';
-sheet.getRange(`L2:M${lastRow}`).format.horizontalAlignment = 'center';
+sheet.getRange('D2:F63').format.font.bold = true;
+sheet.getRange('A2:B63').format.horizontalAlignment = 'center';
+sheet.getRange('L2:M63').format.horizontalAlignment = 'center';
 wb.comments.setSelf({ displayName: '먹점프' });
 const notes = {
   schemaVersion: '고정: 스키마 버전 1. 시트를 추가하지 마세요. 노란색 셀만 편집합니다.',
@@ -81,7 +80,7 @@ const notes = {
 };
 headers.forEach((h, i) => wb.comments.addThread({ cell: sheet.getCell(0, i) }, notes[h]));
 wb.recalculate();
-if (grid.values.length !== lastRow || grid.values[lastRow-1][1] !== 63) throw Error('Final row mismatch');
+if (grid.values.length !== 63 || grid.values[62][1] !== 62) throw Error('Final row mismatch');
 const errors = grid.values.flat().filter(v => typeof v === 'string' && /^#(REF!|VALUE!|DIV\/0!|N\/A|NAME\?|NUM!|SPILL!)/.test(v));
 if (errors.length || grid.formulas.flat().some(Boolean)) throw Error('Unexpected formula/error');
 console.log((await wb.inspect({ kind: 'region', sheetId: sheet.id, range: 'A1:F4', maxChars: 2100, tableMaxRows: 4, tableMaxCols: 6 })).ndjson);

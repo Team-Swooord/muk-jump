@@ -46,10 +46,7 @@ namespace MukJump.Core
             {
                 if (string.IsNullOrWhiteSpace(json) || json.Length > MaxJsonLength) throw new FormatException("차트 크기 오류");
                 var rows = JArray.Parse(json, new JsonLoadSettings { DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error });
-                // 현무 추가 전 배포 차트도 읽는다. 누락이 허용되는 것은 새 ID 하나뿐이다.
-                bool legacyCatalog = rows.Count == InkSkinCatalog.Count - 2;
-                if (!legacyCatalog && rows.Count != InkSkinCatalog.Count - 1)
-                    throw new FormatException($"{InkSkinCatalog.Count - 1}개 행 필요 (은퇴 ID 20 제외)");
+                if (rows.Count != InkSkinCatalog.Count - 1) throw new FormatException("62개 행 필요 (은퇴 ID 20 제외)");
                 var candidate = new Snapshot();
                 foreach (var token in rows)
                 {
@@ -58,14 +55,6 @@ namespace MukJump.Core
                     var id = (InkSkinId)number;
                     var original = InkSkinCatalog.BuiltIn(id);
                     if (!InkSkinCatalog.IsAvailable(id) || candidate.rows.ContainsKey(id)) throw new FormatException("중복 또는 은퇴 ID");
-                    if (legacyCatalog && id == InkSkinId.HyunmuHelm) throw new FormatException("기존 의상 행 누락");
-                    // 이전 차트의 거북 능력은 새 현무로 분리됐다. 운영자가 쓴 이름·이야기는 보존한다.
-                    if (id == InkSkinId.TurtleShell && (string)row["abilityKey"] == "TurtleShell")
-                    {
-                        row["abilityKey"] = "None";
-                        foreach (string field in new[] { "abilityName", "abilityDescription" })
-                            foreach (string lang in new[] { "Ko", "En", "Ja" }) row[field + lang] = "";
-                    }
                     if (Integer(row, "schemaVersion", 1, 1) != 1 || Required(row, "skinKey", 60) != id.ToString() ||
                         Required(row, "unlockMetric", 40) != original.Metric.ToString() ||
                         Required(row, "tier", 30) != original.Tier.ToString() ||

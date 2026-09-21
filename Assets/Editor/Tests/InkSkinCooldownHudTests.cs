@@ -23,7 +23,6 @@ namespace MukJump.EditorTests
         [TestCase(InkSkinId.Gat, 0, 0)]
         [TestCase(InkSkinId.SpiritHalo, 0, 0)]
         [TestCase(InkSkinId.TurtleShell, 0, 0)]
-        [TestCase(InkSkinId.HyunmuHelm, 0, 0)]
         [TestCase(InkSkinId.PhoenixCrown, 0, 0)]
         [TestCase(InkSkinId.BondKnot, 0, 0)]
         [TestCase(InkSkinId.CloudBoots, 0, 0)]
@@ -159,7 +158,7 @@ namespace MukJump.EditorTests
                     Assert.That(canvasRect.rect.Contains(canvasRect.InverseTransformPoint(corner)), Is.True,
                         "실제 Game View의 HUD 영역 안에 배치한다");
 
-                foreach (var skin in new[] { InkSkinId.Gat, InkSkinId.SpiritHalo, InkSkinId.HyunmuHelm,
+                foreach (var skin in new[] { InkSkinId.Gat, InkSkinId.SpiritHalo, InkSkinId.TurtleShell,
                     InkSkinId.PhoenixCrown, InkSkinId.BondKnot, InkSkinId.CloudBoots, InkSkinId.AngelWings })
                 {
                     Set(growth, "skinSnapshot", skin); yield return Wait(.1f);

@@ -39,7 +39,7 @@ namespace MukJump.EditorTests
         public static IEnumerable<InkSkinId> Rewards => Enumerable.Range(1,InkSkinCatalog.Count-1).Select(i=>(InkSkinId)i).Where(InkSkinCatalog.IsAvailable);
         [Test] public void CatalogHasRequestedCountsAndOnlyThreeSignatureCostumes()
         {
-            Assert.That(InkSkinCatalog.Count,Is.EqualTo(64));
+            Assert.That(InkSkinCatalog.Count,Is.EqualTo(63));
             var all=Rewards.Where(id => (int)id <= 35).Select(InkSkinCatalog.Get).ToArray();
             Assert.That(all.Count(x=>x.Tier is SkinTier.Basic or SkinTier.Hidden),Is.EqualTo(5));
             Assert.That(all.Count(x=>x.Tier==SkinTier.Easy),Is.EqualTo(10));
