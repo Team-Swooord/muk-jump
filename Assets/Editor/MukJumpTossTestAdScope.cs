@@ -25,8 +25,11 @@ namespace MukJump.EditorTools
 
         public void Dispose()
         {
-            settings.Configure(rewarded, interstitial, banner);
-            EditorUtility.SetDirty(settings);
+            // BuildPipeline이 미사용 에셋을 해제하므로 생성 시의 객체 참조를 재사용하지 않는다.
+            var current = AssetDatabase.LoadAssetAtPath<AppsInTossAdSettings>(MukJumpAppsInTossSetup.AdSettingsPath);
+            if (current == null) throw new BuildFailedException("테스트 후 토스 광고 설정을 복원할 수 없습니다.");
+            current.Configure(rewarded, interstitial, banner);
+            EditorUtility.SetDirty(current);
             AssetDatabase.SaveAssets();
         }
     }

@@ -118,3 +118,6 @@ Assets/WebGLTemplates/
 /Assets/_Recovery.meta
 /Assets/StreamingAssets/google-services-desktop.json
 /Assets/StreamingAssets/google-services-desktop.json.meta
+# WebGL 빌드 동안 임시 격리되는 네이티브 설정 (인증 설정 포함 가능)
+/Assets/Editor/MukJumpWebExcluded/
+/Assets/Editor/MukJumpWebExcluded.meta

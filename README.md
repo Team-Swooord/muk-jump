@@ -523,6 +523,18 @@ Unity의 `AIT > Configuration` 앱 ID는 토스 콘솔의 `appName`과 일치해
 현재 토스 성장 데이터는 로컬에 저장됩니다. 향후 기기 간 동기화에는 별도 서버 저장 구현이 필요하며,
 식별키를 얻는 것만으로 성장 클라우드 저장이 완료되지는 않습니다.
 
+2026-09-21 검증 결과: 관련 Unity 검사 89개, JS 검사 5개 통과. WebGL 빌드 오류 0개,
+네이티브 설정 자산 0개, 토스 광고 설정 1개가 포함됐습니다. Firebase의 자동 생성 데스크톱
+설정은 원본을 보존하고 웹 출력에서만 제외하며, 에셋 해제 이후에도 운영 광고 설정을 복원합니다.
+최종 QR 테스트 파일은 `ait-build/mukjump-test-only-20260921-112226.ait`(48.48 MiB),
+압축 해제된 웹 번들은 48.83 MiB입니다. 런타임은 `0.84.0`, Mock·디버그 UI·개발 빌드는 꺼져 있습니다.
+이 파일은 **출시 제출용이 아닙니다**. 콘솔의 앱 정보 검토, 실광고 그룹 2개 발급,
+실제 토스 앱에서 광고·게임센터 확인 후 운영 패키지를 별도로 만들어야 합니다.
+
+참고: [토스 광고 연동](https://developers-apps-in-toss.toss.im/documentation/common/monetization/iaa/interstitial-rewarded-ad),
+[게임센터](https://developers-apps-in-toss.toss.im/documentation/common/growth/game-center),
+[출시 체크리스트](https://developers-apps-in-toss.toss.im/checklist/app-game).
+
 ### 검증과 프로젝트 구조
 
 Unity Test Runner의 EditMode 테스트에는 규칙·저장 복구·UI 배치·일부 Play 상태 통합 검사가 포함됩니다.

@@ -77,6 +77,10 @@ namespace MukJump.EditorTools
     /// 브라우저 산출물에 네이티브 설정이 한 개라도 섞이면 배포를 중단한다.
     public sealed class MukJumpWebPayloadGuard : IPostprocessBuildWithReport
     {
+        public static readonly string[] NativeStreamingNames =
+        {
+            "google-services-desktop.json", "google-services.json", "GoogleService-Info.plist"
+        };
         public int callbackOrder => 20000;
         public void OnPostprocessBuild(BuildReport report)
         {
@@ -88,6 +92,19 @@ namespace MukJump.EditorTools
                         included.Add(entry.sourceAssetPath);
             if (included.Count > 0)
                 throw new BuildFailedException("WebGL에 네이티브 설정이 포함됐습니다:\n" + string.Join("\n", included));
+            RemoveNativeStreamingSettings(report.summary.outputPath);
+        }
+
+        public static void RemoveNativeStreamingSettings(string buildRoot)
+        {
+            // 원본 StreamingAssets는 보존한다. 확인된 WebGL 산출물의 정해진 파일만 제외한다.
+            if (string.IsNullOrEmpty(buildRoot) || !File.Exists(Path.Combine(buildRoot, "index.html")))
+                throw new BuildFailedException("WebGL 출력 폴더를 확인할 수 없습니다.");
+            foreach (string name in NativeStreamingNames)
+            {
+                string path = Path.Combine(buildRoot, "StreamingAssets", name);
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
     }
 }

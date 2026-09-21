@@ -25,11 +25,33 @@ namespace MukJump.EditorTests
                 Assert.That(settings.RewardedAdGroupId, Is.EqualTo(AppsInTossAdRuntime.TestRewardedId));
                 Assert.That(settings.BannerAdGroupId, Is.EqualTo(AppsInTossAdRuntime.TestBannerId));
                 Assert.That(settings.InterstitialAdGroupId, Is.Empty);
+                Resources.UnloadAsset(settings);
                 throw new InvalidOperationException("simulated build failure");
             });
+            settings = UnityEditor.AssetDatabase.LoadAssetAtPath<AppsInTossAdSettings>(MukJumpAppsInTossSetup.AdSettingsPath);
             Assert.That(settings.RewardedAdGroupId, Is.EqualTo(rewarded));
             Assert.That(settings.InterstitialAdGroupId, Is.EqualTo(interstitial));
             Assert.That(settings.BannerAdGroupId, Is.EqualTo(banner));
+        }
+
+        [Test]
+        public void WebStreamingCleanupPreservesOtherFilesAndRejectsUnidentifiedOutput()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "mukjump-web-native-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path.Combine(root, "StreamingAssets"));
+            try
+            {
+                Assert.Throws<UnityEditor.Build.BuildFailedException>(() => MukJumpWebPayloadGuard.RemoveNativeStreamingSettings(root));
+                File.WriteAllText(Path.Combine(root, "index.html"), "test build");
+                File.WriteAllText(Path.Combine(root, "StreamingAssets", "NOTICE.txt"), "keep");
+                foreach (string name in MukJumpWebPayloadGuard.NativeStreamingNames)
+                    File.WriteAllText(Path.Combine(root, "StreamingAssets", name), "{}");
+                MukJumpWebPayloadGuard.RemoveNativeStreamingSettings(root);
+                foreach (string name in MukJumpWebPayloadGuard.NativeStreamingNames)
+                    Assert.That(File.Exists(Path.Combine(root, "StreamingAssets", name)), Is.False);
+                Assert.That(File.ReadAllText(Path.Combine(root, "StreamingAssets", "NOTICE.txt")), Is.EqualTo("keep"));
+            }
+            finally { Directory.Delete(root, true); }
         }
 
         [Test]

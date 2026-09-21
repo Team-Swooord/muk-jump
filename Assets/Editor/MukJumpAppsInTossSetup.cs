@@ -751,6 +751,9 @@ namespace MukJump.EditorTools
             }
 
             string html = File.ReadAllText(indexPath);
+            foreach (string name in MukJumpWebPayloadGuard.NativeStreamingNames)
+                if (File.Exists(Path.Combine(directory, "StreamingAssets", name)))
+                    issues.Add("• 웹 산출물에 네이티브 서비스 설정이 남아 있습니다: " + name);
             // SDK는 WebGL 원본의 토큰을 패키징 단계에서 Production 값으로 치환한다.
             // 따라서 용량 측정용 원본 빌드에서는 토큰을 허용하되, 최종 .ait 공개
             // 디렉터리에서는 미치환 토큰을 반드시 실패시킨다.
