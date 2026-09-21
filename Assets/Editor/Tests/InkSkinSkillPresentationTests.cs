@@ -46,6 +46,9 @@ namespace MukJump.EditorTests
                     Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.False);
                     if (language == GameLanguage.Korean) yield return Capture("wardrobe-hanji-cosmetic");
                     view.Select(InkSkinId.Gat); yield return Wait(.4f);
+                    Assert.That(view.Paper.Find("ItemLore").GetComponent<UnityEngine.UI.Text>().text,
+                        Is.EqualTo(language == GameLanguage.Korean ? "바람처럼 스쳐가는...." :
+                            language == GameLanguage.English ? "Passing by like the wind...." : "風のように通り過ぎる...."));
                     Assert.That(view.Paper.Find("SkinName").GetComponent<RectTransform>().anchoredPosition.x, Is.Zero);
                     Assert.That(view.SkillSummaryText.rectTransform.anchoredPosition.y,
                         Is.GreaterThan(view.Paper.Find("SkinName").GetComponent<RectTransform>().anchoredPosition.y));

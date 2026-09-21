@@ -15,6 +15,24 @@ namespace MukJump.EditorTests
         [TearDown] public void After() => InkSkinChart.Reset();
         static bool Parse(JArray rows, out InkSkinChart.Snapshot snapshot) =>
             InkSkinChart.TryParse(rows.ToString(Formatting.None), out snapshot, out _);
+        [Test] public void GatUsesOnlyTheRequestedShortLoreIncludingLegacyChartData()
+        {
+            Assert.That(InkSkinCatalog.BuiltIn(InkSkinId.Gat).Korean, Is.EqualTo("바람 갓"));
+            Assert.That(InkSkinLore.Get(InkSkinId.Gat).ko, Is.EqualTo("바람처럼 스쳐가는...."));
+            var rows = InkSkinChartExport.Rows();
+            var gat = rows.Single(x => (string)x["skinKey"] == "Gat");
+            Assert.That((string)gat["loreKo"], Is.EqualTo("바람처럼 스쳐가는...."));
+            gat["loreKo"] = "쓰고 나면 어째서인지 바람처럼 스쳐 가는 노래가 들린다.";
+            gat["loreEn"] = "Put it on, and an old street anthem drifts past on the wind.";
+            gat["loreJa"] = "かぶると、なぜか風に乗って昔の街の歌が聞こえる。";
+            Assert.That(Parse(rows, out var snapshot), Is.True);
+            InkSkinChart.Apply(snapshot);
+            Assert.That(InkSkinLore.Get(InkSkinId.Gat), Is.EqualTo(InkSkinLore.BuiltIn(InkSkinId.Gat)));
+            Assert.That(InkSkinTranslations.TryTranslate("바람처럼 스쳐가는....", false, out var en), Is.True);
+            Assert.That(en, Is.EqualTo("Passing by like the wind...."));
+            Assert.That(InkSkinTranslations.TryTranslate("바람처럼 스쳐가는....", true, out var ja), Is.True);
+            Assert.That(ja, Is.EqualTo("風のように通り過ぎる...."));
+        }
         [Test] public void ExportsEveryAvailableSkinWithoutReusingRetiredId()
         {
             var rows = InkSkinChartExport.Rows();

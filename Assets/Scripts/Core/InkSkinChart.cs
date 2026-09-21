@@ -74,6 +74,18 @@ namespace MukJump.Core
                         foreach (var lang in new[] { "Ko", "En", "Ja" })
                         {
                             string text = required ? Required(row, field + lang, field == "name" ? 80 : 700) : Optional(row, field + lang, 700);
+                            // 구 차트·오프라인 캐시의 기본 이야기만 교정하고, 운영자가 새로 쓴 문구는 보존한다.
+                            if (id == InkSkinId.Gat && field == "lore")
+                            {
+                                var lore = InkSkinLore.BuiltIn(id);
+                                text = (lang, text) switch
+                                {
+                                    ("Ko", "쓰고 나면 어째서인지 바람처럼 스쳐 가는 노래가 들린다.") => lore.ko,
+                                    ("En", "Put it on, and an old street anthem drifts past on the wind.") => lore.en,
+                                    ("Ja", "かぶると、なぜか風に乗って昔の街の歌が聞こえる。") => lore.ja,
+                                    _ => text
+                                };
+                            }
                             if (field == "abilityDescription" && cooldown > 0 && !text.Contains("{cooldown}"))
                                 throw new FormatException(field + lang + " 쿨타임 치환자 필요");
                             row[field + lang] = text;
