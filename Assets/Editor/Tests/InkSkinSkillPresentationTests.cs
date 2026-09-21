@@ -390,7 +390,12 @@ namespace MukJump.EditorTests
                 Assert.That(InkSkinSkillView.IsPointerOverControls(center), Is.True);
                 Assert.That(InkSkinSkillView.IsPointerOverControls(new Vector2(Screen.width * .5f, Screen.height * .5f)), Is.False);
                 var corners = new Vector3[4]; rect.GetWorldCorners(corners);
-                foreach (var corner in corners) Assert.That(MobileUiLayout.CurrentSafeArea.Contains(RectTransformUtility.WorldToScreenPoint(null, corner)), Is.True);
+                // Device Simulator의 Screen 좌표와 Canvas 렌더링 크기는 다를 수 있다.
+                // 실제 버튼을 담은 안전영역과 같은 좌표계로 포함 여부를 검사한다.
+                var safeRect = (RectTransform)rect.parent;
+                foreach (var corner in corners)
+                    Assert.That(safeRect.rect.Contains(safeRect.InverseTransformPoint(corner)), Is.True,
+                        $"버튼 모서리 {corner}, 안전영역 {safeRect.rect}, 배율 {rect.lossyScale}");
                 yield return Capture("skill-ready");
                 var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left, position = center };
                 ExecuteEvents.Execute(view.SkillButton.gameObject, pointer, ExecuteEvents.pointerDownHandler);
