@@ -507,6 +507,7 @@ namespace MukJump.Core
             }
             if (reviveRequestInFlight &&
                 MobileApplicationLifecycle.IsApplicationActive &&
+                !MonetizationAds.HasPendingPresentation &&
                 Time.unscaledTime >= reviveRequestDeadline)
             {
                 int requestGeneration = activeReviveRequestGeneration;

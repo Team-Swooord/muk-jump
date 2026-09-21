@@ -39,6 +39,7 @@ namespace MukJump.Core
         bool configurationReady;
         bool sdkConfigured;
         bool initializationInFlight;
+        int bannerFailures;
         double nextBannerLoadTime;
         double nextConsentRetryTime;
         double consentDeadline;
@@ -78,6 +79,7 @@ namespace MukJump.Core
 
         void Update()
         {
+            if (!MobileApplicationLifecycle.IsApplicationActive) return;
             ProcessRequestWatchdogs();
             if (!configurationReady)
                 return;
@@ -465,9 +467,9 @@ namespace MukJump.Core
                                 return;
                             }
 
-                            consentDeadline =
-                                Time.realtimeSinceStartupAsDouble +
-                                RequestTimeoutSeconds;
+                            // 네트워크 갱신과 달리 사용자 동의 화면에 30초 제한을 걸지 않는다.
+                            // 오래 읽고 있는 화면을 폐기하고 다른 동의 화면을 겹쳐 띄우지 않는다.
+                            consentDeadline = double.PositiveInfinity;
                             try
                             {
                                 ConsentForm.LoadAndShowConsentFormIfRequired(
@@ -522,8 +524,11 @@ namespace MukJump.Core
                 if (CanRequestAdsSafely())
                     InitializeAds();
                 else
+                {
+                    if (formError == null) nextConsentRetryTime = double.PositiveInfinity;
                     Debug.Log(
                         "광고 동의가 없어 이번 실행에서는 광고를 요청하지 않습니다.");
+                }
             }
             catch (Exception exception)
             {
@@ -715,6 +720,7 @@ namespace MukJump.Core
         {
             if (banner != null ||
                 bannerLoading ||
+                Application.internetReachability == NetworkReachability.NotReachable ||
                 string.IsNullOrWhiteSpace(units?.Banner) ||
                 Time.realtimeSinceStartupAsDouble < nextBannerLoadTime)
                 return;
@@ -814,7 +820,7 @@ namespace MukJump.Core
         void HandleBannerLoaded(long generation, BannerView expectedBanner)
         {
             if (!isActiveAndEnabled || generation != bannerLoadGeneration ||
-                !bannerLoading || !ReferenceEquals(banner, expectedBanner))
+                !ReferenceEquals(banner, expectedBanner))
                 return;
             try
             {
@@ -824,11 +830,13 @@ namespace MukJump.Core
                     throw new InvalidOperationException(
                         "배너 높이가 올바르지 않습니다");
                 bannerLoading = false;
-                bannerLoadGeneration++;
+                // 세대는 BannerView의 수명이다. 최초 로드 뒤에도 SDK 자동 갱신을 받는다.
+                bannerFailures = 0;
                 bannerLoadDeadline = 0d;
                 bannerLoaded = true;
                 MukJumpAnalytics.Ad(AnalyticsAdStage.Loaded, banner: true);
                 bannerHeightPixels = height;
+                if (bannerVisible) LobbyAdLayout.SetTopInsetPixels(height);
                 nextBannerLoadTime = 0d;
                 UpdateLobbyBanner();
             }
@@ -846,11 +854,14 @@ namespace MukJump.Core
             BannerView expectedBanner,
             LoadAdError error)
         {
-            if (generation != bannerLoadGeneration || !bannerLoading ||
+            if (generation != bannerLoadGeneration ||
                 !ReferenceEquals(banner, expectedBanner))
                 return;
             Debug.LogWarning($"먹점프 로비 배너 로드 실패: {error}");
             MukJumpAnalytics.Ad(AnalyticsAdStage.LoadFailed, banner: true);
+            // 최초 로드 실패만 직접 재시도한다. 표시 중 자동 갱신 실패는 기존 광고를
+            // 유지하고 SDK의 자동 갱신에 맡겨 이중 요청/배너 깜빡임을 피한다.
+            if (bannerLoaded) return;
             ScheduleBannerRetry();
         }
 
@@ -864,8 +875,10 @@ namespace MukJump.Core
             bannerVisible = false;
             bannerLoadDeadline = 0d;
             bannerHeightPixels = 0f;
+            int retryStep = Math.Min(bannerFailures, 3);
+            bannerFailures = Math.Min(bannerFailures + 1, 4);
             nextBannerLoadTime = Time.realtimeSinceStartupAsDouble +
-                                 BannerRetryDelaySeconds;
+                                 Math.Min(120d, BannerRetryDelaySeconds * (1 << retryStep));
             LobbyAdLayout.MarkBannerHidden();
             SafeHideAndDestroyBanner(captured);
         }

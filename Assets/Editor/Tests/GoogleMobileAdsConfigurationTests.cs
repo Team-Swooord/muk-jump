@@ -365,6 +365,31 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void BannerRefreshPreservesViewIdentityAndExistingAdOnRefreshFailure()
+        {
+            string runtime = File.ReadAllText("Assets/Scripts/Core/GoogleMobileAdsRuntime.cs");
+            string loaded = runtime.Substring(runtime.IndexOf("void HandleBannerLoaded("));
+            loaded = loaded.Substring(0, loaded.IndexOf("void HandleBannerLoadFailed("));
+            Assert.That(loaded, Does.Not.Contain("bannerLoadGeneration++"),
+                "첫 로드 뒤 같은 BannerView의 자동 갱신 콜백을 무효화하면 안 됩니다.");
+            Assert.That(loaded, Does.Not.Contain("!bannerLoading"));
+            Assert.That(loaded, Does.Contain("LobbyAdLayout.SetTopInsetPixels(height)"));
+            string failed = runtime.Substring(runtime.IndexOf("void HandleBannerLoadFailed("));
+            failed = failed.Substring(0, failed.IndexOf("void ScheduleBannerRetry("));
+            Assert.That(failed, Does.Contain("if (bannerLoaded) return;"),
+                "표시 중 자동 갱신 실패는 SDK에 맡기고 기존 배너를 유지해야 합니다.");
+        }
+
+        [Test]
+        public void ConsentFormDoesNotExpireWhileUserReadsIt()
+        {
+            string runtime = File.ReadAllText("Assets/Scripts/Core/GoogleMobileAdsRuntime.cs");
+            Assert.That(runtime, Does.Contain("consentDeadline = double.PositiveInfinity;"));
+            Assert.That(runtime, Does.Contain("if (formError == null) nextConsentRetryTime = double.PositiveInfinity;"),
+                "요청 불가 상태에서 사용자 동의 화면을 매 프레임 반복 요청하면 안 됩니다.");
+        }
+
+        [Test]
         public void GeneratedAndroidProjectRequiresAdsConsentAndGoogleLogin()
         {
             string projectRoot = Path.Combine(

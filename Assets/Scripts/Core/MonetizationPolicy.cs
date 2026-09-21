@@ -18,6 +18,12 @@ namespace MukJump.Core
         void Show(FullScreenAdPlacement placement, Action<bool> onCompleted);
     }
 
+    /// 자체 표시 watchdog을 가진 공급자는 게임의 별도 제한 시간이 시청을 중단하지 않게 한다.
+    public interface IFullScreenAdLifecycle
+    {
+        bool HasPendingPresentation { get; }
+    }
+
     public static class MonetizationAds
     {
         sealed class UnavailableAdProvider : IFullScreenAdProvider
@@ -39,6 +45,9 @@ namespace MukJump.Core
 
         public static IFullScreenAdProvider Provider => provider;
         public static bool HasProvider => !ReferenceEquals(provider, unavailable);
+
+        public static bool HasPendingPresentation =>
+            provider is IFullScreenAdLifecycle lifecycle && lifecycle.HasPendingPresentation;
 
         /// 지원 플랫폼은 SDK 초기화·동의 화면이 늦어도 게임오버 선택지를 먼저
         /// 유지한다. 공급자 등록 순간만 보고 정산하면 첫 판의 부활 광고가 사라진다.

@@ -821,6 +821,25 @@ public class PauseMenuViewTests
     }
 
     [Test]
+    public void RewardedReviveProviderLifecyclePreventsPrematureTimeout()
+    {
+        var ads = new ScriptedAdProvider { HasPendingPresentation = true };
+        MonetizationAds.RegisterProvider(ads);
+        var manager = CreateGameOverManager("LongNativeReviveManager");
+
+        Invoke(manager, "HandleGameOverReviveRequested");
+        SetField(manager, "reviveRequestDeadline", 0f);
+        Invoke(manager, "Update");
+
+        Assert.That(GetField<bool>(manager, "reviveRequestInFlight"), Is.True,
+            "SDK가 표시 중인 광고를 게임의 별도 120초 제한으로 취소하면 안 됩니다.");
+        ads.HasPendingPresentation = false;
+        ads.Complete(false);
+        Assert.That(GetField<bool>(manager, "reviveRequestInFlight"), Is.False);
+        Assert.That(BackgroundMusicController.Instance?.IsFullScreenAdActive, Is.Not.True);
+    }
+
+    [Test]
     public void RewardedReviveTimeoutUnlocksInputAndFullScreenAdAudio()
     {
         var ads = new ScriptedAdProvider();
@@ -2023,11 +2042,12 @@ public class PauseMenuViewTests
         return manager;
     }
 
-    sealed class ScriptedAdProvider : IFullScreenAdProvider
+    sealed class ScriptedAdProvider : IFullScreenAdProvider, IFullScreenAdLifecycle
     {
         System.Action<bool> completion;
 
         public bool ThrowOnShow { get; set; }
+        public bool HasPendingPresentation { get; set; }
         public bool ThrowOnReady { get; set; }
         public int ReadyCalls { get; private set; }
 

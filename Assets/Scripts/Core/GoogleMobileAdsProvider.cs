@@ -6,11 +6,13 @@ using UnityEngine;
 namespace MukJump.Core
 {
     /// Google 보상형·전면 광고를 게임 공통 광고 계약으로 변환한다.
-    public sealed class GoogleMobileAdsProvider : IFullScreenAdProvider, IDisposable
+    public sealed class GoogleMobileAdsProvider : IFullScreenAdProvider, IFullScreenAdLifecycle, IDisposable
     {
         const float RetryDelaySeconds = 15f;
         const float LoadTimeoutSeconds = 30f;
         const float ShowTimeoutSeconds = 90f;
+        // Google의 1시간 만료 전에 새 광고를 준비한다.
+        const double CacheLifetimeSeconds = 55 * 60;
         static readonly Action<bool> IgnoreCompletion = _ => { };
 
         readonly string rewardedAdUnitId;
@@ -31,9 +33,18 @@ namespace MukJump.Core
         double rewardedLoadDeadline;
         double interstitialLoadDeadline;
         double showDeadline;
+        double rewardedExpiresAt;
+        double interstitialExpiresAt;
+        double nextCacheCheckTime;
+        double lastTickTime;
+        int rewardedFailures;
+        int interstitialFailures;
+        bool fullScreenOpened;
         long rewardedLoadGeneration;
         long interstitialLoadGeneration;
         long showGeneration;
+
+        public bool HasPendingPresentation => !disposed && pendingCompletion != null;
 
         public GoogleMobileAdsProvider(
             string rewardedAdUnitId,
@@ -52,7 +63,11 @@ namespace MukJump.Core
                     return false;
                 try
                 {
-                    return rewardedAd.CanShowAd();
+                    if (Time.realtimeSinceStartupAsDouble < rewardedExpiresAt &&
+                        rewardedAd.CanShowAd()) return true;
+                    SafeDestroy(ref rewardedAd, "만료된 보상형 광고 폐기");
+                    nextRewardedLoadTime = 0d;
+                    return false;
                 }
                 catch (Exception exception)
                 {
@@ -60,8 +75,7 @@ namespace MukJump.Core
                         "먹점프 보상형 광고 준비 확인 실패: " +
                         exception.Message);
                     SafeDestroy(ref rewardedAd, "보상형 광고 폐기");
-                    nextRewardedLoadTime =
-                        Time.realtimeSinceStartupAsDouble + RetryDelaySeconds;
+                    ScheduleRewardedRetry();
                     return false;
                 }
             }
@@ -70,7 +84,11 @@ namespace MukJump.Core
                 return false;
             try
             {
-                return interstitialAd.CanShowAd();
+                if (Time.realtimeSinceStartupAsDouble < interstitialExpiresAt &&
+                    interstitialAd.CanShowAd()) return true;
+                SafeDestroy(ref interstitialAd, "만료된 전면 광고 폐기");
+                nextInterstitialLoadTime = 0d;
+                return false;
             }
             catch (Exception exception)
             {
@@ -78,8 +96,7 @@ namespace MukJump.Core
                     "먹점프 전면 광고 준비 확인 실패: " +
                     exception.Message);
                 SafeDestroy(ref interstitialAd, "전면 광고 폐기");
-                nextInterstitialLoadTime =
-                    Time.realtimeSinceStartupAsDouble + RetryDelaySeconds;
+                ScheduleInterstitialRetry();
                 return false;
             }
         }
@@ -96,20 +113,34 @@ namespace MukJump.Core
         public void Tick()
         {
             if (disposed) return;
+            double now = Time.realtimeSinceStartupAsDouble;
+            // 앱 정지 동안의 벽시계 시간을 표시 실패로 세지 않는다. 복귀 프레임에는
+            // 메인 스레드로 지연된 SDK 콜백이 먼저 처리될 여유를 준다.
+            if (pendingCompletion != null && !fullScreenOpened)
+                showDeadline += Math.Max(0d, now - lastTickTime - .25d);
+            lastTickTime = now;
+            if (!MobileApplicationLifecycle.IsApplicationActive) return;
             if (pendingCompletion != null &&
-                Time.realtimeSinceStartupAsDouble >= showDeadline)
+                !fullScreenOpened && now >= showDeadline)
             {
                 Debug.LogWarning(
                     "먹점프 광고 종료 콜백 대기 시간이 초과되었습니다.");
                 CompleteShow(false);
             }
-            double now = Time.realtimeSinceStartupAsDouble;
+            // 열린 광고에는 시청 길이 제한을 두지 않는다. 닫힘/실패/보상은 SDK가 판정한다.
+            if (pendingCompletion != null) return;
+            if (now >= nextCacheCheckTime)
+            {
+                nextCacheCheckTime = now + 1d;
+                if (rewardedAd != null) IsReady(FullScreenAdPlacement.GameOverReviveReward);
+                if (interstitialAd != null) IsReady(FullScreenAdPlacement.PostRunInterstitial);
+            }
             if (rewardedLoading && now >= rewardedLoadDeadline)
             {
                 rewardedLoading = false;
                 rewardedLoadGeneration++;
                 rewardedLoadDeadline = 0d;
-                nextRewardedLoadTime = now + RetryDelaySeconds;
+                ScheduleRewardedRetry();
                 Debug.LogWarning(
                     "먹점프 보상형 광고 로드 시간이 초과되었습니다.");
             }
@@ -118,7 +149,7 @@ namespace MukJump.Core
                 interstitialLoading = false;
                 interstitialLoadGeneration++;
                 interstitialLoadDeadline = 0d;
-                nextInterstitialLoadTime = now + RetryDelaySeconds;
+                ScheduleInterstitialRetry();
                 Debug.LogWarning(
                     "먹점프 전면 광고 로드 시간이 초과되었습니다.");
             }
@@ -146,6 +177,8 @@ namespace MukJump.Core
 
             showingPlacement = placement;
             pendingCompletion = onCompleted ?? IgnoreCompletion;
+            fullScreenOpened = false;
+            lastTickTime = Time.realtimeSinceStartupAsDouble;
             long generation = ++showGeneration;
             showDeadline = Time.realtimeSinceStartupAsDouble +
                            ShowTimeoutSeconds;
@@ -182,9 +215,28 @@ namespace MukJump.Core
             return placement != FullScreenAdPlacement.PostRunInterstitial;
         }
 
+        static double RetryDelay(ref int failures)
+        {
+            // 15 → 30 → 60 → 120초. 통신 실패 중 매 프레임/고정 짧은 간격 요청을 피한다.
+            int step = Math.Min(failures, 3);
+            failures = Math.Min(failures + 1, 4);
+            return RetryDelaySeconds * (1 << step);
+        }
+
+        void ScheduleRewardedRetry() => nextRewardedLoadTime =
+            Time.realtimeSinceStartupAsDouble + RetryDelay(ref rewardedFailures);
+
+        void ScheduleInterstitialRetry() => nextInterstitialLoadTime =
+            Time.realtimeSinceStartupAsDouble + RetryDelay(ref interstitialFailures);
+
+        bool CanPreload => pendingCompletion == null &&
+            MobileApplicationLifecycle.IsApplicationActive &&
+            Application.internetReachability != NetworkReachability.NotReachable;
+
         void LoadRewardedIfNeeded()
         {
             if (disposed ||
+                !CanPreload ||
                 rewardedLoading ||
                 rewardedAd != null ||
                 string.IsNullOrWhiteSpace(rewardedAdUnitId) ||
@@ -213,8 +265,7 @@ namespace MukJump.Core
                 rewardedLoading = false;
                 rewardedLoadGeneration++;
                 rewardedLoadDeadline = 0d;
-                nextRewardedLoadTime =
-                    Time.realtimeSinceStartupAsDouble + RetryDelaySeconds;
+                ScheduleRewardedRetry();
                 Debug.LogWarning(
                     "먹점프 보상형 광고 로드 요청 실패: " +
                     exception.Message);
@@ -224,6 +275,7 @@ namespace MukJump.Core
         void LoadInterstitialIfNeeded()
         {
             if (disposed ||
+                !CanPreload ||
                 interstitialLoading ||
                 interstitialAd != null ||
                 string.IsNullOrWhiteSpace(interstitialAdUnitId) ||
@@ -251,8 +303,7 @@ namespace MukJump.Core
                 interstitialLoading = false;
                 interstitialLoadGeneration++;
                 interstitialLoadDeadline = 0d;
-                nextInterstitialLoadTime =
-                    Time.realtimeSinceStartupAsDouble + RetryDelaySeconds;
+                ScheduleInterstitialRetry();
                 Debug.LogWarning(
                     "먹점프 전면 광고 로드 요청 실패: " +
                     exception.Message);
@@ -279,8 +330,7 @@ namespace MukJump.Core
                 if (error != null || ad == null)
                 {
                     MukJumpAnalytics.Ad(AnalyticsAdStage.LoadFailed);
-                    nextRewardedLoadTime =
-                        Time.realtimeSinceStartupAsDouble + RetryDelaySeconds;
+                    ScheduleRewardedRetry();
                     Debug.LogWarning(
                         $"먹점프 보상형 광고 로드 실패: {error}");
                     SafeDestroy(ad, "실패한 보상형 광고 폐기");
@@ -289,14 +339,16 @@ namespace MukJump.Core
 
                 SafeDestroy(ref rewardedAd, "이전 보상형 광고 폐기");
                 rewardedAd = ad;
+                rewardedExpiresAt = Time.realtimeSinceStartupAsDouble + CacheLifetimeSeconds;
+                rewardedFailures = 0;
                 MukJumpAnalytics.Ad(AnalyticsAdStage.Loaded);
                 nextRewardedLoadTime = 0d;
             }
             catch (Exception exception)
             {
                 SafeDestroy(ad, "처리 실패한 보상형 광고 폐기");
-                nextRewardedLoadTime =
-                    Time.realtimeSinceStartupAsDouble + RetryDelaySeconds;
+                if (ReferenceEquals(rewardedAd, ad)) rewardedAd = null;
+                ScheduleRewardedRetry();
                 Debug.LogWarning(
                     "먹점프 보상형 광고 로드 결과 처리 실패: " +
                     exception.Message);
@@ -322,8 +374,7 @@ namespace MukJump.Core
             {
                 if (error != null || ad == null)
                 {
-                    nextInterstitialLoadTime =
-                        Time.realtimeSinceStartupAsDouble + RetryDelaySeconds;
+                    ScheduleInterstitialRetry();
                     Debug.LogWarning(
                         $"먹점프 전면 광고 로드 실패: {error}");
                     SafeDestroy(ad, "실패한 전면 광고 폐기");
@@ -332,13 +383,15 @@ namespace MukJump.Core
 
                 SafeDestroy(ref interstitialAd, "이전 전면 광고 폐기");
                 interstitialAd = ad;
+                interstitialExpiresAt = Time.realtimeSinceStartupAsDouble + CacheLifetimeSeconds;
+                interstitialFailures = 0;
                 nextInterstitialLoadTime = 0d;
             }
             catch (Exception exception)
             {
                 SafeDestroy(ad, "처리 실패한 전면 광고 폐기");
-                nextInterstitialLoadTime =
-                    Time.realtimeSinceStartupAsDouble + RetryDelaySeconds;
+                if (ReferenceEquals(interstitialAd, ad)) interstitialAd = null;
+                ScheduleInterstitialRetry();
                 Debug.LogWarning(
                     "먹점프 전면 광고 로드 결과 처리 실패: " +
                     exception.Message);
@@ -355,7 +408,10 @@ namespace MukJump.Core
                 showingRewardedAd.OnAdFullScreenContentOpened += () =>
                 {
                     if (generation == showGeneration && pendingCompletion != null)
+                    {
+                        fullScreenOpened = true;
                         MukJumpAnalytics.Ad(AnalyticsAdStage.Opened);
+                    }
                 };
                 showingRewardedAd.OnAdClicked += () =>
                 {
@@ -391,6 +447,11 @@ namespace MukJump.Core
             interstitialAd = null;
             try
             {
+                showingInterstitialAd.OnAdFullScreenContentOpened += () =>
+                {
+                    if (generation == showGeneration && pendingCompletion != null)
+                        fullScreenOpened = true;
+                };
                 showingInterstitialAd.OnAdFullScreenContentClosed +=
                     () => HandleInterstitialClosed(generation);
                 showingInterstitialAd.OnAdFullScreenContentFailed +=
@@ -445,6 +506,12 @@ namespace MukJump.Core
                 completedPlacement,
                 rewardEarned,
                 completed);
+            // Destroy가 동기 닫힘 콜백을 보내도 같은 보상/요청을 두 번 끝내지 않는다.
+            Action<bool> callback = pendingCompletion;
+            pendingCompletion = null;
+            fullScreenOpened = false;
+            showGeneration++;
+            showDeadline = 0d;
             if (IsRewarded(completedPlacement))
             {
                 SafeDestroy(
@@ -460,10 +527,6 @@ namespace MukJump.Core
                 nextInterstitialLoadTime = 0d;
             }
 
-            Action<bool> callback = pendingCompletion;
-            pendingCompletion = null;
-            showGeneration++;
-            showDeadline = 0d;
             try
             {
                 InvokeCompletionSafely(callback, completed);
