@@ -53,6 +53,21 @@ namespace MukJump.EditorTests
                     Assert.That(view.SkillSummaryText.rectTransform.anchoredPosition.y,
                         Is.GreaterThan(view.Paper.Find("SkinName").GetComponent<RectTransform>().anchoredPosition.y));
                     yield return Capture("wardrobe-centered-gat-" + language);
+                    foreach (var id in new[] { InkSkinId.SpiderMask, InkSkinId.YakshaMask, InkSkinId.TurtleShell,
+                        InkSkinId.SpiritHalo, InkSkinId.PhoenixCrown, InkSkinId.CloudBoots, InkSkinId.BondKnot, InkSkinId.AngelWings })
+                    {
+                        view.Select(id); yield return Wait(.1f);
+                        Assert.That(view.Paper.Find("SkinName").GetComponent<UnityEngine.UI.Text>().text,
+                            Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Name(id))));
+                        Assert.That(view.Paper.Find("ItemLore").GetComponent<UnityEngine.UI.Text>().text,
+                            Is.EqualTo(GameLocalization.Translate(InkSkinLore.Get(id).ko)));
+                        Assert.That(view.SkillSummaryText.text, Does.Contain(GameLocalization.Translate(InkSkinCatalog.Ability(id))));
+                        Assert.That(collection.sizeDelta, Is.EqualTo(listSize));
+                        if ((language == GameLanguage.Korean && id == InkSkinId.SpiritHalo) ||
+                            (language == GameLanguage.English && id == InkSkinId.BondKnot) ||
+                            (language == GameLanguage.Japanese && id == InkSkinId.AngelWings))
+                            yield return Capture("wardrobe-renamed-" + language);
+                    }
                     view.Select(InkSkinId.WindFan); yield return Wait(.4f);
                     Assert.That(collection.sizeDelta, Is.EqualTo(listSize)); Assert.That(collection.anchoredPosition, Is.EqualTo(listPosition));
                     Assert.That(view.SkillButton.gameObject.activeSelf, Is.True);

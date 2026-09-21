@@ -86,6 +86,7 @@ namespace MukJump.Core
                                     _ => text
                                 };
                             }
+                            text = UpgradeLegacyCopy(id, field + lang, text);
                             if (field == "abilityDescription" && cooldown > 0 && !text.Contains("{cooldown}"))
                                 throw new FormatException(field + lang + " 쿨타임 치환자 필요");
                             row[field + lang] = text;
@@ -108,6 +109,56 @@ namespace MukJump.Core
             catch (Exception ex) when (ex is JsonException or FormatException or ArgumentException or OverflowException)
             { error = ex.Message; return false; }
         }
+        // 이전 기본 문구만 이관한다. 차트에서 별도로 작성한 문구·수치·식별자는 그대로 둔다.
+        static string UpgradeLegacyCopy(InkSkinId id, string field, string text) => (id, field, text) switch
+        {
+            (InkSkinId.TurtleShell, "nameKo", "거북 투구") => "현무",
+            (InkSkinId.TurtleShell, "nameEn", "Turtle Helm") => "Hyunmu",
+            (InkSkinId.TurtleShell, "nameJa", "亀のかぶと") => "玄武",
+            (InkSkinId.SpiritHalo, "nameKo", "금빛 후광") => "윤회의 고리",
+            (InkSkinId.SpiritHalo, "nameEn", "Golden Halo") => "Ring of Rebirth",
+            (InkSkinId.SpiritHalo, "nameJa", "金色の後光") => "輪廻の環",
+            (InkSkinId.BondKnot, "nameKo", "인연 매듭") => "무스비",
+            (InkSkinId.BondKnot, "nameEn", "Bond Knot") => "Musubi",
+            (InkSkinId.BondKnot, "nameJa", "縁結び") => "むすび",
+            (InkSkinId.AngelWings, "nameKo", "천사링") => "여명의 고리",
+            (InkSkinId.AngelWings, "nameEn", "Angel Ring") => "Ring of Dawn",
+            (InkSkinId.AngelWings, "nameJa", "天使の輪") => "夜明けの環",
+            (InkSkinId.SpiderMask, "loreKo", "이웃의 빨래줄까지 지키는 작은 영웅.") => "거미에게 물린 적은 없다",
+            (InkSkinId.SpiderMask, "loreEn", "A little neighborhood hero. Even the clotheslines are safe.") => "Never been bitten by a spider",
+            (InkSkinId.SpiderMask, "loreJa", "ご近所の物干しロープまで守る、小さなヒーロー。") => "蜘蛛に噛まれたことはない",
+            (InkSkinId.YakshaMask, "loreKo", "탈은 웃고 있지만 주먹은 웃지 않는다.") => "정체는 비밀인거같다.",
+            (InkSkinId.YakshaMask, "loreEn", "The mask smiles. The fists do not.") => "Seems to keep its identity a secret.",
+            (InkSkinId.YakshaMask, "loreJa", "仮面は笑うが、拳は笑わない。") => "正体は秘密らしい。",
+            (InkSkinId.SpiritHalo, "loreKo", "뒤가 환해졌지만 득도한 것은 아니다.") => "끝은 또다른 시작",
+            (InkSkinId.SpiritHalo, "loreEn", "A radiant ring. Enlightenment sold separately.") => "Every end is another beginning",
+            (InkSkinId.SpiritHalo, "loreJa", "背中は輝いたが、悟ったわけではない。") => "終わりは新たな始まり",
+            (InkSkinId.BondKnot, "loreKo", "인연을 묶었더니 발이 먼저 떠올랐다.") => "서로 다른 시간을 하나로 묶은 매듭",
+            (InkSkinId.BondKnot, "loreEn", "One little bond. Two feet off the ground.") => "A knot that binds different times together",
+            (InkSkinId.BondKnot, "loreJa", "縁を結んだら、足が先に浮かんだ。") => "異なる時間をひとつに結んだ結び目",
+            (InkSkinId.WindFan, "loreKo", "불을 끄려다 주인부터 날려 버렸다.") => "부채를 펼치면, 바람의 흐름이 바뀔거같다.",
+            (InkSkinId.WindFan, "loreEn", "Meant to cool the fire. Blew its owner away.") => "Open the fan, and the wind might change its course.",
+            (InkSkinId.WindFan, "loreJa", "火を消すつもりが、持ち主を飛ばした。") => "扇を開けば、風の流れが変わりそうだ。",
+            (InkSkinId.AngelWings, "loreKo", "하늘과 지옥 사이에서도 퇴근 시간은 지킨다.") => "돌아갈 곳을 잃은 빛이 먹 위에 머문다",
+            (InkSkinId.AngelWings, "loreEn", "Even between heaven and hell, it clocks out on time.") => "A light with nowhere to return rests above Ink",
+            (InkSkinId.AngelWings, "loreJa", "天と地獄の間でも、定時には帰る。") => "帰る場所を失った光が、墨の上にとどまる",
+            (InkSkinId.SpiderMask, "abilityNameKo", "거미줄 오르기") => "먹슈트",
+            (InkSkinId.SpiderMask, "abilityNameEn", "Web Ascent") => "Ink Suit",
+            (InkSkinId.SpiderMask, "abilityNameJa", "糸のぼり") => "墨スーツ",
+            (InkSkinId.YakshaMask, "abilityNameKo", "퇴마의 일격") => "탈춤",
+            (InkSkinId.YakshaMask, "abilityNameEn", "Banishing Strike") => "Mask Dance",
+            (InkSkinId.YakshaMask, "abilityNameJa", "退魔の一撃") => "仮面舞",
+            (InkSkinId.TurtleShell, "abilityNameKo", "시작 방어막") => "금강",
+            (InkSkinId.TurtleShell, "abilityNameEn", "Starting Shield") => "Vajra",
+            (InkSkinId.TurtleShell, "abilityNameJa", "開幕の盾") => "金剛",
+            (InkSkinId.SpiritHalo, "abilityNameKo", "먹의 환원") => "윤회",
+            (InkSkinId.SpiritHalo, "abilityNameEn", "Ink Return") => "Rebirth",
+            (InkSkinId.SpiritHalo, "abilityNameJa", "墨の還元") => "輪廻",
+            (InkSkinId.BondKnot, "abilityNameKo", "첫걸음 도약") => "인연의 이끌림",
+            (InkSkinId.BondKnot, "abilityNameEn", "First Leap") => "Bond's Pull",
+            (InkSkinId.BondKnot, "abilityNameJa", "はじまりの跳躍") => "縁の導き",
+            _ => text
+        };
         static string Optional(JObject row, string key, int max)
         {
             var token = row[key];

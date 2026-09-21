@@ -22,12 +22,12 @@ namespace MukJump.EditorTests
         }
         [Test] public void GoldenHaloIsOneRoundRingWithoutFlamesAndWispsAreUnchanged()
         {
-            Assert.That(InkSkinCatalog.Name(InkSkinId.SpiritHalo), Is.EqualTo("금빛 후광"));
+            Assert.That(InkSkinCatalog.Name(InkSkinId.SpiritHalo), Is.EqualTo("윤회의 고리"));
             Assert.That(InkSkinCatalog.Name(InkSkinId.BlueWisps), Is.EqualTo("도깨비불 나들이"));
             Assert.That(InkSkinCatalog.Get(InkSkinId.SpiritHalo).Goal, Is.EqualTo(30));
-            Assert.That(InkSkinCatalog.Ability(InkSkinId.SpiritHalo), Is.EqualTo("먹의 환원"));
+            Assert.That(InkSkinCatalog.Ability(InkSkinId.SpiritHalo), Is.EqualTo("윤회"));
             foreach (bool japanese in new[] { false, true })
-                Assert.That(InkSkinTranslations.TryTranslate("금빛 후광", japanese, out _), Is.True);
+                Assert.That(InkSkinTranslations.TryTranslate("윤회의 고리", japanese, out _), Is.True);
             Read("spirit_halo", (texture, pixels) => {
                 for (int i = 0; i < 4; i++)
                 {

@@ -18,7 +18,7 @@ namespace MukJump.Core
             var result = new Dictionary<string, (string, string)>
             {
                 ["다시 피는 빛"] = ("Light Reborn", "よみがえる光"),
-                ["거미줄 오르기"] = ("Web Ascent", "糸のぼり"),
+                ["먹슈트"] = ("Ink Suit", "墨スーツ"),
                 ["30초마다 가까운 벽에 거미줄을 쏘아 본체를 18m 끌어올린다.\n상승 중에는 피해를 막으며 다른 점프 효과가 발동하면 줄을 놓는다."] = ("Every 30 seconds, a web pulls the original Ink 18m toward a nearby wall.\nBlocks damage during ascent. Another launch effect releases the web.", "30秒ごとに近くの壁へ糸を放ち、本体を18m引き上げる。\n上昇中はダメージを防ぎ、別の跳躍効果が発動すると糸を離す。"),
                 ["의상 시험실"] = ("Outfit test room", "衣装テスト"),
                 ["닫기"] = ("Close", "閉じる"),
@@ -42,10 +42,10 @@ namespace MukJump.Core
                 ["용과의 만남"] = ("Dragon encounter", "竜との出会い"),
                 ["본체가 용과 충돌해 사망하기"] = ("Let the original Ink die from a dragon collision", "本体が竜との衝突で倒れる"),
                 ["Apple 계정 연동 완료"] = ("Link your Apple account", "Appleアカウントを連携"),
-                ["첫걸음 도약"] = ("First Leap", "はじまりの跳躍"),
+                ["인연의 이끌림"] = ("Bond's Pull", "縁の導き"),
                 ["바람 도약"] = ("Wind Leap", "風の跳躍"),
                 ["구름 도약"] = ("Cloud Leap", "雲の跳躍"),
-                ["퇴마의 일격"] = ("Banishing Strike", "退魔の一撃"),
+                ["탈춤"] = ("Mask Dance", "仮面舞"),
                 ["본체가 적과 충돌하면 피해 없이 적을 제거한다.\n30초마다 발동하며 가시·낙석에는 적용되지 않는다."] =
                     ("Defeat an enemy on contact without taking damage.\nCooldown: 30s. Not effective against spikes or falling rocks.", "本体が敵に接触すると、ダメージを受けずに敵を倒す。\n30秒ごとに発動。トゲ・落石には無効。"),
                 ["본체가 맵 발판에 착지하면 먹방울 효과로 50m 상승한다.\n직접 그린 발판에는 발동하지 않는다."] =
@@ -67,8 +67,8 @@ namespace MukJump.Core
                 ["분신"] = ("Clones", "分身"),
                 ["밤의 고도"] = ("Night height", "夜の高度"),
                 ["아이템 없는 도전"] = ("No-item challenge", "アイテムなしの挑戦"),
-                ["먹의 환원"] = ("Ink Return", "墨の還元"),
-                ["시작 방어막"] = ("Starting Shield", "開幕の盾"),
+                ["윤회"] = ("Rebirth", "輪廻"),
+                ["금강"] = ("Vajra", "金剛"),
                 ["봉황의 숨결"] = ("Phoenix Breath", "鳳凰の息吹"),
                 ["분신이 쓰러질 때마다 본체 체력을 1칸 회복한다.\n최대 체력을 넘거나 쓰러진 본체를 되살리지는 않는다."] =
                     ("Each fallen clone restores 1 HP to Ink.\nCannot exceed max HP or revive Ink.", "分身が倒れるたび、本体の体力を1回復。\n最大体力を超えず、倒れた本体は蘇りません。"),
@@ -138,10 +138,10 @@ namespace MukJump.Core
             return (InkSkinChart.Text(id, "loreKo", d.ko), InkSkinChart.Text(id, "loreEn", d.en), InkSkinChart.Text(id, "loreJa", d.ja));
         }
         public static (string ko, string en, string ja) BuiltIn(InkSkinId id) => InkMythicSkins.Contains(id) ? InkMythicSkins.Lore(id) : id switch {
-            InkSkinId.AngelWings => ("하늘과 지옥 사이에서도 퇴근 시간은 지킨다.", "Even between heaven and hell, it clocks out on time.", "天と地獄の間でも、定時には帰る。"),
+            InkSkinId.AngelWings => ("돌아갈 곳을 잃은 빛이 먹 위에 머문다", "A light with nowhere to return rests above Ink", "帰る場所を失った光が、墨の上にとどまる"),
             InkSkinId.Ink => ("벼루 밖으로 처음 굴러 나온 날.", "The day a drop rolled out of the inkstone.", "硯の外へ、はじめて転がり出た日。"),
             InkSkinId.Gat => ("바람처럼 스쳐가는....", "Passing by like the wind....", "風のように通り過ぎる...."),
-            InkSkinId.SpiderMask => ("이웃의 빨래줄까지 지키는 작은 영웅.", "A little neighborhood hero. Even the clotheslines are safe.", "ご近所の物干しロープまで守る、小さなヒーロー。"),
+            InkSkinId.SpiderMask => ("거미에게 물린 적은 없다", "Never been bitten by a spider", "蜘蛛に噛まれたことはない"),
             InkSkinId.FirstRibbon => ("풀 줄 몰라서 아직 첫 매듭이다.", "Still the first knot. Nobody can untie it.", "ほどけないので、まだ最初の結び目。"),
             InkSkinId.Scholar => ("붓보다 낮잠에 더 익숙한 선비의 관.", "Its scholar preferred naps to calligraphy.", "書より昼寝が得意な書生の冠。"),
             InkSkinId.InkGhost => ("다 쓴 종이도 가끔 꿈을 꾼다.", "Even used paper dreams sometimes.", "使い終えた紙も、ときどき夢を見る。"),
@@ -157,11 +157,11 @@ namespace MukJump.Core
             InkSkinId.PeachFlower => ("봄이 급히 두고 간 물건.", "Spring left this behind in a hurry.", "春があわてて置いていったもの。"),
             InkSkinId.FoxMask => ("속인 건 아무도 없고, 본인만 신났다.", "Fooled nobody. Had a wonderful time.", "誰もだませず、自分だけ大喜び。"),
             InkSkinId.CraneCrest => ("높이 날던 학도 빗질은 서툴렀다.", "A fine flier. A terrible hairdresser.", "高く飛ぶ鶴も、髪を整えるのは苦手。"),
-            InkSkinId.YakshaMask => ("탈은 웃고 있지만 주먹은 웃지 않는다.", "The mask smiles. The fists do not.", "仮面は笑うが、拳は笑わない。"),
+            InkSkinId.YakshaMask => ("정체는 비밀인거같다.", "Seems to keep its identity a secret.", "正体は秘密らしい。"),
             InkSkinId.TurtleShell => ("느린 장인이 끝내 완성한 투구.", "A very slow craftsman finally finished it.", "のんびり屋の職人が、ついに仕上げた。"),
             InkSkinId.MoonCrown => ("달에서 빌렸다. 반납일은 모른다.", "Borrowed from the moon. No due date.", "月から借りた。返す日は知らない。"),
             InkSkinId.BrushMaster => ("장인은 붓을 찾고, 붓은 여기 있다.", "The master is looking for these brushes.", "職人は筆を探している。筆はここにある。"),
-            InkSkinId.SpiritHalo => ("뒤가 환해졌지만 득도한 것은 아니다.", "A radiant ring. Enlightenment sold separately.", "背中は輝いたが、悟ったわけではない。"),
+            InkSkinId.SpiritHalo => ("끝은 또다른 시작", "Every end is another beginning", "終わりは新たな始まり"),
             InkSkinId.KoiMask => ("용문 앞에서 잠깐 쉬어 가는 중.", "Taking a short rest before the Dragon Gate.", "竜門の手前で、ちょっとひと休み。"),
             InkSkinId.JadeCrown => ("돌인 줄 알고 문을 괴어 두던 용관.", "Once mistaken for a very good doorstop.", "ただの石だと思われ、戸止めにされていた。"),
             InkSkinId.PhoenixCrown => ("타지 않은 깃은 딱 다섯 개였다.", "Exactly five feathers escaped the fire.", "燃え残った羽は、ちょうど五枚だった。"),
@@ -181,8 +181,8 @@ namespace MukJump.Core
             InkSkinId.BlueWisps => ("무섭게 따라오려다 산책이 되어 버렸다.", "They meant to haunt you. It turned into a stroll.", "脅かすつもりが、おさんぽになった。"),
             InkSkinId.PaperLanterns => ("집으로 가는 길은 모르지만 일단 따라온다.", "They forgot the way home, so they follow you.", "帰り道は忘れたけれど、とりあえずついてくる。"),
             InkSkinId.MoonClouds => ("달이 낮잠 잘 자리를 잘못 골랐다.", "The moon picked the wrong place for a nap.", "月がお昼寝する場所を間違えた。"),
-            InkSkinId.BondKnot => ("인연을 묶었더니 발이 먼저 떠올랐다.", "One little bond. Two feet off the ground.", "縁を結んだら、足が先に浮かんだ。"),
-            InkSkinId.WindFan => ("불을 끄려다 주인부터 날려 버렸다.", "Meant to cool the fire. Blew its owner away.", "火を消すつもりが、持ち主を飛ばした。"),
+            InkSkinId.BondKnot => ("서로 다른 시간을 하나로 묶은 매듭", "A knot that binds different times together", "異なる時間をひとつに結んだ結び目"),
+            InkSkinId.WindFan => ("부채를 펼치면, 바람의 흐름이 바뀔거같다.", "Open the fan, and the wind might change its course.", "扇を開けば、風の流れが変わりそうだ。"),
             InkSkinId.DragonTail => ("한 번 부딪혔을 뿐인데 꼬리가 따라왔다.", "One little bump. A tail followed me home.", "一度ぶつかっただけなのに、しっぽがついてきた。"),
             InkSkinId.ThreeCushion => ("큐대는 못 잡아도, 각은 제법 잘 본다.", "Can't hold a cue. Can still work the angles.", "キューは持てないが、角度を読むのは得意。"),
             _ => ("", "", "")

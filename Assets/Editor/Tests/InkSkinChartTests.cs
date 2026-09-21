@@ -15,6 +15,51 @@ namespace MukJump.EditorTests
         [TearDown] public void After() => InkSkinChart.Reset();
         static bool Parse(JArray rows, out InkSkinChart.Snapshot snapshot) =>
             InkSkinChart.TryParse(rows.ToString(Formatting.None), out snapshot, out _);
+        [TestCase(InkSkinId.Gat, "바람 갓", "바람처럼 스쳐가는....", "이단 도약")]
+        [TestCase(InkSkinId.SpiderMask, "거미탈", "거미에게 물린 적은 없다", "먹슈트")]
+        [TestCase(InkSkinId.YakshaMask, "각시탈", "정체는 비밀인거같다.", "탈춤")]
+        [TestCase(InkSkinId.TurtleShell, "현무", "느린 장인이 끝내 완성한 투구.", "금강")]
+        [TestCase(InkSkinId.SpiritHalo, "윤회의 고리", "끝은 또다른 시작", "윤회")]
+        [TestCase(InkSkinId.PhoenixCrown, "봉황 관", "타지 않은 깃은 딱 다섯 개였다.", "봉황의 숨결")]
+        [TestCase(InkSkinId.CloudBoots, "구름 장화", "비 오는 날엔 양말까지 구름이 된다.", "구름 도약")]
+        [TestCase(InkSkinId.BondKnot, "무스비", "서로 다른 시간을 하나로 묶은 매듭", "인연의 이끌림")]
+        [TestCase(InkSkinId.WindFan, "바람부채", "부채를 펼치면, 바람의 흐름이 바뀔거같다.", "바람 도약")]
+        [TestCase(InkSkinId.AngelWings, "여명의 고리", "돌아갈 곳을 잃은 빛이 먹 위에 머문다", "다시 피는 빛")]
+        public void RequestedSkinCopyMatchesBuiltInAndChart(InkSkinId id, string name, string lore, string ability)
+        {
+            var rows = InkSkinChartExport.Rows();
+            Assert.That(Parse(rows, out var snapshot), Is.True);
+            // 기본값과 다운로드 차트 양쪽에서 같은 문구·번역을 표시한다.
+            foreach (bool remote in new[] { false, true })
+            {
+                if (remote) InkSkinChart.Apply(snapshot);
+                Assert.That(InkSkinCatalog.Name(id), Is.EqualTo(name));
+                Assert.That(InkSkinLore.Get(id).ko, Is.EqualTo(lore));
+                Assert.That(InkSkinCatalog.Ability(id), Is.EqualTo(ability));
+                foreach (string ko in new[] { name, lore, ability })
+                foreach (var language in new[] { GameLanguage.English, GameLanguage.Japanese })
+                {
+                    string translated = GameLocalization.Translate(ko, language);
+                    Assert.That(translated, Is.Not.Empty.And.Not.EqualTo(ko));
+                    Assert.That(translated, Does.Not.Match("[가-힣]"));
+                }
+            }
+        }
+        [TestCase(InkSkinId.SpiderMask), TestCase(InkSkinId.YakshaMask), TestCase(InkSkinId.TurtleShell)]
+        [TestCase(InkSkinId.SpiritHalo), TestCase(InkSkinId.BondKnot), TestCase(InkSkinId.WindFan), TestCase(InkSkinId.AngelWings)]
+        public void CopyMigrationPreservesOperatorAuthoredText(InkSkinId id)
+        {
+            var rows = InkSkinChartExport.Rows();
+            var row = rows.Single(x => (string)x["skinKey"] == id.ToString());
+            foreach (string field in new[] { "name", "lore", "abilityName" })
+            foreach (string lang in new[] { "Ko", "En", "Ja" })
+                row[field + lang] = "Custom " + field + lang;
+            Assert.That(Parse(rows, out var snapshot), Is.True);
+            InkSkinChart.Apply(snapshot);
+            Assert.That(InkSkinCatalog.Name(id), Is.EqualTo("Custom nameKo"));
+            Assert.That(InkSkinLore.Get(id), Is.EqualTo(("Custom loreKo", "Custom loreEn", "Custom loreJa")));
+            Assert.That(InkSkinCatalog.Ability(id), Is.EqualTo("Custom abilityNameKo"));
+        }
         [Test] public void GatUsesOnlyTheRequestedShortLoreIncludingLegacyChartData()
         {
             Assert.That(InkSkinCatalog.BuiltIn(InkSkinId.Gat).Korean, Is.EqualTo("바람 갓"));

@@ -43,12 +43,12 @@ namespace MukJump.Core
             new(InkSkinId.FoxMask,"여우탈","Fox Mask","狐の面","skin_fox_mask_v1",SkinTier.Medium,SkinMetric.Best,250),
             new(InkSkinId.CraneCrest,"학의 볏","Crane Crest","鶴の冠","skin_crane_crest_v1",SkinTier.Medium,SkinMetric.Distance,5000),
             new(InkSkinId.YakshaMask,"각시탈","Bridal Mask","花嫁の面","skin_yaksha_mask_v1",SkinTier.Medium,SkinMetric.Best,500),
-            new(InkSkinId.TurtleShell,"거북 투구","Turtle Helm","亀のかぶと","skin_turtle_shell_v1",SkinTier.Medium,SkinMetric.Clones,3),
+            new(InkSkinId.TurtleShell,"현무","Hyunmu","玄武","skin_turtle_shell_v1",SkinTier.Medium,SkinMetric.Clones,3),
             // 은퇴 ID 20은 예전 저장을 읽기 위한 자리만 유지한다. 새 의상에 재사용하지 않는다.
             new(InkSkinId.StormScarf,"질풍 두건","Gale Scarf","疾風の頭巾","",SkinTier.Medium,SkinMetric.Survival,120),
             new(InkSkinId.MoonCrown,"달빛 관","Moon Crown","月光の冠","skin_moon_crown_v1",SkinTier.Medium,SkinMetric.NightBest,100),
             new(InkSkinId.BrushMaster,"붓 장인","Brush Master","筆の匠","skin_brush_master_v1",SkinTier.Medium,SkinMetric.DrawnLandings,100),
-            new(InkSkinId.SpiritHalo,"금빛 후광","Golden Halo","金色の後光","skin_spirit_halo_v1",SkinTier.Medium,SkinMetric.Items,30),
+            new(InkSkinId.SpiritHalo,"윤회의 고리","Ring of Rebirth","輪廻の環","skin_spirit_halo_v1",SkinTier.Medium,SkinMetric.Items,30),
             new(InkSkinId.KoiMask,"잉어탈","Koi Mask","鯉の面","skin_koi_mask_v1",SkinTier.Medium,SkinMetric.Growth,5),
             new(InkSkinId.JadeCrown,"비취 용관","Jade Crown","翡翠の竜冠","skin_jade_crown_v1",SkinTier.Medium,SkinMetric.Distance,10000),
             new(InkSkinId.PhoenixCrown,"봉황 관","Phoenix Crown","鳳凰の冠","skin_phoenix_crown_v1",SkinTier.Hard,SkinMetric.Best,1000),
@@ -68,7 +68,7 @@ namespace MukJump.Core
             new(InkSkinId.BlueWisps,"도깨비불 나들이","Wisp Parade","鬼火のおさんぽ","skin_blue_wisps_v1",SkinTier.Medium,SkinMetric.InkDrops,20),
             new(InkSkinId.PaperLanterns,"길 잃은 등불","Wandering Lanterns","迷子の灯り","skin_paper_lanterns_v1",SkinTier.Easy,SkinMetric.Runs,7),
             new(InkSkinId.MoonClouds,"달구름 둥지","Mooncloud Nest","月雲の巣","skin_moon_clouds_v1",SkinTier.Medium,SkinMetric.NightBest,200),
-            new(InkSkinId.BondKnot,"인연 매듭","Bond Knot","縁結び","skin_bond_knot_v1",SkinTier.Basic,SkinMetric.AppleLink,1),
+            new(InkSkinId.BondKnot,"무스비","Musubi","むすび","skin_bond_knot_v1",SkinTier.Basic,SkinMetric.AppleLink,1),
             new(InkSkinId.WindFan,"바람부채","Wind Fan","風の扇","skin_wind_fan_v1",SkinTier.Medium,SkinMetric.InkDrops,5),
             new(InkSkinId.DragonTail,"용꼬리","Dragon Tail","竜のしっぽ","skin_dragon_tail_v2",SkinTier.Easy,SkinMetric.DragonDeath,1),
             new(InkSkinId.ZodiacRat,"밤쥐의 동그란 귀","Night Mouse's Round Ears","夜ねずみの丸い耳","skin_zodiac_rat_v1",SkinTier.Hidden,SkinMetric.Secret,1),
@@ -88,7 +88,7 @@ namespace MukJump.Core
             new(InkSkinId.NineTails,"구미호 꼬리","Nine Fox Tails","九尾のしっぽ","skin_nine_tails_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.ThreeCushion,"팔번공","Eight Ball","8番ボール","skin_three_cushion_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             // 정지 그림도 애니메이션 첫 프레임을 사용한다. 중복 PNG는 만들지 않는다.
-            new(InkSkinId.AngelWings,"천사링","Angel Ring","天使の輪","",SkinTier.Hard,SkinMetric.Distance,10000)
+            new(InkSkinId.AngelWings,"여명의 고리","Ring of Dawn","夜明けの環","",SkinTier.Hard,SkinMetric.Distance,10000)
         };
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
         public static bool IsAvailable(InkSkinId id) => IsValid(id) && id != InkSkinId.StormScarf;
@@ -131,12 +131,12 @@ namespace MukJump.Core
             InkSkinId.SpiritHalo or InkSkinId.TurtleShell or InkSkinId.PhoenixCrown or InkSkinId.BondKnot or InkSkinId.WindFan or InkSkinId.CloudBoots or InkSkinId.YakshaMask or InkSkinId.AngelWings;
         public static string Ability(InkSkinId id) => InkSkinChart.Text(id, "abilityNameKo", BuiltInAbility(id));
         public static string BuiltInAbility(InkSkinId id) => id switch {
-            InkSkinId.Gat => "이단 도약", InkSkinId.SpiderMask => "거미줄 오르기",
-            InkSkinId.SpiritHalo => "먹의 환원", InkSkinId.TurtleShell => "시작 방어막", InkSkinId.PhoenixCrown => "봉황의 숨결",
+            InkSkinId.Gat => "이단 도약", InkSkinId.SpiderMask => "먹슈트",
+            InkSkinId.SpiritHalo => "윤회", InkSkinId.TurtleShell => "금강", InkSkinId.PhoenixCrown => "봉황의 숨결",
             InkSkinId.CloudBoots => "구름 도약",
-            InkSkinId.YakshaMask => "퇴마의 일격",
+            InkSkinId.YakshaMask => "탈춤",
             InkSkinId.AngelWings => "다시 피는 빛",
-            InkSkinId.BondKnot => "첫걸음 도약", InkSkinId.WindFan => "바람 도약",
+            InkSkinId.BondKnot => "인연의 이끌림", InkSkinId.WindFan => "바람 도약",
             _ => "먹의 장식" };
         public static string Description(InkSkinId id) => InkSkinChart.Text(id, "abilityDescriptionKo", BuiltInDescription(id));
         public static string BuiltInDescription(InkSkinId id) => id switch {

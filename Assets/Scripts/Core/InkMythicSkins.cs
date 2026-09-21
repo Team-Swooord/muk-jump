@@ -45,7 +45,7 @@ namespace MukJump.Core
             InkSkinId.ZodiacRooster => ("낮 한 판에서 먹방울 3개와 100m 달성", "In one day run, collect 3 Ink Drops and reach 100m", "昼の1プレイで墨滴3個と100m達成"),
             InkSkinId.ZodiacDog => ("한 판에서 먹 2마리 동시 생존과 90초 생존", "In one run, have 2 Inks alive together and survive 90s", "1プレイで墨2体の同時生存と90秒生存を達成"),
             InkSkinId.ZodiacPig => ("한 판에서 먹방울 3개 포함 아이템 12개 획득", "Collect 12 items, including 3 Ink Drops, in one run", "1プレイで墨滴3個を含むアイテム12個を獲得"),
-            InkSkinId.HaetaeCrest => ("거북 투구로 아이템 없이 250m 이상 한 판 완료", "With Turtle Helm, finish at 250m or higher without items", "亀のかぶとでアイテムなしの250m以上プレイを完了"),
+            InkSkinId.HaetaeCrest => ("현무로 아이템 없이 250m 이상 한 판 완료", "With Hyunmu, finish at 250m or higher without items", "玄武でアイテムなしの250m以上プレイを完了"),
             InkSkinId.ThreeLeggedCrow => ("밤 한 판에서 먹방울 3개와 333m 달성", "In one night run, collect 3 Ink Drops and reach 333m", "夜の1プレイで墨滴3個と333m達成"),
             InkSkinId.NineTails => ("여우탈로 한 판에서 먹 3마리 동시 생존과 300m 달성", "Fox Mask: 3 Inks alive together + 300m in one run", "狐の面で1プレイ中に墨3体の同時生存と300mを達成"),
             _ => ("???", "???", "???") };
