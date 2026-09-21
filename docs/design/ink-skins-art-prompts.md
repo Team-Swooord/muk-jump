@@ -39,7 +39,7 @@ Use case: stylized-concept. Asset type: ONE original transparent game accessory 
 전신 로봇·고양이·용 시안은 채택하지 않았다. 아래는 최종 Assets 원화에 사용한 생성/수정 프롬프트다.
 외부 캐릭터·상표 디자인을 사용하지 않는다. 모든 원화는 PNG 알파 투명 이미지다.
 
-### 첫 먹매듭 (FirstRibbon, ID 3)
+### 먹매듭 (FirstRibbon, ID 3)
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE two short red silk ribbons tied in a traditional Korean knot at the top of the head. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
@@ -47,7 +47,7 @@ Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE traditional black scholar headpiece with two small side wings and one ivory paper scroll tucked across the crown. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
-### 빈 먹 유령 (InkGhost, ID 5)
+### 먹유령 (InkGhost, ID 5)
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE small white ragged paper ghost hood with two generous transparent oval eye holes, playful rather than scary. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
@@ -75,11 +75,11 @@ Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE soft white cloud shaped bandanna with swirling dark gray ink line edges. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
-### 종이배 모자 (PaperBoat, ID 12)
+### 종이배 (PaperBoat, ID 12)
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE folded ivory origami paper boat worn as a hat, charcoal creases, red tiny seal. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
-### 찻잔 모자 (TeaCupHat, ID 13)
+### 찻잔 (TeaCupHat, ID 13)
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE small antique celadon teacup balancing above the head, dark tea interior, one simple steam curl. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
@@ -95,7 +95,7 @@ Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE white fox half-mask with pointed ears and red markings, two large transparent oval eye holes. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
-### 학의 볏 (CraneCrest, ID 17)
+### 학깃 (CraneCrest, ID 17)
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE graceful ivory crane wing feather headdress, central small crimson crest. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
@@ -115,7 +115,7 @@ Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE thin crescent moon crown of ivory paper and dark silver ink, central tiny red knot. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
-### 붓 장인 (BrushMaster, ID 22)
+### 쌍붓 (BrushMaster, ID 22)
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE two miniature calligraphy brushes crossed behind a compact black topknot headpiece. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
@@ -127,7 +127,7 @@ Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE ivory koi fish half-mask with red patches and two small side fins, broad transparent oval eye holes. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
-### 비취 용관 (JadeCrown, ID 25)
+### 옥관 (JadeCrown, ID 25)
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE jade dragon inspired small crown with two elegant curved antler horns and black dry brush detail. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
@@ -143,11 +143,11 @@ Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only
 
 Use case: stylized-concept. Production transparent 2D game ACCESSORY sprite only, NOT a whole character. ONE rugged dark stone mountain crown with three peaks, a tiny red rising sun ornament. Straight-on frontal view with balanced proportions for a small round ink creature. Isolated centered accessory fills 80% of canvas, all ribbon ends within frame. Hand-brushed sumi-e charcoal #1C1B1A, warm parchment #EAE3D2, restrained #AE1C3C accents; rough ink edges, broad readable handmade shapes. Original design. TRUE alpha transparent background, no painted gradient, no shadow or glow backdrop, no body or head or face underneath, no text, no branding. Any eye/face openings must be transparent cut-outs with no eyeballs. Cute, polished, readable at 128px.
 
-### 구름 용 (CloudDragon, ID 29)
+### 운룡 (CloudDragon, ID 29)
 
 A game-ready standalone single sprite on a TRANSPARENT BACKGROUND: a tiny ivory paper cap with two short blunt charcoal twig horns and one tiny muted red knot. Dragon-themed headpiece, not a dragon creature. Extremely simple FLAT silhouette art, opaque solid charcoal #1C1B1A and ivory #EAE3D2 with one small red accent. Shape language like cut paper or a simple ink splat cartoon. No detailed painting, no surface textures, no rendered fur or metal, no gold, no shadows, no glow, no background. It will be worn at the top of an existing round black ink splat character with two big white oval eyes; DO NOT include that character, eyes, face, mouth, body, torso, paws or legs. Keep the lower middle face area completely empty and transparent. This accessory forms a broad shallow upside-down U arch across just the upper edge of a circular silhouette. Plain front view, very low detail readable at 48 pixels. Only this accessory. Tight crop with clear transparent padding, GENUINE transparent PNG alpha channel. Do not draw checkerboard background.
 
-### 먹빛 기갑 (InkMecha, ID 30)
+### 철가면 (InkMecha, ID 30)
 
 Edit this asset for game production: remove EVERY gray-and-white checkerboard pixel and ALL paper texture outside the black headpiece. Those are an incorrect baked background. Return the SAME small black helmet and its two small side tabs isolated on a GENUINE TRANSPARENT ALPHA PNG. The large central face opening, the side gaps, and everything outside the accessory must have alpha zero. No replacement backdrop of any color and no checkerboard drawn into pixels. Preserve the existing flat charcoal and ivory marks, simplify to solid-color black cut-paper shapes with just a tiny red mark. Crop canvas tightly around the helmet with 8% transparent padding. No new character, no new eyes or body. Only the small helmet accessory.
 

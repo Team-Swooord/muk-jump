@@ -136,9 +136,9 @@ namespace MukJump.EditorTests
         [Category("SkinReworkAppearance")]
         public void AccessoryNamesHaveNoZodiacPrefixesAndKeepExistingRewardIds()
         {
-            string[] names = { "밤쥐의 동그란 귀", "들소의 뿔", "산군의 줄무늬 두건", "달토끼의 접힌 귀",
-                "꼬마 용의 새싹 뿔", "실뱀의 느슨한 매듭", "바람말의 흩날린 갈기", "산양의 굽은 뿔",
-                "원숭이 꼬리", "새벽닭의 붉은 볏", "지킴개의 늘어진 귀", "복돼지 코" };
+            string[] names = { "밤쥐", "황소", "호피 두건", "달토끼",
+                "용각", "뱀 매듭", "갈기", "산양",
+                "원숭이 꼬리", "닭벼슬", "사냥개", "돼지코" };
             string[] assets = { "rat", "ox", "tiger", "rabbit", "dragon", "snake", "horse", "goat", "monkey", "rooster", "dog", "pig" };
             for (int i=0; i<names.Length; i++)
             {

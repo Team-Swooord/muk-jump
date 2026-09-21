@@ -23,17 +23,17 @@ namespace MukJump.EditorTests
             (InkSkinId.ClockworkCat, "태엽을 감으면 오히려 잠이 든다.", "Winding it up only puts it to sleep.", "ぜんまいを巻くと、かえって眠くなる。", "밤고양이는 60초째 빈손"),
             (InkSkinId.LuckyDice, "일곱 번째 눈은 굴린 먹만 보인다.", "Only the roller can see the seventh face.", "七つ目の目は、振った墨にしか見えない。", "딱 777이 좋아"),
             (InkSkinId.ZodiacRat, "달 뜨면 벼루 창고가 한 칸 빈다.", "Moon up. One shelf of ink goes missing.", "月が出ると、硯の棚がひとつ空く。", "밤참 세 개, 50만큼"),
-            (InkSkinId.ZodiacOx, "서두르지 않았는데 제일 먼저 왔다.", "Never hurried. Arrived first anyway.", "急がなかったのに、いちばん乗り。", "스무 번 꾹꾹, 일 분 버티기"),
+            (InkSkinId.ZodiacOx, "서두르지 않았는데 제일 먼저 왔다.", "Never hurried. Arrived first anyway.", "急がなかったのに、いちばん乗り。", "스무 번 딛고, 일 분 버티기"),
             (InkSkinId.ZodiacTiger, "아직 포효보다 하품이 더 크다.", "Its yawn is still louder than its roar.", "雄叫びより、あくびの方が大きい。", "밤사냥은 빈손으로"),
             (InkSkinId.ZodiacRabbit, "떡은 두고 귀만 빌려 왔다.", "Left the rice cakes. Borrowed the ears.", "お餅は置いて、耳だけ借りてきた。", "달을 쓰고 밤길 200"),
             (InkSkinId.ZodiacDragon, "승천 연습은 낮잠 다음에.", "Ascension practice comes after a nap.", "昇天の練習は、お昼寝のあと。", "꼬리 달고 300까지"),
-            (InkSkinId.ZodiacSnake, "리본인 줄 알고 묶을 뻔했다.", "Almost tied it. Thought it was a ribbon.", "リボンと思って、結ぶところだった。", "거미는 열두 번 콩콩"),
+            (InkSkinId.ZodiacSnake, "리본인 줄 알고 묶을 뻔했다.", "Almost tied it. Thought it was a ribbon.", "リボンと思って、結ぶところだった。", "거미의 열두 번째 착지"),
             (InkSkinId.ZodiacHorse, "발굽 대신 바람 소리만 남겼다.", "Left a breeze instead of hoofprints.", "ひづめの跡の代わりに、風の音。", "300까지 일 분이면 돼"),
             (InkSkinId.ZodiacGoat, "산길은 곧게 걷고, 뿔만 둥글게 말았다.", "Walked the mountain trail straight. Only the horns took a turn.", "山道はまっすぐ歩いた。巻いたのは角だけ。", "서른 번 딛고 200까지"),
             (InkSkinId.ZodiacMonkey, "손이 모자라면 꼬리부터 내민다.", "Short a hand? The tail volunteers first.", "手が足りなければ、しっぽが先に伸びる。", "셋이서 간식 다섯 개"),
             (InkSkinId.ZodiacRooster, "해보다 조금 늦게 일어난다.", "Wakes just a little after the sun.", "お日さまより、少し寝坊する。", "해 뜨면 먹방울 셋"),
             (InkSkinId.ZodiacDog, "문 대신 친구의 그림자를 지킨다.", "Guards a friend's shadow, not a gate.", "門ではなく、友だちの影を守る。", "둘이서 일 분 반"),
-            (InkSkinId.ZodiacPig, "복을 불렀더니 간식도 왔다.", "Called for luck. Snacks came too.", "福を呼んだら、おやつも来た。", "열둘 먹고 꿀꿀"),
+            (InkSkinId.ZodiacPig, "복을 불렀더니 간식도 왔다.", "Called for luck. Snacks came too.", "福を呼んだら、おやつも来た。", "열두 개도 모자라"),
             (InkSkinId.HaetaeCrest, "나쁜 꿈만 콕 찌르는 작은 뿔.", "A tiny horn for poking bad dreams away.", "悪い夢だけ、ちくりと追い払う角。", "현무는 250까지 빈손"),
             (InkSkinId.ThreeLeggedCrow, "세 발로도 아침엔 자꾸 헛디딘다.", "Three feet. Still stumbles in the morning.", "三本足でも、朝はつまずく。", "밤에는 셋셋셋"),
             (InkSkinId.NineTails, "꼬리는 아홉인데, 속마음은 하나도 안 보인다.", "Nine tails. Not a single clue what it is thinking.", "尾は九つ。心の内はひとつも見えない。", "여우 셋이서 300까지"),
@@ -83,6 +83,50 @@ namespace MukJump.EditorTests
             InkSkinChart.Apply(snapshot);
             foreach (var item in hiddenHints)
                 Assert.That(InkSkinLore.Get(item.id).ko, Is.EqualTo("새 힌트 " + item.id));
+        }
+        [TestCase(InkSkinId.FirstRibbon, "먹매듭")]
+        [TestCase(InkSkinId.InkGhost, "먹유령")]
+        [TestCase(InkSkinId.PaperBoat, "종이배")]
+        [TestCase(InkSkinId.TeaCupHat, "찻잔")]
+        [TestCase(InkSkinId.CraneCrest, "학깃")]
+        [TestCase(InkSkinId.BrushMaster, "쌍붓")]
+        [TestCase(InkSkinId.JadeCrown, "옥관")]
+        [TestCase(InkSkinId.CloudDragon, "운룡")]
+        [TestCase(InkSkinId.InkMecha, "철가면")]
+        [TestCase(InkSkinId.ButterflyWings, "먹나비")]
+        [TestCase(InkSkinId.BlueWisps, "도깨비불")]
+        [TestCase(InkSkinId.MoonClouds, "달구름")]
+        [TestCase(InkSkinId.ZodiacRat, "밤쥐")]
+        [TestCase(InkSkinId.ZodiacOx, "황소")]
+        [TestCase(InkSkinId.ZodiacTiger, "호피 두건")]
+        [TestCase(InkSkinId.ZodiacRabbit, "달토끼")]
+        [TestCase(InkSkinId.ZodiacDragon, "용각")]
+        [TestCase(InkSkinId.ZodiacSnake, "뱀 매듭")]
+        [TestCase(InkSkinId.ZodiacHorse, "갈기")]
+        [TestCase(InkSkinId.ZodiacGoat, "산양")]
+        [TestCase(InkSkinId.ZodiacRooster, "닭벼슬")]
+        [TestCase(InkSkinId.ZodiacDog, "사냥개")]
+        [TestCase(InkSkinId.ZodiacPig, "돼지코")]
+        [TestCase(InkSkinId.ThreeLeggedCrow, "삼족오")]
+        [TestCase(InkSkinId.NineTails, "구미호")]
+        [Category("SkinToneCopy")]
+        public void AccessoryNamesStayConciseAndTranslated(InkSkinId id, string name)
+        {
+            var skin = InkSkinCatalog.Get(id);
+            Assert.That(skin.Korean, Is.EqualTo(name));
+            Assert.That(skin.Korean.Length, Is.LessThanOrEqualTo(8));
+            Assert.That(InkSkinTranslations.TryTranslate(name, false, out var en), Is.True);
+            Assert.That(InkSkinTranslations.TryTranslate(name, true, out var ja), Is.True);
+            Assert.That(en, Is.EqualTo(skin.English).And.Not.Empty);
+            Assert.That(ja, Is.EqualTo(skin.Japanese).And.Not.Empty);
+        }
+        [Test, Category("SkinToneCopy")]
+        public void DisplayNamesRemainUniqueAndRetiredSkinStaysExcluded()
+        {
+            var rows = InkSkinChartExport.Rows();
+            foreach (string field in new[] { "nameKo", "nameEn", "nameJa" })
+                Assert.That(rows.Select(r => (string)r[field]).Distinct().Count(), Is.EqualTo(rows.Count), field);
+            Assert.That(rows.Count, Is.EqualTo(62));
         }
         [TestCase(InkSkinId.Gat, "바람 갓", "바람처럼 스쳐가는....", "이단 도약")]
         [TestCase(InkSkinId.SpiderMask, "거미탈", "거미에게 물린 적은 없다", "먹슈트")]
