@@ -33,6 +33,8 @@ namespace MukJump.Core
     {
         public int version = 2;
         public int runs, best, drawnLandings, items, inkDrops, survival, clones, nightBest, noItemBest, growth;
+        // 구 저장은 0회로 시작한다. 과거 용꼬리 해금 비트는 그대로 보존한다.
+        public int dragonDeaths;
         public long unlockedMask;
         public int gameplayMask;
         // 의상 ID별 정상 정산 최고 고도. -1은 미기록이며 0m와 구분한다.
@@ -40,7 +42,7 @@ namespace MukJump.Core
         public int[] skinBestHeights = Array.Empty<int>();
         public bool IsValid => (version == 1 || version == 2) && gameplayMask >= 0 && gameplayMask <= 3 && runs >= 0 && best >= 0 && drawnLandings >= 0 &&
             items >= 0 && inkDrops >= 0 && inkDrops <= items && survival >= 0 && clones >= 0 &&
-            nightBest >= 0 && noItemBest >= 0 && growth >= 0 && unlockedMask >= 0 &&
+            nightBest >= 0 && noItemBest >= 0 && growth >= 0 && dragonDeaths >= 0 && unlockedMask >= 0 &&
             (unlockedMask >> InkSkinCatalog.Count) == 0 && ValidSkinBestHeights();
         bool ValidSkinBestHeights()
         {
@@ -62,11 +64,14 @@ namespace MukJump.Core
             }
             skinBestHeights[(int)id] = Math.Max(skinBestHeights[(int)id], height);
         }
-        public static bool HasCompletePayload(string json)
+        public static bool HasCompletePayload(string json, bool requireDragonDeaths = false)
         {
             var match = System.Text.RegularExpressions.Regex.Match(json,
                 "\"skinAchievements\"\\s*:\\s*(\\{[^{}]*\\})");
             if (!match.Success) return false;
+            bool hasDragonDeaths = System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"dragonDeaths\"\\s*:");
+            if (requireDragonDeaths && !hasDragonDeaths || hasDragonDeaths &&
+                !System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"dragonDeaths\"\\s*:\\s*\\d+\\s*[,}]")) return false;
             foreach (string field in new[] { "version", "runs", "best", "drawnLandings", "items", "inkDrops",
                 "survival", "clones", "nightBest", "noItemBest", "growth", "unlockedMask" })
                 if (!System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"" + field + "\"\\s*:")) return false;
@@ -91,7 +96,8 @@ namespace MukJump.Core
                 SkinMetric.Best => best, SkinMetric.Runs => runs, SkinMetric.Distance => distance,
                 SkinMetric.DrawnLandings => drawnLandings, SkinMetric.Items => items, SkinMetric.InkDrops => inkDrops,
                 SkinMetric.Survival => survival, SkinMetric.Clones => clones, SkinMetric.NightBest => nightBest,
-                SkinMetric.NoItemBest => noItemBest, SkinMetric.Growth => Math.Max(growth, ownedGrowth), _ => 0,
+                SkinMetric.NoItemBest => noItemBest, SkinMetric.Growth => Math.Max(growth, ownedGrowth),
+                SkinMetric.DragonDeath => dragonDeaths, _ => 0,
             };
         }
         public void Settle(int height, float seconds, SkinRunStats stats, long distance, int ownedGrowth)
@@ -112,11 +118,13 @@ namespace MukJump.Core
                     survival = Math.Max(survival, Mathf.FloorToInt(Mathf.Min(seconds, 86400f)));
                 if (stats.startedAtNight) nightBest = Math.Max(nightBest, height);
                 if (stats.items == 0) noItemBest = Math.Max(noItemBest, height);
-                if (stats.drawnLandings == 0) Grant(InkSkinId.InkGhost);
-                if (stats.diedToDragon) Grant(InkSkinId.DragonTail);
+                if (stats.drawnLandings == 0 && height >= 150 && seconds >= 30 && float.IsFinite(seconds))
+                    Grant(InkSkinId.InkGhost);
+                if (stats.diedToDragon && height >= 0 && seconds >= 0 && float.IsFinite(seconds))
+                    dragonDeaths = Add(dragonDeaths, 1);
                 if (height == 777) Grant(InkSkinId.LuckyDice);
                 if (stats.startedAtNight && stats.startingSkin == InkSkinId.CatEars && stats.items == 0 &&
-                    seconds >= 60 && !float.IsInfinity(seconds)) Grant(InkSkinId.ClockworkCat);
+                    height >= 400 && seconds >= 120 && float.IsFinite(seconds)) Grant(InkSkinId.ClockworkCat);
                 unlockedMask |= (long)InkMythicSkins.Evaluate(stats, height, seconds, true);
             }
             for (int i = 1; i < InkSkinCatalog.Count; i++)
@@ -173,7 +181,7 @@ namespace MukJump.Core
         }
         public static void SelectedByUser(InkSkinId id)
         {
-            // 이전 씬/콜백과의 호환만 유지한다. 종이 날개는 120초 생존으로만 새로 해금한다.
+            // 이전 씬/콜백과의 호환만 유지한다. 종이 날개는 현재 생존 시간 조건으로만 새로 해금한다.
         }
     }
 }

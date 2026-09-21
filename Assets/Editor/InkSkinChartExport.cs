@@ -35,7 +35,8 @@ namespace MukJump.EditorTools
                     ["abilityNameKo"] = name, ["abilityNameEn"] = Translate(name, false), ["abilityNameJa"] = Translate(name, true),
                     ["abilityDescriptionKo"] = Template(description), ["abilityDescriptionEn"] = Template(Translate(description, false)),
                     ["abilityDescriptionJa"] = Template(Translate(description, true)), ["cooldownSeconds"] = cd,
-                    ["assetKey"] = d.Asset
+                    ["assetKey"] = d.Asset,
+                    ["unlockBalanceVersion"] = InkSkinChart.UnlockBalanceVersion.ToString()
                 });
             }
             return rows;

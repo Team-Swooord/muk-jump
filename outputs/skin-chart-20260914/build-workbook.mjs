@@ -6,7 +6,61 @@ import { Workbook, SpreadsheetFile, FileBlob } from '@oai/artifact-tool';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const rows = JSON.parse(await fs.readFile(path.join(dir, 'skin-catalog.json'), 'utf8'));
 const headers = Object.keys(rows[0]);
-const numeric = new Set(['schemaVersion', 'skinId', 'unlockGoal', 'cooldownSeconds']);
+const numeric = new Set(['schemaVersion', 'skinId', 'unlockGoal', 'cooldownSeconds', 'unlockBalanceVersion']);
+if (process.argv.includes('--sync-unlock-curve')) {
+  const file = path.join(dir, '먹점프_스킨_뒤끝차트_v1.xlsx');
+  const current = await SpreadsheetFile.importXlsx(await FileBlob.load(file));
+  const sheet = current.worksheets.getItem('Skins');
+  const before = sheet.getRange('A1:Y63').values;
+  const fields = before[0];
+  const source = new Map(rows.map(row => [Number(row.skinId), row]));
+  const allowed = new Set(['unlockGoal', 'unlockRuleKo', 'unlockRuleEn', 'unlockRuleJa']);
+  const hintIds = new Set([5, 33, ...Array.from({length: 15}, (_, i) => i + 46)]);
+  let changed = 0;
+  for (let r = 1; r < before.length; r++) {
+    const id = Number(before[r][fields.indexOf('skinId')]);
+    const row = source.get(id);
+    if (!row || Number(row.unlockBalanceVersion) !== 2) throw Error(`Missing balance-v2 skin ${id}`);
+    for (let c = 0; c < fields.length; c++) {
+      const field = fields[c];
+      if (!allowed.has(field) && !(hintIds.has(id) && /^lore(Ko|En|Ja)$/.test(field))) continue;
+      const value = numeric.has(field) ? Number(row[field]) : row[field];
+      sheet.getCell(r, c).values = [[value]];
+      if (value !== before[r][c]) changed++;
+    }
+  }
+  sheet.getRange('Z1:Z63').values = [['unlockBalanceVersion'], ...rows.map(() => [2])];
+  sheet.getRange('Z1:Z63').format.columnWidth = 24;
+  sheet.getRange('Z1:Z63').format.font = {name: 'Apple SD Gothic Neo', size: 11, color: '#333333'};
+  sheet.getRange('Z1:Z63').format.fill = '#F3F2EE';
+  sheet.getRange('Z1:Z63').format.wrapText = true;
+  sheet.getRange('Z2:Z63').setNumberFormat('0');
+  const oldTable = sheet.tables.items.find(t => t.name === 'MukJumpSkinConfig');
+  if (!oldTable) throw Error('Skin table missing');
+  const style = oldTable.style;
+  oldTable.delete();
+  const table = sheet.tables.add('A1:Z63', true, 'MukJumpSkinConfig');
+  table.style = style;
+  table.showFilterButton = true;
+  sheet.getRange('Z1').format.fill = '#282623';
+  sheet.getRange('Z1').format.font = {name: 'Apple SD Gothic Neo', size: 11, bold: true, color: '#FFFFFF'};
+  current.comments.setSelf({displayName: '먹점프'});
+  current.comments.addThread({cell: sheet.getRange('Z1')}, '고정: 해금 곡선 버전 2. 이 차트는 새 앱 버전에서 사용합니다. 구버전 앱에 전역 배포하지 마세요.');
+  current.recalculate();
+  const after = sheet.getRange('A1:Y63').values;
+  for (let r = 0; r < before.length; r++) for (let c = 0; c < fields.length; c++) {
+    const id = r > 0 ? Number(before[r][fields.indexOf('skinId')]) : -1;
+    const editable = r > 0 && (allowed.has(fields[c]) || hintIds.has(id) && /^lore(Ko|En|Ja)$/.test(fields[c]));
+    if (!editable && before[r][c] !== after[r][c]) throw Error(`Unrelated cell changed ${r}:${c}`);
+  }
+  if (sheet.getRange('A1:Z63').values.flat().some(v => typeof v === 'string' && /^#(REF!|VALUE!|DIV\/0!|N\/A|NAME\?|NUM!|SPILL!)/.test(v))) throw Error('Spreadsheet error');
+  await (await SpreadsheetFile.exportXlsx(current)).save(file);
+  const preview = await current.render({sheetName: 'Skins', range: 'J2:N8', scale: 1.2, format: 'png'});
+  const previewPath = path.resolve(dir, '../../output/qa/skin-skills/unlock-curve-sheet.png');
+  await fs.writeFile(previewPath, new Uint8Array(await preview.arrayBuffer()));
+  console.log(JSON.stringify({changedCells: changed, preservedUnrelatedCells: true, skins: source.size, columns: 26, file, previewPath}));
+  process.exit(0);
+}
 if (process.argv.includes('--preview-current') || process.argv.includes('--clean-descriptions')) {
   const file = path.join(dir, '먹점프_스킨_뒤끝차트_v1.xlsx');
   const current = await SpreadsheetFile.importXlsx(await FileBlob.load(file));
@@ -43,7 +97,7 @@ for (const row of rows) for (const [key, value] of Object.entries(row)) {
 const wb = Workbook.create();
 const sheet = wb.worksheets.add('Skins');
 const values = [headers, ...rows.map(row => headers.map(key => numeric.has(key) ? Number(row[key]) : row[key]))];
-const grid = sheet.getRange('A1:Y63');
+const grid = sheet.getRange('A1:Z63');
 grid.values = values;
 grid.format.font = { name: 'Apple SD Gothic Neo', size: 11, color: '#333333' };
 grid.format.fill = '#F3F2EE';
@@ -54,7 +108,7 @@ sheet.showGridLines = false;
 sheet.freezePanes.freezeRows(1);
 sheet.freezePanes.freezeColumns(3);
 sheet.tabColor = '#AE1C3C';
-const widths = [18,10,22,25,27,25,40,44,40,15,21,14,17,42,46,44,21,22,23,23,52,58,54,21,33];
+const widths = [18,10,22,25,27,25,40,44,40,15,21,14,17,42,46,44,21,22,23,23,52,58,54,21,33,24];
 headers.forEach((key, i) => {
   const column = String.fromCharCode(65 + i);
   sheet.getRange(`${column}1:${column}63`).format.columnWidth = widths[i];
@@ -78,12 +132,12 @@ rows.forEach((row, i) => {
   }
   if (row.abilityKey === 'None') sheet.getRange(`R${r}:W${r}`).format.fill = '#F3F2EE';
 });
-const table = sheet.tables.add('A1:Y63', true, 'MukJumpSkinConfig');
+const table = sheet.tables.add('A1:Z63', true, 'MukJumpSkinConfig');
 table.style = 'TableStyleLight1';
 table.showFilterButton = true;
-sheet.getRange('A1:Y1').format.fill = '#282623';
-sheet.getRange('A1:Y1').format.font = { bold: true, color: '#FFFFFF', size: 11 };
-sheet.getRange('A1:Y1').format.rowHeight = 38;
+sheet.getRange('A1:Z1').format.fill = '#282623';
+sheet.getRange('A1:Z1').format.font = { bold: true, color: '#FFFFFF', size: 11 };
+sheet.getRange('A1:Z1').format.rowHeight = 38;
 sheet.getRange('D2:F63').format.font.bold = true;
 sheet.getRange('A2:B63').format.horizontalAlignment = 'center';
 sheet.getRange('L2:M63').format.horizontalAlignment = 'center';
@@ -105,7 +159,8 @@ const notes = {
   abilityDescriptionKo: '편집 가능: 한국어 능력 설명. {cooldown}은 숫자로 자동 치환됩니다. 삭제하지 마세요. 문구만으로 새 능력이 생기지는 않습니다.',
   abilityDescriptionEn: '편집 가능: 영어 능력 설명. {cooldown} 유지.', abilityDescriptionJa: '편집 가능: 일본어 능력 설명. {cooldown} 유지.',
   cooldownSeconds: '노란색만 편집: 바람부채·각시탈·거미탈 쿨타임, 1~600초. 게임 타이머와 HUD에 적용. 나머지 0은 고정.',
-  assetKey: '참고: 앱에 포함된 스프라이트. 빈 값은 기본 먹 또는 애니메이션 전용. 엑셀로 새 이미지를 추가하지 않습니다.'
+  assetKey: '참고: 앱에 포함된 스프라이트. 빈 값은 기본 먹 또는 애니메이션 전용. 엑셀로 새 이미지를 추가하지 않습니다.',
+  unlockBalanceVersion: '고정: 해금 곡선 버전 2. 새 앱용 차트이며 구버전 앱에 전역 배포하지 않습니다.'
 };
 headers.forEach((h, i) => wb.comments.addThread({ cell: sheet.getCell(0, i) }, notes[h]));
 wb.recalculate();

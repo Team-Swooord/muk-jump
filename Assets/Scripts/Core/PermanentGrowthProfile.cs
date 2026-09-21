@@ -161,7 +161,7 @@ namespace MukJump.Core
     public static class PermanentGrowthProfile
     {
         const int SchemaVersion = 1;
-        const int BalanceVersion = 12;
+        const int BalanceVersion = 13;
         const int V2TotalCost = 39;
         const int LegacyTotalCost = 957;
         const int SettledRunHistoryLimit = 64;
@@ -1603,6 +1603,7 @@ namespace MukJump.Core
             data.ranks ??= new List<RankRecord>();
             data.ownedNodeIds ??= new List<string>();
             string before = JsonUtility.ToJson(data);
+            bool needsSkinUnlockMigration = data.balanceVersion < 13;
             bool needsDistanceJourneyMigration = data.balanceVersion < 7;
             // 단계별로 올려야 v2의 ownedNodeIds를 구 ranks로 오인해 지우지 않는다.
             if (data.balanceVersion < 2)
@@ -1638,6 +1639,8 @@ namespace MukJump.Core
             NormalizeLoadedData();
             // 기존 소유 성장으로 이미 달성한 의상은 성장 환급 후에도 유지한다.
             data.skinAchievements.growth = Math.Max(data.skinAchievements.growth, data.ownedNodeIds.Count);
+            if (needsSkinUnlockMigration)
+                InkSkinUnlockBalance.PreserveEarnedRewards(data.skinAchievements, data.cumulativeDistanceMeters, data.ownedNodeIds.Count);
             return !string.Equals(
                 before,
                 JsonUtility.ToJson(data),
@@ -1679,7 +1682,7 @@ namespace MukJump.Core
                     return false;
 
                 parsed = JsonUtility.FromJson<SaveData>(json);
-                if (header.balanceVersion >= 12 && (!SkinAchievementState.HasCompletePayload(json) ||
+                if (header.balanceVersion >= 12 && (!SkinAchievementState.HasCompletePayload(json, header.balanceVersion >= 13) ||
                     parsed?.skinAchievements == null || !parsed.skinAchievements.IsValid)) return false;
                 if (parsed == null ||
                     parsed.ranks == null ||

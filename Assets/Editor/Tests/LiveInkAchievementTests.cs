@@ -16,7 +16,7 @@ namespace MukJump.EditorTests
         [Test] public void ImmediateThresholdSavesOnceWithoutPrematureEndOfRunRewardsOrDoubleCounting()
         {
             var live = new LiveInkAchievements(); live.Begin(); var notices = new List<int>();
-            var stats = SkinRunStats.Begin(true, InkSkinId.CatEars); stats.items = 5; stats.inkDrops = 1;
+            var stats = SkinRunStats.Begin(true, InkSkinId.CatEars); stats.items = 25; stats.inkDrops = 1;
             live.Sample(stats, 777, 65, 3, notices.Add); live.Sample(stats, 777, 65, 3, notices.Add);
             Assert.That(notices.Distinct().Count(), Is.EqualTo(notices.Count));
             Assert.That(notices, Has.Member((int)InkSkinId.BellRibbon));
@@ -28,7 +28,7 @@ namespace MukJump.EditorTests
             Assert.That(saved.Has(InkSkinId.BellRibbon), Is.True);
             Assert.That(PermanentGrowthProfile.SettleRun("live", 777, 777, 0, 65, true, stats).Accepted, Is.True);
             saved = PermanentGrowthProfile.AchievementSnapshot();
-            Assert.That(saved.items, Is.EqualTo(5)); Assert.That(saved.runs, Is.EqualTo(1));
+            Assert.That(saved.items, Is.EqualTo(25)); Assert.That(saved.runs, Is.EqualTo(1));
             Assert.That(saved.gameplayMask, Is.EqualTo(3)); Assert.That(saved.Has(InkSkinId.LuckyDice), Is.True);
         }
         [Test] public void FailedWriteAndSwitchedProfileNeverAnnounceOrSendCompletion()
@@ -54,7 +54,7 @@ namespace MukJump.EditorTests
         {
             var state = new SkinAchievementState { items = 2, best = 50 };
             var progress = InkAchievementCatalog.SavedProgress(state, 0);
-            Assert.That(progress.Single(x=>x.id == InkAchievementCatalog.Id((int)InkSkinId.BellRibbon)).percent, Is.EqualTo(40));
+            Assert.That(progress.Single(x=>x.id == InkAchievementCatalog.Id((int)InkSkinId.BellRibbon)).percent, Is.EqualTo(8));
             for(int i=1;i<=InkAchievementCatalog.Count;i++) if(InkAchievementCatalog.Hidden(i))
                 Assert.That(progress.Any(x=>x.id == InkAchievementCatalog.Id(i)), Is.False);
             state.Grant(InkSkinId.NightBat);
@@ -135,7 +135,7 @@ namespace MukJump.EditorTests
             var state = new SkinAchievementState { gameplayMask = 3 }; state.Grant(InkSkinId.Ink);
             Assert.That(InkAchievementCatalog.SavedProgress(state, 0), Is.Empty);
             state.items = 2;
-            Assert.That(InkAchievementCatalog.SavedProgress(state, 0).Single(x => x.id == InkAchievementCatalog.Id(10)).percent, Is.EqualTo(40));
+            Assert.That(InkAchievementCatalog.SavedProgress(state, 0).Single(x => x.id == InkAchievementCatalog.Id(10)).percent, Is.EqualTo(8));
         }
         [Test] public void ToastSitsBelowHudAndPauseTargetOnPortraitAndTabletSafeAreas()
         {
@@ -154,7 +154,7 @@ namespace MukJump.EditorTests
             Assert.That(sync.Accept(load,"gc-A",true,null),Is.True);
             var state = new SkinAchievementState { items=2 };
             var batch = sync.Changes(state,0); int report = sync.Begin(batch);
-            state.items=5; Assert.That(sync.Accept(report,"gc-A",true,null),Is.True);
+            state.items=25; Assert.That(sync.Accept(report,"gc-A",true,null),Is.True);
             Assert.That(sync.Changes(state,0).Single(x=>x.id==InkAchievementCatalog.Id(10)).percent,Is.EqualTo(100));
             report=sync.Begin(sync.Changes(state,0)); sync.Bind("gc-A",new object());
             Assert.That(sync.Accept(report,"gc-A",true,null),Is.False); Assert.That(sync.Loaded,Is.False);

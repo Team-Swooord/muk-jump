@@ -162,7 +162,7 @@ namespace MukJump.EditorTests
                 PermanentGrowthProfile.TryReplaceFromCloudJson(
                     ValidGrowthJson),
                 Is.True);
-            Assert.That(growthStore.Json, Does.Contain("\"balanceVersion\":12"));
+            Assert.That(growthStore.Json, Does.Contain("\"balanceVersion\":13"));
             Assert.That(growthStore.BackupJson, Is.EqualTo(growthStore.Json));
         }
 
@@ -191,7 +191,7 @@ namespace MukJump.EditorTests
             Assert.That(ReadPrivateBool(account, "dirty"), Is.True);
             Assert.That(PlayerPrefs.GetInt("MukJump.Cloud.PendingSave", 0), Is.EqualTo(1));
             Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string canonical), Is.True);
-            Assert.That(canonical, Does.Contain("\"balanceVersion\":12"));
+            Assert.That(canonical, Does.Contain("\"balanceVersion\":13"));
 
             server.growthJson = canonical;
             SetPrivateField(account, "dirty", false);
@@ -880,6 +880,7 @@ namespace MukJump.EditorTests
         [Test]
         public void LeaderboardAppearanceEquipQueuesSaveButDebugDoesNotLeak()
         {
+            Assert.That(PermanentGrowthProfile.SettleRun("appearance-unlock", InkSkinAchievements.Goal(InkSkinId.Gat), 0, true).Accepted, Is.True);
             var account = CreateLeaderboardRuntime();
             InkSkinPreferences.UseStoreForTests(new MemoryLobbySettingsStore());
             SkinDebugSession.Reset();

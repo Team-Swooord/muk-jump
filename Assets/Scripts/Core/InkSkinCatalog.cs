@@ -25,52 +25,52 @@ namespace MukJump.Core
         static readonly InkSkinDefinition[] definitions =
         {
             new(InkSkinId.Ink,"먹방울","Ink","墨","",SkinTier.Basic,SkinMetric.None,0),
-            new(InkSkinId.Gat,"바람 갓","Wind Gat","風の笠","skin_gat_v1",SkinTier.Basic,SkinMetric.Best,100),
-            new(InkSkinId.SpiderMask,"거미탈","Spider Mask","蜘蛛の面","skin_spider_mask_v1",SkinTier.Basic,SkinMetric.Runs,10),
+            new(InkSkinId.Gat,"바람 갓","Wind Gat","風の笠","skin_gat_v1",SkinTier.Basic,SkinMetric.Best,500),
+            new(InkSkinId.SpiderMask,"거미탈","Spider Mask","蜘蛛の面","skin_spider_mask_v1",SkinTier.Basic,SkinMetric.Runs,20),
             new(InkSkinId.FirstRibbon,"먹매듭","Ink Knot","墨結び","skin_first_ribbon_v1",SkinTier.Basic,SkinMetric.Runs,1),
-            new(InkSkinId.Scholar,"선비 관","Scholar Cap","書生の冠","skin_scholar_v1",SkinTier.Basic,SkinMetric.Distance,500),
+            new(InkSkinId.Scholar,"선비 관","Scholar Cap","書生の冠","skin_scholar_v1",SkinTier.Basic,SkinMetric.Distance,2500),
             new(InkSkinId.InkGhost,"먹유령","Ink Ghost","墨の幽霊","skin_ink_ghost_v1",SkinTier.Hidden,SkinMetric.ZeroRun,1),
-            new(InkSkinId.BambooHat,"대나무 삿갓","Bamboo Hat","竹笠","skin_bamboo_hat_v1",SkinTier.Easy,SkinMetric.Best,25),
-            new(InkSkinId.RedHeadband,"수련 머리띠","Training Band","修行の鉢巻","skin_red_headband_v1",SkinTier.Easy,SkinMetric.DrawnLandings,10),
-            new(InkSkinId.LotusCrown,"연꽃 관","Lotus Crown","蓮の冠","skin_lotus_crown_v1",SkinTier.Easy,SkinMetric.Runs,3),
-            new(InkSkinId.CatEars,"고양이 귀","Cat Ears","猫耳","skin_cat_ears_v1",SkinTier.Easy,SkinMetric.InkDrops,1),
-            new(InkSkinId.BellRibbon,"방울 매듭","Bell Knot","鈴結び","skin_bell_ribbon_v1",SkinTier.Easy,SkinMetric.Items,5),
-            new(InkSkinId.CloudCap,"구름 두건","Cloud Hood","雲の頭巾","skin_cloud_cap_v1",SkinTier.Easy,SkinMetric.Best,50),
-            new(InkSkinId.PaperBoat,"종이배","Paper Boat","紙の舟","skin_paper_boat_v1",SkinTier.Easy,SkinMetric.Distance,1000),
-            new(InkSkinId.TeaCupHat,"찻잔","Teacup","茶碗","skin_tea_cup_hat_v1",SkinTier.Easy,SkinMetric.Survival,45),
-            new(InkSkinId.FeatherHairpin,"깃털 비녀","Feather Pin","羽のかんざし","skin_feather_hairpin_v1",SkinTier.Easy,SkinMetric.DrawnLandings,25),
-            new(InkSkinId.PeachFlower,"복사꽃","Peach Blossom","桃の花","skin_peach_flower_v1",SkinTier.Easy,SkinMetric.Runs,5),
-            new(InkSkinId.FoxMask,"여우탈","Fox Mask","狐の面","skin_fox_mask_v1",SkinTier.Medium,SkinMetric.Best,250),
-            new(InkSkinId.CraneCrest,"학깃","Crane Plume","鶴の羽飾り","skin_crane_crest_v1",SkinTier.Medium,SkinMetric.Distance,5000),
-            new(InkSkinId.YakshaMask,"각시탈","Bridal Mask","花嫁の面","skin_yaksha_mask_v1",SkinTier.Medium,SkinMetric.Best,500),
-            new(InkSkinId.TurtleShell,"현무","Hyunmu","玄武","skin_turtle_shell_v1",SkinTier.Medium,SkinMetric.Clones,3),
+            new(InkSkinId.BambooHat,"대나무 삿갓","Bamboo Hat","竹笠","skin_bamboo_hat_v1",SkinTier.Easy,SkinMetric.Best,150),
+            new(InkSkinId.RedHeadband,"수련 머리띠","Training Band","修行の鉢巻","skin_red_headband_v1",SkinTier.Easy,SkinMetric.DrawnLandings,40),
+            new(InkSkinId.LotusCrown,"연꽃 관","Lotus Crown","蓮の冠","skin_lotus_crown_v1",SkinTier.Easy,SkinMetric.Runs,5),
+            new(InkSkinId.CatEars,"고양이 귀","Cat Ears","猫耳","skin_cat_ears_v1",SkinTier.Easy,SkinMetric.InkDrops,10),
+            new(InkSkinId.BellRibbon,"방울 매듭","Bell Knot","鈴結び","skin_bell_ribbon_v1",SkinTier.Easy,SkinMetric.Items,25),
+            new(InkSkinId.CloudCap,"구름 두건","Cloud Hood","雲の頭巾","skin_cloud_cap_v1",SkinTier.Easy,SkinMetric.Best,400),
+            new(InkSkinId.PaperBoat,"종이배","Paper Boat","紙の舟","skin_paper_boat_v1",SkinTier.Easy,SkinMetric.Distance,7500),
+            new(InkSkinId.TeaCupHat,"찻잔","Teacup","茶碗","skin_tea_cup_hat_v1",SkinTier.Easy,SkinMetric.Survival,120),
+            new(InkSkinId.FeatherHairpin,"깃털 비녀","Feather Pin","羽のかんざし","skin_feather_hairpin_v1",SkinTier.Easy,SkinMetric.DrawnLandings,300),
+            new(InkSkinId.PeachFlower,"복사꽃","Peach Blossom","桃の花","skin_peach_flower_v1",SkinTier.Easy,SkinMetric.Runs,12),
+            new(InkSkinId.FoxMask,"여우탈","Fox Mask","狐の面","skin_fox_mask_v1",SkinTier.Medium,SkinMetric.Best,800),
+            new(InkSkinId.CraneCrest,"학깃","Crane Plume","鶴の羽飾り","skin_crane_crest_v1",SkinTier.Medium,SkinMetric.Distance,35000),
+            new(InkSkinId.YakshaMask,"각시탈","Bridal Mask","花嫁の面","skin_yaksha_mask_v1",SkinTier.Medium,SkinMetric.Best,2000),
+            new(InkSkinId.TurtleShell,"현무","Hyunmu","玄武","skin_turtle_shell_v1",SkinTier.Medium,SkinMetric.Clones,8),
             // 은퇴 ID 20은 예전 저장을 읽기 위한 자리만 유지한다. 새 의상에 재사용하지 않는다.
             new(InkSkinId.StormScarf,"질풍 두건","Gale Scarf","疾風の頭巾","",SkinTier.Medium,SkinMetric.Survival,120),
-            new(InkSkinId.MoonCrown,"달빛 관","Moon Crown","月光の冠","skin_moon_crown_v1",SkinTier.Medium,SkinMetric.NightBest,100),
-            new(InkSkinId.BrushMaster,"쌍붓","Twin Brushes","二本の筆","skin_brush_master_v1",SkinTier.Medium,SkinMetric.DrawnLandings,100),
-            new(InkSkinId.SpiritHalo,"윤회의 고리","Ring of Rebirth","輪廻の環","skin_spirit_halo_v1",SkinTier.Medium,SkinMetric.Items,30),
-            new(InkSkinId.KoiMask,"잉어탈","Koi Mask","鯉の面","skin_koi_mask_v1",SkinTier.Medium,SkinMetric.Growth,5),
-            new(InkSkinId.JadeCrown,"옥관","Jade Crown","玉冠","skin_jade_crown_v1",SkinTier.Medium,SkinMetric.Distance,10000),
-            new(InkSkinId.PhoenixCrown,"봉황 관","Phoenix Crown","鳳凰の冠","skin_phoenix_crown_v1",SkinTier.Hard,SkinMetric.Best,1000),
-            new(InkSkinId.TigerMask,"산군 탈","Tiger Mask","山の虎面","skin_tiger_mask_v1",SkinTier.Hard,SkinMetric.NoItemBest,300),
-            new(InkSkinId.MountainKing,"산왕 관","Mountain Crown","山王の冠","skin_mountain_king_v1",SkinTier.Hard,SkinMetric.Best,1500),
-            new(InkSkinId.CloudDragon,"운룡","Cloud Dragon","雲竜","skin_cloud_dragon_v1",SkinTier.Hard,SkinMetric.Best,2000),
-            new(InkSkinId.InkMecha,"철가면","Iron Mask","鉄仮面","skin_ink_mecha_v1",SkinTier.Hard,SkinMetric.Runs,100),
+            new(InkSkinId.MoonCrown,"달빛 관","Moon Crown","月光の冠","skin_moon_crown_v1",SkinTier.Medium,SkinMetric.NightBest,600),
+            new(InkSkinId.BrushMaster,"쌍붓","Twin Brushes","二本の筆","skin_brush_master_v1",SkinTier.Medium,SkinMetric.DrawnLandings,1000),
+            new(InkSkinId.SpiritHalo,"윤회의 고리","Ring of Rebirth","輪廻の環","skin_spirit_halo_v1",SkinTier.Medium,SkinMetric.Items,200),
+            new(InkSkinId.KoiMask,"잉어탈","Koi Mask","鯉の面","skin_koi_mask_v1",SkinTier.Medium,SkinMetric.Growth,12),
+            new(InkSkinId.JadeCrown,"옥관","Jade Crown","玉冠","skin_jade_crown_v1",SkinTier.Medium,SkinMetric.Distance,75000),
+            new(InkSkinId.PhoenixCrown,"봉황 관","Phoenix Crown","鳳凰の冠","skin_phoenix_crown_v1",SkinTier.Hard,SkinMetric.Best,4000),
+            new(InkSkinId.TigerMask,"산군 탈","Tiger Mask","山の虎面","skin_tiger_mask_v1",SkinTier.Hard,SkinMetric.NoItemBest,750),
+            new(InkSkinId.MountainKing,"산왕 관","Mountain Crown","山王の冠","skin_mountain_king_v1",SkinTier.Hard,SkinMetric.Best,6500),
+            new(InkSkinId.CloudDragon,"운룡","Cloud Dragon","雲竜","skin_cloud_dragon_v1",SkinTier.Hard,SkinMetric.Best,10000),
+            new(InkSkinId.InkMecha,"철가면","Iron Mask","鉄仮面","skin_ink_mecha_v1",SkinTier.Hard,SkinMetric.Runs,150),
             new(InkSkinId.NightBat,"밤의 파수꾼","Night Watcher","夜の番人","skin_night_bat_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.Astronaut,"달 여행자","Moon Traveler","月の旅人","skin_astronaut_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.ClockworkCat,"태엽 고양이","Clockwork Cat","ぜんまい猫","skin_clockwork_cat_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.LuckyDice,"일곱 번째 눈","Seventh Eye","七つ目の目","skin_lucky_dice_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
-            new(InkSkinId.OrigamiWings,"종이 날개","Paper Wings","紙の翼","skin_origami_wings_v1",SkinTier.Medium,SkinMetric.Survival,120),
-            new(InkSkinId.CraneWings,"학의 날개","Crane Wings","鶴の翼","skin_crane_wings_v1",SkinTier.Medium,SkinMetric.Best,350),
-            new(InkSkinId.ButterflyWings,"먹나비","Ink Butterfly","墨の蝶","skin_butterfly_wings_v1",SkinTier.Medium,SkinMetric.Items,50),
-            new(InkSkinId.RedShoes,"붉은 버선","Crimson Steps","紅の足袋","skin_red_shoes_v1",SkinTier.Easy,SkinMetric.DrawnLandings,15),
-            new(InkSkinId.CloudBoots,"구름 장화","Cloud Boots","雲の靴","skin_cloud_boots_v1",SkinTier.Medium,SkinMetric.Distance,3000),
-            new(InkSkinId.BlueWisps,"도깨비불","Ghostfire","鬼火","skin_blue_wisps_v1",SkinTier.Medium,SkinMetric.InkDrops,20),
-            new(InkSkinId.PaperLanterns,"길 잃은 등불","Wandering Lanterns","迷子の灯り","skin_paper_lanterns_v1",SkinTier.Easy,SkinMetric.Runs,7),
-            new(InkSkinId.MoonClouds,"달구름","Mooncloud","月雲","skin_moon_clouds_v1",SkinTier.Medium,SkinMetric.NightBest,200),
+            new(InkSkinId.OrigamiWings,"종이 날개","Paper Wings","紙の翼","skin_origami_wings_v1",SkinTier.Medium,SkinMetric.Survival,300),
+            new(InkSkinId.CraneWings,"학의 날개","Crane Wings","鶴の翼","skin_crane_wings_v1",SkinTier.Medium,SkinMetric.Best,1200),
+            new(InkSkinId.ButterflyWings,"먹나비","Ink Butterfly","墨の蝶","skin_butterfly_wings_v1",SkinTier.Medium,SkinMetric.Items,500),
+            new(InkSkinId.RedShoes,"붉은 버선","Crimson Steps","紅の足袋","skin_red_shoes_v1",SkinTier.Easy,SkinMetric.DrawnLandings,120),
+            new(InkSkinId.CloudBoots,"구름 장화","Cloud Boots","雲の靴","skin_cloud_boots_v1",SkinTier.Medium,SkinMetric.Distance,18000),
+            new(InkSkinId.BlueWisps,"도깨비불","Ghostfire","鬼火","skin_blue_wisps_v1",SkinTier.Medium,SkinMetric.InkDrops,150),
+            new(InkSkinId.PaperLanterns,"길 잃은 등불","Wandering Lanterns","迷子の灯り","skin_paper_lanterns_v1",SkinTier.Easy,SkinMetric.Runs,35),
+            new(InkSkinId.MoonClouds,"달구름","Mooncloud","月雲","skin_moon_clouds_v1",SkinTier.Medium,SkinMetric.NightBest,1600),
             new(InkSkinId.BondKnot,"무스비","Musubi","むすび","skin_bond_knot_v1",SkinTier.Basic,SkinMetric.AppleLink,1),
-            new(InkSkinId.WindFan,"바람부채","Wind Fan","風の扇","skin_wind_fan_v1",SkinTier.Medium,SkinMetric.InkDrops,5),
-            new(InkSkinId.DragonTail,"용꼬리","Dragon Tail","竜のしっぽ","skin_dragon_tail_v2",SkinTier.Easy,SkinMetric.DragonDeath,1),
+            new(InkSkinId.WindFan,"바람부채","Wind Fan","風の扇","skin_wind_fan_v1",SkinTier.Medium,SkinMetric.InkDrops,50),
+            new(InkSkinId.DragonTail,"용꼬리","Dragon Tail","竜のしっぽ","skin_dragon_tail_v2",SkinTier.Easy,SkinMetric.DragonDeath,3),
             new(InkSkinId.ZodiacRat,"밤쥐","Night Mouse","夜ねずみ","skin_zodiac_rat_v1",SkinTier.Hidden,SkinMetric.Secret,1),
             new(InkSkinId.ZodiacOx,"황소","Bull","雄牛","skin_zodiac_ox_v1",SkinTier.Hidden,SkinMetric.Secret,1),
             new(InkSkinId.ZodiacTiger,"호피 두건","Tiger Bandana","虎柄の頭巾","skin_zodiac_tiger_v1",SkinTier.Hidden,SkinMetric.Secret,1),
@@ -88,7 +88,7 @@ namespace MukJump.Core
             new(InkSkinId.NineTails,"구미호","Nine-Tailed Fox","九尾の狐","skin_nine_tails_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             new(InkSkinId.ThreeCushion,"팔번공","Eight Ball","8番ボール","skin_three_cushion_v1",SkinTier.UltraHidden,SkinMetric.Secret,1),
             // 정지 그림도 애니메이션 첫 프레임을 사용한다. 중복 PNG는 만들지 않는다.
-            new(InkSkinId.AngelWings,"여명의 고리","Ring of Dawn","夜明けの環","",SkinTier.Hard,SkinMetric.Distance,10000)
+            new(InkSkinId.AngelWings,"여명의 고리","Ring of Dawn","夜明けの環","",SkinTier.Hard,SkinMetric.Distance,150000)
         };
         public static bool IsValid(InkSkinId id) => (int)id >= 0 && (int)id < Count;
         public static bool IsAvailable(InkSkinId id) => IsValid(id) && id != InkSkinId.StormScarf;
@@ -240,6 +240,65 @@ namespace MukJump.Core
             return frames[Mathf.Clamp(frame, 0, frames.Length-1)];
         }
     }
+    /// 구 기본 조건만 이관하기 위한 고정 표. 신규 계정에는 적용하지 않는다.
+    internal static class InkSkinUnlockBalance
+    {
+        public const int Version = 2;
+        public static int PreviousGoal(InkSkinId id) => id switch
+        {
+            InkSkinId.Gat => 100,
+            InkSkinId.SpiderMask => 10,
+            InkSkinId.Scholar => 500,
+            InkSkinId.BambooHat => 25,
+            InkSkinId.RedHeadband => 10,
+            InkSkinId.LotusCrown => 3,
+            InkSkinId.CatEars => 1,
+            InkSkinId.BellRibbon => 5,
+            InkSkinId.CloudCap => 50,
+            InkSkinId.PaperBoat => 1000,
+            InkSkinId.TeaCupHat => 45,
+            InkSkinId.FeatherHairpin => 25,
+            InkSkinId.PeachFlower => 5,
+            InkSkinId.FoxMask => 250,
+            InkSkinId.CraneCrest => 5000,
+            InkSkinId.YakshaMask => 500,
+            InkSkinId.TurtleShell => 3,
+            InkSkinId.MoonCrown => 100,
+            InkSkinId.BrushMaster => 100,
+            InkSkinId.SpiritHalo => 30,
+            InkSkinId.KoiMask => 5,
+            InkSkinId.JadeCrown => 10000,
+            InkSkinId.PhoenixCrown => 1000,
+            InkSkinId.TigerMask => 300,
+            InkSkinId.MountainKing => 1500,
+            InkSkinId.CloudDragon => 2000,
+            InkSkinId.InkMecha => 100,
+            InkSkinId.OrigamiWings => 120,
+            InkSkinId.CraneWings => 350,
+            InkSkinId.ButterflyWings => 50,
+            InkSkinId.RedShoes => 15,
+            InkSkinId.CloudBoots => 3000,
+            InkSkinId.BlueWisps => 20,
+            InkSkinId.PaperLanterns => 7,
+            InkSkinId.MoonClouds => 200,
+            InkSkinId.WindFan => 5,
+            InkSkinId.DragonTail => 1,
+            InkSkinId.AngelWings => 10000,
+            _ => InkSkinCatalog.BuiltIn(id)?.Goal ?? int.MaxValue
+        };
+        public static void PreserveEarnedRewards(SkinAchievementState state, long distance, int growth)
+        {
+            // 구 조건을 충족한 저장 실적만 보유 비트에 확정한다. 비밀 조건을 추정하지 않는다.
+            for (int i = 1; i < InkSkinCatalog.Count; i++)
+            {
+                var id = (InkSkinId)i;
+                if (!InkSkinCatalog.IsAvailable(id) || state.Has(id)) continue;
+                var metric = InkSkinCatalog.BuiltIn(id).Metric;
+                if (metric is SkinMetric.Secret or SkinMetric.ZeroRun or SkinMetric.AppleLink or SkinMetric.DragonDeath) continue;
+                if (state.Progress(id, distance, growth) >= PreviousGoal(id)) state.Grant(id);
+            }
+        }
+    }
     public static class InkSkinAchievements
     {
         public static int Goal(InkSkinId id) => InkSkinCatalog.Get(id)?.Goal ?? int.MaxValue;
@@ -264,13 +323,13 @@ namespace MukJump.Core
                 SkinMetric.NightBest => $"밤에 {d.Goal}m 달성",
                 SkinMetric.Growth => $"성장 노드 {d.Goal}개 획득",
                 SkinMetric.NoItemBest => $"아이템 없이 {d.Goal}m 달성",
-                SkinMetric.ZeroRun => "그린 발판에 착지하지 않고 한 판 완료",
+                SkinMetric.ZeroRun => "그린 발판에 착지 없이 150m·30초 이상 한 판 완료",
                 SkinMetric.AppleLink => "Apple 계정 연동 완료",
-                SkinMetric.DragonDeath => "본체가 용과 충돌해 사망하기",
+                SkinMetric.DragonDeath => $"본체가 용과 충돌해 사망한 판 {d.Goal}회 완료",
                 _ => id switch {
                     InkSkinId.NightBat => "로비를 세 번째 밤으로 바꾸기",
                     InkSkinId.Astronaut => "낮과 밤을 여섯 번 바꾸기",
-                    InkSkinId.ClockworkCat => "고양이 귀로 밤에 아이템 없이 60초 생존",
+                    InkSkinId.ClockworkCat => "고양이 귀로 밤에 아이템 없이 400m·120초 이상 한 판 완료",
                     InkSkinId.LuckyDice => "정확히 777m로 한 판 완료",
                     InkSkinId.OrigamiWings => "먹 → 갓 → 먹 → 거미탈 → 먹 순서로 살펴보기",
                     InkSkinId.ThreeCushion => "로비에서 한 번 던진 먹을 벽에 3회 연속 튕기기",
