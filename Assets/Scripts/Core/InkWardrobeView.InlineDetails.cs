@@ -50,38 +50,38 @@ namespace MukJump.Core
             var category = Label("Category", skillDetailsRoot, "특수 능력", 46,
                 new Vector2(0, 368), new Vector2(620, 70), true);
             category.color = InkPalette.Red;
-            skillIcon = SpriteImage("CostumeIcon", skillDetailsRoot, null, new Vector2(-324, 234), new Vector2(116, 116));
+            skillIcon = SpriteImage("CostumeIcon", skillDetailsRoot, null, new Vector2(0, 244), new Vector2(120, 120));
             skillTitleText = Label("SkillTitle", skillDetailsRoot, "", 70,
-                new Vector2(68, 234), new Vector2(630, 138), true);
-            skillTitleText.alignment = TextAnchor.MiddleLeft;
+                new Vector2(0, 124), new Vector2(780, 112), true);
+            skillTitleText.alignment = TextAnchor.MiddleCenter;
             skillTitleText.color = InkPalette.Ink;
-            var mode = SpriteImage("ModeBadge", skillDetailsRoot, InkUiStyle.ActionButtonSprite,
-                new Vector2(-162, 112), new Vector2(260, 74));
-            InkUiStyle.ConfigureHanjiSurface(mode);
-            skillModeText = Label("Mode", mode.transform, "", 34, Vector2.zero, new Vector2(236, 60), true);
-            skillModeText.color = InkPalette.Ink;
-            skillCooldownBadge = Rect("CooldownBadge", skillDetailsRoot, new Vector2(150, 112), new Vector2(300, 74));
+            // 눌리는 한지 버튼 대신 먹획 상태표를 쓴다. 발동 방식과 재사용 시간을 같은 규격으로 맞춘다.
+            var mode = SpriteImage("ModeBadge", skillDetailsRoot, InkUiTextureFactory.CreateBrushSprite(),
+                new Vector2(-156, 22), new Vector2(300, 78));
+            mode.preserveAspect = false; mode.color = InkPalette.Ink;
+            skillModeText = Label("Mode", mode.transform, "", 36, Vector2.zero, new Vector2(246, 60), true);
+            skillModeText.color = InkPalette.TextLight;
+            skillCooldownBadge = Rect("CooldownBadge", skillDetailsRoot, new Vector2(156, 22), new Vector2(300, 78));
             var badge = skillCooldownBadge.gameObject.AddComponent<UnityEngine.UI.Image>();
-            badge.sprite = InkUiStyle.ActionButtonSprite;
-            InkUiStyle.ConfigureHanjiSurface(badge);
-            badge.color = new Color(1, 1, 1, .7f);
+            badge.sprite = InkUiTextureFactory.CreateBrushSprite();
+            badge.color = InkPalette.Red;
             badge.raycastTarget = false;
-            skillCooldownText = Label("Cooldown", skillCooldownBadge, "", 34, Vector2.zero, new Vector2(274, 60), true);
-            skillCooldownText.color = InkPalette.Red;
+            skillCooldownText = Label("Cooldown", skillCooldownBadge, "", 34, Vector2.zero, new Vector2(250, 60), true);
+            skillCooldownText.color = InkPalette.TextLight;
             InkLocalizedText.Exclude(skillCooldownText);
             var divider = SpriteImage("Divider", skillDetailsRoot, InkUiTextureFactory.CreateBrushSprite(),
-                new Vector2(0, 38), new Vector2(780, 3));
+                new Vector2(0, -50), new Vector2(780, 3));
             divider.preserveAspect = false; divider.color = new Color(.11f, .106f, .102f, .24f);
 
-            var scroll = Rect("DescriptionScroll", skillDetailsRoot, new Vector2(0, -114), new Vector2(780, 236));
+            var scroll = Rect("DescriptionScroll", skillDetailsRoot, new Vector2(0, -232), new Vector2(780, 296));
             skillDescriptionScroll = scroll.gameObject.AddComponent<UnityEngine.UI.ScrollRect>();
             var viewport = Stretch("Viewport", scroll);
             var hit = viewport.gameObject.AddComponent<UnityEngine.UI.Image>();
             hit.color = Color.clear;
             hit.raycastTarget = true;
             viewport.gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
-            skillDescriptionText = Label("SkillDescription", viewport, "", 46, Vector2.zero, new Vector2(780, 236), true);
-            skillDescriptionText.alignment = TextAnchor.UpperLeft;
+            skillDescriptionText = Label("SkillDescription", viewport, "", 46, Vector2.zero, new Vector2(780, 296), true);
+            skillDescriptionText.alignment = TextAnchor.MiddleCenter;
             skillDescriptionText.color = InkPalette.Ink;
             skillDescriptionText.lineSpacing = 1.16f;
             var content = skillDescriptionText.rectTransform;
@@ -94,26 +94,23 @@ namespace MukJump.Core
             skillDescriptionScroll.decelerationRate = .055f;
             skillDescriptionScroll.scrollSensitivity = 56;
             // 내용이 길 때만 가느다란 스크롤 표시를 보여 끝까지 읽을 수 있음을 알린다.
-            skillScrollHint = Rect("ScrollHint", skillDetailsRoot, new Vector2(408, -114), new Vector2(4, 236));
+            skillScrollHint = Rect("ScrollHint", skillDetailsRoot, new Vector2(408, -232), new Vector2(4, 296));
             var hintTrack = skillScrollHint.gameObject.AddComponent<UnityEngine.UI.Image>();
             hintTrack.color = new Color(.11f, .106f, .102f, .12f);
             hintTrack.raycastTarget = false;
-            skillScrollThumb = Rect("Thumb", skillScrollHint, Vector2.zero, new Vector2(4, 236));
+            skillScrollThumb = Rect("Thumb", skillScrollHint, Vector2.zero, new Vector2(4, 296));
             skillScrollThumb.anchorMin = skillScrollThumb.anchorMax = skillScrollThumb.pivot = new Vector2(.5f, 1);
             var thumb = skillScrollThumb.gameObject.AddComponent<UnityEngine.UI.Image>();
             thumb.color = new Color(.11f, .106f, .102f, .46f);
             thumb.raycastTarget = false;
             skillDescriptionScroll.onValueChanged.AddListener(_ => RefreshSkillScrollHint());
             skillScrollHint.gameObject.SetActive(false);
-            var confirm = Button("ConfirmButton", skillDetailsRoot, "알겠습니다", new Vector2(0, -350),
-                new Vector2(720, 116), 46, out var confirmLabel);
-            confirm.onClick.AddListener(CloseSkillDetails);
             var close = Button("CloseButton", skillDetailsRoot, "×", new Vector2(382, 370),
                 new Vector2(108, 108), 68, out var closeLabel);
             close.transform.Find("Paper").GetComponent<UnityEngine.UI.Image>().color = Color.clear;
             close.onClick.AddListener(CloseSkillDetails);
             foreach (var label in new[] { buttonLabel, skillSummaryText, category, skillTitleText, skillDescriptionText,
-                skillCooldownText, skillModeText, confirmLabel, closeLabel })
+                skillCooldownText, skillModeText, closeLabel })
                 if (label.TryGetComponent<UnityEngine.UI.Outline>(out var outline)) outline.enabled = false;
             skillOverlay.gameObject.SetActive(false);
             skillDetailsRoot.gameObject.SetActive(false);
@@ -136,7 +133,7 @@ namespace MukJump.Core
             InkLocalizedText.SetSource(skillModeText, selected == InkSkinId.WindFan ? "직접 사용" : "자동 발동");
             float cooldown = show ? InkSkinChart.Cooldown(selected) : 0;
             skillCooldownBadge.gameObject.SetActive(cooldown > 0);
-            skillModeText.transform.parent.GetComponent<RectTransform>().anchoredPosition = new Vector2(cooldown > 0 ? -162 : 0, 112);
+            skillModeText.transform.parent.GetComponent<RectTransform>().anchoredPosition = new Vector2(cooldown > 0 ? -156 : 0, 22);
             string seconds = cooldown.ToString("0.#", CultureInfo.InvariantCulture);
             string duration = seconds + (GameLocalization.Language switch
             { GameLanguage.Korean => "초", GameLanguage.Japanese => "秒", _ => "s" });
@@ -159,6 +156,8 @@ namespace MukJump.Core
             float visibleHeight = skillDescriptionScroll.viewport.rect.height;
             float height = Mathf.Max(visibleHeight, Mathf.Ceil(skillDescriptionText.preferredHeight) + 2);
             skillDescriptionScroll.content.sizeDelta = new Vector2(skillDescriptionScroll.viewport.rect.width, height);
+            // 짧은 설명은 면의 정중앙, 긴 설명은 가로 중앙을 유지한 채 위부터 스크롤한다.
+            skillDescriptionText.alignment = height > visibleHeight ? TextAnchor.UpperCenter : TextAnchor.MiddleCenter;
             skillDescriptionScroll.enabled = IsSkillDetailsOpen && CanUseWardrobe() && height > visibleHeight;
             skillDescriptionScroll.viewport.GetComponent<UnityEngine.UI.Image>().raycastTarget = skillDescriptionScroll.enabled;
             RefreshSkillScrollHint();

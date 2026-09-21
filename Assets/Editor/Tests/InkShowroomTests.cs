@@ -188,8 +188,8 @@ namespace MukJump.EditorTests
                         var ability = view.SkillTitleText;
                         var description = view.SkillDescriptionText;
                         Assert.That(ability.color, Is.EqualTo(InkPalette.Ink));
-                        Assert.That(ability.alignment, Is.EqualTo(TextAnchor.MiddleLeft));
-                        Assert.That(description.alignment, Is.EqualTo(TextAnchor.UpperLeft));
+                        Assert.That(ability.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+                        Assert.That(description.alignment, Is.EqualTo(TextAnchor.MiddleCenter).Or.EqualTo(TextAnchor.UpperCenter));
                         Assert.That(badge.color, Is.EqualTo(InkPalette.Red));
                         Assert.That(detailPaper.type, Is.EqualTo(Image.Type.Sliced));
                         Assert.That(detailPaper.raycastTarget, Is.False);

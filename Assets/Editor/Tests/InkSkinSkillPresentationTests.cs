@@ -113,6 +113,17 @@ namespace MukJump.EditorTests
                             (language == GameLanguage.English && id == InkSkinId.BondKnot) ||
                             (language == GameLanguage.Japanese && id == InkSkinId.AngelWings))
                             yield return Capture("wardrobe-renamed-" + language);
+                        if (id == InkSkinId.PhoenixCrown)
+                        {
+                            yield return PlayerInputFrame(() => Click((RectTransform)view.SkillButton.transform));
+                            Assert.That(view.IsSkillDetailsOpen, Is.True);
+                            Assert.That(view.SkillDetailsRoot.Find("ConfirmButton"), Is.Null);
+                            Assert.That(view.SkillTitleText.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+                            Assert.That(view.SkillDetailsRoot.Find("ModeBadge").GetComponent<RectTransform>().anchoredPosition.x, Is.Zero);
+                            yield return Capture("wardrobe-C-Phoenix-" + language);
+                            yield return PlayerInputFrame(() => Click((RectTransform)view.SkillDetailsRoot.Find("CloseButton")));
+                            Assert.That(view.IsSkillDetailsOpen, Is.False);
+                        }
                     }
                     view.Select(InkSkinId.WindFan); yield return Wait(.4f);
                     Assert.That(collection.sizeDelta, Is.EqualTo(listSize)); Assert.That(collection.anchoredPosition, Is.EqualTo(listPosition));
@@ -151,7 +162,9 @@ namespace MukJump.EditorTests
                         Assert.That(ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject), Is.Not.EqualTo(next.gameObject));
                         view.StepSelection(1);
                         Assert.That(view.Selected, Is.EqualTo(InkSkinId.WindFan));
-                        Click((RectTransform)view.SkillDetailsRoot.Find("ConfirmButton"));
+                        Assert.That(view.SkillDetailsRoot.Find("ConfirmButton"), Is.Null);
+                        Assert.That(view.SkillDescriptionText.alignment, Is.EqualTo(TextAnchor.UpperCenter));
+                        Click((RectTransform)view.SkillDetailsRoot.Find("CloseButton"));
                     });
                     Assert.That(view.IsSkillDetailsOpen, Is.False);
                     Assert.That(view.Selected, Is.EqualTo(InkSkinId.WindFan));

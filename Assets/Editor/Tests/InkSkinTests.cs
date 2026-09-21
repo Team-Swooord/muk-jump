@@ -321,13 +321,29 @@ namespace MukJump.EditorTests
                     Assert.That(view.CanBrowse, Is.False);
                     Assert.That(view.SkillTitleText.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Ability(id))));
                     Assert.That(view.SkillDescriptionText.text, Is.EqualTo(GameLocalization.Translate(InkSkinCatalog.Description(id))));
+                    Assert.That(view.SkillDetailsRoot.Find("ConfirmButton"), Is.Null);
+                    Assert.That(view.SkillDetailsRoot.Find("CostumeIcon").GetComponent<RectTransform>().anchoredPosition.x, Is.Zero);
+                    Assert.That(view.SkillTitleText.rectTransform.anchoredPosition.x, Is.Zero);
+                    Assert.That(view.SkillTitleText.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+                    Assert.That(view.SkillDescriptionText.alignment, Is.EqualTo(TextAnchor.MiddleCenter).Or.EqualTo(TextAnchor.UpperCenter));
+                    var mode = view.SkillDetailsRoot.Find("ModeBadge").GetComponent<UnityEngine.UI.Image>();
+                    Assert.That(mode.sprite, Is.EqualTo(InkUiTextureFactory.CreateBrushSprite()));
+                    Assert.That(mode.raycastTarget, Is.False);
+                    Assert.That(mode.GetComponent<UnityEngine.UI.Button>(), Is.Null);
+                    var modeRect = (RectTransform)mode.transform;
+                    var cooldownRect = (RectTransform)view.SkillDetailsRoot.Find("CooldownBadge");
+                    bool timed = InkSkinChart.Cooldown(id) > 0;
+                    Assert.That(cooldownRect.gameObject.activeSelf, Is.EqualTo(timed));
+                    Assert.That(modeRect.anchoredPosition.x, Is.EqualTo(timed ? -cooldownRect.anchoredPosition.x : 0));
+                    foreach (var badgeText in mode.GetComponentsInChildren<UnityEngine.UI.Text>())
+                        Assert.That(badgeText.preferredHeight, Is.LessThanOrEqualTo(badgeText.rectTransform.rect.height + 2));
                     foreach (var text in new[] { view.SkillTitleText, view.SkillDescriptionText })
                         Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 2), id + " / " + text.name);
                     view.Select(InkSkinId.Ink);
                     view.ToggleCollection();
                     Assert.That(view.Selected, Is.EqualTo(id), "상세 팝업 뒤의 선택은 잠근다");
                     Assert.That(view.CollectionExpanded, Is.False);
-                    view.SkillDetailsRoot.Find("ConfirmButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                    view.SkillDetailsRoot.Find("CloseButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                     Assert.That(view.IsSkillDetailsOpen, Is.False);
                     Assert.That(view.CollectionContent.anchoredPosition, Is.EqualTo(beforeOpen));
                     Assert.That(view.OpenSkillDetails(), Is.True);
