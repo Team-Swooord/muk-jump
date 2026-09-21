@@ -170,6 +170,12 @@ namespace MukJump.EditorTests
                     if (!InkSkinCatalog.IsAvailable((InkSkinId)i)) continue;
                     view.Select((InkSkinId)i); view.Presentation.Cancel(); Canvas.ForceUpdateCanvases();
                     Assert.That(detailPaper.gameObject.activeSelf, Is.True);
+                    Rect paperBounds = BoundsIn(view.Paper, detailPaper.rectTransform);
+                    Assert.That(paperBounds.height, Is.EqualTo(480f).Within(.01f), "모든 의상에 넉넉한 공통 설명칸을 사용한다");
+                    var requirement = (RectTransform)view.Paper.Find("Achievement");
+                    if (requirement.gameObject.activeSelf)
+                        Assert.That(BoundsIn(view.Paper, requirement).yMax, Is.LessThanOrEqualTo(paperBounds.yMin - 24f + .01f),
+                            "해금 조건은 설명칸 아래에 여백을 두고 배치한다");
                     Assert.That(detailPaper.raycastTarget || divider.raycastTarget, Is.False);
                     bool special = InkSkinCatalog.HasAbility((InkSkinId)i);
                     Assert.That(view.SkillButton.gameObject.activeSelf, Is.EqualTo(special));
@@ -209,6 +215,11 @@ namespace MukJump.EditorTests
                         var text = row.GetComponent<Text>();
                         if (text != null && string.IsNullOrEmpty(text.text)) continue;
                         Rect bounds = BoundsIn(view.Paper, row);
+                        if (name is "SkillSummary" or "SkinName" or "ItemLore" or "SpecialSkillButton")
+                        {
+                            Assert.That(bounds.yMax, Is.LessThanOrEqualTo(paperBounds.yMax - 60f + .01f), i + "/" + name + " 위 여백");
+                            Assert.That(bounds.yMin, Is.GreaterThanOrEqualTo(paperBounds.yMin + 60f - .01f), i + "/" + name + " 아래 여백");
+                        }
                         // 고정 슬롯은 경계를 공유할 수 있지만 겹칠 수는 없다.
                         Assert.That(bounds.yMax, Is.LessThanOrEqualTo(previousBottom + .1f), i + "/" + name);
                         previousBottom = bounds.yMin;

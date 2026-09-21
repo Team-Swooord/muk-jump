@@ -235,17 +235,18 @@ namespace MukJump.Core
             detailDivider.rectTransform.anchoredPosition = new Vector2(0, 10f);
             detailPaper.gameObject.SetActive(!collectionExpanded && !hidden);
             detailDivider.gameObject.SetActive(!collectionExpanded && !hidden && hasAbility);
-            // 위 능력명과 아래 버튼이 갈필 테두리에 걸리지 않도록 종이만 대칭으로 넓힌다.
-            PlaceDetailRow(detailPaper.rectTransform, 300f, 400f);
+            // 갈필 안쪽 테두리까지 고려해 능력명·버튼과 종이 끝 사이에 최소 60의 여백을 둔다.
+            // 일반 의상도 같은 높이를 사용해 선택할 때 레이아웃이 흔들리지 않는다.
+            PlaceDetailRow(detailPaper.rectTransform, 340f, 480f);
             bool showRequirement = !hidden && selected != InkSkinId.Ink;
             bool showProgress = !hidden && InkSkinAchievements.Goal(selected) > 0;
             achievementText.gameObject.SetActive(!collectionExpanded && showRequirement);
             progressText.gameObject.SetActive(!collectionExpanded && showProgress);
             achievementText.alignment = progressText.alignment = TextAnchor.MiddleCenter;
-            PlaceDetailRow(achievementText.rectTransform, -100f, 76f);
-            PlaceDetailRow(progressText.rectTransform, -200f, 42f);
-            PlaceDetailRow(progressTrack, -270f, 30f);
-            PlaceDetailRow(statusText.rectTransform, -100f, 120f);
+            PlaceDetailRow(achievementText.rectTransform, -164f, 76f);
+            PlaceDetailRow(progressText.rectTransform, -250f, 42f);
+            PlaceDetailRow(progressTrack, -320f, 30f);
+            PlaceDetailRow(statusText.rectTransform, -164f, 120f);
         }
         static float PlaceDetailRow(RectTransform row, float top, float height)
         {
