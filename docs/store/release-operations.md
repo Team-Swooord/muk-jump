@@ -142,6 +142,27 @@ xcodebuild -workspace Unity-iPhone.xcworkspace -scheme Unity-iPhone \
 
 ## 버전과 롤백
 
+- 2026-09-21 정식 업데이트 `1.0.2(41)`을 `main`에서 클린 빌드했다.
+  꾸미기 이름·설명·특수능력 안내, 잠금 조건·진행 게이지·제목 크기와
+  시간·리더보드·광고 변경을 포함하며, 실제 광고·디버그 없음 조건이다.
+  기존 계정과 기록을 유지하고 서버 삭제·빌드별 로컬 초기화는 적용하지 않았다.
+  관련 자동 검사 677개(출시·계정·광고·리더보드·스킨 647, 해금 UI 23,
+  제목·실제 화면·특수능력 입력 7)가 최종 통과했다. 안전영역 검사는
+  Device Simulator의 Screen 좌표와 Canvas 좌표를 혼용하던 부분만 바로잡았다.
+  이전 Xcode 출력과 `DerivedData-AppStore-40`은
+  `/Users/seungyeoning/.Trash/MukJump-clean-build-41-20260921/`로 옮겼으며 복구 가능하다.
+  소스·기존 Archive·검증 로그는 보존했다.
+  실기기 Release 빌드, Archive, 배포 IPA의 엄격한 전체 서명,
+  팀 `8AU359WZZ2`, Apple 로그인·Game Center entitlement,
+  `ITSAppUsesNonExemptEncryption` Boolean false를 확인했다.
+  배포 IPA는 `get-task-allow=false`, `MukJumpPrereleaseReset=false`이며
+  생성된 네이티브 코드에서도 스킨 디버그와 강제 테스트 광고가 비활성화되어 있다.
+  19:35 KST Apple의 `Upload succeeded` / `Uploaded package is processing` 응답을 확인했다.
+  Archive: `/Users/seungyeoning/Library/Developer/Xcode/Archives/2026-09-21/MukJump-1.0.2-41.xcarchive`.
+  검증 자료: `output/release-appstore/2026-09-21-build-41/`.
+  UnityRuntime.framework dSYM 누락 경고는 남았으나 업로드는 성공했다.
+  AdMob 실광고 송출·실기기 Game Center 전송은 이번 자동 검사로 검증한 범위가 아니다.
+
 - 2026-09-20 스킨 통합 정식 업데이트 `1.0.1(40)`을 `main`에서 빌드했다.
   실제 광고·디버그 없음 조건이며 서버 삭제·빌드별 로컬 초기화는 적용하지 않았다.
   계정/닉네임/광고/리더보드/출시 대상 자동 검사 682개와 플레이 시간 UI 검사 1개가 통과했다.
