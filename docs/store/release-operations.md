@@ -160,6 +160,13 @@ xcodebuild -workspace Unity-iPhone.xcworkspace -scheme Unity-iPhone \
   19:35 KST Apple의 `Upload succeeded` / `Uploaded package is processing` 응답을 확인했다.
   Archive: `/Users/seungyeoning/Library/Developer/Xcode/Archives/2026-09-21/MukJump-1.0.2-41.xcarchive`.
   검증 자료: `output/release-appstore/2026-09-21-build-41/`.
+  TestFlight에서 빌드 41의 처리 완료와 기존 내부 그룹 `11` 연결을 확인하고
+  테스트 내용을 저장했다. 빌드 ID: `78859521-264f-4c51-9ebb-dd2ba5358d1d`.
+  한·영·일 변경 사항과 심사 메모를 저장하고 같은 빌드를 1.0.2에 연결했다.
+  19:42 KST Apple의 **1개의 항목 제출됨 / 심사 대기 중** 응답을 확인했다.
+  제출 ID: `2c8f05b7-1c5c-4129-a4da-69edbd528abd`.
+  [심사 상세](https://appstoreconnect.apple.com/apps/6804614765/distribution/reviewsubmissions/details/2c8f05b7-1c5c-4129-a4da-69edbd528abd).
+  기존 스크린샷·평점과 수동 출시 설정을 유지했다. 심사 승인·공개 출시는 아직 아니다.
   UnityRuntime.framework dSYM 누락 경고는 남았으나 업로드는 성공했다.
   AdMob 실광고 송출·실기기 Game Center 전송은 이번 자동 검사로 검증한 범위가 아니다.
 
