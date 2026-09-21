@@ -24,15 +24,15 @@ namespace MukJump.Core
 
         void BuildInlineSkill()
         {
-            // A: 이름 옆의 작은 버튼과 한 줄 요약. C: 버튼으로만 여는 상세 한지 팝업.
-            skillButton = Button("SpecialSkillButton", paper, "특수 능력", new Vector2(330, 213),
+            // 능력 요약 → 중앙 이름·이야기 → 상세 버튼. 팝업과 아래 수집 목록은 유지한다.
+            skillButton = Button("SpecialSkillButton", paper, "특수 능력", new Vector2(0, -34),
                 new Vector2(280, 84), 34, out var buttonLabel);
             buttonLabel.color = InkPalette.Red;
             buttonLabel.rectTransform.anchoredPosition = new Vector2(30, 0);
             buttonLabel.rectTransform.sizeDelta = new Vector2(196, 68);
             skillButtonIcon = SpriteImage("CostumeIcon", skillButton.transform, null, new Vector2(-88, 0), new Vector2(64, 64));
             skillButton.onClick.AddListener(() => OpenSkillDetails());
-            skillSummaryText = Label("SkillSummary", paper, "", 38, new Vector2(0, -20), new Vector2(900, 62), true);
+            skillSummaryText = Label("SkillSummary", paper, "", 38, new Vector2(0, 245), new Vector2(900, 50), true);
             skillSummaryText.color = InkPalette.Red;
             InkLocalizedText.Exclude(skillSummaryText);
 

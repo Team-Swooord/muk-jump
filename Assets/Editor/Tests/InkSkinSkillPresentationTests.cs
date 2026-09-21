@@ -45,6 +45,11 @@ namespace MukJump.EditorTests
                     GameLocalization.SetLanguage(language); view.Select(InkSkinId.CatEars); yield return Wait(.4f);
                     Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.False);
                     if (language == GameLanguage.Korean) yield return Capture("wardrobe-hanji-cosmetic");
+                    view.Select(InkSkinId.Gat); yield return Wait(.4f);
+                    Assert.That(view.Paper.Find("SkinName").GetComponent<RectTransform>().anchoredPosition.x, Is.Zero);
+                    Assert.That(view.SkillSummaryText.rectTransform.anchoredPosition.y,
+                        Is.GreaterThan(view.Paper.Find("SkinName").GetComponent<RectTransform>().anchoredPosition.y));
+                    yield return Capture("wardrobe-centered-gat-" + language);
                     view.Select(InkSkinId.WindFan); yield return Wait(.4f);
                     Assert.That(collection.sizeDelta, Is.EqualTo(listSize)); Assert.That(collection.anchoredPosition, Is.EqualTo(listPosition));
                     Assert.That(view.SkillButton.gameObject.activeSelf, Is.True);

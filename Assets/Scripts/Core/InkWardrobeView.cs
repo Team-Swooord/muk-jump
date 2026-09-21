@@ -226,13 +226,17 @@ namespace MukJump.Core
             descriptionText.gameObject.SetActive(!collectionExpanded && hidden);
             descriptionText.alignment = TextAnchor.MiddleCenter;
             PlaceDetailRow(descriptionText.rectTransform, 198f, 144f);
-            nameText.rectTransform.anchoredPosition = new Vector2(hasAbility && !hidden ? -170 : 0, 200);
-            nameText.rectTransform.sizeDelta = new Vector2(hasAbility && !hidden ? 620 : 900, 124);
-            PlaceDetailRow(loreText.rectTransform, 126f, 108f);
-            detailDivider.rectTransform.anchoredPosition = new Vector2(0, 14f);
+            bool showAbility = hasAbility && !hidden;
+            // 능력명은 위, 상세 버튼은 아래에 둬 코스튬 이름의 중앙과 전체 폭을 보존한다.
+            nameText.alignment = TextAnchor.MiddleCenter;
+            nameText.rectTransform.anchoredPosition = new Vector2(0, showAbility ? 169f : 200f);
+            nameText.rectTransform.sizeDelta = new Vector2(900, showAbility ? 90f : 124f);
+            PlaceDetailRow(loreText.rectTransform, showAbility ? 120f : 126f, 108f);
+            detailDivider.rectTransform.anchoredPosition = new Vector2(0, 10f);
             detailPaper.gameObject.SetActive(!collectionExpanded && !hidden);
             detailDivider.gameObject.SetActive(!collectionExpanded && !hidden && hasAbility);
-            PlaceDetailRow(detailPaper.rectTransform, 280f, 360f);
+            // 위 능력명과 아래 버튼이 갈필 테두리에 걸리지 않도록 종이만 대칭으로 넓힌다.
+            PlaceDetailRow(detailPaper.rectTransform, 300f, 400f);
             bool showRequirement = !hidden && selected != InkSkinId.Ink;
             bool showProgress = !hidden && InkSkinAchievements.Goal(selected) > 0;
             achievementText.gameObject.SetActive(!collectionExpanded && showRequirement);

@@ -202,7 +202,7 @@ namespace MukJump.EditorTests
                             BoundsIn(view.Paper, detailPaper.rectTransform), 0, "능력 버튼");
                     }
                     float previousBottom = 280;
-                    foreach (string name in new[] { "SkinName", "ItemLore", "SkillSummary", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "CollectionScroll" })
+                    foreach (string name in new[] { "SkillSummary", "SkinName", "ItemLore", "SpecialSkillButton", "Description", "Achievement", "AchievementProgress", "AchievementTrack", "CollectionScroll" })
                     {
                         var row = (RectTransform)view.Paper.Find(name);
                         if (!row.gameObject.activeSelf) continue;
@@ -213,6 +213,12 @@ namespace MukJump.EditorTests
                         Assert.That(bounds.yMax, Is.LessThanOrEqualTo(previousBottom + .1f), i + "/" + name);
                         previousBottom = bounds.yMin;
                         if (text == null) continue;
+                        if (name == "SkinName")
+                        {
+                            Assert.That(row.anchoredPosition.x, Is.Zero, "능력 유무와 관계없이 이름은 중앙");
+                            Assert.That(row.rect.width, Is.EqualTo(900), "버튼 때문에 이름 폭을 줄이지 않는다");
+                            Assert.That(text.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+                        }
                         Assert.That(text.resizeTextForBestFit, Is.False);
                         Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(row.rect.height + .1f), i + "/" + name + ": " + text.text);
                         if (name is "SkinName" or "ItemLore" or "Description")
