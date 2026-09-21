@@ -175,6 +175,39 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void ProductionLeaderboardUsesHeightAndTimeAndKeepsLegacyBoard()
+        {
+            var settings = MukJumpBackendSettings.Load();
+            Assert.That(settings.UsesTimedLeaderboard, Is.True);
+            Assert.That(settings.ActiveRankUuid,
+                Is.EqualTo(MukJumpBackendReleaseValidator.ExpectedHeightTimeRankUuid));
+            Assert.That(settings.AllTimeRankUuid,
+                Is.EqualTo(MukJumpBackendReleaseValidator.ExpectedAllTimeRankUuid));
+            var issues = new System.Collections.Generic.List<string>();
+            MukJumpBackendReleaseValidator.CollectTimedLeaderboardIssues(settings, issues);
+            Assert.That(issues, Is.Empty);
+        }
+
+        [TestCase("")]
+        [TestCase(" ")]
+        [TestCase(MukJumpBackendReleaseValidator.ExpectedAllTimeRankUuid)]
+        [TestCase("another-project-rank")]
+        public void ReleaseRejectsMissingOrWrongTimedLeaderboard(string rankUuid)
+        {
+            var settings = ScriptableObject.CreateInstance<MukJumpBackendSettings>();
+            try
+            {
+                var serialized = new UnityEditor.SerializedObject(settings);
+                serialized.FindProperty("heightTimeRankUuid").stringValue = rankUuid;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                var issues = new System.Collections.Generic.List<string>();
+                MukJumpBackendReleaseValidator.CollectTimedLeaderboardIssues(settings, issues);
+                Assert.That(issues, Has.Count.EqualTo(1));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(settings); }
+        }
+
+        [Test]
         public void ExternalSecurityChecksDefaultToUnverified()
         {
             var settings = ScriptableObject.CreateInstance<

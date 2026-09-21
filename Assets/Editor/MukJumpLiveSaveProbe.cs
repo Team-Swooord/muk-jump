@@ -8,6 +8,87 @@ namespace MukJump.EditorTools
     /// 명시적 서버 진단 실행만 허용한다. 사용자 계정 대신 매번 고립된 시험 계정을 쓴다.
     public static class MukJumpLiveSaveProbe
     {
+        // 현재 사용자의 인증 세션이 없을 때에만 별도 시험 계정으로 시간 순위를 왕복 검증한다.
+        public static void RunTimedLeaderboard()
+        {
+            if (Environment.GetEnvironmentVariable("MUKJUMP_SERVER_PROBE") != "1")
+                throw new InvalidOperationException("Explicit live probe opt-in required.");
+            var settings = MukJumpBackendSettings.Load();
+            var issues = new System.Collections.Generic.List<string>();
+            MukJumpBackendReleaseValidator.CollectTimedLeaderboardIssues(settings, issues);
+            if (issues.Count != 0 || settings.PlayerTableName != "MukJumpPlayer")
+                throw new InvalidOperationException("Verified MukJump timed board required.");
+            Require("timed-initialize", Backend.Initialize());
+            if (!string.IsNullOrEmpty(Backend.UserInDate) ||
+                Backend.BMember.LoginWithTheBackendToken().IsSuccess())
+                throw new InvalidOperationException("Existing authenticated session must not be replaced.");
+
+            string id = "timeprobe" + Guid.NewGuid().ToString("N").Substring(0, 16);
+            Require("timed-signup", Backend.BMember.CustomSignUp(id, Guid.NewGuid().ToString("N")));
+            string owner = Backend.UserInDate;
+            string rowId = null;
+            try
+            {
+                Require("timed-nickname", Backend.BMember.UpdateNickname("qa" + id.Substring(id.Length - 9)));
+                var inserted = Backend.GameData.Insert(settings.PlayerTableName, Data(new BestRunRecord(1, 80)));
+                Require("timed-insert", inserted);
+                rowId = inserted.GetInDate();
+                foreach (var record in new[] { new BestRunRecord(1, 80), new BestRunRecord(1, 55), new BestRunRecord(2, 120) })
+                {
+                    Require("timed-submit", Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
+                        settings.ActiveRankUuid, settings.PlayerTableName, rowId, Data(record)));
+                    var saved = Backend.GameData.GetMyData(settings.PlayerTableName, new Where());
+                    Require("timed-readback", saved);
+                    var rows = saved.FlattenRows();
+                    if (rows.Count != 1 || rows[0]["inDate"].ToString() != rowId ||
+                        rows[0]["owner_inDate"].ToString() != owner ||
+                        rows[0]["bestHeight"].ToString() != record.Height.ToString() ||
+                        rows[0][BestRunRecord.TimeColumn].ToString() != record.Seconds.ToString())
+                        throw new InvalidOperationException("Timed game data/owner mismatch.");
+                    var board = Backend.Leaderboard.User.GetLeaderboard(settings.ActiveRankUuid, 10);
+                    Require("timed-top10", board);
+                    bool matched = false;
+                    foreach (var item in board.GetUserLeaderboardList())
+                    {
+                        if (item.gamerInDate != owner) continue;
+                        if (!long.TryParse(item.score, System.Globalization.NumberStyles.Integer,
+                                System.Globalization.CultureInfo.InvariantCulture, out long raw))
+                            throw new InvalidOperationException("Timed score is not an exact integer.");
+                        var decoded = BestRunRecord.FromRankScore(raw);
+                        matched = decoded.Height == record.Height && decoded.Seconds == record.Seconds &&
+                                  item.extraData == "KR|1|0";
+                    }
+                    if (!matched) throw new InvalidOperationException("Timed leaderboard readback mismatch.");
+                    Debug.Log($"TIMED_LEADERBOARD_PROBE verified {record.Height}m {record.Seconds}s");
+                }
+                Debug.Log("TIMED_LEADERBOARD_PROBE PASS: paired cloud save, faster tie, higher slower run, TOP10 and appearance");
+            }
+            finally
+            {
+                if (Backend.UserInDate != owner)
+                    throw new InvalidOperationException("Refusing cleanup of another account.");
+                if (!string.IsNullOrEmpty(rowId))
+                {
+                    Require("timed-hide-probe-only", Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
+                        settings.ActiveRankUuid, settings.PlayerTableName, rowId, Data(new BestRunRecord(0))));
+                    Require("timed-delete-probe-row-only", Backend.GameData.DeleteV2(settings.PlayerTableName, rowId, owner));
+                }
+                Require("timed-withdraw-probe-only", Backend.BMember.WithdrawAccount());
+            }
+
+            Param Data(BestRunRecord record)
+            {
+                var data = new Param();
+                data.Add("bestHeight", record.Height);
+                data.Add("bestRecordVersion", 1);
+                data.Add("bestTimeHeight", record.Height);
+                data.Add(BestRunRecord.TimeColumn, record.Seconds);
+                data.Add(BestRunRecord.RankColumn, record.RankScore);
+                data.Add(DeviceRegion.Column, "KR|1|0");
+                return data;
+            }
+        }
+
         // 운영 계정은 읽거나 변경하지 않고, 명시적으로 만든 시험 계정 한 개만 사용한다.
         public static void RunNickname()
         {

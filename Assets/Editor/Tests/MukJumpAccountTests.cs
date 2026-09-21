@@ -844,8 +844,12 @@ namespace MukJump.EditorTests
             return result;
         }
 
-        const string RankedPlayerJson = "{\"rows\":[{\"gamerInDate\":\"rank-owner\"," +
-            "\"nickname\":\"guest(1234567890)\",\"rank\":1,\"index\":0,\"score\":\"183\"}],\"totalCount\":1}";
+        // 실제 출시 연결 방식의 응답을 사용한다. 고도 전용 숫자를 새 보드 점수로 오인하지 않는다.
+        static string RankedPlayerJson => "{\"rows\":[{\"gamerInDate\":\"rank-owner\"," +
+            "\"nickname\":\"guest(1234567890)\",\"rank\":1,\"index\":0,\"score\":\"" +
+            RankedPlayerScore + "\"}],\"totalCount\":1}";
+        static string RankedPlayerScore => new BestRunRecord(183, 65).RankScore
+            .ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         [Test]
         public void LeaderboardAppearanceReadsServerSkinAndClearsEmptyAvatar()
@@ -859,6 +863,7 @@ namespace MukJump.EditorTests
             Assert.That(account.LeaderboardEntries[0].EquippedSkin, Is.EqualTo(InkSkinId.CraneWings));
             Assert.That(account.LeaderboardEntries[0].RegionCode, Is.EqualTo("JP"));
             Assert.That(account.LeaderboardEntries[0].Height, Is.EqualTo(183));
+            Assert.That(account.LeaderboardEntries[0].TimeSeconds, Is.EqualTo(65));
             var view = host.AddComponent<LobbyOptionsView>(); view.BuildForTests();
             var page = host.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/LeaderboardPage");
             var avatar = page.Find("SkinAvatar1");
@@ -917,6 +922,7 @@ namespace MukJump.EditorTests
             var ranking = host.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll/LeaderboardPage");
             Assert.That(ranking.Find("Rank1").GetComponent<UnityEngine.UI.Text>().text, Is.EqualTo("1"));
             Assert.That(ranking.Find("LeaderboardRow1").GetComponent<UnityEngine.UI.Text>().text, Is.EqualTo("183 m"));
+            Assert.That(ranking.Find("LeaderboardTime1").GetComponent<UnityEngine.UI.Text>().text, Is.EqualTo("01:05"));
             Assert.That(ranking.Find("NameCell1/Name1").GetComponent<UnityEngine.UI.Text>().text, Does.StartWith("guest("));
             Assert.That(ranking.Find("LeaderboardRow2").GetComponent<UnityEngine.UI.Text>().text, Is.Empty);
         }
@@ -948,7 +954,7 @@ namespace MukJump.EditorTests
                     callback => callback(LeaderboardResult(json))));
             account.RefreshLeaderboard();
             Assert.That(account.LeaderboardEntries.Count, Is.EqualTo(1));
-            json = RankedPlayerJson.Replace("183", score);
+            json = RankedPlayerJson.Replace(RankedPlayerScore, score);
             account.RefreshLeaderboard();
             Assert.That(account.LeaderboardEntries, Is.Empty);
         }
@@ -1022,7 +1028,7 @@ namespace MukJump.EditorTests
                 typeof(MukJumpBackendSettings).GetField("heightTimeRankUuid",
                     BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, "timed-test-rank");
                 var record = new BestRunRecord(237, 55);
-                string json = RankedPlayerJson.Replace("183", record.RankScore.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                string json = RankedPlayerJson.Replace(RankedPlayerScore, record.RankScore.ToString(System.Globalization.CultureInfo.InvariantCulture))
                     .Replace("\"index\":0", "\"extraData\":\"JP|1|36\",\"index\":0");
                 SetPrivateField(account, "getLeaderboardForTests",
                     new System.Action<System.Action<BackEnd.Leaderboard.BackendUserLeaderboardReturnObject>>(
