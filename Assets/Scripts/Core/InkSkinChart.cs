@@ -11,6 +11,7 @@ namespace MukJump.Core
     public static class InkSkinChart
     {
         public const string ChartName = "MukJumpSkinsV1";
+        public const int UnlockBalanceVersion = InkSkinUnlockBalance.Version;
         public const int MaxJsonLength = 512 * 1024;
         public sealed class Snapshot
         {
@@ -48,12 +49,18 @@ namespace MukJump.Core
                 var rows = JArray.Parse(json, new JsonLoadSettings { DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error });
                 if (rows.Count != InkSkinCatalog.Count - 1) throw new FormatException("62개 행 필요 (은퇴 ID 20 제외)");
                 var candidate = new Snapshot();
+                int? chartBalanceVersion = null;
                 foreach (var token in rows)
                 {
                     if (token is not JObject row) throw new FormatException("행 형식 오류");
                     int number = Integer(row, "skinId", 0, InkSkinCatalog.Count - 1);
                     var id = (InkSkinId)number;
                     var original = InkSkinCatalog.BuiltIn(id);
+                    int balanceVersion = row["unlockBalanceVersion"] == null ? 1 :
+                        Integer(row, "unlockBalanceVersion", 1, InkSkinUnlockBalance.Version);
+                    if (chartBalanceVersion.HasValue && chartBalanceVersion != balanceVersion)
+                        throw new FormatException("해금 밸런스 버전이 섞인 차트");
+                    chartBalanceVersion = balanceVersion;
                     if (!InkSkinCatalog.IsAvailable(id) || candidate.rows.ContainsKey(id)) throw new FormatException("중복 또는 은퇴 ID");
                     if (Integer(row, "schemaVersion", 1, 1) != 1 || Required(row, "skinKey", 60) != id.ToString() ||
                         Required(row, "unlockMetric", 40) != original.Metric.ToString() ||
@@ -61,6 +68,9 @@ namespace MukJump.Core
                         Required(row, "abilityKey", 60) != (InkSkinCatalog.HasAbility(id) ? id.ToString() : "None"))
                         throw new FormatException("고정 식별자·조건 종류 변경 불가");
                     int goal = Integer(row, "unlockGoal", id == InkSkinId.Ink ? 0 : 1, 100000000);
+                    // 구 서버 차트/캐시가 새 기본 조건을 되돌리지 않게 한다. 별도 편집 수치는 보존한다.
+                    if (balanceVersion < InkSkinUnlockBalance.Version && goal == InkSkinUnlockBalance.PreviousGoal(id))
+                        goal = original.Goal;
                     if (!GoalEditable(id) && goal != original.Goal) throw new FormatException("복합 히든 조건은 코드에서 관리");
                     int cooldown = Integer(row, "cooldownSeconds", 0, 600);
                     if (DefaultCooldown(id) == 0 ? cooldown != 0 : cooldown < 1)

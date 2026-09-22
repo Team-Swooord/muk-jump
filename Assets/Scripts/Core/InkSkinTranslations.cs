@@ -91,10 +91,10 @@ namespace MukJump.Core
                 ["비밀 의상"] = ("Secret Costume", "秘密の衣装"),
                 ["숨겨진 행동으로 발견해 보세요."] = ("Discover it through a hidden action.", "隠された行動で見つけよう。"),
                 ["원래 먹에 장식을 더해요\n기존 점프와 성장 효과를 유지해요"] = ("Dress up your original Ink\nJump and growth effects stay unchanged", "元の墨に飾りを\nジャンプと成長効果は変わりません"),
-                ["그린 발판에 착지하지 않고 한 판 완료"] = ("Finish a run without landing on a drawn platform", "描いた足場に着地せずプレイを終える"),
+                ["그린 발판에 착지 없이 150m·30초 이상 한 판 완료"] = ("Finish at 150m or higher after 30s without landing on a drawn platform", "描いた足場に着地せず150m以上・30秒以上のプレイを完了"),
                 ["로비를 세 번째 밤으로 바꾸기"] = ("Bring on the third night in the lobby", "ロビーで三度目の夜を迎える"),
                 ["낮과 밤을 여섯 번 바꾸기"] = ("Switch day and night six times", "昼と夜を6回切り替える"),
-                ["고양이 귀로 밤에 아이템 없이 60초 생존"] = ("Cat Ears: survive 60s at night without items", "猫耳で夜にアイテムなしで60秒生存"),
+                ["고양이 귀로 밤에 아이템 없이 400m·120초 이상 한 판 완료"] = ("Cat Ears: finish a night run at 400m or higher after 120s with no items", "猫耳で夜にアイテムなしで400m以上・120秒以上のプレイを完了"),
                 ["정확히 777m로 한 판 완료"] = ("Finish a run at exactly 777m", "ちょうど777mでプレイを終える"),
                 ["로비에서 한 번 던진 먹을 벽에 3회 연속 튕기기"] = ("In the lobby, get 3 wall bounces from one toss.", "ロビーで墨を1回投げ、壁で連続3回跳ね返す"),
             };
@@ -123,6 +123,7 @@ namespace MukJump.Core
                     SkinMetric.NightBest => ($"Reach {n}m at night", $"夜に{n}m到達"),
                     SkinMetric.Growth => ($"Own {n} growth nodes", $"成長ノードを{n}個獲得"),
                     SkinMetric.NoItemBest => ($"Reach {n}m without items", $"アイテムなしで{n}m到達"),
+                    SkinMetric.DragonDeath => ($"Finish {n} runs where the original Ink dies from a dragon collision", $"本体が竜との衝突で倒れたプレイを{n}回完了"),
                     _ => (null, (string)null),
                 };
                 if (pair.Item1 != null) result[InkSkinAchievements.Requirement(id)]=pair;
@@ -167,7 +168,14 @@ namespace MukJump.Core
                 _ => (null, null, null)
             };
             string previous = language switch { "Ko" => legacy.ko, "En" => legacy.en, _ => legacy.ja };
-            if (previous == null || text != previous) return text;
+            var previousHint = InkMythicSkins.Contains(id) ? InkMythicSkins.PreviousLore(id) : id switch
+            {
+                InkSkinId.InkGhost => ("그린 길은 밟지 않아", "Drawn paths? Not stepping there", "描いた道は踏まないよ"),
+                InkSkinId.ClockworkCat => ("밤고양이는 60초째 빈손", "Night cat, empty paws for 60s", "夜の猫、60秒ずっと手ぶら"),
+                _ => ((string)null, (string)null, (string)null)
+            };
+            string oldHint = language switch { "Ko" => previousHint.Item1, "En" => previousHint.Item2, _ => previousHint.Item3 };
+            if (text != previous && text != oldHint) return text;
             var hint = BuiltIn(id);
             return language switch { "Ko" => hint.ko, "En" => hint.en, _ => hint.ja };
         }
@@ -178,7 +186,7 @@ namespace MukJump.Core
             InkSkinId.SpiderMask => ("거미에게 물린 적은 없다", "Never been bitten by a spider", "蜘蛛に噛まれたことはない"),
             InkSkinId.FirstRibbon => ("처음 묶은 모양 그대로", "Still tied as it was the first day", "初めて結んだ、そのままの形"),
             InkSkinId.Scholar => ("벼슬보다 바람이 잘 통한다", "Better for catching a breeze than gaining rank", "出世よりも風通しがいい"),
-            InkSkinId.InkGhost => ("그린 길은 밟지 않아", "Drawn paths? Not stepping there", "描いた道は踏まないよ"),
+            InkSkinId.InkGhost => ("그린 길 없이 150, 반 분", "No drawn paths, 150 and half a minute", "描いた道なしで150、三十秒"),
             InkSkinId.BambooHat => ("비는 막아도 먹 번짐은 못 막는다", "Keeps out rain Ink stains, not so much", "雨は防げても、墨のにじみは防げない"),
             InkSkinId.RedHeadband => ("백 번 넘어져도 매듭은 그대로였다", "A hundred falls The knot held firm", "百回転んでも、結び目はそのまま"),
             InkSkinId.LotusCrown => ("물 위에 남은 꽃 한 송이", "A single blossom left on the water", "水面に残った一輪の花"),
@@ -205,7 +213,7 @@ namespace MukJump.Core
             InkSkinId.InkMecha => ("차가운 겉모습 안에는 같은 먹이 있다", "The same Ink beneath a cold exterior", "冷たい外見の奥には、いつもの墨がいる"),
             InkSkinId.NightBat => ("로비의 세 번째 밤", "The lobby's third night", "ロビーの三度目の夜"),
             InkSkinId.Astronaut => ("낮밤낮밤낮밤", "Day, night, day, night, day, night", "昼夜昼夜昼夜"),
-            InkSkinId.ClockworkCat => ("밤고양이는 60초째 빈손", "Night cat, empty paws for 60s", "夜の猫、60秒ずっと手ぶら"),
+            InkSkinId.ClockworkCat => ("밤고양이, 빈손으로 400과 이 분", "Night cat, empty paws, 400 and two minutes", "夜の猫、手ぶらで400と二分"),
             InkSkinId.LuckyDice => ("딱 777이 좋아", "Exactly 777, please", "ぴったり777が好き"),
             InkSkinId.OrigamiWings => ("끝까지 버틴 종이는 날개가 된다", "Paper that holds on becomes a pair of wings", "最後まで持ちこたえた紙は、翼になる"),
             InkSkinId.CraneWings => ("접어 두었던 날개를 펼친다", "Wings, folded until now, open", "畳んでいた翼を広げる"),

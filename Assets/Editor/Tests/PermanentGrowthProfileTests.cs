@@ -269,7 +269,7 @@ namespace MukJump.EditorTests
                 Is.EqualTo(5));
             Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
                 Is.EqualTo(100));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":11"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":13"));
         }
 
         [Test]
@@ -587,7 +587,7 @@ namespace MukJump.EditorTests
         public void FutureBalanceSaveIsPreservedWithoutDroppingUnknownNodes()
         {
             const string future =
-                "{\"schemaVersion\":1,\"balanceVersion\":12," +
+                "{\"schemaVersion\":1,\"balanceVersion\":99," +
                 "\"wallet\":9,\"ownedNodeIds\":[\"I-D1\"]," +
                 "\"inkHandlingKeystoneId\":\"I-D1\"}";
             store.Json = future;
@@ -677,7 +677,7 @@ namespace MukJump.EditorTests
 
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(5));
             Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.Zero);
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":11"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":13"));
             Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount,
                 Is.EqualTo(5));
         }
@@ -694,7 +694,7 @@ namespace MukJump.EditorTests
                 Is.EqualTo(6));
             Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
                 Is.EqualTo(150));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":11"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":13"));
         }
 
         [Test]
@@ -1037,7 +1037,7 @@ namespace MukJump.EditorTests
             Assert.That(failingStore.BackupQuarantineJson,
                 Is.EqualTo(futureBackup));
             Assert.That(failingStore.BackupJson,
-                Does.Contain("\"balanceVersion\":11"));
+                Does.Contain("\"balanceVersion\":13"));
         }
 
         [Test]
@@ -1077,7 +1077,7 @@ namespace MukJump.EditorTests
             failingStore.ThrowOnBackupLoad = false;
             Assert.That(PermanentGrowthProfile.TryRestoreBackup(), Is.True);
             Assert.That(failingStore.QuarantineJson, Is.EqualTo(v2));
-            Assert.That(failingStore.Json, Does.Contain("\"balanceVersion\":11"));
+            Assert.That(failingStore.Json, Does.Contain("\"balanceVersion\":13"));
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(8));
             Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.Zero);
         }
@@ -1633,7 +1633,7 @@ namespace MukJump.EditorTests
         public void MissingPrimaryWithInvalidBackupCannotStartWritableProfile()
         {
             const string futureBackup =
-                "{\"schemaVersion\":1,\"balanceVersion\":12}";
+                "{\"schemaVersion\":1,\"balanceVersion\":99}";
             store.Json = string.Empty;
             store.BackupJson = futureBackup;
             PermanentGrowthProfile.ResetCacheForTests();
@@ -1676,7 +1676,7 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.TryResetAfterLoadFailure(), Is.True);
             Assert.That(store.QuarantineJson, Is.EqualTo(corrupt));
             Assert.That(store.BackupJson, Is.EqualTo(backup));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":11"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":13"));
             Assert.That(PermanentGrowthProfile.Currency, Is.Zero);
             PermanentGrowthSettlement settlement =
                 PermanentGrowthProfile.SettleRun(
@@ -1765,7 +1765,7 @@ namespace MukJump.EditorTests
                 RunRewardCalculator.GetThresholdForRewardCount(
                     grantedRewardCount);
             return BuildSaveJson(
-                11,
+                13,
                 wallet,
                 cumulativeDistance,
                 grantedRewardCount,
@@ -1821,7 +1821,10 @@ namespace MukJump.EditorTests
                 "\"rewardedBestHeight\":0," +
                 distanceJourney +
                 (balanceVersion >= 10 ? "\"distanceRewardOffsetMeters\":0," : string.Empty) +
-                "\"lastSettledRunId\":\"\",\"settledRunIds\":[]," +
+                "\"lastSettledRunId\":\"\"," +
+                (balanceVersion >= 12 ? "\"skinAchievements\":" +
+                    JsonUtility.ToJson(new SkinAchievementState { growth = ownedNodeIds?.Length ?? 0 }) + "," : "") +
+                "\"settledRunIds\":[]," +
                 "\"ranks\":[]," +
                 $"\"ownedNodeIds\":{owned}," +
                 "\"survivalKeystoneId\":\"\"," +

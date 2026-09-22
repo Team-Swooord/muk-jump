@@ -71,28 +71,68 @@ namespace MukJump.EditorTests
 
         static bool Parse(JArray rows, out InkSkinChart.Snapshot snapshot) =>
             InkSkinChart.TryParse(rows.ToString(Formatting.None), out snapshot, out _);
+        [Test]
+        public void LegacyServerDefaultsUpgradeWithoutOverwritingCustomGoalsOrCopy()
+        {
+            var rows = InkSkinChartExport.Rows();
+            foreach (JObject row in rows) row.Remove("unlockBalanceVersion");
+            var gat = rows.Single(x => (string)x["skinKey"] == "Gat");
+            gat["unlockGoal"] = "100";
+            var cat = rows.Single(x => (string)x["skinKey"] == "CatEars");
+            cat["unlockGoal"] = "17"; cat["loreKo"] = "운영자가 직접 쓴 설명";
+            var dragon = rows.Single(x => (string)x["skinKey"] == "DragonTail"); dragon["unlockGoal"] = "1";
+            var crow = rows.Single(x => (string)x["skinKey"] == "ThreeLeggedCrow");
+            crow["loreKo"] = "밤에는 셋셋셋"; crow["loreEn"] = "Three-three-three by night"; crow["loreJa"] = "夜は三・三・三";
+            Assert.That(Parse(rows, out var snapshot), Is.True);
+            InkSkinChart.Apply(snapshot);
+            Assert.That(InkSkinAchievements.Goal(InkSkinId.Gat), Is.EqualTo(500));
+            Assert.That(InkSkinAchievements.Goal(InkSkinId.CatEars), Is.EqualTo(17));
+            Assert.That(InkSkinLore.Get(InkSkinId.CatEars).ko, Is.EqualTo("운영자가 직접 쓴 설명"));
+            Assert.That(InkSkinAchievements.Goal(InkSkinId.DragonTail), Is.EqualTo(3));
+            Assert.That(InkSkinLore.Get(InkSkinId.ThreeLeggedCrow), Is.EqualTo(InkSkinLore.BuiltIn(InkSkinId.ThreeLeggedCrow)));
+            Assert.That(Parse(InkSkinChartExport.Rows(), out var second), Is.True);
+            InkSkinChart.Apply(second);
+            Assert.That(InkSkinAchievements.Goal(InkSkinId.CatEars), Is.EqualTo(17));
+        }
+        [Test]
+        public void NewChartExplicitlyEditedGoalIsHonoredEvenWhenEqualToOldDefault()
+        {
+            var rows = InkSkinChartExport.Rows();
+            rows.Single(x => (string)x["skinKey"] == "Gat")["unlockGoal"] = "100";
+            Assert.That(Parse(rows, out var snapshot), Is.True);
+            InkSkinChart.Apply(snapshot);
+            Assert.That(InkSkinAchievements.Goal(InkSkinId.Gat), Is.EqualTo(100));
+        }
+        [TestCase("0"), TestCase("3"), TestCase("bad"), TestCase("1")]
+        public void InvalidFutureOrMixedBalanceVersionsRejectEntireChart(string version)
+        {
+            var rows = InkSkinChartExport.Rows();
+            rows[0]["unlockBalanceVersion"] = version;
+            Assert.That(Parse(rows, out _), Is.False);
+            Assert.That(InkSkinChart.HasRemoteData, Is.False);
+        }
         static readonly (InkSkinId id, string oldKo, string oldEn, string oldJa, string hint)[] hiddenHints =
         {
-            (InkSkinId.InkGhost, "다 쓴 종이도 가끔 꿈을 꾼다.", "Even used paper dreams sometimes.", "使い終えた紙も、ときどき夢を見る。", "그린 길은 밟지 않아"),
+            (InkSkinId.InkGhost, "다 쓴 종이도 가끔 꿈을 꾼다.", "Even used paper dreams sometimes.", "使い終えた紙も、ときどき夢を見る。", "그린 길 없이 150, 반 분"),
             (InkSkinId.NightBat, "달에 신호가 뜨면, 이름 없는 지붕의 주인이 깨어난다.", "When the signal reaches the moon, a nameless rooftop guardian wakes.", "月に合図が浮かぶと、名もなき屋根の守り手が目を覚ます。", "로비의 세 번째 밤"),
             (InkSkinId.Astronaut, "달에 떡이 있는지 확인하러 간다.", "Off to check if the moon has rice cakes.", "月にお餅があるか、確かめに行く。", "낮밤낮밤낮밤"),
-            (InkSkinId.ClockworkCat, "태엽을 감으면 오히려 잠이 든다.", "Winding it up only puts it to sleep.", "ぜんまいを巻くと、かえって眠くなる。", "밤고양이는 60초째 빈손"),
+            (InkSkinId.ClockworkCat, "태엽을 감으면 오히려 잠이 든다.", "Winding it up only puts it to sleep.", "ぜんまいを巻くと、かえって眠くなる。", "밤고양이, 빈손으로 400과 이 분"),
             (InkSkinId.LuckyDice, "일곱 번째 눈은 굴린 먹만 보인다.", "Only the roller can see the seventh face.", "七つ目の目は、振った墨にしか見えない。", "딱 777이 좋아"),
-            (InkSkinId.ZodiacRat, "달 뜨면 벼루 창고가 한 칸 빈다.", "Moon up. One shelf of ink goes missing.", "月が出ると、硯の棚がひとつ空く。", "밤참 세 개, 50만큼"),
-            (InkSkinId.ZodiacOx, "서두르지 않았는데 제일 먼저 왔다.", "Never hurried. Arrived first anyway.", "急がなかったのに、いちばん乗り。", "스무 번 딛고, 일 분 버티기"),
-            (InkSkinId.ZodiacTiger, "아직 포효보다 하품이 더 크다.", "Its yawn is still louder than its roar.", "雄叫びより、あくびの方が大きい。", "밤사냥은 빈손으로"),
-            (InkSkinId.ZodiacRabbit, "떡은 두고 귀만 빌려 왔다.", "Left the rice cakes. Borrowed the ears.", "お餅は置いて、耳だけ借りてきた。", "달을 쓰고 밤길 200"),
-            (InkSkinId.ZodiacDragon, "승천 연습은 낮잠 다음에.", "Ascension practice comes after a nap.", "昇天の練習は、お昼寝のあと。", "꼬리 달고 300까지"),
-            (InkSkinId.ZodiacSnake, "리본인 줄 알고 묶을 뻔했다.", "Almost tied it. Thought it was a ribbon.", "リボンと思って、結ぶところだった。", "거미의 열두 번째 착지"),
-            (InkSkinId.ZodiacHorse, "발굽 대신 바람 소리만 남겼다.", "Left a breeze instead of hoofprints.", "ひづめの跡の代わりに、風の音。", "300까지 일 분이면 돼"),
-            (InkSkinId.ZodiacGoat, "산길은 곧게 걷고, 뿔만 둥글게 말았다.", "Walked the mountain trail straight. Only the horns took a turn.", "山道はまっすぐ歩いた。巻いたのは角だけ。", "서른 번 딛고 200까지"),
-            (InkSkinId.ZodiacMonkey, "손이 모자라면 꼬리부터 내민다.", "Short a hand? The tail volunteers first.", "手が足りなければ、しっぽが先に伸びる。", "셋이서 간식 다섯 개"),
-            (InkSkinId.ZodiacRooster, "해보다 조금 늦게 일어난다.", "Wakes just a little after the sun.", "お日さまより、少し寝坊する。", "해 뜨면 먹방울 셋"),
-            (InkSkinId.ZodiacDog, "문 대신 친구의 그림자를 지킨다.", "Guards a friend's shadow, not a gate.", "門ではなく、友だちの影を守る。", "둘이서 일 분 반"),
-            (InkSkinId.ZodiacPig, "복을 불렀더니 간식도 왔다.", "Called for luck. Snacks came too.", "福を呼んだら、おやつも来た。", "열두 개도 모자라"),
-            (InkSkinId.HaetaeCrest, "나쁜 꿈만 콕 찌르는 작은 뿔.", "A tiny horn for poking bad dreams away.", "悪い夢だけ、ちくりと追い払う角。", "현무는 250까지 빈손"),
-            (InkSkinId.ThreeLeggedCrow, "세 발로도 아침엔 자꾸 헛디딘다.", "Three feet. Still stumbles in the morning.", "三本足でも、朝はつまずく。", "밤에는 셋셋셋"),
-            (InkSkinId.NineTails, "꼬리는 아홉인데, 속마음은 하나도 안 보인다.", "Nine tails. Not a single clue what it is thinking.", "尾は九つ。心の内はひとつも見えない。", "여우 셋이서 300까지"),
+            (InkSkinId.ZodiacRat, "달 뜨면 벼루 창고가 한 칸 빈다.", "Moon up. One shelf of ink goes missing.", "月が出ると、硯の棚がひとつ空く。", "밤의 파수꾼, 밤참 여덟 개"),
+            (InkSkinId.ZodiacOx, "서두르지 않았는데 제일 먼저 왔다.", "Never hurried. Arrived first anyway.", "急がなかったのに、いちばん乗り。", "머리띠 조이고 쉰 번 딛기"),
+            (InkSkinId.ZodiacTiger, "아직 포효보다 하품이 더 크다.", "Its yawn is still louder than its roar.", "雄叫びより、あくびの方が大きい。", "산군의 밤사냥은 빈손으로"),
+            (InkSkinId.ZodiacRabbit, "떡은 두고 귀만 빌려 왔다.", "Left the rice cakes. Borrowed the ears.", "お餅は置いて、耳だけ借りてきた。", "달을 쓰고 밤길 1500"),
+            (InkSkinId.ZodiacDragon, "승천 연습은 낮잠 다음에.", "Ascension practice comes after a nap.", "昇天の練習は、お昼寝のあと。", "꼬리 달고 1800까지"),
+            (InkSkinId.ZodiacSnake, "리본인 줄 알고 묶을 뻔했다.", "Almost tied it. Thought it was a ribbon.", "リボンと思って、結ぶところだった。", "거미의 마흔 번째 착지"),
+            (InkSkinId.ZodiacHorse, "발굽 대신 바람 소리만 남겼다.", "Left a breeze instead of hoofprints.", "ひづめの跡の代わりに、風の音。", "붉은 발로 1000, 일 분 반"),
+            (InkSkinId.ZodiacGoat, "산길은 곧게 걷고, 뿔만 둥글게 말았다.", "Walked the mountain trail straight. Only the horns took a turn.", "山道はまっすぐ歩いた。巻いたのは角だけ。", "깃털 달고 여든 번 딛기"),
+            (InkSkinId.ZodiacMonkey, "손이 모자라면 꼬리부터 내민다.", "Short a hand? The tail volunteers first.", "手が足りなければ、しっぽが先に伸びる。", "방울 울려 여덟이 모이면"),
+            (InkSkinId.ZodiacRooster, "해보다 조금 늦게 일어난다.", "Wakes just a little after the sun.", "お日さまより、少し寝坊する。", "갓 쓰고 아침 먹방울 여섯"),
+            (InkSkinId.ZodiacDog, "문 대신 친구의 그림자를 지킨다.", "Guards a friend's shadow, not a gate.", "門ではなく、友だちの影を守る。", "첫 매듭, 여섯 친구, 삼 분"),
+            (InkSkinId.ZodiacPig, "복을 불렀더니 간식도 왔다.", "Called for luck. Snacks came too.", "福を呼んだら、おやつも来た。", "고양이도 서른 개는 배불러"),
+            (InkSkinId.HaetaeCrest, "나쁜 꿈만 콕 찌르는 작은 뿔.", "A tiny horn for poking bad dreams away.", "悪い夢だけ、ちくりと追い払う角。", "현무는 2000까지 빈손"),
+            (InkSkinId.ThreeLeggedCrow, "세 발로도 아침엔 자꾸 헛디딘다.", "Three feet. Still stumbles in the morning.", "三本足でも、朝はつまずく。", "파수꾼의 밤, 아홉 방울, 3333"),
+            (InkSkinId.NineTails, "꼬리는 아홉인데, 속마음은 하나도 안 보인다.", "Nine tails. Not a single clue what it is thinking.", "尾は九つ。心の内はひとつも見えない。", "여우 아홉이서 2500까지"),
             (InkSkinId.ThreeCushion, "큐대는 못 잡아도, 각은 제법 잘 본다.", "Can't hold a cue. Can still work the angles.", "キューは持てないが、角度を読むのは得意。", "한 번 던져, 벽에 세 번"),
         };
         [Test, Category("HiddenSkinHints")]

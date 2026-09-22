@@ -73,7 +73,8 @@ namespace MukJump.EditorTests
             var fields=new Dictionary<SkinMetric,string> {
                 [SkinMetric.Best]="best",[SkinMetric.Runs]="runs",[SkinMetric.DrawnLandings]="drawnLandings",
                 [SkinMetric.Items]="items",[SkinMetric.InkDrops]="inkDrops",[SkinMetric.Survival]="survival",
-                [SkinMetric.Clones]="clones",[SkinMetric.NightBest]="nightBest",[SkinMetric.NoItemBest]="noItemBest",[SkinMetric.Growth]="growth" };
+                [SkinMetric.Clones]="clones",[SkinMetric.NightBest]="nightBest",[SkinMetric.NoItemBest]="noItemBest",[SkinMetric.Growth]="growth",
+                [SkinMetric.DragonDeath]="dragonDeaths" };
             if (fields.TryGetValue(d.Metric,out var field))
             {
                 typeof(SkinAchievementState).GetField(field).SetValue(state,d.Goal-1);
@@ -94,11 +95,12 @@ namespace MukJump.EditorTests
         }
         [Test] public void LifetimeRunsContinueBeyondBoundedDedupeHistoryAndSurviveReload()
         {
-            for(int i=0;i<100;i++) Settle("lifetime-"+i,1);
+            int goal = InkSkinAchievements.Goal(InkSkinId.InkMecha);
+            for(int i=0;i<goal;i++) Settle("lifetime-"+i,1);
             Assert.That(PermanentGrowthProfile.CompletedRunHistoryCount,Is.EqualTo(64));
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.InkMecha),Is.True);
-            Settle("lifetime-99",1);
-            Assert.That(JObject.Parse(store.Json)["skinAchievements"]["runs"].Value<int>(),Is.EqualTo(100));
+            Settle("lifetime-"+(goal-1),1);
+            Assert.That(JObject.Parse(store.Json)["skinAchievements"]["runs"].Value<int>(),Is.EqualTo(goal));
             PermanentGrowthProfile.ResetCacheForTests();
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.InkMecha),Is.True);
         }
@@ -107,15 +109,17 @@ namespace MukJump.EditorTests
             Settle("old",0,default);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.InkGhost),Is.False);
             var stats=SkinRunStats.Begin(true,InkSkinId.CatEars);
-            stats.drawnLandings=100;stats.maxLivingPlayers=3;
-            Settle("cat",777,stats,60);
+            stats.drawnLandings=1000;stats.maxLivingPlayers=8;
+            Settle("cat",777,stats,120);
             foreach(var id in new[]{InkSkinId.ClockworkCat,InkSkinId.LuckyDice,InkSkinId.TigerMask,InkSkinId.TurtleShell,InkSkinId.BrushMaster,InkSkinId.MoonCrown})
                 Assert.That(InkSkinAchievements.IsUnlocked(id),Is.True,id.ToString());
             Settle("zero",0,SkinRunStats.Begin(false,InkSkinId.Ink));
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.InkGhost),Is.False);
+            Settle("ghost-challenge",150,SkinRunStats.Begin(false,InkSkinId.Ink),30);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.InkGhost),Is.True);
         }
-        [TestCase(59,false,0)] [TestCase(60,true,1)] [TestCase(60,false,1)]
-        public void CatSecretRequiresNightSixtySecondsAndNoItems(int seconds,bool day,int items)
+        [TestCase(119,false,0)] [TestCase(120,true,0)] [TestCase(120,false,1)]
+        public void CatSecretRequiresNightTwoMinutesAndNoItems(int seconds,bool day,int items)
         {
             var stats=SkinRunStats.Begin(!day,InkSkinId.CatEars);stats.items=items;
             Settle("no-cat",777,stats,seconds);
@@ -124,14 +128,14 @@ namespace MukJump.EditorTests
         [Test] public void FailedSettlementDoesNotUnlockAndRetryDoesNotDuplicate()
         {
             Settle("base",1);
-            var stats=SkinRunStats.Begin(false,InkSkinId.Ink);stats.items=5;stats.inkDrops=1;
+            var stats=SkinRunStats.Begin(false,InkSkinId.Ink);stats.items=10;stats.inkDrops=10;
             store.ThrowOnPrimarySave=true;
             Assert.That(Settle("failed",100,stats).Accepted,Is.False);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.CatEars),Is.False);
             store.ThrowOnPrimarySave=false;
             Assert.That(PermanentGrowthProfile.TryRestoreBackup(),Is.True);
             Settle("failed",100,stats);Settle("failed",100,stats);
-            Assert.That(PermanentGrowthProfile.SkinProgress(InkSkinId.SpiritHalo),Is.EqualTo(5));
+            Assert.That(PermanentGrowthProfile.SkinProgress(InkSkinId.SpiritHalo),Is.EqualTo(10));
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.CatEars),Is.True);
         }
         [Test] public void LegacyMigrationUsesKnownLowerBoundAndDamagedNewPayloadIsReadOnly()
@@ -315,7 +319,7 @@ namespace MukJump.EditorTests
             view.BuildForTests();view.SetNavigationPresentation(true,true);
             for(int page=0;page<6;page++)
             {
-                Assert.That(view.Paper.GetComponentsInChildren<UnityEngine.UI.Button>().Count(b=>b.name.StartsWith("SkinCard")),Is.EqualTo(InkSkinCatalog.Count));
+                Assert.That(view.Paper.GetComponentsInChildren<UnityEngine.UI.Button>().Count(b=>b.name.StartsWith("SkinCard")),Is.EqualTo(InkSkinCatalog.BrowseCount));
                 view.ChangePage(1);
             }
             view.Select(InkSkinId.ClockworkCat);
@@ -324,6 +328,103 @@ namespace MukJump.EditorTests
             Assert.That(view.Paper.Find("ShowroomStage/Preview/Accessory").GetComponent<UnityEngine.UI.Image>().enabled,Is.False);
             Assert.That(view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>().text,Is.Empty);
             Assert.That(view.EquipButton.interactable,Is.False);
+        }
+        [TestCase(100, 45, 10, 3, 1, 2, 1)]
+        [TestCase(250, 90, 25, 8, 2, 3, 2)]
+        public void FreshOrdinaryRunDoesNotUnlockAnEntireCollection(int height, int seconds,
+            int landings, int items, int drops, int clones, int expectedCount)
+        {
+            var stats = SkinRunStats.Begin(false, InkSkinId.Ink);
+            stats.drawnLandings = landings; stats.items = items; stats.inkDrops = drops; stats.maxLivingPlayers = clones;
+            Assert.That(Settle("first-curve", height, stats, seconds).Accepted, Is.True);
+            var unlocked = Rewards.Where(InkSkinAchievements.IsUnlocked).ToArray();
+            Assert.That(unlocked.Length, Is.EqualTo(expectedCount), string.Join(", ", unlocked));
+            Assert.That(unlocked, Has.Member(InkSkinId.FirstRibbon));
+            Assert.That(unlocked.Any(InkMythicSkins.Contains), Is.False);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Gat), Is.False);
+        }
+        [Test]
+        public void PowerfulOrdinaryInkRunCannotAccidentallyUnlockZodiacOrMythicCostumes()
+        {
+            var stats = SkinRunStats.Begin(true, InkSkinId.Ink);
+            stats.items = 100; stats.inkDrops = 50; stats.drawnLandings = 500; stats.maxLivingPlayers = 20;
+            Assert.That(InkMythicSkins.Evaluate(stats, 10000, 600, false), Is.Zero);
+            Assert.That(InkMythicSkins.Evaluate(stats, 10000, 600, true), Is.Zero);
+        }
+        [TestCase(149, 30, 0, false), TestCase(150, 29.99f, 0, false)]
+        [TestCase(150, 30, 1, false), TestCase(150, 30, 0, true)]
+        public void GhostRequiresARealNoDrawnLandingChallenge(int height, float seconds, int landings, bool expected)
+        {
+            var stats = SkinRunStats.Begin(false, InkSkinId.Ink); stats.drawnLandings = landings;
+            Settle("ghost-boundary", height, stats, seconds);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.InkGhost), Is.EqualTo(expected));
+        }
+        [Test]
+        public void LegacyOwnedAndEarnedCostumesSurviveRebalanceAndCloudRoundTrip()
+        {
+            Settle("seed", 1000);
+            var old = JObject.Parse(store.Json);
+            old["balanceVersion"] = 12;
+            var state = new SkinAchievementState {
+                best = 100, runs = 10, items = 5, inkDrops = 1, drawnLandings = 25,
+                survival = 45, clones = 3, nightBest = 100, growth = 5
+            };
+            state.Grant(InkSkinId.DragonTail);
+            state.Grant(InkSkinId.NineTails);
+            old["skinAchievements"] = JObject.FromObject(state);
+            ((JObject)old["skinAchievements"]).Remove("dragonDeaths");
+            store.Json = old.ToString(); store.BackupJson = "";
+            PermanentGrowthProfile.ResetCacheForTests();
+            foreach (var id in new[] { InkSkinId.Gat, InkSkinId.SpiderMask, InkSkinId.CatEars,
+                InkSkinId.TeaCupHat, InkSkinId.TurtleShell, InkSkinId.PaperBoat, InkSkinId.KoiMask,
+                InkSkinId.DragonTail, InkSkinId.NineTails })
+                Assert.That(InkSkinAchievements.IsUnlocked(id), Is.True, id.ToString());
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.CloudDragon), Is.False);
+            Assert.That(PermanentGrowthProfile.AchievementSnapshot().dragonDeaths, Is.Zero);
+            Assert.That(JObject.Parse(store.Json)["balanceVersion"].Value<int>(), Is.EqualTo(13));
+            long mask = PermanentGrowthProfile.AchievementSnapshot().unlockedMask;
+            PermanentGrowthProfile.ResetCacheForTests();
+            Assert.That(PermanentGrowthProfile.AchievementSnapshot().unlockedMask, Is.EqualTo(mask));
+            Assert.That(PermanentGrowthProfile.TryExportCloudJson(out var cloud), Is.True);
+            Assert.That(PermanentGrowthProfile.TryReplaceFromCloudJson(cloud), Is.True);
+            Assert.That(PermanentGrowthProfile.AchievementSnapshot().unlockedMask, Is.EqualTo(mask));
+        }
+        [Test]
+        public void FailedLegacyMigrationLeavesOriginalAndRequiresRecovery()
+        {
+            Settle("seed", 1);
+            var old = JObject.Parse(store.Json); old["balanceVersion"] = 12;
+            old["skinAchievements"]["inkDrops"] = 1; old["skinAchievements"]["items"] = 1;
+            store.Json = old.ToString(); store.BackupJson = "";
+            string original = store.Json;
+            store.ThrowOnPrimarySave = true;
+            PermanentGrowthProfile.ResetCacheForTests();
+            Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.True);
+            Assert.That(store.Json, Is.EqualTo(original));
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.CatEars), Is.False);
+        }
+        [TestCase("-1"), TestCase("0.5"), TestCase("null"), TestCase("\"2\"")]
+        public void InvalidDragonDeathCounterCannotBeAccepted(string value)
+        {
+            Settle("seed", 1);
+            store.Json = store.Json.Replace("\"dragonDeaths\":0", "\"dragonDeaths\":" + value);
+            store.BackupJson = "";
+            PermanentGrowthProfile.ResetCacheForTests();
+            Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.True);
+        }
+        [Test]
+        public void NewBalanceSaveRequiresDragonCounterButOldBalanceDoesNot()
+        {
+            Settle("seed", 1);
+            var data = JObject.Parse(store.Json);
+            ((JObject)data["skinAchievements"]).Remove("dragonDeaths");
+            store.Json = data.ToString(); store.BackupJson = "";
+            PermanentGrowthProfile.ResetCacheForTests();
+            Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.True);
+            data["balanceVersion"] = 12; store.Json = data.ToString();
+            PermanentGrowthProfile.ResetCacheForTests();
+            Assert.That(PermanentGrowthProfile.RequiresRecovery, Is.False);
+            Assert.That(PermanentGrowthProfile.AchievementSnapshot().dragonDeaths, Is.Zero);
         }
         PermanentGrowthSettlement Settle(string id,int height,SkinRunStats stats=default,float seconds=2) =>
             PermanentGrowthProfile.SettleRun(id,height,height,0,seconds,true,stats);

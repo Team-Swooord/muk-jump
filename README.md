@@ -496,7 +496,7 @@ Android Build Support·SDK·NDK·OpenJDK와 배포용 서명 설정이 필요합
 
 iOS/Android 네이티브와 별도로 WebGL을 빌드하고 `.ait`로 패키징합니다.
 Unity의 `AIT > Configuration` 앱 ID는 토스 콘솔의 `appName`과 일치해야 합니다.
-먹점프의 등록값은 `mukjump`이며, 최신 iOS 1.0.2(41) 기반 웹 작업은
+먹점프의 등록값은 `mukjump`이며, 최신 iOS 1.0.2(42)의 단계형 해금 조건을 통합한 웹 작업은
 `codex/apps-in-toss-web` 브랜치에서 진행합니다.
 
 `Configure Apps in Toss Settings` → `Build Apps in Toss Size Probe` →
@@ -523,13 +523,17 @@ Unity의 `AIT > Configuration` 앱 ID는 토스 콘솔의 `appName`과 일치해
 현재 토스 성장 데이터는 로컬에 저장됩니다. 향후 기기 간 동기화에는 별도 서버 저장 구현이 필요하며,
 식별키를 얻는 것만으로 성장 클라우드 저장이 완료되지는 않습니다.
 
-2026-09-21 검증 결과: 관련 Unity 검사 89개, JS 검사 5개 통과. WebGL 빌드 오류 0개,
+2026-09-22 검증 결과: iOS 1.0.2(42)의 단계형 해금 조정을 병합한 뒤 관련 Unity 검사
+571개, JS 검사 5개 통과. WebGL 빌드·패키징 완료,
 네이티브 설정 자산 0개, 토스 광고 설정 1개가 포함됐습니다. Firebase의 자동 생성 데스크톱
 설정은 원본을 보존하고 웹 출력에서만 제외하며, 에셋 해제 이후에도 운영 광고 설정을 복원합니다.
-최종 QR 테스트 파일은 `ait-build/mukjump-test-only-20260921-112226.ait`(48.48 MiB),
+최종 QR 테스트 파일은 `ait-build/mukjump-test-only-20260922-042403.ait`(48.48 MiB),
 압축 해제된 웹 번들은 48.83 MiB입니다. 런타임은 `0.84.0`, Mock·디버그 UI·개발 빌드는 꺼져 있습니다.
 이 파일은 **출시 제출용이 아닙니다**. 콘솔의 앱 정보 검토, 실광고 그룹 2개 발급,
 실제 토스 앱에서 광고·게임센터 확인 후 운영 패키지를 별도로 만들어야 합니다.
+동일 WebGL 출력의 브라우저 실행은 토스 공식 개발 도구의 테스트 식별과 광고 미충전 상태로
+확인했습니다. 게임물 화면은 프레임·문구 합성 없이 게임 캔버스 원본으로 촬영하며,
+브라우저 테스트 결과를 실제 토스 앱의 로그인·광고·순위 검증 완료로 간주하지 않습니다.
 
 참고: [토스 광고 연동](https://developers-apps-in-toss.toss.im/documentation/common/monetization/iaa/interstitial-rewarded-ad),
 [게임센터](https://developers-apps-in-toss.toss.im/documentation/common/growth/game-center),

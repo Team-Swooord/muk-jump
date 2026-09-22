@@ -27,11 +27,12 @@ namespace MukJump.EditorTests
             InkSkinPreferences.UseStoreForTests(settings);
             LobbySettingsProfile.UseStoreForTests(settings);
             PermanentGrowthProfile.UseStoreForTests(growthStore);
-            scoreStore = new MemoryScoreStore { Best = 100 };
+            scoreStore = new MemoryScoreStore { Best = InkSkinAchievements.Goal(InkSkinId.Gat) };
             ScoreManager.UseStoreForTests(scoreStore);
             score = Track(new GameObject("SkinScore")).AddComponent<ScoreManager>();
             Invoke(score, "OnEnable"); Invoke(score, "Awake");
-            for (int i = 0; i < 10; i++) PermanentGrowthProfile.SettleRun("skin-test-" + i, 1, 0, true);
+            for (int i = 0; i < InkSkinAchievements.Goal(InkSkinId.SpiderMask); i++)
+                PermanentGrowthProfile.SettleRun("skin-test-" + i, 1, 0, true);
         }
         [TearDown]
         public void Teardown()
@@ -213,7 +214,7 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinCatalog.Ability(id), Is.EqualTo("먹의 장식"));
             Assert.That(InkSkinCatalog.Description(id), Is.EqualTo(InkSkinCatalog.Description(InkSkinId.CatEars)));
             Assert.That(InkSkinCatalog.Ability(InkSkinId.Gat), Is.EqualTo("이단 도약"));
-            Assert.That(InkSkinCatalog.Ability(InkSkinId.SpiderMask), Is.EqualTo("거미 걸음"));
+            Assert.That(InkSkinCatalog.Ability(InkSkinId.SpiderMask), Is.EqualTo("먹슈트"));
         }
         [Test, Category("SkinRetirement")]
         public void WardrobePolishOrdersByGoalWithoutChangingSavedIds()
@@ -496,7 +497,7 @@ namespace MukJump.EditorTests
             var health = player.gameObject.AddComponent<PlayerHealthBillboard>();
             Invoke(health, "OnEnable");
             Bounds combined = (Bounds)Invoke(health, "ResolveOwnerBounds");
-            Assert.That(combined.max.y, Is.GreaterThanOrEqualTo(view.AccessoryRenderer.bounds.max.y));
+            Assert.That(combined.max.y + .000001f, Is.GreaterThanOrEqualTo(view.AccessoryRenderer.bounds.max.y));
             player.Kill(); Invoke(view, "LateUpdate");
             Assert.That(view.AccessoryRenderer.enabled, Is.False);
         }
@@ -515,16 +516,16 @@ namespace MukJump.EditorTests
         {
             var manager=Manager(out _);
             var measured=SkinRunStats.Begin(true,InkSkinId.CatEars);
-            measured.drawnLandings=10; measured.items=measured.inkDrops=1;
-            PermanentGrowthProfile.SettleRun("headband",100,100,0,60,true,measured);
-            PermanentGrowthProfile.SettleRun("headband-secret",100,100,0,60,true,SkinRunStats.Begin(true,InkSkinId.CatEars));
+            measured.drawnLandings=40; measured.items=measured.inkDrops=10;
+            PermanentGrowthProfile.SettleRun("headband",400,400,0,120,true,measured);
+            PermanentGrowthProfile.SettleRun("headband-secret",400,400,0,120,true,SkinRunStats.Begin(true,InkSkinId.CatEars));
             Assert.That(InkSkinPreferences.TryEquip(id),Is.True);
             var wardrobe=Track(new GameObject("HeadbandWardrobe")).AddComponent<InkWardrobeView>();
             wardrobe.BuildForTests(Idle()); wardrobe.SetNavigationPresentation(true,true); wardrobe.Select(id);
             wardrobe.Presentation.Cancel();
             var preview=wardrobe.Paper.Find("ShowroomStage/Preview/Accessory").GetComponent<UnityEngine.UI.Image>();
             Vector2 fit=InkSkinCatalog.Offset(id);
-            Assert.That(fit.y,Is.InRange(.1f,.23f),"머리띠는 모자 높이가 아닌 이마에 걸칩니다.");
+            Assert.That(fit.y,Is.InRange(.1f,.29f),"이마와 귀 착용선을 유지합니다.");
             Assert.That(preview.rectTransform.anchoredPosition/500f,Is.EqualTo(fit));
             Assert.That(preview.rectTransform.sizeDelta.x/500f,Is.EqualTo(InkSkinCatalog.Width(id)).Within(.0001f));
             Invoke(manager,"SetState",GameState.Playing);
@@ -577,37 +578,37 @@ namespace MukJump.EditorTests
         public void GatUsesConfirmedBestNotLiveHeightOrFailedSave()
         {
             ClearAchievements();
-            Assert.That(score.TryCommitBestCandidate(99), Is.True);
-            Assert.That(InkSkinAchievements.Progress(InkSkinId.Gat), Is.EqualTo(99));
+            Assert.That(score.TryCommitBestCandidate(499), Is.True);
+            Assert.That(InkSkinAchievements.Progress(InkSkinId.Gat), Is.EqualTo(499));
             scoreStore.ThrowOnSave = true;
-            Assert.That(score.TryCommitBestCandidate(100), Is.False);
+            Assert.That(score.TryCommitBestCandidate(500), Is.False);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Gat), Is.False);
             scoreStore.ThrowOnSave = false;
-            Assert.That(score.TryCommitBestCandidate(100), Is.True);
+            Assert.That(score.TryCommitBestCandidate(500), Is.True);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Gat), Is.True);
             Assert.That(InkSkinPreferences.TryEquip(InkSkinId.Gat), Is.True);
         }
 
         [Test]
-        public void TenUniqueEligibleSettlementsUnlockWithoutDuplicateOrFailedSaves()
+        public void TwentyUniqueEligibleSettlementsUnlockWithoutDuplicateOrFailedSaves()
         {
             ClearAchievements();
-            for (int i = 0; i < 9; i++) PermanentGrowthProfile.SettleRun("achievement-" + i, 1, 0, true);
-            PermanentGrowthProfile.SettleRun("achievement-8", 1, 0, true);
+            for (int i = 0; i < 19; i++) PermanentGrowthProfile.SettleRun("achievement-" + i, 1, 0, true);
+            PermanentGrowthProfile.SettleRun("achievement-18", 1, 0, true);
             PermanentGrowthProfile.SettleRun("debug", 900, 0, false);
-            Assert.That(InkSkinAchievements.Progress(InkSkinId.SpiderMask), Is.EqualTo(9));
+            Assert.That(InkSkinAchievements.Progress(InkSkinId.SpiderMask), Is.EqualTo(19));
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.SpiderMask), Is.False);
             growthStore.ThrowOnPrimarySave = true;
-            Assert.That(PermanentGrowthProfile.SettleRun("achievement-9", 1, 0, true).Accepted, Is.False);
+            Assert.That(PermanentGrowthProfile.SettleRun("achievement-19", 1, 0, true).Accepted, Is.False);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.SpiderMask), Is.False);
             growthStore.ThrowOnPrimarySave = false;
             Assert.That(PermanentGrowthProfile.TryRestoreBackup(), Is.True);
-            Assert.That(InkSkinAchievements.Progress(InkSkinId.SpiderMask), Is.EqualTo(9));
-            Assert.That(PermanentGrowthProfile.SettleRun("achievement-9", 1, 0, true).Accepted, Is.True);
+            Assert.That(InkSkinAchievements.Progress(InkSkinId.SpiderMask), Is.EqualTo(19));
+            Assert.That(PermanentGrowthProfile.SettleRun("achievement-19", 1, 0, true).Accepted, Is.True);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.SpiderMask), Is.True);
-            for (int i = 10; i < 75; i++) PermanentGrowthProfile.SettleRun("achievement-" + i, 1, 0, true);
+            for (int i = 20; i < 85; i++) PermanentGrowthProfile.SettleRun("achievement-" + i, 1, 0, true);
             Assert.That(PermanentGrowthProfile.CompletedRunHistoryCount, Is.EqualTo(64));
-            Assert.That(InkSkinAchievements.Progress(InkSkinId.SpiderMask), Is.EqualTo(10));
+            Assert.That(InkSkinAchievements.Progress(InkSkinId.SpiderMask), Is.EqualTo(20));
             PermanentGrowthProfile.UseStoreForTests(growthStore);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.SpiderMask), Is.True);
         }
@@ -623,7 +624,7 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Ink));
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Gat), Is.False);
             Assert.That(PermanentGrowthProfile.TryReplaceFromCloudJson(earnedAccount), Is.True);
-            Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(100), Is.True);
+            Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(500), Is.True);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Gat), Is.True);
             Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.SpiderMask));
         }
@@ -631,7 +632,7 @@ namespace MukJump.EditorTests
         void UnlockCombatSkins()
         {
             Assert.That(score.TryCommitBestCandidate(2000),Is.True);
-            var stats=SkinRunStats.Begin(false,InkSkinId.Ink); stats.items=30; stats.maxLivingPlayers=3;
+            var stats=SkinRunStats.Begin(false,InkSkinId.Ink); stats.items=200; stats.maxLivingPlayers=8;
             Assert.That(PermanentGrowthProfile.SettleRun("combat-skins",2000,2000,0,30,true,stats).Accepted,Is.True);
             MobileApplicationLifecycle.SetPlatformVisibility(true);
         }
@@ -700,7 +701,7 @@ namespace MukJump.EditorTests
         public void RevivalCostumeConsumesOneSharedRevivalAcrossBothDamageTypesAndAdResume(InkSkinId id)
         {
             UnlockCombatSkins();
-            PermanentGrowthProfile.SettleRun("angel-distance", 10000, 10000, 0, 60, true, SkinRunStats.Begin(false, InkSkinId.Ink));
+            PermanentGrowthProfile.SettleRun("angel-distance", 150000, 150000, 0, 600, true, SkinRunStats.Begin(false, InkSkinId.Ink));
             Assert.That(InkSkinPreferences.TryEquip(id), Is.True);
             var manager=Manager(out var growth); Invoke(manager,"SetState",GameState.Playing);
             var original=Player(); manager.RegisterPlayer(original);
@@ -760,7 +761,7 @@ namespace MukJump.EditorTests
         {
             Assert.That(InkSkinCatalog.HasAbility(InkSkinId.CloudBoots), Is.True);
             Assert.That(InkSkinCatalog.Get(InkSkinId.CloudBoots).Metric, Is.EqualTo(SkinMetric.Distance));
-            Assert.That(InkSkinCatalog.Get(InkSkinId.CloudBoots).Goal, Is.EqualTo(3000));
+            Assert.That(InkSkinCatalog.Get(InkSkinId.CloudBoots).Goal, Is.EqualTo(18000));
             foreach (string text in new[] { InkSkinCatalog.Ability(InkSkinId.CloudBoots), InkSkinCatalog.Description(InkSkinId.CloudBoots) })
                 foreach (bool japanese in new[] { false, true })
                     Assert.That(InkSkinTranslations.TryTranslate(text, japanese, out _), Is.True);
@@ -769,7 +770,7 @@ namespace MukJump.EditorTests
         GameManager StartCloudBootsTest(out RunGrowthController growth, out PlayerController player, out MukJump.Drawing.PlatformCollider platform)
         {
             MobileApplicationLifecycle.SetPlatformVisibility(true);
-            PermanentGrowthProfile.SettleRun("cloud-boots", 3000, 3000, 0, 60, true, SkinRunStats.Begin(false, InkSkinId.Ink));
+            PermanentGrowthProfile.SettleRun("cloud-boots", 18000, 18000, 0, 300, true, SkinRunStats.Begin(false, InkSkinId.Ink));
             Assert.That(InkSkinPreferences.TryEquip(InkSkinId.CloudBoots), Is.True);
             var manager = Manager(out growth); player = Player(); manager.RegisterPlayer(player);
             platform = Track(new GameObject("BootsMapPlatform")).AddComponent<MukJump.Drawing.PlatformCollider>();
@@ -804,7 +805,7 @@ namespace MukJump.EditorTests
         [Test, Category("SkinSkills")] public void WindSkinSkillUsesOneOriginalLeapAndGameplayOnlyCooldownWithoutItemCredit()
         {
             MobileApplicationLifecycle.SetPlatformVisibility(true);
-            var stats = SkinRunStats.Begin(false, InkSkinId.Ink); stats.inkDrops = stats.items = 5;
+            var stats = SkinRunStats.Begin(false, InkSkinId.Ink); stats.inkDrops = stats.items = 50;
             PermanentGrowthProfile.SettleRun("wind-skin-unlock", 100, 100, 0, 20, true, stats);
             Assert.That(InkSkinPreferences.TryEquip(InkSkinId.WindFan), Is.True);
             var manager = Manager(out var growth);
@@ -843,7 +844,7 @@ namespace MukJump.EditorTests
         {
             var skills = Enumerable.Range(0, InkSkinCatalog.Count).Select(i => (InkSkinId)i)
                 .Where(InkSkinCatalog.HasAbility).ToArray();
-            Assert.That(skills.Length, Is.EqualTo(7));
+            Assert.That(skills.Length, Is.EqualTo(10));
             foreach (var id in skills)
             {
                 string source = InkSkinCatalog.Description(id);
@@ -963,7 +964,7 @@ namespace MukJump.EditorTests
         GameManager StartMaskTest(out RunGrowthController growth, out PlayerController player)
         {
             MobileApplicationLifecycle.SetPlatformVisibility(true);
-            PermanentGrowthProfile.SettleRun("mask-unlock", 500, 500, 0, 60, true, SkinRunStats.Begin(false, InkSkinId.Ink));
+            PermanentGrowthProfile.SettleRun("mask-unlock", 2000, 2000, 0, 180, true, SkinRunStats.Begin(false, InkSkinId.Ink));
             Assert.That(InkSkinPreferences.TryEquip(InkSkinId.YakshaMask), Is.True);
             var manager = Manager(out growth); Invoke(manager, "BeginPlayingAfterCover");
             player = Player(); manager.RegisterPlayer(player);
@@ -971,7 +972,7 @@ namespace MukJump.EditorTests
         }
 
         [Test, Category("AngelWings"), Category("AngelRingRename")]
-        public void AngelWingsKeepSavedBitsAndUnlockOnlyAtTenThousandMetres()
+        public void AngelWingsKeepSavedBitsAndUnlockOnlyAtOneHundredFiftyThousandMetres()
         {
             Assert.That(InkSkinCatalog.Name(InkSkinId.AngelWings), Is.EqualTo("여명의 고리"));
             Assert.That(InkAchievementCatalog.Name(62), Is.EqualTo("여명의 고리"));
@@ -981,10 +982,10 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinTranslations.TryTranslate("여명의 고리", true, out var japanese), Is.True);
             Assert.That(japanese, Is.EqualTo("夜明けの環"));
             var state = new SkinAchievementState();
-            Assert.That(state.Progress(InkSkinId.AngelWings, 9999, 0), Is.EqualTo(9999));
-            state.Settle(1, 1, SkinRunStats.Begin(false, InkSkinId.Ink), 9999, 0);
+            Assert.That(state.Progress(InkSkinId.AngelWings, 149999, 0), Is.EqualTo(149999));
+            state.Settle(1, 1, SkinRunStats.Begin(false, InkSkinId.Ink), 149999, 0);
             Assert.That(state.Has(InkSkinId.AngelWings), Is.False);
-            state.Settle(1, 1, SkinRunStats.Begin(false, InkSkinId.Ink), 10000, 0);
+            state.Settle(1, 1, SkinRunStats.Begin(false, InkSkinId.Ink), 150000, 0);
             Assert.That(state.Has(InkSkinId.AngelWings), Is.True);
             state.Grant(InkSkinId.ThreeCushion); state.Grant(InkSkinId.StormScarf);
             var saved = JsonUtility.FromJson<SkinAchievementState>(JsonUtility.ToJson(state));
@@ -1112,7 +1113,8 @@ namespace MukJump.EditorTests
                     Assert.That(player.IsDead, Is.True);
                     Assert.That(recordedBeforeGameOver, Is.True, "정산 복구본보다 먼저 사망 원인을 기록한다.");
                     Invoke(manager, "SettleGameOverResult");
-                    Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.True);
+                    Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.False);
+                    Assert.That(PermanentGrowthProfile.AchievementSnapshot().dragonDeaths, Is.EqualTo(1));
                     Invoke(obstacle, "OnTriggerEnter2D", player.GetComponent<Collider2D>());
                     Assert.That(DragonStats(manager).diedToDragon, Is.True);
                 }
@@ -1135,12 +1137,21 @@ namespace MukJump.EditorTests
             growthStore.ThrowOnPrimarySave = false;
             Assert.That(PermanentGrowthProfile.TryRestoreBackup(), Is.True);
             Assert.That(PermanentGrowthProfile.SettleRun("dragon-save", 1, 1, 0, 1, true, stats).Accepted, Is.True);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.False);
+            PermanentGrowthProfile.SettleRun("dragon-save", 1, 1, 0, 1, true, stats);
+            Assert.That(PermanentGrowthProfile.AchievementSnapshot().dragonDeaths, Is.EqualTo(1), "중복 정산 제외");
+            Assert.That(PermanentGrowthProfile.SettleRun("dragon-second", 1, 1, 0, 1, true, stats).Accepted, Is.True);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.False);
+            PermanentGrowthProfile.ResetCacheForTests();
+            Assert.That(PermanentGrowthProfile.AchievementSnapshot().dragonDeaths, Is.EqualTo(2));
+            Assert.That(PermanentGrowthProfile.SettleRun("dragon-third", 1, 1, 0, 1, true, stats).Accepted, Is.True);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.True);
             Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string earned), Is.True);
             Assert.That(PermanentGrowthProfile.TryReplaceFromCloudJson(before), Is.True);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.False);
             Assert.That(PermanentGrowthProfile.TryReplaceFromCloudJson(earned), Is.True);
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.DragonTail), Is.True);
+            Assert.That(PermanentGrowthProfile.AchievementSnapshot().dragonDeaths, Is.EqualTo(3));
             var roundTrip = JsonUtility.FromJson<SkinRunStats>(JsonUtility.ToJson(stats));
             Assert.That(roundTrip.diedToDragon, Is.True);
             Assert.That(JsonUtility.FromJson<SkinRunStats>("{\"version\":1,\"maxLivingPlayers\":1}").diedToDragon, Is.False);

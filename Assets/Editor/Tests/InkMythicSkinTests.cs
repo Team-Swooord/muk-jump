@@ -16,21 +16,21 @@ namespace MukJump.EditorTests
             var s = SkinRunStats.Begin(false, InkSkinId.Ink); int h = 0; float t = 1;
             switch (id)
             {
-                case InkSkinId.ZodiacRat: s.startedAtNight = true; s.items = 3; h = 50; break;
-                case InkSkinId.ZodiacOx: s.drawnLandings = 20; t = 60; break;
-                case InkSkinId.ZodiacTiger: s.startedAtNight = true; h = 150; break;
-                case InkSkinId.ZodiacRabbit: s.startedAtNight = true; s.startingSkin = InkSkinId.MoonCrown; h = 200; break;
-                case InkSkinId.ZodiacDragon: s.startingSkin = InkSkinId.DragonTail; h = 300; break;
-                case InkSkinId.ZodiacSnake: s.startingSkin = InkSkinId.SpiderMask; s.drawnLandings = 12; h = 120; break;
-                case InkSkinId.ZodiacHorse: h = 300; t = 60; break;
-                case InkSkinId.ZodiacGoat: s.drawnLandings = 30; h = 200; break;
-                case InkSkinId.ZodiacMonkey: s.maxLivingPlayers = 3; s.items = 5; break;
-                case InkSkinId.ZodiacRooster: s.items = s.inkDrops = 3; h = 100; break;
-                case InkSkinId.ZodiacDog: s.maxLivingPlayers = 2; t = 90; break;
-                case InkSkinId.ZodiacPig: s.items = 12; s.inkDrops = 3; break;
-                case InkSkinId.HaetaeCrest: s.startingSkin = InkSkinId.TurtleShell; h = 250; break;
-                case InkSkinId.ThreeLeggedCrow: s.startedAtNight = true; s.items = s.inkDrops = 3; h = 333; break;
-                case InkSkinId.NineTails: s.startingSkin = InkSkinId.FoxMask; s.maxLivingPlayers = 3; h = 300; break;
+                case InkSkinId.ZodiacRat: s.startingSkin = InkSkinId.NightBat; s.startedAtNight = true; s.items = 8; h = 500; break;
+                case InkSkinId.ZodiacOx: s.startingSkin = InkSkinId.RedHeadband; s.drawnLandings = 50; t = 120; h = 400; break;
+                case InkSkinId.ZodiacTiger: s.startingSkin = InkSkinId.TigerMask; s.startedAtNight = true; h = 1000; break;
+                case InkSkinId.ZodiacRabbit: s.startingSkin = InkSkinId.MoonCrown; s.startedAtNight = true; h = 1500; break;
+                case InkSkinId.ZodiacDragon: s.startingSkin = InkSkinId.DragonTail; h = 1800; break;
+                case InkSkinId.ZodiacSnake: s.startingSkin = InkSkinId.SpiderMask; s.drawnLandings = 40; h = 1000; break;
+                case InkSkinId.ZodiacHorse: s.startingSkin = InkSkinId.RedShoes; h = 1000; t = 90; break;
+                case InkSkinId.ZodiacGoat: s.startingSkin = InkSkinId.FeatherHairpin; s.drawnLandings = 80; h = 1500; break;
+                case InkSkinId.ZodiacMonkey: s.startingSkin = InkSkinId.BellRibbon; s.maxLivingPlayers = 8; s.items = 20; h = 600; break;
+                case InkSkinId.ZodiacRooster: s.startingSkin = InkSkinId.Gat; s.items = s.inkDrops = 6; h = 900; break;
+                case InkSkinId.ZodiacDog: s.startingSkin = InkSkinId.FirstRibbon; s.maxLivingPlayers = 6; t = 180; h = 800; break;
+                case InkSkinId.ZodiacPig: s.startingSkin = InkSkinId.CatEars; s.items = 30; s.inkDrops = 8; h = 1000; break;
+                case InkSkinId.HaetaeCrest: s.startingSkin = InkSkinId.TurtleShell; h = 2000; break;
+                case InkSkinId.ThreeLeggedCrow: s.startingSkin = InkSkinId.NightBat; s.startedAtNight = true; s.items = s.inkDrops = 9; h = 3333; break;
+                case InkSkinId.NineTails: s.startingSkin = InkSkinId.FoxMask; s.maxLivingPlayers = 9; h = 2500; break;
             }
             return (s, h, t);
         }
@@ -53,6 +53,35 @@ namespace MukJump.EditorTests
                 }
         }
 
+        [TestCaseSource(nameof(Rewards))]
+        public void EachSecretRejectsMissingCostumeOrAnySingleRequiredMetric(InkSkinId id)
+        {
+            var c = Case(id);
+            var wrong = c.stats; wrong.startingSkin = InkSkinId.Ink;
+            Assert.That(Has(InkMythicSkins.Evaluate(wrong, c.height, c.seconds, true), id), Is.False, "선행 의상");
+            if (c.stats.drawnLandings > 0) {
+                wrong = c.stats; wrong.drawnLandings--;
+                Assert.That(Has(InkMythicSkins.Evaluate(wrong, c.height, c.seconds, true), id), Is.False, "착지");
+            }
+            if (c.stats.items > 0 && c.stats.items > c.stats.inkDrops) {
+                wrong = c.stats; wrong.items--;
+                Assert.That(Has(InkMythicSkins.Evaluate(wrong, c.height, c.seconds, true), id), Is.False, "아이템");
+            }
+            if (c.stats.inkDrops > 0) {
+                wrong = c.stats; wrong.inkDrops--;
+                Assert.That(Has(InkMythicSkins.Evaluate(wrong, c.height, c.seconds, true), id), Is.False, "먹방울");
+            }
+            if (c.stats.maxLivingPlayers > 1) {
+                wrong = c.stats; wrong.maxLivingPlayers--;
+                Assert.That(Has(InkMythicSkins.Evaluate(wrong, c.height, c.seconds, true), id), Is.False, "분신");
+            }
+            if (id is InkSkinId.ZodiacOx or InkSkinId.ZodiacDog)
+                Assert.That(Has(InkMythicSkins.Evaluate(c.stats, c.height, c.seconds - .01f, true), id), Is.False, "생존 시간");
+            if (id is InkSkinId.ZodiacRat or InkSkinId.ZodiacTiger or InkSkinId.ZodiacRabbit or InkSkinId.ThreeLeggedCrow or InkSkinId.ZodiacRooster) {
+                wrong = c.stats; wrong.startedAtNight = !wrong.startedAtNight;
+                Assert.That(Has(InkMythicSkins.Evaluate(wrong, c.height, c.seconds, true), id), Is.False, "낮밤");
+            }
+        }
         [TestCaseSource(nameof(Rewards))]
         public void InvalidMeasurementsCannotGrantSecrets(InkSkinId id)
         {

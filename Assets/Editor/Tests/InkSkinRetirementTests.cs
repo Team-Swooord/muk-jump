@@ -43,7 +43,7 @@ namespace MukJump.EditorTests
             var state = new SkinAchievementState(); state.Grant(owned);
             state = JsonUtility.FromJson<SkinAchievementState>(JsonUtility.ToJson(state));
             Assert.That(state.IsValid, Is.True);
-            Assert.That(state.Progress(InkSkinId.OrigamiWings, 0, 0), Is.EqualTo(120));
+            Assert.That(state.Progress(InkSkinId.OrigamiWings, 0, 0), Is.EqualTo(300));
             PermanentGrowthProfile.SettleRun("seed", 1, 1, 0, 1, true, SkinRunStats.Begin(false, InkSkinId.Ink));
             var json = JObject.Parse(growth.Json);
             json["skinAchievements"] = JObject.FromObject(state);
@@ -57,7 +57,7 @@ namespace MukJump.EditorTests
             Assert.That(reports.Any(x => x.id == InkAchievementCatalog.Id(20)), Is.False);
             Assert.That(reports.Single(x => x.id == InkAchievementCatalog.Id(35)).percent, Is.EqualTo(100));
         }
-        [TestCase(119.99f, false), TestCase(120f, true)]
+        [TestCase(299.99f, false), TestCase(300f, true)]
         public void LiveAndFinalSettlementUseSameTransferredSurvivalThreshold(float seconds, bool unlocked)
         {
             var state = new SkinAchievementState(); var stats = SkinRunStats.Begin(false, InkSkinId.Ink);
@@ -73,11 +73,11 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinCatalog.Name(InkSkinId.OrigamiWings), Is.EqualTo("종이 날개"));
             Assert.That(InkSkinCatalog.Get(InkSkinId.OrigamiWings).Metric, Is.EqualTo(SkinMetric.Survival));
             string requirement = InkSkinAchievements.Requirement(InkSkinId.OrigamiWings);
-            Assert.That(requirement, Does.Contain("120"));
+            Assert.That(requirement, Does.Contain("300"));
             foreach (bool japanese in new[] { false, true })
             {
                 Assert.That(InkSkinTranslations.TryTranslate(requirement, japanese, out var text), Is.True);
-                Assert.That(text, Does.Contain("120"));
+                Assert.That(text, Does.Contain("300"));
                 Assert.That(InkSkinTranslations.TryTranslate("종이 날개", japanese, out text), Is.True);
                 Assert.That(text, Is.EqualTo(japanese ? "紙の翼" : "Paper Wings"));
             }
