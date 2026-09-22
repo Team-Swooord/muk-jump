@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e4c6ea2bb17a439ab2fcd2faeee20cc, type: 3}
   m_Name: AppsInTossAdSettings
   m_EditorClassIdentifier: Assembly-CSharp::MukJump.Core.AppsInTossAdSettings
-  rewardedAdGroupId: 
+  rewardedAdGroupId: ait.v2.live.7edb523366544df1
   interstitialAdGroupId: 
-  bannerAdGroupId: 
+  bannerAdGroupId: ait.v2.live.5d95763582324c1c
