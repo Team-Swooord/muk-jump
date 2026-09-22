@@ -185,7 +185,14 @@ namespace MukJump.EditorTests
                         Assert.That(view.Selected, Is.EqualTo(InkSkinId.WindFan));
                         Assert.That(view.SkillDetailsRoot.Find("ConfirmButton"), Is.Null);
                         Assert.That(view.SkillDescriptionText.alignment, Is.EqualTo(TextAnchor.UpperCenter));
-                        Click((RectTransform)view.SkillDetailsRoot.Find("CloseButton"));
+                        // 화면 가장자리의 실제 장막을 눌러 상세만 닫는다.
+                        // 꾸미기 카드까지 같은 터치가 전달되면 안 된다.
+                        pointer.position = pointer.pressPosition = new Vector2(4, Screen.height * .5f);
+                        hits.Clear(); EventSystem.current.RaycastAll(pointer, hits);
+                        Assert.That(hits, Is.Not.Empty);
+                        Assert.That(ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject)
+                            .GetComponent<EventTrigger>(), Is.Not.Null);
+                        ExecuteEvents.ExecuteHierarchy(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler);
                     });
                     Assert.That(view.IsSkillDetailsOpen, Is.False);
                     Assert.That(view.Selected, Is.EqualTo(InkSkinId.WindFan));

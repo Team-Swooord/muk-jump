@@ -806,7 +806,7 @@ namespace MukJump.Core
             float presentationScale = panel != null
                 ? panel.localScale.x / previousLayoutScale
                 : 1f;
-            panelLayoutScale = MobileUiLayout.CalculateFitScale(
+            panelLayoutScale = MobileUiLayout.CalculatePopupFitScale(
                 PanelDesignSize,
                 safe,
                 Screen.width,

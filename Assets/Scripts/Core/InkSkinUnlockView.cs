@@ -250,7 +250,7 @@ namespace MukJump.Core
             if (safeRoot == null || Screen.width <= 0 || Screen.height <= 0) return;
             Rect safe = MobileUiLayout.CurrentSafeArea;
             MobileUiLayout.ApplySafeArea(safeRoot, safe, Screen.width, Screen.height);
-            paper.localScale = Vector3.one * MobileUiLayout.CalculateFitScale(new Vector2(940, 1560), safe,
+            paper.localScale = Vector3.one * MobileUiLayout.CalculatePopupFitScale(new Vector2(940, 1560), safe,
                 Screen.width, Screen.height, Vector2.one * 28f);
         }
         static RectTransform Rect(string name, Transform parent, Vector2 position, Vector2 size)

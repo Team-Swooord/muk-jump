@@ -173,6 +173,7 @@ namespace MukJump.Core
 
         void HandleResumePressed()
         {
+            PointerInput.SuppressUntilRelease();
             CloseBeforeAction(() =>
             {
                 if (boundManager != null && !boundManager.ResumeGame())
@@ -439,6 +440,7 @@ namespace MukJump.Core
                 PanelDesignSize);
 
             BuildPauseScrollFrame(panel);
+            ConfigureBackdropDismiss();
 
             var title = CreateText("Title", panel, "잠시 멈춤", InkUiStyle.PauseTitleSize,
                 new Vector2(0f, 165f), new Vector2(580f, 112f),
@@ -539,7 +541,17 @@ namespace MukJump.Core
             ConfigurePauseButtonIcon(pauseButton);
             EnableFullButtonRaycast(resumeButton);
             EnableFullButtonRaycast(lobbyButton);
+            ConfigureBackdropDismiss();
             return true;
+        }
+
+        void ConfigureBackdropDismiss()
+        {
+            var dim = overlayRoot.Find("InkDim").GetComponent<Image>();
+            if (dim.GetComponent<UnityEngine.EventSystems.EventTrigger>() != null) return;
+            InkUiStyle.ConfigurePopupDismiss(dim, panel, HandleResumePressed,
+                () => ShouldShowPauseMenu && overlayVisible && overlayGroup.interactable &&
+                    !exitConfirmationOpen && !exitClosing && panel.GetComponent<HanjiScrollFrame>().IsReady);
         }
 
         static void BuildPauseScrollFrame(Transform parent)
@@ -662,7 +674,7 @@ namespace MukJump.Core
             float presentationScale = panel != null
                 ? panel.localScale.x / previousLayoutScale
                 : 1f;
-            panelLayoutScale = MobileUiLayout.CalculateFitScale(
+            panelLayoutScale = MobileUiLayout.CalculatePopupFitScale(
                 PanelDesignSize,
                 safe,
                 Screen.width,

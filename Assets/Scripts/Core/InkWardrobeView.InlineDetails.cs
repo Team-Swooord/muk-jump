@@ -42,6 +42,8 @@ namespace MukJump.Core
             InkUiStyle.ConfigurePopupDim(dim);
             skillSafeArea = Stretch("SafeAreaRoot", skillOverlay);
             skillDetailsRoot = Rect("SkillDetailsPaper", skillSafeArea, Vector2.zero, new Vector2(940, 940));
+            InkUiStyle.ConfigurePopupDismiss(dim, skillDetailsRoot, CloseSkillDetails,
+                () => IsSkillDetailsOpen && CanUseWardrobe());
             var surface = skillDetailsRoot.gameObject.AddComponent<UnityEngine.UI.Image>();
             surface.sprite = InkUiStyle.ActionButtonSprite;
             InkUiStyle.ConfigureHanjiSurface(surface);
@@ -205,7 +207,7 @@ namespace MukJump.Core
             if (skillSafeArea == null || Screen.width <= 0 || Screen.height <= 0) return;
             Rect safe = MobileUiLayout.CurrentSafeArea;
             MobileUiLayout.ApplySafeArea(skillSafeArea, safe, Screen.width, Screen.height);
-            skillDetailsRoot.localScale = Vector3.one * MobileUiLayout.CalculateFitScale(
+            skillDetailsRoot.localScale = Vector3.one * MobileUiLayout.CalculatePopupFitScale(
                 skillDetailsRoot.sizeDelta, safe, Screen.width, Screen.height, Vector2.one * 32);
         }
 

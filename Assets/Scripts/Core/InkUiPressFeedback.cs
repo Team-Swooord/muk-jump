@@ -171,6 +171,27 @@ namespace MukJump.Core
             dim.raycastTarget = true;
         }
 
+        /// 장막에서 시작해 장막에서 끝난 탭만 닫기로 처리한다.
+        /// 종이 안의 빈 곳/설명 스크롤/바깥으로 끌기는 닫기나 뒤 화면 입력이 아니다.
+        public static void ConfigurePopupDismiss(Image dim, RectTransform panel,
+            UnityEngine.Events.UnityAction dismiss, System.Func<bool> canDismiss)
+        {
+            var trigger = dim.gameObject.AddComponent<EventTrigger>();
+            var click = new EventTrigger.Entry { eventID = EventTriggerType.PointerClick };
+            click.callback.AddListener(data =>
+            {
+                if (panel == null || !panel.gameObject.activeInHierarchy || !canDismiss() ||
+                    data is not PointerEventData pointer || pointer.dragging ||
+                    pointer.button != PointerEventData.InputButton.Left ||
+                    RectTransformUtility.RectangleContainsScreenPoint(panel, pointer.position, pointer.pressEventCamera) ||
+                    RectTransformUtility.RectangleContainsScreenPoint(panel, pointer.pressPosition, pointer.pressEventCamera))
+                    return;
+                PointerInput.SuppressUntilRelease();
+                dismiss();
+            });
+            trigger.triggers.Add(click);
+        }
+
         static Sprite actionButtonSprite;
         public static Color HanjiPaperColor => Color.Lerp(InkPalette.Paper, InkPalette.TextLight, .35f);
 

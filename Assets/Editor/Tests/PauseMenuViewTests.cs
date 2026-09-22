@@ -1564,6 +1564,29 @@ public class PauseMenuViewTests
         return view;
     }
 
+    [Test, Category("TossPopupInteraction")]
+    public void PauseBackdropResumesButDoesNotBypassExitConfirmation()
+    {
+        var view = CreatePausedNavigationMenu(out GameManager manager, out _);
+        var dim = host.transform.Find("PauseMenuCanvas/PauseOverlay/InkDim")
+            .GetComponent<UnityEngine.EventSystems.EventTrigger>();
+        Assert.That(dim, Is.Not.Null);
+        var pointer = new UnityEngine.EventSystems.PointerEventData(null)
+        {
+            position = new Vector2(-2000, -2000), pressPosition = new Vector2(-2000, -2000),
+            button = UnityEngine.EventSystems.PointerEventData.InputButton.Left
+        };
+        Invoke(view, "HandleLobbyPressed");
+        Assert.That(GetField<bool>(view, "exitConfirmationOpen"), Is.True);
+        dim.OnPointerClick(pointer);
+        Assert.That(manager.IsPaused, Is.True, "종료 확인 중 뒤의 장막은 재개하지 않는다");
+        Invoke(view, "HandleExitCancelled");
+        dim.OnPointerClick(pointer);
+        Assert.That(manager.IsPaused, Is.False);
+        Assert.That(manager.State, Is.EqualTo(GameState.Playing));
+        Assert.That(GetField<bool>(view, "overlayVisible"), Is.False);
+    }
+
     [Test]
     public void ThrowingStateListenerCannotInterruptTransitionOrLaterListener()
     {

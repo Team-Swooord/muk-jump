@@ -2338,12 +2338,12 @@ namespace MukJump.Core
                 optionsPanel.localScale = Vector3.one * scale;
                 return;
             }
-            float panelScale = MobileUiLayout.CalculateFitScale(
+            float panelScale = MobileUiLayout.CalculatePopupFitScale(
                 optionsPanel.sizeDelta,
                 safe,
                 UiScreenWidth,
                 UiScreenHeight,
-                Vector2.one * (SafeAreaPadding * 0.5f));
+                Vector2.one * (SafeAreaPadding * 0.5f), UiPlatform);
             if (optionsPanel != null)
             {
                 optionsPanel.anchoredPosition = Vector2.zero;
@@ -2352,7 +2352,7 @@ namespace MukJump.Core
         }
 
         public static float CalculateSettingsTutorialScale(Rect safeArea, int width, int height) =>
-            MobileUiLayout.CalculateFitScale(new Vector2(PanelWidth, SettingsDesignHeight + CloseFooterHeight),
+            MobileUiLayout.CalculatePopupFitScale(new Vector2(PanelWidth, SettingsDesignHeight + CloseFooterHeight),
                 safeArea, width, height, Vector2.one * (SafeAreaPadding * .5f));
 
         public static Vector2 CalculateSettingsTutorialPosition(bool tutorial, float scale) => Vector2.zero;

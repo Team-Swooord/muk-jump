@@ -116,6 +116,7 @@ namespace MukJump.Core
         void Dismiss()
         {
             if (owner != this) return;
+            PointerInput.SuppressUntilRelease();
             owner = null;
             IsOpen = false;
             closing = false;
@@ -135,7 +136,7 @@ namespace MukJump.Core
         {
             Rect safe = MobileUiLayout.CurrentSafeArea;
             MobileUiLayout.ApplySafeArea(safeRoot, safe, Screen.width, Screen.height);
-            panel.localScale = Vector3.one * MobileUiLayout.CalculateFitScale(
+            panel.localScale = Vector3.one * MobileUiLayout.CalculatePopupFitScale(
                 new Vector2(760, 630), safe, Screen.width, Screen.height, new Vector2(32f, 32f));
         }
 
@@ -155,6 +156,8 @@ namespace MukJump.Core
             safeRoot = Rect("SafeArea", root.transform, Vector2.zero, Vector2.zero);
             Stretch(safeRoot);
             panel = Rect("ExitScroll", safeRoot, Vector2.zero, new Vector2(700, 570));
+            InkUiStyle.ConfigurePopupDismiss(dim.GetComponent<Image>(), panel, Cancel,
+                () => owner == this && IsOpen && !closing);
             HanjiScrollFrame.Attach(panel, new Vector2(700, 570));
             Label("Title", "먹점프를 종료할까요?", panel, new Vector2(0, 165), new Vector2(620, 100), 58);
             message = Label("Message", "", panel, new Vector2(0, 15), new Vector2(610, 150), 42);

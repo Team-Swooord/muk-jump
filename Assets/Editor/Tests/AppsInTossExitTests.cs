@@ -5,6 +5,7 @@ using MukJump.Core;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace MukJump.EditorTests
 {
@@ -22,6 +23,7 @@ namespace MukJump.EditorTests
         public void TearDown()
         {
             UnityEngine.Object.DestroyImmediate(host);
+            PointerInput.ResetSuppressionForTests();
             Assert.That(AppsInTossExitView.IsOpen, Is.False);
         }
         [Test]
@@ -60,6 +62,30 @@ namespace MukJump.EditorTests
             view.enabled = false;
             pending.SetResult(true);
             Assert.That(AppsInTossExitView.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void OutsideTapCancelsWithoutExitingAndCannotCancelPendingExit()
+        {
+            int calls = 0;
+            var pending = new TaskCompletionSource<bool>();
+            SetClose(() => { calls++; return pending.Task; });
+            view.RequestExit();
+            var dim = host.transform.Find("TossExitConfirmation/Dim").GetComponent<EventTrigger>();
+            Assert.That(dim, Is.Not.Null);
+            var outside = new PointerEventData(null)
+            {
+                position = new Vector2(-2000, -2000), pressPosition = new Vector2(-2000, -2000),
+                button = PointerEventData.InputButton.Left
+            };
+            dim.OnPointerClick(outside);
+            Assert.That(AppsInTossExitView.IsOpen, Is.False);
+            Assert.That(calls, Is.Zero, "바깥 탭은 종료가 아니라 취소입니다");
+            view.RequestExit(); view.Confirm();
+            dim.OnPointerClick(outside);
+            Assert.That(AppsInTossExitView.IsOpen, Is.True);
+            Assert.That(calls, Is.EqualTo(1));
+            pending.SetResult(true);
         }
         void SetClose(Func<Task> action) => typeof(AppsInTossExitView)
             .GetField("closeViewForTests", BindingFlags.Instance | BindingFlags.NonPublic)

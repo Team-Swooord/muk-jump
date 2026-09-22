@@ -48,6 +48,33 @@ namespace MukJump.EditorTests
             VfxQualityRuntime.SetTier(originalTier, VfxQualityChangeReason.DebugOverride);
             MobileApplicationLifecycle.SetPlatformVisibility(true);
         }
+        [Test, Category("TossPopupInteraction")]
+        public void SkillBackdropClosesOnlyDetailsAndKeepsSelectionAndScroll()
+        {
+            Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
+            try
+            {
+                view.Select(InkSkinId.WindFan); view.Presentation.Cancel();
+                Assert.That(view.OpenSkillDetails(), Is.True);
+                var position = view.CollectionContent.anchoredPosition;
+                var overlay = view.SkillDetailsRoot.parent.parent;
+                var trigger = overlay.GetComponentInChildren<EventTrigger>();
+                Assert.That(trigger, Is.Not.Null);
+                Canvas.ForceUpdateCanvases();
+                var pointer = new PointerEventData(null) { button = PointerEventData.InputButton.Left };
+                pointer.position = pointer.pressPosition = RectTransformUtility.WorldToScreenPoint(null, view.SkillDetailsRoot.position);
+                trigger.OnPointerClick(pointer);
+                Assert.That(view.IsSkillDetailsOpen, Is.True, "본문 안의 터치는 닫지 않는다");
+                pointer.position = pointer.pressPosition = new Vector2(-2000, -2000);
+                trigger.OnPointerClick(pointer);
+                Assert.That(view.IsSkillDetailsOpen, Is.False);
+                Assert.That(view.IsOpen, Is.True);
+                Assert.That(view.CanBrowse, Is.True);
+                Assert.That(view.Selected, Is.EqualTo(InkSkinId.WindFan));
+                Assert.That(view.CollectionContent.anchoredPosition, Is.EqualTo(position));
+            }
+            finally { SkinDebugSession.Reset(); PointerInput.ResetSuppressionForTests(); }
+        }
         [TestCase(GameLanguage.Korean, "꾸미기")]
         [TestCase(GameLanguage.English, "Wardrobe")]
         [TestCase(GameLanguage.Japanese, "着せ替え")]

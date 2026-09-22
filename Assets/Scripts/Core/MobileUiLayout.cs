@@ -252,6 +252,27 @@ namespace MukJump.Core
             return Mathf.Clamp(usableWidth / designWidth, 0.01f, 1f);
         }
 
+        /// 토스의 작은 웹뷰에서는 모달 바깥을 누를 여백을 남긴다.
+        /// 전체 화면/게임 HUD의 배율과 네이티브 iOS 배치는 바꾸지 않는다.
+        public static float CalculatePopupFitScale(
+            Vector2 designSize, Rect safeArea, int screenWidth, int screenHeight,
+            Vector2 edgePadding, RuntimePlatform? platform = null)
+        {
+            float fit = CalculateFitScale(designSize, safeArea, screenWidth, screenHeight, edgePadding);
+#if UNITY_WEBGL
+            RuntimePlatform current = RuntimePlatform.WebGLPlayer;
+#else
+            RuntimePlatform current = Application.platform;
+#endif
+            if ((platform ?? current) != RuntimePlatform.WebGLPlayer ||
+                designSize.x <= 0f || designSize.y <= 0f)
+                return fit;
+            Vector2 safeSize = GetLogicalSafeSize(safeArea, screenWidth, screenHeight);
+            if (safeSize.x <= 0f || safeSize.y <= 0f) return fit;
+            return Mathf.Min(Mathf.Min(fit, .9f), Mathf.Min(
+                safeSize.x * .86f / designSize.x, safeSize.y * .84f / designSize.y));
+        }
+
         /// 부모가 이미 축소된 상태에서, 비대칭 이미지의 실제 보이는 부분만 Safe Area에 맞춘다.
         /// anchoredPosition은 자기 localScale의 영향을 받지 않으므로 별도 항으로 계산한다.
         public static float CalculateVisibleContentFitScale(

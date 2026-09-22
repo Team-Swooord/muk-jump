@@ -1538,7 +1538,7 @@ public class SettingsScrollTests
     public void SettingsAndTutorialShareScaleAndCenteredPaperPosition()
     {
         var rect = (RectTransform)panel;
-        float expectedScale = MobileUiLayout.CalculateFitScale(new Vector2(820, 1640),
+        float expectedScale = MobileUiLayout.CalculatePopupFitScale(new Vector2(820, 1640),
             MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height, Vector2.one * 12);
         Assert.That(rect.localScale.x, Is.EqualTo(expectedScale).Within(0.001));
         Assert.That(rect.anchoredPosition, Is.EqualTo(Vector2.zero));
