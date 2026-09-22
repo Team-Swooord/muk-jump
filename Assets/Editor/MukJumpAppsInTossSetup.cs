@@ -388,6 +388,7 @@ namespace MukJump.EditorTools
         {
             bool changed = AITConvertCore.EnsureWebGLTemplatesExist();
             changed |= CopyRuntimeVersionPatchOrThrow();
+            changed |= PrepareGameWebViewConfigOrThrow();
             if (!File.Exists(TemplateIndexPath))
                 throw new BuildFailedException(
                     $"Apps in Toss WebGL 템플릿을 찾을 수 없습니다: {TemplateIndexPath}");
@@ -420,6 +421,34 @@ namespace MukJump.EditorTools
             {
                 EditorApplication.UnlockReloadAssemblies();
             }
+        }
+
+        static bool PrepareGameWebViewConfigOrThrow()
+        {
+            string path = "Assets/WebGLTemplates/AITTemplate/BuildConfig~/apps-in-toss.config.ts";
+            string source = File.ReadAllText(path);
+            string updated = ApplyGameWebViewConfig(source);
+            if (source == updated) return false;
+            File.WriteAllText(path, updated, new UTF8Encoding(false));
+            return true;
+        }
+
+        public static string ApplyGameWebViewConfig(string source)
+        {
+            // SDK 템플릿은 ignored/재생성 대상이다. 빌드 시 추적되는 규칙으로 복구한다.
+            const string end = "//// USER_CONFIG_END ////";
+            const string start = "// MUKJUMP_GAME_WEBVIEW_START";
+            const string finish = "// MUKJUMP_GAME_WEBVIEW_END";
+            if (string.IsNullOrEmpty(source) || !source.Contains(end) ||
+                !source.Contains("const userConfig ="))
+                throw new BuildFailedException("토스 사용자 설정 구문을 찾지 못했습니다. SDK 템플릿을 확인해 주세요.");
+            // SDK는 최종 merge 문장을 다시 쓰므로 보존되는 USER_CONFIG 내부에 적용한다.
+            string clean = Regex.Replace(source, Regex.Escape(start) + @"[\s\S]*?" + Regex.Escape(finish) + @"\r?\n?", "");
+            string rule = start + "\n" +
+                "Object.assign(userConfig, { webView: { ...(userConfig as Record<string, any>).webView, " +
+                "bounces: false, pullToRefreshEnabled: false, overScrollMode: 'never', allowsBackForwardNavigationGestures: false } });\n" +
+                finish + "\n";
+            return clean.Replace(end, rule + end);
         }
 
         static bool CopyRuntimeVersionPatchOrThrow()

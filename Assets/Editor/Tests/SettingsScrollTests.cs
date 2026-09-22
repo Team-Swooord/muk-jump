@@ -647,7 +647,8 @@ public class SettingsScrollTests
         for (int i = 0; i < names.Length; i++)
         {
             var rect = (RectTransform)page.Find(names[i]);
-            Assert.That(rect.anchoredPosition, Is.EqualTo(new Vector2(i % 2 == 0 ? -178 : 178, i < 2 ? 56 : -88)));
+            // 저장 경고가 없는 기본 설정판은 상단 고정을 유지하며 230만큼 짧아진다.
+            Assert.That(rect.anchoredPosition, Is.EqualTo(new Vector2(i % 2 == 0 ? -178 : 178, i < 2 ? -59 : -203)));
             Assert.That(rect.rect.height, Is.GreaterThanOrEqualTo(120));
             var icon = rect.Find("Paper/Icon").GetComponent<Image>();
             Assert.That(icon.sprite, Is.Not.Null, names[i]);
@@ -1355,7 +1356,7 @@ public class SettingsScrollTests
             Assert.That(root.GetComponent<Outline>(), Is.Null);
             Assert.That(root.raycastTarget, Is.True);
             Assert.That(root.rectTransform.sizeDelta, Is.EqualTo(new Vector2(220, 260)));
-            Assert.That(root.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(-240 + 240 * i, 298)));
+            Assert.That(root.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(-240 + 240 * i, 183)));
             Assert.That(paper.sprite, Is.EqualTo(InkUiStyle.ActionButtonSprite));
             Assert.That(paper.type, Is.EqualTo(Image.Type.Sliced));
             Assert.That(paper.pixelsPerUnitMultiplier, Is.EqualTo(InkUiStyle.HanjiPixelsPerUnitMultiplier));

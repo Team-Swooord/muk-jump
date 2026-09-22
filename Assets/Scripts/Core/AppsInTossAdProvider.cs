@@ -5,7 +5,7 @@ using UnityEngine;
 namespace MukJump.Core
 {
     /// 토스 통합 광고 2.0의 load → show 이벤트 모델을 게임 공통 광고 경계로 변환한다.
-    public sealed class AppsInTossAdProvider : IFullScreenAdProvider, IDisposable
+    public sealed class AppsInTossAdProvider : IFullScreenAdProvider, IFullScreenAdLifecycle, IDisposable
     {
         const float LoadTimeoutSeconds = 75f;
         const float RetryDelaySeconds = 15f;
@@ -26,6 +26,8 @@ namespace MukJump.Core
         bool rewardedLoading;
         bool interstitialLoading;
         bool disposed;
+        bool fullScreenOpened;
+        double lastTickTime;
         double rewardedLoadDeadline;
         double interstitialLoadDeadline;
         double nextRewardedLoadTime;
@@ -56,6 +58,7 @@ namespace MukJump.Core
         }
 
         public bool IsLoading => rewardedLoading || interstitialLoading;
+        public bool HasPendingPresentation => !disposed && pendingCompletion != null;
         public bool DeferLoading { get; set; }
 
         public void Tick()
@@ -64,12 +67,21 @@ namespace MukJump.Core
                 return;
 
             double now = Time.realtimeSinceStartupAsDouble;
-            if (pendingCompletion != null && now >= showDeadline)
+            // 웹뷰 정지 시간은 표시 실패 시간이 아니다. 복귀 후 SDK 콜백도 기다린다.
+            if (pendingCompletion != null && !fullScreenOpened)
+                showDeadline += Math.Max(0d, now - lastTickTime - .25d);
+            lastTickTime = now;
+            if (!MobileApplicationLifecycle.IsApplicationActive)
+                return;
+            if (pendingCompletion != null && !fullScreenOpened && now >= showDeadline)
             {
                 Debug.LogWarning(
                     "먹점프 토스 광고 종료 콜백 대기 시간이 초과되었습니다.");
                 CompleteShow(false);
             }
+            // 실제로 열린 광고의 길이와 보상 여부는 SDK만 판정한다.
+            if (pendingCompletion != null)
+                return;
 
             if (rewardedLoading && now >= rewardedLoadDeadline)
                 CancelTimedOutLoad(true);
@@ -87,7 +99,8 @@ namespace MukJump.Core
 
         public void Preload(FullScreenAdPlacement placement)
         {
-            if (disposed || pendingCompletion != null || DeferLoading)
+            if (disposed || pendingCompletion != null || DeferLoading ||
+                !MobileApplicationLifecycle.IsApplicationActive)
                 return;
             bool rewarded = IsRewarded(placement);
 #if UNITY_WEBGL && !UNITY_EDITOR
@@ -182,11 +195,13 @@ namespace MukJump.Core
 
             showingPlacement = placement;
             rewardEarned = false;
+            fullScreenOpened = false;
             // null 콜백도 진행 중 표시가 필요하다. null 자체를 상태 sentinel로
             // 쓰면 SDK 종료 이벤트와 watchdog이 모두 무시되어 광고가 고착된다.
             pendingCompletion = onCompleted ?? IgnoreCompletion;
             showDeadline = Time.realtimeSinceStartupAsDouble +
                            ShowTimeoutSeconds;
+            lastTickTime = Time.realtimeSinceStartupAsDouble;
             long generation = ++showGeneration;
             SafeInvokeDisposer(ref showDisposer, "이전 표시 구독 해제");
             try
@@ -219,6 +234,7 @@ namespace MukJump.Core
                 rewardEarned,
                 nonRewardedCompleted: false);
             pendingCompletion = null;
+            fullScreenOpened = false;
             rewardedLoadGeneration++;
             interstitialLoadGeneration++;
             showGeneration++;
@@ -393,7 +409,12 @@ namespace MukJump.Core
                 return;
             switch (eventType)
             {
+                case "show":
+                case "impression":
+                    fullScreenOpened = true;
+                    break;
                 case "userEarnedReward":
+                    fullScreenOpened = true;
                     rewardEarned = true;
                     break;
                 case "dismissed":
@@ -422,6 +443,7 @@ namespace MukJump.Core
                 completed);
             Action<bool> callback = pendingCompletion;
             pendingCompletion = null;
+            fullScreenOpened = false;
             showGeneration++;
             showDeadline = 0d;
             SafeInvokeDisposer(ref showDisposer, "표시 완료 구독 해제");

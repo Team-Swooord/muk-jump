@@ -133,7 +133,9 @@ namespace MukJump.EditorTools
                 MukJumpSceneBuilder.Build();
                 return;
             }
-            if (renderOnly) Run(new[] { @"^MukJump\.EditorTools\.LeaderboardRenderFixtureTests\." });
+            if (requestScope == "toss-release-checklist") Run(new[] {
+                @"^(MukJump\.EditorTests\.)?(AppsInTossRelease|AppsInTossExit|ApplicationPauseBoundary|MonetizationPolicy|MobileUiLayout|GameplayBannerLayout|PauseMenuView|SettingsScroll|PermanentGrowthProfile|ScoreManager|FirstRunTutorial|StartupBrandSplash)Tests\." });
+            else if (renderOnly) Run(new[] { @"^MukJump\.EditorTools\.LeaderboardRenderFixtureTests\." });
             else if (requestScope == "account-legacy-recovery") Run(new[] {
                 @"^MukJump\.EditorTests\.(MukJumpAccount|PermanentGrowthProfile|PermanentGrowthV8|PermanentGrowthTreeProfile|NicknameIdentity)Tests\." });
             else if (requestScope == "haetae-facing") Run(new[] { @"^HaetaeObstacleTests\.(EveryFrameFacesDown|PoolReuseResets|TelegraphLocksSelectedWall|SideWarningMatchesSelectedWall)" });

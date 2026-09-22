@@ -370,6 +370,53 @@ namespace MukJump.EditorTests
             provider.Dispose();
         }
 
+        [TestCase("show")]
+        [TestCase("impression")]
+        public void TossOpenedAdDoesNotExpireOrAwardUntilSdkDismisses(string openedEvent)
+        {
+            var provider = new AppsInTossAdProvider("rewarded", string.Empty);
+            Action<string> emit = null;
+            int completions = 0;
+            bool earned = false;
+            SetField(provider, "rewardedReady", true);
+            SetField(provider, "loadRequestForTests", new Func<string, Action<bool>, Action, Action>((_, _, _) => null));
+            SetField(provider, "showRequestForTests", new Func<string, Action<string>, Action, Action>((_, onEvent, _) => { emit = onEvent; return null; }));
+            try
+            {
+                provider.Show(FullScreenAdPlacement.GameOverReviveReward, reward => { completions++; earned = reward; });
+                Assert.That(((IFullScreenAdLifecycle)provider).HasPendingPresentation, Is.True);
+                emit(openedEvent);
+                SetField(provider, "showDeadline", -1d);
+                provider.Tick();
+                Assert.That(completions, Is.Zero, "열린 광고에 임의의 90초 종료를 적용하면 안 됩니다");
+                emit("userEarnedReward");
+                Assert.That(completions, Is.Zero, "보상 이벤트만으로 광고 뒤 게임을 재개하면 안 됩니다");
+                emit("dismissed"); emit("dismissed");
+                Assert.That(completions, Is.EqualTo(1));
+                Assert.That(earned, Is.True);
+                Assert.That(provider.HasPendingPresentation, Is.False);
+            }
+            finally { provider.Dispose(); }
+        }
+
+        [Test]
+        public void TossAdStartTimeoutDoesNotCountSuspendedWebViewTime()
+        {
+            var provider = new AppsInTossAdProvider("rewarded", string.Empty);
+            SetField(provider, "rewardedReady", true);
+            SetField(provider, "showRequestForTests", new Func<string, Action<string>, Action, Action>((_, _, _) => null));
+            try
+            {
+                provider.Show(FullScreenAdPlacement.GameOverReviveReward, _ => { });
+                double now = Time.realtimeSinceStartupAsDouble;
+                SetField(provider, "showDeadline", now - 1d);
+                SetField(provider, "lastTickTime", now - 180d);
+                provider.Tick();
+                Assert.That(provider.HasPendingPresentation, Is.True);
+            }
+            finally { provider.Dispose(); }
+        }
+
         static void SetField<T>(object target, string name, T value)
         {
             FieldInfo field = target.GetType().GetField(

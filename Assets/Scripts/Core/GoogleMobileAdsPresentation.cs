@@ -9,6 +9,7 @@ namespace MukJump.Core
             LobbyOptionsView options)
         {
             if (manager == null || StartupBrandSplash.IsBlockingInput ||
+                AppsInTossExitView.IsOpen || !MobileApplicationLifecycle.IsApplicationActive ||
                 BackgroundMusicController.Instance != null &&
                 BackgroundMusicController.Instance.IsFullScreenAdActive)
                 return false;

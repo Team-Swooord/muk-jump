@@ -31,6 +31,11 @@ namespace MukJump.Core
         void OnEnable()
         {
             DontDestroyOnLoad(gameObject);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (GetComponent<AppsInTossExitView>() == null)
+                gameObject.AddComponent<AppsInTossExitView>();
+            ConfigurePortrait();
+#endif
             AITVisibilityHelper.OnVisibilityChanged += HandleVisibilityChanged;
             HandleVisibilityChanged(AITVisibilityHelper.IsVisible);
         }
@@ -62,6 +67,19 @@ namespace MukJump.Core
         }
 
 #if UNITY_WEBGL && !UNITY_EDITOR
+        async void ConfigurePortrait()
+        {
+            try
+            {
+                await AIT.SetDeviceOrientation(new SetDeviceOrientationOptions
+                { Type = SetDeviceOrientationOptionsType.Portrait }, timeoutMs: 5000);
+            }
+            catch (Exception)
+            {
+                Debug.LogWarning("먹점프 세로 화면 고정 요청을 확인해 주세요");
+            }
+        }
+
         void Update()
         {
             if (!platformVisible || safeAreaRequestInFlight ||

@@ -577,6 +577,21 @@ namespace MukJump.EditorTests
         }
 
         [Test]
+        public void GameWebViewConfigDisablesNavigationGesturesIdempotently()
+        {
+            string source = "//// USER_CONFIG_START ////\nconst userConfig = { other: true };\n//// USER_CONFIG_END ////\nexport default defineConfig({ ...userConfig });";
+            string patched = MukJumpAppsInTossSetup.ApplyGameWebViewConfig(source);
+            foreach (string option in new[] { "bounces: false", "pullToRefreshEnabled: false", "overScrollMode: 'never'", "allowsBackForwardNavigationGestures: false" })
+                Assert.That(patched, Does.Contain(option));
+            Assert.That(patched, Does.Contain("other: true"));
+            Assert.That(patched.IndexOf("bounces: false", StringComparison.Ordinal),
+                Is.LessThan(patched.IndexOf("USER_CONFIG_END", StringComparison.Ordinal)),
+                "SDK 재생성 후에도 USER_CONFIG 내부 규칙이 보존되어야 합니다");
+            Assert.That(MukJumpAppsInTossSetup.ApplyGameWebViewConfig(patched), Is.EqualTo(patched));
+            Assert.Throws<UnityEditor.Build.BuildFailedException>(() => MukJumpAppsInTossSetup.ApplyGameWebViewConfig("changed sdk"));
+        }
+
+        [Test]
         public void FinalPayloadNeverFallsBackToParentSourceIndex()
         {
             string root = Path.Combine(
