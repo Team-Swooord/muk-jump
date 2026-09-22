@@ -8,6 +8,11 @@ namespace MukJump.Core
     public sealed class WindIndicatorView : MonoBehaviour
     {
         public const string WindIconResourcePath = "MukJump/UI/Common/wind_icon_round_v1";
+        // 한지 테두리의 투명 여백과 화살표 회전 반경까지 포함해 왼쪽 공간을 확보한다.
+        static readonly Vector2 ArrowPosition = new(-44f, 0f);
+        static readonly Vector2 ArrowSize = new(36f, 36f);
+        static readonly Vector2 StatePosition = new(30f, 0f);
+        static readonly Vector2 StateSize = new(88f, 60f);
 
         [SerializeField] CanvasGroup rootGroup;
         [SerializeField] RectTransform directionArrow;
@@ -86,8 +91,8 @@ namespace MukJump.Core
                 directionArrow.anchorMin = directionArrow.anchorMax =
                     new Vector2(0.5f, 0.5f);
                 directionArrow.pivot = new Vector2(0.5f, 0.5f);
-                directionArrow.anchoredPosition = new Vector2(-62f, 0f);
-                directionArrow.sizeDelta = new Vector2(40f, 40f);
+                directionArrow.anchoredPosition = ArrowPosition;
+                directionArrow.sizeDelta = ArrowSize;
                 EnsureBrushArrow();
             }
 
@@ -96,8 +101,8 @@ namespace MukJump.Core
                 var rect = stateText.rectTransform;
                 rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
                 rect.pivot = new Vector2(0.5f, 0.5f);
-                rect.anchoredPosition = new Vector2(18f, 0f);
-                rect.sizeDelta = new Vector2(112f, 60f);
+                rect.anchoredPosition = StatePosition;
+                rect.sizeDelta = StateSize;
                 stateText.fontSize = 28;
                 stateText.fontStyle = FontStyle.Bold;
                 stateText.alignment = TextAnchor.MiddleCenter;
@@ -150,13 +155,13 @@ namespace MukJump.Core
             if (directionArrow != null)
             {
                 directionArrow.anchorMin = directionArrow.anchorMax = new Vector2(.5f, .5f);
-                directionArrow.anchoredPosition = new Vector2(-62f, 0f);
-                directionArrow.sizeDelta = new Vector2(40f, 40f);
+                directionArrow.anchoredPosition = ArrowPosition;
+                directionArrow.sizeDelta = ArrowSize;
             }
             if (stateText != null)
             {
-                stateText.rectTransform.anchoredPosition = new Vector2(18f, 0f);
-                stateText.rectTransform.sizeDelta = new Vector2(112f, 60f);
+                stateText.rectTransform.anchoredPosition = StatePosition;
+                stateText.rectTransform.sizeDelta = StateSize;
                 stateText.horizontalOverflow = HorizontalWrapMode.Wrap;
                 stateText.verticalOverflow = VerticalWrapMode.Truncate;
                 var outline = stateText.GetComponent<Outline>();

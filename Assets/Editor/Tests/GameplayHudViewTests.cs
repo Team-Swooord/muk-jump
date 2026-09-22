@@ -11,6 +11,48 @@ using UnityEngine.UI;
 
 public class GameplayHudViewTests
 {
+    [TestCase(320, 568)]
+    [TestCase(393, 852)]
+    [TestCase(568, 900)]
+    public void WindArrowKeepsPaperInsetWhileRotating(int width, int height)
+    {
+        var host = new GameObject("WindPaperInsetTest", typeof(RectTransform));
+        try
+        {
+            var top = (RectTransform)host.transform;
+            top.sizeDelta = new Vector2(900, 148);
+            top.localScale = Vector3.one * GameplayHudView.CalculateTopHudScale(
+                new Rect(0, 0, width, height), width, height);
+            InkHudSurface.Ensure(top, false);
+            var view = BuildWindIndicator(top);
+            var weather = host.AddComponent<WindWeatherController>();
+            // 매 프레임 갱신으로 초기 배치가 테두리 바깥으로 돌아가면 안 된다.
+            typeof(WindIndicatorView).GetMethod("ApplyState", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(view, new object[] { weather });
+            var arrow = (RectTransform)view.transform.Find("DirectionArrow");
+            var label = (RectTransform)view.transform.Find("WindStateText");
+            var paper = (RectTransform)top.Find("HudHanjiCard");
+            var band = RectIn(top, paper);
+            var labelBounds = RectIn(top, label);
+            var corners = new Vector3[4];
+            for (int angle = 0; angle < 360; angle += 15)
+            {
+                arrow.localRotation = Quaternion.Euler(0, 0, angle);
+                arrow.GetWorldCorners(corners);
+                foreach (var corner in corners)
+                {
+                    Vector3 point = top.InverseTransformPoint(corner);
+                    Assert.That(point.x, Is.GreaterThanOrEqualTo(band.xMin + 20f), $"{width}px / {angle}°");
+                    Assert.That(point.x, Is.LessThanOrEqualTo(labelBounds.xMin - 4f));
+                    Assert.That(point.y, Is.InRange(band.yMin + 20f, band.yMax - 20f));
+                }
+            }
+            // 시간 칸의 왼쪽 끝(-282)과 겹치지 않게 하고 기존 배치는 움직이지 않는다.
+            Assert.That(labelBounds.xMax, Is.LessThan(-282f));
+        }
+        finally { Object.DestroyImmediate(host); }
+    }
+
     [TestCase(GameLanguage.Korean)]
     [TestCase(GameLanguage.English)]
     [TestCase(GameLanguage.Japanese)]
