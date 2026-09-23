@@ -718,13 +718,14 @@ namespace MukJump.EditorTests
         [Test]
         public void TossCoreConfigurationMatchesConsoleIdentity()
         {
+            var sdk = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(AppsInToss.AITEditorScriptObject).Assembly);
+            Assert.That(sdk.version, Is.EqualTo(MukJumpAppsInTossSetup.ExpectedAitSdkVersion));
             AppsInToss.AITEditorScriptObject config =
                 AppsInToss.UnityUtil.GetEditorConf();
             Assert.That(config, Is.Not.Null);
             Assert.That(config.appName, Is.EqualTo("mukjump"));
             Assert.That(config.displayName, Is.EqualTo("먹점프"));
             Assert.That(config.primaryColor, Is.EqualTo("#AE1C3C"));
-            Assert.That(config.productionProfile.enableMockBridge, Is.False);
             Assert.That(config.productionProfile.enableDebugConsole, Is.False);
             Assert.That(config.productionProfile.developmentBuild, Is.False);
         }
@@ -943,21 +944,38 @@ namespace MukJump.EditorTests
             }
         }
 
+        [Test]
+        public void ReleasePayloadRequiresSdk350BridgeAndEveryAdApi()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "mukjump-ait-350-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                WriteValidReleasePayload(root);
+                Assert.That(MukJumpAppsInTossSetup.CollectBuiltPayloadIssues(root), Is.Empty);
+                string bridge = Path.Combine(root, "assets", "index.js");
+                File.WriteAllText(bridge, "window.AppsInToss = { loadFullScreenAd: null, TossAds: null };");
+                Assert.That(MukJumpAppsInTossSetup.CollectBuiltPayloadIssues(root), Has.Some.Contains("광고 브리지"));
+                File.Delete(bridge);
+                Assert.That(MukJumpAppsInTossSetup.CollectBuiltPayloadIssues(root), Has.Some.Contains("브리지 번들"));
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
         static void WriteValidReleasePayload(
             string root,
             string extraHtml = "")
         {
             Directory.CreateDirectory(root);
-            string runtime = Path.Combine(root, "Runtime");
+            string runtime = Path.Combine(root, "assets");
             Directory.CreateDirectory(runtime);
             File.WriteAllText(
                 Path.Combine(root, "index.html"),
                 "<html><head>" +
                 MukJumpAppsInTossSetup.CanonicalFullscreenStyle +
-                "</head><body>" + extraHtml + "</body></html>");
+                "<script type=\"module\" src=\"./assets/index.js\"></script></head><body>" + extraHtml + "</body></html>");
             File.WriteAllText(
-                Path.Combine(runtime, "appsintoss-unity-bridge.js"),
-                "var AIT_BUILD_IS_PRODUCTION = 'true';");
+                Path.Combine(runtime, "index.js"),
+                "window.AppsInToss = { loadFullScreenAd: null, showFullScreenAd: null, TossAds: null };");
         }
 
         static void SetPrivateField<T>(object target, string name, T value)

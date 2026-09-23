@@ -158,7 +158,7 @@ export async function verifyArtifact(project, file) {
   const require = createRequire(resolveCliEntry(resolve(project, 'ait-build')));
   const { AITReader } = require('@apps-in-toss/ait-format');
   const bytes = readFileSync(file), reader = AITReader.fromBuffer(bytes), metadata = reader.toAppJson()._metadata;
-  assert.equal(reader.appName, 'mukjump'); assert.equal(metadata.runtimeVersion, '0.84.0'); assert.equal(metadata.sdkVersion, '3.0.1'); assert.equal(reader.permissions.length, 0);
+  assert.equal(reader.appName, 'mukjump'); assert.equal(metadata.runtimeVersion, '0.84.0'); assert.equal(metadata.sdkVersion, '3.5.0'); assert.equal(reader.permissions.length, 0);
   const names = reader.listEntries(); assert.equal(new Set(names).size, names.length);
   const files = new Map(); let webBytes = 0;
   for (const name of names) {
@@ -174,7 +174,10 @@ export async function verifyArtifact(project, file) {
   const html = files.get('sources/index.html')?.toString() ?? '';
   assert(html.includes('100dvh') && html.includes('#EAE3D2'));
   assert(html.includes("if ('false' !== 'true') return"), '디버그 콘솔이 꺼졌는지 확인할 수 없습니다');
-  assert(files.get('sources/Runtime/appsintoss-unity-bridge.js')?.toString().includes("var AIT_BUILD_IS_PRODUCTION = 'true';"));
+  const bridge = files.get('sources/assets/index.js')?.toString() ?? '';
+  assert(html.includes('./assets/index.js') && /window\.AppsInToss\s*=/.test(bridge), 'SDK 3.5 웹 브리지 연결이 없습니다');
+  for (const api of ['loadFullScreenAd', 'showFullScreenAd', 'TossAds']) assert(bridge.includes(api), `광고 API 누락: ${api}`);
+  assert(!names.some(n => /devtools|devconsole|vconsole/i.test(n)), '출시 번들에 개발 도구가 포함됐습니다');
   const dataNames = names.filter(n => /^sources\/Build\/[^/]+\.data\.unityweb$/.test(n)); assert.equal(dataNames.length, 1);
   const webData = readWebData(brotliDecompressSync(files.get(dataNames[0]), { maxOutputLength: LIMIT }));
   const analytics = verifyAnalyticsPayload(webData);

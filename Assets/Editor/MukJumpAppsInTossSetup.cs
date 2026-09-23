@@ -31,6 +31,7 @@ namespace MukJump.EditorTools
             "Assets/WebGLTemplates/AITTemplate/BuildConfig~/ait-patch-cli.mjs";
         public const string FinalWebBundlePath = "ait-build/dist/web";
         public const string ExpectedAitRuntimeVersion = "0.84.0";
+        public const string ExpectedAitSdkVersion = "3.5.0";
         public const string FullscreenStyleId = "mukjump-fullscreen-webgl";
         public const string CanonicalFullscreenStyle =
             "    <style id=\"mukjump-fullscreen-webgl\">\n" +
@@ -283,6 +284,9 @@ namespace MukJump.EditorTools
         public static List<string> CollectReleaseIssues(bool testAdsAllowed = false)
         {
             var issues = new List<string>();
+            var sdk = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(AITEditorScriptObject).Assembly);
+            if (sdk == null || sdk.version != ExpectedAitSdkVersion)
+                issues.Add($"• 검증된 토스 SDK {ExpectedAitSdkVersion}가 필요합니다.");
             AITEditorScriptObject config = UnityUtil.GetEditorConf();
             if (config == null)
                 return new List<string> { "• Apps in Toss Configuration이 없습니다." };
@@ -299,10 +303,9 @@ namespace MukJump.EditorTools
             if (config.primaryColor != "#AE1C3C")
                 issues.Add("• 기본 색상은 #AE1C3C여야 합니다.");
             if (config.productionProfile == null ||
-                config.productionProfile.enableMockBridge ||
                 config.productionProfile.enableDebugConsole ||
                 config.productionProfile.developmentBuild)
-                issues.Add("• Production 프로필의 Mock·디버그·개발 빌드를 꺼야 합니다.");
+                issues.Add("• Production 프로필의 디버그·개발 빌드를 꺼야 합니다.");
             if (!BuildPipeline.IsBuildTargetSupported(
                     BuildTargetGroup.WebGL,
                     BuildTarget.WebGL))
@@ -819,14 +822,20 @@ namespace MukJump.EditorTools
 
                 string bridgePath = Path.Combine(
                     directory,
-                    "Runtime",
-                    "appsintoss-unity-bridge.js");
+                    "assets",
+                    "index.js");
                 if (!File.Exists(bridgePath))
-                    issues.Add("• Production Apps in Toss 브리지 파일이 없습니다.");
-                else if (!File.ReadAllText(bridgePath).Contains(
-                             "var AIT_BUILD_IS_PRODUCTION = 'true';"))
-                    issues.Add(
-                        "• Apps in Toss 브리지가 Production 모드로 치환되지 않았습니다.");
+                    issues.Add("• Apps in Toss 3.5 웹 브리지 번들이 없습니다.");
+                else
+                {
+                    // SDK 3.5는 구 Runtime 파일 대신 Vite 진입점에 브리지를 번들한다.
+                    string bridge = File.ReadAllText(bridgePath);
+                    if (!html.Contains("./assets/index.js") ||
+                        !Regex.IsMatch(bridge, @"window\.AppsInToss\s*=") ||
+                        !bridge.Contains("loadFullScreenAd") || !bridge.Contains("showFullScreenAd") ||
+                        !bridge.Contains("TossAds"))
+                        issues.Add("• Apps in Toss 광고 브리지 연결이 누락되었습니다.");
+                }
             }
             if (html.Contains("if ('true' !== 'true') return"))
                 issues.Add("• 출시 산출물에서 vConsole이 활성화되어 있습니다.");

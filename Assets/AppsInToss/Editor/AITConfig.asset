@@ -32,7 +32,6 @@ MonoBehaviour:
   vitePort: 5173
   outdir: dist
   devServerProfile:
-    enableMockBridge: 1
     enableDebugConsole: 1
     developmentBuild: 1
     enableLZ4Compression: 1
@@ -40,7 +39,6 @@ MonoBehaviour:
     managedStrippingLevel: 1
     debugSymbolsExternal: 0
   productionProfile:
-    enableMockBridge: 0
     enableDebugConsole: 0
     developmentBuild: 0
     enableLZ4Compression: 1
@@ -63,6 +61,7 @@ MonoBehaviour:
   webAssemblyArithmeticExceptions: -1
   enableBuildOptimizationCheck: 0
   firstInteractiveLog: -1
+  playerPrefsPersistence: -1
   permissionConfig:
     clipboardRead: 0
     clipboardWrite: 0
@@ -70,3 +69,7 @@ MonoBehaviour:
     photos: 0
     camera: 0
     geolocation: 0
+  devtools:
+    disableMock: 0
+    hidePanel: 0
+    mcp: 0
