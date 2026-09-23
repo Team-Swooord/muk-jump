@@ -6,6 +6,8 @@ namespace MukJump.Core
     {
         static partial void AddAccount(Dictionary<string, string> values)
         {
+            values["기록 보관 안내"] = "About Your Save";
+            values["스킨·성장·먹빛은 이 기기에 저장돼요\n기기 변경, 토스 앱 삭제 또는 데이터 삭제 시\n기록을 복구할 수 없어요\n다른 기기·앱스토어판과는 연동되지 않아요"] = "Skins, upgrades and Ink Light are saved here\nChanging devices, deleting Toss or clearing\napp data can erase progress with no recovery\nNo sync with other devices or the App Store app";
             values["닉네임"] = "Nickname";
             values["계정 기록을 안전하게 교체하지 못했습니다. 로컬 기록은 보존됩니다"] = "Could not switch account saves safely. Your device save is preserved.";
             values["닉네임 변경"] = "Change Nickname";

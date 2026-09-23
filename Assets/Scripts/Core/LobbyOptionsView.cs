@@ -566,6 +566,17 @@ namespace MukJump.Core
                 account.onClick.AddListener(ShowAccountPage);
                 settingsAccountLabel = account.transform.Find("Paper/Label").GetComponent<Text>();
             }
+            else
+            {
+                // 사용자 식별은 클라우드 저장이 아니다. 토스판에만 보관 범위를 상시 안내한다.
+                CreateReadableText("LocalSaveNoticeTitle", panel, "기록 보관 안내", 38,
+                    new Vector2(0, -206), new Vector2(700, 48),
+                    InkPalette.TextDark, strong: true);
+                CreateReadableText("LocalSaveNotice", panel,
+                    "스킨·성장·먹빛은 이 기기에 저장돼요\n기기 변경, 토스 앱 삭제 또는 데이터 삭제 시\n기록을 복구할 수 없어요\n다른 기기·앱스토어판과는 연동되지 않아요", 32,
+                    new Vector2(0, -354), new Vector2(700, 224),
+                    InkPalette.TextDark);
+            }
             connectionStatus = CreateReadableText("ConnectionStatus", panel, string.Empty, 40,
                 new Vector2(0, -527), new Vector2(700, 70),
                 InkPalette.TextDark, TextAnchor.MiddleCenter);

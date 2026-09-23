@@ -6,6 +6,8 @@ namespace MukJump.Core
     {
         static partial void AddAccount(Dictionary<string, string> v)
         {
+            v["About Your Save"] = "記録の保存について";
+            v["Skins, upgrades and Ink Light are saved here\nChanging devices, deleting Toss or clearing\napp data can erase progress with no recovery\nNo sync with other devices or the App Store app"] = "スキン・成長・墨光はこの端末に保存されます\n機種変更、Tossアプリやデータの削除後は\n記録を復元できません\n他の端末・App Store版とは同期されません";
             v["Could not back up guest progress safely. Try again."] = "ゲスト記録をバックアップできません。再試行してください。";
             v["Keeping your current guest progress."] = "現在のゲスト記録を維持します。";
             v["Nickname"] = "名前";

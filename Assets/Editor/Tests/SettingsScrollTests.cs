@@ -495,6 +495,46 @@ public class SettingsScrollTests
         });
     }
 
+    [TestCase(GameLanguage.Korean)]
+    [TestCase(GameLanguage.English)]
+    [TestCase(GameLanguage.Japanese)]
+    public void TossLocalSaveNoticeIsReadableAndDoesNotClaimCloudOrStoreSync(GameLanguage language)
+    {
+        GameLocalization.SetLanguage(language);
+        WithTossOptions((tossView, tossPanel) =>
+        {
+            var options = tossPanel.Find("OptionsPage");
+            var title = options.Find("LocalSaveNoticeTitle").GetComponent<Text>();
+            var notice = options.Find("LocalSaveNotice").GetComponent<Text>();
+            const string source = "스킨·성장·먹빛은 이 기기에 저장돼요\n기기 변경, 토스 앱 삭제 또는 데이터 삭제 시\n기록을 복구할 수 없어요\n다른 기기·앱스토어판과는 연동되지 않아요";
+            Assert.That(notice.text, Is.EqualTo(GameLocalization.Translate(source)));
+            if (language != GameLanguage.Korean) Assert.That(notice.text, Is.Not.EqualTo(source));
+            Assert.That(title.text, Is.EqualTo(GameLocalization.Translate("기록 보관 안내")));
+            Assert.That(notice.raycastTarget, Is.False);
+            // 기존 일본어 폰트는 넓은 상하 메트릭 때문에 같은 원본 크기를 0.76배로 표시한다.
+            Assert.That(notice.fontSize, Is.EqualTo(language == GameLanguage.Japanese
+                ? Mathf.RoundToInt(32 * .76f) : 32));
+            Canvas.ForceUpdateCanvases();
+            Assert.That(notice.preferredHeight, Is.LessThanOrEqualTo(notice.rectTransform.rect.height + 1));
+            Assert.That(title.preferredWidth, Is.LessThanOrEqualTo(title.rectTransform.rect.width + 1));
+            float Top(RectTransform rect) => rect.anchoredPosition.y + rect.rect.yMax;
+            float Bottom(RectTransform rect) => rect.anchoredPosition.y + rect.rect.yMin;
+            Assert.That(Top(title.rectTransform), Is.LessThan(Bottom((RectTransform)options.Find("GuideButton"))));
+            Assert.That(Top(notice.rectTransform), Is.LessThan(Bottom(title.rectTransform)));
+            // 실패 안내가 떠도 보관 안내와 약관 링크가 서로 겹치지 않는다.
+            foreach (string status in new[] { "언어를 저장하지 못했어요. 다시 시도해 주세요", "" })
+            {
+                typeof(LobbyOptionsView).GetMethod("SetSettingsStatus", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(tossView, new object[] { status });
+                Assert.That(Bottom(notice.rectTransform), Is.GreaterThan(Top((RectTransform)options.Find("ConnectionStatus"))));
+                Assert.That(Bottom(notice.rectTransform), Is.GreaterThan(Top((RectTransform)options.Find("TermsButton"))));
+            }
+        });
+        // 서버 저장이 있는 네이티브판에 잘못된 로컬 전용 안내를 넣지 않는다.
+        Assert.That(page.Find("LocalSaveNotice"), Is.Null);
+        Assert.That(page.Find("LocalSaveNoticeTitle"), Is.Null);
+    }
+
     [Test]
     public void LeaderboardColumnsKeepNamesScoresAndSourceSeparate()
     {
