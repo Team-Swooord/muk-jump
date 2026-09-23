@@ -3,6 +3,26 @@
 이 문서는 출시 뒤 운영 질문에 대한 현재 답이다. 새로운 SDK나 데이터 수집을 추가할 때는
 개인정보처리방침과 스토어 데이터 공개 응답을 먼저 함께 갱신한다.
 
+## 2026-09-23 생성 산출물 정리
+
+- 사용자 지시에 따라 재생성 가능한 `output/ios/DerivedData-AppStore-42`, `output/ios/MukJump`와
+  `Export-AppStore-29/38/40/41`, `Export-SkinDebug-39` 안의 이전 `ProductName.ipa`만 macOS 휴지통으로 옮겼다.
+  내보내기 로그·설정은 유지했다. 최신 `Export-AppStore-42/ProductName.ipa`, Xcode Archives의 기존
+  `.xcarchive`와 최종 dSYM, 서명자료는 보존했다. 다음 iOS 빌드는 Unity 내보내기부터 다시 생성한다.
+- DerivedData의 Archive 중간 dSYM은 최종 Archive와 UUID가 일치한다. 별도 Release 검증 빌드의
+  서로 다른 dSYM 두 개는 `output/release-appstore/2026-09-21-build-42/release-dsyms/`에 보존했다.
+  UnityFramework UUID는 `9B7D69F6-216F-3855-8173-BD9615011D42`, 앱 UUID는
+  `570F9108-3C5F-380E-B119-BFAA80FBADCD`다.
+- `output/qa/pipeline-captures` PNG 중 이름 붙여 보관한 `skin-skills`, `night-secret` 이미지와
+  SHA-256이 같은 중복 43개(24,198,301 bytes)만 휴지통으로 옮겼다. Git 추적 문서·소스에서
+  개별 파일명을 참조한 파일은 제외했다. 폐기 이미지 없이 남은 `output/qa/ink-skins/rejected-art`
+  메타 파일 3개도 정리했다. 나머지 검증 원본·로그·제출 이미지·소스는 그대로다.
+- 프로젝트 안 점유량은 약 8.88 GiB(9.53 GB) 줄었다. 휴지통은 비우지 않았으므로 복구할 수 있으며,
+  동일 디스크의 실제 여유 공간이 그만큼 늘었다는 의미는 아니다. `.git` 이력과 Unity Library는 삭제하지 않았다.
+- 최신 토스 `ait-build/mukjump.ait`는 정리 전후 SHA-256
+  `f1aeb227f6d2b1611458e98b3bdb33231aa5fd98eabb2417b8e66e166545264f`가 같고,
+  `output/qa/toss-exposure` 검증 자료를 보존했다. 정리만을 이유로 새 빌드·업로드를 반복하지 않았다.
+
 ## 지표와 개인정보
 
 - 1.0은 계정에 연결되는 자체 행동 분석 SDK를 넣지 않는다.
