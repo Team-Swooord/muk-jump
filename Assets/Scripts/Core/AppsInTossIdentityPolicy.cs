@@ -82,12 +82,6 @@ namespace MukJump.Core
             return false;
         }
 
-        public static bool IsGameCenterProfileReady(string statusCode) =>
-            string.Equals(
-                statusCode?.Trim(),
-                "SUCCESS",
-                StringComparison.OrdinalIgnoreCase);
-
         public static AppsInTossOwnerBindingDecision ResolveOwnerBinding(
             string storedHash,
             string incomingHash)

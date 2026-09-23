@@ -7132,21 +7132,9 @@ namespace MukJump.Core
                     return;
                 }
 
-                GameCenterGameProfileResponse profile =
-                    await AIT.GetGameCenterGameProfile(
-                        IdentityApiTimeoutMilliseconds);
-                if (!IsCurrentResolution(generation))
-                    return;
-                if (profile == null ||
-                    !AppsInTossIdentityPolicy.IsGameCenterProfileReady(
-                        profile.StatusCode))
-                {
-                    FailIdentityResolution(
-                        generation,
-                        "토스 게임센터 프로필을 확인한 뒤 다시 시도해 주세요");
-                    return;
-                }
-
+                // 게임별 HASH가 기록 소유자다. 선택적인 게임센터 프로필(닉네임/사진)이
+                // 없거나 조회에 실패해도 시작·성장·꾸미기를 차단하면 안 된다.
+                // 순위 표시/제출은 AppsInTossGameCenterRuntime에서 별도로 처리한다.
                 if (!AppsInTossIdentityPolicy.TryBindVerifiedIdentity(
                         userHash,
                         out AppsInTossOwnerBindingDecision decision))

@@ -286,19 +286,22 @@ namespace MukJump.EditorTests
             Assert.That(userHash, Is.EqualTo(expectedHash));
         }
 
-        [TestCase("SUCCESS", true)]
-        [TestCase(" success ", true)]
-        [TestCase("PROFILE_NOT_FOUND", false)]
-        [TestCase("ERROR", false)]
-        [TestCase(null, false)]
-        public void TossGameCenterProfileMustReturnExplicitSuccess(
-            string statusCode,
-            bool expected)
+        [Test]
+        public void TossStartupDoesNotRequireOptionalGameCenterProfile()
         {
-            Assert.That(
-                AppsInTossIdentityPolicy.IsGameCenterProfileReady(
-                    statusCode),
-                Is.EqualTo(expected));
+            // WebGL 전용 분기는 Editor 검사에서 제외되므로 실제 배포 소스의 의존성도 검사한다.
+            string source = File.ReadAllText("Assets/Scripts/Core/MukJumpAccountRuntime.cs");
+            int start = source.LastIndexOf("async void BeginIdentityResolution()", StringComparison.Ordinal);
+            Assert.That(start, Is.GreaterThan(0));
+            string startup = source.Substring(start, source.IndexOf("bool IsCurrentResolution", start,
+                StringComparison.Ordinal) - start);
+            Assert.That(startup, Does.Contain("AIT.GetUserKeyForGame("));
+            Assert.That(startup, Does.Contain("TryBindVerifiedIdentity("));
+            Assert.That(startup, Does.Contain("TryReloadAfterAppsInTossIdentity()"));
+            Assert.That(startup, Does.Contain("MukJumpAccountPhase.OnlineReady"));
+            Assert.That(startup, Does.Not.Contain("GetGameCenterGameProfile"),
+                "프로필 미생성/조회 실패가 게임 시작을 막으면 안 된다");
+            Assert.That(startup, Does.Not.Contain("IsGameCenterProfileReady"));
         }
 
         [TestCase(

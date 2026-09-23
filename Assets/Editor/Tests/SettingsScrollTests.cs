@@ -627,6 +627,57 @@ public class SettingsScrollTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(bool outside)
+    {
+        var accountHost = new GameObject("BlockedTossIdentityTests");
+        accountHost.SetActive(false);
+        var account = accountHost.AddComponent<MukJumpAccountRuntime>();
+        var instance = typeof(MukJumpAccountRuntime).GetProperty("Instance");
+        object previous = instance.GetValue(null);
+        try
+        {
+            instance.SetValue(null, account);
+            typeof(MukJumpAccountRuntime).GetProperty("Phase").SetValue(account, MukJumpAccountPhase.Connecting);
+            Assert.That(account.BlocksGameplayForAccountSync, Is.True);
+            WithTossOptions((tossView, tossPanel) =>
+            {
+                tossView.OpenTutorialForTests();
+                typeof(LobbyOptionsView).GetMethod("ShowAccountPage", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(tossView, null);
+                typeof(LobbyOptionsView).GetMethod("ApplyTossIdentityState", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(tossView, new object[] { false, false, "사용자 정보를 확인하지 못했습니다" });
+                Assert.That(tossView.IsAccountOpen, Is.True);
+                if (outside)
+                {
+                    Canvas.ForceUpdateCanvases();
+                    var dim = tossPanel.parent.parent.Find("InkDim").GetComponent<EventTrigger>();
+                    dim.OnPointerClick(new PointerEventData(null)
+                    {
+                        button = PointerEventData.InputButton.Left,
+                        position = new Vector2(-1000, -1000),
+                        pressPosition = new Vector2(-1000, -1000),
+                    });
+                }
+                else tossPanel.Find("AccountPage/CloseTossIdentity").GetComponent<Button>().onClick.Invoke();
+                Assert.That(tossView.IsOpen, Is.False, "실패 안내에서 로비로 돌아갈 수 있어야 한다");
+                Assert.That(account.BlocksGameplayForAccountSync, Is.True, "닫기로 미검증 기록을 열면 안 된다");
+                Assert.That(account.HasVerifiedAppsInTossIdentity, Is.False);
+            });
+
+            // 네이티브의 실제 계정 충돌/동기화 잠금은 변경하지 않는다.
+            view.OpenTutorialForTests();
+            view.Close();
+            Assert.That(view.IsOpen, Is.True);
+        }
+        finally
+        {
+            Object.DestroyImmediate(accountHost);
+            instance.SetValue(null, previous);
+        }
+    }
+
     static void WithTossOptions(System.Action<LobbyOptionsView, Transform> inspect)
     {
         var tossHost = new GameObject("TossSettingsTests");

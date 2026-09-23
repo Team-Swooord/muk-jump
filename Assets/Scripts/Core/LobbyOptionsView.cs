@@ -312,7 +312,9 @@ namespace MukJump.Core
         public void Close()
         {
             if (IsDeleteConfirmationOpen) { CancelDeleteConfirmation(); return; }
-            if (MukJumpAccountRuntime.Instance != null &&
+            // 토스의 기록 확인 창을 닫는 것은 소유자 검증을 건너뛰는 것이 아니다.
+            // 시작/성장 진입의 안전 잠금은 런타임에 남기되 오류 안내에 사용자를 가두지 않는다.
+            if (!UsesTossSettings && MukJumpAccountRuntime.Instance != null &&
                 MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
                 return;
             if (!IsOpen) return;
@@ -813,6 +815,9 @@ namespace MukJump.Core
                 new Vector2(0, -170), new Vector2(390, 120), 52);
             tossIdentityRetry.onClick.AddListener(() =>
                 MukJumpAccountRuntime.Instance?.RetryPendingProfileResolution());
+            CreatePaperButton("CloseTossIdentity", panel, "닫기",
+                new Vector2(0, -350), new Vector2(390, 120), 52)
+                .onClick.AddListener(Close);
             RefreshTossIdentityState();
         }
 

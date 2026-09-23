@@ -103,12 +103,17 @@ export function verifyNunit(xml, notBefore) {
   const run = attributes(xml.match(/<test-run\b[^>]*>/)?.[0] ?? '');
   assert.equal(run.result, 'Passed', 'Unity 테스트 미완료/실패');
   const total = Number(run.total), passed = Number(run.passed);
-  assert(total >= 547 && passed === total && Number(run.failed) === 0 && Number(run.skipped) === 0 && Number(run.inconclusive) === 0, '테스트 누락/실패/건너뜀');
+  // 잘못된 게임센터 필수 조건 5건을 제거하고 시작/닫힘 회귀 3건으로 교체했다.
+  assert(total >= 545 && passed === total && Number(run.failed) === 0 && Number(run.skipped) === 0 && Number(run.inconclusive) === 0, '테스트 누락/실패/건너뜀');
   const time = Date.parse(run['start-time']?.replace(' ', 'T'));
   assert(Number.isFinite(notBefore) && time >= notBefore - 1000, '이전 실행의 테스트 결과입니다');
   const cases = [...xml.matchAll(/<test-case\b[^>]*>/g)].map(m => attributes(m[0]));
   assert.equal(cases.length, total, '실제 실행 개수 불일치'); assert(cases.every(c => c.result === 'Passed'));
   for (const suite of SUITES) assert(cases.some(c => c.fullname?.includes(suite + 'Tests.')), `${suite} 검사 없음`);
+  for (const name of ['TossStartupDoesNotRequireOptionalGameCenterProfile',
+    'TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(False)',
+    'TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(True)'])
+    assert(cases.some(c => c.fullname?.includes(name)), `${name} 회귀 검사 없음`);
   return { total, passed, failed: 0, skipped: 0, startedAt: run['start-time'], suites: SUITES };
 }
 

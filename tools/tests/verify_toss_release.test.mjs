@@ -56,10 +56,16 @@ test('이전·실패·건너뛴 결과 또는 일부 검사만으로 성공 처�
 
 test('실제 검사 목록이 모두 있을 때만 최신 결과를 인정한다', () => {
   const suites = ['AppsInTossRelease', 'AppsInTossExit', 'TossPopupLayout', 'ApplicationPauseBoundary', 'MonetizationPolicy', 'MobileUiLayout', 'GameplayBannerLayout', 'GameplayHudView', 'PauseMenuView', 'SettingsScroll', 'PermanentGrowthProfile', 'ScoreManagerRecord', 'FirstRunTutorial', 'StartupBrandSplash'];
-  const header = '<test-run result="Passed" total="547" passed="547" failed="0" skipped="0" inconclusive="0" start-time="2026-09-23 00:00:00Z">';
-  const cases = Array.from({ length: 547 }, (_, i) => `<test-case fullname="${suites[i % suites.length]}Tests.Case${i}" result="Passed"/>`).join('');
+  const header = '<test-run result="Passed" total="545" passed="545" failed="0" skipped="0" inconclusive="0" start-time="2026-09-23 00:00:00Z">';
+  const cases = Array.from({ length: 542 }, (_, i) => `<test-case fullname="${suites[i % suites.length]}Tests.Case${i}" result="Passed"/>`).join('') +
+    ['AppsInTossReleaseTests.TossStartupDoesNotRequireOptionalGameCenterProfile',
+      'SettingsScrollTests.TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(False)',
+      'SettingsScrollTests.TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(True)']
+      .map(name => `<test-case fullname="${name}" result="Passed"/>`).join('');
   const xml = header + cases + '</test-run>', since = Date.parse('2026-09-22T23:59:59Z');
-  assert.equal(verifyNunit(xml, since).passed, 547);
+  assert.equal(verifyNunit(xml, since).passed, 545);
+  assert.throws(() => verifyNunit(xml.replaceAll('TossStartupDoesNotRequireOptionalGameCenterProfile', 'UnrelatedTest'), since));
+  assert.throws(() => verifyNunit(xml.replaceAll('TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(True)', 'UnrelatedTest'), since));
   assert.throws(() => verifyNunit(xml.replaceAll('ScoreManagerRecordTests', 'ScoreManagerWrongTests'), since));
   assert.throws(() => verifyNunit(xml, Date.parse('2026-09-24T00:00:00Z')));
 });
