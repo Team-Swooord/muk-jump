@@ -17,7 +17,7 @@ const NATIVE = ['MukJumpBackendSettings', 'MukJumpGoogleAdsSettings', 'MukJumpAn
 const NA = new Set([20, 22, 23, 30, 31, 36, 37, 38, 39, 40, 41, 42, 43, 44, 55, 56, 57, 58, 59, 60]);
 // 코드/산출물 검사만으로 확인 가능한 항목. 나머지는 실제 토스 앱 증거가 필요하다.
 const CODE_ONLY = new Set([3, 12, 13, 17, 18, 19, 25, 48, 50]);
-const SUITES = ['AppsInTossRelease', 'AppsInTossExit', 'TossPopupLayout', 'ApplicationPauseBoundary', 'MonetizationPolicy', 'MobileUiLayout', 'GameplayBannerLayout', 'GameplayHudView', 'PauseMenuView', 'SettingsScroll', 'PermanentGrowthProfile', 'ScoreManagerRecord', 'FirstRunTutorial', 'StartupBrandSplash'];
+const SUITES = ['AppsInTossRelease', 'AppsInTossExit', 'AppsInTossAnalytics', 'FirebaseAnalytics', 'TossPopupLayout', 'ApplicationPauseBoundary', 'MonetizationPolicy', 'MobileUiLayout', 'GameplayBannerLayout', 'GameplayHudView', 'PauseMenuView', 'SettingsScroll', 'PermanentGrowthProfile', 'ScoreManagerRecord', 'FirstRunTutorial', 'StartupBrandSplash'];
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const align = n => Math.ceil(n / 4) * 4;
 
@@ -103,8 +103,8 @@ export function verifyNunit(xml, notBefore) {
   const run = attributes(xml.match(/<test-run\b[^>]*>/)?.[0] ?? '');
   assert.equal(run.result, 'Passed', 'Unity 테스트 미완료/실패');
   const total = Number(run.total), passed = Number(run.passed);
-  // 잘못된 게임센터 필수 조건 5건을 제거하고 시작/닫힘 회귀 3건으로 교체했다.
-  assert(total >= 545 && passed === total && Number(run.failed) === 0 && Number(run.skipped) === 0 && Number(run.inconclusive) === 0, '테스트 누락/실패/건너뜀');
+  // 시작/닫힘 회귀에 토스 전환 지표와 네이티브 분석 동의 경계 검사를 더한다.
+  assert(total >= 588 && passed === total && Number(run.failed) === 0 && Number(run.skipped) === 0 && Number(run.inconclusive) === 0, '테스트 누락/실패/건너뜀');
   const time = Date.parse(run['start-time']?.replace(' ', 'T'));
   assert(Number.isFinite(notBefore) && time >= notBefore - 1000, '이전 실행의 테스트 결과입니다');
   const cases = [...xml.matchAll(/<test-case\b[^>]*>/g)].map(m => attributes(m[0]));
@@ -138,6 +138,18 @@ function unity(project, cli, command, args = []) {
   return result;
 }
 
+export function verifyAnalyticsPayload(webData) {
+  const initializers = JSON.parse(webData.get('RuntimeInitializeOnLoads.json')?.toString() ?? '{}');
+  assert(initializers.root?.some(entry => entry.assemblyName === 'Assembly-CSharp' &&
+    entry.nameSpace === 'MukJump.Core' && entry.className === 'AppsInTossAnalyticsRuntime' &&
+    entry.methodName === 'Bootstrap' && entry.loadTypes === 1), '번들에 토스 분석 시작 연결이 없습니다');
+  const metadata = webData.get('Il2CppData/Metadata/global-metadata.dat');
+  const events = ['mukjump_screen_view', 'mukjump_run_started', 'mukjump_first_stroke',
+    'mukjump_run_completed', 'mukjump_tutorial_completed', 'mukjump_growth_completed'];
+  for (const name of events) assert(metadata?.includes(Buffer.from(name)), `번들에 지표 이벤트 없음: ${name}`);
+  return { runtimeBootstrap: true, events };
+}
+
 export async function verifyArtifact(project, file) {
   const require = createRequire(resolveCliEntry(resolve(project, 'ait-build')));
   const { AITReader } = require('@apps-in-toss/ait-format');
@@ -161,8 +173,9 @@ export async function verifyArtifact(project, file) {
   assert(files.get('sources/Runtime/appsintoss-unity-bridge.js')?.toString().includes("var AIT_BUILD_IS_PRODUCTION = 'true';"));
   const dataNames = names.filter(n => /^sources\/Build\/[^/]+\.data\.unityweb$/.test(n)); assert.equal(dataNames.length, 1);
   const webData = readWebData(brotliDecompressSync(files.get(dataNames[0]), { maxOutputLength: LIMIT }));
+  const analytics = verifyAnalyticsPayload(webData);
   const assets = readUnityFs(webData.get('data.unity3d')); const ads = inspectResources(assets.get('resources.assets'));
-  return { path: file, bytes: bytes.length, sha256: sha(bytes), webBytes, deploymentId: reader.deploymentId, runtimeVersion: metadata.runtimeVersion, sdkVersion: metadata.sdkVersion, ads, production: true, nativeSettingsIncluded: false };
+  return { path: file, bytes: bytes.length, sha256: sha(bytes), webBytes, deploymentId: reader.deploymentId, runtimeVersion: metadata.runtimeVersion, sdkVersion: metadata.sdkVersion, ads, analytics, production: true, nativeSettingsIncluded: false };
 }
 
 async function main() {

@@ -403,6 +403,10 @@ VFX·사운드·코드 제작 과정과 `docs/ai-usage-log.md`에 기록된 사�
   `MukJumpAnalytics`는 SDK와 분리된 타입 제한 이벤트/판별 합계, `FirebaseAnalyticsRuntime`은
   네이티브 전용 비차단 초기화·선택 동의를 처리한다. 기본 수집 거부, 에디터·토스는 네이티브 호출 금지,
   Development 기본 비활성이다. UUID·닉네임·원문 오류는 분석에 넣지 않는다.
+  앱인토스 Release WebGL은 `AppsInTossAnalyticsRuntime`으로 토스 분석만 연결한다.
+  화면·판 시작·첫 먹선·저장된 판 완료·튜토리얼 완료·성장 완료만 허용하며 HASH도 보내지 않는다.
+  완료 전환은 `mukjump_run_completed`, 중도 이탈·부활 대기·복원은 완료로 세지 않는다.
+  32개 대기열과 5초 SDK 제한으로 게임을 막지 않으며 미확인 응답을 자동 재전송하지 않는다.
   설정의 개인정보 링크는 네이티브에서 분석 선택+전문 링크 두루마리를 열며 dim으로 설정 복귀한다.
   Firebase `mukjump-3751d`의 iOS·Android 구성 파일을 `Assets/`에 연결했다. 기기 수신·DebugView는 아직 미검증이다.
   네이티브 빌드 전 Bundle 일치 검증을 강제하며, 현재 빌드·업로드는 사용자 요청으로 중단 상태다.

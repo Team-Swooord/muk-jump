@@ -134,7 +134,7 @@ namespace MukJump.EditorTools
                 return;
             }
             if (requestScope == "toss-release-checklist") Run(new[] {
-                @"^(MukJump\.EditorTests\.)?(AppsInTossRelease|AppsInTossExit|TossPopupLayout|ApplicationPauseBoundary|MonetizationPolicy|MobileUiLayout|GameplayBannerLayout|GameplayHudView|PauseMenuView|SettingsScroll|PermanentGrowthProfile|ScoreManagerRecord|FirstRunTutorial|StartupBrandSplash)Tests\." });
+                @"^(MukJump\.EditorTests\.)?(AppsInTossRelease|AppsInTossExit|AppsInTossAnalytics|FirebaseAnalytics|TossPopupLayout|ApplicationPauseBoundary|MonetizationPolicy|MobileUiLayout|GameplayBannerLayout|GameplayHudView|PauseMenuView|SettingsScroll|PermanentGrowthProfile|ScoreManagerRecord|FirstRunTutorial|StartupBrandSplash)Tests\." });
             else if (renderOnly) Run(new[] { @"^MukJump\.EditorTools\.LeaderboardRenderFixtureTests\." });
             else if (requestScope == "account-legacy-recovery") Run(new[] {
                 @"^MukJump\.EditorTests\.(MukJumpAccount|PermanentGrowthProfile|PermanentGrowthV8|PermanentGrowthTreeProfile|NicknameIdentity)Tests\." });
