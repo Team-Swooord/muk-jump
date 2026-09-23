@@ -104,7 +104,7 @@ export function verifyNunit(xml, notBefore) {
   assert.equal(run.result, 'Passed', 'Unity 테스트 미완료/실패');
   const total = Number(run.total), passed = Number(run.passed);
   // 시작/닫힘 회귀에 토스 전환 지표와 네이티브 분석 동의 경계 검사를 더한다.
-  assert(total >= 588 && passed === total && Number(run.failed) === 0 && Number(run.skipped) === 0 && Number(run.inconclusive) === 0, '테스트 누락/실패/건너뜀');
+  assert(total >= 594 && passed === total && Number(run.failed) === 0 && Number(run.skipped) === 0 && Number(run.inconclusive) === 0, '테스트 누락/실패/건너뜀');
   const time = Date.parse(run['start-time']?.replace(' ', 'T'));
   assert(Number.isFinite(notBefore) && time >= notBefore - 1000, '이전 실행의 테스트 결과입니다');
   const cases = [...xml.matchAll(/<test-case\b[^>]*>/g)].map(m => attributes(m[0]));
@@ -112,7 +112,8 @@ export function verifyNunit(xml, notBefore) {
   for (const suite of SUITES) assert(cases.some(c => c.fullname?.includes(suite + 'Tests.')), `${suite} 검사 없음`);
   for (const name of ['TossStartupDoesNotRequireOptionalGameCenterProfile',
     'TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(False)',
-    'TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(True)'])
+    'TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(True)',
+    'HapticDiagnostic', 'TossRewardOutcomeKeepsEarnedRewardWhenDisposedBeforeDismissal'])
     assert(cases.some(c => c.fullname?.includes(name)), `${name} 회귀 검사 없음`);
   return { total, passed, failed: 0, skipped: 0, startedAt: run['start-time'], suites: SUITES };
 }
@@ -145,9 +146,12 @@ export function verifyAnalyticsPayload(webData) {
     entry.methodName === 'Bootstrap' && entry.loadTypes === 1), '번들에 토스 분석 시작 연결이 없습니다');
   const metadata = webData.get('Il2CppData/Metadata/global-metadata.dat');
   const events = ['mukjump_screen_view', 'mukjump_run_started', 'mukjump_first_stroke',
-    'mukjump_run_completed', 'mukjump_tutorial_completed', 'mukjump_growth_completed'];
+    'mukjump_run_completed', 'mukjump_tutorial_completed', 'mukjump_growth_completed',
+    'mukjump_rewarded_ad_flow', 'mukjump_rewarded_ad_outcome'];
   for (const name of events) assert(metadata?.includes(Buffer.from(name)), `번들에 지표 이벤트 없음: ${name}`);
-  return { runtimeBootstrap: true, events };
+  const parameters = ['duration_seconds', 'stroke_count'];
+  for (const name of parameters) assert(metadata?.includes(Buffer.from(name)), `번들에 지표 매개변수 없음: ${name}`);
+  return { runtimeBootstrap: true, events, parameters };
 }
 
 export async function verifyArtifact(project, file) {
@@ -201,6 +205,11 @@ async function main() {
   } catch (error) { report.errors.push(error.message); }
   report.checklist = checklistRows(readFileSync(resolve(project, 'docs/store/apps-in-toss-game-checklist.md'), 'utf8'), report.automatedPassed);
   report.remaining = report.checklist.filter(r => r.status === 'device_or_manual_evidence_required' || r.status === 'blocked').map(r => r.id);
+  report.partialInternalEvidence = {
+    simulatorVerifiedPortion: [9, 11, 28],
+    internalPolicyReviewedPortion: [27, 46],
+    note: '각 행의 일부 내부 증거만 표시한다. 토스 호스트·실광고·실기기 미확인 조건은 remaining에 유지한다.'
+  };
   // 이 도구는 OS 무음·실제 광고·기기 재접속 증거를 만들 수 없다. 출시 승인으로 사용 금지.
   report.releaseReady = report.automatedPassed && report.remaining.length === 0;
   mkdirSync(dirname(out), { recursive: true }); writeFileSync(out, JSON.stringify(report, null, 2) + '\n');

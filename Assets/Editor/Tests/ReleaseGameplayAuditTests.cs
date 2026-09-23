@@ -143,6 +143,9 @@ namespace MukJump.EditorTests
             {
                 yield return SceneManager.LoadSceneAsync("Main");
                 yield return WaitReal(.8f);
+                Assert.That(Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None)
+                    .Count(listener => listener.isActiveAndEnabled), Is.EqualTo(1),
+                    "Main의 오디오 풀 재생 전 활성 리스너가 정확히 하나여야 한다.");
                 var pool = VfxAudioManager.Instance;
                 Assert.That(pool, Is.Not.Null);
                 clip = AudioClip.Create("SilentPoolRegression", 22050 * 2, 1, 22050, false);
@@ -376,7 +379,7 @@ namespace MukJump.EditorTests
                         Assert.That(manager.State, Is.EqualTo(GameState.GameOver));
                         Click(Object.FindAnyObjectByType<GameOverPopupView>(), "lobbyButton");
                     }
-                    yield return WaitForLobby();
+                    yield return WaitForLobby(true);
                     // 도착 순간만 검사하지 않고 자동 시작 Update와 전환 시간보다 오래 기다린다.
                     double idleUntil = Time.realtimeSinceStartupAsDouble + 4;
                     while (Time.realtimeSinceStartupAsDouble < idleUntil)
@@ -596,14 +599,39 @@ namespace MukJump.EditorTests
                 Is.True, "붓 덮기→암전 유지→드러남 이후 실제 물리 플레이가 시작돼야 한다");
         }
 
-        static IEnumerator WaitForLobby()
+        static IEnumerator WaitForLobby(bool acknowledgeSkinUnlock = false)
         {
-            double deadline = Time.realtimeSinceStartupAsDouble + 12;
-            do { yield return WaitReal(.1f); }
+            double startedAt = Time.realtimeSinceStartupAsDouble;
+            int startedFrame = Time.frameCount;
+            int unlockFrames = 0;
+            double deadline = startedAt + (acknowledgeSkinUnlock ? 25 : 12);
+            do
+            {
+                yield return WaitReal(.1f);
+                if (acknowledgeSkinUnlock && SceneManager.GetActiveScene().name == SkinUnlockSceneController.SceneName)
+                {
+                    unlockFrames++;
+                    Object.FindAnyObjectByType<InkSkinUnlockView>()?.AcknowledgeAll();
+                }
+            }
             while (Time.realtimeSinceStartupAsDouble < deadline && (GameManager.Instance == null ||
                 GameManager.Instance.State != GameState.Lobby || GameManager.Instance.IsTransitioning));
+            var unlock = Object.FindAnyObjectByType<InkSkinUnlockView>();
+            var unlockContext = unlock != null && (bool)unlock.GetType()
+                .GetMethod("IsCurrentContext", Private).Invoke(unlock, null);
             Assert.That(GameManager.Instance != null && GameManager.Instance.State == GameState.Lobby &&
-                !GameManager.Instance.IsTransitioning, Is.True, "두루마리 닫힘→붓 덮기→실제 씬 로드→드러남 완료");
+                !GameManager.Instance.IsTransitioning, Is.True,
+                $"두루마리 닫힘→붓 덮기→실제 씬 로드→드러남 완료: " +
+                $"scene={SceneManager.GetActiveScene().name}, " +
+                $"state={GameManager.Instance?.State}, transitioning={GameManager.Instance?.IsTransitioning}, " +
+                $"unlockOpen={unlock?.IsOpen}, unlockContext={unlockContext}, " +
+                $"appActive={MobileApplicationLifecycle.IsApplicationActive}, " +
+                $"frames={Time.frameCount - startedFrame}, unlockPolls={unlockFrames}");
+            if (acknowledgeSkinUnlock)
+                Debug.Log($"[MukJump] 의상 공개 후 로비 복귀: " +
+                    $"{Time.realtimeSinceStartupAsDouble - startedAt:F1}s, " +
+                    $"{Time.frameCount - startedFrame} frames, " +
+                    $"{unlockFrames} unlock polls");
         }
 
         static IEnumerator WaitReal(float seconds)

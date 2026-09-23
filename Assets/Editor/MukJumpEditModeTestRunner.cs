@@ -134,7 +134,11 @@ namespace MukJump.EditorTools
                 return;
             }
             if (requestScope == "toss-release-checklist") Run(new[] {
-                @"^(MukJump\.EditorTests\.)?(AppsInTossRelease|AppsInTossExit|AppsInTossAnalytics|FirebaseAnalytics|TossPopupLayout|ApplicationPauseBoundary|MonetizationPolicy|MobileUiLayout|GameplayBannerLayout|GameplayHudView|PauseMenuView|SettingsScroll|PermanentGrowthProfile|ScoreManagerRecord|FirstRunTutorial|StartupBrandSplash)Tests\." });
+                @"^(MukJump\.EditorTests\.)?(AppsInTossRelease|AppsInTossExit|AppsInTossAnalytics|FirebaseAnalytics|TossPopupLayout|ApplicationPauseBoundary|MonetizationPolicy|MobileUiLayout|GameplayBannerLayout|GameplayHudView|PauseMenuView|SettingsScroll|PermanentGrowthProfile|ScoreManagerRecord|FirstRunTutorial|StartupBrandSplash)Tests\.",
+                @"^MukJump\.EditorTests\.MobileFeedbackPolishTests\.HapticDiagnostic" });
+            else if (requestScope == "toss-simulator-play") Run(new[] {
+                @"^MukJump\.EditorTests\.ReleaseGameplayAuditTests\.(AudioPoolStopsAndRecoversInRealMainScene|FreshGuestLogoutReturnsThroughSplashBeforePausedTutorial|IncompleteTutorialNeverAutoRestartsAfterResultOrPauseExit)$",
+                @"^MukJump\.EditorTests\.InkShowroomPlayTests\.(MenuBannersRemainVisibleWithoutCoveringWardrobeOrOptions|ShowroomRendersBrowsingEquipAndCloseInRealMainWithoutServerWrites)$" });
             else if (renderOnly) Run(new[] { @"^MukJump\.EditorTools\.LeaderboardRenderFixtureTests\." });
             else if (requestScope == "account-legacy-recovery") Run(new[] {
                 @"^MukJump\.EditorTests\.(MukJumpAccount|PermanentGrowthProfile|PermanentGrowthV8|PermanentGrowthTreeProfile|NicknameIdentity)Tests\." });

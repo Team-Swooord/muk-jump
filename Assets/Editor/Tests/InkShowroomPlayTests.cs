@@ -650,6 +650,7 @@ namespace MukJump.EditorTests
                 yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1.2f);
                 Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby));
                 Assert.That(MukJumpAccountRuntime.Instance == null || !MukJumpAccountRuntime.Instance.IsOnlineAuthenticated, Is.True);
+                Assert.That(SkinDebugSession.SetAllUnlocked(true), Is.True);
                 var lobby = Object.FindAnyObjectByType<LobbyView>();
                 Assert.That(lobby.WardrobeButton.transform.position.y, Is.GreaterThan(lobby.OptionsButton.transform.position.y));
                 yield return Capture("lobby");
@@ -685,14 +686,17 @@ namespace MukJump.EditorTests
                 }
                 foreach(var tall in new[]{InkSkinId.PhoenixCrown,InkSkinId.InkGhost})
                 {
-                    Assert.That(InkSkinAchievements.IsUnlocked(tall), Is.True);
+                    Assert.That(SkinDebugSession.CanEquip(tall), Is.True,
+                        "시각 검증용 해금은 실제 업적 저장과 분리한다.");
                     view.Select(tall); yield return Wait(.6f); yield return Capture("tall-rest-"+tall);
+                    Assert.That(view.Selected, Is.EqualTo(tall));
                     view.StepSelection(1); yield return Wait(.06f); yield return Capture("tall-change-"+tall);
                     yield return Wait(.6f);
                 }
                 view.Select(InkSkinId.Gat); yield return Wait(.6f);
                 view.Paper.Find("ShowroomStage/NextCostume").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
-                Assert.That(view.Selected, Is.EqualTo(InkSkinId.SpiderMask));
+                Assert.That(view.Selected, Is.Not.EqualTo(InkSkinId.Gat));
+                Assert.That(SkinDebugSession.CanEquip(view.Selected), Is.True);
                 Assert.That(view.Presentation.IsPlaying, Is.True);
                 yield return Wait(.06f); yield return Capture("arrow-change-start");
                 yield return Wait(.07f); yield return Capture("arrow-change-settle");
@@ -731,6 +735,7 @@ namespace MukJump.EditorTests
             }
             finally
             {
+                SkinDebugSession.Reset();
                 Application.runInBackground=oldBackground;
                 InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
                 PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();

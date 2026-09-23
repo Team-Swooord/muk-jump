@@ -56,14 +56,16 @@ test('이전·실패·건너뛴 결과 또는 일부 검사만으로 성공 처�
 
 test('실제 검사 목록이 모두 있을 때만 최신 결과를 인정한다', () => {
   const suites = ['AppsInTossRelease', 'AppsInTossExit', 'AppsInTossAnalytics', 'FirebaseAnalytics', 'TossPopupLayout', 'ApplicationPauseBoundary', 'MonetizationPolicy', 'MobileUiLayout', 'GameplayBannerLayout', 'GameplayHudView', 'PauseMenuView', 'SettingsScroll', 'PermanentGrowthProfile', 'ScoreManagerRecord', 'FirstRunTutorial', 'StartupBrandSplash'];
-  const header = '<test-run result="Passed" total="588" passed="588" failed="0" skipped="0" inconclusive="0" start-time="2026-09-23 00:00:00Z">';
-  const cases = Array.from({ length: 585 }, (_, i) => `<test-case fullname="${suites[i % suites.length]}Tests.Case${i}" result="Passed"/>`).join('') +
+  const header = '<test-run result="Passed" total="594" passed="594" failed="0" skipped="0" inconclusive="0" start-time="2026-09-23 00:00:00Z">';
+  const cases = Array.from({ length: 589 }, (_, i) => `<test-case fullname="${suites[i % suites.length]}Tests.Case${i}" result="Passed"/>`).join('') +
     ['AppsInTossReleaseTests.TossStartupDoesNotRequireOptionalGameCenterProfile',
       'SettingsScrollTests.TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(False)',
-      'SettingsScrollTests.TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(True)']
+      'SettingsScrollTests.TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(True)',
+      'MobileFeedbackPolishTests.HapticDiagnosticShowsSettingGateAndDuplicateLanding',
+      'MonetizationPolicyTests.TossRewardOutcomeKeepsEarnedRewardWhenDisposedBeforeDismissal']
       .map(name => `<test-case fullname="${name}" result="Passed"/>`).join('');
   const xml = header + cases + '</test-run>', since = Date.parse('2026-09-22T23:59:59Z');
-  assert.equal(verifyNunit(xml, since).passed, 588);
+  assert.equal(verifyNunit(xml, since).passed, 594);
   assert.throws(() => verifyNunit(xml.replaceAll('TossStartupDoesNotRequireOptionalGameCenterProfile', 'UnrelatedTest'), since));
   assert.throws(() => verifyNunit(xml.replaceAll('TossIdentityFailureCanCloseWithoutUnlockingUnverifiedRecords(True)', 'UnrelatedTest'), since));
   assert.throws(() => verifyNunit(xml.replaceAll('ScoreManagerRecordTests', 'ScoreManagerWrongTests'), since));
@@ -90,16 +92,20 @@ test('빈 씬 또는 다른 프로젝트의 감사를 최종 검증으로 인정
 
 test('분석 시작 연결 또는 완료 이벤트가 없는 이전 번들은 거부한다', () => {
   const entry = { assemblyName: 'Assembly-CSharp', nameSpace: 'MukJump.Core', className: 'AppsInTossAnalyticsRuntime', methodName: 'Bootstrap', loadTypes: 1 };
-  const events = ['mukjump_screen_view', 'mukjump_run_started', 'mukjump_first_stroke', 'mukjump_run_completed', 'mukjump_tutorial_completed', 'mukjump_growth_completed'];
+  const events = ['mukjump_screen_view', 'mukjump_run_started', 'mukjump_first_stroke', 'mukjump_run_completed', 'mukjump_tutorial_completed', 'mukjump_growth_completed', 'mukjump_rewarded_ad_flow', 'mukjump_rewarded_ad_outcome'];
+  const parameters = ['duration_seconds', 'stroke_count'];
   const files = new Map([
     ['RuntimeInitializeOnLoads.json', Buffer.from(JSON.stringify({ root: [entry] }))],
-    ['Il2CppData/Metadata/global-metadata.dat', Buffer.from(events.join('\0'))],
+    ['Il2CppData/Metadata/global-metadata.dat', Buffer.from([...events, ...parameters].join('\0'))],
   ]);
-  assert.deepEqual(verifyAnalyticsPayload(files).events, events);
+  assert.deepEqual(verifyAnalyticsPayload(files), { runtimeBootstrap: true, events, parameters });
   assert.throws(() => verifyAnalyticsPayload(new Map()));
   const missingEvent = new Map(files);
-  missingEvent.set('Il2CppData/Metadata/global-metadata.dat', Buffer.from(events.filter(e => e !== 'mukjump_run_completed').join('\0')));
+  missingEvent.set('Il2CppData/Metadata/global-metadata.dat', Buffer.from([...events.filter(e => e !== 'mukjump_run_completed'), ...parameters].join('\0')));
   assert.throws(() => verifyAnalyticsPayload(missingEvent));
+  const missingParameter = new Map(files);
+  missingParameter.set('Il2CppData/Metadata/global-metadata.dat', Buffer.from([...events, 'duration_seconds'].join('\0')));
+  assert.throws(() => verifyAnalyticsPayload(missingParameter));
   const missingBootstrap = new Map(files);
   missingBootstrap.set('RuntimeInitializeOnLoads.json', Buffer.from(JSON.stringify({ root: [{ ...entry, methodName: 'Unused' }] })));
   assert.throws(() => verifyAnalyticsPayload(missingBootstrap));
