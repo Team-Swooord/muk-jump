@@ -1,6 +1,6 @@
 # 먹점프 앱인토스 출시 체크리스트
 
-점검일: 2026-09-22, 대상: `codex/apps-in-toss-web` / 먹점프 `mukjump`
+점검일: 2026-09-23, 대상: `codex/apps-in-toss-web` / 먹점프 `mukjump`
 
 기준: [토스 공식 게임 출시 가이드](https://developers-apps-in-toss.toss.im/checklist/app-game)
 
@@ -10,8 +10,8 @@
 
 - 검증 중. 아직 전체 통과 / 심사 제출 가능 상태로 판정하지 않았다.
 - 인앱 광고 그룹 두 개의 `구글 반영 중` 표시가 사라지고 상세 정보의 실제 광고 그룹 ID가 표시됨을 2026-09-22 후속 점검에서 확인했다. `먹점프 부활 보상형`(부활 1회): `ait.v2.live.7edb523366544df1`, `먹점프 상단 배너`(문구 강조): `ait.v2.live.5d95763582324c1c`. URL만으로 판단하지 않고 각 상세 화면의 이름·유형·ID·보상/종류를 대조했으며 Unity 운영 설정에 연결했다. 실기기 노출 성공은 아직 미확인이다.
-- 최신 테스트 업로드는 `20260922-3`(2026-09-22 17:01 KST, SDK 3.0.1, 검토 필요)이다. 메모는 `팝업 크기 축소·바깥 터치 닫기 수정 / 테스트 광고 / 출시 제출 금지`이며 공식 테스트 광고용이다. 운영 ID 출시 후보와 구분하고 정식 심사에 제출하지 않는다.
-- 운영 ID 출시 후보 `ait-build/mukjump.ait`를 2026-09-22 18:32 KST에 생성·검증했다. 이번 운영 후보는 아직 콘솔에 업로드하지 않았으며 정식 검토 요청·출시는 하지 않았다. 광고 발급 후속 예약은 완료 후 삭제했다.
+- 최신 테스트 업로드는 **`20260923-4`**(2026-09-23 13:25 KST, SDK 3.0.1, 검토 필요)이다. 먹점프 운영 보상형·배너 ID를 적용한 디버그 없는 출시 후보이며, 실제 `.ait` 내부를 검사한 파일을 업로드했다. 테스트 화면의 배포 ID 일치와 `푸시를 발송했어요` 응답을 확인했다. 정식 검토 요청·출시는 아직 하지 않았다.
+- 앱 정보 화면의 `앱이 승인되었어요`는 등록 정보 승인이다. 위 번들 행의 `검토 필요`와 구분한다. 운영 ID 출시 후보 `ait-build/mukjump.ait`는 2026-09-23 01:19 KST 생성본이다. 광고 발급 후속 예약은 이미 완료·삭제했다.
 - 토스 사용자 식별과 기기 내 저장은 구현되어 있다. 기기 변경 시 성장 데이터 복원용 자체 서버는 미구현이다. 게임센터 순위 제출과 성장 저장은 다른 기능이다.
 - IAP, 초대 보상, 웹보드는 제공하지 않는다. 해당 항목은 통과가 아니라 해당 없음이다.
 
@@ -107,6 +107,25 @@
 - Unity BuildReport 결과 `Succeeded`, Development 옵션 없음, 운영 광고 설정 자산 포함, 네이티브 설정 자산 포함 0개. 기록된 Error 1건은 빌드를 호출한 에디터 제어 요청의 30초 응답 제한(`Main thread operation timed out`)이며 빌드는 계속 진행되어 성공했다. Warning 6건은 Pipeline Player 비활성 안내, 기존 미사용 필드 및 배경 셰이더 정수 연산 성능 경고다. 컴파일·패키징 실패로 기록하지 않았으며 경고가 없는 빌드라고 주장하지 않는다.
 - 최종 출시 설정·웹 산출물 검사 문제 0개, Production 브리지 활성·디버그/Mock 비활성 확인. 웹뷰 bounce·pull-to-refresh·페이지 스와이프 차단 규칙 보존. 빌드 후 네이티브 원본 설정 복원, 재컴파일 `failed=false`, 씬 소스 최신·Main 누락 스크립트 0·Player 안전 문제 0 재확인.
 - 예약 삭제 도구가 `deleteStatus=deleted`를 반환했다. Android/iPhone 실제 광고·무음·백그라운드 복귀·재접속 저장 등 위 미확인 실기기 검증은 남아 있다. 서버 계정 삭제, iOS 업로드, push, 정식 심사 제출·출시는 수행하지 않았다.
+
+### 2026-09-23 운영 후보 업로드와 반복 검증 코드
+
+- 운영 후보 `ait-build/mukjump.ait`: **50,825,021 bytes**, 웹 산출물 51,202,697 bytes, runtimeVersion `0.84.0`, SDK `3.0.1`. SHA-256 `2fb9dfce6543ee296156fc3bca0c2a174030b76e45a51bbab872cd58cb0b3d6c`. `.ait` 내부의 실제 광고 설정과 운영 브리지, 디버그 OFF, 네이티브 설정 미포함을 재검사했다.
+- 콘솔 업로드 **20260923-4**, 2026-09-23 13:25 KST. 테스트 화면 배포 ID **`01a0c9ea-b1ad-7b49-9f09-dc172de2bce5`**가 업로드한 `.ait`와 같다. 등록된 테스트 멤버에게 테스트 푸시를 1회 발송했으며 성공 응답을 확인했다. QR/테스트 화면 접근만으로 실제 게임 진입 성공 처리하지 않았다.
+- `toss-release-checklist`에 팝업/HUD 검사를 추가하고 잘못된 `ScoreManagerTests` 필터를 실제 클래스 `ScoreManagerRecordTests`로 수정했다. 13:29~13:31 KST 최신 결과 **547 통과 / 실패·건너뜀·미결정 0**. Node 검사 **15 통과 / 0 실패**. 게임 런타임 소스는 이번 추가 검사 작업에서 수정하지 않았다.
+- 검증기 `tools/verify_toss_release.mjs`는 공식 AITReader로 업로드 파일 자체를 읽고, Brotli/UnityFS/LZ4를 해제하여 광고 ID를 대조한다. 필수 테스트 클래스·실제 실행 개수·실행 시각, 재컴파일 내부 `failed=false`, 실제 Main 씬 감사, 배포 설정, 100MiB 제한, 공식 60행 누락/중복을 검사한다. 빈 씬/다른 프로젝트/이전 테스트 결과는 거부한다. XML 원문·해시를 보고서 옆에 보존한다.
+- 최종 자동 검사 `automatedPassed=true`, 오류 0. 보고서 `output/qa/toss-release-20260923/verification.json`, 원문 `unity-tests.xml`. 실기기·수동 확인 **31항목**을 남겨 `releaseReady=false`로 유지했다. 자동 검사 9항목과 해당 없음 20항목을 실제 기기 통과로 바꾸지 않는다.
+- iPhone 미러링은 `iPhone에 연결할 수 없음`으로 실제 게임 화면에 도달하지 못했다. 사용자 연결을 기다리는 상태이며 광고 실제 노출·소리·재접속 저장·Android 뒤로가기 등은 미확인이다.
+- Unity 재시작 중 자동 생성된 `Library/Bee` 캐시 파일 누락으로 Safe Mode가 발생했다. 정상 종료 후 해당 캐시만 `/tmp/mukjump-bee-recovery.Du5E3v/Bee`로 보존 이동하여 재생성했고, 이후 컴파일·547개 검사·Main 씬 감사를 통과했다. Assets·기록·계정 삭제나 강제 종료는 하지 않았다.
+
+동일 검증 재실행 방법(프로젝트 루트, 해당 시각 이후 `toss-release-checklist` 실행 완료 및 Main 씬 로드 필요):
+
+```sh
+node --test tools/tests/verify_toss_release.test.mjs Assets/Editor/Tests/toss-ads-support.test.mjs Assets/Editor/Tests/ait-patch-cli.test.mjs
+node tools/verify_toss_release.mjs --not-before 2026-09-23T04:29:00Z --out output/qa/toss-release-20260923/verification.json
+```
+
+새 검사에서는 `--not-before`를 해당 실행 시작 시각(UTC)으로 바꾼다. `--require-device`를 추가하면 실기기 증거가 남은 경우 종료 코드 2를 반환한다. 검증기는 사람이 하지 않은 실기기 검사를 자동 통과시키지 않는다.
 
 ## 실기기 최종 시나리오
 
