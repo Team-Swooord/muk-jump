@@ -4,9 +4,10 @@ using UnityEngine;
 
 namespace MukJump.Core
 {
-    public enum AnalyticsScreen { Lobby, Playing, GameOver, Growth, Settings, Tutorial, Language, Account, Leaderboard, Privacy }
+    public enum AnalyticsScreen { Lobby, Playing, GameOver, Growth, Wardrobe, Settings, Tutorial, Language, Account, Leaderboard, Privacy }
     public enum AnalyticsSetting { Music, Sound, Vibration, Language }
     public enum AnalyticsAdStage { LoadRequested, Loaded, LoadFailed, ShowRequested, Opened, Clicked, Closed, Failed, RewardEarned }
+    public enum AnalyticsRewardOutcome { Granted, ClosedWithoutReward, Failed, Cancelled }
     public enum AnalyticsAccountAction { GuestLogin, AppleLink, Login, Logout, Delete }
     public enum AnalyticsDeathCause { Other, Fall, Obstacle }
     public enum AnalyticsOutcome { Requested, Success, Failed, Cancelled }
@@ -224,6 +225,9 @@ namespace MukJump.Core
                 var score = Fields(); score["score"] = (long)Math.Max(0, height);
                 score["level_name"] = "endless";
                 score["new_best"] = newBest ? 1L : 0L;
+                score["duration_seconds"] = (long)Math.Min(86400d,
+                    float.IsNaN(seconds) || float.IsInfinity(seconds) ? 0d : Math.Max(0d, Math.Floor(seconds)));
+                score["stroke_count"] = (long)strokes;
                 Emit("post_score", score);
             }
             runKey = null;
@@ -302,6 +306,12 @@ namespace MukJump.Core
             p["placement"] = banner ? "top_banner" : "game_over_revive";
             p["stage"] = Token(stage);
             Emit("ad_flow", p);
+        }
+        public static void RewardOutcome(AnalyticsRewardOutcome outcome)
+        {
+            var p = Fields();
+            p["result"] = Token(outcome);
+            Emit("rewarded_ad_outcome", p);
         }
         public static void Account(AnalyticsAccountAction action, AnalyticsOutcome outcome)
         {

@@ -84,6 +84,25 @@ namespace MukJump.Core
                     p["log_name"] = "mukjump_run_completed";
                     CopyNumber(source, p, "score", int.MaxValue);
                     CopyNumber(source, p, "new_best", 1);
+                    CopyNumber(source, p, "duration_seconds", 86400);
+                    CopyNumber(source, p, "stroke_count", 1000000);
+                    break;
+                case "ad_flow":
+                    if (!source.Parameters.TryGetValue("ad_format", out var format) || !Equals(format, "rewarded") ||
+                        !source.Parameters.TryGetValue("stage", out var stageValue) || !(stageValue is string stage) ||
+                        !Enum.TryParse(stage, true, out AnalyticsAdStage parsedStage) ||
+                        !Enum.IsDefined(typeof(AnalyticsAdStage), parsedStage) ||
+                        parsedStage.ToString().ToLowerInvariant() != stage) return null;
+                    p["log_name"] = "mukjump_rewarded_ad_flow";
+                    p["stage"] = stage;
+                    break;
+                case "rewarded_ad_outcome":
+                    if (!source.Parameters.TryGetValue("result", out var outcomeValue) || !(outcomeValue is string outcome) ||
+                        !Enum.TryParse(outcome, true, out AnalyticsRewardOutcome parsedOutcome) ||
+                        !Enum.IsDefined(typeof(AnalyticsRewardOutcome), parsedOutcome) ||
+                        parsedOutcome.ToString().ToLowerInvariant() != outcome) return null;
+                    p["log_name"] = "mukjump_rewarded_ad_outcome";
+                    p["result"] = outcome;
                     break;
                 case "tutorial_complete":
                     if (!source.Parameters.TryGetValue("progress_saved", out var saved) || !Equals(saved, 1L)) return null;

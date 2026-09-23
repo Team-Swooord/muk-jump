@@ -50,7 +50,39 @@ namespace MukJump.EditorTests
             Assert.That(Count("mukjump_run_completed"), Is.EqualTo(1));
             var result = events.Single(e => Equals(e.Parameters["log_name"], "mukjump_run_completed"));
             Assert.That(result.Parameters["score"], Is.EqualTo(200L));
+            Assert.That(result.Parameters["duration_seconds"], Is.EqualTo(60L));
+            Assert.That(result.Parameters["stroke_count"], Is.EqualTo(0L));
             Assert.That(result.IsScreen, Is.False);
+        }
+
+        [Test]
+        public void WardrobeEntryIsItsOwnScreenAndCompletionMetricsAreBounded()
+        {
+            MukJumpAnalytics.Screen(AnalyticsScreen.Wardrobe);
+            var wardrobe = events.Single(e => Equals(e.Parameters["log_name"], "mukjump_screen_view"));
+            Assert.That(wardrobe.Parameters["screen_name"], Is.EqualTo("wardrobe"));
+            Begin();
+            MukJumpAnalytics.Stroke(2f);
+            MukJumpAnalytics.EndRun("private-run-never-export", 150, float.PositiveInfinity, false, false);
+            var result = events.Single(e => Equals(e.Parameters["log_name"], "mukjump_run_completed"));
+            Assert.That(result.Parameters["duration_seconds"], Is.EqualTo(0L));
+            Assert.That(result.Parameters["stroke_count"], Is.EqualTo(1L));
+        }
+
+        [Test]
+        public void RewardedAdEventsUseOnlyFixedEnumTokens()
+        {
+            MukJumpAnalytics.Ad(AnalyticsAdStage.LoadFailed);
+            MukJumpAnalytics.RewardOutcome(AnalyticsRewardOutcome.ClosedWithoutReward);
+            var flow = events.Single(e => Equals(e.Parameters["log_name"], "mukjump_rewarded_ad_flow"));
+            var outcome = events.Single(e => Equals(e.Parameters["log_name"], "mukjump_rewarded_ad_outcome"));
+            Assert.That(flow.Parameters, Has.Count.EqualTo(3));
+            Assert.That(flow.Parameters["stage"], Is.EqualTo("loadfailed"));
+            Assert.That(outcome.Parameters["result"], Is.EqualTo("closedwithoutreward"));
+            Assert.That(AppsInTossAnalyticsRuntime.Map(Raw("ad_flow", new()
+                { ["stage"] = "show", ["ad_format"] = "banner" })), Is.Null);
+            Assert.That(AppsInTossAnalyticsRuntime.Map(Raw("rewarded_ad_outcome", new()
+                { ["result"] = "user@example.com" })), Is.Null);
         }
 
         [Test]
@@ -74,14 +106,15 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void HighFrequencyAndSensitiveEventsAreNotForwarded()
+        public void HighFrequencyIsCollapsedAndSensitiveFieldsAreNotForwarded()
         {
             Begin();
             for (int i = 0; i < 1000; i++) MukJumpAnalytics.Stroke(2);
             MukJumpAnalytics.Account(AnalyticsAccountAction.Login, AnalyticsOutcome.Success);
             MukJumpAnalytics.Ad(AnalyticsAdStage.Clicked);
             Assert.That(Count("mukjump_first_stroke"), Is.EqualTo(1));
-            Assert.That(events, Has.Count.EqualTo(3)); // 시작, 플레이 화면, 첫 먹선
+            Assert.That(events, Has.Count.EqualTo(4)); // 시작, 플레이 화면, 첫 먹선, 고정 광고 단계
+            Assert.That(Count("mukjump_rewarded_ad_flow"), Is.EqualTo(1));
             Assert.That(string.Join(" ", events.SelectMany(e => e.Parameters.Values)), Does.Not.Contain("private-run"));
         }
 

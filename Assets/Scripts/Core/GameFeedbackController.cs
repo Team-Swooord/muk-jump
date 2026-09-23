@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
@@ -72,6 +73,22 @@ namespace MukJump.Core
             ShieldBreak,
             Death,
         }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 시뮬레이터에서는 물리 진동 대신 요청 시각·차단 사유·SDK 결과를 관찰한다.
+        public static event System.Action<string, string, float> HapticDiagnostic;
+
+        static void TraceHaptic(HapticPattern pattern, string result)
+        {
+            float at = Time.realtimeSinceStartup;
+            HapticDiagnostic?.Invoke(pattern.ToString(), result, at);
+#if DEVELOPMENT_BUILD && !UNITY_EDITOR
+            Debug.Log($"[MukJumpHaptic] t={at:F3} pattern={pattern} result={result}");
+#endif
+        }
+#else
+        static void TraceHaptic(HapticPattern pattern, string result) { }
+#endif
 
         public float GameOverRevealDelay
         {
@@ -421,7 +438,11 @@ namespace MukJump.Core
             float strength = Mathf.InverseLerp(2f, 14f, impactSpeed);
             // 짧은 반복 착지는 억제하되 뒤늦게 들어온 강한 충격까지 버리지는 않는다.
             if (Time.unscaledTime - lastLandingFeedbackTime < 0.12f &&
-                strength < lastLandingStrength + 0.3f) return;
+                strength < lastLandingStrength + 0.3f)
+            {
+                TraceHaptic(HapticPattern.Landing, "suppressed_feedback");
+                return;
+            }
             lastLandingFeedbackTime = Time.unscaledTime;
             lastLandingStrength = strength;
             VfxAudioManager.Instance?.PlayOneShot(landingClip, Mathf.Lerp(0.45f, 0.9f, strength));
@@ -436,6 +457,9 @@ namespace MukJump.Core
                 lastLandingHapticTime = Time.unscaledTime;
                 PlayHaptic(HapticPattern.Landing, strength);
             }
+            else
+                TraceHaptic(HapticPattern.Landing,
+                    strength < 0.34f ? "below_threshold" : "suppressed_duplicate");
         }
 
         public void PlayStrokeResolved(Vector3 position, bool valid)
@@ -490,7 +514,11 @@ namespace MukJump.Core
             EnsureInitialized();
             // 같은 장애물에 먹떼가 한 물리 프레임에 닿아도 소리·진동·VFX는 한 번만 낸다.
             // 단, 마지막 목숨은 결과창 전에 반드시 사망 피드백을 들려준다.
-            if (!force && Time.unscaledTime - lastDeathFeedbackTime < 0.14f) return;
+            if (!force && Time.unscaledTime - lastDeathFeedbackTime < 0.14f)
+            {
+                TraceHaptic(HapticPattern.Death, "suppressed_duplicate");
+                return;
+            }
             lastDeathFeedbackTime = Time.unscaledTime;
             StopBrushDrawing();
             PlayAccent(deathSqueakClip, 1f);
@@ -663,7 +691,12 @@ namespace MukJump.Core
         void PlayHaptic(HapticPattern pattern, float strength)
         {
             if (!LobbySettingsProfile.HapticsEnabled)
+            {
+                TraceHaptic(pattern, "disabled_in_settings");
                 return;
+            }
+
+            TraceHaptic(pattern, "eligible");
 
             int durationMs = pattern switch
             {
@@ -708,23 +741,44 @@ namespace MukJump.Core
                 _ => HapticFeedbackType.Error,
             };
 
+            await SendAppsInTossHaptic(
+                pattern,
+                async () => await AIT.GenerateHapticFeedback(
+                    new HapticFeedbackOptions { Type = type }, 1500));
+        }
+#endif
+
+#if UNITY_WEBGL || UNITY_EDITOR
+        static async Task<bool> SendAppsInTossHaptic(
+            HapticPattern pattern, System.Func<Task> send)
+        {
+            TraceHaptic(pattern, "sdk_requested");
             try
             {
-                await AIT.GenerateHapticFeedback(
-                    new HapticFeedbackOptions { Type = type },
-                    1500);
+                await send();
+                TraceHaptic(pattern, "sdk_succeeded");
+                return true;
             }
             catch (AITException)
             {
+                TraceHaptic(pattern, "sdk_failed");
                 // 햅틱 미지원·타임아웃은 게임 진행을 막지 않는다.
+                return false;
             }
             catch (System.Exception exception)
             {
+                TraceHaptic(pattern, "sdk_failed");
                 Debug.LogWarning(
                     "[MukJump] Apps in Toss 햅틱 호출 예외를 격리했습니다: " +
                     exception.Message);
+                return false;
             }
         }
+
+#if UNITY_EDITOR
+        public static Task<bool> SimulateTossHapticForTests(System.Func<Task> send) =>
+            SendAppsInTossHaptic(HapticPattern.Landing, send);
+#endif
 #endif
 
         IEnumerator StopGamepadHaptic(Gamepad gamepad, float duration)

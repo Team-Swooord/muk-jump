@@ -1388,6 +1388,11 @@ namespace MukJump.Core
             // 최초 정산은 기록 저장 실패 상태라 클라우드와 순위 제출이
             // 거절된다. 기록 재시도가 완료된 정확한 시점에 한 번 더 알린다.
             PublishCompletedRun(latestGameOverResult);
+            if (latestGameOverResult.PersistenceState ==
+                GameOverPersistenceState.Complete)
+                MukJumpAnalytics.EndRun(currentRunId, latestGameOverResult.Height,
+                    activeGameplaySeconds, abandoned: false,
+                    newBest: latestGameOverResult.ReachedNewBest);
         }
 
         System.Collections.IEnumerator ShowGameOverAfterDeath(

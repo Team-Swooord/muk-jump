@@ -122,6 +122,8 @@ namespace MukJump.Core
                       Time.realtimeSinceStartupAsDouble < nextInterstitialLoadTime))
                 return;
 
+            if (rewarded) MukJumpAnalytics.Ad(AnalyticsAdStage.LoadRequested);
+
             long generation;
             if (rewarded)
             {
@@ -234,6 +236,9 @@ namespace MukJump.Core
                 rewardEarned,
                 nonRewardedCompleted: false);
             pendingCompletion = null;
+            if (callback != null && IsRewarded(showingPlacement))
+                MukJumpAnalytics.RewardOutcome(completion
+                    ? AnalyticsRewardOutcome.Granted : AnalyticsRewardOutcome.Cancelled);
             fullScreenOpened = false;
             rewardedLoadGeneration++;
             interstitialLoadGeneration++;
@@ -338,6 +343,7 @@ namespace MukJump.Core
         {
             if (!loaded || !IsCurrentLoad(rewarded, generation))
                 return;
+            if (rewarded) MukJumpAnalytics.Ad(AnalyticsAdStage.Loaded);
             if (rewarded)
             {
                 rewardedLoadGeneration++;
@@ -366,6 +372,7 @@ namespace MukJump.Core
         {
             if (!IsCurrentLoad(rewarded, generation))
                 return;
+            if (rewarded) MukJumpAnalytics.Ad(AnalyticsAdStage.LoadFailed);
             if (rewarded)
             {
                 rewardedLoadGeneration++;
@@ -411,16 +418,22 @@ namespace MukJump.Core
             {
                 case "show":
                 case "impression":
+                    if (!fullScreenOpened && IsRewarded(showingPlacement))
+                        MukJumpAnalytics.Ad(AnalyticsAdStage.Opened);
                     fullScreenOpened = true;
                     break;
                 case "userEarnedReward":
                     fullScreenOpened = true;
+                    if (!rewardEarned && IsRewarded(showingPlacement))
+                        MukJumpAnalytics.Ad(AnalyticsAdStage.RewardEarned);
                     rewardEarned = true;
                     break;
                 case "dismissed":
                     CompleteShow(
                         generation,
-                        IsRewarded(showingPlacement) ? rewardEarned : true);
+                        IsRewarded(showingPlacement) ? rewardEarned : true,
+                        rewardEarned ? AnalyticsRewardOutcome.Granted :
+                            AnalyticsRewardOutcome.ClosedWithoutReward);
                     break;
                 case "failedToShow":
                     CompleteShow(generation, false);
@@ -433,7 +446,8 @@ namespace MukJump.Core
             CompleteShow(showGeneration, completed);
         }
 
-        void CompleteShow(long generation, bool completed)
+        void CompleteShow(long generation, bool completed,
+            AnalyticsRewardOutcome outcome = AnalyticsRewardOutcome.Failed)
         {
             if (generation != showGeneration || pendingCompletion == null)
                 return;
@@ -441,8 +455,16 @@ namespace MukJump.Core
                 showingPlacement,
                 rewardEarned,
                 completed);
+            if (completed && IsRewarded(showingPlacement))
+                outcome = AnalyticsRewardOutcome.Granted;
             Action<bool> callback = pendingCompletion;
             pendingCompletion = null;
+            if (IsRewarded(showingPlacement))
+            {
+                MukJumpAnalytics.Ad(outcome == AnalyticsRewardOutcome.Failed
+                    ? AnalyticsAdStage.Failed : AnalyticsAdStage.Closed);
+                MukJumpAnalytics.RewardOutcome(outcome);
+            }
             fullScreenOpened = false;
             showGeneration++;
             showDeadline = 0d;

@@ -277,8 +277,13 @@ namespace MukJump.Core
 
         void ApplySection(LobbySection section, bool interactive)
         {
-            if (interactive && section != LobbySection.Wardrobe)
-                MukJumpAnalytics.Screen(section == LobbySection.Lobby ? AnalyticsScreen.Lobby : AnalyticsScreen.Growth);
+            if (interactive)
+                MukJumpAnalytics.Screen(section switch
+                {
+                    LobbySection.PermanentGrowth => AnalyticsScreen.Growth,
+                    LobbySection.Wardrobe => AnalyticsScreen.Wardrobe,
+                    _ => AnalyticsScreen.Lobby,
+                });
             ApplyMenuSelection(section);
             bool showLobby = section == LobbySection.Lobby;
             bool showGrowth = section == LobbySection.PermanentGrowth;

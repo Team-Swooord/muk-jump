@@ -36,6 +36,7 @@ public class PauseMenuViewTests
     [TearDown]
     public void TearDown()
     {
+        MukJumpAnalytics.ResetForTests();
         if (host != null)
             Object.DestroyImmediate(host);
         if (playerHost != null)
@@ -1214,6 +1215,11 @@ public class PauseMenuViewTests
     [Test]
     public void RecordWriteRetryDoesNotSettleGrowthTwice()
     {
+        int completedRuns = 0;
+        MukJumpAnalytics.UseSinkForTests(value =>
+        {
+            if (value.Name == "post_score") completedRuns++;
+        });
         var growthStore = new MemoryPermanentGrowthStore();
         PermanentGrowthProfile.UseStoreForTests(growthStore);
         var scoreStore = new MemoryScoreStore
@@ -1229,6 +1235,8 @@ public class PauseMenuViewTests
         SetProperty(score, "Height", 100);
         var manager = host.AddComponent<GameManager>();
         Invoke(manager, "OnEnable");
+        SetField(manager, "currentRunId", "retry-run-private-key");
+        MukJumpAnalytics.BeginRun("retry-run-private-key", true, 0);
         var account = host.AddComponent<MukJumpAccountRuntime>();
         Invoke(account, "OnEnable");
         SetField(account, "dirty", false);
@@ -1256,6 +1264,10 @@ public class PauseMenuViewTests
             "기록 저장 재시도는 이미 확정한 성장 정산을 다시 호출하면 안 됩니다.");
         Assert.That(GetField<bool>(account, "dirty"), Is.True,
             "기록 저장 재시도 성공은 클라우드 동기화를 즉시 예약해야 합니다.");
+        Assert.That(completedRuns, Is.EqualTo(1),
+            "기록 저장 성공 후 정상 정산 전환을 한 번 기록해야 합니다.");
+        Invoke(manager, "RetryPendingGameOverPersistence");
+        Assert.That(completedRuns, Is.EqualTo(1));
     }
 
     [Test]

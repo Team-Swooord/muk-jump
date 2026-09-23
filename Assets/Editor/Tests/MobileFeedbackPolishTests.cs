@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using MukJump.Core;
 using MukJump.Items;
 using MukJump.Player;
@@ -27,6 +30,63 @@ namespace MukJump.EditorTests
             UnityEngine.Object.DestroyImmediate(root);
             LobbySettingsProfile.RestoreDefaultStoreForTests();
             PermanentGrowthProfile.RestoreDefaultStoreForTests();
+        }
+
+        [Test]
+        public void HapticDiagnosticShowsSettingGateAndDuplicateLanding()
+        {
+            var feedback = root.AddComponent<GameFeedbackController>();
+            var events = new List<string>();
+            void Record(string pattern, string result, float at) =>
+                events.Add(pattern + ":" + result);
+            GameFeedbackController.HapticDiagnostic += Record;
+            try
+            {
+                LobbySettingsProfile.SetHapticsEnabled(false);
+                Invoke(feedback, "EmitLanding", Vector3.zero, 12f);
+                Assert.That(events, Does.Contain("Landing:disabled_in_settings"));
+                Assert.That(events, Has.None.EqualTo("Landing:eligible"));
+
+                LobbySettingsProfile.SetHapticsEnabled(true);
+                typeof(GameFeedbackController).GetField("lastLandingFeedbackTime", Private)
+                    .SetValue(feedback, -10f);
+                typeof(GameFeedbackController).GetField("lastLandingHapticTime", Private)
+                    .SetValue(feedback, -10f);
+                Invoke(feedback, "EmitLanding", Vector3.zero, 12f);
+                Invoke(feedback, "EmitLanding", Vector3.zero, 12f);
+                Assert.That(events, Does.Contain("Landing:eligible"));
+                Assert.That(events, Does.Contain("Landing:suppressed_feedback"));
+                Assert.That(events.FindAll(value => value == "Landing:eligible"), Has.Count.EqualTo(1));
+            }
+            finally
+            {
+                GameFeedbackController.HapticDiagnostic -= Record;
+            }
+        }
+
+        [Test]
+        public async Task HapticDiagnosticReportsSdkSuccessAndFailureWithoutInterruptingGame()
+        {
+            var events = new List<string>();
+            void Record(string pattern, string result, float at) => events.Add(result);
+            GameFeedbackController.HapticDiagnostic += Record;
+            try
+            {
+                Assert.That(await GameFeedbackController.SimulateTossHapticForTests(
+                    () => Task.CompletedTask), Is.True);
+                LogAssert.Expect(LogType.Warning,
+                    "[MukJump] Apps in Toss 햅틱 호출 예외를 격리했습니다: simulated failure");
+                Assert.That(await GameFeedbackController.SimulateTossHapticForTests(
+                    () => Task.FromException(new InvalidOperationException("simulated failure"))),
+                    Is.False);
+                Assert.That(events, Is.EqualTo(new[] {
+                    "sdk_requested", "sdk_succeeded", "sdk_requested", "sdk_failed"
+                }));
+            }
+            finally
+            {
+                GameFeedbackController.HapticDiagnostic -= Record;
+            }
         }
 
         [Test]

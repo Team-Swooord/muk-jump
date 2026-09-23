@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using MukJump.Core;
 using NUnit.Framework;
@@ -123,6 +125,57 @@ namespace MukJump.EditorTests
                 FullScreenAdPlacement.PreRunShieldReward), Is.False);
             Assert.That(MonetizationAds.Provider.IsReady(
                 FullScreenAdPlacement.GameOverReviveReward), Is.False);
+        }
+
+        [Test]
+        public void TossRewardOutcomeIsRecordedOnceForDuplicateSdkCallbacks()
+        {
+            var recorded = new List<MukJumpAnalyticsEvent>();
+            MukJumpAnalytics.UseSinkForTests(recorded.Add);
+            var provider = new AppsInTossAdProvider("rewarded", string.Empty);
+            Action<string> emit = null;
+            SetField(provider, "rewardedReady", true);
+            SetField(provider, "loadRequestForTests", new Func<string, Action<bool>, Action, Action>((_, _, _) => null));
+            SetField(provider, "showRequestForTests", new Func<string, Action<string>, Action, Action>((_, onEvent, _) => { emit = onEvent; return null; }));
+            try
+            {
+                int grants = 0;
+                provider.Show(FullScreenAdPlacement.GameOverReviveReward, earned => { if (earned) grants++; });
+                emit("show"); emit("impression");
+                emit("userEarnedReward"); emit("userEarnedReward");
+                emit("dismissed"); emit("dismissed"); emit("failedToShow");
+                Assert.That(grants, Is.EqualTo(1));
+                Assert.That(recorded.Count(e => e.Name == "rewarded_ad_outcome"), Is.EqualTo(1));
+                Assert.That(recorded.Single(e => e.Name == "rewarded_ad_outcome").Parameters["result"],
+                    Is.EqualTo("granted"));
+                Assert.That(recorded.Count(e => e.Name == "ad_flow" && Equals(e.Parameters["stage"], "opened")), Is.EqualTo(1));
+                Assert.That(recorded.Count(e => e.Name == "ad_flow" && Equals(e.Parameters["stage"], "rewardearned")), Is.EqualTo(1));
+            }
+            finally { provider.Dispose(); MukJumpAnalytics.ResetForTests(); }
+        }
+
+        [Test]
+        public void TossRewardOutcomeKeepsEarnedRewardWhenDisposedBeforeDismissal()
+        {
+            var recorded = new List<MukJumpAnalyticsEvent>();
+            MukJumpAnalytics.UseSinkForTests(recorded.Add);
+            var provider = new AppsInTossAdProvider("rewarded", string.Empty);
+            Action<string> emit = null;
+            SetField(provider, "rewardedReady", true);
+            SetField(provider, "loadRequestForTests", new Func<string, Action<bool>, Action, Action>((_, _, _) => null));
+            SetField(provider, "showRequestForTests", new Func<string, Action<string>, Action, Action>((_, onEvent, _) => { emit = onEvent; return null; }));
+            try
+            {
+                bool? granted = null;
+                provider.Show(FullScreenAdPlacement.GameOverReviveReward, earned => granted = earned);
+                emit("userEarnedReward");
+                provider.Dispose();
+                emit("dismissed");
+                Assert.That(granted, Is.True);
+                Assert.That(recorded.Where(e => e.Name == "rewarded_ad_outcome")
+                    .Select(e => e.Parameters["result"]), Is.EquivalentTo(new[] { "granted" }));
+            }
+            finally { provider.Dispose(); MukJumpAnalytics.ResetForTests(); }
         }
 
         [Test]
