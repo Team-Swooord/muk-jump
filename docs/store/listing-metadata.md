@@ -100,7 +100,8 @@ App Review의 연락처 이메일에는 개발자 계정 공식 연락처 `choiy
 
 ### App Store 스크린샷
 
-- 등록본 보관 위치: `store-screenshots/app-store-connect/`의 PNG 6장만 유지한다.
+- 등록본 보관 위치: `store-screenshots/app-store-connect/`의 기존 PNG 6장을 유지한다.
+- `07-all-skins.png`는 2026-09-24 추가 제작한 1284×2778 스킨 62종 그리드다. 기존 등록본의 로고·프레임을 보존하고 홍보 문구 없이 제작했다. Apple 로그인 대기로 아직 등록본이 아닌 업로드 후보이며 기존 6장을 대체하지 않는다.
 - 2026-09-17 App Store Connect의 iOS 1.0.0에 등록된 iPhone 6.5인치
   (1284×2778) 원본을 내려받아 보관했다. 미등록 시안과 촬영 원본은 보관하지 않는다.
 - 실제 등록 순서: `01-mountain-jump.png` → `04-lotus-golden.png` →

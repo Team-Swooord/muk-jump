@@ -13,7 +13,7 @@
 - Unity SDK를 공식 `release/v3.5.0`으로 고정하고 웹 프레임워크 3.5.0, bridge-core·web-analytics 2.10.9를 적용했다. SDK에서 제거된 `enableMockBridge` 참조와 이전 Runtime 브리지 파일 검사를 새 `assets/index.js` 광고 연결 구조에 맞췄다. 광고 API 누락·이전 SDK 번들은 검증에서 거절한다. Production 디버그/개발 빌드 OFF, 웹 번들 개발 도구 제외 검사는 유지한다.
 - 관련 Unity **595개**, Node **16개** 통과. 재컴파일 `failed=false`, 씬 재생성 후 감사 통과. 실제 광고 두 ID, 분석 8종, 네이티브 설정 제외를 최종 `.ait`에서 확인했다. `output/qa/toss-sdk-350-20260924/verification.json`의 `automatedPassed=true`, 오류 0이며 미확인 실토스·실기기 항목 때문에 `releaseReady=false`는 유지한다. SDK 업데이트만으로 광고 분석 탭의 실제 집계 성공을 주장하지 않는다.
 - 최종 `ait-build/mukjump.ait`: 2026-09-24 00:59 KST 생성, **50,968,497 bytes**, SHA-256 `09c456f151307121a025358aacde348a8f31e50f958d0f2b16d97961ca1e6e9f`, runtime `0.84.0`. 이전 제출본은 같은 QA 폴더의 `previous-submitted-sdk301.ait`에 보존했다.
-- 홍보 문구 없는 휴대폰형 62종 스킨 그리드를 `output/store-screenshots/skin-grid-phone/`에 제작했다. 토스 636×1048 이미지는 기존 7장 뒤에 8번째로 추가하여 **임시저장만 완료**했다. 손해 보상 동의 재확인 전에는 이미지 변경 검토를 제출하지 않는다. App Store 1320×2868 파일도 완성했으나 Apple 로그인 만료로 업로드 전이다.
+- 스킨 그리드는 기존 제출 이미지의 먹점프·CYSBAND 로고와 휴대폰 프레임을 그대로 보존하고 화면 안에 62종을 배치했다. 홍보 문구는 없다. 토스 최종 파일은 `/Users/seungyeoning/Desktop/승연/먹점프 스크린샷/08-all-skins.png`(636×1048). 잘못 만든 8번째 초안만 교체하고 기존 7장은 보존하여 **임시저장 완료**했다(교체 파일 `live-managed-v1-5e0ff630-54fa-42b8-86b9-93ee39212567.png`). 손해 보상 동의 재확인 전에는 이미지 변경 검토를 제출하지 않는다. App Store 파일은 기존 등록 규격과 같은 `store-screenshots/app-store-connect/07-all-skins.png`(1284×2778)이며 Apple 로그인 만료로 아직 업로드 전이다. 로고가 달랐던 이전 시안은 사용하지 않는다.
 
 ### 2026-09-23 검토 요청 당시 기록
 
