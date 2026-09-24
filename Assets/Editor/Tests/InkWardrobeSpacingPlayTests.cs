@@ -12,6 +12,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using Object = UnityEngine.Object;
 
 namespace MukJump.EditorTests
@@ -42,14 +43,31 @@ namespace MukJump.EditorTests
             var sizes = sizesType.BaseType.GetProperty("instance").GetValue(null);
             var group = sizesType.GetProperty("currentGroup", Members).GetValue(sizes);
             var temporarySizes = new System.Collections.Generic.List<object>();
+            var brandPolicy = typeof(StartupBrandSplash).GetField("showBrandForTests", BindingFlags.Static | BindingFlags.NonPublic);
             try
             {
-                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                // 토스 분기도 같은 Splash → Main 초기화·입력 해제를 거친다.
+                brandPolicy.SetValue(null, (bool?)false);
+                yield return SceneManager.LoadSceneAsync("Splash");
+                double startupDeadline = Time.realtimeSinceStartupAsDouble + 15;
+                while (StartupBrandSplash.IsBlockingInput && Time.realtimeSinceStartupAsDouble < startupDeadline)
+                {
+                    var splash = Object.FindAnyObjectByType<StartupBrandSplash>();
+                    if (splash != null)
+                        Assert.That(splash.transform.Find("StartupBrandCanvas/Logo").GetComponent<Image>().enabled, Is.False);
+                    yield return null;
+                }
+                Assert.That(StartupBrandSplash.IsBlockingInput, Is.False);
+                Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Main"));
+                Assert.That(BackgroundMusicController.Instance, Is.Not.Null);
+                brandPolicy.SetValue(null, null);
+                yield return Wait(1);
                 Assert.That(MukJumpAccountRuntime.Instance.IsOnlineAuthenticated, Is.False);
                 Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True);
                 var view = Object.FindAnyObjectByType<InkWardrobeView>();
-                yield return Wait(1);
-                Assert.That(view.CanBrowse, Is.True);
+                double wardrobeDeadline = Time.realtimeSinceStartupAsDouble + 8;
+                while (!view.CanBrowse && Time.realtimeSinceStartupAsDouble < wardrobeDeadline) yield return null;
+                Assert.That(view.CanBrowse, Is.True, $"open={view.IsOpen}, transition={LobbyScreenNavigator.Instance.IsTransitioning}, active={MobileApplicationLifecycle.IsApplicationActive}, state={GameManager.Instance.State}, sync={MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync}");
                 foreach (var resolution in new[] { new Vector2Int(320,568), new Vector2Int(390,844) })
                 {
                     var sizeType = typeof(Editor).Assembly.GetType("UnityEditor.GameViewSizeType");
@@ -66,6 +84,28 @@ namespace MukJump.EditorTests
                     foreach (var locale in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
                     {
                         GameLocalization.SetLanguage(locale);
+                        view.Select(InkSkinId.Ink); view.Presentation.Cancel(); yield return Wait(.3f);
+                        foreach (string direction in new[] { "NextCostume", "PreviousCostume" })
+                        {
+                            Canvas.ForceUpdateCanvases();
+                            var button = view.Paper.Find("ShowroomStage/" + direction).GetComponent<Button>();
+                            var rect = (RectTransform)button.transform;
+                            var position = RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center));
+                            var pointer = new PointerEventData(EventSystem.current) { position = position, button = PointerEventData.InputButton.Left };
+                            // Editor 콜백에서는 Screen과 Game Canvas 크기가 달라 전역 RaycastAll의 화면 경계가 틀린다.
+                            // 실제 Canvas에 등록된 Graphic의 마스크·CanvasGroup 통과와 버튼 이벤트를 각각 검증한다.
+                            Assert.That(button.IsInteractable(), Is.True);
+                            Assert.That(button.targetGraphic.raycastTarget, Is.True);
+                            Assert.That(GraphicRegistry.GetRaycastableGraphicsForCanvas(button.GetComponentInParent<Canvas>()).Contains(button.targetGraphic), Is.True);
+                            Assert.That(RectTransformUtility.RectangleContainsScreenPoint(rect, position), Is.True);
+                            Assert.That(button.targetGraphic.Raycast(position, null), Is.True, direction);
+                            foreach (string part in new[] { "ChevronTop", "ChevronBottom" })
+                                Assert.That(button.transform.Find(part).GetComponent<Image>().canvasRenderer.cull, Is.False);
+                            ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerClickHandler);
+                            view.Presentation.Cancel();
+                            Assert.That(view.Selected, Is.EqualTo(direction == "NextCostume" ? InkSkinCatalog.BrowseAt(1) : InkSkinId.Ink));
+                            yield return Wait(.2f);
+                        }
                         for (int state = 0; state < 7; state++)
                         {
                             Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(state == 0 ? 0 : state == 1 ? 436 : 800), Is.True);
@@ -107,6 +147,7 @@ namespace MukJump.EditorTests
             }
             finally
             {
+                brandPolicy.SetValue(null, null);
                 selectedSize.SetValue(gameView, oldIndex);
                 var custom = (IList)group.GetType().GetField("m_Custom", Members).GetValue(group);
                 foreach (var temporary in temporarySizes) custom.Remove(temporary);
@@ -138,7 +179,7 @@ namespace MukJump.EditorTests
             int WidthAt(int offset) => png[offset] << 24 | png[offset+1] << 16 | png[offset+2] << 8 | png[offset+3];
             Assert.That(WidthAt(16), Is.EqualTo(resolution.x));
             Assert.That(WidthAt(20), Is.EqualTo(resolution.y));
-            const string folder = "output/qa/toss-recovery-20260925/wardrobe";
+            const string folder = "output/qa/toss-final-20260925/wardrobe";
             Directory.CreateDirectory(folder); File.Copy(path, folder + "/" + name + ".png", true); File.Delete(path);
         }
     }

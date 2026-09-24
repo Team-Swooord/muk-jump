@@ -32,9 +32,23 @@ namespace MukJump.Core
         bool waitingForRetry;
 
         public static bool IsBlockingInput { get; private set; }
+        public static bool ShowsBrand
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return showBrandForTests ?? true;
+#elif UNITY_WEBGL
+                return false;
+#else
+                return true;
+#endif
+            }
+        }
 
 #if UNITY_EDITOR
         static System.Action<string> restartSceneForTests;
+        static bool? showBrandForTests;
 #endif
 
         /// 로그아웃·탈퇴 정리 후 새 게스트가 준비됐을 때만 호출한다. 기존 Main의 자동 진입을 닫고
@@ -180,6 +194,9 @@ namespace MukJump.Core
             rootGroup.alpha = 1f;
             rootGroup.interactable = false;
             rootGroup.blocksRaycasts = true;
+            // 토스는 제작사 연출 없이 같은 초기화 경계를 지난다. 최초 렌더부터 로고를 숨긴다.
+            var backdrop = rootGroup.transform.Find("BlackBackdrop")?.GetComponent<Image>();
+            if (backdrop != null) backdrop.color = ShowsBrand ? BackgroundColor : InkPalette.Paper;
 
             logoGroup = logoImage.GetComponent<CanvasGroup>();
             if (logoGroup == null)
@@ -191,7 +208,7 @@ namespace MukJump.Core
             logoImage.rectTransform.sizeDelta = new Vector2(LogoSize, LogoSize);
             logoImage.rectTransform.localScale = Vector3.one;
             logoImage.color = new Color(1f, 1f, 1f, 0f);
-            logoImage.enabled = logoImage.sprite != null;
+            logoImage.enabled = ShowsBrand && logoImage.sprite != null;
         }
 
         static void ConfigureScaler(CanvasScaler scaler)
@@ -210,7 +227,7 @@ namespace MukJump.Core
             logoImage.sprite = sprite;
             logoFadeCurve = fadeCurve == null ? AnimationCurve.EaseInOut(0f, 0f, 1f, 1f)
                 : new AnimationCurve(fadeCurve.keys);
-            logoImage.enabled = sprite != null;
+            logoImage.enabled = ShowsBrand && sprite != null;
         }
 
         IEnumerator PlaySequence()
@@ -220,10 +237,13 @@ namespace MukJump.Core
             // OnEnable 중에는 자식 Image의 Awake가 아직 끝나지 않았을 수 있다.
             // 초기 알파는 ConfigureFadeGroups에서 0으로 두고 클립 샘플링은 다음 프레임부터 한다.
             yield return null;
-            SampleLogo(0f);
             BeginMainLoad();
-            yield return AnimateLogo(false);
-            yield return HoldLogo();
+            if (ShowsBrand)
+            {
+                SampleLogo(0f);
+                yield return AnimateLogo(false);
+                yield return HoldLogo();
+            }
             yield return LoadLobby();
         }
 
@@ -316,8 +336,11 @@ namespace MukJump.Core
             yield return null;
             Canvas.ForceUpdateCanvases();
             // 로고를 먼저 원본 곡선의 역방향으로 걷는다. 배경은 끝까지 로딩 화면을 가린다.
-            yield return AnimateLogo(true);
-            yield return Fade(rootGroup, 1f, 0f, FadeOutDuration);
+            if (ShowsBrand)
+            {
+                yield return AnimateLogo(true);
+                yield return Fade(rootGroup, 1f, 0f, FadeOutDuration);
+            }
             PointerInput.SuppressUntilRelease();
             IsBlockingInput = false;
             playback = null;
@@ -327,7 +350,7 @@ namespace MukJump.Core
         void ShowLoadFailure()
         {
             // 정상 실행에는 문구를 만들지 않는다. 실제 실패 때만 재시도 길을 남긴다.
-            logoImage.enabled = logoImage.sprite != null;
+            logoImage.enabled = ShowsBrand && logoImage.sprite != null;
             logoGroup.alpha = 1f;
             SampleLogo(1f);
             loadFailureText = ConfigureFailureLabel(loadFailureText, "LoadFailure",
@@ -346,7 +369,7 @@ namespace MukJump.Core
             label.font = InkPalette.UiFont;
             label.fontSize = fontSize;
             label.fontStyle = FontStyle.Bold;
-            label.color = InkPalette.Paper;
+            label.color = ShowsBrand ? InkPalette.Paper : InkPalette.TextDark;
             label.alignment = TextAnchor.MiddleCenter;
             label.raycastTarget = false;
             InkLocalizedText.SetSource(label, message);

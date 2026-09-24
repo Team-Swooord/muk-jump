@@ -22,6 +22,8 @@ namespace MukJump.EditorTests
         {
             typeof(StartupBrandSplash).GetField("restartSceneForTests",
                 BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, null);
+            typeof(StartupBrandSplash).GetField("showBrandForTests",
+                BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, null);
             typeof(StartupBrandSplash).GetProperty("IsBlockingInput").SetValue(null, false);
             PointerInput.ResetSuppressionForTests();
             if (host != null)
@@ -30,6 +32,28 @@ namespace MukJump.EditorTests
                 Object.DestroyImmediate(logoSprite);
             if (logoTexture != null)
                 Object.DestroyImmediate(logoTexture);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void BrandPolicyAppliesBeforeFirstRenderAndAfterLogoAssignment(bool show)
+        {
+            typeof(StartupBrandSplash).GetField("showBrandForTests", BindingFlags.Static | BindingFlags.NonPublic)
+                .SetValue(null, (bool?)show);
+            host = new GameObject("PlatformSplashTest");
+            var splash = host.AddComponent<StartupBrandSplash>();
+            logoTexture = new Texture2D(2, 2);
+            logoSprite = Sprite.Create(logoTexture, new Rect(0, 0, 2, 2), Vector2.one * .5f);
+            splash.SetLogo(logoSprite);
+            var logo = host.transform.Find("StartupBrandCanvas/Logo").GetComponent<Image>();
+            Assert.That(logo.enabled, Is.EqualTo(show));
+            Assert.That(logo.color.a, Is.Zero);
+            var backdrop = host.transform.Find("StartupBrandCanvas/BlackBackdrop").GetComponent<Image>();
+            Assert.That(backdrop.color, Is.EqualTo(show ? StartupBrandSplash.BackgroundColor : InkPalette.Paper));
+            typeof(StartupBrandSplash).GetMethod("ShowLoadFailure", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(splash, null);
+            Assert.That(logo.enabled, Is.EqualTo(show));
+            foreach (var text in host.GetComponentsInChildren<Text>())
+                Assert.That(text.color, Is.EqualTo(show ? InkPalette.Paper : InkPalette.TextDark));
         }
 
         [Test]
