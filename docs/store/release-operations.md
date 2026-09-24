@@ -88,6 +88,24 @@
 
 ## iOS 빌드와 Xcode 인계
 
+### 업데이트 준비 — 1.0.3 (43)
+
+- 소스 `26c627f8`에서 정식 iOS를 클린 내보내고 Pods 워크스페이스의 실기기 Release,
+  Archive, 배포 IPA를 검증했다. 로비의 광고 제거 입구, StoreKit 2 비소모성 구매와 금색 먹,
+  의상 보존·이동 버튼 수정이 포함된다. 토스 전용 시작 화면 생략은 iOS에 적용되지 않는다.
+- 2026-09-25 04:08:50 KST App Store Connect가 업로드 성공과 처리 시작을 반환했다.
+  이후 TestFlight 처리 완료·`제출 준비 완료`와 기존 내부 그룹 `11` 연결을 확인했다.
+  1.0.3과 첫 인앱 구매의 심사는 아직 제출하지 않았다. 해외 가격 승인과 실기기 StoreKit
+  구매·복원 검증이 필요하며, 이번 빌드 시점에는 연결된 iPhone이 없어 실기기 검증은 미완료다.
+- 배포 IPA의 Bundle ID `com.CYSB.MukJump`, 팀 `8AU359WZZ2`, Apple 로그인·Game Center,
+  암호화 Boolean false, `get-task-allow=false`, 전체 코드 서명을 확인했다. 기존 저장 초기화는 없다.
+- UnityRuntime 심볼 업로드 경고는 설치본이 정적 라이브러리인 것과 일치하는
+  [Unity 공식 이슈 UUM-141444](https://issuetracker.unity.com/issues/8590/upload-symbols-failed-is-thrown-when-archive-validation-is-being-done-in-xcode)다.
+  업로드는 성공했고 앱과 UnityFramework의 dSYM을 보존했다. 임의의 빈 dSYM을 만들지 않았다.
+- Archive: `/Users/seungyeoning/Library/Developer/Xcode/Archives/2026-09-25/MukJump-1.0.3-43.xcarchive`.
+  검증·업로드 증거: `output/release-appstore/2026-09-25-build-43/`.
+  기존 1.0.3 초안에 빌드 43을 연결하고 세 언어 업데이트 설명과 구매 심사 메모를 저장했다.
+
 ### 정식 심사 전환 — 1.0.0 (28)
 
 - 2026-09-11 사용자 요청에 따라 정식 App Store 빌드로 전환한다. 테스트 광고와 빌드별
