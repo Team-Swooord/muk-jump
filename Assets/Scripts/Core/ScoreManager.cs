@@ -480,22 +480,30 @@ namespace MukJump.Core
 
             try
             {
-                int persisted = Mathf.Max(0, scoreStore.LoadBest());
-                uncertainBestCandidate = 0;
+                BestRunRecord persisted = StoredRecord;
+                // 호출 전에 토스 소유자 바인딩이 검증된다. 다른 사용자는 이 경로에
+                // 들어올 수 없으며, 같은 소유자의 늦은/낮은 읽기는 확인된 최고를 낮추지 않는다.
+                BestRunRecord selected = Instance != null
+                    ? BestRunRecord.Better(Instance.BestRecord, persisted) : persisted;
+                if (selected.IsBetterThan(persisted))
+                {
+                    scoreStore.SaveBest(selected.Height, selected.Seconds);
+                    persisted = StoredRecord;
+                    if (selected.IsBetterThan(persisted)) return false;
+                }
                 if (Instance != null)
                 {
                     int previousBest = Instance.Best;
-                    Instance.Best = persisted;
-                    Instance.BestTimeSeconds = scoreStore.LoadBestTime(persisted);
+                    Instance.Best = persisted.Height;
+                    Instance.BestTimeSeconds = persisted.Seconds;
                     Instance.HeightTimeSeconds = -1;
                     Instance.Height = 0;
-                    Instance.RunBestToBeat = persisted;
+                    Instance.RunBestToBeat = persisted.Height;
                     Instance.IsNewBestThisRun = false;
                     Instance.RecordsAllowed = true;
                     Instance.bestLoadValid = true;
-                    Instance.NotifyBestCommittedIfChanged(
-                        previousBest,
-                        forceNotification: true);
+                    if (!Instance.HasPendingBestSaveRetry)
+                        Instance.NotifyBestCommittedIfChanged(previousBest, forceNotification: true);
                 }
                 return true;
             }

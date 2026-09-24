@@ -1,0 +1,27 @@
+    // MUKJUMP_PLAYERPREFS_PRERUN_V1
+    // Unity/Emscripten의 FIFO·LIFO 어느 순서에서도 마운트 전에 트랩을 설치한다.
+    function buildPreRunArray(existing) {
+        var installed = false;
+        function install(module) {
+            if (installed) return;
+            installed = true;
+            trapFn(module);
+        }
+        function wrap(callback) {
+            if (typeof callback !== 'function') return callback;
+            return function (module) {
+                install(module);
+                return callback.apply(this, arguments);
+            };
+        }
+        var arr = [];
+        arr.push = function () {
+            for (var i = 0; i < arguments.length; i++)
+                Array.prototype.push.call(this, wrap(arguments[i]));
+            return this.length;
+        };
+        if (Array.isArray(existing)) arr.push.apply(arr, existing);
+        else if (typeof existing === 'function') arr.push(existing);
+        Array.prototype.push.call(arr, install);
+        return arr;
+    }

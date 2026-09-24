@@ -391,6 +391,7 @@ namespace MukJump.EditorTools
         {
             bool changed = AITConvertCore.EnsureWebGLTemplatesExist();
             changed |= CopyRuntimeVersionPatchOrThrow();
+            changed |= PreparePlayerPrefsRuntimeOrThrow();
             changed |= PrepareGameWebViewConfigOrThrow();
             if (!File.Exists(TemplateIndexPath))
                 throw new BuildFailedException(
@@ -452,6 +453,27 @@ namespace MukJump.EditorTools
                 "bounces: false, pullToRefreshEnabled: false, overScrollMode: 'never', allowsBackForwardNavigationGestures: false } });\n" +
                 finish + "\n";
             return clean.Replace(end, rule + end);
+        }
+
+        static bool PreparePlayerPrefsRuntimeOrThrow()
+        {
+            const string path = "Assets/WebGLTemplates/AITTemplate/Runtime/ait-playerprefs.js";
+            string source = File.ReadAllText(path);
+            string updated = ApplyPlayerPrefsRuntimePatch(source);
+            if (source == updated) return false;
+            File.WriteAllText(path, updated, new UTF8Encoding(false));
+            return true;
+        }
+
+        public static string ApplyPlayerPrefsRuntimePatch(string source)
+        {
+            const string marker = "// MUKJUMP_PLAYERPREFS_PRERUN_V1";
+            if (source.Contains(marker)) return source;
+            var pattern = new Regex(@"    function buildPreRunArray\(existing\) \{[\s\S]*?        return arr;\r?\n    \}");
+            if (pattern.Matches(source).Count != 1)
+                throw new BuildFailedException("토스 PlayerPrefs 초기화 지점을 확인할 수 없습니다. SDK 변경을 검토해 주세요.");
+            string replacement = File.ReadAllText("Assets/Editor/mukjump-playerprefs-prerun.txt").TrimEnd();
+            return pattern.Replace(source, _ => replacement, 1);
         }
 
         static bool CopyRuntimeVersionPatchOrThrow()
@@ -783,6 +805,10 @@ namespace MukJump.EditorTools
             }
 
             string html = File.ReadAllText(indexPath);
+            string persistencePath = Path.Combine(directory, "Runtime", "ait-playerprefs.js");
+            if (!File.Exists(persistencePath) ||
+                !File.ReadAllText(persistencePath).Contains("// MUKJUMP_PLAYERPREFS_PRERUN_V1"))
+                issues.Add("• 토스 PlayerPrefs 초기화 순서 보정이 산출물에 없습니다.");
             foreach (string name in MukJumpWebPayloadGuard.NativeStreamingNames)
                 if (File.Exists(Path.Combine(directory, "StreamingAssets", name)))
                     issues.Add("• 웹 산출물에 네이티브 서비스 설정이 남아 있습니다: " + name);

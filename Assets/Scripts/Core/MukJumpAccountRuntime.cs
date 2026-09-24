@@ -7008,6 +7008,8 @@ namespace MukJump.Core
     public sealed class MukJumpAccountRuntime : MonoBehaviour
     {
         const int IdentityApiTimeoutMilliseconds = 10000;
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        static extern int MukJumpTossStorageReady();
         const float InitialRetrySeconds = 5f;
         const float MaximumRetrySeconds = 60f;
 
@@ -7145,6 +7147,14 @@ namespace MukJump.Core
                 "토스 사용자 기록을 확인하고 있습니다");
             try
             {
+                // SDK가 저장소 읽기에 실패해 IndexedDB 폴백으로 부팅했을 때
+                // 빈 기록을 정상 원본으로 확정하거나 성장 정산을 시작하지 않는다.
+                if (MukJumpTossStorageReady() != 1)
+                {
+                    FailIdentityResolution(generation,
+                        "기록 저장소를 연결하지 못했습니다. 게임을 닫았다 다시 열어 주세요");
+                    return;
+                }
                 string rawUserKey = await AIT.GetUserKeyForGame(
                     IdentityApiTimeoutMilliseconds);
                 if (!IsCurrentResolution(generation))

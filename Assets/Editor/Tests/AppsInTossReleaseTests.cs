@@ -961,6 +961,20 @@ namespace MukJump.EditorTests
             finally { Directory.Delete(root, true); }
         }
 
+        [Test]
+        public void ReleasePayloadRequiresPlayerPrefsInitializationPatch()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "mukjump-ait-prefs-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                WriteValidReleasePayload(root);
+                Assert.That(MukJumpAppsInTossSetup.CollectBuiltPayloadIssues(root), Is.Empty);
+                File.WriteAllText(Path.Combine(root, "Runtime", "ait-playerprefs.js"), "original SDK");
+                Assert.That(MukJumpAppsInTossSetup.CollectBuiltPayloadIssues(root), Has.Some.Contains("초기화 순서"));
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
         static void WriteValidReleasePayload(
             string root,
             string extraHtml = "")
@@ -976,6 +990,8 @@ namespace MukJump.EditorTests
             File.WriteAllText(
                 Path.Combine(runtime, "index.js"),
                 "window.AppsInToss = { loadFullScreenAd: null, showFullScreenAd: null, TossAds: null };");
+            Directory.CreateDirectory(Path.Combine(root, "Runtime"));
+            File.WriteAllText(Path.Combine(root, "Runtime", "ait-playerprefs.js"), "// MUKJUMP_PLAYERPREFS_PRERUN_V1");
         }
 
         static void SetPrivateField<T>(object target, string name, T value)
