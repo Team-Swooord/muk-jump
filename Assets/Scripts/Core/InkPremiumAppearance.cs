@@ -39,6 +39,20 @@ namespace MukJump.Core
             }
         }
         public static bool IsOwned => IsSupported && entitlement?.IsOwned == true;
+        public static bool SuppressAds
+        {
+            get
+            {
+                if (!IsSupported) return false;
+                if (IsOwned) return true;
+                if (entitlement is IInkPremiumStoreState state) return !state.OwnershipResolved;
+#if UNITY_IOS && !UNITY_EDITOR
+                return entitlement == null;
+#else
+                return false;
+#endif
+            }
+        }
         public static bool IsEquipped => IsOwned && InkSkinPreferences.GoldSelected &&
             InkSkinPreferences.Equipped == InkSkinId.Ink && !SkinDebugSession.Active;
         public static bool IsGoldInRun => IsOwned && (RunGrowthController.Instance != null &&

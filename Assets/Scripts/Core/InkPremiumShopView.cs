@@ -83,7 +83,7 @@ namespace MukJump.Core
             var body = Rect("GoldenInk", paper, new Vector2(0, 300), new Vector2(330, 330)).gameObject.AddComponent<Image>();
             body.sprite = previewBodySprite; body.preserveAspect = true; body.raycastTarget = false;
             GoldInkVisual.Apply(body, true);
-            Label("Benefits", "모든 광고 없이 편안하게\n구매 전용 금색 먹 의상", 46, 67, 150, true);
+            Label("Benefits", "한 번 구매로 모든 광고 제거\n금색 먹 의상을 계속 이용해요", 43, 67, 150, true);
             Label("ReviveRules", "부활은 광고 없이 이용해요\n한 판에 한 번, 기존 이용 조건은 같아요", 33, -86, 115, false);
             Label("CosmeticOnly", "금색 먹은 모습과 착지 효과만 바뀌어요\n점프와 성장 능력은 그대로예요", 32, -213, 108, false);
             purchase = Action("Purchase", "상품 확인 중...", -355, out purchaseLabel);

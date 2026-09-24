@@ -56,7 +56,7 @@ namespace MukJump.Core
 
         public bool IsReady(FullScreenAdPlacement placement)
         {
-            if (InkPremiumAppearance.IsOwned || disposed || pendingCompletion != null) return false;
+            if (InkPremiumAppearance.SuppressAds || disposed || pendingCompletion != null) return false;
             if (IsRewarded(placement))
             {
                 if (rewardedAd == null)
@@ -103,7 +103,7 @@ namespace MukJump.Core
 
         public void Preload(FullScreenAdPlacement placement)
         {
-            if (InkPremiumAppearance.IsOwned || disposed) return;
+            if (InkPremiumAppearance.SuppressAds || disposed) return;
             if (IsRewarded(placement))
                 LoadRewardedIfNeeded();
             else
@@ -113,7 +113,7 @@ namespace MukJump.Core
         public void Tick()
         {
             if (disposed) return;
-            if (InkPremiumAppearance.IsOwned) { Dispose(); return; }
+            if (InkPremiumAppearance.SuppressAds) { Dispose(); return; }
             double now = Time.realtimeSinceStartupAsDouble;
             // 앱 정지 동안의 벽시계 시간을 표시 실패로 세지 않는다. 복귀 프레임에는
             // 메인 스레드로 지연된 SDK 콜백이 먼저 처리될 여유를 준다.
@@ -236,7 +236,7 @@ namespace MukJump.Core
 
         void LoadRewardedIfNeeded()
         {
-            if (InkPremiumAppearance.IsOwned || disposed ||
+            if (InkPremiumAppearance.SuppressAds || disposed ||
                 !CanPreload ||
                 rewardedLoading ||
                 rewardedAd != null ||
@@ -275,7 +275,7 @@ namespace MukJump.Core
 
         void LoadInterstitialIfNeeded()
         {
-            if (InkPremiumAppearance.IsOwned || disposed ||
+            if (InkPremiumAppearance.SuppressAds || disposed ||
                 !CanPreload ||
                 interstitialLoading ||
                 interstitialAd != null ||
@@ -316,7 +316,7 @@ namespace MukJump.Core
             RewardedAd ad,
             LoadAdError error)
         {
-            if (disposed || generation != rewardedLoadGeneration ||
+            if (InkPremiumAppearance.SuppressAds || disposed || generation != rewardedLoadGeneration ||
                 !rewardedLoading)
             {
                 SafeDestroy(ad, "늦은 보상형 광고 폐기");
@@ -361,7 +361,7 @@ namespace MukJump.Core
             InterstitialAd ad,
             LoadAdError error)
         {
-            if (disposed || generation != interstitialLoadGeneration ||
+            if (InkPremiumAppearance.SuppressAds || disposed || generation != interstitialLoadGeneration ||
                 !interstitialLoading)
             {
                 SafeDestroy(ad, "늦은 전면 광고 폐기");

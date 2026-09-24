@@ -93,7 +93,7 @@ namespace MukJump.Core
 
         void Update()
         {
-            if (InkPremiumAppearance.IsOwned) LobbyAdLayout.ClearTopInset();
+            if (InkPremiumAppearance.SuppressAds) LobbyAdLayout.ClearTopInset();
             if (Screen.width != lastWidth ||
                 Screen.height != lastHeight ||
                 MobileUiLayout.CurrentSafeArea != lastSafeArea)

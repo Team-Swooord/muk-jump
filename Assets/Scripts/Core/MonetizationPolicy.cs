@@ -53,12 +53,14 @@ namespace MukJump.Core
             new UnavailableAdProvider();
         static IFullScreenAdProvider provider = unavailable;
 
-        public static IFullScreenAdProvider Provider => InkPremiumAppearance.IsOwned ? premium : provider;
+        public static IFullScreenAdProvider Provider => InkPremiumAppearance.IsOwned ? premium :
+            InkPremiumAppearance.SuppressAds ? unavailable : provider;
         public static bool IsRegistered(IFullScreenAdProvider value) => ReferenceEquals(provider, value);
-        public static bool HasProvider => InkPremiumAppearance.IsOwned || !ReferenceEquals(provider, unavailable);
+        public static bool HasProvider => InkPremiumAppearance.IsOwned ||
+            !InkPremiumAppearance.SuppressAds && !ReferenceEquals(provider, unavailable);
 
         public static bool HasPendingPresentation =>
-            !InkPremiumAppearance.IsOwned && provider is IFullScreenAdLifecycle lifecycle && lifecycle.HasPendingPresentation;
+            !InkPremiumAppearance.SuppressAds && provider is IFullScreenAdLifecycle lifecycle && lifecycle.HasPendingPresentation;
 
         /// 지원 플랫폼은 SDK 초기화·동의 화면이 늦어도 게임오버 선택지를 먼저
         /// 유지한다. 공급자 등록 순간만 보고 정산하면 첫 판의 부활 광고가 사라진다.
@@ -96,7 +98,7 @@ namespace MukJump.Core
         public static bool ShouldShowTopBanner(GameState state, bool isPaused,
             bool isTransitioning, bool isBannerSection, bool overlayOpen)
         {
-            if (InkPremiumAppearance.IsOwned || isPaused || isTransitioning || overlayOpen) return false;
+            if (InkPremiumAppearance.SuppressAds || isPaused || isTransitioning || overlayOpen) return false;
             return state == GameState.Playing || state == GameState.Lobby && isBannerSection;
         }
 
@@ -141,7 +143,7 @@ namespace MukJump.Core
             bool rewardedAdShownThisRun,
             bool adReady)
         {
-            return !InkPremiumAppearance.IsOwned && adReady &&
+            return !InkPremiumAppearance.SuppressAds && adReady &&
                    !rewardedAdShownThisRun &&
                    completedRunsInSession >= InterstitialRunInterval &&
                    completedRunsInSession % InterstitialRunInterval == 0 &&

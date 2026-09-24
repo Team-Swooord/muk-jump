@@ -35,7 +35,8 @@ namespace MukJump.Core
         bool bannerLoading;
         bool consentGathering;
         bool trackingAuthorizationResolved;
-        public bool IsPrivacyFlowBusy => configurationReady && (!trackingAuthorizationResolved || consentGathering);
+        public bool IsPrivacyFlowBusy => !InkPremiumAppearance.SuppressAds &&
+            configurationReady && (!trackingAuthorizationResolved || consentGathering);
         bool configurationReady;
         bool sdkConfigured;
         bool initializationInFlight;
@@ -79,8 +80,14 @@ namespace MukJump.Core
 
         void Update()
         {
-            if (InkPremiumAppearance.IsOwned)
+            if (InkPremiumAppearance.SuppressAds)
             {
+                if (consentGathering) { consentGathering = false; consentGeneration++; }
+                if (initializationInFlight) { initializationInFlight = false; initializationGeneration++; }
+#if UNITY_IOS
+                trackingAuthorizationFlowStarted = false;
+                trackingAuthorizationDeadline = 0d;
+#endif
                 if (banner != null || bannerLoading) HideAndDestroyBanner();
                 if (provider != null)
                 {
@@ -276,7 +283,7 @@ namespace MukJump.Core
 
         void TryConfigureSdkAndBeginFlow()
         {
-            if (InkPremiumAppearance.IsOwned || !configurationReady || !isActiveAndEnabled)
+            if (InkPremiumAppearance.SuppressAds || !configurationReady || !isActiveAndEnabled)
                 return;
             try
             {
@@ -334,7 +341,7 @@ namespace MukJump.Core
 #if UNITY_IOS
         void TryBeginTrackingAuthorizationFlow()
         {
-            if (!sdkConfigured || trackingAuthorizationResolved ||
+            if (InkPremiumAppearance.SuppressAds || !sdkConfigured || trackingAuthorizationResolved ||
                 trackingAuthorizationFlowStarted || !isActiveAndEnabled)
                 return;
             trackingAuthorizationFlowStarted = true;
@@ -451,7 +458,7 @@ namespace MukJump.Core
 
         void GatherConsent()
         {
-            if (InkPremiumAppearance.IsOwned || consentGathering || initialized)
+            if (InkPremiumAppearance.SuppressAds || consentGathering || initialized)
                 return;
             consentGathering = true;
             long generation = ++consentGeneration;
@@ -585,7 +592,7 @@ namespace MukJump.Core
         {
             try
             {
-                return !InkPremiumAppearance.IsOwned && ConsentInformation.CanRequestAds();
+                return !InkPremiumAppearance.SuppressAds && ConsentInformation.CanRequestAds();
             }
             catch (Exception exception)
             {
@@ -597,7 +604,7 @@ namespace MukJump.Core
 
         void InitializeAds()
         {
-            if (InkPremiumAppearance.IsOwned || initialized || initializationInFlight)
+            if (InkPremiumAppearance.SuppressAds || initialized || initializationInFlight)
                 return;
             initializationInFlight = true;
             long generation = ++initializationGeneration;
@@ -626,7 +633,7 @@ namespace MukJump.Core
             initializationInFlight = false;
             initializationGeneration++;
             initializationDeadline = 0d;
-            if (InkPremiumAppearance.IsOwned) return;
+            if (InkPremiumAppearance.SuppressAds) return;
             try
             {
                 var newProvider = new GoogleMobileAdsProvider(
@@ -683,7 +690,7 @@ namespace MukJump.Core
 
         void UpdateLobbyBanner()
         {
-            bool bannerEnabled = !InkPremiumAppearance.IsOwned &&
+            bool bannerEnabled = !InkPremiumAppearance.SuppressAds &&
                                  (settings == null || settings.EnableLobbyBanner);
             bool shouldShow = bannerEnabled &&
                               GoogleMobileAdsPresentation
@@ -732,7 +739,7 @@ namespace MukJump.Core
 
         void LoadBannerIfNeeded()
         {
-            if (InkPremiumAppearance.IsOwned || banner != null ||
+            if (InkPremiumAppearance.SuppressAds || banner != null ||
                 bannerLoading ||
                 Application.internetReachability == NetworkReachability.NotReachable ||
                 string.IsNullOrWhiteSpace(units?.Banner) ||
@@ -836,6 +843,7 @@ namespace MukJump.Core
             if (!isActiveAndEnabled || generation != bannerLoadGeneration ||
                 !ReferenceEquals(banner, expectedBanner))
                 return;
+            if (InkPremiumAppearance.SuppressAds) { HideAndDestroyBanner(); return; }
             try
             {
                 float height = expectedBanner.GetHeightInPixels();
