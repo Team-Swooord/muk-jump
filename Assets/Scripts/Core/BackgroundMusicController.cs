@@ -10,7 +10,7 @@ namespace MukJump.Core
         const string MusicResourcePath = "MukJump/Audio/InkdropAscent";
 
         [SerializeField, Range(0f, 1f)] float lobbyVolume = 0.32f;
-        [SerializeField, Range(0f, 1f)] float playingVolume = 0.48f;
+        [SerializeField, Range(0f, 1f)] float playingVolume = 0.36f;
         [SerializeField, Range(0f, 1f)] float pausedVolume = 0.2f;
         [SerializeField, Range(0f, 1f)] float gameOverVolume = 0.18f;
         [SerializeField, Min(0.01f)] float fadeSpeed = 0.45f;
@@ -119,6 +119,7 @@ namespace MukJump.Core
             {
                 source.Pause();
             }
+            AudioPlaybackDiagnostics.Record("music-state", source, source.clip, source.volume);
         }
 
         void OnDestroy()

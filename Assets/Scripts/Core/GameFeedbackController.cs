@@ -40,6 +40,7 @@ namespace MukJump.Core
         AudioClip gameOverClip;
         AudioSource brushSource;
         AudioSource accentSource;
+        bool brushDrawingRequested;
         Coroutine gameOverSoundRoutine;
         Coroutine hitStopRoutine;
         Coroutine gamepadHapticRoutine;
@@ -230,6 +231,7 @@ namespace MukJump.Core
 
         void DisposeRuntimeAssets()
         {
+            brushDrawingRequested = false;
             contactParticles?.Dispose();
             contactParticles = null;
             if (brushSource != null)
@@ -269,17 +271,17 @@ namespace MukJump.Core
         {
             if (jumpClip != null && brushSource != null && accentSource != null) return;
 
-            jumpClip = CreateOwnedTone("JumpBrush", 0.16f, 240f, 520f, 0.18f, 0.04f);
+            jumpClip = CreateOwnedTone("JumpBrush", 0.16f, 240f, 520f, 0.24f, 0.04f);
             landingClip = CreateOwnedTone("LandingInk", 0.13f, 150f, 82f, 0.24f, 0.18f);
             drawClip = CreateOwnedTone("DrawSet", 0.1f, 390f, 320f, 0.12f, 0.08f);
             invalidClip = CreateOwnedTone("InvalidStroke", 0.12f, 170f, 125f, 0.16f, 0.2f);
             itemClip = CreateOwnedTone("ItemPickup", 0.22f, 420f, 760f, 0.16f, 0.03f);
             milestoneClip = CreateOwnedTone(
                 "MilestoneSeal", 0.34f, 220f, 440f, 0.2f, 0.08f);
-            brushLoopClip = LoadSfx("SFX_Brush_Community") ??
+            brushLoopClip = LoadSfx("SFX_Brush_Community_Balanced") ?? LoadSfx("SFX_Brush_Community") ??
                             LoadSfx("SFX_Brush_Draw_Loop") ??
                             CreateOwnedBrushNoise("BrushDrawing", 0.42f, 0.16f);
-            brushTransitionClip = LoadSfx("SFX_Brush_Community") ??
+            brushTransitionClip = LoadSfx("SFX_Brush_Community_Balanced") ?? LoadSfx("SFX_Brush_Community") ??
                                   LoadSfx("SFX_Brush_Transition") ??
                                   CreateOwnedBrushNoise(
                                       "BrushTransition", 1.15f, 0.3f, true);
@@ -305,30 +307,52 @@ namespace MukJump.Core
 
         public void StartBrushDrawing()
         {
+            if (!isActiveAndEnabled || AudioListener.pause ||
+                !MobileApplicationLifecycle.IsApplicationActive)
+            {
+                AudioPlaybackDiagnostics.Record("brush-suspended", brushSource, brushLoopClip);
+                return;
+            }
             EnsureInitialized();
-            if (brushSource == null || brushLoopClip == null || brushSource.isPlaying) return;
-            brushSource.volume = 0.28f * LobbySettingsProfile.SfxVolume;
+            if (brushSource == null || brushLoopClip == null) return;
+            brushDrawingRequested = true;
+            brushSource.volume = 0.42f * LobbySettingsProfile.SfxVolume;
             brushSource.pitch = Random.Range(0.94f, 1.04f);
-            if (brushSource.timeSamples > 0)
-                brushSource.UnPause();
-            else
-                brushSource.Play();
+            EnsureBrushPlayback();
         }
 
         public void PlayBrushMovement(float movement)
         {
+            if (!brushDrawingRequested || !isActiveAndEnabled) return;
+            if (AudioListener.pause || !MobileApplicationLifecycle.IsApplicationActive)
+            {
+                StopBrushDrawing();
+                return;
+            }
             EnsureInitialized();
             if (brushSource == null || brushLoopClip == null) return;
             brushSource.volume =
-                Mathf.Lerp(0.24f, 0.4f, Mathf.Clamp01(movement / 0.5f)) *
+                Mathf.Lerp(0.38f, 0.56f, Mathf.Clamp01(movement / 0.5f)) *
                 LobbySettingsProfile.SfxVolume;
             brushSource.pitch = Mathf.Lerp(0.9f, 1.12f, Mathf.Clamp01(movement / 0.5f));
+            EnsureBrushPlayback();
+        }
+
+        void EnsureBrushPlayback()
+        {
+            if (brushSource.isPlaying) return;
+            // 재생 위치가 남아 있어도 OS 중단으로 세션 자체가 끝났을 수 있다.
+            // 정상 Pause는 이어 재생하고, Stop된 소스는 새로 시작한다.
+            brushSource.UnPause();
+            if (!brushSource.isPlaying) brushSource.Play();
+            AudioPlaybackDiagnostics.Record("brush-play", brushSource, brushLoopClip, brushSource.volume);
         }
 
         public void StopBrushDrawing()
         {
-            if (brushSource != null && brushSource.isPlaying)
-                brushSource.Pause();
+            brushDrawingRequested = false;
+            // 리스너가 먼저 정지돼 isPlaying=false여도 현재 획의 재개를 취소한다.
+            if (brushSource != null) brushSource.Pause();
         }
 
         public void PlayBrushTransition()
@@ -343,7 +367,7 @@ namespace MukJump.Core
             EnsureInitialized();
             if (Time.unscaledTime - lastWallHitFeedbackTime < 0.08f) return;
             lastWallHitFeedbackTime = Time.unscaledTime;
-            VfxAudioManager.Instance?.PlayOneShot(wallHitClip, 0.78f);
+            VfxAudioManager.Instance?.PlayOneShot(wallHitClip, 0.9f);
             StartCoroutine(AnimateWallImpact(position, Mathf.Sign(inwardDirection)));
             if (contactParticles != null)
                 contactParticles.EmitImpact(position, Vector2.right * Mathf.Sign(inwardDirection), 0.65f);

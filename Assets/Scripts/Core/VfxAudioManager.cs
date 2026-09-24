@@ -38,8 +38,19 @@ namespace MukJump.Core
             if (clip == null || !isActiveAndEnabled) return;
             float gain = FiniteVolume(volume) * FiniteVolume(masterVolume) *
                          FiniteVolume(LobbySettingsProfile.SfxVolume);
+            // 정지 중 PlayOneShot은 재개를 기다리는 소리로 쌓일 수 있다.
+            // 짧은 접촉음은 원래 사건이 지난 뒤 재생하지 않는다.
+            if (AudioListener.pause || !MobileApplicationLifecycle.IsApplicationActive)
+            {
+                AudioPlaybackDiagnostics.Record("pool-suspended", null, clip, gain);
+                return;
+            }
             // 들리지 않는 요청이 이미 재생 중인 피격음을 밀어내지 않는다.
-            if (gain <= 0f) return;
+            if (gain <= 0f)
+            {
+                AudioPlaybackDiagnostics.Record("pool-muted", null, clip, gain);
+                return;
+            }
             EnsureSources();
             if (sources == null || sources.Length == 0) return;
 
@@ -51,6 +62,7 @@ namespace MukJump.Core
             source.clip = null;
             source.PlayOneShot(clip, gain);
             lastStartedAt[selected] = Time.unscaledTime;
+            AudioPlaybackDiagnostics.Record("pool-play", source, clip, gain);
         }
 
         /// 일시정지 전에 재생 중인 짧은 효과음을 비워, 재개 시 뒤늦게 이어지지 않게 한다.

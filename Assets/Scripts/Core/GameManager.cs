@@ -1102,6 +1102,7 @@ namespace MukJump.Core
         {
             AudioListener.pause = active;
             BackgroundMusicController.Instance?.SetFullScreenAdActive(active);
+            AudioPlaybackDiagnostics.Record(active ? "game-pause" : "game-resume");
         }
 
         static bool SafeIsAdReady(
@@ -2306,6 +2307,7 @@ namespace MukJump.Core
             Time.timeScale = 0f;
             AudioListener.pause = true;
             if (reason == GameplayPauseReason.UserMenu) MukJumpAnalytics.Pause(true);
+            AudioPlaybackDiagnostics.Record("game-pause");
             NotifyListenersSafely(PauseChanged, true, "일시정지");
             return true;
         }
@@ -2338,6 +2340,7 @@ namespace MukJump.Core
             PauseReason = GameplayPauseReason.None;
             timeScaleBeforePause = 1f;
             fixedDeltaBeforePause = 0.02f;
+            AudioPlaybackDiagnostics.Record("game-resume");
             if (notify && wasPaused)
                 NotifyListenersSafely(PauseChanged, false, "일시정지");
         }

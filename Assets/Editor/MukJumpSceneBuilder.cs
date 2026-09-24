@@ -191,6 +191,7 @@ namespace MukJump.EditorTools
             EnsureLayer("Item");
             EnsureLayer("Player");
             ConfigureBackground();
+            ConfigureBrushAudio();
             foreach (string atlasPath in AmbientThemeAtlasPaths) ConfigureAmbientCloudAtlas(atlasPath);
             ConfigureCharacterSheets();
             ConfigureSkinAccessories();
@@ -2429,6 +2430,27 @@ namespace MukJump.EditorTools
             }
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.filterMode = FilterMode.Bilinear;
+            importer.SaveAndReimport();
+        }
+
+        static void ConfigureBrushAudio()
+        {
+            // 원본 녹음은 보존하고 tools/normalize_brush_audio.py의 파생 WAV만 사용한다.
+            const string path = "Assets/Resources/MukJump/Audio/SFX/SFX_Brush_Community_Balanced.wav";
+            var importer = AssetImporter.GetAtPath(path) as AudioImporter;
+            if (importer == null) throw new System.InvalidOperationException("붓 음량 보정 WAV를 찾을 수 없습니다: " + path);
+            importer.forceToMono = true;
+            importer.loadInBackground = false;
+            var sample = importer.defaultSampleSettings;
+            sample.loadType = AudioClipLoadType.DecompressOnLoad;
+            sample.preloadAudioData = true;
+            sample.compressionFormat = AudioCompressionFormat.Vorbis;
+            sample.quality = .9f;
+            sample.sampleRateSetting = AudioSampleRateSetting.OverrideSampleRate;
+            sample.sampleRateOverride = 44100;
+            importer.defaultSampleSettings = sample;
+            sample.quality = .5f;
+            importer.SetOverrideSampleSettings("WebGL", sample);
             importer.SaveAndReimport();
         }
 
