@@ -276,7 +276,7 @@ namespace MukJump.EditorTests
                 float fontScale=language==GameLanguage.Japanese ? .76f : 1f;
                 Assert.That(view.Paper.Find("Description").GetComponent<UnityEngine.UI.Text>().fontSize,Is.EqualTo(Mathf.RoundToInt(60*fontScale)));
                 Assert.That(view.Paper.Find("AchievementProgress").GetComponent<UnityEngine.UI.Text>().fontSize,Is.EqualTo(Mathf.RoundToInt(52*fontScale)));
-                Assert.That(((RectTransform)view.Paper.Find("AchievementTrack")).rect.height,Is.GreaterThanOrEqualTo(92));
+                Assert.That(((RectTransform)view.Paper.Find("AchievementTrack")).rect.height,Is.EqualTo(16));
                 view.ToggleCollection();
                 Assert.That(view.Paper.Find("ItemLore").gameObject.activeSelf,Is.False);
             }

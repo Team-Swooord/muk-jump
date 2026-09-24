@@ -119,7 +119,7 @@ namespace MukJump.EditorTests
             Assert.That(view.BackButton.transform.parent,Is.EqualTo(view.Paper));
             Assert.That(view.BackButton.transform.Find("Paper"),Is.Null);
             Assert.That(view.BackButton.transform.Find("Icon"),Is.Not.Null);
-            Assert.That(view.BackButton.GetComponent<RectTransform>().anchoredPosition.y,Is.EqualTo(860));
+            Assert.That(view.BackButton.GetComponent<RectTransform>().anchoredPosition.y,Is.EqualTo(884));
             Assert.That(view.EquipButton.transform.Find("Paper"),Is.Null);
             Assert.That(view.EquipButton.transform.Find("BrushBackground"),Is.Not.Null);
             Assert.That(view.CanBrowse,Is.True);
@@ -431,7 +431,7 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
         [Category("WardrobeUnlockPresentation")]
-        public void BrushProgressUsesAccurateFillAndHidesTheSealWhenResetOrConcealed(GameLanguage language)
+        public void ThinProgressUsesAccurateFillAndHidesTheSealWhenResetOrConcealed(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
             Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(),Is.True);
@@ -442,23 +442,24 @@ namespace MukJump.EditorTests
             var seal=track.transform.Find("CompletionSeal").gameObject;
             var number=view.Paper.Find("AchievementProgress").GetComponent<Text>();
             int objects=view.GetComponentsInChildren<Transform>(true).Length;
-            Assert.That(track.sprite,Is.SameAs(InkUiTextureFactory.CreateBrushSprite()));
+            Assert.That(track.sprite.name,Is.EqualTo("WardrobeProgressSolid"));
             Assert.That(fill.sprite,Is.SameAs(track.sprite));
             Assert.That(fill.type,Is.EqualTo(Image.Type.Filled));
             Assert.That(fill.fillMethod,Is.EqualTo(Image.FillMethod.Horizontal));
             Assert.That(fill.fillOrigin,Is.Zero);
             Assert.That(fill.preserveAspect,Is.False);
-            foreach (int value in new[] {0,43,100,1000,0})
+            int goal = InkSkinAchievements.Goal(InkSkinId.Gat);
+            foreach (int value in new[] {0,43,goal,goal*2,0})
             {
                 Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(value),Is.True);
                 for(int i=0;i<4;i++) Invoke(view,"RefreshSelection");
-                Assert.That(fill.fillAmount,Is.EqualTo(Mathf.Clamp01(value/100f)).Within(.001f));
-                Assert.That(number.text,Is.EqualTo($"{Mathf.Min(value,100)} / 100"));
-                Assert.That(seal.activeSelf,Is.EqualTo(value>=100));
+                Assert.That(fill.fillAmount,Is.EqualTo(Mathf.Clamp01((float)value/goal)).Within(.001f));
+                Assert.That(number.text,Is.EqualTo($"{Mathf.Min(value,goal)} / {goal}"));
+                Assert.That(seal.activeSelf,Is.EqualTo(value>=goal));
                 Canvas.ForceUpdateCanvases();
                 Assert.That(fill.rectTransform.rect.size,Is.EqualTo(track.rectTransform.rect.size));
             }
-            Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(100),Is.True);
+            Assert.That(ScoreManager.TryReplaceVerifiedBestForAccountSwitch(goal),Is.True);
             view.Select(InkSkinId.Gat); Assert.That(seal.activeSelf,Is.True);
             foreach(var id in new[]{InkSkinId.NightBat,InkSkinId.Ink})
             {
@@ -518,10 +519,11 @@ namespace MukJump.EditorTests
                 }
                 if (track.gameObject.activeSelf)
                 {
-                    Assert.That(track.rect.height, Is.EqualTo(92));
-                    AssertInside(BoundsIn(view.Paper, number.rectTransform), BoundsIn(view.Paper, track), 0, "게이지 숫자");
+                    Assert.That(track.rect.height, Is.EqualTo(16));
+                    Assert.That(BoundsIn(view.Paper, number.rectTransform).yMin,
+                        Is.GreaterThan(BoundsIn(view.Paper, track).yMax), "수치는 막대 위에 분리한다");
                     Assert.That(number.transform.GetSiblingIndex(), Is.GreaterThan(track.GetSiblingIndex()));
-                    Assert.That(number.color, Is.EqualTo(InkPalette.TextLight));
+                    Assert.That(number.color, Is.EqualTo(InkPalette.Ink));
                     Assert.That(number.preferredHeight, Is.LessThanOrEqualTo(number.rectTransform.rect.height));
                 }
                 if (hidden) Assert.That(track.gameObject.activeSelf, Is.False);

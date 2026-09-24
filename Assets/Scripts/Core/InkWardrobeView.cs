@@ -24,6 +24,7 @@ namespace MukJump.Core
         RectTransform collectionContent, collectionRoot, stage;
         bool collectionExpanded;
         UnityEngine.UI.Image progressFill;
+        static Sprite progressBarSprite;
         RectTransform progressTrack, completionSeal;
         InkSkinId progressSkin;
         float progressTarget, progressStart, progressStartedAt;
@@ -259,9 +260,9 @@ namespace MukJump.Core
             progressText.gameObject.SetActive(!collectionExpanded && showProgress);
             achievementText.alignment = progressText.alignment = TextAnchor.MiddleCenter;
             PlaceDetailRow(achievementText.rectTransform, 260f, 320f);
-            // 숫자는 굵어진 게이지 위에 겹쳐 그려 채움 비율과 무관하게 읽히게 한다.
-            PlaceDetailRow(progressText.rectTransform, -220f, 92f);
-            PlaceDetailRow(progressTrack, -220f, 92f);
+            // 수치는 얇은 게이지 위에 따로 두어 채움 비율과 무관하게 읽히게 한다.
+            PlaceDetailRow(progressText.rectTransform, -208f, 76f);
+            PlaceDetailRow(progressTrack, -296f, 16f);
             PlaceDetailRow(statusText.rectTransform, -164f, 120f);
         }
         static float PlaceDetailRow(RectTransform row, float top, float height)
@@ -286,7 +287,7 @@ namespace MukJump.Core
             bool changedSkin = !hasProgress || progressSkin != selected;
             bool changedValue = !Mathf.Approximately(progressTarget, target);
             progressComplete = unlocked && target >= 1f;
-            progressText.color = InkPalette.TextLight;
+            progressText.color = InkPalette.Ink;
             if (changedSkin || changedValue)
             {
                 // 주기적인 갱신은 번짐을 재시작하지 않는다. 계정 초기화로 줄어든 값은 즉시 반영한다.
@@ -351,8 +352,8 @@ namespace MukJump.Core
             blocker.color=Color.clear; blocker.raycastTarget=true;
             safeRoot=Stretch("SafeAreaRoot",root.transform);
             paper=Rect("WardrobeScreen",safeRoot,Vector2.zero,new Vector2(1080,1920));
-            Label("Title",paper,"꾸미기",104,new Vector2(0,860),new Vector2(480,136),true);
-            stage=Rect("ShowroomStage",paper,new Vector2(0,515),new Vector2(1000,560));
+            Label("Title",paper,"꾸미기",104,new Vector2(0,884),new Vector2(480,136),true);
+            stage=Rect("ShowroomStage",paper,new Vector2(0,555),new Vector2(1000,560));
             // 큰 장식·파동은 제목과 하단 의상 목록을 침범하지 않는다.
             stage.gameObject.AddComponent<RectMask2D>().softness=new Vector2Int(10,16);
             var stageHit=stage.gameObject.AddComponent<Image>(); stageHit.color=Color.clear; stageHit.raycastTarget=true;
@@ -404,7 +405,7 @@ namespace MukJump.Core
                 collectionHeadings[group] = heading.rectTransform;
                 heading.gameObject.SetActive(false);
             }
-            var toggle=Button("CollectionToggle",paper,"전체 보기",new Vector2(385,860),new Vector2(280,120),44,out collectionToggleText);
+            var toggle=Button("CollectionToggle",paper,"전체 보기",new Vector2(385,884),new Vector2(280,120),44,out collectionToggleText);
             toggle.onClick.AddListener(ToggleCollection);
             // 이름·설명과 같은 한지 모양을 검게 덮는다. 조건과 힌트는 그 위의 한 슬롯을 공유한다.
             detailLockOverlay=SpriteImage("ItemDetailsLockOverlay",paper,InkUiStyle.ActionButtonSprite,
@@ -422,13 +423,18 @@ namespace MukJump.Core
             achievementText=Label("Achievement",paper,"",60,new Vector2(0,100),new Vector2(840,320),true);
             achievementText.lineSpacing=1.12f;
             if(achievementText.TryGetComponent<Outline>(out var requirementOutline)) requirementOutline.enabled=false;
-            progressText=Label("AchievementProgress",paper,"",52,new Vector2(0,-266),new Vector2(760,92),true); InkLocalizedText.Exclude(progressText);
-            progressTrack=Rect("AchievementTrack",paper,new Vector2(0,-266),new Vector2(840,92));
-            var brush=InkUiTextureFactory.CreateBrushSprite();
+            progressText=Label("AchievementProgress",paper,"",52,new Vector2(0,-246),new Vector2(760,76),true); InkLocalizedText.Exclude(progressText);
+            progressTrack=Rect("AchievementTrack",paper,new Vector2(0,-304),new Vector2(840,16));
+            if (progressBarSprite == null)
+            {
+                progressBarSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0,0,1,1), Vector2.one*.5f);
+                progressBarSprite.name = "WardrobeProgressSolid";
+                progressBarSprite.hideFlags = HideFlags.HideAndDontSave;
+            }
             var trackImage=progressTrack.gameObject.AddComponent<UnityEngine.UI.Image>();
-            trackImage.sprite=brush; trackImage.color=new Color(.11f,.106f,.102f,.78f); trackImage.raycastTarget=false;
+            trackImage.sprite=progressBarSprite; var trackTint=InkPalette.Ink; trackTint.a=.18f; trackImage.color=trackTint; trackImage.raycastTarget=false;
             progressFill=Stretch("Progress",progressTrack).gameObject.AddComponent<UnityEngine.UI.Image>();
-            progressFill.sprite=brush; progressFill.color=InkPalette.Red; progressFill.raycastTarget=false;
+            progressFill.sprite=progressBarSprite; progressFill.color=InkPalette.Red; progressFill.raycastTarget=false;
             progressFill.type=UnityEngine.UI.Image.Type.Filled;
             progressFill.fillMethod=UnityEngine.UI.Image.FillMethod.Horizontal; progressFill.fillOrigin=0;
             progressFill.fillAmount=0f;
@@ -440,7 +446,7 @@ namespace MukJump.Core
             progressText.transform.SetAsLastSibling();
             BuildEquipButton(); equipButton.onClick.AddListener(Equip);
             statusText=Label("SaveStatus",paper,"",36,new Vector2(0,-195),new Vector2(940,120),false); statusText.color=InkPalette.Red;
-            var backHit=Rect("BackButton",paper,new Vector2(-420,860),new Vector2(220,120)).gameObject.AddComponent<UnityEngine.UI.Image>();
+            var backHit=Rect("BackButton",paper,new Vector2(-420,884),new Vector2(220,120)).gameObject.AddComponent<UnityEngine.UI.Image>();
             backHit.color=Color.clear; backHit.raycastTarget=true;
             var backIcon=SpriteImage("Icon",backHit.transform,InkUiTextureFactory.CreateGrowthBackIconSprite(),new Vector2(-45,0),new Vector2(84,84));
             backIcon.color=InkPalette.TextDark;
@@ -646,7 +652,7 @@ namespace MukJump.Core
             Rect drawing = LobbySkinPreview.BodyDrawingBounds;
             float bodyScale = HeroSize * preview.localScale.x;
             Vector2 center = preview.anchoredPosition + drawing.center * bodyScale;
-            float diameter = Mathf.Max(drawing.width, drawing.height) * bodyScale + 96f;
+            float diameter = Mathf.Max(drawing.width, drawing.height) * bodyScale + 48f;
             var backdrop = Rect("PreviewBackdrop", stage, center, Vector2.one * diameter);
             backdrop.SetAsFirstSibling();
             var paperWash = SpriteImage("FocusPaperWash", backdrop, InkUiTextureFactory.CreateBlobSprite(),
