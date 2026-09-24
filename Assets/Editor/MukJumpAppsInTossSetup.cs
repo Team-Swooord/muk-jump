@@ -468,12 +468,32 @@ namespace MukJump.EditorTools
         public static string ApplyPlayerPrefsRuntimePatch(string source)
         {
             const string marker = "// MUKJUMP_PLAYERPREFS_PRERUN_V1";
-            if (source.Contains(marker)) return source;
-            var pattern = new Regex(@"    function buildPreRunArray\(existing\) \{[\s\S]*?        return arr;\r?\n    \}");
-            if (pattern.Matches(source).Count != 1)
-                throw new BuildFailedException("토스 PlayerPrefs 초기화 지점을 확인할 수 없습니다. SDK 변경을 검토해 주세요.");
-            string replacement = File.ReadAllText("Assets/Editor/mukjump-playerprefs-prerun.txt").TrimEnd();
-            return pattern.Replace(source, _ => replacement, 1);
+            if (!source.Contains(marker))
+            {
+                var pattern = new Regex(@"    function buildPreRunArray\(existing\) \{[\s\S]*?        return arr;\r?\n    \}");
+                if (pattern.Matches(source).Count != 1)
+                    throw new BuildFailedException("토스 PlayerPrefs 초기화 지점을 확인할 수 없습니다. SDK 변경을 검토해 주세요.");
+                string replacement = File.ReadAllText("Assets/Editor/mukjump-playerprefs-prerun.txt").TrimEnd();
+                source = pattern.Replace(source, _ => replacement, 1);
+            }
+            if (source.Contains("// MUKJUMP_PLAYERPREFS_ORDERED_V1")) return source;
+            // SDK 원본은 보존한다. 예상 구현이 달라지면 추측해서 배포하지 않는다.
+            source = ReplacePlayerPrefsOnce(source, "    function pushScoped(mount) {\n        return new Promise(function (resolve) {",
+                "    function pushScoped(mount) {\n        return new Promise(function (resolve, reject) {");
+            source = ReplacePlayerPrefsOnce(source, "                resolve(false);\n            });\n        }).catch(function (e) {\n            recordError('push', e);\n            return false;",
+                "                reject(e);\n            });\n        }).catch(function (e) {\n            recordError('push', e);\n            throw e;");
+            source = ReplacePlayerPrefsOnce(source, "    function status() {",
+                File.ReadAllText("Assets/Editor/mukjump-playerprefs-ordered.txt").TrimEnd() + "\n\n    function status() {");
+            return source;
+        }
+
+        static string ReplacePlayerPrefsOnce(string source, string before, string after)
+        {
+            source = source.Replace("\r\n", "\n");
+            int at = source.IndexOf(before, StringComparison.Ordinal);
+            if (at < 0 || source.IndexOf(before, at + before.Length, StringComparison.Ordinal) >= 0)
+                throw new BuildFailedException("토스 PlayerPrefs 저장 경계가 변경됐습니다. SDK 구현을 검토해 주세요.");
+            return source.Substring(0, at) + after + source.Substring(at + before.Length);
         }
 
         static bool CopyRuntimeVersionPatchOrThrow()
@@ -807,7 +827,8 @@ namespace MukJump.EditorTools
             string html = File.ReadAllText(indexPath);
             string persistencePath = Path.Combine(directory, "Runtime", "ait-playerprefs.js");
             if (!File.Exists(persistencePath) ||
-                !File.ReadAllText(persistencePath).Contains("// MUKJUMP_PLAYERPREFS_PRERUN_V1"))
+                !File.ReadAllText(persistencePath).Contains("// MUKJUMP_PLAYERPREFS_PRERUN_V1") ||
+                !File.ReadAllText(persistencePath).Contains("// MUKJUMP_PLAYERPREFS_ORDERED_V1"))
                 issues.Add("• 토스 PlayerPrefs 초기화 순서 보정이 산출물에 없습니다.");
             foreach (string name in MukJumpWebPayloadGuard.NativeStreamingNames)
                 if (File.Exists(Path.Combine(directory, "StreamingAssets", name)))

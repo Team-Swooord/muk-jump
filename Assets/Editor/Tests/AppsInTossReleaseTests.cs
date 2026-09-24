@@ -969,10 +969,26 @@ namespace MukJump.EditorTests
             {
                 WriteValidReleasePayload(root);
                 Assert.That(MukJumpAppsInTossSetup.CollectBuiltPayloadIssues(root), Is.Empty);
+                File.WriteAllText(Path.Combine(root, "Runtime", "ait-playerprefs.js"), "// MUKJUMP_PLAYERPREFS_PRERUN_V1");
+                Assert.That(MukJumpAppsInTossSetup.CollectBuiltPayloadIssues(root), Has.Some.Contains("초기화 순서"));
                 File.WriteAllText(Path.Combine(root, "Runtime", "ait-playerprefs.js"), "original SDK");
                 Assert.That(MukJumpAppsInTossSetup.CollectBuiltPayloadIssues(root), Has.Some.Contains("초기화 순서"));
             }
             finally { Directory.Delete(root, true); }
+        }
+
+        [Test]
+        public void PlayerPrefsPatchUsesActualSdkIsIdempotentAndRejectsUnknownBoundary()
+        {
+            string sdk = Directory.GetDirectories("Library/PackageCache", "im.toss.apps-in-toss-unity-sdk@*").Single();
+            string source = File.ReadAllText(Path.Combine(sdk, "WebGLTemplates/AITTemplate/Runtime/ait-playerprefs.js"));
+            string patched = MukJumpAppsInTossSetup.ApplyPlayerPrefsRuntimePatch(source);
+            Assert.That(patched, Does.Contain("// MUKJUMP_PLAYERPREFS_ORDERED_V1"));
+            Assert.That(MukJumpAppsInTossSetup.ApplyPlayerPrefsRuntimePatch(patched), Is.EqualTo(patched));
+            Assert.Throws<UnityEditor.Build.BuildFailedException>(() =>
+                MukJumpAppsInTossSetup.ApplyPlayerPrefsRuntimePatch(source.Replace("function pushScoped(mount)", "function changed(mount)")));
+            Directory.CreateDirectory("output/qa/toss-final-20260925");
+            File.WriteAllText("output/qa/toss-final-20260925/patched-playerprefs.js", patched);
         }
 
         static void WriteValidReleasePayload(
@@ -991,7 +1007,7 @@ namespace MukJump.EditorTests
                 Path.Combine(runtime, "index.js"),
                 "window.AppsInToss = { loadFullScreenAd: null, showFullScreenAd: null, TossAds: null };");
             Directory.CreateDirectory(Path.Combine(root, "Runtime"));
-            File.WriteAllText(Path.Combine(root, "Runtime", "ait-playerprefs.js"), "// MUKJUMP_PLAYERPREFS_PRERUN_V1");
+            File.WriteAllText(Path.Combine(root, "Runtime", "ait-playerprefs.js"), "// MUKJUMP_PLAYERPREFS_PRERUN_V1\n// MUKJUMP_PLAYERPREFS_ORDERED_V1");
         }
 
         static void SetPrivateField<T>(object target, string name, T value)

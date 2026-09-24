@@ -1,0 +1,59 @@
+    // MUKJUMP_PLAYERPREFS_ORDERED_V1
+    // 종료 flush도 일반 저장과 같은 순서로 처리한다. 큐 실행 시점의 최신 바이트를 수집한다.
+    var mukjumpPush = pushScoped;
+    var mukjumpWriteQueue = Promise.resolve();
+    var mukjumpPendingWrites = 0;
+    pushScoped = function (mount) {
+        mukjumpPendingWrites++;
+        var work = mukjumpWriteQueue.then(function () {
+            if (!canWrite()) throw new Error('토스 저장소에 기록할 수 없습니다.');
+            return mukjumpPush(mount);
+        });
+        var result = work.then(function (value) {
+            mukjumpPendingWrites--;
+            return value;
+        }, function (error) {
+            mukjumpPendingWrites--;
+            throw error;
+        });
+        // 한 번의 실패가 다음 사용자의 명시적 저장 재시도를 막지 않는다.
+        mukjumpWriteQueue = result.catch(function () {});
+        return result;
+    };
+
+    // 최초 스냅샷은 마운트당 한 번만 적용한다. 늦은 populate는 새 착용·명시적 벗기기를 보존한다.
+    var mukjumpPopulate = populatePath;
+    var mukjumpPopulatedMounts = new Map();
+    populatePath = function (mount, callback) {
+        var operation = mukjumpPopulatedMounts.get(mount);
+        if (!operation) {
+            operation = new Promise(function (resolve) { mukjumpPopulate(mount, resolve); });
+            mukjumpPopulatedMounts.set(mount, operation);
+        }
+        operation.then(function (error) { callback(error); });
+    };
+
+    // 저장 실패를 성공 callback(null)로 숨기지 않는다. 로컬 미러와 토스 저장 결과를 모두 기다린다.
+    persistPath = function (mount, callback) {
+        var pending = state.mode === 'ait' ? 2 : 1;
+        var failure = null;
+        function step(error) {
+            if (error) failure = failure || error;
+            if (--pending !== 0) return;
+            state.persistCount++;
+            api.persistCount = state.persistCount;
+            callback(failure);
+        }
+        logFirstPersist(mount);
+        if (state.mode === 'ait') {
+            if (!canWrite()) step(new Error('토스 저장소에 기록할 수 없습니다.'));
+            else pushScoped(mount).then(function () { step(null); }, step);
+        }
+        callOrig(mount, false, function (error) {
+            if (error) recordError('IndexedDB 미러', error);
+            step(error);
+        });
+    };
+    persistIdle = function () {
+        return mukjumpPendingWrites === 0 && (!activeMount || !activeMount.idbPersistState);
+    };
