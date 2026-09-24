@@ -6,6 +6,14 @@ namespace MukJump.Core
     {
         static partial void AddAccount(Dictionary<string, string> values)
         {
+            values["시간 미확인 오프라인 기록은 순위에서 제외됩니다"] = "Offline runs without verified server time are not ranked.";
+            values["이번 달 명예의 전당"] = "Monthly Hall of Fame";
+            values["매월 1일 00시 초기화 (한국시간)"] = "Resets on the 1st at 00:00 KST";
+            values["월별 순위의 서버 시간을 확인하는 중입니다"] = "Connecting to the monthly leaderboard…";
+            values["월별 순위 정산 중 · 한국시간 01시 이후 반영됩니다"] = "Monthly reset in progress · Updates after 01:00 KST";
+            values["이번 달 기록은 저장되었으며 순위 반영을 다시 시도합니다"] = "This month’s record is saved. Retrying leaderboard sync.";
+            values["이번 달 완료한 도전부터 순위에 등록됩니다"] = "Complete a run this month to enter the leaderboard.";
+            values["이번 달 최고 고도 TOP 10"] = "This Month’s Top 10";
             values["기록 보관 안내"] = "About Your Save";
             values["스킨·성장·먹빛은 이 기기에 저장돼요\n기기 변경, 토스 앱 삭제 또는 데이터 삭제 시\n기록을 복구할 수 없어요\n다른 기기·앱스토어판과는 연동되지 않아요"] = "Skins, upgrades and Ink Light are saved here\nChanging devices, deleting Toss or clearing\napp data can erase progress with no recovery\nNo sync with other devices or the App Store app";
             values["닉네임"] = "Nickname";

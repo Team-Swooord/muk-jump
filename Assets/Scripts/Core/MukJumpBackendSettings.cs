@@ -17,6 +17,7 @@ namespace MukJump.Core
         [SerializeField] string bestHeightColumn = "bestHeight";
         [SerializeField] string allTimeRankUuid = string.Empty;
         [SerializeField] string heightTimeRankUuid = string.Empty;
+        [SerializeField] string monthlyRankUuid = string.Empty;
         [SerializeField] string androidGoogleWebClientId = string.Empty;
         [SerializeField] string androidAppleServiceId = string.Empty;
         [SerializeField] bool appleRevocationConfigurationVerified;
@@ -28,8 +29,16 @@ namespace MukJump.Core
         public string PlayerTableName => playerTableName.Trim();
         public string BestHeightColumn => bestHeightColumn.Trim();
         public string AllTimeRankUuid => allTimeRankUuid.Trim();
-        public bool UsesTimedLeaderboard => !string.IsNullOrWhiteSpace(heightTimeRankUuid);
-        public string ActiveRankUuid => UsesTimedLeaderboard ? heightTimeRankUuid.Trim() : AllTimeRankUuid;
+        public string MonthlyRankUuid => monthlyRankUuid?.Trim() ?? string.Empty;
+        public string HeightTimeRankUuid => heightTimeRankUuid?.Trim() ?? string.Empty;
+        public bool UsesMonthlyLeaderboard =>
+#if UNITY_IOS || UNITY_EDITOR
+            !string.IsNullOrWhiteSpace(MonthlyRankUuid);
+#else
+            false;
+#endif
+        public bool UsesTimedLeaderboard => UsesMonthlyLeaderboard || !string.IsNullOrWhiteSpace(heightTimeRankUuid);
+        public string ActiveRankUuid => UsesMonthlyLeaderboard ? MonthlyRankUuid : !string.IsNullOrWhiteSpace(heightTimeRankUuid) ? heightTimeRankUuid.Trim() : AllTimeRankUuid;
         public string AndroidGoogleWebClientId =>
             androidGoogleWebClientId.Trim();
         public string AndroidAppleServiceId => androidAppleServiceId.Trim();

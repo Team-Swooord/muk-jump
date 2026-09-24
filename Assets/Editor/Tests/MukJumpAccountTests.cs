@@ -6,7 +6,7 @@ using UnityEngine.TestTools;
 
 namespace MukJump.EditorTests
 {
-    public sealed class MukJumpAccountTests
+    public sealed partial class MukJumpAccountTests
     {
         [Test]
         public void CurrentReleaseDoesNotOfferGoogleSignIn()
@@ -30,6 +30,7 @@ namespace MukJump.EditorTests
             "\"inkHandlingKeystoneId\":\"\"}";
 
         GameObject host;
+        readonly System.Collections.Generic.List<MukJumpBackendSettings> testSettings = new();
         MemoryPermanentGrowthStore growthStore;
         MukJumpAccountRuntime activeAccountRuntime;
         GameManager activeGameManager;
@@ -101,6 +102,8 @@ namespace MukJump.EditorTests
                 }
                 if (host != null)
                     Object.DestroyImmediate(host);
+                foreach (var config in testSettings) Object.DestroyImmediate(config);
+                testSettings.Clear();
                 PermanentGrowthProfile.RestoreDefaultStoreForTests();
                 ScoreManager.RestoreDefaultStoreForTests();
                 LobbySettingsProfile.RestoreDefaultStoreForTests();
@@ -4393,7 +4396,7 @@ namespace MukJump.EditorTests
             return account;
         }
 
-        MukJumpAccountRuntime CreateReadySaveRuntime()
+        MukJumpAccountRuntime CreateReadySaveRuntime(bool monthly = false)
         {
             host = new GameObject("AccountSaveFailureTest");
             var account = host.AddComponent<MukJumpAccountRuntime>();
@@ -4407,8 +4410,11 @@ namespace MukJump.EditorTests
                     BindingFlags.Instance | BindingFlags.Public)
                 ?.SetValue(account, MukJumpAccountPhase.OnlineReady);
             MukJumpBackendSettings backendSettings =
-                MukJumpBackendSettings.Load();
+                Object.Instantiate(MukJumpBackendSettings.Load());
             Assert.That(backendSettings, Is.Not.Null);
+            testSettings.Add(backendSettings);
+            if (!monthly) typeof(MukJumpBackendSettings).GetField("monthlyRankUuid",
+                BindingFlags.Instance | BindingFlags.NonPublic).SetValue(backendSettings, "");
             typeof(MukJumpAccountRuntime).GetField(
                     "settings",
                     BindingFlags.Instance | BindingFlags.NonPublic)

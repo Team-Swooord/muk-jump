@@ -39,6 +39,7 @@ namespace MukJump.Core
         public float activeGameplaySeconds;
         public bool eligible;
         public SkinRunStats skinStats;
+        public MonthlyRunRecord monthlyRecord;
     }
 
     /// 게임오버 정산 복구본 저장을 격리해 기기 저장소 오류가 게임 흐름까지
@@ -266,6 +267,8 @@ namespace MukJump.Core
         float fixedDeltaBeforePause = 0.02f;
         float maxSwarmProgressHeight;
         float activeGameplaySeconds;
+        string monthlyRunOwner = "";
+        MonthlyRunRecord monthlyRunRecord;
         int lastActiveTimeSampleFrame = -1;
         PlayerController lastDeadPlayer;
         bool reviveUsedThisRun;
@@ -875,6 +878,9 @@ namespace MukJump.Core
                     FullScreenAdPlacement.GameOverReviveReward));
             nextReviveAvailabilityPollTime =
                 Time.unscaledTime + ReviveAvailabilityPollInterval;
+            monthlyRunRecord = ScoreManager.Instance != null && ScoreManager.Instance.RecordsAllowed
+                ? MukJumpAccountRuntime.Instance?.CaptureMonthlyRun(monthlyRunOwner, currentRunId,
+                    new BestRunRecord(ScoreManager.Instance.Height, ScoreManager.Instance.HeightTimeSeconds)) : null;
             PersistPendingGameOverSettlement();
             gameOverResultSettled = !canWaitForRevive;
             latestGameOverResult = canWaitForRevive
@@ -1271,6 +1277,8 @@ namespace MukJump.Core
             bool recordSaved = scoreBaselineReady &&
                 (!recordNeedsSave ||
                  score.TryCommitBestCandidate(height));
+            if (growthSaved && recordSaved && rewardsAllowed)
+                recordSaved = MonthlyLeaderboard.StoreCompleted(monthlyRunRecord);
             if (growthSaved && recordSaved &&
                 ClearPendingGameOverSettlement())
             {
@@ -1358,7 +1366,8 @@ namespace MukJump.Core
 
             if (latestGameOverResult.PersistenceState !=
                     GameOverPersistenceState.RecordWritePending ||
-                !score.TryCommitBestCandidate(latestGameOverResult.Height))
+                (!score.TryCommitBestCandidate(latestGameOverResult.Height) ||
+                 !MonthlyLeaderboard.StoreCompleted(monthlyRunRecord)))
                 return;
 
             GameOverResult previous = latestGameOverResult;
@@ -1976,6 +1985,7 @@ namespace MukJump.Core
                 activeGameplaySeconds = Mathf.Max(0f, activeGameplaySeconds),
                 eligible = score.RecordsAllowed,
                 skinStats = skinRunStats,
+                monthlyRecord = monthlyRunRecord,
             };
             try
             {
@@ -2148,6 +2158,7 @@ namespace MukJump.Core
             if (!recordSaved)
                 return false;
 
+            if (snapshot.eligible && !MonthlyLeaderboard.StoreCompleted(snapshot.monthlyRecord)) return false;
             ClearPendingGameOverSettlement();
             return true;
         }
@@ -2188,6 +2199,8 @@ namespace MukJump.Core
             // 연출 난수와 분리된 게임 규칙 스트림을 판 시작 직전에 함께 초기화한다.
             GameplayRandom.ResetSession();
             currentRunId = Guid.NewGuid().ToString("N");
+            monthlyRunOwner = MukJumpAccountRuntime.Instance?.MonthlyRunOwner ?? "";
+            monthlyRunRecord = null;
             skinUnlocks.BeginRun(currentRunId, PermanentGrowthProfile.SkinAccountToken, InkSkinUnlockState.ReadUnlocked());
             skinUnlockPresentationPending = skinUnlockReturnPending = false;
             activeGameplaySeconds = 0f;

@@ -25,7 +25,7 @@ namespace MukJump.EditorTests
         [TestCase("KR|1|-1", "KR", 0)]
         [TestCase("KR|1|999999999999999999", "KR", 0)]
         [TestCase("US|2|7", "US", 0)]
-        [TestCase("JP|1|40", "JP", 0)]
+        [TestCase("JP|1|999", "JP", 0)]
         [TestCase("US|1|7|bad", "US", 0)]
         public void DecodeOldOrMalformedAppearance(string data, string region, int skin)
         {
@@ -49,7 +49,7 @@ namespace MukJump.EditorTests
                     string payload = LeaderboardAppearance.Encode("jp", (InkSkinId)i);
                     Assert.That(System.Text.Encoding.UTF8.GetByteCount(payload), Is.LessThan(256));
                     LeaderboardAppearance.Decode(payload, out var region, out var skin);
-                    Assert.That(skin, Is.EqualTo((InkSkinId)i));
+                    Assert.That(skin, Is.EqualTo(InkSkinCatalog.Normalize((InkSkinId)i)));
                     var entry = new MukJumpLeaderboardEntry(10, 237, "未解放の衣装", regionCode: region, equippedSkin: skin);
                     avatar.Set(entry);
                     Assert.That(avatar.Root.sizeDelta, Is.EqualTo(new Vector2(44, 44)));
@@ -87,12 +87,17 @@ namespace MukJump.EditorTests
             GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
             MobileApplicationLifecycle.SetPlatformVisibility(true);
             var oldLanguage = GameLocalization.Language;
+            MukJumpBackendSettings legacySettings = null;
             try
             {
                 Assert.That(MukJumpAccountRuntime.ShouldEnableBackendForRuntime(RuntimePlatform.OSXEditor, true, true), Is.False);
                 yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
                 var account = MukJumpAccountRuntime.Instance;
                 Assert.That(account.IsOnlineAuthenticated, Is.False);
+                // 이 fixture는 구버전 전체 기간 보드의 순위 아바타를 검증한다.
+                legacySettings = Object.Instantiate(MukJumpBackendSettings.Load());
+                typeof(MukJumpBackendSettings).GetField("monthlyRankUuid", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(legacySettings, "");
+                typeof(MukJumpAccountRuntime).GetField("settings", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(account, legacySettings);
                 var entries = (List<MukJumpLeaderboardEntry>)typeof(MukJumpAccountRuntime)
                     .GetField("leaderboardEntries", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(account);
                 entries.Clear();
@@ -147,6 +152,7 @@ namespace MukJump.EditorTests
             }
             finally
             {
+                if (legacySettings != null) Object.Destroy(legacySettings);
                 GameLocalization.SetLanguage(oldLanguage); Application.runInBackground = oldBackground;
                 LobbySettingsProfile.RestoreDefaultStoreForTests(); InkSkinPreferences.RestoreDefaultStoreForTests();
                 PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();

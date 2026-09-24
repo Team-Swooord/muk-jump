@@ -52,7 +52,7 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]
         [TestCase(GameLanguage.Japanese)]
-        public void SingleLeaderboardHasNoTabsOrSubtitleAndKeepsReadableRefresh(GameLanguage language)
+        public void SingleLeaderboardUsesAutomaticRefreshAndKeepsReadableTitle(GameLanguage language)
         {
             GameLocalization.SetLanguage(language);
             host = new GameObject("SingleLeaderboardUiTests");
@@ -63,12 +63,9 @@ namespace MukJump.EditorTests
             Assert.That(page.Find("GlobalLeaderboardTab"), Is.Null);
             Assert.That(page.Find("AppleLeaderboardTab"), Is.Null);
             Assert.That(page.Find("LeaderboardStatus"), Is.Null);
-            var refresh = page.Find("LeaderboardRefresh").GetComponent<Button>();
-            Assert.That(refresh.interactable, Is.True);
+            Assert.That(page.Find("LeaderboardRefresh"), Is.Null,
+                "순위는 열 때와 60초마다 자동 갱신한다. 수동 버튼은 다시 추가하지 않는다.");
             Canvas.ForceUpdateCanvases();
-            var text = refresh.GetComponentInChildren<Text>(true);
-            Assert.That(text.preferredWidth, Is.LessThanOrEqualTo(text.rectTransform.rect.width + 1), text.text);
-            Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1), text.text);
             var title = (RectTransform)page.Find("LeaderboardTitle");
             var heading = (RectTransform)page.Find("RankHeading");
             Assert.That(title.anchoredPosition.y + title.rect.yMin,

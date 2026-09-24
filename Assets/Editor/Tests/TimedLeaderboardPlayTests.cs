@@ -32,12 +32,17 @@ namespace MukJump.EditorTests
             GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
             MobileApplicationLifecycle.SetPlatformVisibility(true);
             var oldLanguage = GameLocalization.Language;
+            MukJumpBackendSettings legacySettings = null;
             try
             {
                 Assert.That(MukJumpAccountRuntime.ShouldEnableBackendForRuntime(RuntimePlatform.OSXEditor, true, true), Is.False);
                 yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
                 var account = MukJumpAccountRuntime.Instance;
                 Assert.That(account.IsOnlineAuthenticated, Is.False);
+                // 구버전 고도·시간 보드의 표시 검증은 월별 모드와 격리한다.
+                legacySettings = Object.Instantiate(MukJumpBackendSettings.Load());
+                typeof(MukJumpBackendSettings).GetField("monthlyRankUuid", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(legacySettings, "");
+                typeof(MukJumpAccountRuntime).GetField("settings", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(account, legacySettings);
                 var entries = (List<MukJumpLeaderboardEntry>)typeof(MukJumpAccountRuntime)
                     .GetField("leaderboardEntries", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(account);
                 entries.Clear();
@@ -90,6 +95,7 @@ namespace MukJump.EditorTests
                 MobileApplicationLifecycle.SetPlatformVisibility(false);
                 float background = game.ActiveGameplaySeconds; yield return Wait(.3f);
                 Assert.That(game.ActiveGameplaySeconds, Is.EqualTo(background));
+                if (legacySettings != null) Object.Destroy(legacySettings);
                 MobileApplicationLifecycle.SetPlatformVisibility(true); yield return Wait(.3f);
                 Assert.That(game.ActiveGameplaySeconds, Is.GreaterThan(background));
                 var debugControls = Object.FindAnyObjectByType<GameplayHudView>()?.transform.Find("ItemTestControls");

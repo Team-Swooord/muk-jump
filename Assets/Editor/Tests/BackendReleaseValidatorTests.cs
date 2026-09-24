@@ -175,16 +175,19 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ProductionLeaderboardUsesHeightAndTimeAndKeepsLegacyBoard()
+        public void ProductionMonthlyLeaderboardKeepsBothLegacyBoards()
         {
             var settings = MukJumpBackendSettings.Load();
             Assert.That(settings.UsesTimedLeaderboard, Is.True);
-            Assert.That(settings.ActiveRankUuid,
+            Assert.That(settings.UsesMonthlyLeaderboard, Is.True);
+            Assert.That(settings.ActiveRankUuid, Is.EqualTo(MukJumpBackendReleaseValidator.ExpectedMonthlyRankUuid));
+            Assert.That(settings.HeightTimeRankUuid,
                 Is.EqualTo(MukJumpBackendReleaseValidator.ExpectedHeightTimeRankUuid));
             Assert.That(settings.AllTimeRankUuid,
                 Is.EqualTo(MukJumpBackendReleaseValidator.ExpectedAllTimeRankUuid));
             var issues = new System.Collections.Generic.List<string>();
             MukJumpBackendReleaseValidator.CollectTimedLeaderboardIssues(settings, issues);
+            MukJumpBackendReleaseValidator.CollectMonthlyLeaderboardIssues(settings, issues);
             Assert.That(issues, Is.Empty);
         }
 
@@ -202,6 +205,25 @@ namespace MukJump.EditorTests
                 serialized.ApplyModifiedPropertiesWithoutUndo();
                 var issues = new System.Collections.Generic.List<string>();
                 MukJumpBackendReleaseValidator.CollectTimedLeaderboardIssues(settings, issues);
+                Assert.That(issues, Has.Count.EqualTo(1));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(settings); }
+        }
+
+        [TestCase("")]
+        [TestCase(" ")]
+        [TestCase(MukJumpBackendReleaseValidator.ExpectedHeightTimeRankUuid)]
+        [TestCase("another-project-rank")]
+        public void ReleaseRejectsMissingOrWrongMonthlyLeaderboard(string rankUuid)
+        {
+            var settings = ScriptableObject.CreateInstance<MukJumpBackendSettings>();
+            try
+            {
+                var serialized = new UnityEditor.SerializedObject(settings);
+                serialized.FindProperty("monthlyRankUuid").stringValue = rankUuid;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                var issues = new System.Collections.Generic.List<string>();
+                MukJumpBackendReleaseValidator.CollectMonthlyLeaderboardIssues(settings, issues);
                 Assert.That(issues, Has.Count.EqualTo(1));
             }
             finally { UnityEngine.Object.DestroyImmediate(settings); }

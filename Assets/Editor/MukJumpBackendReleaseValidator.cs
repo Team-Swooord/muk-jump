@@ -27,6 +27,8 @@ namespace MukJump.EditorTools
             "01a08afd-b237-7723-9e6a-b8d7950285fd";
         public const string ExpectedHeightTimeRankUuid =
             "01a0c276-2082-732a-a1f7-33d7d5cba47a";
+        public const string ExpectedMonthlyRankUuid =
+            "01a0d307-0c49-7bde-838c-501fa574e050";
         public const string ExpectedIosGoogleClientId =
             "58212920281-bm72q2dnoc79ee4214e3k9fojb636u2e" +
             ".apps.googleusercontent.com";
@@ -117,6 +119,7 @@ namespace MukJump.EditorTools
                 issues.Add(
                     "• 먹점프 전용 전체 최고 고도 리더보드 UUID가 아닙니다.");
             CollectTimedLeaderboardIssues(settings, issues);
+            if (includeIos) CollectMonthlyLeaderboardIssues(settings, issues);
             if (includeAndroid &&
                 string.IsNullOrWhiteSpace(settings.AndroidGoogleWebClientId))
                 issues.Add("• Android Google Web Client ID가 비었습니다.");
@@ -224,11 +227,18 @@ namespace MukJump.EditorTools
             MukJumpBackendSettings settings, List<string> issues)
         {
             // 고도 전용 보드로 조용히 폴백하면 저장된 시간이 순위 화면에서 사라진다.
-            if (settings == null || !settings.UsesTimedLeaderboard)
+            if (settings == null || string.IsNullOrWhiteSpace(settings.HeightTimeRankUuid))
                 issues.Add("• 고도·시간 리더보드 연결이 비어 있어 소요시간을 동기화할 수 없습니다.");
-            else if (!string.Equals(settings.ActiveRankUuid,
+            else if (!string.Equals(settings.HeightTimeRankUuid,
                          ExpectedHeightTimeRankUuid, StringComparison.Ordinal))
                 issues.Add("• 먹점프 전용 고도·시간 리더보드 UUID가 아닙니다.");
+        }
+
+        public static void CollectMonthlyLeaderboardIssues(MukJumpBackendSettings settings, List<string> issues)
+        {
+            if (settings == null || !string.Equals(settings.MonthlyRankUuid,
+                    ExpectedMonthlyRankUuid, StringComparison.Ordinal))
+                issues.Add("• 먹점프 iOS 전용 월별 리더보드 UUID가 없거나 다릅니다.");
         }
 
         public static bool HasSerializedValue(

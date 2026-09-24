@@ -17,6 +17,7 @@ MonoBehaviour:
   bestHeightColumn: bestHeight
   allTimeRankUuid: 01a08afd-b237-7723-9e6a-b8d7950285fd
   heightTimeRankUuid: 01a0c276-2082-732a-a1f7-33d7d5cba47a
+  monthlyRankUuid: 01a0d307-0c49-7bde-838c-501fa574e050
   androidGoogleWebClientId: 
   androidAppleServiceId: 
   appleRevocationConfigurationVerified: 1

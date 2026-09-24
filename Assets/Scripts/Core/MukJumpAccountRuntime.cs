@@ -552,6 +552,7 @@ namespace MukJump.Core
                 LoadCloudSnapshot();
             }
             PumpAppleLinkSkinReward();
+            PumpMonthlyLeaderboard();
             if (dirty && IsOnlineAuthenticated && !saveInFlight &&
                 !syncWriteBlocked &&
                 Phase != MukJumpAccountPhase.Connecting &&
@@ -560,7 +561,7 @@ namespace MukJump.Core
                 Phase != MukJumpAccountPhase.Deleting &&
                 Time.realtimeSinceStartup >= saveAtRealtime)
                 SaveNow();
-            if (IsOnlineAuthenticated &&
+            if (!UsesMonthlyLeaderboard && IsOnlineAuthenticated &&
                 !string.IsNullOrWhiteSpace(rowInDate) &&
                 !leaderboardSaveInFlight &&
                 Phase != MukJumpAccountPhase.Connecting &&
@@ -803,6 +804,8 @@ namespace MukJump.Core
                 Debug.LogWarning(
                     "[MukJump] 순위 등록 응답 시간이 초과되어 다시 시도합니다.");
                 leaderboardRetryAtRealtime = now + InitialRetrySeconds;
+                monthlySyncRequested = true;
+                monthlySyncRetry = Time.realtimeSinceStartupAsDouble + 60;
                 SetStatus("기록 순위 등록은 연결 복구 후 다시 시도합니다");
             }
             if (hadLeaderboardLoad)
@@ -817,6 +820,7 @@ namespace MukJump.Core
 
         void OnApplicationPause(bool paused)
         {
+            if (!paused) monthlyTimeRetry = 0;
             if (paused && dirty)
                 SaveNow();
         }
@@ -1754,6 +1758,9 @@ namespace MukJump.Core
         {
             skinRewardProfileToken = null;
             skinRewardOwner = string.Empty;
+            monthlySyncRequested = true; monthlySyncRetry = 0; monthlySubmissionFailure = "";
+            monthlyTimeRetry = 0;
+            leaderboardEntries.Clear();
             leaderboardSubmissionFailure = string.Empty;
             leaderboardRequested = false;
             leaderboardRefreshQueued = false;
@@ -1810,6 +1817,8 @@ namespace MukJump.Core
         {
             skinRewardProfileToken = null;
             skinRewardOwner = string.Empty;
+            monthlySyncRequested = true; monthlySyncRetry = 0; monthlySubmissionFailure = "";
+            leaderboardEntries.Clear();
             leaderboardSubmissionFailure = string.Empty;
             leaderboardRequested = false;
             leaderboardRefreshQueued = false;
@@ -5289,6 +5298,7 @@ namespace MukJump.Core
                     "[MukJump] 뒤끝 기기 계정 정보 삭제를 다시 시도합니다: " +
                     exception.Message);
             }
+            MonthlyLeaderboard.ClearOwner(PlayerPrefs.GetString(PendingLocalAccountDeletionOwnerKey, ""));
             InvalidateAccountScopedOperations(clearPendingLeaderboard: true);
             suppressDirty = true;
             bool scoreCleared = false;
@@ -5799,6 +5809,7 @@ namespace MukJump.Core
         // 전환 잠금이 남아 있어도 예약은 보존하고 실제 전송은 기존 잠금에 맡긴다.
         void QueueVerifiedLeaderboardBest(int bestHeight, int seconds = int.MinValue)
         {
+            if (UsesMonthlyLeaderboard) { monthlySyncRequested = true; return; }
             if (!IsOnlineAuthenticated || !PermanentGrowthProfile.HasCompletedRun ||
                 string.IsNullOrWhiteSpace(rowInDate))
                 return;
@@ -5817,6 +5828,7 @@ namespace MukJump.Core
 
         public void SubmitBestHeight(int bestHeight)
         {
+            if (UsesMonthlyLeaderboard) { monthlySyncRequested = true; TrySyncMonthlyLeaderboard(); return; }
             // 로그인·빈 저장 행 생성은 플레이 기록이 아니다. 0m라도 실제 정산한 판만 등록한다.
             if (!PermanentGrowthProfile.HasCompletedRun) return;
             if (!IsOnlineAuthenticated || syncWriteBlocked ||
@@ -5947,6 +5959,8 @@ namespace MukJump.Core
         public void RefreshLeaderboard()
         {
             leaderboardRequested = true;
+            if (UsesMonthlyLeaderboard && !UpdateMonthlyPeriod()) { NotifyStateChangedSafely(); return; }
+            string requestedMonth = monthlyVisiblePeriod;
             if (LeaderboardLoading)
             {
                 leaderboardRefreshQueued = true;
@@ -5984,6 +5998,7 @@ namespace MukJump.Core
                             capturedAccountScope))
                         return;
                     LeaderboardLoading = false;
+                    if (UsesMonthlyLeaderboard && (!UpdateMonthlyPeriod() || requestedMonth != monthlyVisiblePeriod)) { NotifyStateChangedSafely(); return; }
                     try
                     {
                         if (bro == null || !bro.IsSuccess())
@@ -6019,7 +6034,9 @@ namespace MukJump.Core
                                 // 뒤끝 정시 삭제를 기다리는 동안에도 노출하지 않는다.
                                 if (height <= 0)
                                     continue;
-                                LeaderboardAppearance.Decode(item.extraData, out string region, out InkSkinId skin);
+                                string appearance = item.extraData;
+                                if (UsesMonthlyLeaderboard && !MonthlyLeaderboard.TryAppearance(appearance, requestedMonth, out appearance)) continue;
+                                LeaderboardAppearance.Decode(appearance, out string region, out InkSkinId skin);
                                 loadedEntries.Add(
                                     new MukJumpLeaderboardEntry(rank, height, item.nickname,
                                         regionCode: region, equippedSkin: skin, timeSeconds: record.Seconds));
@@ -6028,7 +6045,10 @@ namespace MukJump.Core
 
                         leaderboardEntries.Clear();
                         leaderboardEntries.AddRange(loadedEntries);
-                        LeaderboardStatus = HasOwnedPendingLeaderboardBest
+                        LeaderboardStatus = UsesMonthlyLeaderboard
+                            ? (!string.IsNullOrEmpty(monthlySubmissionFailure) ? monthlySubmissionFailure :
+                                leaderboardEntries.Count == 0 ? "이번 달 완료한 도전부터 순위에 등록됩니다" : "이번 달 최고 고도 TOP 10")
+                            : HasOwnedPendingLeaderboardBest
                             ? (string.IsNullOrEmpty(leaderboardSubmissionFailure)
                                 ? "저장된 최고 기록을 순위에 반영하는 중입니다"
                                 : leaderboardSubmissionFailure)
@@ -6489,19 +6509,22 @@ namespace MukJump.Core
             param.Add(BestRunRecord.RankColumn, 0L);
             param.Add("bestTimeHeight", 0);
             param.Add(BestRunRecord.TimeColumn, -1);
+            param.Add(MonthlyLeaderboard.ScoreColumn, 0L);
             long generation = accountSessionGeneration;
             string owner = CurrentAccountScope();
-            Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
-                settings.ActiveRankUuid, settings.PlayerTableName, row, param, first =>
+            var boards = new List<string>();
+            foreach (string board in new[] { settings.AllTimeRankUuid, settings.HeightTimeRankUuid, settings.MonthlyRankUuid })
+                if (!string.IsNullOrEmpty(board) && !boards.Contains(board)) boards.Add(board);
+            void Next(int index)
+            {
+                Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(boards[index], settings.PlayerTableName, row, param, result =>
                 {
                     if (!IsCurrentAccountSession(generation, owner)) return;
-                    if (first == null || !first.IsSuccess() || !settings.UsesTimedLeaderboard ||
-                        string.IsNullOrWhiteSpace(settings.AllTimeRankUuid) || settings.AllTimeRankUuid == settings.ActiveRankUuid)
-                    { done(first); return; }
-                    // 전환 이전 앱의 순위에도 탈퇴한 계정이 남지 않게 한다.
-                    Backend.Leaderboard.User.UpdateMyDataAndRefreshLeaderboard(
-                        settings.AllTimeRankUuid, settings.PlayerTableName, row, param, result => done(result));
+                    if (result == null || !result.IsSuccess() || index + 1 == boards.Count) { done(result); return; }
+                    Next(index + 1);
                 });
+            }
+            if (boards.Count > 0) Next(0); else done(null);
         }
 
         void RequestLeaderboardUpdate(int bestHeight, Action<BackendReturnObject> callback, int seconds = -1)
@@ -7094,6 +7117,10 @@ namespace MukJump.Core
         }
         public void ReturnToLocalGuestDuringAccountSync() { }
         public void DeleteAccountConfirmed() { }
+        public bool UsesMonthlyLeaderboard => false;
+        public string MonthlyRunOwner => "";
+        public string MonthlyPeriodLabel => "";
+        public MonthlyRunRecord CaptureMonthlyRun(string owner, string run, BestRunRecord record) => null;
         public void NotifyRunSettled(GameOverResult result) { }
         // 토스 게임센터 제출은 GameManager가 완료·보상·기록 저장을 모두
         // 검증한 GameOverResult만 전달한다. 단순 로컬 best 저장 알림은 제출하지 않는다.

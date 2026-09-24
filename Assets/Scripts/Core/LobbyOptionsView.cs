@@ -92,6 +92,7 @@ namespace MukJump.Core
         readonly Text[] leaderboardRanks = new Text[10];
         readonly Text[] leaderboardNames = new Text[10];
         readonly Image[] leaderboardFlags = new Image[10];
+        Text monthlyLeaderboardLabel, monthlyLeaderboardNotice;
         readonly InkLeaderboardAvatar[] leaderboardAvatars = new InkLeaderboardAvatar[10];
         readonly Text[] leaderboardSources = new Text[10];
         readonly Image[] leaderboardSeals = new Image[10];
@@ -1063,6 +1064,10 @@ namespace MukJump.Core
             CreateReadableText("LeaderboardTitle", panel, "세계 최고의 먹", 64,
                 new Vector2(0f, 585f), new Vector2(600f, 82f),
                 InkPalette.TextDark, TextAnchor.MiddleCenter, strong: true);
+            monthlyLeaderboardLabel = CreateReadableText("MonthlyPeriod", panel, "", 30,
+                new Vector2(0f, 514f), new Vector2(680f, 48f), InkPalette.TextDark, TextAnchor.MiddleCenter);
+            monthlyLeaderboardNotice = CreateReadableText("MonthlyNotice", panel, "", 21,
+                new Vector2(0f, -652f), new Vector2(700f, 116f), InkPalette.TextDark, TextAnchor.MiddleCenter);
             Text rankHeading = CreateReadableText("RankHeading", panel, "순위", 36, new Vector2(-292f, 430f),
                 new Vector2(96f, 50f), InkPalette.TextDark, TextAnchor.MiddleLeft, strong: true);
             InkLocalizedText.OverrideEnglish(rankHeading, "Rank");
@@ -1229,6 +1234,23 @@ namespace MukJump.Core
         {
             MukJumpAccountRuntime runtime = MukJumpAccountRuntime.Instance;
 
+            bool monthly = runtime != null && runtime.UsesMonthlyLeaderboard && !UsesTossSettings;
+            if (monthlyLeaderboardLabel != null)
+            {
+                monthlyLeaderboardLabel.gameObject.SetActive(monthly);
+                InkLocalizedText.Exclude(monthlyLeaderboardLabel);
+                monthlyLeaderboardLabel.text = monthly ?
+                    (string.IsNullOrEmpty(runtime.MonthlyPeriodLabel) ? "" : runtime.MonthlyPeriodLabel + " · ") +
+                    GameLocalization.Translate("이번 달 명예의 전당") : "";
+            }
+            if (monthlyLeaderboardNotice != null)
+            {
+                monthlyLeaderboardNotice.gameObject.SetActive(monthly);
+                InkLocalizedText.Exclude(monthlyLeaderboardNotice);
+                monthlyLeaderboardNotice.text = monthly ? GameLocalization.Translate("매월 1일 00시 초기화 (한국시간)") + "\n" +
+                    GameLocalization.Translate(runtime.LeaderboardStatus) + "\n" +
+                    GameLocalization.Translate("시간 미확인 오프라인 기록은 순위에서 제외됩니다") : "";
+            }
             IReadOnlyList<MukJumpLeaderboardEntry> entries =
                 runtime?.LeaderboardEntries;
             if (UsesTossSettings)

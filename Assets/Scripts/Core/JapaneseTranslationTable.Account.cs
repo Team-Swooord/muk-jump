@@ -6,6 +6,14 @@ namespace MukJump.Core
     {
         static partial void AddAccount(Dictionary<string, string> v)
         {
+            v["Offline runs without verified server time are not ranked."] = "時刻未確認のオフライン記録は順位に反映されません";
+            v["Monthly Hall of Fame"] = "今月の殿堂";
+            v["Resets on the 1st at 00:00 KST"] = "毎月1日 00時にリセット（韓国時間）";
+            v["Connecting to the monthly leaderboard…"] = "月間ランキングの時刻を確認しています";
+            v["Monthly reset in progress · Updates after 01:00 KST"] = "月間集計中・韓国時間01時以降に反映";
+            v["This month’s record is saved. Retrying leaderboard sync."] = "今月の記録は保存済みです。順位への反映を再試行します";
+            v["Complete a run this month to enter the leaderboard."] = "今月完了した挑戦からランキングに登録されます";
+            v["This Month’s Top 10"] = "今月の最高高度 TOP 10";
             v["About Your Save"] = "記録の保存について";
             v["Skins, upgrades and Ink Light are saved here\nChanging devices, deleting Toss or clearing\napp data can erase progress with no recovery\nNo sync with other devices or the App Store app"] = "スキン・成長・墨光はこの端末に保存されます\n機種変更、Tossアプリやデータの削除後は\n記録を復元できません\n他の端末・App Store版とは同期されません";
             v["Could not back up guest progress safely. Try again."] = "ゲスト記録をバックアップできません。再試行してください。";
