@@ -196,7 +196,7 @@ namespace MukJump.EditorTests
             AudioPlaybackDiagnostics.Snapshot wallRequest = null, jumpRequest = null, blocked = null;
             void Observe(AudioPlaybackDiagnostics.Snapshot snapshot)
             {
-                if (snapshot.reason == "pool-play" && snapshot.clipName == "SFX_Wall_Hit") wallRequest = snapshot;
+                if (snapshot.reason == "pool-play" && snapshot.clipName == "ObstaclePunchImpact") wallRequest = snapshot;
                 if (snapshot.reason == "pool-play" && snapshot.clipName == "JumpBrush") jumpRequest = snapshot;
                 if (snapshot.reason == "pool-suspended") blocked = snapshot;
             }
@@ -246,7 +246,7 @@ namespace MukJump.EditorTests
                             if (Mathf.Abs(sample) >= 1f) clipped++;
                         }
                     }
-                string evidence = System.IO.Path.Combine("output/qa/audio-20260924", "mix.json");
+                string evidence = System.IO.Path.Combine("output/qa/toss-recovery-20260925", "mix.json");
                 System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(evidence));
                 System.IO.File.WriteAllText(evidence, Newtonsoft.Json.JsonConvert.SerializeObject(new
                 {
@@ -327,7 +327,7 @@ namespace MukJump.EditorTests
                 Physics2D.SyncTransforms();
                 for (int i = 0; i < 12; i++) fixture.GetPhysicsScene2D().Simulate(.02f);
                 yield return null;
-                Assert.That(played, Does.Contain("SFX_Wall_Hit"), "ScreenSideWall의 실제 접촉이 벽음을 요청한다.");
+                Assert.That(played, Does.Contain("ObstaclePunchImpact"), "ScreenSideWall의 실제 접촉이 하단 복귀와 같은 충돌음을 요청한다.");
             }
             finally
             {
@@ -337,6 +337,35 @@ namespace MukJump.EditorTests
                 Object.DestroyImmediate(managerObject);
             }
             yield return SceneManager.UnloadSceneAsync(fixture);
+        }
+
+        [UnityTest]
+        public IEnumerator FallRecoveryWallContactPlaysOnceWithoutDamageOrRepeatedStaySound()
+        {
+            int requests = 0;
+            void Observe(AudioPlaybackDiagnostics.Snapshot s)
+            { if (s.reason == "pool-play" && s.clipName == "ObstaclePunchImpact") requests++; }
+            AudioPlaybackDiagnostics.Captured += Observe;
+            var playerObject = new GameObject("RecoveryWallPlayer", typeof(Rigidbody2D), typeof(CircleCollider2D));
+            var player = playerObject.AddComponent<MukJump.Player.PlayerController>();
+            try
+            {
+                typeof(MukJump.Player.PlayerController).GetField("centeringAfterFall", Private).SetValue(player, true);
+                typeof(MukJump.Player.PlayerController).GetField("fallRecoveryCenterX", Private).SetValue(player, 100f);
+                player.Body.linearVelocity = Vector2.up * 10f;
+                int health = player.CurrentHealth;
+                var contact = typeof(MukJump.Player.PlayerController).GetMethod("TryHandleFallRecoveryWallContact", Private);
+                for (int i = 0; i < 10; i++) Assert.That(contact.Invoke(player, new object[] { 1f }), Is.True);
+                Assert.That(requests, Is.EqualTo(1));
+                Assert.That(player.CurrentHealth, Is.EqualTo(health));
+                Assert.That(Get<AudioClip>(feedback, "wallHitClip"), Is.SameAs(Get<AudioClip>(feedback, "damageHitClip")));
+                yield return null;
+            }
+            finally
+            {
+                AudioPlaybackDiagnostics.Captured -= Observe;
+                Object.DestroyImmediate(playerObject);
+            }
         }
 
         static float At(float[] data, AudioClip clip, float seconds, int channel)

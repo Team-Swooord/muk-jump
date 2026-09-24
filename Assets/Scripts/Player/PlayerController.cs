@@ -1114,6 +1114,13 @@ namespace MukJump.Player
             ClearWallCling(false);
             SeparateFromSideWall(inwardDirection);
             UpdateFallRecoveryDirection();
+            // 복귀 상승 중의 실제 벽 접촉도 반동음을 낸다. Stay의 매 물리 프레임에는
+            // 반복하지 않고 일반 벽 반동과 같은 간격을 적용한다.
+            if (Time.time >= nextSideWallBounceAt)
+            {
+                nextSideWallBounceAt = Time.time + sideWallBounceCooldown;
+                GameFeedbackController.Instance?.PlayWallHit(transform.position, inwardDirection);
+            }
             return true;
         }
 

@@ -285,9 +285,10 @@ namespace MukJump.Core
                                   LoadSfx("SFX_Brush_Transition") ??
                                   CreateOwnedBrushNoise(
                                       "BrushTransition", 1.15f, 0.3f, true);
-            wallHitClip = LoadSfx("SFX_Wall_Hit") ??
-                          CreateOwnedTone("WallHit", 0.11f, 120f, 72f, 0.28f, 0.32f);
             damageHitClip = CreateOwnedDamageHit();
+            // 벽 반동도 하단 추락 복귀와 같은 짧은 피격음으로 명확히 들리게 한다.
+            // 같은 클립을 재사용하며 체력 감소·진동·붉은 피해 연출은 발생시키지 않는다.
+            wallHitClip = damageHitClip;
             deathSqueakClip = LoadSfx("SFX_Character_Death") ??
                               CreateOwnedDeathPop();
             gameOverClip = CreateOwnedGameOverSound();

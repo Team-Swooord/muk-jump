@@ -50,6 +50,7 @@ namespace MukJump.Core
             source.clip = Resources.Load<AudioClip>(MusicResourcePath);
             source.volume = lobbyVolume * LobbySettingsProfile.BgmVolume;
             applicationActive = MobileApplicationLifecycle.IsApplicationActive;
+            RefreshWebAudioRecovery();
 
             if (source.clip == null)
             {
@@ -102,6 +103,7 @@ namespace MukJump.Core
 
         void ApplyPlaybackState()
         {
+            RefreshWebAudioRecovery();
             if (source == null || source.clip == null)
                 return;
             if (applicationActive && !fullScreenAdActive)
@@ -124,8 +126,26 @@ namespace MukJump.Core
 
         void OnDestroy()
         {
-            if (Instance == this) Instance = null;
+            if (Instance == this)
+            {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                MukJumpWebAudioSetRecoveryAllowed(0);
+#endif
+                Instance = null;
+            }
         }
+
+        void RefreshWebAudioRecovery()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            MukJumpWebAudioSetRecoveryAllowed(applicationActive && !fullScreenAdActive ? 1 : 0);
+#endif
+        }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        static extern void MukJumpWebAudioSetRecoveryAllowed(int allowed);
+#endif
 
         void OnValidate()
         {

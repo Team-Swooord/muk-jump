@@ -19,13 +19,13 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void DamageSoundIsDistinctShortAndHasQuietTail()
+        public void WallAndFallShareShortImpactWithQuietTail()
         {
             root = new GameObject("DamageSoundTests");
             var feedback = root.AddComponent<GameFeedbackController>();
             Invoke(feedback, "EnsureInitialized");
             var clip = (AudioClip)GetField(feedback, "damageHitClip");
-            Assert.That(clip, Is.Not.SameAs(GetField(feedback, "wallHitClip")));
+            Assert.That(clip, Is.SameAs(GetField(feedback, "wallHitClip")));
             Assert.That(clip.length, Is.EqualTo(.16f).Within(.001f));
             var samples = new float[clip.samples];
             Assert.That(clip.GetData(samples, 0), Is.True);
