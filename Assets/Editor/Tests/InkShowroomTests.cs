@@ -134,7 +134,9 @@ namespace MukJump.EditorTests
                 var neighbor = view.Paper.Find("ShowroomStage/" + side);
                 Assert.That(neighbor.Find("OriginalInkBody"), Is.Null);
                 Assert.That(neighbor.GetComponent<RectTransform>().sizeDelta.x, Is.GreaterThanOrEqualTo(116));
-                Assert.That(neighbor.Find("Label").GetComponent<Text>().text, Is.EqualTo(side == "PreviousCostume" ? "‹" : "›"));
+                Assert.That(neighbor.Find("Label").gameObject.activeSelf, Is.False);
+                Assert.That(neighbor.Find("ChevronTop").GetComponent<Image>().color, Is.EqualTo(InkPalette.TextDark));
+                Assert.That(neighbor.Find("ChevronBottom").GetComponent<Image>().color, Is.EqualTo(InkPalette.TextDark));
                 Assert.That(neighbor.GetComponent<Button>(), Is.Not.Null);
                 Assert.That(neighbor.GetSiblingIndex(), Is.GreaterThan(Focus.GetSiblingIndex()));
             }
@@ -148,6 +150,27 @@ namespace MukJump.EditorTests
             Assert.That(view.CollectionScroll.horizontal && !view.CollectionScroll.vertical,Is.True);
             var selected=(RectTransform)view.CollectionContent.Find("SkinCard1");
             Assert.That(BoundsIn(view.CollectionScroll.viewport,selected).center.x,Is.EqualTo(0).Within(.1f));
+        }
+        [TestCase(GameLanguage.Korean)]
+        [TestCase(GameLanguage.English)]
+        [TestCase(GameLanguage.Japanese)]
+        public void ShapeArrowsRemainVisibleAndNavigateBothDirectionsInEveryLanguage(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language);
+            view.Select(InkSkinId.Ink); view.Presentation.Cancel();
+            foreach (string side in new[] { "NextCostume", "PreviousCostume" })
+            {
+                var arrow = view.Paper.Find("ShowroomStage/" + side);
+                foreach (string part in new[] { "ChevronTop", "ChevronBottom" })
+                {
+                    var image = arrow.Find(part).GetComponent<Image>();
+                    Assert.That(image.gameObject.activeInHierarchy && image.enabled, Is.True);
+                    Assert.That(image.color.a, Is.GreaterThan(.9f));
+                    Assert.That(image.raycastTarget, Is.False);
+                }
+                arrow.GetComponent<Button>().onClick.Invoke(); view.Presentation.Cancel();
+                Assert.That(view.Selected, Is.EqualTo(side == "NextCostume" ? InkSkinCatalog.BrowseAt(1) : InkSkinId.Ink));
+            }
         }
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]

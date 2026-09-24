@@ -642,8 +642,17 @@ namespace MukJump.Core
         void BuildNeighbor(RectTransform stage, int side)
         {
             int step=side==0 ? -1 : 1;
-            var button=Button(side==0 ? "PreviousCostume" : "NextCostume",stage,side==0 ? "‹" : "›",
-                new Vector2(step*430,20),new Vector2(116,148),90,out _);
+            var button=Button(side==0 ? "PreviousCostume" : "NextCostume",stage,string.Empty,
+                new Vector2(step*430,20),new Vector2(116,148),90,out var label);
+            label.gameObject.SetActive(false);
+            // 기본 붓 글꼴에는 ‹/›가 없다. OS 대체 글꼴 없이도 기기에서 같은 화살표를 그린다.
+            for (int half = -1; half <= 1; half += 2)
+            {
+                var stroke = SpriteImage(half > 0 ? "ChevronTop" : "ChevronBottom", button.transform,
+                    null, new Vector2(0, half * 13), new Vector2(9, 43));
+                stroke.color = InkPalette.TextDark;
+                stroke.rectTransform.localRotation = Quaternion.Euler(0, 0, step * half * 45);
+            }
             button.onClick.AddListener(()=>StepSelection(step)); neighborButtons[side]=button;
         }
         void BuildPreviewBackdrop(RectTransform preview)
