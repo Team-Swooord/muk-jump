@@ -93,6 +93,7 @@ namespace MukJump.Core
 
         void Update()
         {
+            if (InkPremiumAppearance.IsOwned) LobbyAdLayout.ClearTopInset();
             if (Screen.width != lastWidth ||
                 Screen.height != lastHeight ||
                 MobileUiLayout.CurrentSafeArea != lastSafeArea)
@@ -129,7 +130,7 @@ namespace MukJump.Core
         void OnDisable()
         {
             Complete(false);
-            if (ReferenceEquals(MonetizationAds.Provider, provider))
+            if (MonetizationAds.IsRegistered(provider))
                 MonetizationAds.ResetProvider();
             provider = null;
             bannerVisible = false;

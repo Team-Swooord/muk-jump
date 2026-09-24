@@ -12,7 +12,7 @@ namespace MukJump.Core
         const int CanvasSortingOrder = 5000;
         const float RevealDuration = 0.56f;
         const float RollOpenDistance = 550f;
-        const string ReviveRewardLabel = "광고 시청하고 부활하기";
+        static string ReviveRewardLabel => InkPremiumAppearance.IsOwned ? "부활하기" : "광고 시청하고 부활하기";
         const float ActionWidth = 640f;
         const float PrimaryActionY = -268f;
         const float SecondaryActionY = -428f;
@@ -159,7 +159,7 @@ namespace MukJump.Core
             reviveButton.interactable = !inFlight;
             lobbyButton.interactable = !inFlight;
             InkLocalizedText.SetSource(reviveButtonLabel, inFlight
-                ? "광고 여는 중..."
+                ? (InkPremiumAppearance.IsOwned ? "부활 준비 중..." : "광고 여는 중...")
                 : ReviveRewardLabel);
         }
 

@@ -79,6 +79,19 @@ namespace MukJump.Core
 
         void Update()
         {
+            if (InkPremiumAppearance.IsOwned)
+            {
+                if (banner != null || bannerLoading) HideAndDestroyBanner();
+                if (provider != null)
+                {
+                    if (MonetizationAds.IsRegistered(provider)) MonetizationAds.ResetProvider();
+                    provider.Dispose();
+                    provider = null;
+                    initialized = false;
+                }
+                LobbyAdLayout.ClearTopInset();
+                return;
+            }
             if (!MobileApplicationLifecycle.IsApplicationActive) return;
             ProcessRequestWatchdogs();
             if (!configurationReady)
@@ -130,7 +143,7 @@ namespace MukJump.Core
             HideAndDestroyBanner();
             try
             {
-                if (ReferenceEquals(MonetizationAds.Provider, provider))
+                if (MonetizationAds.IsRegistered(provider))
                     MonetizationAds.ResetProvider();
             }
             catch (Exception exception)
@@ -263,7 +276,7 @@ namespace MukJump.Core
 
         void TryConfigureSdkAndBeginFlow()
         {
-            if (!configurationReady || !isActiveAndEnabled)
+            if (InkPremiumAppearance.IsOwned || !configurationReady || !isActiveAndEnabled)
                 return;
             try
             {
@@ -438,7 +451,7 @@ namespace MukJump.Core
 
         void GatherConsent()
         {
-            if (consentGathering || initialized)
+            if (InkPremiumAppearance.IsOwned || consentGathering || initialized)
                 return;
             consentGathering = true;
             long generation = ++consentGeneration;
@@ -572,7 +585,7 @@ namespace MukJump.Core
         {
             try
             {
-                return ConsentInformation.CanRequestAds();
+                return !InkPremiumAppearance.IsOwned && ConsentInformation.CanRequestAds();
             }
             catch (Exception exception)
             {
@@ -584,7 +597,7 @@ namespace MukJump.Core
 
         void InitializeAds()
         {
-            if (initialized || initializationInFlight)
+            if (InkPremiumAppearance.IsOwned || initialized || initializationInFlight)
                 return;
             initializationInFlight = true;
             long generation = ++initializationGeneration;
@@ -613,6 +626,7 @@ namespace MukJump.Core
             initializationInFlight = false;
             initializationGeneration++;
             initializationDeadline = 0d;
+            if (InkPremiumAppearance.IsOwned) return;
             try
             {
                 var newProvider = new GoogleMobileAdsProvider(
@@ -635,7 +649,7 @@ namespace MukJump.Core
                 initialized = false;
                 try
                 {
-                    if (ReferenceEquals(MonetizationAds.Provider, provider))
+                    if (MonetizationAds.IsRegistered(provider))
                         MonetizationAds.ResetProvider();
                     provider?.Dispose();
                 }
@@ -669,8 +683,8 @@ namespace MukJump.Core
 
         void UpdateLobbyBanner()
         {
-            bool bannerEnabled = settings == null ||
-                                 settings.EnableLobbyBanner;
+            bool bannerEnabled = !InkPremiumAppearance.IsOwned &&
+                                 (settings == null || settings.EnableLobbyBanner);
             bool shouldShow = bannerEnabled &&
                               GoogleMobileAdsPresentation
                                   .ShouldShowTopBanner(
@@ -718,7 +732,7 @@ namespace MukJump.Core
 
         void LoadBannerIfNeeded()
         {
-            if (banner != null ||
+            if (InkPremiumAppearance.IsOwned || banner != null ||
                 bannerLoading ||
                 Application.internetReachability == NetworkReachability.NotReachable ||
                 string.IsNullOrWhiteSpace(units?.Banner) ||

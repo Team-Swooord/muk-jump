@@ -10,6 +10,7 @@ namespace MukJump.Player
     {
         const string AccessoryName = "InkSkinAccessory";
         SpriteRenderer body;
+        [SerializeField] Material normalBodyMaterial;
         SpriteRenderer accessory;
         SpriteRenderer rightShoe;
         float motionTime;
@@ -21,6 +22,7 @@ namespace MukJump.Player
         void OnEnable()
         {
             body = GetComponent<SpriteRenderer>();
+            if (!GoldInkVisual.IsWorld(body.sharedMaterial)) normalBodyMaterial = body.sharedMaterial;
             player = GetComponent<PlayerController>();
             // 분신 복제/재컴파일에서도 자신의 자식만 다시 연결한다.
             accessory = transform.Find(AccessoryName)?.GetComponent<SpriteRenderer>();
@@ -40,11 +42,14 @@ namespace MukJump.Player
             rightShoe.enabled=false;
         }
 
-        void OnDisable() { if (accessory != null) accessory.enabled = false; if(rightShoe!=null) rightShoe.enabled=false; }
+        void OnDisable() { if (accessory != null) accessory.enabled = false; if(rightShoe!=null) rightShoe.enabled=false;
+            if (body != null && normalBodyMaterial != null) body.sharedMaterial = normalBodyMaterial; }
 
         void LateUpdate()
         {
             if (body == null || accessory == null) return;
+            var material = InkPremiumAppearance.IsGoldInRun ? GoldInkVisual.World : normalBodyMaterial;
+            if (body.sharedMaterial != material) body.sharedMaterial = material;
             accessory.forceRenderingOff = false;
             InkSkinId id = RunGrowthController.Instance != null
                 ? RunGrowthController.Instance.SkinSnapshot : InkSkinPreferences.Equipped;

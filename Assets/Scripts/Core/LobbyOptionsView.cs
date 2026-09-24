@@ -578,6 +578,10 @@ namespace MukJump.Core
                     new Vector2(0, -354), new Vector2(700, 224),
                     InkPalette.TextDark);
             }
+            if (InkPremiumAppearance.IsSupported)
+                CreatePaperButton("PremiumButton", panel, "광고 제거 · 금색 먹",
+                    new Vector2(0, -418), new Vector2(650, 112), 38)
+                    .onClick.AddListener(InkPremiumAppearance.OpenShop);
             connectionStatus = CreateReadableText("ConnectionStatus", panel, string.Empty, 40,
                 new Vector2(0, -527), new Vector2(700, 70),
                 InkPalette.TextDark, TextAnchor.MiddleCenter);

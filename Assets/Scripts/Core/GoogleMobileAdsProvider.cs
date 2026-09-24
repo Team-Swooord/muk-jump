@@ -56,7 +56,7 @@ namespace MukJump.Core
 
         public bool IsReady(FullScreenAdPlacement placement)
         {
-            if (disposed || pendingCompletion != null) return false;
+            if (InkPremiumAppearance.IsOwned || disposed || pendingCompletion != null) return false;
             if (IsRewarded(placement))
             {
                 if (rewardedAd == null)
@@ -103,7 +103,7 @@ namespace MukJump.Core
 
         public void Preload(FullScreenAdPlacement placement)
         {
-            if (disposed) return;
+            if (InkPremiumAppearance.IsOwned || disposed) return;
             if (IsRewarded(placement))
                 LoadRewardedIfNeeded();
             else
@@ -113,6 +113,7 @@ namespace MukJump.Core
         public void Tick()
         {
             if (disposed) return;
+            if (InkPremiumAppearance.IsOwned) { Dispose(); return; }
             double now = Time.realtimeSinceStartupAsDouble;
             // 앱 정지 동안의 벽시계 시간을 표시 실패로 세지 않는다. 복귀 프레임에는
             // 메인 스레드로 지연된 SDK 콜백이 먼저 처리될 여유를 준다.
@@ -235,7 +236,7 @@ namespace MukJump.Core
 
         void LoadRewardedIfNeeded()
         {
-            if (disposed ||
+            if (InkPremiumAppearance.IsOwned || disposed ||
                 !CanPreload ||
                 rewardedLoading ||
                 rewardedAd != null ||
@@ -274,7 +275,7 @@ namespace MukJump.Core
 
         void LoadInterstitialIfNeeded()
         {
-            if (disposed ||
+            if (InkPremiumAppearance.IsOwned || disposed ||
                 !CanPreload ||
                 interstitialLoading ||
                 interstitialAd != null ||

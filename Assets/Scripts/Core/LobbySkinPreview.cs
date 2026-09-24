@@ -50,7 +50,7 @@ namespace MukJump.Core
         public Vector2 Travel => travel;
         public float AngularVelocity => angularVelocity;
 
-        bool CanInteract => IsVisible && lobby != null && lobby.IsInteractive &&
+        bool CanInteract => !InkPremiumShopView.IsOpen && IsVisible && lobby != null && lobby.IsInteractive &&
             lobby.ActiveMenu != LobbyMenuSelection.Options && !StartupBrandSplash.IsBlockingInput &&
             MobileApplicationLifecycle.IsApplicationActive &&
             (GameManager.Instance == null || (GameManager.Instance.State == GameState.Lobby && !GameManager.Instance.IsPaused));
@@ -88,6 +88,7 @@ namespace MukJump.Core
             if (drift.gameObject.activeSelf != show) drift.gameObject.SetActive(show);
             if (!show) { CancelDrag(); return; }
             var id = InkSkinPreferences.Equipped;
+            GoldInkVisual.Apply(body, InkPremiumAppearance.IsEquipped);
             if (shown != id) RefreshSkin(id);
             RefreshLayout();
             bool reduced = LobbySettingsProfile.ReducedMotionEnabled;

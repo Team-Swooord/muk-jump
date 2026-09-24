@@ -8,7 +8,7 @@ namespace MukJump.Core
             LobbyScreenNavigator navigator,
             LobbyOptionsView options)
         {
-            if (manager == null || StartupBrandSplash.IsBlockingInput ||
+            if (manager == null || InkPremiumShopView.IsOpen || StartupBrandSplash.IsBlockingInput ||
                 AppsInTossExitView.IsOpen || !MobileApplicationLifecycle.IsApplicationActive ||
                 BackgroundMusicController.Instance != null &&
                 BackgroundMusicController.Instance.IsFullScreenAdActive)

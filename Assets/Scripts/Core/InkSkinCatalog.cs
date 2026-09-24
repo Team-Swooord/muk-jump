@@ -341,8 +341,10 @@ namespace MukJump.Core
     public static class InkSkinPreferences
     {
         public const string StorageKey = "MukJump.Settings.EquippedSkin";
+        public const string GoldSelectionKey = "MukJump.Settings.GoldInkSelected";
         static ILobbySettingsStore store = new PlayerPrefsLobbySettingsStore();
         public static event Action Changed;
+        public static bool GoldSelected => store.GetInt(GoldSelectionKey, 0) == 1;
         // 디버그 시험 착용은 공개 리더보드로 전송하지 않는다.
         public static InkSkinId PersistedEquipped
         {
@@ -361,18 +363,22 @@ namespace MukJump.Core
             }
         }
 
-        public static bool TryEquip(InkSkinId id)
+        public static bool TryEquip(InkSkinId id) => TryEquipAppearance(id, false);
+        public static bool TryEquipGold() => InkPremiumAppearance.IsOwned && TryEquipAppearance(InkSkinId.Ink, true);
+        static bool TryEquipAppearance(InkSkinId id, bool gold)
         {
             if (!SkinDebugSession.CanEquip(id) ||
                 GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby ||
                 MukJumpAccountRuntime.Instance != null && MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
                 return false;
-            if (SkinDebugSession.Active) return SkinDebugSession.TryEquip(id);
+            if (SkinDebugSession.Active) return !gold && SkinDebugSession.TryEquip(id);
             int previous = store.GetInt(StorageKey, 0);
-            if (previous == (int)id) return true;
+            int previousGold = store.GetInt(GoldSelectionKey, 0);
+            if (previous == (int)id && previousGold == (gold ? 1 : 0)) return true;
             try
             {
                 store.SetInt(StorageKey, (int)id);
+                store.SetInt(GoldSelectionKey, gold ? 1 : 0);
                 store.Save();
                 // 로컬 저장 성공 뒤에만 기존 클라우드 저장 대기열에 변경을 알린다.
                 // 수신자 오류 때문에 이미 저장된 장착을 실패/롤백으로 취급하지 않는다.
@@ -385,7 +391,7 @@ namespace MukJump.Core
             catch (Exception)
             {
                 // Save 실패 뒤 종료 시 새 값이 뒤늦게 저장되지 않도록 메모리 값도 되돌린다.
-                try { store.SetInt(StorageKey, previous); } catch (Exception) { }
+                try { store.SetInt(StorageKey, previous); store.SetInt(GoldSelectionKey, previousGold); } catch (Exception) { }
                 return false;
             }
         }

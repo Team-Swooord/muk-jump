@@ -15,7 +15,7 @@ namespace MukJump.Core
         {
             expanded = show; headings = labels;
             System.Array.Clear(counts, 0, counts.Length);
-            for (int i = 0; i < InkSkinCatalog.BrowseCount; i++) counts[InkSkinCatalog.BrowseGroup(InkSkinCatalog.BrowseAt(i))]++;
+            for (int i = 0; i < InkWardrobeEntry.Count; i++) counts[InkWardrobeEntry.At(i).Group]++;
             for (int i = 0; i < headings.Length; i++) headings[i].gameObject.SetActive(show && counts[i] > 0);
             SetDirty();
         }

@@ -982,7 +982,7 @@ namespace MukJump.Core
             }
 
             int requestGeneration = ++reviveRequestGeneration;
-            MukJumpAnalytics.Ad(AnalyticsAdStage.ShowRequested);
+            if (!InkPremiumAppearance.IsOwned) MukJumpAnalytics.Ad(AnalyticsAdStage.ShowRequested);
             activeReviveRequestGeneration = requestGeneration;
             reviveRequestInFlight = true;
             reviveRequestDeadline =
@@ -990,7 +990,7 @@ namespace MukJump.Core
             reviveCompletionPendingForeground = false;
             pendingReviveRewardEarned = false;
             gameOverPopupView?.SetReviveRequestInFlight(true);
-            SetReviveAdAudioActive(true);
+            if (!InkPremiumAppearance.IsOwned) SetReviveAdAudioActive(true);
             try
             {
                 ads.Show(

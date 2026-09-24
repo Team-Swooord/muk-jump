@@ -21,6 +21,7 @@ namespace MukJump.EditorTests
         {
             EditorWindow.GetWindow(typeof(Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
             yield return new EnterPlayMode();
+            InkPremiumAppearance.UseForTests(false, null);
             bool oldBackground = Application.runInBackground;
             Application.runInBackground = true;
             var settings = new MemoryLobbySettingsStore();
@@ -95,6 +96,7 @@ namespace MukJump.EditorTests
             }
             finally
             {
+                InkPremiumAppearance.RestoreForTests();
                 GameLocalization.SetLanguage(oldLanguage); Application.runInBackground = oldBackground;
                 LobbySettingsProfile.RestoreDefaultStoreForTests(); InkSkinPreferences.RestoreDefaultStoreForTests();
                 PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();

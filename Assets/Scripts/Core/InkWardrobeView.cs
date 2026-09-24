@@ -31,15 +31,16 @@ namespace MukJump.Core
         bool hasProgress, progressAnimating, progressComplete;
         const float ProgressDuration = .36f;
         Button equipButton, backButton;
-        readonly GameObject[] cards = new GameObject[InkSkinCatalog.Count];
-        readonly Image[] cardPapers = new Image[InkSkinCatalog.Count], cardBodies = new Image[InkSkinCatalog.Count], cardAccessories = new Image[InkSkinCatalog.Count];
-        readonly Text[] cardStates = new Text[InkSkinCatalog.Count], cardNames = new Text[InkSkinCatalog.Count];
-        readonly Text[] cardBestHeights = new Text[InkSkinCatalog.Count];
-        readonly RectTransform[] cardSkillMarks = new RectTransform[InkSkinCatalog.Count];
-        readonly UnityEngine.UI.Text[] cardQuestions = new UnityEngine.UI.Text[InkSkinCatalog.Count];
-        readonly RectTransform[] cardPreviews = new RectTransform[InkSkinCatalog.Count];
-        readonly RectTransform[] cardViewports = new RectTransform[InkSkinCatalog.Count];
+        readonly GameObject[] cards = new GameObject[InkSkinCatalog.Count + 1];
+        readonly Image[] cardPapers = new Image[InkSkinCatalog.Count + 1], cardBodies = new Image[InkSkinCatalog.Count + 1], cardAccessories = new Image[InkSkinCatalog.Count + 1];
+        readonly Text[] cardStates = new Text[InkSkinCatalog.Count + 1], cardNames = new Text[InkSkinCatalog.Count + 1];
+        readonly Text[] cardBestHeights = new Text[InkSkinCatalog.Count + 1];
+        readonly RectTransform[] cardSkillMarks = new RectTransform[InkSkinCatalog.Count + 1];
+        readonly UnityEngine.UI.Text[] cardQuestions = new UnityEngine.UI.Text[InkSkinCatalog.Count + 1];
+        readonly RectTransform[] cardPreviews = new RectTransform[InkSkinCatalog.Count + 1];
+        readonly RectTransform[] cardViewports = new RectTransform[InkSkinCatalog.Count + 1];
         InkSkinId selected;
+        bool selectedGold, renderedGold;
         InkSkinId renderedSkin;
         int page;
         float refreshAt;
@@ -51,6 +52,8 @@ namespace MukJump.Core
         static readonly Vector2 CompactCollectionSize = new(1000f, 340f);
         public bool IsOpen => visible && interactive;
         public InkSkinId Selected => selected;
+        public bool SelectedGold => selectedGold;
+        int SelectedIndex => InkWardrobeEntry.Index(selected, selectedGold);
         public RectTransform Paper => paper;
         public Button EquipButton => equipButton;
         public Button BackButton => backButton;
@@ -69,7 +72,8 @@ namespace MukJump.Core
             if (show && !visible)
             {
                 selected = InkSkinPreferences.Equipped;
-                page = InkSkinCatalog.BrowseIndex(selected) / PageSize;
+                selectedGold = InkPremiumAppearance.IsEquipped;
+                page = SelectedIndex / PageSize;
                 collectionExpanded = false;
                 ApplyCollectionLayout();
                 InkLocalizedText.SetSource(statusText, "");
@@ -110,16 +114,17 @@ namespace MukJump.Core
         }
         public void Select(InkSkinId id)
             => SelectCore(id, true);
+        public void SelectGold() { if (InkPremiumAppearance.IsSupported) SelectCore(InkSkinId.Ink, true, true); }
         internal void SelectFromCarousel(int index)
         {
-            var id = InkSkinCatalog.BrowseAt(index);
-            if (id != selected) SelectCore(id, false);
+            var entry = InkWardrobeEntry.At(index);
+            if (entry.Skin != selected || entry.Gold != selectedGold) SelectCore(entry.Skin, false, entry.Gold);
         }
-        void SelectCore(InkSkinId id, bool reveal)
+        void SelectCore(InkSkinId id, bool reveal, bool gold = false)
         {
             if (!CanInteract() || collectionScroll.IsDragging || !InkSkinCatalog.IsAvailable(id)) return;
-            int step = InkSkinCatalog.BrowseIndex(id) - InkSkinCatalog.BrowseIndex(selected);
-            selected = id; page = InkSkinCatalog.BrowseIndex(id) / PageSize;
+            int step = InkWardrobeEntry.Index(id, gold) - SelectedIndex;
+            selected = id; selectedGold = gold; page = SelectedIndex / PageSize;
             InkLocalizedText.SetSource(statusText, "");
             RefreshSelection();
             if (reveal) RevealSelectedCard();
@@ -128,19 +133,16 @@ namespace MukJump.Core
         public void StepSelection(int direction)
         {
             if (!CanInteract() || direction == 0) return;
-            int next = Mathf.Clamp(InkSkinCatalog.BrowseIndex(selected) + (direction > 0 ? 1 : -1), 0, InkSkinCatalog.BrowseCount - 1);
-            if (InkSkinCatalog.BrowseAt(next) != selected) Select(InkSkinCatalog.BrowseAt(next));
+            int next = Mathf.Clamp(SelectedIndex + (direction > 0 ? 1 : -1), 0, InkWardrobeEntry.Count - 1);
+            var entry = InkWardrobeEntry.At(next);
+            if (next != SelectedIndex) SelectCore(entry.Skin, true, entry.Gold);
         }
         public void ChangePage(int direction)
         {
             if (!CanInteract()) return;
-            int previous = InkSkinCatalog.BrowseIndex(selected);
-            page = Mathf.Clamp(page + direction, 0, (InkSkinCatalog.BrowseCount-1)/PageSize);
-            selected = InkSkinCatalog.BrowseAt(page * PageSize);
-            InkLocalizedText.SetSource(statusText, "");
-            RefreshSelection();
-            RevealSelectedCard();
-            if (InkSkinCatalog.BrowseIndex(selected) != previous) presentation.Browse(InkSkinCatalog.BrowseIndex(selected) - previous);
+            int nextPage = Mathf.Clamp(page + direction, 0, (InkWardrobeEntry.Count-1)/PageSize);
+            var entry = InkWardrobeEntry.At(nextPage * PageSize);
+            SelectCore(entry.Skin, true, entry.Gold);
         }
         bool CanInteract() => CanUseWardrobe() && !IsSkillDetailsOpen;
         bool CanUseWardrobe() => IsOpen && MobileApplicationLifecycle.IsApplicationActive &&
@@ -149,8 +151,11 @@ namespace MukJump.Core
             (MukJumpAccountRuntime.Instance == null || !MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync);
         void Equip()
         {
-            if (!CanInteract() || !SkinDebugSession.CanEquip(selected) || InkSkinPreferences.Equipped == selected) return;
-            bool saved = InkSkinPreferences.TryEquip(selected);
+            if (!CanInteract()) return;
+            if (selectedGold && !InkPremiumAppearance.IsOwned) { InkPremiumAppearance.OpenShop(); return; }
+            if (!SkinDebugSession.CanEquip(selected) ||
+                InkSkinPreferences.Equipped == selected && InkPremiumAppearance.IsEquipped == selectedGold) return;
+            bool saved = selectedGold ? InkSkinPreferences.TryEquipGold() : InkSkinPreferences.TryEquip(selected);
             InkLocalizedText.SetSource(statusText, saved ? "" : "저장하지 못했어요. 다시 시도해 주세요");
             RefreshSelection();
             if (saved) presentation.Wear();
@@ -166,32 +171,32 @@ namespace MukJump.Core
         {
             bool hidden = SkinDebugSession.IsConcealed(selected);
             bool hasAbility = InkSkinCatalog.HasAbility(selected);
-            bool unlocked = SkinDebugSession.CanEquip(selected);
-            bool equipped = InkSkinPreferences.Equipped == selected;
-            InkLocalizedText.SetSource(nameText, hidden ? "" : InkSkinCatalog.Name(selected));
-            InkLocalizedText.SetSource(loreText, hidden ? "" : InkSkinLore.Get(selected).ko);
+            bool unlocked = selectedGold ? InkPremiumAppearance.IsOwned : SkinDebugSession.CanEquip(selected);
+            bool equipped = InkSkinPreferences.Equipped == selected && InkPremiumAppearance.IsEquipped == selectedGold;
+            InkLocalizedText.SetSource(nameText, hidden ? "" : selectedGold ? "금색 먹" : InkSkinCatalog.Name(selected));
+            InkLocalizedText.SetSource(loreText, hidden ? "" : selectedGold ? "익숙한 먹에 금빛을 더해요\n능력과 성장 효과는 그대로예요" : InkSkinLore.Get(selected).ko);
             InkLocalizedText.SetSource(descriptionText, hidden ? InkSkinLore.Get(selected).ko : "");
-            RefreshDetailLayout(hidden, hasAbility, unlocked);
+            RefreshDetailLayout(hidden, hasAbility, unlocked || selectedGold);
             RefreshInlineSkill(hidden, hasAbility && unlocked);
             previewQuestion.enabled = hidden;
             // 주기적인 상태 갱신이 의상 교체 애니메이션의 위치를 덮어쓰지 않는다.
-            if (!hasPreview || renderedSkin != selected || renderedHidden != hidden || renderedUnlocked != unlocked)
+            if (!hasPreview || renderedSkin != selected || renderedGold != selectedGold || renderedHidden != hidden || renderedUnlocked != unlocked)
             {
                 // 히든 화면과 계정 교체 직후에는 이전 계정의 원화·색을 잔상으로도 노출하지 않는다.
                 presentation.PrepareCostumeChange(hasPreview && !hidden && !SkinDebugSession.IsConcealed(renderedSkin) &&
                     renderedUnlocked == SkinDebugSession.CanEquip(renderedSkin));
-                SetPreview(previewBody, previewAccessory, selected, HeroSize, hidden, unlocked);
+                SetPreview(previewBody, previewAccessory, selected, HeroSize, hidden, unlocked || selectedGold, selectedGold);
                 presentation.RememberCostumePose();
-                renderedSkin = selected; renderedHidden = hidden; renderedUnlocked = unlocked; hasPreview = true;
+                renderedSkin = selected; renderedGold = selectedGold; renderedHidden = hidden; renderedUnlocked = unlocked; hasPreview = true;
             }
             for (int side = 0; side < 2; side++)
             {
-                int index = InkSkinCatalog.BrowseIndex(selected) + (side == 0 ? -1 : 1);
-                bool exists = index >= 0 && index < InkSkinCatalog.BrowseCount;
+                int index = SelectedIndex + (side == 0 ? -1 : 1);
+                bool exists = index >= 0 && index < InkWardrobeEntry.Count;
                 neighborButtons[side].interactable = exists;
             }
-            InkLocalizedText.SetSource(equipText, !unlocked ? "" : equipped ? "착용 중" : "착용하기");
-            equipButton.interactable = unlocked && !equipped;
+            InkLocalizedText.SetSource(equipText, selectedGold && !unlocked ? "구매 보기" : !unlocked ? "" : equipped ? "착용 중" : "착용하기");
+            equipButton.interactable = (unlocked || selectedGold) && !equipped;
             InkLocalizedText.SetSource(achievementText, hidden || selected == InkSkinId.Ink ? "" : InkSkinAchievements.Requirement(selected));
             achievementText.color = InkPalette.TextLight;
             int goal = hidden ? 0 : InkSkinAchievements.Goal(selected), progress = InkSkinAchievements.Progress(selected);
@@ -201,23 +206,26 @@ namespace MukJump.Core
             bool saveFailed = !string.IsNullOrEmpty(statusText.text);
             achievementText.enabled = progressText.enabled = !saveFailed;
             RefreshProgress(goal, progress, unlocked, saveFailed);
-            equipButton.gameObject.SetActive(unlocked && !hidden && !collectionExpanded);
+            equipButton.gameObject.SetActive((unlocked || selectedGold) && !hidden && !collectionExpanded);
             for (int i=0; i<cards.Length; i++)
             {
                 if (cards[i] == null) continue;
-                var id = (InkSkinId)i;
+                bool gold = i == InkSkinCatalog.Count;
+                var id = gold ? InkSkinId.Ink : (InkSkinId)i;
                 bool concealed = SkinDebugSession.IsConcealed(id);
-                bool cardUnlocked = SkinDebugSession.CanEquip(id);
-                cardPapers[i].color = id == selected ? InkPalette.Paper : new Color(.86f, .82f, .73f, .62f);
-                cardStates[i].color = id == selected ? InkPalette.Red : InkPalette.TextMuted;
-                SetPreview(cardBodies[i], cardAccessories[i], id, 200, concealed, cardUnlocked);
+                bool cardUnlocked = gold ? InkPremiumAppearance.IsOwned : SkinDebugSession.CanEquip(id);
+                bool cardSelected = id == selected && gold == selectedGold;
+                bool cardEquipped = id == InkSkinPreferences.Equipped && gold == InkPremiumAppearance.IsEquipped;
+                cardPapers[i].color = cardSelected ? InkPalette.Paper : new Color(.86f, .82f, .73f, .62f);
+                cardStates[i].color = cardSelected ? InkPalette.Red : InkPalette.TextMuted;
+                SetPreview(cardBodies[i], cardAccessories[i], id, 200, concealed, cardUnlocked || gold, gold);
                 cardQuestions[i].enabled = concealed;
-                InkLocalizedText.SetSource(cardNames[i], concealed ? "?" : InkSkinCatalog.Name(id));
+                InkLocalizedText.SetSource(cardNames[i], concealed ? "?" : gold ? "금색 먹" : InkSkinCatalog.Name(id));
                 int bestHeight = PermanentGrowthProfile.SkinBestHeight(id);
-                InkLocalizedText.SetSource(cardBestHeights[i], bestHeight < 0 ? "기록 없음" : $"최고 {bestHeight}m");
+                InkLocalizedText.SetSource(cardBestHeights[i], gold ? "구매 전용 의상" : bestHeight < 0 ? "기록 없음" : $"최고 {bestHeight}m");
                 cardSkillMarks[i].gameObject.SetActive(!concealed && InkSkinCatalog.HasAbility(id));
                 InkLocalizedText.SetSource(cardStates[i], concealed ? "" : !cardUnlocked ? "잠김" :
-                    id == InkSkinPreferences.Equipped ? "착용 중" : id == selected ? "선택됨" : "해금됨");
+                    cardEquipped ? "착용 중" : cardSelected ? "선택됨" : "해금됨");
             }
             FitCardPreviews();
         }
@@ -386,7 +394,7 @@ namespace MukJump.Core
             loreText.color=InkPalette.Ink; loreText.fontStyle=FontStyle.Bold; loreText.lineSpacing=1.12f;
             BuildInlineSkill();
             BuildCollection();
-            for(int i=0;i<InkSkinCatalog.BrowseCount;i++) BuildCard(InkSkinCatalog.BrowseAt(i));
+            for(int i=0;i<InkWardrobeEntry.Count;i++) BuildCard(InkWardrobeEntry.At(i));
             for (int group = 0; group < collectionHeadings.Length; group++)
             {
                 string title = group == 0 ? "일반 의상" : group == 1 ? "특수 능력" : "비밀 의상";
@@ -538,9 +546,9 @@ namespace MukJump.Core
             if(collectionScroll==null) return;
             float center=-collectionContent.anchoredPosition.x/collectionScroll.CardStride;
             bool motion=!collectionExpanded && !LobbySettingsProfile.ReducedMotionEnabled;
-            for(int slot=0;slot<InkSkinCatalog.BrowseCount;slot++)
+            for(int slot=0;slot<InkWardrobeEntry.Count;slot++)
             {
-                var card=cards[(int)InkSkinCatalog.BrowseAt(slot)];
+                var card=cards[InkWardrobeEntry.At(slot).CardKey];
                 if(card==null) continue;
                 float distance=motion ? Mathf.Clamp(slot-center,-2,2) : 0;
                 var scale=Vector3.one*(1f-Mathf.Abs(distance)*.035f);
@@ -555,10 +563,10 @@ namespace MukJump.Core
             UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(collectionContent);
             if(!collectionExpanded)
             {
-                collectionScroll.CenterOn(InkSkinCatalog.BrowseIndex(selected),immediate);
+                collectionScroll.CenterOn(SelectedIndex,immediate);
                 return;
             }
-            float top=collectionGrid.RevealTop(InkSkinCatalog.BrowseIndex(selected));
+            float top=collectionGrid.RevealTop(SelectedIndex);
             float height=collectionScroll.viewport.rect.height;
             collectionScroll.StopMovement();
             // 전체보기 진입 시 선택된 줄의 위를 맞춰 반쯤 잘린 첫 줄로 시작하지 않는다.
@@ -588,9 +596,10 @@ namespace MukJump.Core
             equipText=Label("Label",root,"착용하기",64,Vector2.zero,new Vector2(700,110),true);
             equipText.color=InkPalette.TextLight;
         }
-        void BuildCard(InkSkinId id)
+        void BuildCard(InkWardrobeEntry entry)
         {
-            int i=(int)id;
+            var id = entry.Skin;
+            int i=entry.CardKey;
             var button=Button("SkinCard"+i,collectionContent,"",Vector2.zero,new Vector2(180,190),24,out _);
             cards[i]=button.gameObject; cardPapers[i]=button.transform.Find("Paper").GetComponent<Image>();
             var viewport=Rect("PreviewViewport",button.transform,new Vector2(0,16),new Vector2(104,90));
@@ -621,7 +630,7 @@ namespace MukJump.Core
             {
                 if(!CanInteract() || collectionScroll.IsDragging) return;
                 if(collectionExpanded) ToggleCollection();
-                Select(id);
+                SelectCore(id, true, entry.Gold);
             });
         }
         void BuildNeighbor(RectTransform stage, int side)
@@ -653,11 +662,12 @@ namespace MukJump.Core
                 preview.anchoredPosition.y + drawing.yMin * bodyScale - 12f);
             floor.sizeDelta = new Vector2(drawing.width * bodyScale * 1.06f, 32f);
         }
-        void SetPreview(Image body, Image accessory, InkSkinId id, float size, bool hidden, bool unlocked)
+        void SetPreview(Image body, Image accessory, InkSkinId id, float size, bool hidden, bool unlocked, bool gold = false)
         {
             // 미해금은 알파 윤곽만 남기고 색·눈·무늬를 숨긴다. 히든은 원먹도 표시하지 않는다.
             body.sprite=hidden ? null : previewBodySprite; body.enabled=!hidden;
             body.color=unlocked ? Color.white : Color.black;
+            GoldInkVisual.Apply(body, gold);
             accessory.sprite=hidden ? null : InkSkinCatalog.Sprite(id);
             accessory.enabled=accessory.sprite!=null;
             accessory.rectTransform.localScale=Vector3.one;

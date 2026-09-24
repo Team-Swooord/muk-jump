@@ -19,6 +19,8 @@ namespace MukJump.EditorTests
         RectTransform Focus => (RectTransform)view.Paper.Find("ShowroomStage/Preview");
         [SetUp] public void Setup()
         {
+            // 기존 업적 의상 검사는 플랫폼별 구매 칸과 분리한다.
+            InkPremiumAppearance.UseForTests(false, null);
             settings = new MemoryLobbySettingsStore();
             InkSkinPreferences.UseStoreForTests(settings);
             LobbySettingsProfile.UseStoreForTests(settings);
@@ -38,6 +40,7 @@ namespace MukJump.EditorTests
         }
         [TearDown] public void Teardown()
         {
+            InkPremiumAppearance.RestoreForTests();
             settings.ThrowOnSave = false;
             Object.DestroyImmediate(host); Object.DestroyImmediate(scoreHost);
             if (eventHost != null) Object.DestroyImmediate(eventHost);

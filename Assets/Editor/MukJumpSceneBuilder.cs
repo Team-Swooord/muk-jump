@@ -1354,6 +1354,9 @@ namespace MukJump.EditorTools
             optionsSettings.FindProperty("leaderboardBodySprite").objectReferenceValue =
                 AssetDatabase.LoadAllAssetsAtPath(CharSheetPath).OfType<Sprite>().FirstOrDefault(s => s.name == "idle");
             optionsSettings.ApplyModifiedPropertiesWithoutUndo();
+            var premiumShop = go.AddComponent<InkPremiumShopView>();
+            premiumShop.ConfigurePreview(AssetDatabase.LoadAllAssetsAtPath(CharSheetPath)
+                .OfType<Sprite>().FirstOrDefault(s => s.name == "idle"));
             var wardrobe = go.AddComponent<InkWardrobeView>();
             var wardrobeSettings = new SerializedObject(wardrobe);
             wardrobeSettings.FindProperty("previewBodySprite").objectReferenceValue =

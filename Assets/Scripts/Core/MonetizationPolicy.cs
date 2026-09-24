@@ -39,15 +39,26 @@ namespace MukJump.Core
             }
         }
 
+        // 구매자는 기존 보상 조건 안에서만 광고 시청을 생략한다.
+        sealed class PremiumAdProvider : IFullScreenAdProvider
+        {
+            public bool IsReady(FullScreenAdPlacement placement) =>
+                InkPremiumAppearance.IsOwned && placement != FullScreenAdPlacement.PostRunInterstitial;
+            public void Preload(FullScreenAdPlacement placement) { }
+            public void Show(FullScreenAdPlacement placement, Action<bool> onCompleted) =>
+                onCompleted?.Invoke(IsReady(placement));
+        }
+        static readonly IFullScreenAdProvider premium = new PremiumAdProvider();
         static readonly IFullScreenAdProvider unavailable =
             new UnavailableAdProvider();
         static IFullScreenAdProvider provider = unavailable;
 
-        public static IFullScreenAdProvider Provider => provider;
-        public static bool HasProvider => !ReferenceEquals(provider, unavailable);
+        public static IFullScreenAdProvider Provider => InkPremiumAppearance.IsOwned ? premium : provider;
+        public static bool IsRegistered(IFullScreenAdProvider value) => ReferenceEquals(provider, value);
+        public static bool HasProvider => InkPremiumAppearance.IsOwned || !ReferenceEquals(provider, unavailable);
 
         public static bool HasPendingPresentation =>
-            provider is IFullScreenAdLifecycle lifecycle && lifecycle.HasPendingPresentation;
+            !InkPremiumAppearance.IsOwned && provider is IFullScreenAdLifecycle lifecycle && lifecycle.HasPendingPresentation;
 
         /// 지원 플랫폼은 SDK 초기화·동의 화면이 늦어도 게임오버 선택지를 먼저
         /// 유지한다. 공급자 등록 순간만 보고 정산하면 첫 판의 부활 광고가 사라진다.
@@ -85,7 +96,7 @@ namespace MukJump.Core
         public static bool ShouldShowTopBanner(GameState state, bool isPaused,
             bool isTransitioning, bool isBannerSection, bool overlayOpen)
         {
-            if (isPaused || isTransitioning || overlayOpen) return false;
+            if (InkPremiumAppearance.IsOwned || isPaused || isTransitioning || overlayOpen) return false;
             return state == GameState.Playing || state == GameState.Lobby && isBannerSection;
         }
 
@@ -130,7 +141,7 @@ namespace MukJump.Core
             bool rewardedAdShownThisRun,
             bool adReady)
         {
-            return adReady &&
+            return !InkPremiumAppearance.IsOwned && adReady &&
                    !rewardedAdShownThisRun &&
                    completedRunsInSession >= InterstitialRunInterval &&
                    completedRunsInSession % InterstitialRunInterval == 0 &&

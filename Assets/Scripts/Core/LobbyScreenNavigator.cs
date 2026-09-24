@@ -39,7 +39,7 @@ namespace MukJump.Core
              CurrentSection == LobbySection.PermanentGrowth &&
              (growthView == null || !growthView.HasBlockingOverlay));
         public bool CanStartGame =>
-            !SkinDebugSession.MenuOpen &&
+            !InkPremiumShopView.IsOpen && !SkinDebugSession.MenuOpen &&
             !IsTransitioning &&
             CurrentSection == LobbySection.Lobby &&
             !PermanentGrowthProfile.RequiresRecovery &&

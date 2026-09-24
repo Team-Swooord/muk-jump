@@ -120,12 +120,30 @@ namespace MukJump.Core
             EmitFan(position, direction, airborne ? 0.65f : 0.42f, false, airborne);
         }
 
-        public void EmitLanding(Vector3 position, float strength)
+        public void EmitLanding(Vector3 position, float strength, bool gold = false)
         {
             if (disposed) return;
             SyncSettings();
             if (reduced) return;
+            if (gold) { EmitGoldLanding(position); return; }
             EmitFan(position, Vector2.up, Mathf.Clamp01(strength), true, false);
+        }
+
+        void EmitGoldLanding(Vector3 position)
+        {
+            // 기존 가루 방출기·동시 입자 한도를 공유한다. 금색은 장식이며 판정·점프력을 바꾸지 않는다.
+            int count = Mathf.Min(VfxQualityRuntime.Profile.ScaleDecorativeCount(10, 4),
+                motes.main.maxParticles - motes.particleCount);
+            for (int i = 0; i < count; i++)
+            {
+                float side = i % 2 == 0 ? -1f : 1f;
+                float size = Range(.06f, .12f);
+                Emit(motes, position + new Vector3(Range(-.3f, .3f), .03f),
+                    new Vector2(side * Range(.4f, 1.35f), Range(.6f, 1.5f)),
+                    new Vector3(size, size * 1.6f, 1f), Range(.32f, .6f), .95f, Range(0, 360),
+                    new Color(.88f, .68f, .22f, 1f));
+            }
+            motes.Pause(false);
         }
 
         /// 빠른 이동 뒤 갈필 두 조각만 남긴다. 접촉/응집을 위한 자리를 항상 보존한다.
@@ -254,9 +272,9 @@ namespace MukJump.Core
         }
 
         void Emit(ParticleSystem system, Vector3 position, Vector2 velocity, Vector3 size,
-            float lifetime, float alpha, float rotation)
+            float lifetime, float alpha, float rotation, Color? tint = null)
         {
-            Color color = InkPalette.Ink;
+            Color color = tint ?? InkPalette.Ink;
             color.a = alpha;
             system.Emit(new ParticleSystem.EmitParams
             {
