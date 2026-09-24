@@ -78,6 +78,7 @@ namespace MukJump.Core
                 ["한 판에 한 번 본체가 체력 1칸으로 살아남아 50m 상승한다\n성장 부활과 횟수를 공유하며 분신에게는 적용되지 않는다"] =
                     ("Survive one fatal hit with 1 HP per run\nRise 50m; shared with growth revival", "1プレイに1回、本体が体力1で耐えて50m上昇\n成長の復活と回数を共有 分身は対象外です"),
                 ["새 의상 해금"] = ("Costume Unlocked", "衣装を解放"),
+                ["바로 장착"] = ("Equip now", "今すぐ着用"),
                 ["비밀 의상 발견"] = ("Secret Discovered", "秘密の衣装を発見"),
                 ["해금"] = ("NEW", "解放"),
                 ["다음 의상"] = ("Next Costume", "次の衣装"),

@@ -14,8 +14,8 @@ namespace MukJump.Core
         CanvasGroup group;
         RectTransform safeRoot, paper, entrance, seal;
         UnityEngine.UI.Image body, accessory;
-        UnityEngine.UI.Text title, nameText, requirement, pageText, actionText;
-        UnityEngine.UI.Button nextButton, skipButton;
+        UnityEngine.UI.Text title, nameText, requirement, pageText, actionText, equipText, equipStatus;
+        UnityEngine.UI.Button nextButton, skipButton, equipButton;
         InkShowroomPresentation presentation;
         object account;
         Action completed, invalidated;
@@ -69,6 +69,9 @@ namespace MukJump.Core
             InkLocalizedText.SetSource(actionText, index + 1 < count ? "다음 의상" : "확인");
             pageText.text = count > 1 ? $"{index + 1} / {count}" : "";
             skipButton.gameObject.SetActive(count > 1);
+            nextButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(count > 1 ? -164f : 0f, -619f);
+            InkLocalizedText.SetSource(equipStatus, "");
+            RefreshEquipButton();
             body.sprite = previewBodySprite; body.enabled = previewBodySprite != null;
             accessory.sprite = InkSkinCatalog.Sprite(id); accessory.enabled = accessory.sprite != null;
             if (InkSkinCatalog.BehindBody(id)) accessory.transform.SetAsFirstSibling();
@@ -90,6 +93,7 @@ namespace MukJump.Core
             if (!visible) return;
             if (!IsCurrentContext()) { Invalidate(); return; }
             ApplyLayout();
+            RefreshEquipButton();
             if (!MobileApplicationLifecycle.IsApplicationActive || inactiveGeneration != MobileApplicationLifecycle.InactiveGeneration)
             { StopSound(); soundPlayed = true; FinishReveal(); return; }
             if (revealSource != null) revealSource.volume = InkSkinUnlockSound.Volume * LobbySettingsProfile.SfxVolume;
@@ -135,6 +139,29 @@ namespace MukJump.Core
             (GameManager.Instance == null || GameManager.Instance.State == GameState.GameOver);
         bool CanAdvance() => visible && IsCurrentContext() && MobileApplicationLifecycle.IsApplicationActive &&
             (!Application.isPlaying || Time.unscaledTime >= nextActionAt);
+        void RefreshEquipButton()
+        {
+            // 디버그 공개 화면은 소유권을 주거나 실제 착용 상태를 바꾸지 않는다.
+            equipButton.gameObject.SetActive(!debugPreview);
+            bool equipped = InkSkinPreferences.PersistedEquipped == Current;
+            string source = equipped ? "착용 중" : "바로 장착";
+            if (equipText.text != GameLocalization.Translate(source))
+                InkLocalizedText.SetSource(equipText, source);
+            equipButton.interactable = !debugPreview && !SkinDebugSession.Active && !equipped && CanAdvance();
+        }
+        public bool EquipCurrent()
+        {
+            if (debugPreview || SkinDebugSession.Active || !CanAdvance()) return false;
+            PointerInput.SuppressUntilRelease();
+            // 꾸미기와 동일한 저장·클라우드 알림 경로를 사용하며, 실패하면 화면을 유지한다.
+            bool saved = InkSkinPreferences.TryEquip(Current);
+            if (!IsCurrentContext()) { Invalidate(); return saved; }
+            InkLocalizedText.SetSource(equipStatus, saved ? "" : "저장하지 못했어요. 다시 시도해 주세요");
+            nextActionAt = Time.unscaledTime + .16f;
+            if (saved) { FinishReveal(); PlayRevealSound(); }
+            RefreshEquipButton();
+            return saved;
+        }
         public void Advance()
         {
             if (!CanAdvance()) return;
@@ -230,9 +257,13 @@ namespace MukJump.Core
             sealText.color = InkPalette.Paper;
             pageText = Label("Page", paper, "", 30, new Vector2(0, -414), new Vector2(300, 42), false);
             InkLocalizedText.Exclude(pageText);
-            nextButton = Button("Next", paper, "확인", new Vector2(0, -502), new Vector2(620, 108), out actionText);
+            equipButton = Button("Equip", paper, "바로 장착", new Vector2(0, -502), new Vector2(620, 108), out equipText);
+            equipButton.onClick.AddListener(() => EquipCurrent());
+            equipStatus = Label("EquipStatus", paper, "", 26, new Vector2(0, -574), new Vector2(740, 36), false);
+            equipStatus.color = InkPalette.Red;
+            nextButton = Button("Next", paper, "확인", new Vector2(-164, -619), new Vector2(300, 92), out actionText);
             nextButton.onClick.AddListener(Advance);
-            skipButton = Button("AcknowledgeAll", paper, "모두 확인", new Vector2(0, -619), new Vector2(420, 92), out _);
+            skipButton = Button("AcknowledgeAll", paper, "모두 확인", new Vector2(164, -619), new Vector2(300, 92), out _);
             skipButton.onClick.AddListener(AcknowledgeAll);
             var audioRoot = new GameObject("UnlockRevealAudio", typeof(AudioSource));
             audioRoot.transform.SetParent(root.transform, false);

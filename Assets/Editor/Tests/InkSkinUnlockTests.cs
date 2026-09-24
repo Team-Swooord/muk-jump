@@ -13,6 +13,7 @@ namespace MukJump.EditorTests
         GameObject host, scoreHost;
         InkSkinUnlockView view;
         MemoryPermanentGrowthStore growth;
+        MemoryLobbySettingsStore settings;
         static GameOverResult Saved => new(100, 100, true, 1, 1, true);
         static ulong Bit(InkSkinId id) => 1UL << (int)id;
 
@@ -64,7 +65,7 @@ namespace MukJump.EditorTests
         {
             growth = new MemoryPermanentGrowthStore();
             PermanentGrowthProfile.UseStoreForTests(growth);
-            var settings = new MemoryLobbySettingsStore();
+            settings = new MemoryLobbySettingsStore();
             InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
             ScoreManager.UseStoreForTests(new MemoryScoreStore { Best = 2000 });
             scoreHost = new GameObject("UnlockScore"); var score = scoreHost.AddComponent<ScoreManager>();
@@ -119,7 +120,8 @@ namespace MukJump.EditorTests
         [Test] public void FailedGrowthRollbackStaysSilentUntilRecoveryAndANewRun()
         {
             PermanentGrowthProfile.SettleRun("base",1,1,0,10,true,SkinRunStats.Begin(false,InkSkinId.Ink));
-            var stats=SkinRunStats.Begin(false,InkSkinId.Ink); stats.items=1; stats.inkDrops=1;
+            var stats=SkinRunStats.Begin(false,InkSkinId.Ink);
+            stats.items=stats.inkDrops=InkSkinAchievements.Goal(InkSkinId.CatEars);
             var state=new InkSkinUnlockState(); object owner=PermanentGrowthProfile.SkinAccountToken;
             state.BeginRun("retry",owner,InkSkinUnlockState.ReadUnlocked());
             growth.ThrowOnPrimarySave=true;
@@ -154,11 +156,12 @@ namespace MukJump.EditorTests
         {
             GameLocalization.SetLanguage(language);
             PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat);
-            PermanentGrowthProfile.SettleRun("paper-wings", 1, 1, 0, 120, true, SkinRunStats.Begin(false, InkSkinId.Ink));
+            PermanentGrowthProfile.SettleRun("paper-wings", InkSkinAchievements.Goal(InkSkinId.CloudDragon), InkSkinAchievements.Goal(InkSkinId.CloudDragon), 0,
+                InkSkinAchievements.Goal(InkSkinId.OrigamiWings), true, SkinRunStats.Begin(false, InkSkinId.Ink));
             int objects=view.GetComponentsInChildren<Transform>(true).Length;
             foreach(var id in new[]{InkSkinId.Gat,InkSkinId.CloudDragon,InkSkinId.PhoenixCrown,InkSkinId.NightBat,InkSkinId.OrigamiWings})
             {
-                Assert.That(view.Show(Bit(id),PermanentGrowthProfile.SkinAccountToken,null),Is.True); Canvas.ForceUpdateCanvases();
+                Assert.That(view.Show(Bit(id),PermanentGrowthProfile.SkinAccountToken,null),Is.True,id.ToString()); Canvas.ForceUpdateCanvases();
                 foreach(var label in view.Paper.GetComponentsInChildren<UnityEngine.UI.Text>())
                 {
                     if(string.IsNullOrEmpty(label.text)) continue;
@@ -182,6 +185,56 @@ namespace MukJump.EditorTests
             view.Advance(); Assert.That(calls,Is.Zero);
             Call(view,"Update"); Assert.That(view.IsOpen,Is.False); Assert.That(calls,Is.Zero); Assert.That(invalidated,Is.EqualTo(1));
             Assert.That(host.transform.Find("SkinUnlockCanvas").GetComponent<CanvasGroup>().blocksRaycasts,Is.False);
+        }
+        [Test] public void EquipButtonSavesOnlyDisplayedUnlockedCostumeAndKeepsRemainingRewards()
+        {
+            PermanentGrowthProfile.GrantSkinSecret(InkSkinId.NightBat);
+            Assert.That(view.Show(Bit(InkSkinId.Gat) | Bit(InkSkinId.NightBat), PermanentGrowthProfile.SkinAccountToken, null), Is.True);
+            var equip = view.Paper.Find("Equip").GetComponent<UnityEngine.UI.Button>();
+            Assert.That(equip.interactable, Is.True);
+            equip.onClick.Invoke();
+            Assert.That(InkSkinPreferences.PersistedEquipped, Is.EqualTo(InkSkinId.Gat));
+            Assert.That(view.IsOpen, Is.True);
+            Assert.That(view.Count, Is.EqualTo(2));
+            Assert.That(equip.interactable, Is.False);
+            view.Advance();
+            Assert.That(view.Current, Is.EqualTo(InkSkinId.NightBat));
+            Assert.That(equip.interactable, Is.True);
+            Assert.That(view.EquipCurrent(), Is.True);
+            view.Advance();
+            Assert.That(view.IsOpen, Is.False);
+            Assert.That(InkSkinPreferences.PersistedEquipped, Is.EqualTo(InkSkinId.NightBat));
+            Assert.That(view.EquipCurrent(), Is.False);
+        }
+        [Test] public void FailedEquipSaveLeavesPreviousCostumeAndAllowsRetry()
+        {
+            Assert.That(view.Show(Bit(InkSkinId.Gat), PermanentGrowthProfile.SkinAccountToken, null), Is.True);
+            settings.ThrowOnSave = true;
+            Assert.That(view.EquipCurrent(), Is.False);
+            Assert.That(InkSkinPreferences.PersistedEquipped, Is.EqualTo(InkSkinId.Ink));
+            Assert.That(view.IsOpen, Is.True);
+            Assert.That(view.Paper.Find("EquipStatus").GetComponent<UnityEngine.UI.Text>().text, Is.Not.Empty);
+            settings.ThrowOnSave = false;
+            Assert.That(view.EquipCurrent(), Is.True);
+            Assert.That(view.Paper.Find("EquipStatus").GetComponent<UnityEngine.UI.Text>().text, Is.Empty);
+        }
+        [Test] public void StaleAccountAndHiddenApplicationCannotEquip()
+        {
+            Assert.That(view.Show(Bit(InkSkinId.Gat), PermanentGrowthProfile.SkinAccountToken, null), Is.True);
+            MobileApplicationLifecycle.SetPlatformVisibility(false);
+            Assert.That(view.EquipCurrent(), Is.False);
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            Assert.That(PermanentGrowthProfile.TryClearForAccountDeletion(), Is.True);
+            Assert.That(view.EquipCurrent(), Is.False);
+            Assert.That(InkSkinPreferences.PersistedEquipped, Is.EqualTo(InkSkinId.Ink));
+        }
+        [Test] public void DebugPreviewNeverOffersOrPersistsEquip()
+        {
+            Assert.That(view.ShowPreview(Bit(InkSkinId.PhoenixCrown), PermanentGrowthProfile.SkinAccountToken, null), Is.True);
+            Assert.That(view.Paper.Find("Equip").gameObject.activeSelf, Is.False);
+            Assert.That(view.EquipCurrent(), Is.False);
+            Assert.That(InkSkinPreferences.PersistedEquipped, Is.EqualTo(InkSkinId.Ink));
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.PhoenixCrown), Is.False);
         }
         static void AssertInside(RectTransform parent,RectTransform child,float margin)
         {

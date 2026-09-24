@@ -33,14 +33,15 @@ namespace MukJump.EditorTests
                 Assert.That(MukJumpAccountRuntime.Instance==null || !MukJumpAccountRuntime.Instance.IsOnlineAuthenticated,Is.True);
                 yield return BeginRun();
                 var manager=GameManager.Instance;
-                for(int i=0;i<5;i++) manager.NotifySkinItemCollected(i==0);
+                for(int i=0;i<InkSkinAchievements.Goal(InkSkinId.CatEars);i++) manager.NotifySkinItemCollected(true);
                 yield return Wait(.3f);
                 var toast=manager.GetComponent<InkAchievementToast>();
                 var toastCanvas=toast.transform.Find("AchievementToastCanvas");
+                Assert.That(toastCanvas,Is.Not.Null,"현재 먹방울 해금 목표를 달성하면 알림을 만든다.");
                 Assert.That(toastCanvas.GetComponent<CanvasGroup>().blocksRaycasts,Is.False);
                 foreach(var graphic in toastCanvas.GetComponentsInChildren<UnityEngine.UI.Graphic>()) Assert.That(graphic.raycastTarget,Is.False,graphic.name);
                 yield return Capture("achievement-playing");
-                EndRun(manager,100);
+                EndRun(manager,InkSkinAchievements.Goal(InkSkinId.Gat));
                 yield return Wait(2);
                 Assert.That(manager.GetComponent<InkSkinUnlockView>(),Is.Null,"해금 공개는 Main의 팝업이 아니다.");
                 LobbyButton(manager).onClick.Invoke();
@@ -82,7 +83,7 @@ namespace MukJump.EditorTests
                 Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.Gat),Is.True);
                 Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
                 // 같은 기록으로 또 끝나도 기존 해금 결과는 반복하지 않는다.
-                yield return BeginRun(); manager=GameManager.Instance; EndRun(manager,100);
+                yield return BeginRun(); manager=GameManager.Instance; EndRun(manager,InkSkinAchievements.Goal(InkSkinId.Gat));
                 yield return Wait(2); LobbyButton(manager).onClick.Invoke(); yield return WaitForMainLobby();
                 Assert.That(GameManager.Instance.State,Is.EqualTo(GameState.Lobby));
                 Assert.That(Object.FindFirstObjectByType<InkSkinUnlockView>(),Is.Null);
@@ -148,6 +149,11 @@ namespace MukJump.EditorTests
                 var view = Object.FindFirstObjectByType<InkSkinUnlockView>();
                 Assert.That(view.Count, Is.EqualTo(1)); Assert.That(view.Current, Is.EqualTo(InkSkinId.NightBat));
                 yield return Wait(.4f); yield return Capture("lobby-unlock-reveal");
+                view.Paper.Find("Equip").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                Assert.That(InkSkinPreferences.PersistedEquipped, Is.EqualTo(InkSkinId.NightBat));
+                Assert.That(view.Paper.Find("Equip").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+                yield return Capture("lobby-unlock-equipped");
+                yield return Wait(.2f);
                 view.AcknowledgeAll();
                 float deadline = Time.realtimeSinceStartup + 15;
                 while ((LobbyScreenNavigator.Instance == null || LobbyScreenNavigator.Instance.CurrentSection != LobbyScreenNavigator.LobbySection.Wardrobe ||
@@ -155,6 +161,9 @@ namespace MukJump.EditorTests
                 Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Main"));
                 Assert.That(LobbyScreenNavigator.Instance.CurrentSection, Is.EqualTo(LobbyScreenNavigator.LobbySection.Wardrobe));
                 Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.NightBat), Is.True);
+                // 별도 해금 씬을 떠나도 실제 저장소를 다시 읽어 같은 의상을 복원한다.
+                InkSkinPreferences.UseStoreForTests(settings);
+                Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.NightBat));
                 Assert.That(SkinUnlockSceneController.ConsumeWardrobeReturn(), Is.Null);
                 yield return Capture("lobby-unlock-return-wardrobe");
                 Assert.That(LobbyScreenNavigator.Instance.ReturnToLobby(), Is.True); yield return WaitForNavigation();
