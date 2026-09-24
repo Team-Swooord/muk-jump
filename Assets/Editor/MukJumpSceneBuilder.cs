@@ -1642,6 +1642,7 @@ namespace MukJump.EditorTools
             view.RefreshResponsiveLayout();
             LobbySkinPreview.Build(safeAreaRoot, view,
                 AssetDatabase.LoadAllAssetsAtPath(CharSheetPath).OfType<Sprite>().FirstOrDefault(s => s.name == "idle"));
+            InkPremiumLobbyEntry.Build(safeAreaRoot, view, AssetDatabase.LoadAssetAtPath<Sprite>(DeathSplashPath));
         }
 
         static Button CreateLobbyMenuButton(

@@ -28,6 +28,110 @@ namespace MukJump.EditorTests
             public void Restore() { }
         }
         [UnityTest, Timeout(120000), Category("PremiumPlay")]
+        public IEnumerator LobbyPremiumEntryFitsSmallScreensAndOpensExistingShopOnlyOnIos()
+        {
+            yield return new EnterPlayMode();
+            bool oldBackground = Application.runInBackground; Application.runInBackground = true;
+            var settings = new MemoryLobbySettingsStore();
+            LobbySettingsProfile.UseStoreForTests(settings); InkSkinPreferences.UseStoreForTests(settings);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            var store = new PreviewStore(); InkPremiumAppearance.UseForTests(true, store);
+            var oldLanguage = GameLocalization.Language;
+            var window = EditorWindow.GetWindow(typeof(Editor).Assembly.GetType("UnityEditor.GameView"));
+            var flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            int oldSize = (int)window.GetType().GetProperty("selectedSizeIndex", flags).GetValue(window);
+            var sizeType = typeof(Editor).Assembly.GetType("UnityEditor.GameViewSizes");
+            var sizes = typeof(ScriptableSingleton<>).MakeGenericType(sizeType).GetProperty("instance").GetValue(null);
+            var sizeGroup = sizeType.GetProperty("currentGroup", flags).GetValue(sizes);
+            int firstTemporary = (int)sizeGroup.GetType().GetMethod("GetTotalCount").Invoke(sizeGroup, null);
+            int added = 0;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                Assert.That(MukJumpAccountRuntime.Instance.IsOnlineAuthenticated, Is.False);
+                var lobby = Object.FindAnyObjectByType<LobbyView>();
+                var entry = Object.FindAnyObjectByType<InkPremiumLobbyEntry>();
+                Assert.That(entry, Is.Not.Null);
+                var group = entry.GetComponent<CanvasGroup>();
+                var label = entry.GetComponentInChildren<Text>();
+                foreach (var size in new[] { new Vector2Int(540, 960), new Vector2Int(320, 568), new Vector2Int(640, 960) })
+                {
+                    var kind = typeof(Editor).Assembly.GetType("UnityEditor.GameViewSizeType");
+                    var temporary = System.Activator.CreateInstance(typeof(Editor).Assembly.GetType("UnityEditor.GameViewSize"),
+                        System.Enum.Parse(kind, "FixedResolution"), size.x, size.y, "MukJump Premium QA TEMP");
+                    sizeGroup.GetType().GetMethod("AddCustomSize").Invoke(sizeGroup, new[] { temporary });
+                    window.GetType().GetMethod("SizeSelectionCallback", flags).Invoke(window, new object[] { firstTemporary + added++, null });
+                    window.Focus(); window.Repaint(); yield return Wait(.3f);
+                    // EditMode 테스트 루프의 Screen은 Scene 뷰 크기일 수 있어 실제 플레이 프레임에서 읽는다.
+                    Vector2Int runtimeSize = default; Rect runtimeSafe = default; bool configured = false;
+                    lobby.StartCoroutine(ApplySafeAreaAtRuntime((actual, safe) =>
+                    { runtimeSize = actual; runtimeSafe = safe; configured = true; }));
+                    double deadline = Time.realtimeSinceStartupAsDouble + 5;
+                    while (!configured && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+                    Assert.That(configured, Is.True);
+                    Assert.That(runtimeSize, Is.EqualTo(size), "Game view resolution");
+                    yield return Wait(.2f); Canvas.ForceUpdateCanvases();
+                    foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
+                    foreach (bool owned in new[] { false, true })
+                    {
+                        GameLocalization.SetLanguage(language); store.Owned = owned; yield return null;
+                        Assert.That(group.alpha, Is.EqualTo(1)); Assert.That(group.blocksRaycasts, Is.True);
+                        Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 2));
+                        Rect bounds = ScreenBounds((RectTransform)entry.transform), safe = runtimeSafe;
+                        Assert.That(safe.Contains(bounds.min) && safe.Contains(bounds.max), Is.True, size + " safe area");
+                        Assert.That(bounds.height, Is.GreaterThanOrEqualTo(44));
+                        if (language == GameLanguage.Korean && !owned)
+                            yield return Capture("layout-" + size.x, "output/qa/ios-iap-20260925/lobby-entry");
+                        foreach (var button in new[] { lobby.StartButton, lobby.GrowthButton, lobby.WardrobeButton, lobby.OptionsButton, lobby.LeaderboardButton })
+                            Assert.That(bounds.Overlaps(ScreenBounds((RectTransform)button.transform)), Is.False,
+                                size + " " + button.name + " entry=" + bounds + " menu=" + ScreenBounds((RectTransform)button.transform) + " safe=" + safe);
+                        if (size.x == 540 || size.x == 320 && language == GameLanguage.English)
+                            yield return Capture("lobby-entry-" + size.x + "-" + language + "-" + owned, "output/qa/ios-iap-20260925/lobby-entry");
+                        entry.Button.onClick.Invoke(); yield return null;
+                        Assert.That(InkPremiumShopView.IsOpen, Is.True);
+                        Object.FindAnyObjectByType<InkPremiumShopView>().Close(); yield return Wait(.3f);
+                    }
+                }
+                InkPremiumAppearance.UseForTests(false, store); yield return null;
+                Assert.That(group.alpha, Is.Zero); Assert.That(group.blocksRaycasts, Is.False);
+                entry.Button.onClick.Invoke(); Assert.That(InkPremiumShopView.IsOpen, Is.False);
+                InkPremiumAppearance.UseForTests(true, store);
+                Assert.That(LobbyScreenNavigator.Instance.OpenWardrobe(), Is.True); yield return Wait(1);
+                entry.Button.onClick.Invoke(); Assert.That(InkPremiumShopView.IsOpen, Is.False);
+            }
+            finally
+            {
+                MobileUiLayout.ClearPlatformSafeAreaOverride();
+                window.GetType().GetMethod("SizeSelectionCallback", flags).Invoke(window, new object[] { oldSize, null });
+                for (int index = firstTemporary + added - 1; index >= firstTemporary; index--)
+                    sizeGroup.GetType().GetMethod("RemoveCustomSize").Invoke(sizeGroup, new object[] { index });
+                InkPremiumAppearance.RestoreForTests(); GameLocalization.SetLanguage(oldLanguage);
+                Application.runInBackground = oldBackground;
+                LobbySettingsProfile.RestoreDefaultStoreForTests(); InkSkinPreferences.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests(); PointerInput.ResetSuppressionForTests();
+            }
+            yield return new ExitPlayMode();
+        }
+        static IEnumerator ApplySafeAreaAtRuntime(System.Action<Vector2Int, Rect> configured)
+        {
+            yield return null;
+            var size = new Vector2Int(Screen.width, Screen.height);
+            MobileUiLayout.SetPlatformSafeAreaOverride(new Rect(8, 20, size.x - 16, size.y - 55));
+            configured(size, MobileUiLayout.CurrentSafeArea);
+        }
+        static Rect ScreenBounds(RectTransform rect)
+        {
+            var corners = new Vector3[4]; rect.GetWorldCorners(corners);
+            Vector2 min = RectTransformUtility.WorldToScreenPoint(null, corners[0]);
+            Vector2 max = RectTransformUtility.WorldToScreenPoint(null, corners[2]);
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+        [UnityTest, Timeout(120000), Category("PremiumPlay")]
         public IEnumerator GoldAndPurchaseScreenRenderInThreeLanguagesWithoutRealPayment()
         {
             EditorWindow.GetWindow(typeof(Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
@@ -108,14 +212,14 @@ namespace MukJump.EditorTests
         }
         static IEnumerator Wait(float seconds)
         { double end = Time.realtimeSinceStartupAsDouble + seconds; while (Time.realtimeSinceStartupAsDouble < end) yield return null; }
-        static IEnumerator Capture(string name)
+        static IEnumerator Capture(string name, string folder = "output/qa/iap-gold-20260924")
         {
             string path = JObject.FromObject(MukJumpAgentAudit.CaptureUi())["path"].Value<string>();
             double end = Time.realtimeSinceStartupAsDouble + 5;
             while (!File.Exists(path) && Time.realtimeSinceStartupAsDouble < end) yield return null;
             Assert.That(File.Exists(path), Is.True);
-            Directory.CreateDirectory("output/qa/iap-gold-20260924");
-            File.Copy(path, "output/qa/iap-gold-20260924/" + name + ".png", true);
+            Directory.CreateDirectory(folder);
+            File.Copy(path, folder + "/" + name + ".png", true);
             File.Delete(path);
         }
     }

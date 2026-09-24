@@ -41,6 +41,8 @@ namespace MukJump.Core
                 ["부활하기"] = ("Revive", "復活する"),
                 ["부활 준비 중..."] = ("Preparing revival...", "復活の準備中..."),
                 ["광고 제거 · 금색 먹"] = ("No Ads · Golden Ink", "広告なし・金色の墨"),
+                ["광고\n제거"] = ("Remove\nAds", "広告\n削除"),
+                ["광고\n없음"] = ("No\nAds", "広告\nなし"),
                 ["모든 광고 없이 편안하게\n구매 전용 금색 먹 의상"] = ("Enjoy the game without ads\nIncludes the Golden Ink outfit", "すべての広告をなくして快適に\n購入限定の金色の墨つき"),
                 ["부활은 광고 없이 이용해요\n한 판에 한 번, 기존 이용 조건은 같아요"] = ("Revive without watching an ad\nOnce per run, with the usual requirements", "広告を見ずに復活できます\n1プレイに1回、利用条件は同じです"),
                 ["금색 먹은 모습과 착지 효과만 바뀌어요\n점프와 성장 능력은 그대로예요"] = ("A new look and golden landing particles\nJumping and growth abilities stay the same", "見た目と着地の演出だけが変わります\nジャンプと成長の能力は同じです"),
