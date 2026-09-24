@@ -19,7 +19,8 @@ namespace MukJump.Core
         InkShowroomSwipe swipe;
         Text nameText, loreText, descriptionText, equipText, statusText, achievementText, progressText, collectionToggleText;
         InkWardrobeScroll collectionScroll;
-        UnityEngine.UI.GridLayoutGroup collectionGrid;
+        InkWardrobeCollectionLayout collectionGrid;
+        readonly RectTransform[] collectionHeadings = new RectTransform[3];
         RectTransform collectionContent, collectionRoot, stage;
         bool collectionExpanded;
         UnityEngine.UI.Image progressFill;
@@ -386,6 +387,15 @@ namespace MukJump.Core
             BuildInlineSkill();
             BuildCollection();
             for(int i=0;i<InkSkinCatalog.BrowseCount;i++) BuildCard(InkSkinCatalog.BrowseAt(i));
+            for (int group = 0; group < collectionHeadings.Length; group++)
+            {
+                string title = group == 0 ? "일반 의상" : group == 1 ? "특수 능력" : "비밀 의상";
+                var heading = Label("CollectionSection" + group, collectionContent, title, 48, Vector2.zero, new Vector2(970,72), true);
+                heading.alignment = TextAnchor.MiddleLeft;
+                heading.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                collectionHeadings[group] = heading.rectTransform;
+                heading.gameObject.SetActive(false);
+            }
             var toggle=Button("CollectionToggle",paper,"전체 보기",new Vector2(385,860),new Vector2(280,120),44,out collectionToggleText);
             toggle.onClick.AddListener(ToggleCollection);
             // 이름·설명과 같은 한지 모양을 검게 덮는다. 조건과 힌트는 그 위의 한 슬롯을 공유한다.
@@ -442,7 +452,7 @@ namespace MukJump.Core
             collectionContent=Rect("Content",viewport,Vector2.zero,new Vector2(980,0));
             collectionContent.anchorMin=collectionContent.anchorMax=new Vector2(.5f,1);
             collectionContent.pivot=new Vector2(.5f,1);
-            collectionGrid=collectionContent.gameObject.AddComponent<UnityEngine.UI.GridLayoutGroup>();
+            collectionGrid=collectionContent.gameObject.AddComponent<InkWardrobeCollectionLayout>();
             collectionGrid.constraint=UnityEngine.UI.GridLayoutGroup.Constraint.FixedColumnCount;
             collectionGrid.childAlignment=TextAnchor.UpperCenter;
             collectionGrid.spacing=new Vector2(16,16);
@@ -485,6 +495,7 @@ namespace MukJump.Core
                 if(label!=null) label.gameObject.SetActive(!collectionExpanded);
             if(progressTrack!=null) progressTrack.gameObject.SetActive(!collectionExpanded && hasProgress);
             InkLocalizedText.SetSource(collectionToggleText,collectionExpanded ? "크게 보기" : "전체 보기");
+            collectionGrid.ConfigureSections(collectionExpanded, collectionHeadings);
             RefreshCardLayout(true);
             collectionScroll.enabled=CanInteract();
         }
@@ -547,8 +558,7 @@ namespace MukJump.Core
                 collectionScroll.CenterOn(InkSkinCatalog.BrowseIndex(selected),immediate);
                 return;
             }
-            var card=(RectTransform)cards[(int)selected].transform;
-            float top=-card.anchoredPosition.y-card.rect.height*.5f;
+            float top=collectionGrid.RevealTop(InkSkinCatalog.BrowseIndex(selected));
             float height=collectionScroll.viewport.rect.height;
             collectionScroll.StopMovement();
             // 전체보기 진입 시 선택된 줄의 위를 맞춰 반쯤 잘린 첫 줄로 시작하지 않는다.

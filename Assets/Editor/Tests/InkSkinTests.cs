@@ -216,8 +216,8 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinCatalog.Ability(InkSkinId.Gat), Is.EqualTo("이단 도약"));
             Assert.That(InkSkinCatalog.Ability(InkSkinId.SpiderMask), Is.EqualTo("먹슈트"));
         }
-        [Test, Category("SkinRetirement")]
-        public void WardrobePolishOrdersByGoalWithoutChangingSavedIds()
+        [Test, Category("SkinRetirement"), Category("WardrobeSections")]
+        public void WardrobeSectionsKeepTierOrderAndSavedIds()
         {
             var order=Enumerable.Range(0,InkSkinCatalog.BrowseCount).Select(InkSkinCatalog.BrowseAt).ToArray();
             Assert.That(order.Distinct().Count(),Is.EqualTo(InkSkinCatalog.BrowseCount));
@@ -234,13 +234,13 @@ namespace MukJump.EditorTests
                 {
                     Assert.That(InkSkinCatalog.BrowseGroup(order[i]),Is.GreaterThanOrEqualTo(InkSkinCatalog.BrowseGroup(order[i-1])));
                     if(InkSkinCatalog.BrowseGroup(order[i])==InkSkinCatalog.BrowseGroup(order[i-1]))
-                        Assert.That(InkSkinCatalog.Get(order[i]).Goal,Is.GreaterThanOrEqualTo(InkSkinCatalog.Get(order[i-1]).Goal));
+                        Assert.That(InkSkinCatalog.Get(order[i]).Tier,Is.GreaterThanOrEqualTo(InkSkinCatalog.Get(order[i-1]).Tier));
                 }
                 view.StepSelection(1);
             }
             Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
             view.Select(InkSkinId.RedShoes); view.StepSelection(-1);
-            Assert.That(view.Selected,Is.EqualTo(InkSkinId.RedHeadband));
+            Assert.That(view.Selected,Is.EqualTo(order[InkSkinCatalog.BrowseIndex(InkSkinId.RedShoes)-1]));
         }
         [TestCase(GameLanguage.Korean)]
         [TestCase(GameLanguage.English)]

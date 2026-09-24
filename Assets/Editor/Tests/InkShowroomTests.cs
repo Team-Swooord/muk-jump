@@ -10,7 +10,7 @@ using Object = UnityEngine.Object;
 
 namespace MukJump.EditorTests
 {
-    public sealed class InkShowroomTests
+    public sealed partial class InkShowroomTests
     {
         GameObject host, scoreHost, eventHost;
         InkWardrobeView view;
@@ -138,8 +138,8 @@ namespace MukJump.EditorTests
             Assert.That(body.enabled, Is.True);
             Assert.That(body.rectTransform.sizeDelta.x, Is.EqualTo(500));
             Assert.That(AssetDatabase.GetAssetPath(body.sprite), Is.EqualTo("Assets/Art/Character/Player/muk_spritesheet.png"));
-            var strip = view.CollectionContent.Cast<Transform>().Cast<RectTransform>().ToArray();
-            Assert.That(strip.Length,Is.EqualTo(InkSkinCatalog.Count));
+            var strip = view.CollectionContent.Cast<Transform>().Where(t=>t.name.StartsWith("SkinCard")).Cast<RectTransform>().ToArray();
+            Assert.That(strip.Length,Is.EqualTo(InkSkinCatalog.BrowseCount));
             Assert.That(strip.Select(t=>t.anchoredPosition.y).Distinct().Count(), Is.EqualTo(1));
             Assert.That(strip[0].sizeDelta.x, Is.EqualTo(240));
             Assert.That(view.CollectionScroll.horizontal && !view.CollectionScroll.vertical,Is.True);
@@ -158,7 +158,7 @@ namespace MukJump.EditorTests
                 if (foundSecrets)
                 {
                     PermanentGrowthProfile.SettleRun("card-fit-secrets",777,777,0,60,true,SkinRunStats.Begin(true,InkSkinId.CatEars));
-                    foreach (var id in new[] { InkSkinId.NightBat, InkSkinId.Astronaut, InkSkinId.OrigamiWings })
+                    foreach (var id in new[] { InkSkinId.NightBat, InkSkinId.Astronaut })
                         Assert.That(PermanentGrowthProfile.GrantSkinSecret(id), Is.True);
                 }
                 for (int selected = 0; selected < InkSkinCatalog.Count; selected++)
@@ -166,7 +166,7 @@ namespace MukJump.EditorTests
                     view.Select((InkSkinId)selected); Canvas.ForceUpdateCanvases();
                     var strip = view.CollectionContent.Cast<Transform>().Where(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf)
                         .Cast<RectTransform>().ToArray();
-                    Assert.That(strip.Length, Is.EqualTo(InkSkinCatalog.Count));
+                    Assert.That(strip.Length, Is.EqualTo(InkSkinCatalog.BrowseCount));
                     for (int slot = 0; slot < strip.Length; slot++)
                     {
                         var card = strip[slot];
@@ -766,10 +766,10 @@ namespace MukJump.EditorTests
         {
             view.StepSelection(-1); Assert.That(view.Selected, Is.EqualTo(InkSkinId.Ink));
             Assert.That(view.Paper.Find("ShowroomStage/PreviousCostume").GetComponent<Button>().interactable, Is.False);
-            view.Select(InkSkinCatalog.BrowseAt(InkSkinCatalog.Count-1)); view.StepSelection(1);
-            Assert.That(view.Selected, Is.EqualTo(InkSkinCatalog.BrowseAt(InkSkinCatalog.Count-1)));
+            view.Select(InkSkinCatalog.BrowseAt(InkSkinCatalog.BrowseCount-1)); view.StepSelection(1);
+            Assert.That(view.Selected, Is.EqualTo(InkSkinCatalog.BrowseAt(InkSkinCatalog.BrowseCount-1)));
             Assert.That(view.Paper.Find("ShowroomStage/NextCostume").GetComponent<Button>().interactable, Is.False);
-            Assert.That(view.CollectionContent.Cast<Transform>().Count(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf), Is.EqualTo(InkSkinCatalog.Count));
+            Assert.That(view.CollectionContent.Cast<Transform>().Count(t=>t.name.StartsWith("SkinCard") && t.gameObject.activeSelf), Is.EqualTo(InkSkinCatalog.BrowseCount));
         }
         [Test, Category("WardrobeCarouselLayout")] public void ScrollPositionSurvivesRefreshAndAllViewFitsEveryCardWithoutLeakingSecrets()
         {
@@ -781,7 +781,7 @@ namespace MukJump.EditorTests
             Vector2 offset=scroll.content.anchoredPosition;
             Invoke(view,"RefreshSelection");
             Assert.That(scroll.content.anchoredPosition,Is.EqualTo(offset));
-            AssertInside(BoundsIn(scroll.viewport,(RectTransform)view.CollectionContent.GetChild(InkSkinCatalog.Count-1)),scroll.viewport.rect,0,"last card");
+            AssertInside(BoundsIn(scroll.viewport,(RectTransform)view.CollectionContent.GetChild(InkSkinCatalog.BrowseCount-1)),scroll.viewport.rect,0,"last card");
             view.ToggleCollection(); Canvas.ForceUpdateCanvases();
             Assert.That(view.CollectionExpanded,Is.True);
             Assert.That(Focus.parent.gameObject.activeSelf,Is.False);
@@ -793,7 +793,7 @@ namespace MukJump.EditorTests
             foreach(RectTransform card in view.CollectionContent)
                 AssertInside(BoundsIn(view.CollectionContent,card),view.CollectionContent.rect,0,card.name);
             scroll.verticalNormalizedPosition=0;
-            AssertInside(BoundsIn(scroll.viewport,(RectTransform)view.CollectionContent.GetChild(InkSkinCatalog.Count-1)),scroll.viewport.rect,0,"last large card");
+            AssertInside(BoundsIn(scroll.viewport,(RectTransform)view.CollectionContent.GetChild(InkSkinCatalog.BrowseCount-1)),scroll.viewport.rect,0,"last large card");
             var hidden=view.CollectionContent.Find("SkinCard31/PreviewViewport/Preview/Accessory").GetComponent<Image>();
             Assert.That(hidden.sprite,Is.Null);
             Assert.That(view.CollectionContent.Find("SkinCard31/CardName").GetComponent<Text>().text,Is.EqualTo("?"));

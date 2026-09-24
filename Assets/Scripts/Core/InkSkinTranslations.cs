@@ -37,6 +37,7 @@ namespace MukJump.Core
                 ["전체 보기"] = ("View all", "一覧"),
                 ["크게 보기"] = ("Preview", "試着"),
                 ["같은 해금 조건끼리"] = ("Grouped by unlock goal", "解放条件ごとに表示"),
+                ["일반 의상"] = ("Regular Outfits", "通常の衣装"),
                 ["기본 의상"] = ("Starter outfit", "基本の衣装"),
                 ["연동 보상"] = ("Link reward", "連携報酬"),
                 ["용과의 만남"] = ("Dragon encounter", "竜との出会い"),
