@@ -504,13 +504,7 @@ namespace MukJump.Core
             if (reviveCompletionPendingForeground &&
                 MobileApplicationLifecycle.IsApplicationActive)
             {
-                bool rewardEarned = pendingReviveRewardEarned;
-                int requestGeneration = activeReviveRequestGeneration;
-                reviveCompletionPendingForeground = false;
-                pendingReviveRewardEarned = false;
-                FinishGameOverReviveAdCompletedForRequest(
-                    requestGeneration,
-                    rewardEarned);
+                CompletePendingForegroundAd();
                 if (State != GameState.GameOver)
                     return;
             }
@@ -1034,6 +1028,17 @@ namespace MukJump.Core
                 pendingReviveRewardEarned);
         }
 
+        internal void CompletePendingForegroundAd()
+        {
+            if (State != GameState.GameOver || !reviveCompletionPendingForeground ||
+                !MobileApplicationLifecycle.IsApplicationActive) return;
+            bool rewardEarned = pendingReviveRewardEarned;
+            int requestGeneration = activeReviveRequestGeneration;
+            reviveCompletionPendingForeground = false;
+            pendingReviveRewardEarned = false;
+            FinishGameOverReviveAdCompletedForRequest(requestGeneration, rewardEarned);
+        }
+
         void FinishGameOverReviveAdCompletedForRequest(
             int requestGeneration,
             bool rewardEarned)
@@ -1100,7 +1105,8 @@ namespace MukJump.Core
 
         static void SetReviveAdAudioActive(bool active)
         {
-            AudioListener.pause = active;
+            AudioListener.pause = active || !MobileApplicationLifecycle.IsApplicationActive ||
+                (Instance != null && Instance.IsPaused);
             BackgroundMusicController.Instance?.SetFullScreenAdActive(active);
             AudioPlaybackDiagnostics.Record(active ? "game-pause" : "game-resume");
         }

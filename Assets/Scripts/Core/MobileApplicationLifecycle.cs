@@ -95,6 +95,22 @@ namespace MukJump.Core
             bool visible) =>
             !paused && focused && visible;
 
+#if UNITY_WEBGL || UNITY_EDITOR
+        // WebView 광고가 focus 복귀를 누락해도 실제 전경 입력은 명확한 복귀 근거다.
+        // JS가 document.hidden=false인 trusted 입력에서만 호출한다. 광고 완료나 사용자 메뉴는 해제하지 않는다.
+        [UnityEngine.Scripting.Preserve]
+        public void OnWebForegroundInteraction(string visibility)
+        {
+            if (Instance != this || visibility != "visible") return;
+            applicationPaused = false;
+            applicationFocused = true;
+            platformVisible = true;
+            RefreshApplicationState();
+            // 이미 dismissed를 받은 요청만 같은 사용자 활성화 안에서 마무리한다.
+            GameManager.Instance?.CompletePendingForegroundAd();
+        }
+#endif
+
         static void SetApplicationActive(bool active)
         {
             if (IsApplicationActive == active)

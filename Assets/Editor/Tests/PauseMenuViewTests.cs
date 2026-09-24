@@ -13,6 +13,7 @@ public class PauseMenuViewTests
     GameObject playerHost;
     GameObject cameraHost;
     GameObject musicHost;
+    GameObject lifecycleHost;
     float originalTimeScale;
     float originalFixedDeltaTime;
     bool originalAudioPause;
@@ -45,6 +46,8 @@ public class PauseMenuViewTests
             Object.DestroyImmediate(cameraHost);
         if (musicHost != null)
             Object.DestroyImmediate(musicHost);
+        if (lifecycleHost != null)
+            Object.DestroyImmediate(lifecycleHost);
         AudioListener.pause = originalAudioPause;
         if (!Mathf.Approximately(Time.timeScale, originalTimeScale))
             Time.timeScale = originalTimeScale;
@@ -742,6 +745,66 @@ public class PauseMenuViewTests
             paused,
             focused,
             visible), Is.EqualTo(expected));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void WebAdReturnRepairsStaleFocusOnlyAfterActualDismissal(bool dismissed)
+    {
+        var ads = new ScriptedAdProvider { HasPendingPresentation = true };
+        MonetizationAds.RegisterProvider(ads);
+        var manager = CreateGameOverManager("WebAdFocusManager");
+        lifecycleHost = new GameObject(nameof(MobileApplicationLifecycle));
+        var lifecycle = lifecycleHost.AddComponent<MobileApplicationLifecycle>();
+        Invoke(lifecycle, "OnEnable");
+        Assert.That(MobileApplicationLifecycle.Instance, Is.SameAs(lifecycle));
+        Invoke(manager, "HandleGameOverReviveRequested");
+        SetField(lifecycle, "applicationFocused", false);
+        SetField(lifecycle, "applicationPaused", true);
+        Invoke(lifecycle, "RefreshApplicationState");
+        MobileApplicationLifecycle.SetPlatformVisibility(true);
+        Assert.That(MobileApplicationLifecycle.IsApplicationActive, Is.False, "visible만으로 오래된 focus/pause는 풀리지 않았다.");
+        if (dismissed) { ads.HasPendingPresentation = false; ads.Complete(false); }
+        lifecycle.OnWebForegroundInteraction("hidden");
+        Assert.That(MobileApplicationLifecycle.IsApplicationActive, Is.False);
+        lifecycle.OnWebForegroundInteraction("visible");
+        Assert.That(MobileApplicationLifecycle.IsApplicationActive, Is.True);
+        Assert.That(GetField<bool>(manager, "reviveRequestInFlight"), Is.EqualTo(!dismissed));
+        Assert.That(AudioListener.pause, Is.EqualTo(!dismissed));
+        Assert.That(BackgroundMusicController.Instance.IsFullScreenAdActive, Is.EqualTo(!dismissed));
+        Assert.That(GetField<bool>(manager, "reviveUsedThisRun"), Is.False);
+        if (dismissed)
+        {
+            ads.Complete(true); lifecycle.OnWebForegroundInteraction("visible");
+            Assert.That(GetField<bool>(manager, "reviveUsedThisRun"), Is.False, "늦은 콜백·중복 입력은 보상을 생성하지 않는다.");
+        }
+    }
+
+    [Test]
+    public void WebAdReturnPreservesUserPauseAndSoundOff()
+    {
+        LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+        try
+        {
+            LobbySettingsProfile.SetBgmVolume(0); LobbySettingsProfile.SetSfxVolume(0);
+            var manager = CreateGameOverManager("WebUserPauseManager");
+            SetProperty(manager, "State", GameState.Playing);
+            SetProperty(manager, "IsPaused", true);
+            SetProperty(manager, "PauseReason", GameplayPauseReason.UserMenu);
+            lifecycleHost = new GameObject(nameof(MobileApplicationLifecycle));
+            var lifecycle = lifecycleHost.AddComponent<MobileApplicationLifecycle>();
+            Invoke(lifecycle, "OnEnable");
+            SetField(lifecycle, "applicationFocused", false);
+            Invoke(lifecycle, "RefreshApplicationState");
+            lifecycle.OnWebForegroundInteraction("visible");
+            InvokeStatic(typeof(GameManager), "SetReviveAdAudioActive", false);
+            Assert.That(manager.IsPaused, Is.True);
+            Assert.That(manager.PauseReason, Is.EqualTo(GameplayPauseReason.UserMenu));
+            Assert.That(AudioListener.pause, Is.True);
+            Assert.That(LobbySettingsProfile.BgmVolume, Is.Zero);
+            Assert.That(LobbySettingsProfile.SfxVolume, Is.Zero);
+        }
+        finally { LobbySettingsProfile.RestoreDefaultStoreForTests(); }
     }
 
     [Test]
