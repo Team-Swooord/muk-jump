@@ -7,6 +7,13 @@
 - Unity Package Distribution License: https://unity.com/legal/licenses/unity-package-distribution-license
 - 먹점프는 Player용 원격 제어를 비활성화한다. 포함되는 바이너리에는 패키지에 동봉된 고지와 라이선스 조건이 적용된다.
 
+## Unity In-App Purchasing
+
+- com.unity.purchasing 5.4.3 — Copyright © 2023 Unity Technologies.
+- 공식 Unity Package Manager 레지스트리 의존성. 원본 소스는 저장소에 복사하지 않는다.
+- 패키지에 동봉된 IAP Service / Operate Services 이용 조건이 적용된다: https://unity3d.com/legal/one-operate-services-terms-of-service
+- 원문 고지: `Assets/StreamingAssets/ThirdParty/Unity-IAP-LICENSE.md`.
+
 ## Kaisei Decol 일본어 서체
 
 - Copyright 2020 The Kaisei Project Authors (https://github.com/Font-Kai/Kaisei).
