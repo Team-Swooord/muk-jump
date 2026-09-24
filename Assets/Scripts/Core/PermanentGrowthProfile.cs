@@ -624,7 +624,7 @@ namespace MukJump.Core
 
         /// 서버를 기준으로 먹빛·구매·장착 상태를 교체한다. 입력을 먼저 완전히
         /// 검증하고 기존 로컬 세대를 rollback 대상으로 남긴 뒤 원자적으로 저장한다.
-        public static bool TryReplaceFromCloudJson(string cloudJson)
+        public static bool TryReplaceFromCloudJson(string cloudJson, bool preserveOwnedSkins = false)
         {
             EnsureLoaded();
             if (writeBlocked ||
@@ -635,8 +635,12 @@ namespace MukJump.Core
                 return false;
 
             MutationSnapshot rollback = CaptureMutationSnapshot();
+            // 호출자가 같은 계정임을 확인한 정상 새로고침에서만 이미 얻은 의상을 보존한다.
+            // 명시적 계정 교체/복구는 기본 exact replace를 유지하며 재화·진행은 합산하지 않는다.
+            long ownedSkins = preserveOwnedSkins ? data.skinAchievements.unlockedMask : 0;
             data = cloudData;
             PrepareSupportedData();
+            data.skinAchievements.unlockedMask |= ownedSkins;
             if (!Save(rollback, rollback.Json))
                 return false;
 

@@ -59,6 +59,9 @@ namespace MukJump.EditorTests
         [Test]
         public void EquipPersistsLocallyWithoutChangingGrowthAndFailedSaveRollsBack()
         {
+            // 이미 해금된 의상의 착용만 바꿀 때 성장 JSON은 바뀌지 않는다.
+            Assert.That(PermanentGrowthProfile.TryGrantLiveAchievements(PermanentGrowthProfile.SkinAccountToken,
+                (1UL << (int)InkSkinId.Gat) | (1UL << (int)InkSkinId.SpiderMask), 0), Is.True);
             string before = growthStore.Json;
             Assert.That(InkSkinPreferences.TryEquip(InkSkinId.Gat), Is.True);
             InkSkinPreferences.UseStoreForTests(settings);
@@ -67,6 +70,57 @@ namespace MukJump.EditorTests
             Assert.That(InkSkinPreferences.TryEquip(InkSkinId.SpiderMask), Is.False);
             Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Gat));
             Assert.That(growthStore.Json, Is.EqualTo(before));
+        }
+        [Test]
+        public void EquippingEarnedBestRewardSurvivesRestartBeforeScoreLoadWithoutChangingEconomy()
+        {
+            growthStore = new MemoryPermanentGrowthStore();
+            PermanentGrowthProfile.UseStoreForTests(growthStore);
+            int currency = PermanentGrowthProfile.Currency, spent = PermanentGrowthProfile.SpentCurrency;
+            long distance = PermanentGrowthProfile.AchievementDistance;
+            Assert.That(PermanentGrowthProfile.AchievementSnapshot().Has(InkSkinId.Gat), Is.False);
+            Assert.That(InkSkinPreferences.TryEquip(InkSkinId.Gat), Is.True);
+            Assert.That(PermanentGrowthProfile.AchievementSnapshot().Has(InkSkinId.Gat), Is.True);
+            scoreStore.Best = 0; Invoke(score, "Awake");
+            PermanentGrowthProfile.UseStoreForTests(growthStore);
+            InkSkinPreferences.UseStoreForTests(settings);
+            Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Gat));
+            Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(currency));
+            Assert.That(PermanentGrowthProfile.SpentCurrency, Is.EqualTo(spent));
+            Assert.That(PermanentGrowthProfile.AchievementDistance, Is.EqualTo(distance));
+            Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.Zero);
+        }
+        [Test]
+        public void FailedOwnershipSaveNeverReportsNewEquipAsSaved()
+        {
+            growthStore = new MemoryPermanentGrowthStore();
+            PermanentGrowthProfile.UseStoreForTests(growthStore);
+            _ = PermanentGrowthProfile.AchievementSnapshot();
+            string before = growthStore.Json;
+            growthStore.ThrowOnPrimarySave = true;
+            Assert.That(InkSkinPreferences.TryEquip(InkSkinId.Gat), Is.False);
+            Assert.That(settings.GetInt(InkSkinPreferences.StorageKey, 0), Is.Zero);
+            Assert.That(growthStore.Json, Is.EqualTo(before));
+            Assert.That(PermanentGrowthProfile.AchievementSnapshot()?.Has(InkSkinId.Gat) ?? false, Is.False);
+        }
+        [TestCase(InkSkinId.Gat)]
+        [TestCase(InkSkinId.SpiderMask)]
+        [TestCase(InkSkinId.NightBat)]
+        public void SameAccountOldSnapshotKeepsEarnedChoiceButAccountReplacementDoesNotMergeOwnership(InkSkinId id)
+        {
+            growthStore = new MemoryPermanentGrowthStore();
+            PermanentGrowthProfile.UseStoreForTests(growthStore);
+            Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string emptyAccount), Is.True);
+            Assert.That(PermanentGrowthProfile.TryGrantLiveAchievements(PermanentGrowthProfile.SkinAccountToken,
+                1UL << (int)id, 0), Is.True);
+            Assert.That(InkSkinPreferences.TryEquip(id), Is.True);
+            scoreStore.Best = 0; Invoke(score, "Awake");
+            Assert.That(PermanentGrowthProfile.TryReplaceFromCloudJson(emptyAccount, preserveOwnedSkins: true), Is.True);
+            PermanentGrowthProfile.UseStoreForTests(growthStore);
+            Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(id));
+            Assert.That(PermanentGrowthProfile.TryReplaceFromCloudJson(emptyAccount), Is.True);
+            Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.Ink));
+            Assert.That(settings.GetInt(InkSkinPreferences.StorageKey, 0), Is.EqualTo((int)id), "잠깐 미보유로 보이더라도 선택을 삭제하지 않는다");
         }
         [Test]
         public void RunLocksSkinAcrossReviveAndCannotEquipDuringPlay()

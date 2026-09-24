@@ -3029,7 +3029,11 @@ namespace MukJump.Core
                     PermanentGrowthProfile.TryExportCloudJson(
                         out rollbackGrowthJson);
                     growthApplied = PermanentGrowthProfile
-                        .TryReplaceFromCloudJson(server.growthJson);
+                        .TryReplaceFromCloudJson(server.growthJson,
+                            preserveOwnedSkins: !replaceLocalFromServerOnNextLoad &&
+                                !string.IsNullOrWhiteSpace(CurrentAccountScope()) &&
+                                string.Equals(CurrentAccountScope(), PlayerPrefs.GetString(StoredAccountScopeKey, ""),
+                                    StringComparison.Ordinal));
                     growthChanged = growthApplied;
                     // 이관 중 Changed 알림은 suppressDirty로 막혀 있으므로,
                     // 새 성장 버전/추가 거리 보상은 별도로 서버 재저장을 예약한다.

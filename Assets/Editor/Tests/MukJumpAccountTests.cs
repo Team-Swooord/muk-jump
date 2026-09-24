@@ -205,6 +205,28 @@ namespace MukJump.EditorTests
             Assert.That(PlayerPrefs.HasKey("MukJump.Cloud.PendingSave"), Is.False);
         }
 
+        [TestCase("owner-a", false, true)]
+        [TestCase("owner-b", false, false)]
+        [TestCase("owner-a", true, false)]
+        public void CloudRefreshPreservesOwnedCostumesOnlyForTheSameAccount(string currentOwner, bool replacing, bool expected)
+        {
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+            Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string oldCloud), Is.True);
+            Assert.That(PermanentGrowthProfile.TryGrantLiveAchievements(PermanentGrowthProfile.SkinAccountToken,
+                1UL << (int)InkSkinId.NightBat, 0), Is.True);
+            var account = CreateReadySaveRuntime();
+            SetPrivateField(account, "currentAccountScopeForTests", new System.Func<string>(() => currentOwner));
+            PlayerPrefs.SetString("MukJump.Account.LastAuthenticatedOwner", "owner-a");
+            SetPrivateField(account, "replaceLocalFromServerOnNextLoad", replacing);
+            SetPrivateField(account, "dirty", false);
+            var server = new MukJumpCloudSnapshot { bestHeight = 0, growthJson = oldCloud, revision = 2 };
+            Assert.That(InvokePrivate<bool>(account, "TryApplyCloudSnapshot", server, false, false), Is.True);
+            Assert.That(PermanentGrowthProfile.AchievementSnapshot().Has(InkSkinId.NightBat), Is.EqualTo(expected));
+            Assert.That(PermanentGrowthProfile.Currency, Is.Zero);
+            Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.Zero);
+        }
+
         static string ExtendedV8GrowthJson() => ValidGrowthJson
             .Replace("\"balanceVersion\":7", "\"balanceVersion\":8")
             .Replace("\"wallet\":0", "\"wallet\":39")

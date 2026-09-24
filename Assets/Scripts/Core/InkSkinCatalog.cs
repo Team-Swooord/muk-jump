@@ -372,6 +372,10 @@ namespace MukJump.Core
                 MukJumpAccountRuntime.Instance != null && MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
                 return false;
             if (SkinDebugSession.Active) return !gold && SkinDebugSession.TryEquip(id);
+            // 최고점 같은 확인된 진행으로 착용 가능한 의상도 먼저 영구 해금으로 확정한다.
+            // 재실행의 계정/최고점 로딩 순서 때문에 이미 착용한 의상이 다시 잠기지 않게 한다.
+            if (!gold && id != InkSkinId.Ink && !PermanentGrowthProfile.TryGrantLiveAchievements(
+                PermanentGrowthProfile.SkinAccountToken, 1UL << (int)id, 0)) return false;
             int previous = store.GetInt(StorageKey, 0);
             int previousGold = store.GetInt(GoldSelectionKey, 0);
             if (previous == (int)id && previousGold == (gold ? 1 : 0)) return true;
