@@ -12,6 +12,23 @@ namespace MukJump.Core
         {
             var values = new Dictionary<string, string>
             {
+                ["Skin"] = "スキン",
+                ["Landing"] = "着地効果",
+                ["Clones"] = "分身の姿",
+                ["Bamboo Leaf"] = "笹の葉",
+                ["Magpie Nest"] = "カササギの巣",
+                ["Ink Tadpole"] = "墨のおたまじゃくし",
+                ["Ink Splash"] = "墨のにじみ",
+                ["Match Body"] = "本体と同じ",
+                ["Cosmetic only"] = "能力は変わりません",
+                ["Little gifts fill a cozy nest"] = "集めた贈り物が巣を満たします",
+                ["Bamboo leaves drift from your feet"] = "足元から笹の葉がふわりと舞います",
+                ["Ink clones with little tails"] = "小さなしっぽの墨の分身",
+                ["Clones wear the same outfit as you"] = "分身も本体と同じ服を着ます",
+                ["The familiar ink splash on landing"] = "着地するといつもの墨がにじみます",
+                ["Collect 1,000 items in total"] = "アイテムを累計1,000個獲得",
+                ["Land on drawn platforms 200 times in total"] = "描いた足場に累計200回着地",
+                ["Keep 12 inkdrops alive at once, including you"] = "本体を含む12体が同時に生存",
                 ["Play"] = "遊ぶ", ["Growth"] = "成長", ["Options"] = "設定", ["Settings"] = "設定",
                 ["Wardrobe"] = "着せ替え", ["Inkdrop"] = "墨のしずく", ["Wind Gat"] = "風の笠",
                 ["Spider Mask"] = "蜘蛛の面", ["Double Jump"] = "二段跳び", ["Wall Cling"] = "壁張りつき",

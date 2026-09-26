@@ -16,6 +16,23 @@ namespace MukJump.Core
         {
             var values = new Dictionary<string, string>
             {
+                ["스킨"] = "Skin",
+                ["착지 효과"] = "Landing",
+                ["분신 외형"] = "Clones",
+                ["댓잎"] = "Bamboo Leaf",
+                ["까치 둥지"] = "Magpie Nest",
+                ["먹 올챙이"] = "Ink Tadpole",
+                ["먹 번짐"] = "Ink Splash",
+                ["본체 따르기"] = "Match Body",
+                ["능력 변화 없음"] = "Cosmetic only",
+                ["하나씩 모은 선물이 둥지를 채워요"] = "Little gifts fill a cozy nest",
+                ["발끝에서 댓잎이 가볍게 흩어져요"] = "Bamboo leaves drift from your feet",
+                ["작은 꼬리를 단 먹 분신"] = "Ink clones with little tails",
+                ["분신도 본체와 같은 옷을 입어요"] = "Clones wear the same outfit as you",
+                ["착지할 때 익숙한 먹이 번져요"] = "The familiar ink splash on landing",
+                ["아이템 1,000회 획득"] = "Collect 1,000 items in total",
+                ["그린 발판에 누적 200회 착지"] = "Land on drawn platforms 200 times in total",
+                ["원먹 포함 12마리 동시 생존"] = "Keep 12 inkdrops alive at once, including you",
                 ["시작"] = "Play",
                 ["시작하기"] = "Play",
                 ["성장"] = "Growth",

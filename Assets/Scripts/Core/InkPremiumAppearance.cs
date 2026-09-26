@@ -77,26 +77,30 @@ namespace MukJump.Core
 #endif
     }
 
-    /// 표시 전용 64번째 칸. 저장용 InkSkinId와 63개 업적 비트는 확장하지 않는다.
+    /// 금색·새 외형은 표시 항목만 추가한다. 저장용 InkSkinId와 63개 업적 비트는 확장하지 않는다.
     public readonly struct InkWardrobeEntry
     {
         public readonly InkSkinId Skin;
-        public readonly bool Gold;
-        public InkWardrobeEntry(InkSkinId skin, bool gold = false) { Skin = skin; Gold = gold; }
-        public int CardKey => Gold ? InkSkinCatalog.Count : (int)Skin;
-        public int Group => Gold ? 0 : InkSkinCatalog.BrowseGroup(Skin);
-        public static int Count => InkSkinCatalog.BrowseCount + (InkPremiumAppearance.IsSupported ? 1 : 0);
+        public readonly bool Gold, Nest;
+        public InkWardrobeEntry(InkSkinId skin, bool gold = false, bool nest = false) { Skin = skin; Gold = gold; Nest = nest; }
+        public int CardKey => Gold ? InkSkinCatalog.Count : Nest ? InkSkinCatalog.Count + 1 : (int)Skin;
+        public int Group => Gold || Nest ? 0 : InkSkinCatalog.BrowseGroup(Skin);
+        static int Extras => InkPremiumAppearance.IsSupported ? 2 : 1;
+        public static int Count => InkSkinCatalog.BrowseCount + Extras;
         public static InkWardrobeEntry At(int index)
         {
             index = Mathf.Clamp(index, 0, Count - 1);
+            if (index == 0) return new(InkSkinId.Ink);
             if (InkPremiumAppearance.IsSupported && index == 1) return new(InkSkinId.Ink, true);
-            return new(InkSkinCatalog.BrowseAt(index - (InkPremiumAppearance.IsSupported && index > 1 ? 1 : 0)));
+            if (index == Extras) return new(InkSkinId.Ink, false, true);
+            return new(InkSkinCatalog.BrowseAt(index - Extras));
         }
-        public static int Index(InkSkinId skin, bool gold = false)
+        public static int Index(InkSkinId skin, bool gold = false, bool nest = false)
         {
             if (gold && InkPremiumAppearance.IsSupported) return 1;
+            if (nest) return Extras;
             int index = InkSkinCatalog.BrowseIndex(skin);
-            return index + (InkPremiumAppearance.IsSupported && index > 0 ? 1 : 0);
+            return index + (index > 0 ? Extras : 0);
         }
     }
 }

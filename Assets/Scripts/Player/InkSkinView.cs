@@ -16,6 +16,7 @@ namespace MukJump.Player
         float motionTime;
         PlayerController player;
         InkSkinId displayed = (InkSkinId)(-1);
+        string displayedCosmetic;
         public SpriteRenderer AccessoryRenderer => accessory;
         public SpriteRenderer RightShoeRenderer => rightShoe;
 
@@ -32,6 +33,7 @@ namespace MukJump.Player
                 accessory.transform.SetParent(transform, false);
             }
             displayed = (InkSkinId)(-1);
+            displayedCosmetic = null;
             accessory.enabled = false;
             rightShoe=transform.Find("InkSkinRightShoe")?.GetComponent<SpriteRenderer>();
             if(rightShoe==null)
@@ -48,24 +50,43 @@ namespace MukJump.Player
         void LateUpdate()
         {
             if (body == null || accessory == null) return;
-            var material = InkPremiumAppearance.IsGoldInRun ? GoldInkVisual.World : normalBodyMaterial;
+            bool tadpole = player != null && player.IsRuntimeClone &&
+                InkCosmeticCatalog.InRun(InkCosmeticSlot.Clone) == InkCosmeticCatalog.Tadpole;
+            string cosmetic = tadpole ? InkCosmeticCatalog.Tadpole :
+                InkCosmeticCatalog.InRun(InkCosmeticSlot.Skin) == InkCosmeticCatalog.MagpieNest ? InkCosmeticCatalog.MagpieNest : null;
+            var material = !tadpole && InkPremiumAppearance.IsGoldInRun ? GoldInkVisual.World : normalBodyMaterial;
             if (body.sharedMaterial != material) body.sharedMaterial = material;
             accessory.forceRenderingOff = false;
             InkSkinId id = RunGrowthController.Instance != null
                 ? RunGrowthController.Instance.SkinSnapshot : InkSkinPreferences.Equipped;
-            if (displayed != id)
+            if (displayed != id || displayedCosmetic != cosmetic)
             {
                 displayed = id;
-                accessory.sprite = InkSkinCatalog.IsFootwear(id) ? InkFootwearPose.Part(id,false) : InkSkinCatalog.Sprite(id);
+                displayedCosmetic = cosmetic;
+                accessory.sprite = cosmetic != null ? InkCosmeticCatalog.Sprite(cosmetic) :
+                    InkSkinCatalog.IsFootwear(id) ? InkFootwearPose.Part(id,false) : InkSkinCatalog.Sprite(id);
                 rightShoe.sprite = InkSkinCatalog.IsFootwear(id) ? InkFootwearPose.Part(id,true) : null;
             }
             accessory.enabled = body.enabled && body.sprite != null && accessory.sprite != null &&
                                 (player == null || !player.IsDead);
-            rightShoe.enabled=accessory.enabled && InkSkinCatalog.IsFootwear(id);
+            rightShoe.enabled=accessory.enabled && cosmetic == null && InkSkinCatalog.IsFootwear(id);
             if (!accessory.enabled) return;
             Sprite frame = body.sprite;
             Vector2 frameSize = frame.rect.size / frame.pixelsPerUnit;
             Vector2 center = (frame.rect.size * 0.5f - frame.pivot) / frame.pixelsPerUnit;
+            if (cosmetic != null)
+            {
+                Vector2 cosmeticOffset = InkCosmeticCatalog.Offset(cosmetic) * frameSize;
+                if (body.flipX) cosmeticOffset.x = -cosmeticOffset.x;
+                if (body.flipY) cosmeticOffset.y = -cosmeticOffset.y;
+                accessory.transform.localPosition = center + cosmeticOffset;
+                accessory.transform.localScale = Vector3.one * (frameSize.x * InkCosmeticCatalog.Width(cosmetic) / accessory.sprite.bounds.size.x);
+                accessory.transform.localRotation = Quaternion.identity;
+                accessory.flipX = body.flipX; accessory.flipY = body.flipY; accessory.color = body.color;
+                accessory.sortingLayerID = body.sortingLayerID;
+                accessory.sortingOrder = body.sortingOrder + (tadpole ? -1 : 1);
+                return;
+            }
             if(InkSkinCatalog.IsFootwear(id))
             {
                 ApplyShoe(accessory,id,frame,frameSize,center,false);

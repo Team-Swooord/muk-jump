@@ -14,16 +14,19 @@ namespace MukJump.Core
         readonly ParticleSystem drops;
         readonly ParticleSystem motes;
         readonly ParticleSystem wash;
+        readonly Material leafMaterial;
+        readonly ParticleSystem leaves;
         uint seed = 0x519AC821;
         bool disposed;
         bool reduced;
         VfxQualityTier tier;
 
-        public int ActiveCount => disposed ? 0 : drops.particleCount + motes.particleCount + wash.particleCount;
-        public int MovingCount => disposed ? 0 : drops.particleCount + motes.particleCount;
-        public int Capacity => disposed ? 0 : drops.main.maxParticles + motes.main.maxParticles + wash.main.maxParticles;
+        public int LeafCount => disposed || leaves == null ? 0 : leaves.particleCount;
+        public int ActiveCount => disposed ? 0 : drops.particleCount + motes.particleCount + wash.particleCount + LeafCount;
+        public int MovingCount => disposed ? 0 : drops.particleCount + motes.particleCount + LeafCount;
+        public int Capacity => disposed ? 0 : drops.main.maxParticles + motes.main.maxParticles + wash.main.maxParticles + (leaves == null ? 0 : leaves.main.maxParticles);
 
-        public InkContactParticles(Transform parent, Texture2D atlas, Texture2D splash, Shader shader)
+        public InkContactParticles(Transform parent, Texture2D atlas, Texture2D splash, Shader shader, Texture2D leaf = null)
         {
             root = new GameObject("InkContactParticles");
             root.transform.SetParent(parent, false);
@@ -32,6 +35,14 @@ namespace MukJump.Core
             drops = CreateLayer("BallisticInk", dropletMaterial, true, 0.34f, 4, false);
             motes = CreateLayer("DryBrushMotes", dropletMaterial, true, 0.06f, 4, false);
             wash = CreateLayer("ContactWash", washMaterial, false, 0f, 3, true);
+            // 갈래를 바꿀 때 방출기를 새로 만들지 않는다. 다른 입자와 독립된 작은 고정 예산이다.
+            if (leaf != null)
+            {
+                leafMaterial = new Material(shader) { name = "ContactInk_BambooLeaf", mainTexture = leaf };
+                leaves = CreateLayer("BambooLeaves", leafMaterial, false, .08f, 4, false);
+                var spin = leaves.rotationOverLifetime;
+                spin.enabled = true; spin.z = new ParticleSystem.MinMaxCurve(-1.2f, 1.2f);
+            }
             // 큰 먹은 먼저 튀고 빠르게 감속한다. 응집에 쓰는 motes는 직선 도착을 유지한다.
             var resistance = drops.limitVelocityOverLifetime;
             resistance.enabled = true;
@@ -120,13 +131,31 @@ namespace MukJump.Core
             EmitFan(position, direction, airborne ? 0.65f : 0.42f, false, airborne);
         }
 
-        public void EmitLanding(Vector3 position, float strength, bool gold = false)
+        public void EmitLanding(Vector3 position, float strength, bool gold = false, bool bamboo = false)
         {
             if (disposed) return;
             SyncSettings();
             if (reduced) return;
-            if (gold) { EmitGoldLanding(position); return; }
+            if (gold) EmitGoldLanding(position);
+            if (bamboo && leaves != null) { EmitBambooLanding(position); return; }
+            if (gold) return;
             EmitFan(position, Vector2.up, Mathf.Clamp01(strength), true, false);
+        }
+
+        void EmitBambooLanding(Vector3 position)
+        {
+            int count = Mathf.Min((int)tier + 2, leaves.main.maxParticles - leaves.particleCount);
+            for (int i = 0; i < count; i++)
+            {
+                float side = i % 2 == 0 ? -1f : 1f;
+                float size = Range(.32f, .44f);
+                Emit(leaves, position + new Vector3(Range(-.22f, .22f), .03f),
+                    new Vector2(side * Range(.35f, .85f), Range(.35f, .8f)),
+                    new Vector3(size, size, 1), Range(.42f, .66f), .9f, Range(-160f, 160f));
+            }
+            if (wash.particleCount < wash.main.maxParticles)
+                Emit(wash, position, Vector2.zero, new Vector3(1.25f, .25f, 1), .32f, .2f, 0);
+            leaves.Pause(false); wash.Pause(false);
         }
 
         void EmitGoldLanding(Vector3 position)
@@ -294,6 +323,7 @@ namespace MukJump.Core
             if (drops.particleCount > 0) drops.Simulate(step, false, false, false);
             if (motes.particleCount > 0) motes.Simulate(step, false, false, false);
             if (wash.particleCount > 0) wash.Simulate(step, false, false, false);
+            if (LeafCount > 0) leaves.Simulate(step, false, false, false);
         }
 
         void SyncSettings()
@@ -319,6 +349,7 @@ namespace MukJump.Core
             var d = drops.main; d.maxParticles = index == 0 ? 22 : index == 1 ? 34 : 48;
             var m = motes.main; m.maxParticles = index == 0 ? 12 : index == 1 ? 24 : 36;
             var w = wash.main; w.maxParticles = index == 0 ? 3 : index == 1 ? 4 : 6;
+            if (leaves != null) { var l = leaves.main; l.maxParticles = index == 0 ? 6 : index == 1 ? 9 : 12; }
         }
 
         public void Clear()
@@ -327,6 +358,7 @@ namespace MukJump.Core
             drops.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
             motes.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
             wash.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+            if (leaves != null) leaves.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
             PrimePausedSystems();
         }
 
@@ -337,6 +369,7 @@ namespace MukJump.Core
             drops.Simulate(0f, false, true, false);
             motes.Simulate(0f, false, true, false);
             wash.Simulate(0f, false, true, false);
+            if (leaves != null) leaves.Simulate(0f, false, true, false);
         }
 
         // 시각용 난수는 게임의 장애물·아이템 난수열을 바꾸지 않는다.
@@ -358,6 +391,7 @@ namespace MukJump.Core
             DestroyOwned(root);
             DestroyOwned(dropletMaterial);
             DestroyOwned(washMaterial);
+            DestroyOwned(leafMaterial);
         }
 
         static void DestroyOwned(UnityEngine.Object value)

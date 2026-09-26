@@ -126,7 +126,8 @@ namespace MukJump.Core
             {
                 var shader = Resources.Load<Shader>("MukJump/Shaders/InkContactParticle");
                 if (shader != null && shader.isSupported)
-                    contactParticles = new InkContactParticles(transform, contactDropletAtlas, contactSplash, shader);
+                    contactParticles = new InkContactParticles(transform, contactDropletAtlas, contactSplash, shader,
+                        Resources.Load<Texture2D>(InkCosmeticCatalog.ResourcePath(InkCosmeticCatalog.BambooLeaf)));
             }
         }
 
@@ -473,7 +474,8 @@ namespace MukJump.Core
             VfxAudioManager.Instance?.PlayOneShot(landingClip, Mathf.Lerp(0.45f, 0.9f, strength));
             StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.12f,
                 Mathf.Lerp(0.42f, 0.88f, strength), 0.26f, 0.07f, 0.48f, 0.2f));
-            contactParticles?.EmitLanding(position, strength, InkPremiumAppearance.IsGoldInRun);
+            contactParticles?.EmitLanding(position, strength, InkPremiumAppearance.IsGoldInRun,
+                InkCosmeticCatalog.InRun(InkCosmeticSlot.Landing) == InkCosmeticCatalog.BambooLeaf);
             if (contactParticles == null && strength >= 0.45f)
                 SpawnDroplets(position, 3 + Mathf.RoundToInt(strength * 2f),
                     InkPalette.Ink, VfxImportance.Decorative);

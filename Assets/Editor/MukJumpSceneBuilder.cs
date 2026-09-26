@@ -195,6 +195,7 @@ namespace MukJump.EditorTools
             foreach (string atlasPath in AmbientThemeAtlasPaths) ConfigureAmbientCloudAtlas(atlasPath);
             ConfigureCharacterSheets();
             ConfigureSkinAccessories();
+            ConfigureCosmeticSprites();
             InkSpriteAnimationBuilder.Configure();
             ConfigureDeathSprites();
             ConfigureObstacleSprite();
@@ -265,6 +266,32 @@ namespace MukJump.EditorTools
                 // 투명 여백까지 포함한 동일 프레임을 UI·게임의 착용 좌표로 사용한다.
                 skinSettings.spriteMeshType = SpriteMeshType.FullRect;
                 importer.SetTextureSettings(skinSettings);
+                importer.SaveAndReimport();
+            }
+        }
+
+        [MenuItem("MukJump/Configure Cosmetic Sprites")]
+        public static void ConfigureCosmeticSprites()
+        {
+            foreach (string id in InkCosmeticCatalog.NewItems)
+            {
+                string path = "Assets/Resources/" + InkCosmeticCatalog.ResourcePath(id) + ".png";
+                var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+                if (importer == null) throw new System.InvalidOperationException("꾸미기 원화 누락: " + path);
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.spritePixelsPerUnit = 100;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = false;
+                importer.isReadable = false;
+                importer.maxTextureSize = id == InkCosmeticCatalog.BambooLeaf ? 256 : 512;
+                importer.textureCompression = TextureImporterCompression.Compressed;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                var settings = new TextureImporterSettings();
+                importer.ReadTextureSettings(settings);
+                settings.spriteMeshType = SpriteMeshType.FullRect;
+                importer.SetTextureSettings(settings);
                 importer.SaveAndReimport();
             }
         }

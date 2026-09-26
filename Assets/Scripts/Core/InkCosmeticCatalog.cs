@@ -63,6 +63,19 @@ namespace MukJump.Core
                 sprites[id] = sprite = Resources.Load<Sprite>(path);
             return sprite;
         }
+        public static float Width(string id) => id == Tadpole ? 1.3f : .92f;
+        public static Vector2 Offset(string id) => id == Tadpole ? new Vector2(.32f, .08f) : new Vector2(0, .48f);
+        public static string InRun(InkCosmeticSlot slot)
+        {
+            if (SkinDebugSession.Active) return slot == InkCosmeticSlot.Skin
+                ? Legacy(InkSkinPreferences.Equipped) : Default(slot);
+            var run = RunGrowthController.Instance;
+            if (run != null && GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby)
+                return slot switch { InkCosmeticSlot.Skin => run.CosmeticSkinSnapshot,
+                    InkCosmeticSlot.Landing => run.LandingSnapshot, InkCosmeticSlot.Clone => run.CloneSnapshot,
+                    _ => DefaultBrush };
+            return InkSkinPreferences.EquippedCosmetic(slot);
+        }
         internal static bool ValidId(string id) => !string.IsNullOrEmpty(id) && id.Length <= 128 &&
             System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-z0-9._-]+$");
     }

@@ -11,6 +11,7 @@
 | 토스 심사·검증 상태 | [앱인토스 체크리스트](store/apps-in-toss-game-checklist.md) |
 | 출시·사용자 기록 보호 | [운영 기준](store/release-operations.md) |
 | 스킨·해금 | [스킨 목록](skin-chart.md), [스킨 능력](design/skin-skills.md) |
+| 차기 외형·갈래별 장착 | [독립 외형 꾸미기](design/wardrobe-cosmetics.md) |
 | 토스 계정·저장 | [식별·동기화](design/apps-in-toss-identity-sync.md) |
 | 지표 | [네이티브 Firebase](firebase-analytics.md), [토스 지표](store/apps-in-toss-metrics.md) |
 | 법적 고지 | legal/의 플랫폼·언어별 원본, 임의 통합하지 않음 |

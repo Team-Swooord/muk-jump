@@ -28,6 +28,7 @@ namespace MukJump.Core
         [SerializeField] Image body, hitbox;
         [SerializeField] InkAccessoryImage accessory;
         InkSkinId shown = (InkSkinId)(-1);
+        bool shownNest;
         Vector2 fittedSize;
         Vector2 travel;
         Vector2 velocity, grabOffset;
@@ -89,7 +90,8 @@ namespace MukJump.Core
             if (!show) { CancelDrag(); return; }
             var id = InkSkinPreferences.Equipped;
             GoldInkVisual.Apply(body, InkPremiumAppearance.IsEquipped);
-            if (shown != id) RefreshSkin(id);
+            bool nest = !SkinDebugSession.Active && InkSkinPreferences.EquippedCosmetic(InkCosmeticSlot.Skin) == InkCosmeticCatalog.MagpieNest;
+            if (shown != id || shownNest != nest) RefreshSkin(id);
             RefreshLayout();
             bool reduced = LobbySettingsProfile.ReducedMotionEnabled;
             if (!CanInteract || inactiveGeneration != MobileApplicationLifecycle.InactiveGeneration) CancelDrag();
@@ -129,13 +131,15 @@ namespace MukJump.Core
             drift.localRotation = Quaternion.Euler(0f, 0f, rotation);
             drift.localScale = Vector3.one;
             PresentHeldPose();
-            accessory.PresentMotion(shown, elapsed, InkAccessoryMotion.Strength);
+            if (!shownNest) accessory.PresentMotion(shown, elapsed, InkAccessoryMotion.Strength);
         }
 
         void RefreshSkin(InkSkinId id)
         {
             shown = id;
-            accessory.sprite = InkSkinCatalog.Sprite(id);
+            shownNest = !SkinDebugSession.Active && InkSkinPreferences.EquippedCosmetic(InkCosmeticSlot.Skin) == InkCosmeticCatalog.MagpieNest;
+            accessory.overrideSprite = null;
+            accessory.sprite = shownNest ? InkCosmeticCatalog.Sprite(InkCosmeticCatalog.MagpieNest) : InkSkinCatalog.Sprite(id);
             accessory.enabled = accessory.sprite != null;
             if (InkSkinCatalog.BehindBody(id)) accessory.transform.SetAsFirstSibling();
             else accessory.transform.SetAsLastSibling();
@@ -158,7 +162,7 @@ namespace MukJump.Core
             if (fittedSize == area.sizeDelta) return;
             fittedSize = area.sizeDelta;
             CancelDrag();
-            Rect bounds = CostumeBounds(shown, accessory.sprite);
+            Rect bounds = shownNest ? new Rect(-.46f, -.45f, .92f, 1.24f) : CostumeBounds(shown, accessory.sprite);
             Vector2 envelope = RotationEnvelope(bounds.size);
             float size = PreviewScale * Mathf.Max(.01f, Mathf.Min(360f * contentScale,
                 Mathf.Min((area.rect.width - 64f * contentScale) * .48f / envelope.x,
@@ -167,9 +171,9 @@ namespace MukJump.Core
             artwork.anchoredPosition = -bounds.center * size;
             if (accessory.enabled)
             {
-                float width = size * InkSkinCatalog.Width(shown);
+                float width = size * (shownNest ? InkCosmeticCatalog.Width(InkCosmeticCatalog.MagpieNest) : InkSkinCatalog.Width(shown));
                 accessory.rectTransform.sizeDelta = new Vector2(width, width * accessory.sprite.rect.height / accessory.sprite.rect.width);
-                accessory.rectTransform.anchoredPosition = InkSkinCatalog.Offset(shown) * size;
+                accessory.rectTransform.anchoredPosition = (shownNest ? InkCosmeticCatalog.Offset(InkCosmeticCatalog.MagpieNest) : InkSkinCatalog.Offset(shown)) * size;
             }
             // 액세서리를 포함한 외곽으로 벽을 판정한다. 투명한 터치 영역도 이 범위를 넘지 않는다.
             drift.sizeDelta = bounds.size * size;
