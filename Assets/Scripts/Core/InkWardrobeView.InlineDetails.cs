@@ -180,7 +180,7 @@ namespace MukJump.Core
 
         public bool OpenSkillDetails()
         {
-            if (!CanInteract() || collectionExpanded || !SkinDebugSession.CanEquip(selected) || SkinDebugSession.IsConcealed(selected) || !InkSkinCatalog.HasAbility(selected)) return false;
+            if (!CanInteract() || categoryHome || selectedSlot != InkCosmeticSlot.Skin || collectionExpanded || !SkinDebugSession.CanEquip(selected) || SkinDebugSession.IsConcealed(selected) || !InkSkinCatalog.HasAbility(selected)) return false;
             StopCollection(); swipe?.Cancel(); presentation?.Cancel();
             skillOverlay.SetAsLastSibling();
             skillOverlay.gameObject.SetActive(true); skillDetailsRoot.gameObject.SetActive(true);
@@ -198,7 +198,7 @@ namespace MukJump.Core
             if (!IsSkillDetailsOpen) return;
             skillDetailsRoot.gameObject.SetActive(false); skillOverlay.gameObject.SetActive(false);
             wardrobeInteraction.interactable = wardrobeInteraction.blocksRaycasts = true;
-            if (collectionScroll != null) collectionScroll.enabled = CanInteract();
+            if (collectionScroll != null) collectionScroll.enabled = !categoryHome && selectedSlot == InkCosmeticSlot.Skin && CanInteract();
             PointerInput.SuppressUntilRelease();
         }
 

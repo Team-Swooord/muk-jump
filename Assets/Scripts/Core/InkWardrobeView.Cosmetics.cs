@@ -8,7 +8,7 @@ namespace MukJump.Core
         InkCosmeticSlot selectedSlot;
         string selectedEffect;
         RectTransform slotRoot, effectRoot, combinedClone;
-        readonly Text[] slotLabels = new Text[3], effectNames = new Text[2], effectStates = new Text[2];
+        readonly Text[] effectNames = new Text[2], effectStates = new Text[2];
         readonly Image[] effectPapers = new Image[2], effectIcons = new Image[2], leaves = new Image[3];
         Image cloneBody, cloneAccessory, cloneTail, effectCloneBody;
         public InkCosmeticSlot SelectedSlot => selectedSlot;
@@ -23,9 +23,10 @@ namespace MukJump.Core
         public void SelectNest() => SelectCore(InkSkinId.Ink, true, false, true);
         public void SelectSlot(InkCosmeticSlot slot)
         {
-            // 기본 붓만 있는 빈 갈래는 새 붓 외형이 정해질 때까지 노출하지 않는다.
+            // 붓 갈래는 준비 중으로 보여 주되 아직 없는 선택 화면은 열지 않는다.
             if (!CanInteract() || slot == InkCosmeticSlot.Brush || !System.Enum.IsDefined(typeof(InkCosmeticSlot), slot)) return;
             StopCollection(); presentation.Cancel(); swipe.Cancel();
+            categoryHome = false;
             collectionExpanded = false;
             selectedSlot = slot;
             selected = InkSkinPreferences.Equipped;
@@ -39,7 +40,7 @@ namespace MukJump.Core
         }
         public void SelectEffect(string id)
         {
-            if (!CanInteract() || selectedSlot == InkCosmeticSlot.Skin || !InkCosmeticCatalog.BelongsTo(id, selectedSlot)) return;
+            if (!CanInteract() || categoryHome || selectedSlot == InkCosmeticSlot.Skin || !InkCosmeticCatalog.BelongsTo(id, selectedSlot)) return;
             selectedEffect = id; hasProgress = false;
             InkLocalizedText.SetSource(statusText, "");
             RefreshSelection();
@@ -54,16 +55,7 @@ namespace MukJump.Core
         }
         void BuildCosmeticSlots()
         {
-            slotRoot = Rect("CosmeticCategories", paper, Vector2.zero, paper.sizeDelta);
-            var slots = new[] { InkCosmeticSlot.Skin, InkCosmeticSlot.Landing, InkCosmeticSlot.Clone };
-            var names = new[] { "스킨", "착지 효과", "분신 외형" };
-            var positions = new[] { new Vector2(-360, 765), new Vector2(360, 765), new Vector2(360, 365) };
-            for (int i = 0; i < slots.Length; i++)
-            {
-                var slot = slots[i];
-                var button = Button("Category" + slot, slotRoot, names[i], positions[i], new Vector2(260, 100), 40, out slotLabels[i]);
-                button.onClick.AddListener(() => SelectSlot(slot));
-            }
+            BuildCategoryHome();
             effectRoot = Rect("EffectChoices", paper, CompactCollectionPosition, CompactCollectionSize);
             for (int i = 0; i < 2; i++)
             {
@@ -96,15 +88,18 @@ namespace MukJump.Core
         {
             if (slotRoot == null) return;
             bool skin = selectedSlot == InkCosmeticSlot.Skin;
-            slotRoot.gameObject.SetActive(!collectionExpanded);
-            effectRoot.gameObject.SetActive(!skin && !collectionExpanded);
-            collectionRoot.gameObject.SetActive(skin);
-            collectionToggleText.transform.parent.gameObject.SetActive(skin);
-            collectionScroll.enabled = skin && CanInteract();
-            swipe.enabled = skin && !collectionExpanded;
-            foreach (var button in neighborButtons) button.gameObject.SetActive(skin);
-            for (int i = 0; i < slotLabels.Length; i++)
-                slotLabels[i].color = (int)selectedSlot == (i == 2 ? 3 : i) ? InkPalette.Red : InkPalette.Ink;
+            slotRoot.gameObject.SetActive(categoryHome);
+            paper.Find("Title").gameObject.SetActive(categoryHome);
+            categoryTitle.gameObject.SetActive(!categoryHome);
+            InkLocalizedText.SetSource(categoryTitle, CategoryName(selectedSlot));
+            stage.gameObject.SetActive(!categoryHome && !collectionExpanded);
+            effectRoot.gameObject.SetActive(!categoryHome && !skin && !collectionExpanded);
+            collectionRoot.gameObject.SetActive(!categoryHome && skin);
+            collectionToggleText.transform.parent.gameObject.SetActive(!categoryHome && skin);
+            statusText.gameObject.SetActive(!categoryHome && !collectionExpanded);
+            collectionScroll.enabled = !categoryHome && skin && CanInteract();
+            swipe.enabled = !categoryHome && skin && !collectionExpanded;
+            foreach (var button in neighborButtons) button.gameObject.SetActive(!categoryHome && skin);
         }
         void RefreshEffectSelection()
         {

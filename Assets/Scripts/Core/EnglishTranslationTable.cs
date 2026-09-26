@@ -18,6 +18,10 @@ namespace MukJump.Core
             {
                 ["스킨"] = "Skin",
                 ["착지 효과"] = "Landing",
+                ["발판 효과"] = "Landing",
+                ["붓 효과"] = "Brush",
+                ["준비 중"] = "Coming soon",
+                ["꾸밀 곳을 골라 주세요"] = "Choose what to customize",
                 ["분신 외형"] = "Clones",
                 ["댓잎"] = "Bamboo Leaf",
                 ["까치 둥지"] = "Magpie Nest",

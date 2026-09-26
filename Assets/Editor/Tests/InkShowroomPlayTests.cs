@@ -221,6 +221,7 @@ namespace MukJump.EditorTests
                     view.CollectionContent.Find("SkinCard39").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                     Assert.That(view.Selected,Is.EqualTo(InkSkinId.CloudBoots)); Assert.That(view.CollectionExpanded,Is.False);
                 }
+                view.BackButton.onClick.Invoke(); // 선택 목록 → 꾸미기 첫 화면
                 view.BackButton.onClick.Invoke(); yield return Wait(2);
                 GameLocalization.SetLanguage(GameLanguage.Korean);
                 SkinUnlockSceneController.PreparePreview((1UL<<(int)InkSkinId.RedHeadband)|(1UL<<(int)InkSkinId.CloudBoots),PermanentGrowthProfile.SkinAccountToken);
@@ -605,6 +606,7 @@ namespace MukJump.EditorTests
                     var view=Object.FindAnyObjectByType<InkWardrobeView>();
                     view.Select(id); yield return Wait(.6f); yield return Capture("headband-preview-"+id);
                     view.EquipButton.onClick.Invoke(); Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(id));
+                    view.BackButton.onClick.Invoke(); // 선택 목록 → 꾸미기 첫 화면
                     view.BackButton.onClick.Invoke(); yield return Wait(3f);
                     manager.StartGameFromMenu();
                     float deadline=Time.realtimeSinceStartup+8;
@@ -726,6 +728,7 @@ namespace MukJump.EditorTests
                 yield return Wait(1.4f); Assert.That(view.Presentation.IsPlaying, Is.False);
                 yield return Capture("equipped");
                 view.Select(InkSkinId.SpiderMask); view.EquipButton.onClick.Invoke();
+                view.BackButton.onClick.Invoke(); // 선택 목록 → 꾸미기 첫 화면
                 view.BackButton.onClick.Invoke(); yield return Wait(3f);
                 Assert.That(view.IsOpen, Is.False); Assert.That(view.Presentation.IsPlaying, Is.False);
                 Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby));

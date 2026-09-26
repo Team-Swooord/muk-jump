@@ -48,6 +48,56 @@ namespace MukJump.EditorTests
             var view = Track(new GameObject("CosmeticWardrobeTest")).AddComponent<InkWardrobeView>();
             view.BuildForTests(Idle()); view.SetNavigationPresentation(true, true); return view;
         }
+        [Test] public void HomeCategoriesAndBackNeverSaveOrEquipAPreview()
+        {
+            Earn();
+            InkSkinPreferences.TryEquipCosmetic(InkCosmeticSlot.Skin, InkCosmeticCatalog.MagpieNest);
+            var view = Wardrobe(); int saves = settings.SaveCount;
+            Assert.That(view.IsCategoryHome, Is.True);
+            Assert.That(view.Paper.Find("CosmeticCategories").gameObject.activeSelf, Is.True);
+            Assert.That(view.Paper.Find("ShowroomStage").gameObject.activeSelf, Is.False);
+            Assert.That(view.CollectionScroll.gameObject.activeSelf, Is.False);
+            Assert.That(view.EquipButton.gameObject.activeSelf, Is.False);
+            Assert.That(view.Paper.Find("CosmeticCategories/EquippedInk/Accessory").GetComponent<Image>().sprite,
+                Is.SameAs(InkCosmeticCatalog.Sprite(InkCosmeticCatalog.MagpieNest)));
+            Assert.That(view.Paper.Find("CosmeticCategories/CategoryBrush").GetComponent<Button>().interactable, Is.False);
+            view.SelectSlot(InkCosmeticSlot.Brush);
+            view.StepSelection(1); view.ToggleCollection(); view.EquipButton.onClick.Invoke();
+            Assert.That(view.IsCategoryHome, Is.True);
+            Assert.That(view.SelectedNest, Is.True);
+            view.Paper.Find("CosmeticCategories/CategoryLanding").GetComponent<Button>().onClick.Invoke();
+            Assert.That(view.IsCategoryHome, Is.False);
+            Assert.That(view.SelectedSlot, Is.EqualTo(InkCosmeticSlot.Landing));
+            Assert.That(view.Paper.Find("EffectChoices").gameObject.activeSelf, Is.True);
+            Assert.That(view.Paper.Find("CosmeticCategories").gameObject.activeSelf, Is.False);
+            view.SelectEffect(InkCosmeticCatalog.BambooLeaf);
+            view.BackButton.onClick.Invoke();
+            Assert.That(view.IsCategoryHome, Is.True);
+            Assert.That(view.IsOpen, Is.True, "목록에서 뒤로 가면 로비가 아니라 꾸미기 첫 화면");
+            Assert.That(settings.SaveCount, Is.EqualTo(saves));
+            view.SelectSlot(InkCosmeticSlot.Landing);
+            Assert.That(view.SelectedEffect, Is.EqualTo(InkCosmeticCatalog.DefaultLanding), "선택만 한 효과는 복귀 후 유지하지 않는다");
+            view.SelectEffect(InkCosmeticCatalog.BambooLeaf); view.EquipButton.onClick.Invoke();
+            view.BackButton.onClick.Invoke();
+            view.SetNavigationPresentation(false, false); view.SetNavigationPresentation(true, true);
+            Assert.That(view.IsCategoryHome, Is.True);
+            view.SelectSlot(InkCosmeticSlot.Landing);
+            Assert.That(view.SelectedEffect, Is.EqualTo(InkCosmeticCatalog.BambooLeaf));
+            Assert.That(settings.SaveCount, Is.EqualTo(saves + 1));
+        }
+        [Test] public void HomeReflectsAccountChangesWithoutSavingOrLeakingTheOldOutfit()
+        {
+            Earn(); InkSkinPreferences.TryEquipCosmetic(InkCosmeticSlot.Skin, InkCosmeticCatalog.MagpieNest);
+            var view = Wardrobe();
+            settings = new MemoryLobbySettingsStore();
+            InkSkinPreferences.UseStoreForTests(settings);
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            Invoke(view, "RefreshSelection");
+            var accessory = view.Paper.Find("CosmeticCategories/EquippedInk/Accessory").GetComponent<Image>();
+            Assert.That(accessory.enabled, Is.False);
+            Assert.That(view.SelectedNest, Is.False);
+            Assert.That(settings.SaveCount, Is.Zero);
+        }
         [Test] public void PreviewNeverSavesAndEquipChangesOnlyOneSlot()
         {
             Earn(); InkSkinPreferences.TryEquipCosmetic(InkCosmeticSlot.Skin, InkCosmeticCatalog.MagpieNest);

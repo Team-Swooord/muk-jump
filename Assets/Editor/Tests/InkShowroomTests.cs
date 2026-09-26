@@ -36,7 +36,7 @@ namespace MukJump.EditorTests
             view = host.AddComponent<InkWardrobeView>();
             var idle = AssetDatabase.LoadAllAssetsAtPath("Assets/Art/Character/Player/muk_spritesheet.png")
                 .OfType<Sprite>().First(s => s.name == "idle");
-            view.BuildForTests(idle); view.SetNavigationPresentation(true, true);
+            view.BuildForTests(idle); view.SetNavigationPresentation(true, true); view.SelectSlot(InkCosmeticSlot.Skin);
         }
         [TearDown] public void Teardown()
         {
@@ -661,7 +661,7 @@ namespace MukJump.EditorTests
             AssertBlack(Focus.Find("Accessory").GetComponent<Image>());
             MobileApplicationLifecycle.SetPlatformVisibility(true);
             view.SetNavigationPresentation(false,false); AssertBlack(Focus.Find("Accessory").GetComponent<Image>());
-            view.SetNavigationPresentation(true,true);
+            view.SetNavigationPresentation(true,true); view.SelectSlot(InkCosmeticSlot.Skin);
             Assert.That(Focus.Find("OriginalInkBody").GetComponent<Image>().color,Is.EqualTo(Color.white));
             view.Select(InkSkinId.Gat); view.Presentation.Cancel();
             Assert.That(Focus.Find("Accessory").GetComponent<Image>().color,Is.EqualTo(Color.white));

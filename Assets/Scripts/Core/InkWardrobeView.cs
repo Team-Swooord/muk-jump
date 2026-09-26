@@ -73,6 +73,7 @@ namespace MukJump.Core
             if (!show || !allowInput) { StopSkillDetails(); presentation?.Cancel(); swipe?.Cancel(); SnapProgress(); StopCollection(); }
             if (show && !visible)
             {
+                categoryHome = true;
                 selectedSlot = InkCosmeticSlot.Skin;
                 selected = InkSkinPreferences.Equipped;
                 selectedGold = InkPremiumAppearance.IsEquipped;
@@ -86,9 +87,9 @@ namespace MukJump.Core
             visible = show; interactive = show && allowInput;
             rootGroup.alpha = show ? 1 : 0;
             rootGroup.interactable = interactive; rootGroup.blocksRaycasts = show;
-            collectionScroll.enabled = interactive && MobileApplicationLifecycle.IsApplicationActive;
+            collectionScroll.enabled = !categoryHome && selectedSlot == InkCosmeticSlot.Skin && interactive && MobileApplicationLifecycle.IsApplicationActive;
             ApplyLayout();
-            if (show) RevealSelectedCard(true);
+            if (show && !categoryHome) RevealSelectedCard(true);
         }
         void OnDisable()
         {
@@ -107,7 +108,7 @@ namespace MukJump.Core
             ApplyLayout();
             bool canScroll = CanInteract();
             if (!canScroll) StopCollection();
-            else if (selectedSlot == InkCosmeticSlot.Skin && !collectionScroll.enabled) collectionScroll.enabled = true;
+            else if (!categoryHome && selectedSlot == InkCosmeticSlot.Skin && !collectionScroll.enabled) collectionScroll.enabled = true;
             if (Time.unscaledTime >= refreshAt) { refreshAt = Time.unscaledTime + .25f; RefreshSelection(); }
             UpdateProgress();
             if (canScroll && (GameManager.Instance == null || !GameManager.Instance.IsPaused))
@@ -121,6 +122,7 @@ namespace MukJump.Core
         public void SelectGold() { if (InkPremiumAppearance.IsSupported) SelectCore(InkSkinId.Ink, true, true); }
         internal void SelectFromCarousel(int index)
         {
+            if (categoryHome || selectedSlot != InkCosmeticSlot.Skin) return;
             var entry = InkWardrobeEntry.At(index);
             if (entry.Skin != selected || entry.Gold != selectedGold || entry.Nest != selectedNest) SelectCore(entry.Skin, false, entry.Gold, entry.Nest);
         }
@@ -128,6 +130,7 @@ namespace MukJump.Core
         {
             if (!CanInteract() || collectionScroll.IsDragging || !InkSkinCatalog.IsAvailable(id)) return;
             int step = InkWardrobeEntry.Index(id, gold, nest) - SelectedIndex;
+            categoryHome = false;
             selectedSlot = InkCosmeticSlot.Skin;
             selected = id; selectedGold = gold; selectedNest = nest; page = SelectedIndex / PageSize;
             InkLocalizedText.SetSource(statusText, "");
@@ -137,14 +140,14 @@ namespace MukJump.Core
         }
         public void StepSelection(int direction)
         {
-            if (!CanInteract() || direction == 0) return;
+            if (!CanInteract() || categoryHome || selectedSlot != InkCosmeticSlot.Skin || direction == 0) return;
             int next = Mathf.Clamp(SelectedIndex + (direction > 0 ? 1 : -1), 0, InkWardrobeEntry.Count - 1);
             var entry = InkWardrobeEntry.At(next);
             if (next != SelectedIndex) SelectCore(entry.Skin, true, entry.Gold, entry.Nest);
         }
         public void ChangePage(int direction)
         {
-            if (!CanInteract()) return;
+            if (!CanInteract() || categoryHome || selectedSlot != InkCosmeticSlot.Skin) return;
             int nextPage = Mathf.Clamp(page + direction, 0, (InkWardrobeEntry.Count-1)/PageSize);
             var entry = InkWardrobeEntry.At(nextPage * PageSize);
             SelectCore(entry.Skin, true, entry.Gold, entry.Nest);
@@ -156,7 +159,7 @@ namespace MukJump.Core
             (MukJumpAccountRuntime.Instance == null || !MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync);
         void Equip()
         {
-            if (!CanInteract()) return;
+            if (!CanInteract() || categoryHome) return;
             if (selectedSlot != InkCosmeticSlot.Skin) { EquipEffect(); return; }
             if (selectedGold && !InkPremiumAppearance.IsOwned) { InkPremiumAppearance.OpenShop(); return; }
             if (!SkinDebugSession.CanEquip(selected) ||
@@ -172,11 +175,13 @@ namespace MukJump.Core
             if (IsSkillDetailsOpen) { CloseSkillDetails(); return; }
             if (!CanInteract()) return;
             PointerInput.SuppressUntilRelease();
+            if (!categoryHome) { ShowCategoryHome(); return; }
             (LobbyScreenNavigator.Instance != null ? LobbyScreenNavigator.Instance : GetComponent<LobbyScreenNavigator>())?.ReturnToLobby();
         }
         void RefreshSelection()
         {
             RefreshSlotVisibility();
+            if (categoryHome) { RefreshCategoryHome(); return; }
             if (selectedSlot != InkCosmeticSlot.Skin) { RefreshEffectSelection(); return; }
             bool hidden = SkinDebugSession.IsConcealed(selected);
             bool hasAbility = InkSkinCatalog.HasAbility(selected);
@@ -493,7 +498,7 @@ namespace MukJump.Core
         }
         public void ToggleCollection()
         {
-            if (!CanInteract() || selectedSlot != InkCosmeticSlot.Skin) return;
+            if (!CanInteract() || categoryHome || selectedSlot != InkCosmeticSlot.Skin) return;
             collectionExpanded=!collectionExpanded;
             presentation.Cancel(); swipe.Cancel();
             ApplyCollectionLayout(); RefreshSelection(); RevealSelectedCard(true);

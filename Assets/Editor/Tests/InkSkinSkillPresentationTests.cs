@@ -385,6 +385,7 @@ namespace MukJump.EditorTests
                 }
                 Assert.That(InkSkinPreferences.TryEquip(InkSkinId.WindFan), Is.True);
                 GameLocalization.SetLanguage(GameLanguage.Korean);
+                wardrobe.BackButton.onClick.Invoke(); // 선택 목록 → 꾸미기 첫 화면
                 wardrobe.BackButton.onClick.Invoke(); yield return Navigation();
                 Object.FindAnyObjectByType<LobbyView>().StartButton.onClick.Invoke();
                 float until = Time.realtimeSinceStartup + 20;

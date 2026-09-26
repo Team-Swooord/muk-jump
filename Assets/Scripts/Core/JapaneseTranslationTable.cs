@@ -14,6 +14,9 @@ namespace MukJump.Core
             {
                 ["Skin"] = "スキン",
                 ["Landing"] = "着地効果",
+                ["Brush"] = "筆の効果",
+                ["Coming soon"] = "準備中",
+                ["Choose what to customize"] = "着せ替えるところを選んでね",
                 ["Clones"] = "分身の姿",
                 ["Bamboo Leaf"] = "笹の葉",
                 ["Magpie Nest"] = "カササギの巣",

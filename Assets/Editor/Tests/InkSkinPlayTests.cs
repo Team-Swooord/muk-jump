@@ -87,6 +87,7 @@ namespace MukJump.EditorTests
                 yield return Capture("wardrobe-unlocked");
                 wardrobe.EquipButton.onClick.Invoke();
                 Assert.That(InkSkinPreferences.Equipped, Is.EqualTo(InkSkinId.SpiderMask));
+                wardrobe.BackButton.onClick.Invoke(); // 선택 목록 → 꾸미기 첫 화면
                 wardrobe.BackButton.onClick.Invoke();
                 yield return Wait(4f);
                 manager.StartGameFromMenu();

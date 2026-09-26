@@ -78,6 +78,7 @@ namespace MukJump.EditorTests
                 // 전체 해금을 껐다 켜면 시험 착용도 지워진다. 선택과 장착은 별개다.
                 Assert.That(InkSkinPreferences.TryEquip(InkSkinId.BlueWisps),Is.True);
                 GameLocalization.SetLanguage(GameLanguage.Korean);
+                wardrobe.BackButton.onClick.Invoke(); // 선택 목록 → 꾸미기 첫 화면
                 wardrobe.BackButton.onClick.Invoke(); yield return Navigation();
                 var lobby=Object.FindFirstObjectByType<LobbyView>(); lobby.StartButton.onClick.Invoke();
                 float until=Time.realtimeSinceStartup+20;
