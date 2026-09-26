@@ -14,7 +14,7 @@ using UnityEngine.UI;
 
 namespace MukJump.EditorTests
 {
-    public sealed class InkPremiumPlayTests
+    public sealed partial class InkPremiumPlayTests
     {
         sealed class PreviewStore : IInkPremiumStore
         {

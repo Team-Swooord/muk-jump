@@ -4,6 +4,7 @@ Shader "MukJump/GoldInkUi"
     {
         [PerRendererData] _MainTex("Sprite", 2D) = "white" {}
         _Color("Tint", Color) = (1,1,1,1)
+        [HideInInspector] _GoldShimmer("Gold Shimmer", Range(0,1)) = 1
         _StencilComp("Stencil Comparison", Float) = 8
         _Stencil("Stencil ID", Float) = 0
         _StencilOp("Stencil Operation", Float) = 0
@@ -28,10 +29,11 @@ Shader "MukJump/GoldInkUi"
             #pragma multi_compile_local _ UNITY_UI_ALPHACLIP
             #include "UnityCG.cginc"
             #include "UnityUI.cginc"
-            #include "GoldInkColor.hlsl"
             sampler2D _MainTex;
             fixed4 _Color;
+            half _GoldShimmer;
             float4 _ClipRect;
+            #include "GoldInkColor.hlsl"
             struct Input { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
             struct Output { float4 vertex : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; float4 local : TEXCOORD1; };
             Output Vert(Input input)
@@ -43,7 +45,7 @@ Shader "MukJump/GoldInkUi"
             }
             fixed4 Frag(Output input) : SV_Target
             {
-                fixed4 color = GoldInkColor(tex2D(_MainTex, input.uv)) * input.color;
+                fixed4 color = GoldInkColor(tex2D(_MainTex, input.uv), input.local.xy * 0.01, _Time.y) * input.color;
                 #ifdef UNITY_UI_CLIP_RECT
                     color.a *= UnityGet2DClipping(input.local.xy, _ClipRect);
                 #endif

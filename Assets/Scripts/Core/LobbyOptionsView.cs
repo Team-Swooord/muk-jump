@@ -51,6 +51,9 @@ namespace MukJump.Core
         RuntimePlatform? platformOverrideForTests;
 #endif
         Button quickBgm, quickSfx, quickHaptics;
+        Button premiumRestore;
+        bool showingPremiumRestoreResult;
+        string lastPremiumRestoreStatus;
         Text quickBgmStatus, quickSfxStatus, quickHapticsStatus;
         Text bgmValue;
         Text sfxValue;
@@ -256,7 +259,10 @@ namespace MukJump.Core
                 applicationFocused && !applicationPaused &&
                 (!Application.isPlaying || optionsPanel.GetComponent<HanjiScrollFrame>().IsReady));
             if (IsOpen && optionsGroup != null && optionsGroup.blocksRaycasts)
+            {
                 RefreshSettingsUuid();
+                RefreshPremiumRestore();
+            }
             UpdateNicknameUi();
             UpdateDeleteConfirmation();
             if (IsOpen && ShowingAnalyticsPrivacy) RefreshAdvertisingPrivacy();
@@ -578,12 +584,14 @@ namespace MukJump.Core
                     new Vector2(0, -354), new Vector2(700, 224),
                     InkPalette.TextDark);
             }
-            if (InkPremiumAppearance.IsSupported)
-                CreatePaperButton("PremiumButton", panel, "광고 제거 · 금색 먹",
-                    new Vector2(0, -418), new Vector2(650, 112), 38)
-                    .onClick.AddListener(InkPremiumAppearance.OpenShop);
-            connectionStatus = CreateReadableText("ConnectionStatus", panel, string.Empty, 40,
-                new Vector2(0, -527), new Vector2(700, 70),
+            if (!UsesTossSettings && InkPremiumAppearance.IsSupported)
+            {
+                premiumRestore = CreatePaperButton("RestorePurchasesButton", panel, "구입 복원",
+                    new Vector2(0, -404), new Vector2(650, 128), 38);
+                premiumRestore.onClick.AddListener(RestorePremiumPurchases);
+            }
+            connectionStatus = CreateReadableText("ConnectionStatus", panel, string.Empty, premiumRestore != null ? 30 : 40,
+                new Vector2(0, -527), new Vector2(700, premiumRestore != null ? 110 : 70),
                 InkPalette.TextDark, TextAnchor.MiddleCenter);
             CreateLegalFooterLink("TermsButton", panel, "이용약관", false)
                 .onClick.AddListener(OpenTermsOfService);
@@ -2401,16 +2409,43 @@ namespace MukJump.Core
 
         void SetSettingsStatus(string source)
         {
+            showingPremiumRestoreResult = false;
             InkLocalizedText.SetSource(connectionStatus, source);
             LayoutSettingsContents();
             if (showingSettingsPage) ApplySafeArea();
+        }
+
+        void RestorePremiumPurchases()
+        {
+            var store = InkPremiumAppearance.Store;
+            if (UsesTossSettings || !InkPremiumAppearance.IsSupported || store == null || store.IsBusy) return;
+            // 복원 결과는 기존 스토어 검증에서만 받으며 화면에서 권한을 부여하지 않는다.
+            store.Restore();
+            showingPremiumRestoreResult = true;
+            lastPremiumRestoreStatus = null;
+            RefreshPremiumRestore();
+        }
+
+        void RefreshPremiumRestore()
+        {
+            if (premiumRestore == null) return;
+            bool supported = !UsesTossSettings && InkPremiumAppearance.IsSupported;
+            premiumRestore.gameObject.SetActive(supported);
+            var store = InkPremiumAppearance.Store;
+            premiumRestore.interactable = supported && store != null && !store.IsBusy;
+            if (!showingPremiumRestoreResult) return;
+            string message = store?.StatusMessage ?? "스토어에 연결하고 있어요";
+            if (message == lastPremiumRestoreStatus) return;
+            SetSettingsStatus(message);
+            showingPremiumRestoreResult = true;
+            lastPremiumRestoreStatus = message;
         }
 
         void LayoutSettingsContents()
         {
             if (optionsGroup == null) return;
             bool hasStatus = connectionStatus != null && !string.IsNullOrWhiteSpace(connectionStatus.text);
-            float height = UsesTossSettings ? SettingsDesignHeight :
+            float height = UsesTossSettings || premiumRestore != null ? SettingsDesignHeight :
                 SettingsPanelHeight + (hasStatus ? SettingsStatusHeight : 0f);
             // 내용의 종이 상단 여백·크기는 유지한다. 종이 본체의 화면 중심은 별도로 고정한다.
             float offset = (height - settingsLayoutHeight) * .5f;
@@ -2429,7 +2464,7 @@ namespace MukJump.Core
             {
                 connectionStatus.gameObject.SetActive(hasStatus);
                 connectionStatus.rectTransform.anchoredPosition = new Vector2(0,
-                    UsesTossSettings ? -527f : -381f - footerLift);
+                    UsesTossSettings || premiumRestore != null ? -535f : -381f - footerLift);
             }
             if (!showingSettingsPage) return;
             optionsPanel.sizeDelta = new Vector2(PanelWidth, height);
