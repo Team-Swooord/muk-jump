@@ -105,12 +105,17 @@ namespace MukJump.EditorTests
             var view = Wardrobe(); int saves = settings.SaveCount;
             view.SelectSlot(InkCosmeticSlot.Landing); view.SelectEffect(InkCosmeticCatalog.BambooLeaf);
             Assert.That(settings.SaveCount, Is.EqualTo(saves));
+            Assert.That(view.Paper.Find("EffectChoices/Choice1/SelectedBrush").gameObject.activeSelf, Is.True);
+            Assert.That(view.Paper.Find("EffectChoices/Choice0/EquippedSeal").gameObject.activeSelf, Is.True);
+            Assert.That(view.Paper.Find("EffectChoices/Choice1/EquippedSeal").gameObject.activeSelf, Is.False, "미리보기와 착용 낙관은 구분한다");
             Assert.That(InkSkinPreferences.EquippedCosmetic(InkCosmeticSlot.Landing), Is.EqualTo(InkCosmeticCatalog.DefaultLanding));
             Assert.That(view.Paper.Find("ShowroomStage/Preview/Accessory").GetComponent<Image>().sprite,
                 Is.SameAs(InkCosmeticCatalog.Sprite(InkCosmeticCatalog.MagpieNest)));
             Assert.That(view.Paper.Find("ShowroomStage/CombinedClonePreview/TadpoleTail").GetComponent<Image>().enabled, Is.True);
             view.EquipButton.onClick.Invoke();
             Assert.That(settings.SaveCount, Is.EqualTo(saves + 1));
+            Assert.That(view.Paper.Find("EffectChoices/Choice0/EquippedSeal").gameObject.activeSelf, Is.False);
+            Assert.That(view.Paper.Find("EffectChoices/Choice1/EquippedSeal").gameObject.activeSelf, Is.True);
             Assert.That(InkSkinPreferences.EquippedCosmetic(InkCosmeticSlot.Landing), Is.EqualTo(InkCosmeticCatalog.BambooLeaf));
             Assert.That(InkSkinPreferences.EquippedCosmetic(InkCosmeticSlot.Skin), Is.EqualTo(InkCosmeticCatalog.MagpieNest));
             Assert.That(InkSkinPreferences.EquippedCosmetic(InkCosmeticSlot.Clone), Is.EqualTo(InkCosmeticCatalog.Tadpole));

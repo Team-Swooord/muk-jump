@@ -10,6 +10,8 @@ namespace MukJump.Core
         RectTransform slotRoot, effectRoot, combinedClone;
         readonly Text[] effectNames = new Text[2], effectStates = new Text[2];
         readonly Image[] effectPapers = new Image[2], effectIcons = new Image[2], leaves = new Image[3];
+        readonly RectTransform[] effectSelectionMarks = new RectTransform[2], effectEquippedSeals = new RectTransform[2];
+        readonly Image[] effectLocks = new Image[2];
         Image cloneBody, cloneAccessory, cloneTail, effectCloneBody;
         public InkCosmeticSlot SelectedSlot => selectedSlot;
         public string SelectedEffect => selectedEffect;
@@ -65,6 +67,17 @@ namespace MukJump.Core
                 effectIcons[i] = SpriteImage("Icon", button.transform, null, new Vector2(0, 50), new Vector2(180, 140));
                 effectNames[i] = Label("Name", button.transform, "", 38, new Vector2(0, -45), new Vector2(330, 70), true);
                 effectStates[i] = Label("State", button.transform, "", 30, new Vector2(0, -105), new Vector2(330, 50), false);
+                var selectionMark = SpriteImage("SelectedBrush", button.transform, InkUiTextureFactory.CreateBrushSprite(),
+                    new Vector2(0, 130), new Vector2(232, 7));
+                selectionMark.preserveAspect = false; selectionMark.color = InkPalette.Red;
+                effectSelectionMarks[i] = selectionMark.rectTransform;
+                var seal = Rect("EquippedSeal", button.transform, new Vector2(124, 90), Vector2.one * 50);
+                seal.localRotation = Quaternion.Euler(0, 0, -6); InkHudSurface.Ensure(seal, true);
+                var check = SpriteImage("Check", seal, InkUiTextureFactory.CreateGrowthConfirmIconSprite(), Vector2.zero, Vector2.one * 36);
+                check.color = InkPalette.Paper; effectEquippedSeals[i] = seal;
+                effectLocks[i] = SpriteImage("LockedMark", button.transform, InkUiTextureFactory.CreateLockIconSprite(),
+                    new Vector2(124, 90), Vector2.one * 44);
+                effectLocks[i].color = InkPalette.TextMuted;
                 button.onClick.AddListener(() => SelectEffect(EffectId(index)));
                 if (i == 1) effectCloneBody = SpriteImage("CloneBody", button.transform, previewBodySprite,
                     new Vector2(-20, 50), Vector2.one * 180);
@@ -148,6 +161,9 @@ namespace MukJump.Core
             {
                 string id = EffectId(i);
                 bool owns = InkSkinPreferences.CanUseCosmetic(id), chosen = id == selectedEffect;
+                effectSelectionMarks[i].gameObject.SetActive(chosen);
+                effectEquippedSeals[i].gameObject.SetActive(id == InkSkinPreferences.EquippedCosmetic(selectedSlot));
+                effectLocks[i].enabled = !owns;
                 effectPapers[i].color = chosen ? InkPalette.Paper : new Color(.86f, .82f, .73f, .62f);
                 effectIcons[i].sprite = i == 1 ? InkCosmeticCatalog.Sprite(id) :
                     selectedSlot == InkCosmeticSlot.Clone ? previewBodySprite : InkUiTextureFactory.CreateBrushSprite();

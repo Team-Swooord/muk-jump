@@ -58,7 +58,8 @@ namespace MukJump.EditorTests
                         int saves = settings.SaveCount;
                         foreach (var text in view.Paper.Find("CosmeticCategories").GetComponentsInChildren<Text>())
                             Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 2), text.name + " " + language);
-                        yield return Capture("hub-" + size.x + "-" + language, "output/qa/wardrobe-hub-20260926/screens");
+                        AssertReadable(view.Paper.Find("Title"));
+                        yield return Capture("hub-" + size.x + "-" + language, "output/qa/wardrobe-ink-ui-20260926/screens");
                         foreach (var slot in new[] { InkCosmeticSlot.Landing, InkCosmeticSlot.Skin, InkCosmeticSlot.Clone })
                         {
                             var button = view.Paper.Find("CosmeticCategories/Category" + slot).GetComponent<Button>();
@@ -70,7 +71,9 @@ namespace MukJump.EditorTests
                                 ClickVisible(view.Paper.Find("EffectChoices/Choice1").GetComponent<Button>());
                                 Assert.That(view.SelectedEffect, Is.EqualTo(InkCosmeticCatalog.BambooLeaf));
                                 yield return Wait(.3f);
-                                yield return Capture("choices-" + size.x + "-" + language, "output/qa/wardrobe-hub-20260926/screens");
+                                AssertReadable(view.Paper.Find("EffectChoices"));
+                                AssertReadable(view.Paper.Find("ItemDetailsLockOverlay"));
+                                yield return Capture("choices-" + size.x + "-" + language, "output/qa/wardrobe-ink-ui-20260926/screens");
                             }
                             // 새 화면의 Canvas가 그려진 뒤 다음 버튼을 누른다.
                             ClickVisible(view.BackButton); yield return Wait(.15f);
@@ -99,12 +102,22 @@ namespace MukJump.EditorTests
             Canvas.ForceUpdateCanvases();
             Assert.That(button.IsInteractable(), Is.True, button.name);
             var rect = (RectTransform)button.transform;
+            if (button.name.StartsWith("Category") || button.name == "BackButton")
+            {
+                var corners = new Vector3[4]; rect.GetWorldCorners(corners);
+                Assert.That(corners[1].y - corners[0].y, Is.GreaterThanOrEqualTo(44), button.name + " 터치 높이");
+            }
             var pointer = new PointerEventData(EventSystem.current) { position = RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center)) };
             var hits = new List<RaycastResult>(); EventSystem.current.RaycastAll(pointer, hits);
             Assert.That(hits.Count, Is.GreaterThan(0), button.name);
             var clicked = hits[0].gameObject.GetComponentInParent<Button>();
             Assert.That(clicked, Is.SameAs(button), button.name + " 위를 다른 화면이 덮지 않는다: " + hits[0].gameObject.name);
             ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerClickHandler);
+        }
+        static void AssertReadable(Transform root)
+        {
+            foreach (var text in root.GetComponentsInChildren<Text>())
+                Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 2), text.name + " " + text.text);
         }
         [UnityTest, Timeout(150000)]
         public IEnumerator IndependentCosmeticsRenderInThreeLanguagesAndRealPlay()
