@@ -73,6 +73,39 @@ namespace MukJump.EditorTests
             }
         }
 
+        [TestCase(GameLanguage.Korean, "가득 찬 먹 · 길이 +")]
+        [TestCase(GameLanguage.English, "Full ink · length +")]
+        [TestCase(GameLanguage.Japanese, "満タン時の長さ +")]
+        public void FullInkComparisonUpdatesAfterPurchaseAndRefundWithoutChangingThePreviewedSave(
+            GameLanguage language, string prefix)
+        {
+            GameLocalization.SetLanguage(language);
+            view.SelectGrowthForTests(1);
+            Text summary = Screen().Find("FocusedGrowth/FocusSummary").GetComponent<Text>();
+            Assert.That(summary.text, Is.EqualTo(prefix + "12.5%"));
+            AssertGeneratedTextFits(summary, 1);
+            for (int i = 0; i < 3; i++)
+                Assert.That(PermanentGrowthProfile.TryPurchase(PermanentGrowthType.InkCapacity), Is.True);
+            Assert.That(summary.text, Is.EqualTo(prefix + "9.1%"));
+            AssertGeneratedTextFits(summary, 1);
+            Assert.That(PermanentGrowthProfile.GetNextCost(PermanentGrowthType.InkCapacity), Is.EqualTo(5));
+            Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string before), Is.True);
+            view.SelectGrowthForTests(2);
+            Assert.That(summary.text, Is.EqualTo(prefix + "3.1%"));
+            AssertGeneratedTextFits(summary, 1);
+            Assert.That(PermanentGrowthProfile.GetNextCost(PermanentGrowthType.InkBudgetEfficiency), Is.EqualTo(1));
+            Assert.That(PermanentGrowthProfile.TryExportCloudJson(out string after), Is.True);
+            Assert.That(after, Is.EqualTo(before), "선택·비교만으로 재화나 저장을 바꾸면 안 됩니다.");
+            for (int i = 0; i < 8; i++)
+                Assert.That(PermanentGrowthProfile.TryPurchase(PermanentGrowthType.InkBudgetEfficiency), Is.True);
+            Assert.That(summary.text, Does.Not.StartWith(prefix));
+            Assert.That(PermanentGrowthProfile.TryGetNextInkLengthIncrease(PermanentGrowthType.InkBudgetEfficiency, out _), Is.False);
+            Assert.That(PermanentGrowthProfile.TryResetPurchasedNodes(), Is.True);
+            Assert.That(summary.text, Is.EqualTo(prefix + "3.1%"));
+            view.SelectGrowthForTests(1);
+            Assert.That(summary.text, Is.EqualTo(prefix + "12.5%"));
+        }
+
         [Test]
         public void HeaderIconsSitNearOppositeEdgesWithoutLosingTheirTouchAreas()
         {
@@ -180,7 +213,8 @@ namespace MukJump.EditorTests
                 Assert.That(title.text,
                     Is.EqualTo(PermanentGrowthCatalog.Choices[i].DisplayName));
                 Assert.That(summary.text,
-                    Is.EqualTo(PermanentGrowthCatalog.Choices[i].Summary));
+                    Is.EqualTo(i == 1 ? "가득 찬 먹 · 길이 +12.5%" :
+                        i == 2 ? "가득 찬 먹 · 길이 +3.1%" : PermanentGrowthCatalog.Choices[i].Summary));
                 Assert.That(title.fontSize, Is.EqualTo(80));
                 Assert.That(summary.fontSize, Is.EqualTo(56));
                 Assert.That(title.fontSize - summary.fontSize,
@@ -188,7 +222,8 @@ namespace MukJump.EditorTests
                 Assert.That(title.color, Is.EqualTo(InkPalette.TextDark));
                 Assert.That(title.resizeTextForBestFit, Is.False);
                 Assert.That(summary.resizeTextForBestFit, Is.False);
-                Assert.That(summary.text, Does.Not.Match("[0-9%+→]"));
+                if (i != 1 && i != 2)
+                    Assert.That(summary.text, Does.Not.Match("[0-9%+→]"));
             }
         }
 
@@ -854,7 +889,7 @@ namespace MukJump.EditorTests
                 GameLocalization.SetLanguage(language);
                 bool korean = language == GameLanguage.Korean;
                 string[] labels = korean ? new[] { "먹", "먹물", "붓", "도약" } :
-                    new[] { "Muk", "Ink", "Brush", "Jump" };
+                    new[] { "Muk", "Ink", "Brush", "Leap" };
                 string[] titles = korean ? new[] { "튼튼한 먹", "넉넉한 먹물", "알뜰한 붓", "높은 도약" } :
                     new[] { "Stronger Muk", "More Ink", "Thrifty Brush", "Higher Jump" };
                 for (int i = 0; i < labels.Length; i++)

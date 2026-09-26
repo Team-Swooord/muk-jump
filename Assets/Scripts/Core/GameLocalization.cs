@@ -42,6 +42,7 @@ namespace MukJump.Core
         static void ResetStatics() => Changed = null;
 
         static readonly Regex InklightCost = new(@"^먹빛 (\d+)개 필요$");
+        static readonly Regex FullInkLength = new(@"^가득 찬 먹 · 길이 \+([0-9]+(?:\.[0-9]+)?)%$");
         static readonly Regex HeightLabel = new(@"^(고도|최고) (.+)$");
         static readonly Regex HealthValue = new(@"^\+(\d+)칸$");
         static readonly Regex DistanceExperience = new(@"^먹빛 \+1 · ([0-9]+ / [0-9]+m)$");
@@ -75,6 +76,8 @@ namespace MukJump.Core
                     (retry.Groups[1].Value == "응답 없음" ? "no response" : retry.Groups[1].Value) + ")";
             Match match = InklightCost.Match(source);
             if (match.Success) return "Need " + match.Groups[1].Value + " Inklight";
+            match = FullInkLength.Match(source);
+            if (match.Success) return "Full ink · length +" + match.Groups[1].Value + "%";
             match = HeightLabel.Match(source);
             if (match.Success) return (match.Groups[1].Value == "고도" ? "Height " : "Best ") +
                 match.Groups[2].Value.Replace("—", "-");

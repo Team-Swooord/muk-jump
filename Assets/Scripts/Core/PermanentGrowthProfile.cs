@@ -758,6 +758,31 @@ namespace MukJump.Core
         public static int GetNextCost(PermanentGrowthType type) =>
             FindNextNode(type)?.Cost ?? 0;
 
+        /// 실제 다음 노드를 더한 스냅샷으로 가득 찬 먹의 길이 예산을 비교한다.
+        /// 미리보기는 구매·재화·저장을 변경하지 않으며 두 갈래를 같은 기준으로 설명한다.
+        public static bool TryGetNextInkLengthIncrease(PermanentGrowthType type, out float percent)
+        {
+            percent = 0f;
+            EnsureLoaded();
+            if (writeBlocked || type is not (PermanentGrowthType.InkCapacity or PermanentGrowthType.InkBudgetEfficiency))
+                return false;
+            var next = FindNextNode(type);
+            if (next == null || !MeetsNodeRequirements(next)) return false;
+            var owned = new List<string>(data.ownedNodeIds) { next.Id };
+            var equipped = new Dictionary<PermanentGrowthBranch, string>(3)
+            {
+                [PermanentGrowthBranch.Survival] = GetActiveKeystoneId(PermanentGrowthBranch.Survival),
+                [PermanentGrowthBranch.Leap] = GetActiveKeystoneId(PermanentGrowthBranch.Leap),
+                [PermanentGrowthBranch.InkHandling] = GetActiveKeystoneId(PermanentGrowthBranch.InkHandling),
+            };
+            var current = new PermanentGrowthRunSnapshot(data.ownedNodeIds, equipped);
+            var proposed = new PermanentGrowthRunSnapshot(owned, equipped);
+            float before = current.InkCapacityMultiplier / current.InkBudgetCostMultiplier;
+            float after = proposed.InkCapacityMultiplier / proposed.InkBudgetCostMultiplier;
+            percent = (after / before - 1f) * 100f;
+            return float.IsFinite(percent) && percent > 0f;
+        }
+
         public static bool CanPurchase(PermanentGrowthType type) =>
             CanPurchaseNode(FindNextNode(type));
 

@@ -118,6 +118,7 @@ namespace MukJump.Core
             if (Values.TryGetValue(value, out string exact)) return exact;
             string result = value;
             result = Regex.Replace(result, @"^Need (\d+) Inklight$", "墨光が$1個必要");
+            result = Regex.Replace(result, @"^Full ink · length \+([0-9]+(?:\.[0-9]+)?)%$", "満タン時の長さ +$1%");
             result = Regex.Replace(result, @"^(Height|Best) (.+)$", m => (m.Groups[1].Value == "Height" ? "高度 " : "最高 ") + m.Groups[2].Value);
             result = Regex.Replace(result, @"^\+(\d+) HP$", "+$1体力");
             result = Regex.Replace(result, @"^Inklight \+1 · (.+)$", "墨光 +1 · $1");

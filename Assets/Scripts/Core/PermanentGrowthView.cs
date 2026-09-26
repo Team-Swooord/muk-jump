@@ -954,7 +954,9 @@ namespace MukJump.Core
                 ? selectedCard.Definition.DisplayName
                 : string.Empty);
             InkLocalizedText.SetSource(focusedGrowthSummary, hasSelection
-                ? selectedCard.Definition.Summary
+                ? PermanentGrowthProfile.TryGetNextInkLengthIncrease(type, out float lengthIncrease)
+                    ? "가득 찬 먹 · 길이 +" + lengthIncrease.ToString("0.#", CultureInfo.InvariantCulture) + "%"
+                    : selectedCard.Definition.Summary
                 : string.Empty);
             focusedCompleteLabel.gameObject.SetActive(completeSelection);
             for (int markIndex = 0;
