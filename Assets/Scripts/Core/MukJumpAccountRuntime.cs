@@ -7014,6 +7014,10 @@ namespace MukJump.Core
         const int IdentityApiTimeoutMilliseconds = 10000;
         [System.Runtime.InteropServices.DllImport("__Internal")]
         static extern int MukJumpTossStorageReady();
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        static extern int MukJumpTossConfirmStorageOwner();
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        static extern int MukJumpTossStorageCommitState();
         const float InitialRetrySeconds = 5f;
         const float MaximumRetrySeconds = 60f;
 
@@ -7153,6 +7157,8 @@ namespace MukJump.Core
             {
                 // SDK가 저장소 읽기에 실패해 IndexedDB 폴백으로 부팅했을 때
                 // 빈 기록을 정상 원본으로 확정하거나 성장 정산을 시작하지 않는다.
+                // PlayerPrefs를 지연 로드하는 엔진에서도 첫 읽기 경로를 먼저 관측한다.
+                PlayerPrefs.HasKey(AppsInTossIdentityPolicy.UserHashKey);
                 if (MukJumpTossStorageReady() != 1)
                 {
                     FailIdentityResolution(generation,
@@ -7208,6 +7214,27 @@ namespace MukJump.Core
                     FailIdentityResolution(
                         generation,
                         "토스 사용자 기록을 불러오지 못했습니다. 다시 확인해 주세요");
+                    return;
+                }
+
+                // 복원한 기록과 토스 소유자가 모두 확인된 뒤에만 영속 저장을 허용한다.
+                if (MukJumpTossConfirmStorageOwner() != 1)
+                {
+                    FailIdentityResolution(generation, "토스 사용자 기록 저장을 준비하지 못했습니다. 다시 시도해 주세요");
+                    return;
+                }
+
+                // PlayerPrefs.Save의 메모리 readback 대신 토스·로컬 저장 callback까지 기다린다.
+                double commitDeadline = Time.realtimeSinceStartupAsDouble + 10d;
+                while (MukJumpTossStorageCommitState() == 0 &&
+                       Time.realtimeSinceStartupAsDouble < commitDeadline)
+                {
+                    await Awaitable.NextFrameAsync();
+                    if (!IsCurrentResolution(generation)) return;
+                }
+                if (MukJumpTossStorageCommitState() != 1)
+                {
+                    FailIdentityResolution(generation, "기록을 안전하게 저장하지 못했습니다. 연결을 확인하고 다시 시도해 주세요");
                     return;
                 }
 

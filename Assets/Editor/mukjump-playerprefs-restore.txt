@@ -1,0 +1,194 @@
+    // MUKJUMP_PLAYERPREFS_RESTORE_V1
+    // 복원 완료와 실제 Unity 읽기 경로 확인 전에는 원격·로컬 원본을 갱신하지 않는다.
+    var mukjumpRestoredFiles = null;
+    var mukjumpOriginalSnapshot = null;
+    var mukjumpActivePrefsPath = null;
+    var mukjumpRestoreReady = false;
+    var mukjumpOwnerReady = false;
+    var mukjumpOwnerCommitState = 0;
+    var mukjumpOwnerCommitGeneration = 0;
+    var mukjumpRemapped = false;
+    var mukjumpBackupComplete = false;
+
+    function mukjumpRestoreError(message) {
+        state.disabled = true;
+        mukjumpRestoreReady = false;
+        setMode('vanilla');
+        recordError('먹점프 기록 복원', new Error(message));
+        return false;
+    }
+
+    function mukjumpValidatedFiles(raw) {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('저장 파일 목록 손상');
+        var files = normalizeFiles(raw);
+        Object.keys(raw).forEach(function (path) {
+            if (!SCOPE_RE.test(path) && !SCOPE_DIR_RE.test(path)) return;
+            var rec = files[path];
+            if (!rec || (SCOPE_RE.test(path) ? !isFileMode(rec.m) : !isDirMode(rec.m)))
+                throw new Error('저장 파일 형식 손상');
+            if (SCOPE_RE.test(path)) {
+                if (typeof raw[path].d !== 'string' || !raw[path].d.length ||
+                    encodeBase64(decodeBase64(raw[path].d)) !== raw[path].d)
+                    throw new Error('저장 파일 바이트 손상');
+            }
+        });
+        return files;
+    }
+
+    function mukjumpStoreChecked(path, rec) {
+        var entry = { mode: rec.m, timestamp: rec.t };
+        if (isFileMode(rec.m)) entry.contents = decodeBase64(rec.d);
+        if (!storeEntrySync(path, entry)) throw new Error('저장 파일 복원 실패');
+        var actual = loadEntrySync(path);
+        if (!actual || actual.mode !== rec.m ||
+            (isFileMode(rec.m) && encodeBase64(actual.contents) !== rec.d))
+            throw new Error('복원 후 저장 파일 검증 실패');
+    }
+
+    overlayScoped = function (mount, snapshot) {
+        var files = mukjumpValidatedFiles(snapshot.files);
+        mukjumpOriginalSnapshot = JSON.stringify(snapshot);
+        // 현재 원본에 없는 로컬 파일도 지우지 않는다. 경로 변경 전 기록일 수 있다.
+        Object.keys(files).sort().forEach(function (path) {
+            mukjumpStoreChecked(path, files[path]);
+            if (SCOPE_RE.test(path)) state.restoredBytes += decodeBase64(files[path].d).length;
+        });
+        mukjumpRestoredFiles = files;
+        var after = collectScoped(mount);
+        if (!after) throw new Error('복원 후 파일 수집 실패');
+        lastPushedHash = fnv1a(serializeFiles(after.files) + '|' + serializeLegacyChecked());
+    };
+
+    // IDBFS의 동기 파일 접근만 감춘다. 비동기 저장 대기 중 Unity 읽기는 계속 관측한다.
+    // 옛 파일을 보존한 미러의 getLocalSet/loadLocalEntry를 새 소비 경로로 오인하지 않는다.
+    function mukjumpGuardLocalFs() {
+        if (IDBFS.mukjumpLocalFsGuarded) return;
+        ['getLocalSet', 'loadLocalEntry', 'storeLocalEntry', 'removeLocalEntry'].forEach(function (name) {
+            var original = IDBFS[name];
+            IDBFS[name] = function () {
+                var previous = enterSelfFs();
+                var args = Array.prototype.slice.call(arguments);
+                var callback = args[args.length - 1];
+                if (typeof callback === 'function') args[args.length - 1] = function () {
+                    var inside = inSelfFs;
+                    exitSelfFs(previous);
+                    try { return callback.apply(this, arguments); }
+                    finally { inSelfFs = inside; }
+                };
+                try { return original.apply(this, args); }
+                finally { exitSelfFs(previous); }
+            };
+        });
+        IDBFS.mukjumpLocalFsGuarded = true;
+    }
+
+    var mukjumpOriginalSync = callOrig;
+    callOrig = function (mount, populate, callback) {
+        mukjumpGuardLocalFs();
+        mukjumpOriginalSync(mount, populate, function (error) {
+            if (populate && error) mukjumpRestoreError('로컬 저장소 읽기 실패');
+            callback(error);
+        });
+    };
+
+    var mukjumpCheckedPopulate = populatePath;
+    populatePath = function (mount, callback) {
+        mukjumpCheckedPopulate(mount, function (error) {
+            try {
+                if (state.mode === 'ait' && !mukjumpRestoredFiles) {
+                    var local = collectScoped(mount);
+                    if (!local) throw new Error('기존 로컬 기록 확인 실패');
+                    mukjumpRestoredFiles = mukjumpValidatedFiles(local.files);
+                }
+            } catch (e) { mukjumpRestoreError(e.message); }
+            callback(error);
+        });
+    };
+
+    // FS.lookupPath에서 관측한 경로만 사용한다. URL/파일 시각/최고 점수로 추측하지 않는다.
+    function mukjumpPreparePrefsPath(path) {
+        if (inSelfFs || inEnginePopulate || !SCOPE_RE.test(path) || state.mode !== 'ait' || state.disabled) return;
+        if (mukjumpActivePrefsPath) {
+            if (mukjumpActivePrefsPath !== path) mukjumpRestoreError('여러 Unity 저장 경로가 관측됨');
+            return;
+        }
+        try {
+            if (!mukjumpRestoredFiles) throw new Error('저장소 복원이 완료되지 않음');
+            var candidates = Object.keys(mukjumpRestoredFiles).filter(function (key) { return SCOPE_RE.test(key); });
+            var source = mukjumpRestoredFiles[path] ? path : candidates.length === 1 ? candidates[0] : null;
+            if (candidates.length && !source) throw new Error('기존 저장 경로를 하나로 확인할 수 없음');
+            if (source && source !== path) {
+                var dir = path.slice(0, path.lastIndexOf('/'));
+                mukjumpStoreChecked(dir, { m: 16877, t: mukjumpRestoredFiles[source].t });
+                mukjumpStoreChecked(path, mukjumpRestoredFiles[source]);
+                mukjumpRemapped = true;
+                lastPushedHash = null;
+            }
+            mukjumpActivePrefsPath = path;
+            mukjumpRestoreReady = true;
+        } catch (e) { mukjumpRestoreError(e.message); }
+    }
+
+    // 원본 파일은 디스크에 보존하되 새 정본에는 확인된 활성 파일 하나만 싣는다.
+    // 다음 업데이트에서도 이전 경로 후보들이 서로 경쟁하지 않도록 한다.
+    var mukjumpCollectAll = collectScoped;
+    collectScoped = function (mount) {
+        var result = mukjumpCollectAll(mount);
+        if (!result || !mukjumpActivePrefsPath || !mukjumpOwnerReady) return result;
+        var file = result.files[mukjumpActivePrefsPath];
+        var dir = mukjumpActivePrefsPath.slice(0, mukjumpActivePrefsPath.lastIndexOf('/'));
+        if (!file || !file.d || !result.files[dir]) return null;
+        var files = {};
+        files[dir] = result.files[dir];
+        files[mukjumpActivePrefsPath] = file;
+        return { files: files, scoped: [mukjumpActivePrefsPath] };
+    };
+    // 순서 큐가 실행되는 시점의 완전한 활성 파일만 저장한다. 빈 파일은 삭제로 해석하지 않는다.
+    var mukjumpRawPush = mukjumpPush;
+    mukjumpPush = function (mount) {
+        if (!collectScoped(mount)) return Promise.reject(new Error('활성 저장 파일 수집 실패'));
+        return mukjumpRawPush(mount);
+    };
+
+    var mukjumpCanWrite = canWrite;
+    canWrite = function () { return mukjumpRestoreReady && mukjumpOwnerReady && mukjumpCanWrite(); };
+    var mukjumpCheckedPersist = persistPath;
+    persistPath = function (mount, callback) {
+        if (!canWrite()) { callback(new Error('기록 복원·소유자 확인 전 저장 차단')); return; }
+        mukjumpCheckedPersist(mount, callback);
+    };
+    var mukjumpPreservedPush = pushScoped;
+    pushScoped = function (mount) {
+        if (!canWrite()) return Promise.reject(new Error('기록 복원·소유자 확인 전 저장 차단'));
+        // 경로 이관 때 처음 읽은 원본은 별도 키에 한 번 보존한다. 계정 확인 전에는 쓰지 않는다.
+        var backup = Promise.resolve();
+        if (mukjumpRemapped && mukjumpOriginalSnapshot && !mukjumpBackupComplete) {
+            var key = 'MukJump.PlayerPrefs.beforePathMigration.v1';
+            backup = Promise.resolve(activeStorage.getItem(key)).then(function (existing) {
+                if (existing !== null && existing !== undefined) return;
+                return activeStorage.setItem(key, mukjumpOriginalSnapshot);
+            }).then(function () { mukjumpBackupComplete = true; });
+        }
+        return backup.then(function () { return mukjumpPreservedPush(mount); });
+    };
+    var mukjumpOriginalStatus = status;
+    status = function () {
+        var value = mukjumpOriginalStatus();
+        value.restoreReady = mukjumpRestoreReady;
+        value.ownerReady = mukjumpOwnerReady;
+        value.pathRemapped = mukjumpRemapped;
+        value.ownerCommitState = mukjumpOwnerCommitState;
+        return value;
+    };
+    function mukjumpConfirmOwner() {
+        if (!mukjumpRestoreReady || state.mode !== 'ait' || state.disabled || state.foreign) return false;
+        mukjumpOwnerReady = true;
+        var generation = ++mukjumpOwnerCommitGeneration;
+        mukjumpOwnerCommitState = 0;
+        IDBFS.syncfs(activeMount, false, function (error) {
+            if (generation !== mukjumpOwnerCommitGeneration) return;
+            mukjumpOwnerCommitState = error ? -1 : 1;
+            if (error) recordError('소유자 확인 후 저장', error);
+        });
+        return true;
+    }

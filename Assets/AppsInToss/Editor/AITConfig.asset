@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: AppsInTossSDKEditor::AppsInToss.AITEditorScriptObject
   appName: mukjump
   displayName: "\uBA39\uC810\uD504"
-  version: 1.0.2
+  version: 1.0.3
   description: "\uC190\uAC00\uB77D\uC73C\uB85C \uBA39\uC120\uC744 \uADF8\uB824 \uC791\uC740
     \uBA39\uBC29\uC6B8\uC744 \uC704\uB85C \uC62C\uB9AC\uB294 \uC138\uB85C\uD615 \uB4DC\uB85C\uC789
     \uC810\uD504 \uAC8C\uC784"

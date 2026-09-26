@@ -476,14 +476,29 @@ namespace MukJump.EditorTools
                 string replacement = File.ReadAllText("Assets/Editor/mukjump-playerprefs-prerun.txt").TrimEnd();
                 source = pattern.Replace(source, _ => replacement, 1);
             }
-            if (source.Contains("// MUKJUMP_PLAYERPREFS_ORDERED_V1")) return source;
-            // SDK 원본은 보존한다. 예상 구현이 달라지면 추측해서 배포하지 않는다.
-            source = ReplacePlayerPrefsOnce(source, "    function pushScoped(mount) {\n        return new Promise(function (resolve) {",
-                "    function pushScoped(mount) {\n        return new Promise(function (resolve, reject) {");
-            source = ReplacePlayerPrefsOnce(source, "                resolve(false);\n            });\n        }).catch(function (e) {\n            recordError('push', e);\n            return false;",
-                "                reject(e);\n            });\n        }).catch(function (e) {\n            recordError('push', e);\n            throw e;");
-            source = ReplacePlayerPrefsOnce(source, "    function status() {",
-                File.ReadAllText("Assets/Editor/mukjump-playerprefs-ordered.txt").TrimEnd() + "\n\n    function status() {");
+            if (!source.Contains("// MUKJUMP_PLAYERPREFS_ORDERED_V1"))
+            {
+                // SDK 원본은 보존한다. 예상 구현이 달라지면 추측해서 배포하지 않는다.
+                source = ReplacePlayerPrefsOnce(source, "    function pushScoped(mount) {\n        return new Promise(function (resolve) {",
+                    "    function pushScoped(mount) {\n        return new Promise(function (resolve, reject) {");
+                source = ReplacePlayerPrefsOnce(source, "                resolve(false);\n            });\n        }).catch(function (e) {\n            recordError('push', e);\n            return false;",
+                    "                reject(e);\n            });\n        }).catch(function (e) {\n            recordError('push', e);\n            throw e;");
+                source = ReplacePlayerPrefsOnce(source, "    function status() {",
+                    File.ReadAllText("Assets/Editor/mukjump-playerprefs-ordered.txt").TrimEnd() + "\n\n    function status() {");
+            }
+            string restorePatch = File.ReadAllText("Assets/Editor/mukjump-playerprefs-restore.txt").TrimEnd();
+            if (source.Contains("// MUKJUMP_PLAYERPREFS_RESTORE_V1"))
+            {
+                var restorePattern = new Regex(@"    // MUKJUMP_PLAYERPREFS_RESTORE_V1[\s\S]*?(?=    var api = \{)");
+                if (restorePattern.Matches(source).Count != 1)
+                    throw new BuildFailedException("토스 PlayerPrefs 복원 보정 범위를 확인할 수 없습니다.");
+                source = restorePattern.Replace(source, _ => restorePatch + "\n\n", 1);
+            }
+            else
+            {
+                source = ReplacePlayerPrefsOnce(source, "    var api = {",
+                    restorePatch + "\n\n    var api = {\n        preparePrefsPath: mukjumpPreparePrefsPath,\n        confirmOwner: mukjumpConfirmOwner,");
+            }
             return source;
         }
 
@@ -828,7 +843,8 @@ namespace MukJump.EditorTools
             string persistencePath = Path.Combine(directory, "Runtime", "ait-playerprefs.js");
             if (!File.Exists(persistencePath) ||
                 !File.ReadAllText(persistencePath).Contains("// MUKJUMP_PLAYERPREFS_PRERUN_V1") ||
-                !File.ReadAllText(persistencePath).Contains("// MUKJUMP_PLAYERPREFS_ORDERED_V1"))
+                !File.ReadAllText(persistencePath).Contains("// MUKJUMP_PLAYERPREFS_ORDERED_V1") ||
+                !File.ReadAllText(persistencePath).Contains("// MUKJUMP_PLAYERPREFS_RESTORE_V1"))
                 issues.Add("• 토스 PlayerPrefs 초기화 순서 보정이 산출물에 없습니다.");
             foreach (string name in MukJumpWebPayloadGuard.NativeStreamingNames)
                 if (File.Exists(Path.Combine(directory, "StreamingAssets", name)))

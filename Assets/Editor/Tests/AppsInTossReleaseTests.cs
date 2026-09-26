@@ -984,11 +984,13 @@ namespace MukJump.EditorTests
             string source = File.ReadAllText(Path.Combine(sdk, "WebGLTemplates/AITTemplate/Runtime/ait-playerprefs.js"));
             string patched = MukJumpAppsInTossSetup.ApplyPlayerPrefsRuntimePatch(source);
             Assert.That(patched, Does.Contain("// MUKJUMP_PLAYERPREFS_ORDERED_V1"));
+            Assert.That(patched, Does.Contain("// MUKJUMP_PLAYERPREFS_RESTORE_V1"));
             Assert.That(MukJumpAppsInTossSetup.ApplyPlayerPrefsRuntimePatch(patched), Is.EqualTo(patched));
+            Assert.That(patched, Does.Contain("function mukjumpGuardLocalFs()"));
+            string stalePatch = patched.Replace("function mukjumpGuardLocalFs()", "function oldLocalFsGuard()");
+            Assert.That(MukJumpAppsInTossSetup.ApplyPlayerPrefsRuntimePatch(stalePatch), Is.EqualTo(patched));
             Assert.Throws<UnityEditor.Build.BuildFailedException>(() =>
                 MukJumpAppsInTossSetup.ApplyPlayerPrefsRuntimePatch(source.Replace("function pushScoped(mount)", "function changed(mount)")));
-            Directory.CreateDirectory("output/qa/toss-final-20260925");
-            File.WriteAllText("output/qa/toss-final-20260925/patched-playerprefs.js", patched);
         }
 
         static void WriteValidReleasePayload(
@@ -1007,7 +1009,7 @@ namespace MukJump.EditorTests
                 Path.Combine(runtime, "index.js"),
                 "window.AppsInToss = { loadFullScreenAd: null, showFullScreenAd: null, TossAds: null };");
             Directory.CreateDirectory(Path.Combine(root, "Runtime"));
-            File.WriteAllText(Path.Combine(root, "Runtime", "ait-playerprefs.js"), "// MUKJUMP_PLAYERPREFS_PRERUN_V1\n// MUKJUMP_PLAYERPREFS_ORDERED_V1");
+            File.WriteAllText(Path.Combine(root, "Runtime", "ait-playerprefs.js"), "// MUKJUMP_PLAYERPREFS_PRERUN_V1\n// MUKJUMP_PLAYERPREFS_ORDERED_V1\n// MUKJUMP_PLAYERPREFS_RESTORE_V1");
         }
 
         static void SetPrivateField<T>(object target, string name, T value)
