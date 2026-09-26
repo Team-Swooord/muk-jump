@@ -42,5 +42,24 @@
 내장 이미지 생성 도구로 만든 투명 PNG 세 장을 `Assets/Resources/MukJump/Cosmetics/`에 보관한다. 가져오기 설정은 씬 빌더의 `ConfigureCosmeticSprites`가 관리한다. 외부 에셋을 다운로드하지 않았다.
 
 - 댓잎: 한 장의 가늘고 뾰족한 먹색 대나무 잎, 배경·다른 물체 없이 투명 배경.
-- 까치 둥지: 검정·한지색의 작은 까치 새끼와 낮고 둥근 나뭇가지 둥지, 거친 수묵 선, 투명 배경.
+- 까치 둥지: 검정·한지색의 작은 까치와 낮은 둥지. 기존 삿갓·종이배처럼 굵고 삐뚤한 외곽선, 큰 단색 면, 소수의 나뭇가지 표시만 사용한다. 점눈에는 반짝임을 넣지 않고 깃털·촘촘한 짜임·명암·얼룩 질감은 생략한다.
 - 먹 올챙이: 몸체 없이 짧게 굽은 먹색 꼬리만, 기존 먹의 실루엣·표정에 겹쳐 쓰는 투명 장식.
+
+### 까치 둥지의 단순화 기준
+
+2026-09-26 사용자의 기존 게임 스킨에 맞추라는 수정 요청을 반영했다. 그림체 기준은
+`skin-art-fit.md`이며 참조 원화는 `Skins/skin_bamboo_hat_v1.png`와
+`Skins/skin_paper_boat_v1.png`다. 고해상도는 유지하고 묘사만 줄인다.
+`Cosmetics/skin_magpie_nest_v1.png`의 1536×1024 투명 원화와 기존 GUID·장착 좌표를 유지한다.
+
+제작 모드는 내장 이미지 도구의 `style-transfer` 편집이다. 첫 편집은 복잡한 둥지 원화를
+기존 두 스킨의 적은 선·평평한 색면으로 다시 그리도록 지정했고, 최종 편집 프롬프트의 핵심 지시는 다음과 같다.
+
+> Keep the simplified magpie nest's composition, wide shallow bowl, few crooked twig marks,
+> one chick, canvas size, occupied area, silhouette and transparent background. Remove mottled
+> white grain inside the chick's head and wing; use flat warm near-black #1C1B1A. Replace grey
+> beak shading with one flat ivory triangle outlined in charcoal. Keep two tiny dot eyes,
+> broad ivory face/belly and bold slightly wobbly outlines. No feather detail, highlights,
+> gradients, lighting or paper texture. Keep slight irregularity only at outline edges,
+> matching the existing bamboo hat. Flat #EAE3D2 nest with the existing few thick twig strokes.
+> Actual PNG alpha transparency outside, no glow, shadows, additional objects, game body or text.

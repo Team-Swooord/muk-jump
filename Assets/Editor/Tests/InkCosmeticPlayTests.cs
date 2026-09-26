@@ -58,7 +58,14 @@ namespace MukJump.EditorTests
                 var original = Object.FindFirstObjectByType<PlayerController>();
                 var clone = Object.Instantiate(original.gameObject); clone.GetComponent<PlayerController>().ConfigureAsClone(3f);
                 clone.transform.position = original.transform.position + Vector3.right * 1.2f;
-                yield return null;
+                Assert.That(clone.GetComponent<PlayerController>().IsRuntimeClone, Is.True);
+                Assert.That(RunGrowthController.Instance.CloneSnapshot, Is.EqualTo(InkCosmeticCatalog.Tadpole));
+                // 복제 직후에는 원본 장식이 남는다. 실제 LateUpdate 표시 갱신을 기다린다.
+                var cloneView = clone.GetComponent<InkSkinView>();
+                var tail = InkCosmeticCatalog.Sprite(InkCosmeticCatalog.Tadpole);
+                float appearanceDeadline = Time.realtimeSinceStartup + 2f;
+                while (cloneView.AccessoryRenderer.sprite != tail && Time.realtimeSinceStartup < appearanceDeadline)
+                    yield return null;
                 Assert.That(original.GetComponent<InkSkinView>().AccessoryRenderer.sprite, Is.SameAs(InkCosmeticCatalog.Sprite(InkCosmeticCatalog.MagpieNest)));
                 Assert.That(clone.GetComponent<InkSkinView>().AccessoryRenderer.sprite, Is.SameAs(InkCosmeticCatalog.Sprite(InkCosmeticCatalog.Tadpole)));
                 Assert.That(RunGrowthController.Instance.LandingSnapshot, Is.EqualTo(InkCosmeticCatalog.BambooLeaf));
