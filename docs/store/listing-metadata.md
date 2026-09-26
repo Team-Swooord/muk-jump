@@ -100,12 +100,13 @@ App Review의 연락처 이메일에는 개발자 계정 공식 연락처 `choiy
 
 ### App Store 스크린샷
 
-- 등록본 보관 위치: `store-screenshots/app-store-connect/`의 기존 PNG 6장을 유지한다.
-- `07-all-skins.png`는 2026-09-24 추가 제작한 1284×2778 스킨 62종 그리드다. 기존 등록본의 로고·프레임을 보존하고 홍보 문구 없이 제작했다. Apple 로그인 대기로 아직 등록본이 아닌 업로드 후보이며 기존 6장을 대체하지 않는다.
+- 등록본 보관 위치: `store-screenshots/app-store-connect/`. 기존 PNG 6장을 보존하고 스킨 모음 1장을 추가했다.
+- `07-all-skins.png`는 2026-09-24 제작한 1284×2778 스킨 62종 그리드다. 기존 등록본의 로고·프레임을 보존하고 홍보 문구 없이 제작했다. 2026-09-26 사용자 요청으로 iOS 1.0.3의 한국어 6.5인치 슬롯에 업로드하고 저장 후 재조회했다. 심사 승인이나 공개 반영 완료를 뜻하지 않는다.
 - 2026-09-17 App Store Connect의 iOS 1.0.0에 등록된 iPhone 6.5인치
   (1284×2778) 원본을 내려받아 보관했다. 미등록 시안과 촬영 원본은 보관하지 않는다.
-- 실제 등록 순서: `01-mountain-jump.png` → `04-lotus-golden.png` →
-  `03-gate-clones.png` → `06-growth.png` → `02-cliff-shield.png` → `05-river-boost.png`
+- 실제 등록 순서: `01-mountain-jump.png` → `04-lotus-golden.png` → `07-all-skins.png` →
+  `06-growth.png` → `03-gate-clones.png` → `02-cliff-shield.png` → `05-river-boost.png`.
+  추가 후 사용자가 화면에서 조정한 순서를 유지했다.
 - 영어(미국)·일본어 및 다른 iPhone 디스플레이 크기는 한국어 6.5인치 등록본을 사용한다.
 - 앱이 iPhone 전용이므로 iPad 스크린샷은 생성하지 않는다.
 
