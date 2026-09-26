@@ -269,7 +269,7 @@ namespace MukJump.EditorTests
                 Is.EqualTo(5));
             Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
                 Is.EqualTo(100));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":13"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":14"));
         }
 
         [Test]
@@ -677,7 +677,7 @@ namespace MukJump.EditorTests
 
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(5));
             Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.Zero);
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":13"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":14"));
             Assert.That(PermanentGrowthProfile.ClaimedDistanceRewardCount,
                 Is.EqualTo(5));
         }
@@ -694,7 +694,7 @@ namespace MukJump.EditorTests
                 Is.EqualTo(6));
             Assert.That(PermanentGrowthProfile.CumulativeDistanceMeters,
                 Is.EqualTo(150));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":13"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":14"));
         }
 
         [Test]
@@ -1037,7 +1037,7 @@ namespace MukJump.EditorTests
             Assert.That(failingStore.BackupQuarantineJson,
                 Is.EqualTo(futureBackup));
             Assert.That(failingStore.BackupJson,
-                Does.Contain("\"balanceVersion\":13"));
+                Does.Contain("\"balanceVersion\":14"));
         }
 
         [Test]
@@ -1077,7 +1077,7 @@ namespace MukJump.EditorTests
             failingStore.ThrowOnBackupLoad = false;
             Assert.That(PermanentGrowthProfile.TryRestoreBackup(), Is.True);
             Assert.That(failingStore.QuarantineJson, Is.EqualTo(v2));
-            Assert.That(failingStore.Json, Does.Contain("\"balanceVersion\":13"));
+            Assert.That(failingStore.Json, Does.Contain("\"balanceVersion\":14"));
             Assert.That(PermanentGrowthProfile.Currency, Is.EqualTo(8));
             Assert.That(PermanentGrowthProfile.OwnedNodeCount, Is.Zero);
         }
@@ -1676,7 +1676,7 @@ namespace MukJump.EditorTests
             Assert.That(PermanentGrowthProfile.TryResetAfterLoadFailure(), Is.True);
             Assert.That(store.QuarantineJson, Is.EqualTo(corrupt));
             Assert.That(store.BackupJson, Is.EqualTo(backup));
-            Assert.That(store.Json, Does.Contain("\"balanceVersion\":13"));
+            Assert.That(store.Json, Does.Contain("\"balanceVersion\":14"));
             Assert.That(PermanentGrowthProfile.Currency, Is.Zero);
             PermanentGrowthSettlement settlement =
                 PermanentGrowthProfile.SettleRun(
@@ -1765,7 +1765,7 @@ namespace MukJump.EditorTests
                 RunRewardCalculator.GetThresholdForRewardCount(
                     grantedRewardCount);
             return BuildSaveJson(
-                13,
+                14,
                 wallet,
                 cumulativeDistance,
                 grantedRewardCount,
@@ -1824,6 +1824,7 @@ namespace MukJump.EditorTests
                 "\"lastSettledRunId\":\"\"," +
                 (balanceVersion >= 12 ? "\"skinAchievements\":" +
                     JsonUtility.ToJson(new SkinAchievementState { growth = ownedNodeIds?.Length ?? 0 }) + "," : "") +
+                (balanceVersion >= 14 ? "\"cosmetics\":" + JsonUtility.ToJson(new InkCosmeticOwnership()) + "," : "") +
                 "\"settledRunIds\":[]," +
                 "\"ranks\":[]," +
                 $"\"ownedNodeIds\":{owned}," +

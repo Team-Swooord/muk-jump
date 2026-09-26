@@ -158,10 +158,10 @@ namespace MukJump.Core
     }
 
     /// 게임 종료 뒤에도 유지되는 먹빛·열매 소유·비기 장착 상태를 소유한다.
-    public static class PermanentGrowthProfile
+    public static partial class PermanentGrowthProfile
     {
         const int SchemaVersion = 1;
-        const int BalanceVersion = 13;
+        const int BalanceVersion = 14;
         const int V2TotalCost = 39;
         const int LegacyTotalCost = 957;
         const int SettledRunHistoryLimit = 64;
@@ -192,6 +192,7 @@ namespace MukJump.Core
             public long distanceRewardOffsetMeters;
             public string lastSettledRunId = string.Empty;
             public SkinAchievementState skinAchievements = new();
+            public InkCosmeticOwnership cosmetics = new();
             public List<string> settledRunIds = new();
             // balanceVersion 1 역직렬화·마이그레이션 전용.
             public List<RankRecord> ranks = new();
@@ -638,9 +639,11 @@ namespace MukJump.Core
             // 호출자가 같은 계정임을 확인한 정상 새로고침에서만 이미 얻은 의상을 보존한다.
             // 명시적 계정 교체/복구는 기본 exact replace를 유지하며 재화·진행은 합산하지 않는다.
             long ownedSkins = preserveOwnedSkins ? data.skinAchievements.unlockedMask : 0;
+            var ownedCosmetics = preserveOwnedSkins ? data.cosmetics : null;
             data = cloudData;
             PrepareSupportedData();
             data.skinAchievements.unlockedMask |= ownedSkins;
+            data.cosmetics.Merge(ownedCosmetics);
             if (!Save(rollback, rollback.Json))
                 return false;
 
@@ -1194,6 +1197,7 @@ namespace MukJump.Core
 
             data.skinAchievements.Settle(runDistanceMeters, activeGameplaySeconds, skinStats,
                 data.cumulativeDistanceMeters, data.ownedNodeIds.Count);
+            data.cosmetics.GrantEarned(data.skinAchievements);
 
             if (!Save(snapshot))
                 return CreateSettlement(0, false);
@@ -1674,6 +1678,8 @@ namespace MukJump.Core
             data.skinAchievements.growth = Math.Max(data.skinAchievements.growth, data.ownedNodeIds.Count);
             if (needsSkinUnlockMigration)
                 InkSkinUnlockBalance.PreserveEarnedRewards(data.skinAchievements, data.cumulativeDistanceMeters, data.ownedNodeIds.Count);
+            data.cosmetics ??= new InkCosmeticOwnership();
+            data.cosmetics.GrantEarned(data.skinAchievements);
             return !string.Equals(
                 before,
                 JsonUtility.ToJson(data),
@@ -1715,6 +1721,8 @@ namespace MukJump.Core
                     return false;
 
                 parsed = JsonUtility.FromJson<SaveData>(json);
+                if (header.balanceVersion >= 14 && (!InkCosmeticOwnership.HasCompletePayload(json) ||
+                    parsed?.cosmetics == null || !parsed.cosmetics.IsValid)) return false;
                 if (header.balanceVersion >= 12 && (!SkinAchievementState.HasCompletePayload(json, header.balanceVersion >= 13) ||
                     parsed?.skinAchievements == null || !parsed.skinAchievements.IsValid)) return false;
                 if (parsed == null ||

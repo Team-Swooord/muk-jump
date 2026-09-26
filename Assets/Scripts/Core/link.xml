@@ -6,5 +6,7 @@
     <type fullname="MukJump.Core.PermanentGrowthProfile/SaveData" preserve="all" />
     <type fullname="MukJump.Core.PermanentGrowthProfile/SaveHeader" preserve="all" />
     <type fullname="MukJump.Core.PermanentGrowthProfile/RankRecord" preserve="all" />
+    <type fullname="MukJump.Core.InkCosmeticOwnership" preserve="all" />
+    <type fullname="MukJump.Core.InkCosmeticSelection" preserve="all" />
   </assembly>
 </linker>

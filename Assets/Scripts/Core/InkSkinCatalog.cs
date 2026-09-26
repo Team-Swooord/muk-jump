@@ -338,19 +338,20 @@ namespace MukJump.Core
         }
     }
     /// 착용 취향만 기기에 저장한다. 사용 권한은 현재 계정 업적으로 다시 검증한다.
-    public static class InkSkinPreferences
+    public static partial class InkSkinPreferences
     {
         public const string StorageKey = "MukJump.Settings.EquippedSkin";
         public const string GoldSelectionKey = "MukJump.Settings.GoldInkSelected";
         static ILobbySettingsStore store = new PlayerPrefsLobbySettingsStore();
         public static event Action Changed;
-        public static bool GoldSelected => store.GetInt(GoldSelectionKey, 0) == 1;
+        public static bool GoldSelected => PreferredCosmetic(InkCosmeticSlot.Skin) == InkCosmeticCatalog.Gold;
         // 디버그 시험 착용은 공개 리더보드로 전송하지 않는다.
         public static InkSkinId PersistedEquipped
         {
             get
             {
-                var chosen = InkSkinCatalog.Normalize((InkSkinId)store.GetInt(StorageKey, 0));
+                var preferred = PreferredCosmetic(InkCosmeticSlot.Skin);
+                var chosen = InkCosmeticCatalog.TryLegacy(preferred, out var legacy) ? legacy : InkSkinId.Ink;
                 return InkSkinAchievements.IsUnlocked(chosen) ? chosen : InkSkinId.Ink;
             }
         }
@@ -376,28 +377,10 @@ namespace MukJump.Core
             // 재실행의 계정/최고점 로딩 순서 때문에 이미 착용한 의상이 다시 잠기지 않게 한다.
             if (!gold && id != InkSkinId.Ink && !PermanentGrowthProfile.TryGrantLiveAchievements(
                 PermanentGrowthProfile.SkinAccountToken, 1UL << (int)id, 0)) return false;
-            int previous = store.GetInt(StorageKey, 0);
-            int previousGold = store.GetInt(GoldSelectionKey, 0);
-            if (previous == (int)id && previousGold == (gold ? 1 : 0)) return true;
-            try
-            {
-                store.SetInt(StorageKey, (int)id);
-                store.SetInt(GoldSelectionKey, gold ? 1 : 0);
-                store.Save();
-                // 로컬 저장 성공 뒤에만 기존 클라우드 저장 대기열에 변경을 알린다.
-                // 수신자 오류 때문에 이미 저장된 장착을 실패/롤백으로 취급하지 않는다.
-                if (Changed != null)
-                    foreach (Action listener in Changed.GetInvocationList())
-                        try { listener(); }
-                        catch (Exception error) { UnityEngine.Debug.LogWarning("[MukJump] 착용 변경 알림 실패: " + error.Message); }
-                return true;
-            }
-            catch (Exception)
-            {
-                // Save 실패 뒤 종료 시 새 값이 뒤늦게 저장되지 않도록 메모리 값도 되돌린다.
-                try { store.SetInt(StorageKey, previous); store.SetInt(GoldSelectionKey, previousGold); } catch (Exception) { }
-                return false;
-            }
+            if (!TryReadCosmetics(out var selection)) return false;
+            selection = selection.Copy();
+            selection.skin = gold ? InkCosmeticCatalog.Gold : InkCosmeticCatalog.Legacy(id);
+            return SaveCosmeticSelection(selection, id, gold);
         }
 
 #if UNITY_EDITOR

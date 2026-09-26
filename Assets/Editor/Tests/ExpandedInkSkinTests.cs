@@ -319,7 +319,7 @@ namespace MukJump.EditorTests
             view.BuildForTests();view.SetNavigationPresentation(true,true);
             for(int page=0;page<6;page++)
             {
-                Assert.That(view.Paper.GetComponentsInChildren<UnityEngine.UI.Button>().Count(b=>b.name.StartsWith("SkinCard")),Is.EqualTo(InkSkinCatalog.BrowseCount));
+                Assert.That(view.Paper.GetComponentsInChildren<UnityEngine.UI.Button>().Count(b=>b.name.StartsWith("SkinCard")),Is.EqualTo(InkWardrobeEntry.Count));
                 view.ChangePage(1);
             }
             view.Select(InkSkinId.ClockworkCat);
@@ -381,7 +381,7 @@ namespace MukJump.EditorTests
                 Assert.That(InkSkinAchievements.IsUnlocked(id), Is.True, id.ToString());
             Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.CloudDragon), Is.False);
             Assert.That(PermanentGrowthProfile.AchievementSnapshot().dragonDeaths, Is.Zero);
-            Assert.That(JObject.Parse(store.Json)["balanceVersion"].Value<int>(), Is.EqualTo(13));
+            Assert.That(JObject.Parse(store.Json)["balanceVersion"].Value<int>(), Is.EqualTo(14));
             long mask = PermanentGrowthProfile.AchievementSnapshot().unlockedMask;
             PermanentGrowthProfile.ResetCacheForTests();
             Assert.That(PermanentGrowthProfile.AchievementSnapshot().unlockedMask, Is.EqualTo(mask));

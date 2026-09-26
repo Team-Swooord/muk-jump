@@ -131,6 +131,8 @@ namespace MukJump.EditorTests
             Assert.That(growth.SkinSnapshot, Is.EqualTo(InkSkinId.Gat));
             Assert.That(InkSkinPreferences.TryEquip(InkSkinId.SpiderMask), Is.False);
             settings.SetInt(InkSkinPreferences.StorageKey, (int)InkSkinId.SpiderMask);
+            settings.SetString(InkSkinPreferences.CosmeticsKey, JsonUtility.ToJson(new InkCosmeticSelection
+                { skin = InkCosmeticCatalog.Legacy(InkSkinId.SpiderMask) }));
             Invoke(manager, "SetState", GameState.GameOver);
             Invoke(manager, "SetState", GameState.Playing);
             Assert.That(growth.SkinSnapshot, Is.EqualTo(InkSkinId.Gat));
@@ -282,7 +284,8 @@ namespace MukJump.EditorTests
             {
                 Assert.That(InkSkinCatalog.Get((InkSkinId)i).Id,Is.EqualTo((InkSkinId)i));
                 Assert.That(InkSkinCatalog.BrowseIndex(order[i]),Is.EqualTo(i));
-                Assert.That(view.CollectionContent.GetChild(i).name,Is.EqualTo("SkinCard"+(int)order[i]));
+                Assert.That(view.CollectionContent.GetChild(InkWardrobeEntry.Index(order[i])).name,Is.EqualTo("SkinCard"+(int)order[i]));
+                view.Select(order[i]);
                 Assert.That(view.Selected,Is.EqualTo(order[i]));
                 if(i>0)
                 {
@@ -290,7 +293,6 @@ namespace MukJump.EditorTests
                     if(InkSkinCatalog.BrowseGroup(order[i])==InkSkinCatalog.BrowseGroup(order[i-1]))
                         Assert.That(InkSkinCatalog.Get(order[i]).Tier,Is.GreaterThanOrEqualTo(InkSkinCatalog.Get(order[i-1]).Tier));
                 }
-                view.StepSelection(1);
             }
             Assert.That(InkSkinPreferences.Equipped,Is.EqualTo(InkSkinId.Ink));
             view.Select(InkSkinId.RedShoes); view.StepSelection(-1);
@@ -889,7 +891,7 @@ namespace MukJump.EditorTests
             typeof(PlayerController).GetProperty("IsDead").SetValue(original, true);
             Assert.That(growth.TryUseActiveSkinSkill(), Is.False, "분신만 남아도 본체를 부활시키지 않는다.");
             Invoke(manager, "SetState", GameState.Lobby);
-            settings.SetInt(InkSkinPreferences.StorageKey, (int)InkSkinId.Ink);
+            Assert.That(InkSkinPreferences.TryEquip(InkSkinId.Ink), Is.True);
             Invoke(manager, "SetState", GameState.Playing);
             Assert.That(growth.HasActiveSkinSkill, Is.False);
         }
