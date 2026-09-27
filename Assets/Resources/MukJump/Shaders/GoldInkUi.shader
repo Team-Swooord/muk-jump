@@ -15,7 +15,7 @@ Shader "MukJump/GoldInkUi"
     }
     SubShader
     {
-        Tags { "Queue"="Transparent" "RenderType"="Transparent" "IgnoreProjector"="True" "CanUseSpriteAtlas"="True" }
+        Tags { "Queue"="Transparent" "RenderType"="Transparent" "IgnoreProjector"="True" "CanUseSpriteAtlas"="False" }
         Stencil { Ref [_Stencil] Comp [_StencilComp] Pass [_StencilOp] ReadMask [_StencilReadMask] WriteMask [_StencilWriteMask] }
         Cull Off Lighting Off ZWrite Off ZTest [unity_GUIZTestMode]
         Blend SrcAlpha OneMinusSrcAlpha
@@ -45,7 +45,7 @@ Shader "MukJump/GoldInkUi"
             }
             fixed4 Frag(Output input) : SV_Target
             {
-                fixed4 color = GoldInkColor(tex2D(_MainTex, input.uv), input.local.xy * 0.01, _Time.y) * input.color;
+                fixed4 color = GoldInkColor(tex2D(_MainTex, input.uv), input.uv, _Time.y) * input.color;
                 #ifdef UNITY_UI_CLIP_RECT
                     color.a *= UnityGet2DClipping(input.local.xy, _ClipRect);
                 #endif

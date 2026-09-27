@@ -94,16 +94,17 @@ namespace MukJump.EditorTests
                 Assert.That(paper.Find(name), Is.Null, "먹 주변에 설명을 흩어 배치하지 않는다: " + name);
             Assert.That(paper.GetComponentsInChildren<Text>(true).Select(t => t.name),
                 Is.EquivalentTo(new[] { "Title", "BenefitsSummary", "Label", "PurchaseNotice", "Status" }));
-            string summarySource = "영구 광고 제거 · 평생\n황금 먹 제공";
+            Assert.That(paper.Find("Title").GetComponent<Text>().text, Is.EqualTo(GameLocalization.Translate("황금먹 패키지")));
+            string summarySource = "황금먹 패키지 구매 시 영구 광고 제거,\n특별한 황금 먹 스킨 제공";
             var summary = paper.Find("BenefitsSummary").GetComponent<Text>();
             Assert.That(summary.text, Is.EqualTo(GameLocalization.Translate(summarySource)));
             if (language != GameLanguage.Korean) Assert.That(summary.text, Is.Not.EqualTo(summarySource));
-            string noticeSource = "구매 즉시 적용됩니다.\n제공 개시 후 청약철회는 법령·스토어 정책에 따라 제한될 수 있습니다.";
+            string noticeSource = "※ 구매 즉시 광고 제거 및 패키지 혜택이 적용됩니다. 디지털 콘텐츠 제공이 시작된 이후에는 관련 법령 및 스토어 정책에 따라 청약철회가 제한될 수 있습니다.";
             var notice = paper.Find("PurchaseNotice").GetComponent<Text>();
             Assert.That(notice.text, Is.EqualTo(GameLocalization.Translate(noticeSource)));
             if (language != GameLanguage.Korean) Assert.That(notice.text, Is.Not.EqualTo(noticeSource));
             // 일본어는 기존 공용 폰트의 상하 메트릭 보정(0.76배)을 유지한다.
-            Assert.That(notice.fontSize, Is.EqualTo(language == GameLanguage.Japanese ? Mathf.RoundToInt(30 * .76f) : 30));
+            Assert.That(notice.fontSize, Is.EqualTo(language == GameLanguage.Japanese ? Mathf.RoundToInt(28 * .76f) : 28));
             // 구매 버튼·안내·동적 상태 문구는 서로 다른 행이다.
             var purchase = (RectTransform)paper.Find("Purchase");
             var status = (RectTransform)paper.Find("Status");
@@ -116,10 +117,10 @@ namespace MukJump.EditorTests
             Assert.That(summary.rectTransform.anchoredPosition.y - summary.rectTransform.sizeDelta.y / 2,
                 Is.GreaterThan(purchase.anchoredPosition.y + purchase.sizeDelta.y / 2));
             Assert.That(purchase.anchoredPosition.y - purchase.sizeDelta.y / 2,
-                Is.GreaterThan(notice.rectTransform.anchoredPosition.y + notice.rectTransform.sizeDelta.y / 2));
-            Assert.That(notice.rectTransform.anchoredPosition.y - notice.rectTransform.sizeDelta.y / 2,
                 Is.GreaterThan(status.anchoredPosition.y + status.sizeDelta.y / 2));
             Assert.That(status.anchoredPosition.y - status.sizeDelta.y / 2,
+                Is.GreaterThan(notice.rectTransform.anchoredPosition.y + notice.rectTransform.sizeDelta.y / 2));
+            Assert.That(notice.rectTransform.anchoredPosition.y - notice.rectTransform.sizeDelta.y / 2,
                 Is.GreaterThan(-((RectTransform)paper).sizeDelta.y / 2));
         }
         [TestCase(false)] [TestCase(true)]
@@ -194,7 +195,76 @@ namespace MukJump.EditorTests
             Assert.That(world.GetFloat("_GoldShimmer"), Is.EqualTo(1));
             Assert.That(GoldInkVisual.World, Is.SameAs(world)); Assert.That(GoldInkVisual.Ui, Is.SameAs(ui));
         }
-        [Test] public void GoldShimmerChangesBodyButNotEyesOrAlpha()
+        [Test] public void EveryGoldAnimationFrameCoversDarkBodyAndPreservesEyes()
+        {
+            // 실제 4×2 원본으로 검사한다. 어두운 몸체를 동공으로 오인한 틈도 포함한다.
+            var source = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            source.LoadImage(System.IO.File.ReadAllBytes("Assets/Art/Character/Player/muk_spritesheet.png"));
+            var material = new Material(GoldInkVisual.Ui);
+            var target = new RenderTexture(source.width, source.height, 0, RenderTextureFormat.ARGB32);
+            var pixels = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
+            var oldTarget = RenderTexture.active;
+            var oldTime = Shader.GetGlobalVector("_Time");
+            try
+            {
+                Color32[] Render(float time, Material effect)
+                {
+                    Shader.SetGlobalVector("_Time", new Vector4(time / 20, time, time * 2, time * 3));
+                    RenderTexture.active = target; GL.Clear(true, true, Color.clear);
+                    if (effect == null) Graphics.Blit(source, target); else Graphics.Blit(source, target, effect);
+                    pixels.ReadPixels(new Rect(0, 0, source.width, source.height), 0, 0); pixels.Apply();
+                    return pixels.GetPixels32();
+                }
+                var baseline = Render(.95f, null);
+                material.SetFloat("_GoldShimmer", 1);
+                var first = Render(.95f, material); var later = Render(2.85f, material);
+                var darkBody = new int[8]; var pupils = new int[8]; var changed = new int[8];
+                int alphaChanges = 0;
+                for (int y = 0; y < source.height; y++) for (int x = 0; x < source.width; x++)
+                {
+                    int i = y * source.width + x, frame = y / 1024 * 4 + x / 1024;
+                    if (first[i].a != later[i].a) alphaChanges++;
+                    if (baseline[i].a < 254) continue;
+                    float u = (x % 1024 + .5f) / 1024, v = (y % 1024 + .5f) / 1024;
+                    bool eye = v > .44f && v < .61f &&
+                        (u > .33f && u < .47f || u > .53f && u < .68f);
+                    int brightness = Mathf.Max(baseline[i].r, baseline[i].g, baseline[i].b);
+                    if (eye && brightness < 20 || brightness > 235)
+                    {
+                        Assert.That(first[i].r, Is.EqualTo(baseline[i].r).Within(2), "눈 색 보존");
+                        Assert.That(first[i].g, Is.EqualTo(baseline[i].g).Within(2));
+                        Assert.That(first[i].b, Is.EqualTo(baseline[i].b).Within(2));
+                        Assert.That(later[i], Is.EqualTo(first[i]), "눈에는 흐르는 색을 적용하지 않는다");
+                        if (brightness < 20) pupils[frame]++;
+                    }
+                    else if (!eye && brightness <= 20)
+                    {
+                        darkBody[frame]++;
+                        Assert.That(first[i].r, Is.GreaterThan(150), "몸체의 어두운 틈: " + frame + " " + x + "," + y);
+                        Assert.That(first[i].g, Is.GreaterThan(85));
+                        Assert.That(later[i].r, Is.GreaterThan(150));
+                        if (Mathf.Abs(first[i].g - later[i].g) > 5) changed[frame]++;
+                    }
+                }
+                for (int frame = 0; frame < 8; frame++)
+                {
+                    Assert.That(darkBody[frame], Is.GreaterThan(1000), "어두운 몸체 검사 수 " + frame);
+                    Assert.That(pupils[frame], Is.GreaterThan(1000), "동공 검사 수 " + frame);
+                    Assert.That(changed[frame], Is.GreaterThan(100), "완만한 색 흐름 " + frame);
+                }
+                Assert.That(alphaChanges, Is.Zero, "애니메이션이 알파를 바꾸지 않는다");
+                material.SetFloat("_GoldShimmer", 0);
+                var reducedFirst = Render(.95f, material); var reducedLater = Render(2.85f, material);
+                Assert.That(reducedLater, Is.EqualTo(reducedFirst), "움직임 줄이기는 정적인 금색을 유지한다");
+            }
+            finally
+            {
+                Shader.SetGlobalVector("_Time", oldTime); RenderTexture.active = oldTarget;
+                Object.DestroyImmediate(source); Object.DestroyImmediate(material);
+                target.Release(); Object.DestroyImmediate(target); Object.DestroyImmediate(pixels);
+            }
+        }
+        [Test] public void GoldShimmerColorsDarkBodyAndPreservesWhiteAndAlpha()
         {
             var source = new Texture2D(32, 32, TextureFormat.RGBA32, false);
             var material = new Material(GoldInkVisual.Ui);
@@ -219,7 +289,8 @@ namespace MukJump.EditorTests
                 int row = 16 * 32;
                 Assert.That(first[row + 20].a, Is.GreaterThan(.9f), "몸체가 실제 렌더되어야 한다");
                 Assert.That(Mathf.Abs(first[row + 20].g - later[row + 20].g), Is.GreaterThan(.02f));
-                foreach (int x in new[] { 4, 12, 28 }) Assert.That(later[row + x], Is.EqualTo(first[row + x]));
+                Assert.That(first[row + 4].r, Is.GreaterThan(.6f), "검은 몸체도 금색으로 채운다");
+                foreach (int x in new[] { 12, 28 }) Assert.That(later[row + x], Is.EqualTo(first[row + x]));
                 for (int x = 0; x < 32; x++) Assert.That(later[row + x].a, Is.EqualTo(first[row + x].a));
                 material.SetFloat("_GoldShimmer", 0);
                 var reducedFirst = Render(.95f); var reducedLater = Render(2.85f);

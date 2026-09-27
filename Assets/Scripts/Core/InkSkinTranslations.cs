@@ -42,6 +42,13 @@ namespace MukJump.Core
                 ["부활 준비 중..."] = ("Preparing revival...", "復活の準備中..."),
                 ["광고 제거 · 금색 먹"] = ("No Ads · Golden Ink", "広告なし・金色の墨"),
                 ["모든 광고 제거"] = ("Remove All Ads", "すべての広告を削除"),
+                ["황금먹 패키지"] = ("Golden Ink Package", "金色の墨パッケージ"),
+                ["황금먹 패키지 구매 시 영구 광고 제거,\n특별한 황금 먹 스킨 제공"] =
+                    ("Buy the Golden Ink Package for permanent ad removal\nand an exclusive Golden Ink skin",
+                     "金色の墨パッケージの購入で広告を永久削除、\n特別な金色の墨スキンつき"),
+                ["※ 구매 즉시 광고 제거 및 패키지 혜택이 적용됩니다. 디지털 콘텐츠 제공이 시작된 이후에는 관련 법령 및 스토어 정책에 따라 청약철회가 제한될 수 있습니다."] =
+                    ("※ Ad removal and package benefits apply immediately upon purchase. Once digital content delivery begins, cancellation rights may be limited under applicable law and store policies.",
+                     "※ 購入後すぐに広告削除とパッケージ特典が適用されます。デジタルコンテンツの提供開始後は、関連法令およびストアの規定により購入の撤回が制限される場合があります。"),
                 ["한 번 구매 · 영구 적용"] = ("Buy once · Keep forever", "一度の購入で永久に"),
                 ["금색 먹 포함"] = ("Golden Ink included", "金色の墨つき"),
                 ["영구 광고 제거 · 평생\n황금 먹 제공"] = ("Ad-free · For life\nGolden Ink included", "広告を永久削除・ずっと\n金色の墨つき"),

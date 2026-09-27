@@ -82,13 +82,13 @@ namespace MukJump.Core
             frame = HanjiScrollFrame.Attach(paper, new Vector2(880, 1260));
             InkUiStyle.ConfigurePopupDismiss(dim, paper, Close,
                 () => IsOpen && group.interactable && (!Application.isPlaying || frame.IsReady));
-            Label("Title", "모든 광고 제거", 68, 455, 100, true);
+            Label("Title", "황금먹 패키지", 68, 455, 100, true);
             BuildGoldenBackdrop();
             var body = Rect("GoldenInk", paper, new Vector2(0, 175), new Vector2(360, 360)).gameObject.AddComponent<Image>();
             body.sprite = previewBodySprite; body.preserveAspect = true; body.raycastTarget = false;
             GoldInkVisual.Apply(body, true);
-            Label("BenefitsSummary", "영구 광고 제거 · 평생\n황금 먹 제공", 40, -83, 96, true).color = new Color(.46f, .31f, .12f);
-            purchase = Action("Purchase", "상품 확인 중...", -240, out purchaseLabel);
+            Label("BenefitsSummary", "황금먹 패키지 구매 시 영구 광고 제거,\n특별한 황금 먹 스킨 제공", 34, -87, 112, true).color = new Color(.46f, .31f, .12f);
+            purchase = Action("Purchase", "상품 확인 중...", -250, out purchaseLabel);
             purchaseLabel.fontSize = 48;
             var purchaseSurface = purchase.targetGraphic as Image;
             purchaseSurface.color = InkPalette.Red;
@@ -108,8 +108,8 @@ namespace MukJump.Core
                 store.Purchase();
                 Refresh();
             });
-            Label("PurchaseNotice", "구매 즉시 적용됩니다.\n제공 개시 후 청약철회는 법령·스토어 정책에 따라 제한될 수 있습니다.", 30, -423, 130, false);
-            status = Label("Status", "", 30, -556, 96, false);
+            status = Label("Status", "", 28, -375, 72, false);
+            Label("PurchaseNotice", "※ 구매 즉시 광고 제거 및 패키지 혜택이 적용됩니다. 디지털 콘텐츠 제공이 시작된 이후에는 관련 법령 및 스토어 정책에 따라 청약철회가 제한될 수 있습니다.", 28, -520, 180, false);
             Hide();
         }
         void BuildGoldenBackdrop()

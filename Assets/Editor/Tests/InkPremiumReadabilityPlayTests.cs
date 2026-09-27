@@ -37,7 +37,7 @@ namespace MukJump.EditorTests
             var sizeGroup = sizeType.GetProperty("currentGroup", flags).GetValue(sizes);
             int firstTemporary = (int)sizeGroup.GetType().GetMethod("GetTotalCount").Invoke(sizeGroup, null);
             int added = 0;
-            const string output = "output/qa/premium-benefits-20260927";
+            const string output = "output/qa/golden-package-20260927";
             try
             {
                 yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
@@ -85,7 +85,12 @@ namespace MukJump.EditorTests
                         store.Message = ""; yield return Wait(.3f);
                         if (size.x == 390 && language == GameLanguage.Korean)
                         {
-                            yield return Wait(1.3f); yield return Capture("gold-shimmer-later", output);
+                            // 실제 Play Overlay 연속 캡처. 그라데이션 한 주기와 눈·가장자리를 직접 검토한다.
+                            for (int frame = 0; frame < 32; frame++)
+                            {
+                                yield return Capture(frame.ToString("D3"), output + "/gold-flow");
+                                yield return Wait(.25f);
+                            }
                         }
                         store.Busy = size.x == 390;
                         bool checkedDismiss = false; System.Exception dismissError = null;
