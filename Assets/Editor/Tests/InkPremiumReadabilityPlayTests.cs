@@ -37,7 +37,7 @@ namespace MukJump.EditorTests
             var sizeGroup = sizeType.GetProperty("currentGroup", flags).GetValue(sizes);
             int firstTemporary = (int)sizeGroup.GetType().GetMethod("GetTotalCount").Invoke(sizeGroup, null);
             int added = 0;
-            const string output = "output/qa/popup-dismiss-20260927";
+            const string output = "output/qa/premium-copy-20260927";
             try
             {
                 yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
@@ -66,6 +66,7 @@ namespace MukJump.EditorTests
                         var paper = shop.transform.Find("PremiumShopCanvas/SafeArea/PremiumPaper");
                         Assert.That(paper.Find("Restore"), Is.Null);
                         Assert.That(paper.Find("Close"), Is.Null);
+                        InkPremiumUiTests.AssertConcisePresentation(paper, language);
                         foreach (var text in paper.GetComponentsInChildren<Text>())
                             Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 2), text.name + " " + language);
                         var purchase = paper.Find("Purchase").GetComponent<Button>();

@@ -56,6 +56,7 @@ namespace MukJump.EditorTests
             var paper = host.transform.Find("PremiumShopCanvas/SafeArea/PremiumPaper");
             Assert.That(paper.Find("Restore"), Is.Null);
             Assert.That(paper.Find("Close"), Is.Null);
+            AssertConcisePresentation(paper, language);
             Assert.That(paper.GetComponentsInChildren<Button>().Select(b => b.name), Is.EqualTo(new[] { "Purchase" }));
             var purchase = paper.Find("Purchase").GetComponent<Button>();
             Assert.That(purchase.GetComponentInChildren<Text>().text, Does.Contain("$2.99"));
@@ -65,6 +66,33 @@ namespace MukJump.EditorTests
             Assert.That(store.Purchases, Is.EqualTo(1)); Assert.That(store.Restores, Is.Zero);
             store.Busy = false; store.Owned = true; Invoke(shop, "Refresh");
             Assert.That(purchase.interactable, Is.False);
+        }
+        public static void AssertConcisePresentation(Transform paper, GameLanguage language)
+        {
+            var backdrop = paper.Find("GoldenBackdrop");
+            Assert.That(backdrop, Is.Not.Null);
+            Assert.That(backdrop.GetSiblingIndex(), Is.LessThan(paper.Find("GoldenInk").GetSiblingIndex()));
+            Assert.That(backdrop.GetComponentsInChildren<Image>().Length, Is.EqualTo(3));
+            foreach (var image in backdrop.GetComponentsInChildren<Image>())
+            {
+                Assert.That(image.sprite, Is.Not.Null, image.name);
+                Assert.That(image.raycastTarget, Is.False, image.name);
+            }
+            Assert.That(paper.Find("CosmeticOnly"), Is.Null, "긴 중복 설명은 넣지 않는다");
+            Assert.That(paper.Find("RestoreHint"), Is.Null);
+            string noticeSource = "구매 즉시 적용됩니다.\n제공 개시 후 청약철회는 법령·스토어 정책에 따라 제한될 수 있습니다.";
+            var notice = paper.Find("PurchaseNotice").GetComponent<Text>();
+            Assert.That(notice.text, Is.EqualTo(GameLocalization.Translate(noticeSource)));
+            if (language != GameLanguage.Korean) Assert.That(notice.text, Is.Not.EqualTo(noticeSource));
+            // 일본어는 기존 공용 폰트의 상하 메트릭 보정(0.76배)을 유지한다.
+            Assert.That(notice.fontSize, Is.EqualTo(language == GameLanguage.Japanese ? Mathf.RoundToInt(30 * .76f) : 30));
+            // 구매 버튼·안내·동적 상태 문구는 서로 다른 행이다.
+            var purchase = (RectTransform)paper.Find("Purchase");
+            var status = (RectTransform)paper.Find("Status");
+            Assert.That(purchase.anchoredPosition.y - purchase.sizeDelta.y / 2,
+                Is.GreaterThan(notice.rectTransform.anchoredPosition.y + notice.rectTransform.sizeDelta.y / 2));
+            Assert.That(notice.rectTransform.anchoredPosition.y - notice.rectTransform.sizeDelta.y / 2,
+                Is.GreaterThan(status.anchoredPosition.y + status.sizeDelta.y / 2));
         }
         [TestCase(false)] [TestCase(true)]
         public void ShopDismissesOnlyOnOutsideTapWithoutChangingPendingPurchase(bool busy)

@@ -81,15 +81,15 @@ namespace MukJump.Core
             InkUiStyle.ConfigurePopupDismiss(dim, paper, Close,
                 () => IsOpen && group.interactable && (!Application.isPlaying || frame.IsReady));
             Label("Title", "모든 광고 제거", 68, 555, 100, true);
-            Label("Permanent", "한 번 구매하면 계속 이용할 수 있어요", 40, 460, 76, false);
-            var body = Rect("GoldenInk", paper, new Vector2(0, 280), new Vector2(300, 300)).gameObject.AddComponent<Image>();
+            Label("Permanent", "한 번 구매 · 영구 적용", 40, 460, 76, false);
+            BuildGoldenBackdrop();
+            var body = Rect("GoldenInk", paper, new Vector2(0, 230), new Vector2(340, 340)).gameObject.AddComponent<Image>();
             body.sprite = previewBodySprite; body.preserveAspect = true; body.raycastTarget = false;
             GoldInkVisual.Apply(body, true);
-            Label("GoldenBonus", "반짝이는 금색 먹 포함", 43, 85, 86, true);
-            Label("Benefits", "배너 · 전면 광고 제거\n부활도 광고 없이", 48, -40, 128, true);
-            Label("ReviveRules", "부활은 한 판에 한 번, 기존 조건 그대로", 36, -172, 90, false);
-            Label("CosmeticOnly", "금색 먹은 외형 전용이에요\n점프·성장 능력은 같아요", 36, -286, 100, false);
-            purchase = Action("Purchase", "상품 확인 중...", -426, out purchaseLabel);
+            Label("GoldenBonus", "금색 먹 포함", 46, -4, 80, true);
+            Label("Benefits", "배너·전면·부활 광고 없이", 42, -100, 100, true);
+            Label("ReviveRules", "부활 한 판 1회 · 기존 조건 유지", 34, -187, 64, false);
+            purchase = Action("Purchase", "상품 확인 중...", -318, out purchaseLabel);
             purchaseLabel.fontSize = 48;
             var purchaseSurface = purchase.targetGraphic as Image;
             purchaseSurface.color = InkPalette.Red;
@@ -109,9 +109,28 @@ namespace MukJump.Core
                 store.Purchase();
                 Refresh();
             });
-            Label("RestoreHint", "이전 구매는 설정에서 구입 복원", 32, -544, 62, false);
-            status = Label("Status", "", 32, -621, 86, false);
+            Label("PurchaseNotice", "구매 즉시 적용됩니다.\n제공 개시 후 청약철회는 법령·스토어 정책에 따라 제한될 수 있습니다.", 30, -493, 154, false);
+            status = Label("Status", "", 30, -621, 86, false);
             Hide();
+        }
+        void BuildGoldenBackdrop()
+        {
+            // 기존 공용 붓 자산만 재사용한다. 장식은 먹 뒤에 놓고 입력·권한·능력을 바꾸지 않는다.
+            var backdrop = Rect("GoldenBackdrop", paper, new Vector2(0, 230), Vector2.one * 390);
+            BackdropImage("GoldWash", backdrop, InkUiTextureFactory.CreateBlobSprite(),
+                Vector2.zero, Vector2.one * 400, new Color(.74f, .50f, .15f, .16f));
+            BackdropImage("BrushCircle", backdrop, Resources.Load<Sprite>("MukJump/UI/PermanentGrowth/pg_selected_ring"),
+                Vector2.zero, Vector2.one * 390, new Color(.46f, .31f, .12f, .48f));
+            var floor = BackdropImage("GroundBrush", backdrop, InkUiTextureFactory.CreateBrushSprite(),
+                new Vector2(0, -149), new Vector2(245, 22), new Color(.38f, .25f, .10f, .24f));
+            floor.preserveAspect = false;
+        }
+        static Image BackdropImage(string name, Transform parent, Sprite sprite, Vector2 position, Vector2 size, Color color)
+        {
+            var image = Rect(name, parent, position, size).gameObject.AddComponent<Image>();
+            image.sprite = sprite; image.color = color; image.preserveAspect = true;
+            image.raycastTarget = false; image.enabled = sprite != null;
+            return image;
         }
         Text Label(string name, string source, int font, float y, float height, bool strong)
         {

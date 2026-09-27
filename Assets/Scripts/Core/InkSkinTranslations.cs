@@ -42,6 +42,13 @@ namespace MukJump.Core
                 ["부활 준비 중..."] = ("Preparing revival...", "復活の準備中..."),
                 ["광고 제거 · 금색 먹"] = ("No Ads · Golden Ink", "広告なし・金色の墨"),
                 ["모든 광고 제거"] = ("Remove All Ads", "すべての広告を削除"),
+                ["한 번 구매 · 영구 적용"] = ("Buy once · Keep forever", "一度の購入で永久に"),
+                ["금색 먹 포함"] = ("Golden Ink included", "金色の墨つき"),
+                ["배너·전면·부활 광고 없이"] = ("No banner, full-screen or revival ads", "バナー・全画面・復活の広告なし"),
+                ["부활 한 판 1회 · 기존 조건 유지"] = ("Revive once per run · Usual conditions apply", "復活は1プレイ1回・利用条件は同じ"),
+                ["구매 즉시 적용됩니다.\n제공 개시 후 청약철회는 법령·스토어 정책에 따라 제한될 수 있습니다."] =
+                    ("Applies upon purchase.\nCancellation rights may be limited after delivery begins, subject to law and store policy.",
+                     "購入後すぐに適用されます。\n提供開始後は、法令・ストアの規定により購入の撤回が制限される場合があります。"),
                 ["반짝이는 금색 먹 포함"] = ("Includes shimmering Golden Ink", "きらめく金色の墨つき"),
                 ["배너 · 전면 광고 제거\n부활도 광고 없이"] = ("No banner or full-screen ads\nAd-free revival, too", "バナー・全画面広告を削除\n復活も広告なし"),
                 ["부활은 한 판에 한 번, 기존 조건 그대로"] = ("Revive once per run, with the usual requirements", "復活は1プレイに1回、利用条件は同じです"),
