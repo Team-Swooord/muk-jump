@@ -17,6 +17,8 @@ public class SettingsScrollTests
     {
         MukJumpIdentityProfile.UseStoreForTests(new MukJump.EditorTests.MemoryIdentityStore());
         LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
+        // 이 검사는 구입 복원 행이 없는 기본 설정판을 사용한다. iOS 구매 행은 InkPremiumUi/PlayTests에서 검사한다.
+        InkPremiumAppearance.UseForTests(false, null);
         host = new GameObject("SettingsScrollTests");
         view = host.AddComponent<LobbyOptionsView>();
         view.BuildForTests();
@@ -30,6 +32,7 @@ public class SettingsScrollTests
         Object.DestroyImmediate(host);
         MukJumpIdentityProfile.UseStoreForTests(null);
         LobbySettingsProfile.RestoreDefaultStoreForTests();
+        InkPremiumAppearance.RestoreForTests();
         PointerInput.ResetSuppressionForTests();
     }
 
@@ -379,7 +382,11 @@ public class SettingsScrollTests
         };
         dim.OnPointerClick(pointer);
         Assert.That(view.IsOpen, Is.True, "종이 안 빈 공간은 닫힘이 아니다");
+        pointer.pressPosition = pointer.position;
         pointer.position = new Vector2(-100, -100);
+        dim.OnPointerClick(pointer);
+        Assert.That(view.IsTutorialOpen, Is.True, "종이 안에서 시작해 밖에서 끝난 입력은 닫힘이 아니다");
+        pointer.pressPosition = pointer.position;
         pointer.dragging = true;
         dim.OnPointerClick(pointer);
         Assert.That(view.IsOpen, Is.True, "드래그를 마치는 동작은 닫힘이 아니다");
@@ -700,7 +707,8 @@ public class SettingsScrollTests
                         pressPosition = new Vector2(-1000, -1000),
                     });
                 }
-                else tossPanel.Find("AccountPage/CloseTossIdentity").GetComponent<Button>().onClick.Invoke();
+                else tossView.Close();
+                Assert.That(tossPanel.Find("AccountPage/CloseTossIdentity"), Is.Null);
                 Assert.That(tossView.IsOpen, Is.False, "실패 안내에서 로비로 돌아갈 수 있어야 한다");
                 Assert.That(account.BlocksGameplayForAccountSync, Is.True, "닫기로 미검증 기록을 열면 안 된다");
                 Assert.That(account.HasVerifiedAppsInTossIdentity, Is.False);
@@ -1110,8 +1118,7 @@ public class SettingsScrollTests
         }
         if (!float.IsPositiveInfinity(lastBottom))
             Assert.That(lastBottom - paper.rect.yMin, Is.LessThanOrEqualTo(130), "마지막 버튼 아래 큰 빈 공간을 남기지 않는다");
-        var close = (RectTransform)account.Find("AccountClose");
-        Assert.That(paper.rect.yMin - close.anchoredPosition.y - close.rect.yMax, Is.GreaterThanOrEqualTo(60));
+        Assert.That(account.Find("AccountClose"), Is.Null);
         Assert.That(account.Find("AccountStatus"), Is.Null, "일반 안내 때문에 버튼 사이에 빈 행을 남기지 않습니다.");
         foreach (string name in new[] { "AccountTitle", "AccountKind", "AccountPlayerId" })
         {
@@ -1309,7 +1316,7 @@ public class SettingsScrollTests
     [TestCase(1536, 2048, 40, 48, 0, 0)]
     [TestCase(1080, 1600, 40, 64, 0, 0)]
     [TestCase(1170, 2532, 102, 141, 30, 70)]
-    public void AccountRowsStayCenteredAndKeepOutsideCloseInsideSafeArea(int width, int height, int bottom, int top, int left, int right)
+    public void AccountRowsStayCenteredAndKeepOutsideTapSpace(int width, int height, int bottom, int top, int left, int right)
     {
         var safe = new Rect(left, bottom, width - left - right, height - bottom - top);
         view.SetDisplayMetricsForTests(width, height, safe);
@@ -1340,10 +1347,10 @@ public class SettingsScrollTests
             Assert.That(toastBottom, Is.GreaterThan(rect.sizeDelta.y * scale * .5f));
             Assert.That(toastTop, Is.LessThanOrEqualTo(available.y * .5f));
             float rollTop = rect.anchoredPosition.y + (roll.anchoredPosition.y + 31) * scale;
-            var close = (RectTransform)account.Find("AccountClose");
-            float closeBottom = rect.anchoredPosition.y + (close.anchoredPosition.y + close.rect.yMin) * scale;
+            Assert.That(account.Find("AccountClose"), Is.Null);
+            float paperBottom = rect.anchoredPosition.y + rect.rect.yMin * scale;
             Assert.That(rollTop, Is.LessThan(available.y * .5f));
-            Assert.That(closeBottom, Is.GreaterThan(-available.y * .5f));
+            Assert.That(paperBottom, Is.GreaterThan(-available.y * .5f));
         }
         // 자식 계정 선택/복구 두루마리도 가운데 계정 창과 정렬한다.
         foreach (string name in new[] { "AccountConflict", "SyncConflict", "AccountSyncPending" })
@@ -1354,9 +1361,8 @@ public class SettingsScrollTests
         }
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void AccountDismissReturnsToSettingsWithoutClosingTheWholePopup(bool useCloseButton)
+    [Test]
+    public void AccountDismissReturnsToSettingsWithoutClosingTheWholePopup()
     {
         view.OpenTutorialForTests();
         typeof(LobbyOptionsView).GetMethod("ShowOptionsPage", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -1367,11 +1373,9 @@ public class SettingsScrollTests
         page.Find("AccountButton").GetComponent<Button>().onClick.Invoke();
         Assert.That(view.IsAccountOpen, Is.True);
         Canvas.ForceUpdateCanvases();
-        if (useCloseButton)
-            panel.Find("AccountPage/AccountClose").GetComponent<Button>().onClick.Invoke();
-        else
-            host.transform.Find("LobbyOptionsCanvas/InkDim").GetComponent<EventTrigger>().OnPointerClick(
-                new PointerEventData(null) { position = new Vector2(-100, -100), button = PointerEventData.InputButton.Left });
+        Assert.That(panel.Find("AccountPage/AccountClose"), Is.Null);
+        host.transform.Find("LobbyOptionsCanvas/InkDim").GetComponent<EventTrigger>().OnPointerClick(
+            new PointerEventData(null) { position = new Vector2(-100, -100), button = PointerEventData.InputButton.Left });
         Assert.That(view.IsOpen, Is.True);
         Assert.That(view.IsAccountOpen, Is.False);
         Assert.That(page.GetComponent<CanvasGroup>().blocksRaycasts, Is.True);
@@ -1537,39 +1541,21 @@ public class SettingsScrollTests
         Assert.That(text.raycastTarget, Is.False);
         Assert.That(underline.raycastTarget, Is.False);
         Assert.That(underline.rectTransform.rect.height, Is.EqualTo(2));
-        var close = (RectTransform)page.Find("CloseButton");
-        Assert.That(close.anchoredPosition.y + close.rect.height * 0.5f,
-            Is.LessThan(hit.rectTransform.anchoredPosition.y - hit.rectTransform.rect.height * 0.5f));
+        Assert.That(page.Find("CloseButton"), Is.Null);
     }
 
     [Test]
-    public void ExternalCloseUsesSmallHanjiCrossWithFullHitAreaBelowTheRoll()
+    public void SettingsHasNoCloseButtonAndClosesFromBackdrop()
     {
-        var button = page.Find("CloseButton").GetComponent<Button>();
-        var hit = button.GetComponent<Image>();
-        var paper = button.transform.Find("Paper").GetComponent<Image>();
-        Assert.That(hit.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(0, -705)));
-        Assert.That(hit.rectTransform.sizeDelta, Is.EqualTo(new Vector2(120, 120)));
-        Assert.That(paper.rectTransform.sizeDelta, Is.EqualTo(new Vector2(96, 96)));
-        Assert.That(hit.raycastTarget, Is.True);
-        Assert.That(hit.color.a, Is.Zero);
-        Assert.That(paper.raycastTarget, Is.False);
-        Assert.That(button.targetGraphic, Is.SameAs(paper));
-        Assert.That(paper.transform.Find("Label").GetComponent<Text>().text, Is.Empty);
-        Assert.That(button.GetComponentInParent<CanvasGroup>(), Is.SameAs(page.GetComponent<CanvasGroup>()));
-        var frame = panel.GetComponent<HanjiScrollFrame>();
-        frame.SetPose(1, 0, false);
-        var roll = (RectTransform)panel.Find("HanjiScrollArt/BottomRoll");
-        Assert.That(hit.rectTransform.anchoredPosition.y + 60,
-            Is.LessThan(roll.anchoredPosition.y - roll.rect.height * 0.5f - 24));
-        for (int i = 0; i < 2; i++)
-        {
-            var stroke = paper.transform.Find("CrossStroke" + i).GetComponent<Image>();
-            Assert.That(stroke.sprite, Is.SameAs(InkUiTextureFactory.CreateBrushSprite()));
-            Assert.That(stroke.raycastTarget, Is.False);
-            Assert.That(Mathf.DeltaAngle(0, stroke.rectTransform.localEulerAngles.z),
-                Is.EqualTo(i == 0 ? 45 : -45).Within(0.01));
-        }
+        Assert.That(page.Find("CloseButton"), Is.Null);
+        view.OpenTutorialForTests();
+        var dim = host.transform.Find("LobbyOptionsCanvas/InkDim").GetComponent<EventTrigger>();
+        var outside = new PointerEventData(null) { position = new Vector2(-100, -100),
+            pressPosition = new Vector2(-100, -100), button = PointerEventData.InputButton.Left };
+        dim.OnPointerClick(outside);
+        Assert.That(view.IsOpen, Is.True, "하위 튜토리얼은 설정으로 돌아온다");
+        dim.OnPointerClick(outside);
+        Assert.That(view.IsOpen, Is.False);
     }
 
     [TestCase(1080, 1920, 0, 0, 0, 0)]
@@ -1647,7 +1633,8 @@ public class SettingsScrollTests
             button = PointerEventData.InputButton.Left });
         Assert.That(rect.localScale.x, Is.EqualTo(expectedScale).Within(0.001));
         Assert.That(rect.anchoredPosition, Is.EqualTo(Vector2.zero));
-        page.Find("CloseButton").GetComponent<Button>().onClick.Invoke();
+        dim.OnPointerClick(new PointerEventData(null) { position = new Vector2(-100, -100),
+            pressPosition = new Vector2(-100, -100), button = PointerEventData.InputButton.Left });
         Assert.That(view.IsOpen, Is.False, "EditMode의 닫힘 완료도 기존 Close 경로를 따른다");
     }
 
@@ -1655,7 +1642,7 @@ public class SettingsScrollTests
     [TestCase(1080, 2400, 72, 90)]
     [TestCase(750, 1334, 0, 40)]
     [TestCase(1536, 2048, 40, 48)]
-    public void CenteredSettingsKeepExternalCloseInsideSafeAreaAcrossPlatforms(int width, int height, int bottom, int top)
+    public void CenteredSettingsKeepOutsideTapSpaceAcrossPlatforms(int width, int height, int bottom, int top)
     {
         var safe = new Rect(24, bottom, width - 64, height - bottom - top);
         var available = MobileUiLayout.GetLogicalSafeSize(safe, width, height);
@@ -1668,7 +1655,7 @@ public class SettingsScrollTests
                 options.BuildForPlatformForTests(platform);
                 options.SetDisplayMetricsForTests(width, height, safe);
                 var paper = (RectTransform)other.transform.Find("LobbyOptionsCanvas/SafeAreaRoot/OptionsScroll");
-                var close = (RectTransform)paper.Find("OptionsPage/CloseButton");
+                Assert.That(paper.Find("OptionsPage/CloseButton"), Is.Null);
                 foreach (string status in new[] { "", "언어를 저장하지 못했어요. 다시 시도해 주세요", "" })
                 {
                     typeof(LobbyOptionsView).GetMethod("SetSettingsStatus", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -1678,7 +1665,7 @@ public class SettingsScrollTests
                     Assert.That(paper.Find("HanjiScrollArt/Paper").position, Is.EqualTo(paper.position));
                     float scale = paper.localScale.x;
                     Assert.That(paper.rect.yMax * scale, Is.LessThan(available.y * .5f));
-                    Assert.That((close.anchoredPosition.y + close.rect.yMin) * scale,
+                    Assert.That(paper.rect.yMin * scale,
                         Is.GreaterThan(-available.y * .5f), platform.ToString());
                 }
             }

@@ -107,12 +107,8 @@ namespace MukJump.Core
             thumb.raycastTarget = false;
             skillDescriptionScroll.onValueChanged.AddListener(_ => RefreshSkillScrollHint());
             skillScrollHint.gameObject.SetActive(false);
-            var close = Button("CloseButton", skillDetailsRoot, "×", new Vector2(382, 370),
-                new Vector2(108, 108), 68, out var closeLabel);
-            close.transform.Find("Paper").GetComponent<UnityEngine.UI.Image>().color = Color.clear;
-            close.onClick.AddListener(CloseSkillDetails);
             foreach (var label in new[] { buttonLabel, skillSummaryText, category, skillTitleText, skillDescriptionText,
-                skillCooldownText, skillModeText, closeLabel })
+                skillCooldownText, skillModeText })
                 if (label.TryGetComponent<UnityEngine.UI.Outline>(out var outline)) outline.enabled = false;
             skillOverlay.gameObject.SetActive(false);
             skillDetailsRoot.gameObject.SetActive(false);

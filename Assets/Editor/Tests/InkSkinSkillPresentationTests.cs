@@ -142,7 +142,11 @@ namespace MukJump.EditorTests
                             Assert.That(view.SkillTitleText.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
                             Assert.That(view.SkillDetailsRoot.Find("ModeBadge").GetComponent<RectTransform>().anchoredPosition.x, Is.Zero);
                             yield return Capture("wardrobe-C-Phoenix-" + language);
-                            yield return PlayerInputFrame(() => Click((RectTransform)view.SkillDetailsRoot.Find("CloseButton")));
+                            Assert.That(view.SkillDetailsRoot.Find("CloseButton"), Is.Null);
+                            yield return PlayerInputFrame(() => view.SkillDetailsRoot.parent.parent.Find("InkDim")
+                                .GetComponent<EventTrigger>().OnPointerClick(new PointerEventData(EventSystem.current) {
+                                    position = new Vector2(1, 1), pressPosition = new Vector2(1, 1),
+                                    button = PointerEventData.InputButton.Left }));
                             Assert.That(view.IsSkillDetailsOpen, Is.False);
                         }
                     }

@@ -6,6 +6,7 @@ using MukJump.Player;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
@@ -36,7 +37,7 @@ namespace MukJump.EditorTests
             var sizeGroup = sizeType.GetProperty("currentGroup", flags).GetValue(sizes);
             int firstTemporary = (int)sizeGroup.GetType().GetMethod("GetTotalCount").Invoke(sizeGroup, null);
             int added = 0;
-            const string output = "output/qa/ios-premium-ui-20260926";
+            const string output = "output/qa/popup-dismiss-20260927";
             try
             {
                 yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
@@ -64,6 +65,7 @@ namespace MukJump.EditorTests
                         GameLocalization.SetLanguage(language); InkPremiumAppearance.OpenShop(); yield return Wait(.5f);
                         var paper = shop.transform.Find("PremiumShopCanvas/SafeArea/PremiumPaper");
                         Assert.That(paper.Find("Restore"), Is.Null);
+                        Assert.That(paper.Find("Close"), Is.Null);
                         foreach (var text in paper.GetComponentsInChildren<Text>())
                             Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 2), text.name + " " + language);
                         var purchase = paper.Find("Purchase").GetComponent<Button>();
@@ -73,11 +75,23 @@ namespace MukJump.EditorTests
                         {
                             yield return Wait(1.3f); yield return Capture("gold-shimmer-later", output);
                         }
-                        shop.Close(); yield return Wait(.4f);
+                        store.Busy = size.x == 390;
+                        bool checkedDismiss = false; System.Exception dismissError = null;
+                        lobby.StartCoroutine(CheckShopBackdropAtRuntime(shop, error =>
+                            { checkedDismiss = true; dismissError = error; }));
+                        double dismissDeadline = Time.realtimeSinceStartupAsDouble + 5;
+                        while (!checkedDismiss && Time.realtimeSinceStartupAsDouble < dismissDeadline) yield return null;
+                        Assert.That(checkedDismiss, Is.True); Assert.That(dismissError, Is.Null, dismissError?.ToString());
+                        yield return Wait(.4f);
+                        Assert.That(InkPremiumShopView.IsOpen, Is.False);
+                        Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby), "닫는 입력으로 게임을 시작하지 않는다");
+                        Assert.That(store.Busy, Is.EqualTo(size.x == 390), "화면 닫기는 구매 처리 상태를 바꾸지 않는다");
+                        store.Busy = false;
                         options.Open(); yield return Wait(.5f);
+                        Assert.That(options.GetComponentsInChildren<Button>(true).Any(b => b.name.Contains("Close")), Is.False);
                         var restore = options.GetComponentsInChildren<Button>(true).Single(b => b.name == "RestorePurchasesButton");
                         Assert.That(restore.gameObject.activeInHierarchy, Is.True);
-                        foreach (string name in new[] { "AccountButton", "TermsButton", "PrivacyButton", "CloseButton" })
+                        foreach (string name in new[] { "AccountButton", "TermsButton", "PrivacyButton" })
                         {
                             var other = restore.transform.parent.Find(name) as RectTransform;
                             Assert.That(ScreenBounds((RectTransform)restore.transform).Overlaps(ScreenBounds(other)), Is.False, name);
@@ -125,6 +139,42 @@ namespace MukJump.EditorTests
                 GameManager.RestorePendingGameOverSettlementStoreForTests(); PointerInput.ResetSuppressionForTests();
             }
             yield return new ExitPlayMode();
+        }
+
+        static IEnumerator CheckShopBackdropAtRuntime(InkPremiumShopView shop, System.Action<System.Exception> completed)
+        {
+            yield return null;
+            System.Exception failure = null;
+            try
+            {
+                Canvas.ForceUpdateCanvases();
+                var canvas = shop.transform.Find("PremiumShopCanvas");
+                var paper = (RectTransform)canvas.Find("SafeArea/PremiumPaper");
+                var backdrop = canvas.Find("Blocker").GetComponent<EventTrigger>();
+                var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+                Vector2 inside = RectTransformUtility.WorldToScreenPoint(null, paper.position);
+                Vector2 outside = new Vector2(2, 2);
+                pointer.position = pointer.pressPosition = inside;
+                backdrop.OnPointerClick(pointer);
+                Assert.That(InkPremiumShopView.IsOpen, Is.True);
+                pointer.position = outside;
+                backdrop.OnPointerClick(pointer);
+                Assert.That(InkPremiumShopView.IsOpen, Is.True, "안에서 밖으로 끌어도 유지한다");
+                pointer.pressPosition = outside; pointer.dragging = true;
+                backdrop.OnPointerClick(pointer);
+                Assert.That(InkPremiumShopView.IsOpen, Is.True);
+                pointer.dragging = false;
+                var hits = new System.Collections.Generic.List<RaycastResult>();
+                EventSystem.current.RaycastAll(pointer, hits);
+                Assert.That(hits, Is.Not.Empty);
+                Assert.That(ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject),
+                    Is.EqualTo(backdrop.gameObject), "바깥 탭은 뒤 로비가 아닌 장막에 도착한다");
+                ExecuteEvents.ExecuteHierarchy(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler);
+                Assert.That(paper.GetComponent<HanjiScrollFrame>().IsClosing, Is.True);
+                Assert.That(canvas.GetComponent<CanvasGroup>().blocksRaycasts, Is.True, "닫힘 애니메이션 중 입력도 차단한다");
+            }
+            catch (System.Exception error) { failure = error; }
+            completed(failure);
         }
     }
 }

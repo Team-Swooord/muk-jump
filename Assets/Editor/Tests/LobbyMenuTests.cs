@@ -323,7 +323,7 @@ namespace MukJump.EditorTests
             AssertOptionButton(page, "GuideButton", usesActionBrush: false);
             AssertOptionButton(page, "AccountButton", usesActionBrush: false);
             AssertOptionButton(page, "LanguageButton", usesActionBrush: false);
-            AssertOptionButton(page, "CloseButton", usesActionBrush: true);
+            Assert.That(page.Find("CloseButton"), Is.Null, "팝업은 바깥 탭으로 닫는다");
             Assert.That(title.fontStyle, Is.EqualTo(FontStyle.Bold));
             AssertQuietOptionText(page.Find("Version")?.GetComponent<Text>());
             AssertQuietOptionText(page.Find("ConnectionStatus")?.GetComponent<Text>());

@@ -78,6 +78,8 @@ namespace MukJump.Core
             safeRoot = Stretch("SafeArea", root.transform);
             paper = Rect("PremiumPaper", safeRoot, Vector2.zero, new Vector2(880, 1420));
             frame = HanjiScrollFrame.Attach(paper, new Vector2(880, 1400));
+            InkUiStyle.ConfigurePopupDismiss(dim, paper, Close,
+                () => IsOpen && group.interactable && (!Application.isPlaying || frame.IsReady));
             Label("Title", "모든 광고 제거", 68, 555, 100, true);
             Label("Permanent", "한 번 구매하면 계속 이용할 수 있어요", 40, 460, 76, false);
             var body = Rect("GoldenInk", paper, new Vector2(0, 280), new Vector2(300, 300)).gameObject.AddComponent<Image>();
@@ -109,10 +111,6 @@ namespace MukJump.Core
             });
             Label("RestoreHint", "이전 구매는 설정에서 구입 복원", 32, -544, 62, false);
             status = Label("Status", "", 32, -621, 86, false);
-            var close = Action("Close", "닫기", 0, out _);
-            var closeRect = (RectTransform)close.transform;
-            closeRect.anchoredPosition = new Vector2(0, -800); closeRect.sizeDelta = new Vector2(300, 160);
-            close.onClick.AddListener(Close);
             Hide();
         }
         Text Label(string name, string source, int font, float y, float height, bool strong)

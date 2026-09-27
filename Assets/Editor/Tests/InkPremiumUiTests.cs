@@ -4,6 +4,7 @@ using MukJump.Core;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
@@ -43,6 +44,7 @@ namespace MukJump.EditorTests
             InkPremiumAppearance.RestoreForTests();
             GameLocalization.SetLanguage(previousLanguage);
             LobbySettingsProfile.RestoreDefaultStoreForTests();
+            PointerInput.ResetSuppressionForTests();
         }
         [TestCase(GameLanguage.Korean)] [TestCase(GameLanguage.English)] [TestCase(GameLanguage.Japanese)]
         public void PurchaseIsSinglePrimaryActionWithRealPriceAndNoRestoreButton(GameLanguage language)
@@ -53,6 +55,8 @@ namespace MukJump.EditorTests
             Invoke(shop, "Build"); Invoke(shop, "Refresh");
             var paper = host.transform.Find("PremiumShopCanvas/SafeArea/PremiumPaper");
             Assert.That(paper.Find("Restore"), Is.Null);
+            Assert.That(paper.Find("Close"), Is.Null);
+            Assert.That(paper.GetComponentsInChildren<Button>().Select(b => b.name), Is.EqualTo(new[] { "Purchase" }));
             var purchase = paper.Find("Purchase").GetComponent<Button>();
             Assert.That(purchase.GetComponentInChildren<Text>().text, Does.Contain("$2.99"));
             foreach (var label in paper.GetComponentsInChildren<Text>())
@@ -61,6 +65,40 @@ namespace MukJump.EditorTests
             Assert.That(store.Purchases, Is.EqualTo(1)); Assert.That(store.Restores, Is.Zero);
             store.Busy = false; store.Owned = true; Invoke(shop, "Refresh");
             Assert.That(purchase.interactable, Is.False);
+        }
+        [TestCase(false)] [TestCase(true)]
+        public void ShopDismissesOnlyOnOutsideTapWithoutChangingPendingPurchase(bool busy)
+        {
+            host = new GameObject("Premium dismiss test");
+            var shop = host.AddComponent<InkPremiumShopView>();
+            Invoke(shop, "Open");
+            store.Busy = busy;
+            var canvas = host.transform.Find("PremiumShopCanvas");
+            var paper = (RectTransform)canvas.Find("SafeArea/PremiumPaper");
+            var backdrop = canvas.Find("Blocker").GetComponent<EventTrigger>();
+            Assert.That(backdrop, Is.Not.Null);
+            Canvas.ForceUpdateCanvases();
+            Vector2 inside = RectTransformUtility.WorldToScreenPoint(null, paper.position);
+            Vector2 outside = new Vector2(-100, -100);
+            var pointer = new PointerEventData(null) { button = PointerEventData.InputButton.Left,
+                position = inside, pressPosition = inside };
+            backdrop.OnPointerClick(pointer);
+            Assert.That(InkPremiumShopView.IsOpen, Is.True, "종이 안의 빈 공간은 닫지 않는다");
+            pointer.position = outside;
+            backdrop.OnPointerClick(pointer);
+            Assert.That(InkPremiumShopView.IsOpen, Is.True, "종이 안에서 시작한 입력은 닫지 않는다");
+            pointer.pressPosition = outside; pointer.dragging = true;
+            backdrop.OnPointerClick(pointer);
+            Assert.That(InkPremiumShopView.IsOpen, Is.True);
+            pointer.dragging = false;
+            backdrop.OnPointerClick(pointer);
+            Assert.That(InkPremiumShopView.IsOpen, Is.False);
+            Assert.That(canvas.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
+            Assert.That(store.Busy, Is.EqualTo(busy));
+            Assert.That(store.Purchases, Is.Zero); Assert.That(store.Restores, Is.Zero); Assert.That(store.Owned, Is.False);
+            Invoke(shop, "Open");
+            Assert.That(InkPremiumShopView.IsOpen, Is.True, "닫은 뒤 다시 열 수 있다");
+            Assert.That(paper.Find("Purchase").GetComponent<Button>().interactable, Is.EqualTo(!busy));
         }
         [Test] public void OptionsRestoreUsesStoreOnlyAndTracksPendingAndResult()
         {

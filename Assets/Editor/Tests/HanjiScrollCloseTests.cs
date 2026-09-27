@@ -352,7 +352,7 @@ public class HanjiScrollCloseRuntimeTests
             var top = panel.Find("HanjiScrollArt/TopRoll");
             var dim = canvas.Find("InkDim").GetComponent<UnityEngine.EventSystems.EventTrigger>();
             var account = panel.Find("OptionsPage/AccountButton").GetComponent<UnityEngine.UI.Button>();
-            var close = panel.Find("AccountPage/AccountClose").GetComponent<UnityEngine.UI.Button>();
+            Assert.That(panel.Find("AccountPage/AccountClose"), Is.Null);
             var outside = new UnityEngine.EventSystems.PointerEventData(null)
             {
                 position = new Vector2(-100, -100),
@@ -365,16 +365,15 @@ public class HanjiScrollCloseRuntimeTests
 
             account.onClick.Invoke();
             account.onClick.Invoke();
-            close.onClick.Invoke();
+            dim.OnPointerClick(outside);
             dim.OnPointerClick(outside);
             entryGated = frame.IsClosing && !view.IsAccountOpen && root.alpha == 1
                 && root.blocksRaycasts && !root.interactable;
             yield return new WaitForSecondsRealtime(.36f);
-            close.onClick.Invoke();
-            openingGated = view.IsAccountOpen && !frame.IsClosing && !frame.IsReady
-                && !close.IsInteractable();
+            dim.OnPointerClick(outside);
+            openingGated = view.IsAccountOpen && !frame.IsClosing && !frame.IsReady;
             yield return new WaitForSecondsRealtime(.7f);
-            entered = view.IsAccountOpen && frame.IsReady && close.IsInteractable()
+            entered = view.IsAccountOpen && frame.IsReady
                 && ((RectTransform)panel).anchoredPosition == Vector2.zero;
 
             var showNotice = typeof(LobbyOptionsView).GetMethod("ShowAccountNotice",
@@ -396,13 +395,13 @@ public class HanjiScrollCloseRuntimeTests
             try
             {
                 phase.SetValue(runtime, MukJumpAccountPhase.Connecting);
-                close.onClick.Invoke();
+                dim.OnPointerClick(outside);
                 dim.OnPointerClick(outside);
                 syncBlocked = runtime.BlocksGameplayForAccountSync && view.IsAccountOpen && !frame.IsClosing;
             }
             finally { phase.SetValue(runtime, previousPhase); }
 
-            close.onClick.Invoke();
+            dim.OnPointerClick(outside);
             try
             {
                 phase.SetValue(runtime, MukJumpAccountPhase.Connecting);
@@ -413,9 +412,9 @@ public class HanjiScrollCloseRuntimeTests
 
             showNotice.Invoke(view, new object[] { "문의 코드를 복사했어요" });
             yield return new WaitForSecondsRealtime(.2f);
-            close.onClick.Invoke();
+            dim.OnPointerClick(outside);
             toastCleared = toast.alpha == 0;
-            close.onClick.Invoke();
+            dim.OnPointerClick(outside);
             dim.OnPointerClick(outside);
             exitGated = frame.IsClosing && view.IsAccountOpen && root.alpha == 1
                 && root.blocksRaycasts && !root.interactable;

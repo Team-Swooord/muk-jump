@@ -400,11 +400,18 @@ namespace MukJump.EditorTests
                     view.ToggleCollection();
                     Assert.That(view.Selected, Is.EqualTo(id), "상세 팝업 뒤의 선택은 잠근다");
                     Assert.That(view.CollectionExpanded, Is.False);
-                    view.SkillDetailsRoot.Find("CloseButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                    Assert.That(view.SkillDetailsRoot.Find("CloseButton"), Is.Null);
+                    view.SkillDetailsRoot.parent.parent.Find("InkDim").GetComponent<UnityEngine.EventSystems.EventTrigger>()
+                        .OnPointerClick(new UnityEngine.EventSystems.PointerEventData(null) {
+                            position = new Vector2(-100, -100), pressPosition = new Vector2(-100, -100),
+                            button = UnityEngine.EventSystems.PointerEventData.InputButton.Left });
                     Assert.That(view.IsSkillDetailsOpen, Is.False);
                     Assert.That(view.CollectionContent.anchoredPosition, Is.EqualTo(beforeOpen));
                     Assert.That(view.OpenSkillDetails(), Is.True);
-                    view.SkillDetailsRoot.Find("CloseButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                    view.SkillDetailsRoot.parent.parent.Find("InkDim").GetComponent<UnityEngine.EventSystems.EventTrigger>()
+                        .OnPointerClick(new UnityEngine.EventSystems.PointerEventData(null) {
+                            position = new Vector2(-100, -100), pressPosition = new Vector2(-100, -100),
+                            button = UnityEngine.EventSystems.PointerEventData.InputButton.Left });
                     Assert.That(view.IsSkillDetailsOpen, Is.False);
                     view.Select(InkSkinId.Ink);
                     Assert.That(view.Selected, Is.EqualTo(InkSkinId.Ink));

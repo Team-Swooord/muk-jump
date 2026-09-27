@@ -15,7 +15,7 @@ namespace MukJump.Core
         const float SettingsDesignHeight = 1450f;
         const float SettingsPanelHeight = 1220f;
         const float SettingsStatusHeight = 110f;
-        const float CloseFooterHeight = 190f;
+        const float OutsideTapSpace = 190f;
         const float SafeAreaPadding = 24f;
         const float DeleteConfirmationMinimumDelay = 0.45f;
         const double LeaderboardRefreshIntervalSeconds = 60d;
@@ -123,7 +123,6 @@ namespace MukJump.Core
         bool scrollPageTransition;
         bool showingAccountPage;
         float accountPaperHeight = 930f;
-        Button accountCloseButton;
         bool deleteConfirmationArmed;
         float deleteConfirmationArmedAt = float.NegativeInfinity;
         bool applicationFocused = true;
@@ -348,7 +347,9 @@ namespace MukJump.Core
             // 종이 장식은 raycast를 받지 않는다. 안쪽 빈 곳/펼침 도중의 터치도
             // dim까지 도달할 수 있으므로 실제 패널 영역은 여기서 제외한다.
             if (RectTransformUtility.RectangleContainsScreenPoint(
-                    optionsPanel, pointer.position, pointer.pressEventCamera))
+                    optionsPanel, pointer.position, pointer.pressEventCamera) ||
+                RectTransformUtility.RectangleContainsScreenPoint(
+                    optionsPanel, pointer.pressPosition, pointer.pressEventCamera))
                 return;
             PointerInput.SuppressUntilRelease();
             if (ShowingLeaderboardPage) LeaveLeaderboard();
@@ -597,19 +598,6 @@ namespace MukJump.Core
                 .onClick.AddListener(OpenTermsOfService);
             CreateLegalFooterLink("PrivacyButton", panel, "개인정보처리방침", true)
                 .onClick.AddListener(() => { if (UsesTossSettings) OpenPrivacyPolicy(); else ShowAnalyticsPrivacyPage(); });
-            // 종이 밖에 놓되 OptionsPage의 표시·입력·역순 닫힘을 그대로 상속한다.
-            var close = CreatePaperButton("CloseButton", panel, string.Empty,
-                new Vector2(0, -820), new Vector2(120, 120), 36);
-            var closePaper = close.transform.Find("Paper").GetComponent<Image>();
-            closePaper.rectTransform.sizeDelta = new Vector2(96, 96);
-            for (int i = 0; i < 2; i++)
-            {
-                var stroke = CreateImage("CrossStroke" + i, closePaper.transform,
-                    InkUiTextureFactory.CreateBrushSprite(), Vector2.zero,
-                    new Vector2(48, 7), InkPalette.TextDark);
-                stroke.rectTransform.localRotation = Quaternion.Euler(0, 0, i == 0 ? 45 : -45);
-            }
-            close.onClick.AddListener(Close);
         }
 
         // 토스의 검증된 게임 ID와 네이티브 뒤끝 UID를 섞거나 임의 로컬 ID로 대체하지 않는다.
@@ -839,9 +827,6 @@ namespace MukJump.Core
                 new Vector2(0, -170), new Vector2(390, 120), 52);
             tossIdentityRetry.onClick.AddListener(() =>
                 MukJumpAccountRuntime.Instance?.RetryPendingProfileResolution());
-            CreatePaperButton("CloseTossIdentity", panel, "닫기",
-                new Vector2(0, -350), new Vector2(390, 120), 52)
-                .onClick.AddListener(Close);
             RefreshTossIdentityState();
         }
 
@@ -1048,18 +1033,6 @@ namespace MukJump.Core
             accountGuestLinkHint.raycastTarget = false;
             accountGuestLinkHint.gameObject.SetActive(false);
 
-            accountCloseButton = CreatePaperButton("AccountClose", panel, string.Empty,
-                new Vector2(0, -590), new Vector2(120, 120), 36);
-            var closePaper = accountCloseButton.transform.Find("Paper").GetComponent<Image>();
-            closePaper.rectTransform.sizeDelta = new Vector2(96, 96);
-            for (int i = 0; i < 2; i++)
-            {
-                var stroke = CreateImage("CrossStroke" + i, closePaper.transform,
-                    InkUiTextureFactory.CreateBrushSprite(), Vector2.zero,
-                    new Vector2(48, 7), InkPalette.TextDark);
-                stroke.rectTransform.localRotation = Quaternion.Euler(0, 0, i == 0 ? 45 : -45);
-            }
-            accountCloseButton.onClick.AddListener(ShowOptionsPage);
             RefreshAccountState();
         }
 
@@ -1552,7 +1525,6 @@ namespace MukJump.Core
             if (hasGuestHint)
                 Place(accountGuestLinkHint.transform, nextY - accountDeleteButton.GetComponent<RectTransform>().rect.height * .5f -
                     20f - accountGuestLinkHint.rectTransform.rect.height * .5f);
-            if (accountCloseButton != null) Place(accountCloseButton.transform, -top - 125);
             foreach (var overlay in new[] { accountConflictRoot, syncConflictRoot, accountSyncPendingRoot })
             {
                 if (overlay == null) continue;
@@ -2345,19 +2317,14 @@ namespace MukJump.Core
             lastScreenWidth = UiScreenWidth;
             lastScreenHeight = UiScreenHeight;
 
-            // 계정 종이는 안전영역 정중앙에 둔다. 외부 닫기 버튼까지 들어갈 때만
-            // 기존 배율을 유지하고, 낮은 화면에서는 중심을 옮기지 않고 축소한다.
+            // 계정 종이는 안전영역 정중앙에 둔다. 토스트가 들어가도록 기존 배율을
+            // 유지하고, 낮은 화면에서는 중심을 옮기지 않고 축소한다.
             if (showingAccountPage)
             {
                 float halfHeight = optionsPanel.sizeDelta.y * .5f;
                 // 토스트 유무에 따라 팝업이 흔들리지 않도록 위쪽 공간은 항상 확보한다.
                 float toastHeight = LayoutAccountToastContents();
                 halfHeight += 24f + 224f;
-                if (accountCloseButton != null)
-                {
-                    var close = (RectTransform)accountCloseButton.transform;
-                    halfHeight = Mathf.Max(halfHeight, -close.anchoredPosition.y - close.rect.yMin);
-                }
                 float centeredScale = MobileUiLayout.CalculateFitScale(
                     new Vector2(PanelWidth, halfHeight * 2f), safe, UiScreenWidth, UiScreenHeight,
                     Vector2.one * (SafeAreaPadding * .5f));
@@ -2374,13 +2341,11 @@ namespace MukJump.Core
                 return;
             }
             // 짧아진 종이에 예전 상단 축을 적용하면 설정 전체가 위로 치우친다.
-            // 본체는 다른 팝업과 같은 중앙에 두고 외부 닫기 영역까지 대칭으로 확보한다.
+            // 본체는 다른 팝업과 같은 중앙에 두고 바깥 터치 여백을 확보한다.
             if (showingSettingsPage || showingTutorialPage)
             {
                 float scale = CalculateSettingsTutorialScale(safe, UiScreenWidth, UiScreenHeight);
                 float halfHeight = optionsPanel.sizeDelta.y * .5f;
-                if (showingSettingsPage && optionsGroup.transform.Find("CloseButton") is RectTransform close)
-                    halfHeight = Mathf.Max(halfHeight, -close.anchoredPosition.y - close.rect.yMin);
                 scale = Mathf.Min(scale, MobileUiLayout.CalculateFitScale(
                     new Vector2(PanelWidth, halfHeight * 2f), safe, UiScreenWidth, UiScreenHeight,
                     Vector2.one * (SafeAreaPadding * .5f)));
@@ -2402,7 +2367,7 @@ namespace MukJump.Core
         }
 
         public static float CalculateSettingsTutorialScale(Rect safeArea, int width, int height) =>
-            MobileUiLayout.CalculatePopupFitScale(new Vector2(PanelWidth, SettingsDesignHeight + CloseFooterHeight),
+            MobileUiLayout.CalculatePopupFitScale(new Vector2(PanelWidth, SettingsDesignHeight + OutsideTapSpace),
                 safeArea, width, height, Vector2.one * (SafeAreaPadding * .5f));
 
         public static Vector2 CalculateSettingsTutorialPosition(bool tutorial, float scale) => Vector2.zero;
@@ -2453,12 +2418,12 @@ namespace MukJump.Core
                 child.anchoredPosition += Vector2.up * offset;
             settingsLayoutHeight = height;
             float footerLift = (SettingsDesignHeight - height) * .5f;
-            foreach (string name in new[] { "TermsButton", "PrivacyButton", "CloseButton" })
+            foreach (string name in new[] { "TermsButton", "PrivacyButton" })
             {
                 var rect = optionsGroup.transform.Find(name) as RectTransform;
                 if (rect != null)
                     rect.anchoredPosition = new Vector2(rect.anchoredPosition.x,
-                        (name == "CloseButton" ? -820f : -634f) + footerLift);
+                        -634f + footerLift);
             }
             if (connectionStatus != null)
             {

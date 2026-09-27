@@ -111,6 +111,7 @@ namespace MukJump.Core
             toggleRect.anchorMin = toggleRect.anchorMax = toggleRect.pivot = Vector2.zero;
             toggleRect.anchoredPosition = new Vector2(24, 28);
             panel = Rect("TestPanel", safeRoot, Vector2.zero, new Vector2(760, 820));
+            InkUiStyle.ConfigurePopupDismiss(dim, panel, Close, () => open && Ready());
             var paper = panel.gameObject.AddComponent<UnityEngine.UI.Image>(); paper.sprite = InkUiStyle.ActionButtonSprite;
             InkUiStyle.ConfigureHanjiSurface(paper); paper.raycastTarget = true;
             Label("Title", panel, "의상 시험실", 58, new Vector2(0, 318), new Vector2(690, 100));
@@ -120,7 +121,6 @@ namespace MukJump.Core
             var all = Button("UnlockAll", panel, "", new Vector2(0, -129), new Vector2(640, 112), ToggleAll);
             unlockLabel = all.GetComponentInChildren<UnityEngine.UI.Text>();
             note = Label("Notice", panel, "", 30, new Vector2(0, -232), new Vector2(690, 68)); note.color = InkPalette.Red;
-            Button("Close", panel, "닫기", new Vector2(0, -325), new Vector2(360, 104), Close);
             Close(); group.alpha = 0; group.interactable = group.blocksRaycasts = false;
         }
         static RectTransform Rect(string name, Transform parent, Vector2 position, Vector2 size)
