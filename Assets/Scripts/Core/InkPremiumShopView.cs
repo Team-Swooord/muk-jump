@@ -56,14 +56,16 @@ namespace MukJump.Core
         {
             MobileUiLayout.ApplyCurrentSafeArea(safeRoot);
             paper.localScale = Vector3.one * MobileUiLayout.CalculateFitScale(
-                new Vector2(920, 1800), MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height, Vector2.zero);
+                new Vector2(920, 1600), MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height, Vector2.zero);
             var store = InkPremiumAppearance.Store;
             bool owned = InkPremiumAppearance.IsOwned;
             purchase.interactable = !owned && store != null && store.CanPurchase && !store.IsBusy;
             string caption = owned ? "구매 완료" : store?.CanPurchase == true ? "구매하기" : "상품 확인 중...";
             string localized = GameLocalization.Translate(caption);
             purchaseLabel.text = localized + (!owned && !string.IsNullOrEmpty(store?.LocalizedPrice) ? "  " + store.LocalizedPrice : "");
-            InkLocalizedText.SetSource(status, store?.StatusMessage ?? "스토어에 연결하고 있어요");
+            string message = store?.StatusMessage ?? "스토어에 연결하고 있어요";
+            InkLocalizedText.SetSource(status, message);
+            status.gameObject.SetActive(!string.IsNullOrEmpty(message));
         }
         void Build()
         {
@@ -76,20 +78,17 @@ namespace MukJump.Core
             var dim = Stretch("Blocker", root.transform).gameObject.AddComponent<Image>();
             InkUiStyle.ConfigurePopupDim(dim); dim.raycastTarget = true;
             safeRoot = Stretch("SafeArea", root.transform);
-            paper = Rect("PremiumPaper", safeRoot, Vector2.zero, new Vector2(880, 1420));
-            frame = HanjiScrollFrame.Attach(paper, new Vector2(880, 1400));
+            paper = Rect("PremiumPaper", safeRoot, Vector2.zero, new Vector2(880, 1280));
+            frame = HanjiScrollFrame.Attach(paper, new Vector2(880, 1260));
             InkUiStyle.ConfigurePopupDismiss(dim, paper, Close,
                 () => IsOpen && group.interactable && (!Application.isPlaying || frame.IsReady));
-            Label("Title", "모든 광고 제거", 68, 555, 100, true);
-            Label("Permanent", "한 번 구매 · 영구 적용", 40, 460, 76, false);
+            Label("Title", "모든 광고 제거", 68, 455, 100, true);
             BuildGoldenBackdrop();
-            var body = Rect("GoldenInk", paper, new Vector2(0, 230), new Vector2(340, 340)).gameObject.AddComponent<Image>();
+            var body = Rect("GoldenInk", paper, new Vector2(0, 175), new Vector2(360, 360)).gameObject.AddComponent<Image>();
             body.sprite = previewBodySprite; body.preserveAspect = true; body.raycastTarget = false;
             GoldInkVisual.Apply(body, true);
-            Label("GoldenBonus", "금색 먹 포함", 46, -4, 80, true);
-            Label("Benefits", "배너·전면·부활 광고 없이", 42, -100, 100, true);
-            Label("ReviveRules", "부활 한 판 1회 · 기존 조건 유지", 34, -187, 64, false);
-            purchase = Action("Purchase", "상품 확인 중...", -318, out purchaseLabel);
+            Label("BenefitsSummary", "영구 광고 제거 · 평생\n황금 먹 제공", 40, -83, 96, true).color = new Color(.46f, .31f, .12f);
+            purchase = Action("Purchase", "상품 확인 중...", -240, out purchaseLabel);
             purchaseLabel.fontSize = 48;
             var purchaseSurface = purchase.targetGraphic as Image;
             purchaseSurface.color = InkPalette.Red;
@@ -109,14 +108,14 @@ namespace MukJump.Core
                 store.Purchase();
                 Refresh();
             });
-            Label("PurchaseNotice", "구매 즉시 적용됩니다.\n제공 개시 후 청약철회는 법령·스토어 정책에 따라 제한될 수 있습니다.", 30, -493, 154, false);
-            status = Label("Status", "", 30, -621, 86, false);
+            Label("PurchaseNotice", "구매 즉시 적용됩니다.\n제공 개시 후 청약철회는 법령·스토어 정책에 따라 제한될 수 있습니다.", 30, -423, 130, false);
+            status = Label("Status", "", 30, -556, 96, false);
             Hide();
         }
         void BuildGoldenBackdrop()
         {
             // 기존 공용 붓 자산만 재사용한다. 장식은 먹 뒤에 놓고 입력·권한·능력을 바꾸지 않는다.
-            var backdrop = Rect("GoldenBackdrop", paper, new Vector2(0, 230), Vector2.one * 390);
+            var backdrop = Rect("GoldenBackdrop", paper, new Vector2(0, 175), Vector2.one * 390);
             BackdropImage("GoldWash", backdrop, InkUiTextureFactory.CreateBlobSprite(),
                 Vector2.zero, Vector2.one * 400, new Color(.74f, .50f, .15f, .16f));
             BackdropImage("BrushCircle", backdrop, Resources.Load<Sprite>("MukJump/UI/PermanentGrowth/pg_selected_ring"),

@@ -37,7 +37,7 @@ namespace MukJump.EditorTests
             var sizeGroup = sizeType.GetProperty("currentGroup", flags).GetValue(sizes);
             int firstTemporary = (int)sizeGroup.GetType().GetMethod("GetTotalCount").Invoke(sizeGroup, null);
             int added = 0;
-            const string output = "output/qa/premium-copy-20260927";
+            const string output = "output/qa/premium-benefits-20260927";
             try
             {
                 yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
@@ -62,6 +62,7 @@ namespace MukJump.EditorTests
                     {
                         // 표시 테스트용 가격이며 실기기 스토어 상품 조회 결과가 아니다.
                         store.Price = language == GameLanguage.Korean ? "₩4,900" : language == GameLanguage.Japanese ? "¥500" : "$2.99";
+                        store.Message = "";
                         GameLocalization.SetLanguage(language); InkPremiumAppearance.OpenShop(); yield return Wait(.5f);
                         var paper = shop.transform.Find("PremiumShopCanvas/SafeArea/PremiumPaper");
                         Assert.That(paper.Find("Restore"), Is.Null);
@@ -72,6 +73,16 @@ namespace MukJump.EditorTests
                         var purchase = paper.Find("Purchase").GetComponent<Button>();
                         Assert.That(ScreenBounds((RectTransform)purchase.transform).height, Is.GreaterThanOrEqualTo(44));
                         yield return Capture("shop-" + size.x + "-" + language, output);
+                        var shopStatus = paper.Find("Status").GetComponent<Text>();
+                        Assert.That(shopStatus.gameObject.activeSelf, Is.False);
+                        store.Message = "구매하지 못했어요. 잠시 후 다시 시도해 주세요";
+                        yield return Wait(.3f);
+                        Assert.That(shopStatus.gameObject.activeSelf, Is.True);
+                        Assert.That(shopStatus.text, Is.EqualTo(GameLocalization.Translate(store.Message)));
+                        Assert.That(shopStatus.preferredHeight, Is.LessThanOrEqualTo(shopStatus.rectTransform.rect.height + 2));
+                        Assert.That(ScreenBounds(shopStatus.rectTransform).yMin, Is.GreaterThanOrEqualTo(0));
+                        yield return Capture("shop-status-" + size.x + "-" + language, output);
+                        store.Message = ""; yield return Wait(.3f);
                         if (size.x == 390 && language == GameLanguage.Korean)
                         {
                             yield return Wait(1.3f); yield return Capture("gold-shimmer-later", output);

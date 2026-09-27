@@ -44,6 +44,7 @@ namespace MukJump.Core
                 ["모든 광고 제거"] = ("Remove All Ads", "すべての広告を削除"),
                 ["한 번 구매 · 영구 적용"] = ("Buy once · Keep forever", "一度の購入で永久に"),
                 ["금색 먹 포함"] = ("Golden Ink included", "金色の墨つき"),
+                ["영구 광고 제거 · 평생\n황금 먹 제공"] = ("Ad-free · For life\nGolden Ink included", "広告を永久削除・ずっと\n金色の墨つき"),
                 ["배너·전면·부활 광고 없이"] = ("No banner, full-screen or revival ads", "バナー・全画面・復活の広告なし"),
                 ["부활 한 판 1회 · 기존 조건 유지"] = ("Revive once per run · Usual conditions apply", "復活は1プレイ1回・利用条件は同じ"),
                 ["구매 즉시 적용됩니다.\n제공 개시 후 청약철회는 법령·스토어 정책에 따라 제한될 수 있습니다."] =

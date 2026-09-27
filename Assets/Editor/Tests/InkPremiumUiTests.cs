@@ -62,8 +62,18 @@ namespace MukJump.EditorTests
             Assert.That(purchase.GetComponentInChildren<Text>().text, Does.Contain("$2.99"));
             foreach (var label in paper.GetComponentsInChildren<Text>())
                 Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 2), label.name);
+            var status = paper.Find("Status").GetComponent<Text>();
+            Assert.That(status.gameObject.activeSelf, Is.False, "정상 화면에는 별도 상태 문구를 노출하지 않는다");
             purchase.onClick.Invoke(); purchase.onClick.Invoke();
             Assert.That(store.Purchases, Is.EqualTo(1)); Assert.That(store.Restores, Is.Zero);
+            store.Message = "구매하지 못했어요. 잠시 후 다시 시도해 주세요";
+            Invoke(shop, "Refresh");
+            Assert.That(status.gameObject.activeSelf, Is.True);
+            Assert.That(status.text, Is.EqualTo(GameLocalization.Translate(store.Message)));
+            Assert.That(status.preferredHeight, Is.LessThanOrEqualTo(status.rectTransform.rect.height + 2));
+            Assert.That(purchase.interactable, Is.False, "처리 중 중복 구매 차단은 유지한다");
+            store.Message = ""; Invoke(shop, "Refresh");
+            Assert.That(status.gameObject.activeSelf, Is.False);
             store.Busy = false; store.Owned = true; Invoke(shop, "Refresh");
             Assert.That(purchase.interactable, Is.False);
         }
@@ -80,6 +90,14 @@ namespace MukJump.EditorTests
             }
             Assert.That(paper.Find("CosmeticOnly"), Is.Null, "긴 중복 설명은 넣지 않는다");
             Assert.That(paper.Find("RestoreHint"), Is.Null);
+            foreach (string name in new[] { "Permanent", "GoldenBonus", "Benefits", "ReviveRules" })
+                Assert.That(paper.Find(name), Is.Null, "먹 주변에 설명을 흩어 배치하지 않는다: " + name);
+            Assert.That(paper.GetComponentsInChildren<Text>(true).Select(t => t.name),
+                Is.EquivalentTo(new[] { "Title", "BenefitsSummary", "Label", "PurchaseNotice", "Status" }));
+            string summarySource = "영구 광고 제거 · 평생\n황금 먹 제공";
+            var summary = paper.Find("BenefitsSummary").GetComponent<Text>();
+            Assert.That(summary.text, Is.EqualTo(GameLocalization.Translate(summarySource)));
+            if (language != GameLanguage.Korean) Assert.That(summary.text, Is.Not.EqualTo(summarySource));
             string noticeSource = "구매 즉시 적용됩니다.\n제공 개시 후 청약철회는 법령·스토어 정책에 따라 제한될 수 있습니다.";
             var notice = paper.Find("PurchaseNotice").GetComponent<Text>();
             Assert.That(notice.text, Is.EqualTo(GameLocalization.Translate(noticeSource)));
@@ -89,10 +107,20 @@ namespace MukJump.EditorTests
             // 구매 버튼·안내·동적 상태 문구는 서로 다른 행이다.
             var purchase = (RectTransform)paper.Find("Purchase");
             var status = (RectTransform)paper.Find("Status");
+            var title = (RectTransform)paper.Find("Title");
+            var body = (RectTransform)paper.Find("GoldenInk");
+            Assert.That(title.anchoredPosition.y - title.sizeDelta.y / 2,
+                Is.GreaterThan(((RectTransform)backdrop).anchoredPosition.y + 200));
+            Assert.That(body.anchoredPosition.y - body.sizeDelta.y / 2,
+                Is.GreaterThan(summary.rectTransform.anchoredPosition.y + summary.rectTransform.sizeDelta.y / 2));
+            Assert.That(summary.rectTransform.anchoredPosition.y - summary.rectTransform.sizeDelta.y / 2,
+                Is.GreaterThan(purchase.anchoredPosition.y + purchase.sizeDelta.y / 2));
             Assert.That(purchase.anchoredPosition.y - purchase.sizeDelta.y / 2,
                 Is.GreaterThan(notice.rectTransform.anchoredPosition.y + notice.rectTransform.sizeDelta.y / 2));
             Assert.That(notice.rectTransform.anchoredPosition.y - notice.rectTransform.sizeDelta.y / 2,
                 Is.GreaterThan(status.anchoredPosition.y + status.sizeDelta.y / 2));
+            Assert.That(status.anchoredPosition.y - status.sizeDelta.y / 2,
+                Is.GreaterThan(-((RectTransform)paper).sizeDelta.y / 2));
         }
         [TestCase(false)] [TestCase(true)]
         public void ShopDismissesOnlyOnOutsideTapWithoutChangingPendingPurchase(bool busy)
