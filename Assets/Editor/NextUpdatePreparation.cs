@@ -10,12 +10,19 @@ namespace MukJump.EditorTools
     // 연결 도구가 응답하지 않을 때도 동일한 공식 빌더·컴파일·감사를 실행하는 로컬 검증 진입점.
     public static class NextUpdatePreparation
     {
-        const string Output = "output/qa/next-update-scope-20260928/";
+        static string Output => Environment.GetEnvironmentVariable("MUKJUMP_PREPARATION_OUTPUT") ??
+            "output/qa/next-update-scope-20260928/";
 
         public static void PrepareScene()
         {
             MukJumpSceneBuilder.Build();
             Save("scene-audit.json", MukJumpAgentAudit.Audit());
+        }
+
+        public static void PrepareCompileAndAudit()
+        {
+            PrepareScene();
+            CompileAndAudit();
         }
 
         public static void CompileAndAudit()

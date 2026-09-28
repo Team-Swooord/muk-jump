@@ -57,7 +57,7 @@ namespace MukJump.EditorTests
             Assert.That(paper.Find("Restore"), Is.Null);
             Assert.That(paper.Find("Close"), Is.Null);
             AssertConcisePresentation(paper, language);
-            Assert.That(paper.GetComponentsInChildren<Button>().Select(b => b.name), Is.EqualTo(new[] { "Purchase" }));
+            Assert.That(paper.GetComponentsInChildren<Button>().Select(b => b.name), Is.EquivalentTo(new[] { "GoldInfo", "Purchase" }));
             var purchase = paper.Find("Purchase").GetComponent<Button>();
             Assert.That(purchase.GetComponentInChildren<Text>().text, Does.Contain("$2.99"));
             foreach (var label in paper.GetComponentsInChildren<Text>())
@@ -93,12 +93,25 @@ namespace MukJump.EditorTests
             foreach (string name in new[] { "Permanent", "GoldenBonus", "Benefits", "ReviveRules" })
                 Assert.That(paper.Find(name), Is.Null, "먹 주변에 설명을 흩어 배치하지 않는다: " + name);
             Assert.That(paper.GetComponentsInChildren<Text>(true).Select(t => t.name),
-                Is.EquivalentTo(new[] { "Title", "BenefitsSummary", "Label", "PurchaseNotice", "Status" }));
-            Assert.That(paper.Find("Title").GetComponent<Text>().text, Is.EqualTo(GameLocalization.Translate("황금먹 패키지")));
-            string summarySource = "황금먹 패키지 구매 시 영구 광고 제거,\n특별한 황금 먹 스킨 제공";
-            var summary = paper.Find("BenefitsSummary").GetComponent<Text>();
-            Assert.That(summary.text, Is.EqualTo(GameLocalization.Translate(summarySource)));
-            if (language != GameLanguage.Korean) Assert.That(summary.text, Is.Not.EqualTo(summarySource));
+                Is.EquivalentTo(new[] { "Title", "BenefitsHeading", "AdBenefit", "SkinBenefit", "LandingBenefit", "InfoGlyph", "Label", "PurchaseNotice", "Status" }));
+            Assert.That(paper.Find("Title").GetComponent<Text>().text, Is.EqualTo(GameLocalization.Translate("황금먹패키지(영구)")));
+            string[] names = { "BenefitsHeading", "AdBenefit", "SkinBenefit", "LandingBenefit" };
+            string[] sources = { "혜택", "1. 모든 광고 제거", "2. 황금 먹 스킨 제공", "특별한 착지효과 제공" };
+            for (int i = 0; i < names.Length; i++)
+            {
+                var label = paper.Find(names[i]).GetComponent<Text>();
+                Assert.That(label.text, Is.EqualTo(GameLocalization.Translate(sources[i])));
+                if (language != GameLanguage.Korean) Assert.That(label.text, Is.Not.EqualTo(sources[i]));
+                if (i > 0)
+                {
+                    var previous = (RectTransform)paper.Find(names[i - 1]);
+                    Assert.That(previous.anchoredPosition.y - previous.sizeDelta.y / 2,
+                        Is.GreaterThan(label.rectTransform.anchoredPosition.y + label.rectTransform.sizeDelta.y / 2));
+                }
+            }
+            var summary = paper.Find("BenefitsHeading").GetComponent<Text>();
+            var lastBenefit = (RectTransform)paper.Find("LandingBenefit");
+            Assert.That(paper.Find("GoldInfo/InfoGlyph").GetComponent<Text>().text, Is.EqualTo("i"));
             string noticeSource = "※ 구매 즉시 광고 제거 및 패키지 혜택이 적용됩니다. 디지털 콘텐츠 제공이 시작된 이후에는 관련 법령 및 스토어 정책에 따라 청약철회가 제한될 수 있습니다.";
             var notice = paper.Find("PurchaseNotice").GetComponent<Text>();
             Assert.That(notice.text, Is.EqualTo(GameLocalization.Translate(noticeSource)));
@@ -114,7 +127,7 @@ namespace MukJump.EditorTests
                 Is.GreaterThan(((RectTransform)backdrop).anchoredPosition.y + 200));
             Assert.That(body.anchoredPosition.y - body.sizeDelta.y / 2,
                 Is.GreaterThan(summary.rectTransform.anchoredPosition.y + summary.rectTransform.sizeDelta.y / 2));
-            Assert.That(summary.rectTransform.anchoredPosition.y - summary.rectTransform.sizeDelta.y / 2,
+            Assert.That(lastBenefit.anchoredPosition.y - lastBenefit.sizeDelta.y / 2,
                 Is.GreaterThan(purchase.anchoredPosition.y + purchase.sizeDelta.y / 2));
             Assert.That(purchase.anchoredPosition.y - purchase.sizeDelta.y / 2,
                 Is.GreaterThan(status.anchoredPosition.y + status.sizeDelta.y / 2));

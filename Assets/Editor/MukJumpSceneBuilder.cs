@@ -207,6 +207,7 @@ namespace MukJump.EditorTools
             ConfigureActionButtonSprite();
             ConfigureHanjiScrollRoll();
             ConfigureSettingsIcons();
+            ConfigureGoldPreviewRecording();
             ConfigureWindIcon();
             ConfigureLobbySky();
             ConfigureInkDropJumpVfxAssets();
@@ -413,6 +414,25 @@ namespace MukJump.EditorTools
                 alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f)
             } };
 #pragma warning restore CS0618
+            importer.SaveAndReimport();
+        }
+
+        [MenuItem("MukJump/Configure Gold Preview Recording")]
+        public static void ConfigureGoldPreviewRecording()
+        {
+            const string path = "Assets/Resources/MukJump/UI/GoldPreview/gold-jump.png";
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) return;
+            if (importer.textureType == TextureImporterType.Default && importer.sRGBTexture &&
+                !importer.mipmapEnabled && !importer.isReadable && importer.npotScale == TextureImporterNPOTScale.None &&
+                importer.wrapMode == TextureWrapMode.Clamp && importer.filterMode == FilterMode.Bilinear &&
+                importer.maxTextureSize == 2048 && importer.textureCompression == TextureImporterCompression.CompressedHQ)
+                return;
+            importer.textureType = TextureImporterType.Default;
+            importer.sRGBTexture = true; importer.mipmapEnabled = false; importer.isReadable = false;
+            importer.npotScale = TextureImporterNPOTScale.None; importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear; importer.maxTextureSize = 2048;
+            importer.textureCompression = TextureImporterCompression.CompressedHQ;
             importer.SaveAndReimport();
         }
 

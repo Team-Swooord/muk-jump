@@ -13,6 +13,7 @@ namespace MukJump.Core
         HanjiScrollFrame frame;
         Button purchase;
         Text purchaseLabel, status;
+        GoldInkRecordedPreview effectPreview;
         float refreshAt;
         public static bool IsOpen { get; private set; }
         public void ConfigurePreview(Sprite value) => previewBodySprite = value;
@@ -27,6 +28,7 @@ namespace MukJump.Core
             if (!InkPremiumAppearance.IsSupported || GameManager.Instance != null &&
                 (GameManager.Instance.State != GameState.Lobby || GameManager.Instance.IsTransitioning)) return;
             Build();
+            effectPreview?.Hide();
             frame.CancelClose();
             IsOpen = true;
             group.alpha = 1; group.interactable = group.blocksRaycasts = true;
@@ -36,12 +38,14 @@ namespace MukJump.Core
         public void Close()
         {
             if (group == null || !IsOpen) return;
+            if (effectPreview != null && effectPreview.IsOpen) { effectPreview.Close(); return; }
             PointerInput.SuppressUntilRelease();
             frame.Close(Hide, group);
         }
         void Hide()
         {
             IsOpen = false;
+            effectPreview?.Hide();
             if (group == null) return;
             group.alpha = 0; group.interactable = group.blocksRaycasts = false;
         }
@@ -56,7 +60,7 @@ namespace MukJump.Core
         {
             MobileUiLayout.ApplyCurrentSafeArea(safeRoot);
             paper.localScale = Vector3.one * MobileUiLayout.CalculateFitScale(
-                new Vector2(920, 1600), MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height, Vector2.zero);
+                new Vector2(920, 1640), MobileUiLayout.CurrentSafeArea, Screen.width, Screen.height, Vector2.zero);
             var store = InkPremiumAppearance.Store;
             bool owned = InkPremiumAppearance.IsOwned;
             purchase.interactable = !owned && store != null && store.CanPurchase && !store.IsBusy;
@@ -78,17 +82,21 @@ namespace MukJump.Core
             var dim = Stretch("Blocker", root.transform).gameObject.AddComponent<Image>();
             InkUiStyle.ConfigurePopupDim(dim); dim.raycastTarget = true;
             safeRoot = Stretch("SafeArea", root.transform);
-            paper = Rect("PremiumPaper", safeRoot, Vector2.zero, new Vector2(880, 1280));
-            frame = HanjiScrollFrame.Attach(paper, new Vector2(880, 1260));
+            paper = Rect("PremiumPaper", safeRoot, Vector2.zero, new Vector2(880, 1400));
+            frame = HanjiScrollFrame.Attach(paper, new Vector2(880, 1380));
             InkUiStyle.ConfigurePopupDismiss(dim, paper, Close,
                 () => IsOpen && group.interactable && (!Application.isPlaying || frame.IsReady));
-            Label("Title", "황금먹 패키지", 68, 455, 100, true);
+            Label("Title", "황금먹패키지(영구)", 58, 550, 100, true);
             BuildGoldenBackdrop();
-            var body = Rect("GoldenInk", paper, new Vector2(0, 175), new Vector2(360, 360)).gameObject.AddComponent<Image>();
+            var body = Rect("GoldenInk", paper, new Vector2(0, 275), new Vector2(340, 340)).gameObject.AddComponent<Image>();
             body.sprite = previewBodySprite; body.preserveAspect = true; body.raycastTarget = false;
             GoldInkVisual.Apply(body, true);
-            Label("BenefitsSummary", "황금먹 패키지 구매 시 영구 광고 제거,\n특별한 황금 먹 스킨 제공", 34, -87, 112, true).color = new Color(.46f, .31f, .12f);
-            purchase = Action("Purchase", "상품 확인 중...", -250, out purchaseLabel);
+            BuildInfoButton();
+            Benefit("BenefitsHeading", "혜택", 44, 35, 64, true);
+            Benefit("AdBenefit", "1. 모든 광고 제거", 42, -42, 70, true);
+            Benefit("SkinBenefit", "2. 황금 먹 스킨 제공", 42, -115, 70, true);
+            Benefit("LandingBenefit", "특별한 착지효과 제공", 32, -184, 60, false).color = new Color(.46f, .31f, .12f);
+            purchase = Action("Purchase", "상품 확인 중...", -310, out purchaseLabel);
             purchaseLabel.fontSize = 48;
             var purchaseSurface = purchase.targetGraphic as Image;
             purchaseSurface.color = InkPalette.Red;
@@ -104,18 +112,51 @@ namespace MukJump.Core
             {
                 var store = InkPremiumAppearance.Store;
                 if (!InkPremiumAppearance.IsSupported || InkPremiumAppearance.IsOwned ||
-                    store == null || store.IsBusy || !store.CanPurchase) return;
+                    store == null || store.IsBusy || !store.CanPurchase || effectPreview?.IsOpen == true) return;
                 store.Purchase();
                 Refresh();
             });
-            status = Label("Status", "", 28, -375, 72, false);
-            Label("PurchaseNotice", "※ 구매 즉시 광고 제거 및 패키지 혜택이 적용됩니다. 디지털 콘텐츠 제공이 시작된 이후에는 관련 법령 및 스토어 정책에 따라 청약철회가 제한될 수 있습니다.", 28, -520, 180, false);
+            status = Label("Status", "", 28, -442, 72, false);
+            Label("PurchaseNotice", "※ 구매 즉시 광고 제거 및 패키지 혜택이 적용됩니다. 디지털 콘텐츠 제공이 시작된 이후에는 관련 법령 및 스토어 정책에 따라 청약철회가 제한될 수 있습니다.", 28, -580, 180, false);
             Hide();
+        }
+        Text Benefit(string name, string source, int font, float y, float height, bool strong)
+        {
+            var text = Label(name, source, font, y, height, strong);
+            text.rectTransform.sizeDelta = new Vector2(660, height);
+            text.alignment = TextAnchor.MiddleLeft;
+            return text;
+        }
+        void BuildInfoButton()
+        {
+            // 작은 원의 시각 크기와 별개로 모바일 터치 영역은 충분히 확보한다.
+            var hit = Rect("GoldInfo", paper, new Vector2(270, 390), Vector2.one * 160);
+            var target = hit.gameObject.AddComponent<Image>(); target.color = Color.clear;
+            var ring = BackdropImage("Circle", hit, InkUiTextureFactory.CreateCelestialDiscSprite(),
+                Vector2.zero, Vector2.one * 116, InkPalette.TextDark);
+            BackdropImage("Fill", hit, ring.sprite, Vector2.zero, Vector2.one * 104, InkPalette.Paper);
+            var label = Rect("InfoGlyph", hit, Vector2.zero, Vector2.one * 96).gameObject.AddComponent<Text>();
+            InkUiStyle.ApplyReadableText(label, 64, TextAnchor.MiddleCenter, true, true);
+            label.text = "i"; label.raycastTarget = false; label.color = InkPalette.TextDark;
+            InkLocalizedText.Exclude(label);
+            var button = hit.gameObject.AddComponent<Button>(); InkUiStyle.ConfigureButton(button, ring);
+            button.onClick.AddListener(() =>
+            {
+                if (!IsOpen || !group.interactable || !InkPremiumAppearance.IsSupported) return;
+                if (effectPreview == null)
+                    effectPreview = new GameObject("GoldenLandingPreview").AddComponent<GoldInkRecordedPreview>();
+                effectPreview.transform.SetParent(transform, false);
+                effectPreview.Open(() =>
+                {
+                    if (IsOpen) { group.interactable = true; PointerInput.SuppressUntilRelease(); }
+                });
+                group.interactable = false;
+            });
         }
         void BuildGoldenBackdrop()
         {
             // 기존 공용 붓 자산만 재사용한다. 장식은 먹 뒤에 놓고 입력·권한·능력을 바꾸지 않는다.
-            var backdrop = Rect("GoldenBackdrop", paper, new Vector2(0, 175), Vector2.one * 390);
+            var backdrop = Rect("GoldenBackdrop", paper, new Vector2(0, 275), Vector2.one * 390);
             BackdropImage("GoldWash", backdrop, InkUiTextureFactory.CreateBlobSprite(),
                 Vector2.zero, Vector2.one * 400, new Color(.74f, .50f, .15f, .16f));
             BackdropImage("BrushCircle", backdrop, Resources.Load<Sprite>("MukJump/UI/PermanentGrowth/pg_selected_ring"),
