@@ -182,6 +182,28 @@ namespace MukJump.EditorTests
             view.BuildForPlatformForTests(RuntimePlatform.WebGLPlayer);
             Assert.That(host.GetComponentsInChildren<Button>(true).Any(b => b.name == "RestorePurchasesButton"), Is.False);
         }
+        [TestCase(GameLanguage.Korean)] [TestCase(GameLanguage.English)] [TestCase(GameLanguage.Japanese)]
+        public void TossRestoreUsesItsStoreWithoutOverlappingLocalSaveNotice(GameLanguage language)
+        {
+            GameLocalization.SetLanguage(language);
+            host = new GameObject("Toss restore UI"); host.SetActive(false);
+            var view = host.AddComponent<LobbyOptionsView>();
+            view.BuildForPlatformForTests(RuntimePlatform.WebGLPlayer);
+            var button = host.GetComponentsInChildren<Button>(true).Single(b => b.name == "RestorePurchasesButton");
+            var restore = (RectTransform)button.transform;
+            var guide = (RectTransform)restore.parent.Find("GuideButton");
+            var notice = (RectTransform)restore.parent.Find("LocalSaveNoticeTitle");
+            Assert.That(restore.anchoredPosition.x - restore.sizeDelta.x / 2,
+                Is.GreaterThan(guide.anchoredPosition.x + guide.sizeDelta.x / 2));
+            Assert.That(restore.anchoredPosition.y - restore.sizeDelta.y / 2,
+                Is.GreaterThan(notice.anchoredPosition.y + notice.sizeDelta.y / 2));
+            var label = button.GetComponentInChildren<Text>(true);
+            Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 2));
+            Invoke(view, "RefreshPremiumRestore"); button.onClick.Invoke(); button.onClick.Invoke();
+            Assert.That(store.Restores, Is.EqualTo(1)); Assert.That(store.Purchases, Is.Zero);
+            Assert.That(store.Owned, Is.False); Assert.That(button.interactable, Is.False);
+            Assert.That(restore.parent.Find("AccountButton"), Is.Null);
+        }
         [Test] public void SharedGoldMaterialsRespectReducedMotionAndCompile()
         {
             typeof(GoldInkVisual).GetMethod("Reset", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, null);

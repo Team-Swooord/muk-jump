@@ -15,6 +15,84 @@ namespace MukJump.EditorTests
 {
     public sealed partial class InkPremiumPlayTests
     {
+        [UnityTest, Timeout(120000)]
+        public IEnumerator TossPremiumRestoreUsesExistingSettingsSpaceInPlay()
+        {
+            yield return new EnterPlayMode();
+            bool oldBackground = Application.runInBackground; Application.runInBackground = true;
+            var memory = new MemoryLobbySettingsStore();
+            LobbySettingsProfile.UseStoreForTests(memory); InkSkinPreferences.UseStoreForTests(memory);
+            LobbySettingsProfile.TryMarkGameplayTutorialCompleted();
+            MobileApplicationLifecycle.SetPlatformVisibility(true);
+            PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
+            ScoreManager.UseStoreForTests(new MemoryScoreStore());
+            GameManager.UsePendingGameOverSettlementStoreForTests(new MemoryPendingGameOverSettlementStore());
+            var store = new InkPremiumUiTests.Store(); InkPremiumAppearance.UseForTests(true, store);
+            var languageBefore = GameLocalization.Language;
+            var window = EditorWindow.GetWindow(typeof(Editor).Assembly.GetType("UnityEditor.GameView"));
+            var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+            int oldSize = (int)window.GetType().GetProperty("selectedSizeIndex", flags).GetValue(window);
+            var sizeType = typeof(Editor).Assembly.GetType("UnityEditor.GameViewSizes");
+            var sizes = typeof(ScriptableSingleton<>).MakeGenericType(sizeType).GetProperty("instance").GetValue(null);
+            var group = sizeType.GetProperty("currentGroup", flags).GetValue(sizes);
+            int first = (int)group.GetType().GetMethod("GetTotalCount").Invoke(group, null), added = 0;
+            GameObject host = null;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("Main"); yield return Wait(1);
+                Assert.That(GameManager.Instance.State, Is.EqualTo(GameState.Lobby));
+                Object.FindAnyObjectByType<LobbyOptionsView>().Close();
+                host = new GameObject("Toss settings fixture"); host.SetActive(false);
+                var options = host.AddComponent<LobbyOptionsView>();
+                options.BuildForPlatformForTests(RuntimePlatform.WebGLPlayer); host.SetActive(true);
+                foreach (var size in new[] { new Vector2Int(320, 568), new Vector2Int(390, 844) })
+                {
+                    var kind = typeof(Editor).Assembly.GetType("UnityEditor.GameViewSizeType");
+                    var temporary = System.Activator.CreateInstance(typeof(Editor).Assembly.GetType("UnityEditor.GameViewSize"),
+                        System.Enum.Parse(kind, "FixedResolution"), size.x, size.y, "MukJump Toss Premium TEMP");
+                    group.GetType().GetMethod("AddCustomSize").Invoke(group, new[] { temporary });
+                    window.GetType().GetMethod("SizeSelectionCallback", flags).Invoke(window, new object[] { first + added++, null });
+                    window.Focus(); window.Repaint(); yield return Wait(.3f);
+                    options.SetDisplayMetricsForTests(size.x, size.y, new Rect(0, 0, size.x, size.y));
+                    foreach (var language in new[] { GameLanguage.Korean, GameLanguage.English, GameLanguage.Japanese })
+                    {
+                        GameLocalization.SetLanguage(language); store.Busy = false; store.Message = "";
+                        options.Open(); yield return Wait(.5f);
+                        Assert.That(options.IsOpen, Is.True, "실제로 열린 설정창만 촬영한다");
+                        Assert.That(options.GetComponentsInChildren<CanvasGroup>().First(g => g.name == "LobbyOptionsCanvas").alpha, Is.EqualTo(1));
+                        var restore = options.GetComponentsInChildren<Button>().Single(b => b.name == "RestorePurchasesButton");
+                        Rect bounds = ScreenBounds((RectTransform)restore.transform);
+                        Assert.That(bounds.xMin, Is.GreaterThanOrEqualTo(0));
+                        Assert.That(bounds.xMax, Is.LessThanOrEqualTo(size.x));
+                        Assert.That(bounds.height, Is.GreaterThanOrEqualTo(44));
+                        foreach (string name in new[] { "GuideButton", "LocalSaveNoticeTitle", "LocalSaveNotice", "TermsButton", "PrivacyButton" })
+                            Assert.That(bounds.Overlaps(ScreenBounds((RectTransform)restore.transform.parent.Find(name))), Is.False, name);
+                        restore.onClick.Invoke(); restore.onClick.Invoke(); yield return Wait(.2f);
+                        Assert.That(restore.interactable, Is.False);
+                        store.Busy = false; store.Message = "구입 복원을 완료하지 못했어요"; yield return Wait(.2f);
+                        var status = restore.transform.parent.Find("ConnectionStatus").GetComponent<Text>();
+                        Assert.That(status.preferredHeight, Is.LessThanOrEqualTo(status.rectTransform.rect.height + 2));
+                        yield return Capture("toss-settings-" + size.x + "-" + language, "output/qa/toss-premium-interstitial-20260928/ui");
+                        options.Close(); yield return Wait(.3f);
+                    }
+                }
+                Assert.That(store.Restores, Is.EqualTo(6)); Assert.That(store.Purchases, Is.Zero);
+            }
+            finally
+            {
+                if (host != null) Object.Destroy(host);
+                window.GetType().GetMethod("SizeSelectionCallback", flags).Invoke(window, new object[] { oldSize, null });
+                for (int index = first + added - 1; index >= first; index--)
+                    group.GetType().GetMethod("RemoveCustomSize").Invoke(group, new object[] { index });
+                InkPremiumAppearance.RestoreForTests(); GameLocalization.SetLanguage(languageBefore);
+                LobbySettingsProfile.RestoreDefaultStoreForTests(); InkSkinPreferences.RestoreDefaultStoreForTests();
+                PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();
+                GameManager.RestorePendingGameOverSettlementStoreForTests(); PointerInput.ResetSuppressionForTests();
+                Application.runInBackground = oldBackground;
+            }
+            yield return new ExitPlayMode();
+        }
+
         [UnityTest, Timeout(120000), Category("PremiumReadability")]
         public IEnumerator PremiumReadabilityAndRestoreOptionsInThreeLanguages()
         {

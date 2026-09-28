@@ -167,19 +167,19 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void ReleaseRejectsPostRunInterstitialForVersionOnePolicy()
+        public void ReleaseRequiresConfiguredInterstitialUnit()
         {
             var units = new GoogleAdUnitSet(
-                "ca-app-pub-1234567890123456/1000000001",
-                "ca-app-pub-1234567890123456/1000000002",
-                "ca-app-pub-1234567890123456/1000000003");
+                MukJumpGoogleAdsSettings.AndroidProductionBannerId,
+                MukJumpGoogleAdsSettings.AndroidProductionRewardedId,
+                string.Empty);
             settings.ConfigureForTests(
                 true,
                 true,
                 true,
-                "ca-app-pub-1234567890123456~2000000001",
+                MukJumpGoogleAdsSettings.AndroidProductionAppId,
                 units,
-                "ca-app-pub-1234567890123456~2000000002",
+                MukJumpGoogleAdsSettings.IosProductionAppId,
                 units);
 
             Assert.That(

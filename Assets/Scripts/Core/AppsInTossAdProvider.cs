@@ -52,7 +52,7 @@ namespace MukJump.Core
 
         public bool IsReady(FullScreenAdPlacement placement)
         {
-            if (disposed || pendingCompletion != null)
+            if (disposed || InkPremiumAppearance.SuppressAds || pendingCompletion != null)
                 return false;
             return IsRewarded(placement) ? rewardedReady : interstitialReady;
         }
@@ -63,7 +63,7 @@ namespace MukJump.Core
 
         public void Tick()
         {
-            if (disposed)
+            if (disposed || InkPremiumAppearance.SuppressAds)
                 return;
 
             double now = Time.realtimeSinceStartupAsDouble;
@@ -99,7 +99,8 @@ namespace MukJump.Core
 
         public void Preload(FullScreenAdPlacement placement)
         {
-            if (disposed || pendingCompletion != null || DeferLoading ||
+            if (disposed || InkPremiumAppearance.SuppressAds || pendingCompletion != null || DeferLoading ||
+                rewardedLoading || interstitialLoading ||
                 !MobileApplicationLifecycle.IsApplicationActive)
                 return;
             bool rewarded = IsRewarded(placement);

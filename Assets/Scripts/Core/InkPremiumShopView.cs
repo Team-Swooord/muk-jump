@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace MukJump.Core
 {
-    /// iOS 구매 안내. 결제·복원은 StoreKit 공급자만 실행하고 화면은 권한을 직접 부여하지 않는다.
+    /// 공통 구매 안내. 결제·복원은 플랫폼 스토어만 실행하고 화면은 권한을 직접 부여하지 않는다.
     [DisallowMultipleComponent]
     public sealed class InkPremiumShopView : MonoBehaviour
     {

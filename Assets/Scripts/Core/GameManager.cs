@@ -166,7 +166,7 @@ namespace MukJump.Core
         public GameplayPauseReason PauseReason { get; private set; } =
             GameplayPauseReason.None;
         public bool IsTransitioning =>
-            transitionInProgress || (transitionView != null && transitionView.IsPlaying);
+            postRunAdInFlight || transitionInProgress || (transitionView != null && transitionView.IsPlaying);
         /// 게임 규칙·스폰·물리가 한 틱 진행되어도 되는 공통 계약.
         public bool IsGameplayTicking =>
             State == GameState.Playing && !IsPaused && !IsTransitioning;
@@ -432,8 +432,10 @@ namespace MukJump.Core
 
         void OnDisable()
         {
-            if (reviveRequestInFlight)
+            if (reviveRequestInFlight || postRunAdInFlight)
                 SetReviveAdAudioActive(false);
+            postRunAdInFlight = postRunAdCompleted = false;
+            postRunAdGeneration++;
             transitionInProgress = false;
             reviveRequestInFlight = false;
             reviveCompletionPendingForeground = false;
@@ -463,6 +465,22 @@ namespace MukJump.Core
 
         void Update()
         {
+            if (postRunAdInFlight)
+            {
+                if (!postRunAdCompleted && !MonetizationAds.HasPendingPresentation &&
+                    Time.realtimeSinceStartupAsDouble >= postRunAdDeadline)
+                    postRunAdCompleted = true;
+                if (postRunAdCompleted && MobileApplicationLifecycle.IsApplicationActive)
+                {
+                    postRunAdInFlight = postRunAdCompleted = false;
+                    PostRunAdSession.Current.MarkFullScreen(Time.realtimeSinceStartupAsDouble);
+                    SetReviveAdAudioActive(false);
+                    gameOverPopupView?.SetReviveRequestInFlight(false);
+                    PointerInput.SuppressUntilRelease();
+                    if (State == GameState.GameOver) ContinueAfterGameOverAd();
+                }
+                return;
+            }
             if (State != GameState.GameOver) skinUnlockReturnPending = false;
             if (skinUnlockReturnPending)
             {
@@ -955,7 +973,7 @@ namespace MukJump.Core
             if (State != GameState.GameOver ||
                 gameOverResultSettled ||
                 reviveUsedThisRun ||
-                reviveRequestInFlight)
+                reviveRequestInFlight || postRunAdInFlight)
                 return;
 
             IFullScreenAdProvider ads = MonetizationAds.Provider;
@@ -984,7 +1002,11 @@ namespace MukJump.Core
             reviveCompletionPendingForeground = false;
             pendingReviveRewardEarned = false;
             gameOverPopupView?.SetReviveRequestInFlight(true);
-            if (!InkPremiumAppearance.IsOwned) SetReviveAdAudioActive(true);
+            if (!InkPremiumAppearance.IsOwned)
+            {
+                PostRunAdSession.Current.MarkRewarded(currentRunId, Time.realtimeSinceStartupAsDouble);
+                SetReviveAdAudioActive(true);
+            }
             try
             {
                 ads.Show(
@@ -1017,6 +1039,8 @@ namespace MukJump.Core
             // 유지한다. 전경 복귀 직후 Update가 소비하기 전에 false 콜백이 와도
             // 이미 획득한 보상이 취소되면 안 된다.
             pendingReviveRewardEarned |= rewardEarned;
+            if (!InkPremiumAppearance.IsOwned)
+                PostRunAdSession.Current.MarkRewarded(currentRunId, Time.realtimeSinceStartupAsDouble);
             if (!MobileApplicationLifecycle.IsApplicationActive)
             {
                 reviveCompletionPendingForeground = true;
@@ -1166,7 +1190,7 @@ namespace MukJump.Core
             if (State != GameState.GameOver ||
                 transitionInProgress ||
                 skinUnlockPresentationPending || skinUnlockReturnPending ||
-                reviveRequestInFlight)
+                reviveRequestInFlight || postRunAdInFlight)
                 return;
 
             if (!gameOverResultSettled)
@@ -1202,6 +1226,40 @@ namespace MukJump.Core
                     return;
                 ScoreManager.Instance?.StopPendingBestSaveRetry();
             }
+            IFullScreenAdProvider ads = MonetizationAds.Provider;
+            if (PostRunAdSession.Current.ConsumeExit(currentRunId, Time.realtimeSinceStartupAsDouble,
+                InkPremiumAppearance.SuppressAds, SafeIsAdReady(ads, FullScreenAdPlacement.PostRunInterstitial)))
+            {
+                postRunAdInFlight = true;
+                postRunAdCompleted = false;
+                int generation = ++postRunAdGeneration;
+                postRunAdDeadline = Time.realtimeSinceStartupAsDouble + ReviveAdRequestTimeoutSeconds;
+                gameOverPopupView?.SetReviveRequestInFlight(true);
+                SetReviveAdAudioActive(true);
+                try
+                {
+                    ads.Show(FullScreenAdPlacement.PostRunInterstitial, _ =>
+                    {
+                        if (this != null && isActiveAndEnabled && postRunAdInFlight && generation == postRunAdGeneration)
+                            postRunAdCompleted = true;
+                    });
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning("먹점프 전면 광고를 건너뜁니다: " + exception.Message);
+                    postRunAdCompleted = true;
+                }
+                return;
+            }
+            ContinueAfterGameOverAd();
+        }
+
+        bool postRunAdInFlight, postRunAdCompleted;
+        int postRunAdGeneration;
+        double postRunAdDeadline;
+
+        void ContinueAfterGameOverAd()
+        {
             ulong newSkins = skinUnlocks.Take(currentRunId, PermanentGrowthProfile.SkinAccountToken,
                 InkSkinUnlockState.ReadUnlocked(), latestGameOverResult);
             if (newSkins != 0)
@@ -2230,6 +2288,7 @@ namespace MukJump.Core
             SafePreloadAd(
                 MonetizationAds.Provider,
                 FullScreenAdPlacement.GameOverReviveReward);
+            SafePreloadAd(MonetizationAds.Provider, FullScreenAdPlacement.PostRunInterstitial);
             SetState(GameState.Playing);
             var debugScenario = DebugToolsAvailable
                 ? GetComponent<DebugShowcaseScenarioController>()
@@ -2256,7 +2315,7 @@ namespace MukJump.Core
 
         public void Restart()
         {
-            if (transitionInProgress) return;
+            if (transitionInProgress || postRunAdInFlight) return;
             transitionInProgress = true;
             PointerInput.SuppressUntilRelease();
             transitionView.Play(

@@ -24,7 +24,7 @@ namespace MukJump.EditorTests
                 using var scope = new MukJumpTossTestAdScope();
                 Assert.That(settings.RewardedAdGroupId, Is.EqualTo(AppsInTossAdRuntime.TestRewardedId));
                 Assert.That(settings.BannerAdGroupId, Is.EqualTo(AppsInTossAdRuntime.TestBannerId));
-                Assert.That(settings.InterstitialAdGroupId, Is.Empty);
+                Assert.That(settings.InterstitialAdGroupId, Is.EqualTo(AppsInTossAdRuntime.TestInterstitialId));
                 Resources.UnloadAsset(settings);
                 throw new InvalidOperationException("simulated build failure");
             });
@@ -750,8 +750,8 @@ namespace MukJump.EditorTests
                     Is.EqualTo(AppsInTossAdRuntime.TestBannerId));
                 Assert.That(
                     AppsInTossAdRuntime.ResolveInterstitialId(settings, true),
-                    Is.Empty,
-                    "1.0 개발 번들에서 전면 광고를 예열하면 안 됩니다.");
+                    Is.EqualTo(AppsInTossAdRuntime.TestInterstitialId),
+                    "개발 번들은 전면형도 공식 테스트 광고만 사용합니다.");
                 Assert.That(
                     AppsInTossAdRuntime.ResolveRewardedId(settings, false),
                     Is.EqualTo("operation-rewarded"));
@@ -763,7 +763,7 @@ namespace MukJump.EditorTests
         }
 
         [Test]
-        public void TossReleaseRejectsInterstitialAdGroupForVersionOnePolicy()
+        public void TossReleaseRequiresLiveInterstitialAdGroupWhenConfigured()
         {
             AppsInTossAdSettings settings =
                 ScriptableObject.CreateInstance<AppsInTossAdSettings>();
@@ -780,7 +780,7 @@ namespace MukJump.EditorTests
 
                 settings.Configure(
                     "operation-rewarded",
-                    string.Empty,
+                    "ait.v2.live.test-fixture",
                     "operation-banner");
                 Assert.That(
                     MukJumpAppsInTossSetup.CollectAdPolicyIssues(settings),

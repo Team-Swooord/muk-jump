@@ -332,6 +332,9 @@ namespace MukJump.EditorTools
                 string.IsNullOrWhiteSpace(adSettings.BannerAdGroupId))
                 issues.Add("• 토스 배너 광고 그룹 ID를 입력해야 합니다.");
             issues.AddRange(CollectAdPolicyIssues(adSettings, testAdsAllowed));
+            var premiumSettings = Resources.Load<AppsInTossPremiumSettings>(AppsInTossPremiumSettings.ResourcePath);
+            if (premiumSettings == null || string.IsNullOrWhiteSpace(premiumSettings.RemoveAdsSku))
+                issues.Add("• 토스 콘솔의 광고 제거 · 금색 먹 비소모성 상품 SKU를 연결해야 합니다.");
 
             List<string> backendPlugins =
                 MukJumpPlatformPluginFilter
@@ -357,11 +360,12 @@ namespace MukJump.EditorTools
                 issues.Add(
                     "• Production 토스 배너 광고에 공식 테스트 광고 ID를 사용할 수 없습니다.");
             if (adSettings != null &&
-                !string.IsNullOrWhiteSpace(adSettings.InterstitialAdGroupId))
+                !string.IsNullOrWhiteSpace(adSettings.InterstitialAdGroupId) &&
+                !adSettings.InterstitialAdGroupId.StartsWith("ait.v2.live.", StringComparison.Ordinal) &&
+                !(testAdsAllowed && adSettings.InterstitialAdGroupId == AppsInTossAdRuntime.TestInterstitialId))
             {
                 issues.Add(
-                    "• 먹점프 1.0은 강제 전면 광고를 사용하지 않습니다. " +
-                    "토스 전면 광고 그룹 ID를 비워야 합니다.");
+                    "• Production 토스 전면 광고에는 콘솔에서 확인한 운영 광고 그룹 ID가 필요합니다.");
             }
             return issues;
         }
@@ -374,7 +378,8 @@ namespace MukJump.EditorTools
             string.Equals(
                 value?.Trim(),
                 AppsInTossAdRuntime.TestBannerId,
-                StringComparison.Ordinal);
+                StringComparison.Ordinal) ||
+            string.Equals(value?.Trim(), AppsInTossAdRuntime.TestInterstitialId, StringComparison.Ordinal);
 
         public static bool IsBackendToolkitExcludedFromWebGL()
         {

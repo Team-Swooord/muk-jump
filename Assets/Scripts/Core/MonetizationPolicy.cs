@@ -1,7 +1,36 @@
 using System;
+using System.Collections.Generic;
+using UnityEngine;
 
 namespace MukJump.Core
 {
+    /// 씬 재시작을 넘어 유지하지만 앱을 새로 켜면 초기화되는 광고 빈도다.
+    public sealed class PostRunAdSession
+    {
+        public static PostRunAdSession Current { get; private set; } = new();
+        readonly HashSet<string> completed = new();
+        readonly HashSet<string> rewarded = new();
+        double lastFullScreenFinished;
+        public int CompletedRuns => completed.Count;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetSession() => Current = new PostRunAdSession();
+        public void MarkRewarded(string runId, double now)
+        {
+            if (!string.IsNullOrEmpty(runId)) rewarded.Add(runId);
+            MarkFullScreen(now);
+        }
+        public void MarkFullScreen(double now) => lastFullScreenFinished = Math.Max(lastFullScreenFinished, now);
+        public bool ConsumeExit(string runId, double now, bool adsSuppressed, bool ready)
+        {
+            if (string.IsNullOrEmpty(runId) || !completed.Add(runId)) return false;
+            // 미준비·구매자·부활 광고 이용 판은 건너뛰고 지연 광고를 남기지 않는다.
+            bool eligible = !adsSuppressed && MonetizationPolicy.ShouldShowPostRunInterstitial(
+                completed.Count, 0, (float)(now - lastFullScreenFinished), rewarded.Contains(runId), ready);
+            if (eligible) MarkFullScreen(now);
+            return eligible;
+        }
+    }
+
     public enum FullScreenAdPlacement
     {
         PreRunShieldReward,
@@ -91,7 +120,7 @@ namespace MukJump.Core
     public static class MonetizationPolicy
     {
         public const int InterstitialRunInterval = 3;
-        public const float MinimumRunDurationForInterstitial = 45f;
+        public const float MinimumRunDurationForInterstitial = 0f;
         public const float MinimumSecondsBetweenFullScreenAds = 120f;
 
         /// 로비·성장과 실제 플레이는 같은 상단 배너를 유지한다. 팝업·전환에는 겹치지 않는다.

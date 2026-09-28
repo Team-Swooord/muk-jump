@@ -585,10 +585,11 @@ namespace MukJump.Core
                     new Vector2(0, -354), new Vector2(700, 224),
                     InkPalette.TextDark);
             }
-            if (!UsesTossSettings && InkPremiumAppearance.IsSupported)
+            if (InkPremiumAppearance.IsSupported)
             {
                 premiumRestore = CreatePaperButton("RestorePurchasesButton", panel, "구입 복원",
-                    new Vector2(0, -404), new Vector2(650, 128), 38);
+                    UsesTossSettings ? new Vector2(178, -88) : new Vector2(0, -404),
+                    UsesTossSettings ? new Vector2(340, 152) : new Vector2(650, 128), 38);
                 premiumRestore.onClick.AddListener(RestorePremiumPurchases);
             }
             connectionStatus = CreateReadableText("ConnectionStatus", panel, string.Empty, premiumRestore != null ? 30 : 40,
@@ -2383,7 +2384,7 @@ namespace MukJump.Core
         void RestorePremiumPurchases()
         {
             var store = InkPremiumAppearance.Store;
-            if (UsesTossSettings || !InkPremiumAppearance.IsSupported || store == null || store.IsBusy) return;
+            if (!InkPremiumAppearance.IsSupported || store == null || store.IsBusy) return;
             // 복원 결과는 기존 스토어 검증에서만 받으며 화면에서 권한을 부여하지 않는다.
             store.Restore();
             showingPremiumRestoreResult = true;
@@ -2394,7 +2395,7 @@ namespace MukJump.Core
         void RefreshPremiumRestore()
         {
             if (premiumRestore == null) return;
-            bool supported = !UsesTossSettings && InkPremiumAppearance.IsSupported;
+            bool supported = InkPremiumAppearance.IsSupported;
             premiumRestore.gameObject.SetActive(supported);
             var store = InkPremiumAppearance.Store;
             premiumRestore.interactable = supported && store != null && !store.IsBusy;

@@ -18,7 +18,7 @@ namespace MukJump.EditorTools
             rewarded = settings.RewardedAdGroupId;
             interstitial = settings.InterstitialAdGroupId;
             banner = settings.BannerAdGroupId;
-            settings.Configure(AppsInTossAdRuntime.TestRewardedId, string.Empty, AppsInTossAdRuntime.TestBannerId);
+            settings.Configure(AppsInTossAdRuntime.TestRewardedId, AppsInTossAdRuntime.TestInterstitialId, AppsInTossAdRuntime.TestBannerId);
             EditorUtility.SetDirty(settings);
             AssetDatabase.SaveAssets();
         }

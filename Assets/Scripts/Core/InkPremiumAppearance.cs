@@ -17,7 +17,7 @@ namespace MukJump.Core
         void Restore();
     }
 
-    /// 구매 권한은 StoreKit 공급자가 확인한다. 업적 마스크·클라우드 의상 ID에 구매 비트를 넣지 않는다.
+    /// 구매 권한은 각 플랫폼의 스토어 공급자가 확인한다. 업적 마스크·의상 ID에 구매 비트를 넣지 않는다.
     public static class InkPremiumAppearance
     {
         static IInkPremiumEntitlement entitlement;
@@ -31,7 +31,7 @@ namespace MukJump.Core
 #if UNITY_EDITOR
                 if (testSupport.HasValue) return testSupport.Value;
 #endif
-#if UNITY_IOS && !UNITY_WEBGL
+#if UNITY_IOS || UNITY_WEBGL
                 return true;
 #else
                 return false;
@@ -46,7 +46,7 @@ namespace MukJump.Core
                 if (!IsSupported) return false;
                 if (IsOwned) return true;
                 if (entitlement is IInkPremiumStoreState state) return !state.OwnershipResolved;
-#if UNITY_IOS && !UNITY_EDITOR
+#if (UNITY_IOS || UNITY_WEBGL) && !UNITY_EDITOR
                 return entitlement == null;
 #else
                 return false;

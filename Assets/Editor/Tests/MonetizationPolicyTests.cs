@@ -108,12 +108,39 @@ namespace MukJump.EditorTests
             Assert.That(MonetizationPolicy.ShouldShowPostRunInterstitial(
                 2, 60f, 180f, false, true), Is.False);
             Assert.That(MonetizationPolicy.ShouldShowPostRunInterstitial(
-                3, 20f, 180f, false, true), Is.False);
+                3, 20f, 180f, false, true), Is.True);
             Assert.That(MonetizationPolicy.ShouldShowPostRunInterstitial(
                 3, 60f, 30f, false, true), Is.False);
             Assert.That(MonetizationPolicy.ShouldShowPostRunInterstitial(
                 3, 60f, 180f, true, true), Is.False);
         }
+
+        [Test]
+        public void TossLoadsRewardAndInterstitialSequentiallyAndStopsForPurchasers()
+        {
+            InkPremiumAppearance.UseForTests(false, null);
+            var provider = new AppsInTossAdProvider("rewarded", "interstitial");
+            int loads = 0; Action<bool> loaded = null;
+            SetField(provider, "loadRequestForTests", new Func<string, Action<bool>, Action, Action>((_, onLoaded, _) =>
+            { loads++; loaded = onLoaded; return null; }));
+            try
+            {
+                provider.Preload(FullScreenAdPlacement.GameOverReviveReward);
+                provider.Preload(FullScreenAdPlacement.PostRunInterstitial);
+                Assert.That(loads, Is.EqualTo(1));
+                loaded(true);
+                provider.Preload(FullScreenAdPlacement.PostRunInterstitial);
+                Assert.That(loads, Is.EqualTo(2));
+                loaded(true);
+                InkPremiumAppearance.UseForTests(true, new OwnedPremium());
+                Assert.That(provider.IsReady(FullScreenAdPlacement.PostRunInterstitial), Is.False);
+                int callbacks = 0;
+                provider.Show(FullScreenAdPlacement.PostRunInterstitial, _ => callbacks++);
+                Assert.That(callbacks, Is.EqualTo(1)); Assert.That(loads, Is.EqualTo(2));
+            }
+            finally { provider.Dispose(); InkPremiumAppearance.RestoreForTests(); }
+        }
+        sealed class OwnedPremium : IInkPremiumEntitlement { public bool IsOwned => true; }
 
         [Test]
         public void MissingProviderStartsUnavailableWhileSupportedRuntimeMayStillRegister()

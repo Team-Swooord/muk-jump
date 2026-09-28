@@ -10,11 +10,13 @@ namespace MukJump.Core
         const string SettingsResourcePath =
             "MukJump/Settings/AppsInTossAdSettings";
         public const string TestRewardedId = "ait-ad-test-rewarded-id";
+        public const string TestInterstitialId = "ait-ad-test-interstitial-id";
         public const string TestBannerId = "ait-ad-test-banner-id";
         const float DefaultBannerInsetFraction = 0.065f;
         const float BannerRetrySeconds = 20f;
 
         AppsInTossAdProvider provider;
+        string rewardedId, interstitialId;
         string bannerId;
         bool bannerVisible;
         LobbyScreenNavigator lobbyNavigator;
@@ -48,34 +50,31 @@ namespace MukJump.Core
             DontDestroyOnLoad(gameObject);
             AppsInTossAdSettings settings =
                 Resources.Load<AppsInTossAdSettings>(SettingsResourcePath);
-            string rewardedId = ResolveRewardedId(
+            rewardedId = ResolveRewardedId(
                 settings,
                 Debug.isDebugBuild);
-            string interstitialId = ResolveInterstitialId(
+            interstitialId = ResolveInterstitialId(
                 settings,
                 Debug.isDebugBuild);
             bannerId = ResolveBannerId(settings, Debug.isDebugBuild);
 
             // 현재 출시 흐름은 부활 보상형만 필수다. 전면형 ID가 비어 있어도
             // 배너와 보상형 광고는 각각 독립적으로 동작해야 한다.
-            if (string.IsNullOrWhiteSpace(rewardedId) && string.IsNullOrWhiteSpace(bannerId))
+            if (string.IsNullOrWhiteSpace(rewardedId) && string.IsNullOrWhiteSpace(bannerId) &&
+                string.IsNullOrWhiteSpace(interstitialId))
             {
                 LobbyAdLayout.ClearTopInset();
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(rewardedId))
-            {
-                provider = new AppsInTossAdProvider(rewardedId, interstitialId);
-                MonetizationAds.RegisterProvider(provider);
-                provider.Preload(FullScreenAdPlacement.GameOverReviveReward);
-            }
+            RefreshPremiumAdBoundary();
             AITBannerAd.OnAdEvent += HandleBannerEvent;
             AITBannerAd.OnError += HandleBannerError;
         }
 
         void Update()
         {
+            RefreshPremiumAdBoundary();
             if (bannerLoading && Time.realtimeSinceStartup >= bannerLoadDeadline)
                 ScheduleBannerRetry();
             if (provider != null)
@@ -125,6 +124,13 @@ namespace MukJump.Core
         {
             if (!runtimeActive || bannerEvent == null)
                 return;
+            if (InkPremiumAppearance.SuppressAds)
+            {
+                bannerLoading = bannerVisible = false;
+                LobbyAdLayout.MarkBannerHidden();
+                TryHideBanner();
+                return;
+            }
             if (bannerEvent.Kind == AITBannerAdEventKind.Rendered ||
                 bannerEvent.Kind == AITBannerAdEventKind.Viewable)
                 bannerLoading = false;
@@ -148,6 +154,24 @@ namespace MukJump.Core
                 return;
             Debug.LogWarning($"먹점프 토스 배너 오류: {message}");
             ScheduleBannerRetry();
+        }
+
+        void RefreshPremiumAdBoundary()
+        {
+            if (InkPremiumAppearance.SuppressAds)
+            {
+                if (provider != null)
+                {
+                    if (MonetizationAds.IsRegistered(provider)) MonetizationAds.ResetProvider();
+                    provider.Dispose(); provider = null;
+                }
+                return;
+            }
+            if (provider == null && (!string.IsNullOrWhiteSpace(rewardedId) || !string.IsNullOrWhiteSpace(interstitialId)))
+            {
+                provider = new AppsInTossAdProvider(rewardedId, interstitialId);
+                MonetizationAds.RegisterProvider(provider);
+            }
         }
 
         void ScheduleBannerRetry()
@@ -182,7 +206,7 @@ namespace MukJump.Core
             LobbyAdLayout.ClearTopInset();
             try
             {
-                if (ReferenceEquals(MonetizationAds.Provider, provider))
+                if (MonetizationAds.IsRegistered(provider))
                     MonetizationAds.ResetProvider();
             }
             catch (Exception exception)
@@ -206,6 +230,7 @@ namespace MukJump.Core
 
         bool TryShowBanner()
         {
+            if (InkPremiumAppearance.SuppressAds) return false;
             try
             {
                 bannerLoadFailed = false;
@@ -261,7 +286,7 @@ namespace MukJump.Core
         public static string ResolveInterstitialId(
             AppsInTossAdSettings value,
             bool debugBuild) =>
-            debugBuild ? string.Empty : value?.InterstitialAdGroupId;
+            debugBuild ? TestInterstitialId : value?.InterstitialAdGroupId;
 
         public static string ResolveBannerId(
             AppsInTossAdSettings value,

@@ -154,13 +154,6 @@ namespace MukJump.Core
                     "먹점프 1.0은 로비 배너 광고가 활성화되어야 합니다.";
                 return false;
             }
-            if (enablePostRunInterstitial)
-            {
-                error =
-                    "먹점프 1.0은 강제 전면 광고를 사용하지 않습니다. " +
-                    "로비 배너와 선택형 부활 보상 광고만 허용합니다.";
-                return false;
-            }
             if (!productionConfigurationVerified)
             {
                 error = "먹점프 AdMob 운영 설정의 '검증 완료'가 꺼져 있습니다.";
@@ -338,7 +331,9 @@ namespace MukJump.Core
         public void ConfigureProductionAdMobIds()
         {
             enableLobbyBanner = true;
-            enablePostRunInterstitial = false;
+            string iosInterstitial = ios?.Interstitial ?? string.Empty;
+            string androidInterstitial = android?.Interstitial ?? string.Empty;
+            enablePostRunInterstitial = IsAdUnitId(iosInterstitial);
             productionConfigurationVerified = true;
             verificationNote =
                 "2026-08-26 cysbandcs@gmail.com AdMob 계정에서 먹점프 전용 " +
@@ -351,11 +346,21 @@ namespace MukJump.Core
             android.Configure(
                 AndroidProductionBannerId,
                 AndroidProductionRewardedId,
-                string.Empty);
+                androidInterstitial);
             ios.Configure(
                 IosProductionBannerId,
                 IosProductionRewardedId,
-                string.Empty);
+                iosInterstitial);
+        }
+
+        public void ConfigureIosPostRunInterstitial(string verifiedUnitId)
+        {
+            string value = verifiedUnitId?.Trim();
+            if (!IsAdUnitId(value) || PublisherPrefix(value) != PublisherPrefix(IosProductionAppId))
+                throw new ArgumentException("먹점프 iOS 계정에서 확인한 전면 광고 ID가 필요합니다.");
+            ios ??= new GoogleAdUnitSet();
+            ios.Configure(IosProductionBannerId, IosProductionRewardedId, value);
+            enablePostRunInterstitial = true;
         }
 #endif
     }
