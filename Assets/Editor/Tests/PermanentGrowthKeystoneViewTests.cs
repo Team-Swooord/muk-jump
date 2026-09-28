@@ -18,6 +18,7 @@ namespace MukJump.EditorTests
         [SetUp]
         public void SetUp()
         {
+            NextUpdateScope.UseDeferredPreviewForTests(false);
             LobbySettingsProfile.UseStoreForTests(new MemoryLobbySettingsStore());
             GameLocalization.SetLanguage(GameLanguage.Korean);
             store = new MemoryPermanentGrowthStore();
@@ -38,6 +39,7 @@ namespace MukJump.EditorTests
         [TearDown]
         public void TearDown()
         {
+            NextUpdateScope.UseDeferredPreviewForTests(false);
             if (host != null)
             {
                 typeof(PermanentGrowthView).GetMethod("OnDisable",
@@ -79,6 +81,7 @@ namespace MukJump.EditorTests
         public void FullInkComparisonUpdatesAfterPurchaseAndRefundWithoutChangingThePreviewedSave(
             GameLanguage language, string prefix)
         {
+            NextUpdateScope.UseDeferredPreviewForTests(true);
             GameLocalization.SetLanguage(language);
             view.SelectGrowthForTests(1);
             Text summary = Screen().Find("FocusedGrowth/FocusSummary").GetComponent<Text>();
@@ -213,8 +216,7 @@ namespace MukJump.EditorTests
                 Assert.That(title.text,
                     Is.EqualTo(PermanentGrowthCatalog.Choices[i].DisplayName));
                 Assert.That(summary.text,
-                    Is.EqualTo(i == 1 ? "가득 찬 먹 · 길이 +12.5%" :
-                        i == 2 ? "가득 찬 먹 · 길이 +3.1%" : PermanentGrowthCatalog.Choices[i].Summary));
+                    Is.EqualTo(PermanentGrowthCatalog.Choices[i].Summary));
                 Assert.That(title.fontSize, Is.EqualTo(80));
                 Assert.That(summary.fontSize, Is.EqualTo(56));
                 Assert.That(title.fontSize - summary.fontSize,

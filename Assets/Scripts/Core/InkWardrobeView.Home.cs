@@ -5,7 +5,7 @@ namespace MukJump.Core
 {
     public sealed partial class InkWardrobeView
     {
-        bool categoryHome = true;
+        bool categoryHome = NextUpdateScope.DeferredWardrobeEnabled;
         RectTransform homePreview;
         Image homeBody, homeAccessory;
         Text categoryTitle;

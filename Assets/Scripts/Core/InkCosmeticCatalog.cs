@@ -67,6 +67,8 @@ namespace MukJump.Core
         public static Vector2 Offset(string id) => id == Tadpole ? new Vector2(.32f, .08f) : new Vector2(0, .48f);
         public static string InRun(InkCosmeticSlot slot)
         {
+            // 이전 미리보기의 스냅샷이 남아 있어도 보류한 외형은 실행하지 않는다.
+            if (!NextUpdateScope.DeferredWardrobeEnabled) return InkSkinPreferences.EquippedCosmetic(slot);
             if (SkinDebugSession.Active) return slot == InkCosmeticSlot.Skin
                 ? Legacy(InkSkinPreferences.Equipped) : Default(slot);
             var run = RunGrowthController.Instance;
@@ -98,6 +100,7 @@ namespace MukJump.Core
         }
         internal void GrantEarned(SkinAchievementState state)
         {
+            if (!NextUpdateScope.DeferredWardrobeEnabled) return;
             foreach (string id in InkCosmeticCatalog.NewItems)
                 if (InkCosmeticCatalog.Progress(id, state) >= InkCosmeticCatalog.Goal(id) && !owned.Contains(id)) owned.Add(id);
         }

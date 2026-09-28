@@ -77,7 +77,7 @@ namespace MukJump.Core
             if (InkCosmeticCatalog.TryLegacy(id, out var legacy)) return InkSkinAchievements.IsUnlocked(legacy);
             if (id is InkCosmeticCatalog.DefaultLanding or InkCosmeticCatalog.DefaultBrush or InkCosmeticCatalog.FollowBody) return true;
             bool known = id is InkCosmeticCatalog.BambooLeaf or InkCosmeticCatalog.MagpieNest or InkCosmeticCatalog.Tadpole;
-            return known && PermanentGrowthProfile.OwnsCosmetic(id);
+            return NextUpdateScope.DeferredWardrobeEnabled && known && PermanentGrowthProfile.OwnsCosmetic(id);
         }
         public static string EquippedCosmetic(InkCosmeticSlot slot)
         {

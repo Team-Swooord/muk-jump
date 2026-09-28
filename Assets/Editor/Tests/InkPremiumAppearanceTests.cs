@@ -47,7 +47,7 @@ namespace MukJump.EditorTests
         {
             Assert.That(InkSkinCatalog.Count, Is.EqualTo(63));
             Assert.That(InkSkinCatalog.AvailableRewardMask, Is.LessThanOrEqualTo(long.MaxValue));
-            Assert.That(InkWardrobeEntry.Count, Is.EqualTo(InkSkinCatalog.BrowseCount + 2));
+            Assert.That(InkWardrobeEntry.Count, Is.EqualTo(InkSkinCatalog.BrowseCount + 1));
             Assert.That(InkWardrobeEntry.At(1).Gold, Is.True);
             Assert.That(InkWardrobeEntry.At(1).Group, Is.Zero);
             foreach (var id in Enumerable.Range(0, InkSkinCatalog.BrowseCount).Select(InkSkinCatalog.BrowseAt))
@@ -61,7 +61,7 @@ namespace MukJump.EditorTests
             Assert.That(InkPremiumAppearance.IsOwned, Is.False);
             Assert.That(InkPremiumAppearance.IsEquipped, Is.False);
             Assert.That(InkSkinPreferences.TryEquipGold(), Is.False);
-            Assert.That(InkWardrobeEntry.Count, Is.EqualTo(InkSkinCatalog.BrowseCount + 1));
+            Assert.That(InkWardrobeEntry.Count, Is.EqualTo(InkSkinCatalog.BrowseCount));
             Assert.That(Enumerable.Range(0, InkWardrobeEntry.Count).Any(i => InkWardrobeEntry.At(i).Gold), Is.False);
         }
         [Test] public void OwnershipRequiredAndGoldUsesBaseInkWithoutChangingGrowth()

@@ -18,6 +18,7 @@ namespace MukJump.EditorTests
         MemoryLobbySettingsStore settings;
         [SetUp] public void Setup()
         {
+            NextUpdateScope.UseDeferredPreviewForTests(true);
             settings = new MemoryLobbySettingsStore();
             InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
             PermanentGrowthProfile.UseStoreForTests(new MemoryPermanentGrowthStore());
@@ -27,6 +28,7 @@ namespace MukJump.EditorTests
         }
         [TearDown] public void Cleanup()
         {
+            NextUpdateScope.UseDeferredPreviewForTests(false);
             for (int i = objects.Count - 1; i >= 0; i--) if (objects[i] != null) Object.DestroyImmediate(objects[i]);
             objects.Clear(); SkinDebugSession.Reset(); InkPremiumAppearance.RestoreForTests();
             InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();

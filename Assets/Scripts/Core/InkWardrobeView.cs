@@ -73,7 +73,7 @@ namespace MukJump.Core
             if (!show || !allowInput) { StopSkillDetails(); presentation?.Cancel(); swipe?.Cancel(); SnapProgress(); StopCollection(); }
             if (show && !visible)
             {
-                categoryHome = true;
+                categoryHome = NextUpdateScope.DeferredWardrobeEnabled;
                 selectedSlot = InkCosmeticSlot.Skin;
                 selected = InkSkinPreferences.Equipped;
                 selectedGold = InkPremiumAppearance.IsEquipped;
@@ -128,6 +128,7 @@ namespace MukJump.Core
         }
         void SelectCore(InkSkinId id, bool reveal, bool gold = false, bool nest = false)
         {
+            if (nest && !NextUpdateScope.DeferredWardrobeEnabled) return;
             if (!CanInteract() || collectionScroll.IsDragging || !InkSkinCatalog.IsAvailable(id)) return;
             int step = InkWardrobeEntry.Index(id, gold, nest) - SelectedIndex;
             categoryHome = false;
@@ -175,7 +176,7 @@ namespace MukJump.Core
             if (IsSkillDetailsOpen) { CloseSkillDetails(); return; }
             if (!CanInteract()) return;
             PointerInput.SuppressUntilRelease();
-            if (!categoryHome) { ShowCategoryHome(); return; }
+            if (NextUpdateScope.DeferredWardrobeEnabled && !categoryHome) { ShowCategoryHome(); return; }
             (LobbyScreenNavigator.Instance != null ? LobbyScreenNavigator.Instance : GetComponent<LobbyScreenNavigator>())?.ReturnToLobby();
         }
         void RefreshSelection()

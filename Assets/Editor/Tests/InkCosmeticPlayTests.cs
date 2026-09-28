@@ -22,6 +22,7 @@ namespace MukJump.EditorTests
         public IEnumerator CategoryHomeOpensChoicesAndReturnsWithoutEquippingInThreeLanguages()
         {
             yield return new EnterPlayMode();
+            NextUpdateScope.UseDeferredPreviewForTests(true);
             bool background = Application.runInBackground; Application.runInBackground = true;
             var settings = new MemoryLobbySettingsStore();
             InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
@@ -87,6 +88,7 @@ namespace MukJump.EditorTests
             }
             finally
             {
+                NextUpdateScope.UseDeferredPreviewForTests(false);
                 window.GetType().GetMethod("SizeSelectionCallback", flags).Invoke(window, new object[] { oldSize, null });
                 for (int i = added - 1; i >= 0; i--) group.GetType().GetMethod("RemoveCustomSize").Invoke(group, new object[] { firstTemporary + i });
                 SkinDebugSession.Reset(); InkPremiumAppearance.RestoreForTests(); MobileApplicationLifecycle.SetPlatformVisibility(true);
@@ -124,6 +126,7 @@ namespace MukJump.EditorTests
         {
             UnityEditor.EditorWindow.GetWindow(typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
             yield return new EnterPlayMode();
+            NextUpdateScope.UseDeferredPreviewForTests(true);
             bool background = Application.runInBackground; Application.runInBackground = true;
             var settings = new MemoryLobbySettingsStore();
             InkSkinPreferences.UseStoreForTests(settings); LobbySettingsProfile.UseStoreForTests(settings);
@@ -181,6 +184,7 @@ namespace MukJump.EditorTests
             finally
             {
                 SkinDebugSession.Reset(); InkPremiumAppearance.RestoreForTests(); MobileApplicationLifecycle.SetPlatformVisibility(true);
+                NextUpdateScope.UseDeferredPreviewForTests(false);
                 Application.runInBackground = background; Time.timeScale = 1;
                 InkSkinPreferences.RestoreDefaultStoreForTests(); LobbySettingsProfile.RestoreDefaultStoreForTests();
                 PermanentGrowthProfile.RestoreDefaultStoreForTests(); ScoreManager.RestoreDefaultStoreForTests();

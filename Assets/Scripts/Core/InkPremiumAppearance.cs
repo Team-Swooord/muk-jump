@@ -85,20 +85,21 @@ namespace MukJump.Core
         public InkWardrobeEntry(InkSkinId skin, bool gold = false, bool nest = false) { Skin = skin; Gold = gold; Nest = nest; }
         public int CardKey => Gold ? InkSkinCatalog.Count : Nest ? InkSkinCatalog.Count + 1 : (int)Skin;
         public int Group => Gold || Nest ? 0 : InkSkinCatalog.BrowseGroup(Skin);
-        static int Extras => InkPremiumAppearance.IsSupported ? 2 : 1;
+        static int Extras => (InkPremiumAppearance.IsSupported ? 1 : 0) +
+            (NextUpdateScope.DeferredWardrobeEnabled ? 1 : 0);
         public static int Count => InkSkinCatalog.BrowseCount + Extras;
         public static InkWardrobeEntry At(int index)
         {
             index = Mathf.Clamp(index, 0, Count - 1);
             if (index == 0) return new(InkSkinId.Ink);
             if (InkPremiumAppearance.IsSupported && index == 1) return new(InkSkinId.Ink, true);
-            if (index == Extras) return new(InkSkinId.Ink, false, true);
+            if (NextUpdateScope.DeferredWardrobeEnabled && index == Extras) return new(InkSkinId.Ink, false, true);
             return new(InkSkinCatalog.BrowseAt(index - Extras));
         }
         public static int Index(InkSkinId skin, bool gold = false, bool nest = false)
         {
             if (gold && InkPremiumAppearance.IsSupported) return 1;
-            if (nest) return Extras;
+            if (nest) return NextUpdateScope.DeferredWardrobeEnabled ? Extras : 0;
             int index = InkSkinCatalog.BrowseIndex(skin);
             return index + (index > 0 ? Extras : 0);
         }

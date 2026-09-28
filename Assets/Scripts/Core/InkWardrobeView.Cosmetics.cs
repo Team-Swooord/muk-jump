@@ -25,6 +25,7 @@ namespace MukJump.Core
         public void SelectNest() => SelectCore(InkSkinId.Ink, true, false, true);
         public void SelectSlot(InkCosmeticSlot slot)
         {
+            if (!NextUpdateScope.DeferredWardrobeEnabled) return;
             // 붓 갈래는 준비 중으로 보여 주되 아직 없는 선택 화면은 열지 않는다.
             if (!CanInteract() || slot == InkCosmeticSlot.Brush || !System.Enum.IsDefined(typeof(InkCosmeticSlot), slot)) return;
             StopCollection(); presentation.Cancel(); swipe.Cancel();
@@ -57,6 +58,7 @@ namespace MukJump.Core
         }
         void BuildCosmeticSlots()
         {
+            if (!NextUpdateScope.DeferredWardrobeEnabled) return;
             BuildCategoryHome();
             effectRoot = Rect("EffectChoices", paper, CompactCollectionPosition, CompactCollectionSize);
             for (int i = 0; i < 2; i++)
