@@ -1,17 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { LIVE, decodeLz4, readWebData, inspectResources, verifyAdFields, verifyNunit, verifyAudit, verifyAnalyticsPayload, checklistRows } from '../verify_toss_release.mjs';
+import { LIVE, decodeLz4, readWebData, inspectResources, inspectPremiumResources, verifyAdFields, verifyNunit, verifyAudit, verifyAnalyticsPayload, checklistRows } from '../verify_toss_release.mjs';
 
-test('운영 광고 두 ID와 전면 광고 없음만 허용한다', () => {
-  verifyAdFields({ ...LIVE });
+// 아래 전면 ID와 SKU는 메모리 직렬화 fixture에만 사용하며 LIVE/Unity 설정에 넣지 않는다.
+const fixtureAds = { ...LIVE, interstitial: 'ait.v2.live.0123456789abcdef' };
+test('운영 광고 세 ID를 대조하고 빈 전면 설정을 거부한다', () => {
+  verifyAdFields({ ...fixtureAds }, fixtureAds);
   for (const invalid of [
-    { ...LIVE, rewarded: 'ait-ad-test-rewarded-id' },
-    { ...LIVE, banner: LIVE.rewarded },
-    { ...LIVE, rewarded: LIVE.banner, banner: LIVE.rewarded },
-    { ...LIVE, interstitial: 'ait.v2.live.other' },
-    { ...LIVE, banner: '' },
-  ]) assert.throws(() => verifyAdFields(invalid));
+    { ...fixtureAds, rewarded: 'ait-ad-test-rewarded-id' },
+    { ...fixtureAds, banner: LIVE.rewarded },
+    { ...fixtureAds, rewarded: LIVE.banner, banner: LIVE.rewarded },
+    { ...fixtureAds, interstitial: 'ait.v2.live.other' },
+    { ...fixtureAds, interstitial: '' },
+    { ...fixtureAds, banner: '' },
+  ]) assert.throws(() => verifyAdFields(invalid, fixtureAds));
+  assert.throws(() => verifyAdFields({ ...fixtureAds, interstitial: '' }, { ...fixtureAds, interstitial: '' }));
+  assert.throws(() => verifyAdFields({ ...fixtureAds, interstitial: LIVE.banner }, { ...fixtureAds, interstitial: LIVE.banner }));
 });
 
 test('LZ4 literal과 겹치는 match를 정확히 복원한다', () => {
@@ -36,7 +41,7 @@ test('60항목을 빠짐없이 다루고 실기기는 자동 통과 처리하지
   assert.equal(rows.length, 60);
   for (const id of [1, 2, 6, 14, 15, 16, 24, 33, 35, 45, 47, 49, 51, 52, 53, 54])
     assert.equal(rows[id - 1].status, 'device_or_manual_evidence_required');
-  assert.equal(rows[35].status, 'not_applicable');
+  for (let id = 36; id <= 44; id++) assert.equal(rows[id - 1].status, 'device_or_manual_evidence_required');
   assert.equal(rows[2].status, 'code_verified');
   assert(checklistRows(checklist, false).every(r => ['blocked', 'not_applicable'].includes(r.status)));
 });
@@ -76,10 +81,21 @@ test('실제 검사 목록이 모두 있을 때만 최신 결과를 인정한다
 
 test('직렬화된 운영 설정을 읽고 네이티브/테스트 설정 혼입을 거부한다', () => {
   const string = value => { const b = Buffer.alloc(Math.ceil((4 + value.length) / 4) * 4); b.writeUInt32LE(value.length); b.write(value, 4); return b; };
-  const bytes = Buffer.concat(['AppsInTossAdSettings', LIVE.rewarded, '', LIVE.banner].map(string));
-  assert.deepEqual(inspectResources(bytes), LIVE);
-  assert.throws(() => inspectResources(Buffer.concat([bytes, Buffer.from('GoogleMobileAdsSettings')])));
-  assert.throws(() => inspectResources(Buffer.concat([bytes, Buffer.from('ait-ad-test-banner-id')])));
+  const bytes = Buffer.concat(['AppsInTossAdSettings', fixtureAds.rewarded, fixtureAds.interstitial, fixtureAds.banner].map(string));
+  assert.deepEqual(inspectResources(bytes, fixtureAds), fixtureAds);
+  assert.throws(() => inspectResources(Buffer.concat([bytes, Buffer.from('GoogleMobileAdsSettings')]), fixtureAds));
+  assert.throws(() => inspectResources(Buffer.concat([bytes, Buffer.from('ait-ad-test-banner-id')]), fixtureAds));
+  assert.throws(() => inspectResources(Buffer.concat([bytes, Buffer.from('ait-ad-test-interstitial-id')]), fixtureAds));
+});
+
+test('최종 패키지 상품 SKU의 누락·불일치·잘린 직렬화를 차단한다', () => {
+  const string = value => { const b = Buffer.alloc(Math.ceil((4 + value.length) / 4) * 4); b.writeUInt32LE(value.length); b.write(value, 4); return b; };
+  const bytes = Buffer.concat(['AppsInTossPremiumSettings', 'fixture-sku'].map(string));
+  assert.deepEqual(inspectPremiumResources(bytes, 'fixture-sku'), { sku: 'fixture-sku', serializedSettingsVerified: true, realPurchaseVerified: false });
+  for (const sku of [undefined, '', ' fixture-sku', 'different-sku']) assert.throws(() => inspectPremiumResources(bytes, sku));
+  assert.throws(() => inspectPremiumResources(Buffer.alloc(10), 'fixture-sku'));
+  assert.throws(() => inspectPremiumResources(bytes.subarray(0, bytes.length - 5), 'fixture-sku'));
+  assert.throws(() => inspectPremiumResources(Buffer.concat(['AppsInTossPremiumSettings', ''].map(string)), 'fixture-sku'));
 });
 
 test('빈 씬 또는 다른 프로젝트의 감사를 최종 검증으로 인정하지 않는다', () => {

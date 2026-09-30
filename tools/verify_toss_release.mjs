@@ -14,7 +14,7 @@ import { resolveCliEntry } from '../Assets/Editor/ait-patch-cli.mjs';
 export const LIVE = Object.freeze({ rewarded: 'ait.v2.live.7edb523366544df1', interstitial: '', banner: 'ait.v2.live.5d95763582324c1c' });
 const LIMIT = 512 * 1024 * 1024;
 const NATIVE = ['MukJumpBackendSettings', 'MukJumpGoogleAdsSettings', 'MukJumpAnalyticsSettings', 'TheBackendSettings', 'TheBackendGoogleSettingsForAndroid', 'TheBackendGoogleSettingsForIOS', 'GoogleMobileAdsSettings'];
-const NA = new Set([20, 22, 23, 30, 31, 36, 37, 38, 39, 40, 41, 42, 43, 44, 55, 56, 57, 58, 59, 60]);
+const NA = new Set([20, 22, 23, 30, 31, 55, 56, 57, 58, 59, 60]);
 // 코드/산출물 검사만으로 확인 가능한 항목. 나머지는 실제 토스 앱 증거가 필요하다.
 const CODE_ONLY = new Set([3, 12, 13, 17, 18, 19, 25, 48, 50]);
 const SUITES = ['AppsInTossRelease', 'AppsInTossExit', 'AppsInTossAnalytics', 'FirebaseAnalytics', 'TossPopupLayout', 'ApplicationPauseBoundary', 'MonetizationPolicy', 'MobileUiLayout', 'GameplayBannerLayout', 'GameplayHudView', 'PauseMenuView', 'SettingsScroll', 'PermanentGrowthProfile', 'ScoreManagerRecord', 'FirstRunTutorial', 'StartupBrandSplash'];
@@ -86,16 +86,34 @@ export function readUnityFs(bytes) {
   const result = new Map(); for (const e of entries) { assert(!result.has(e.name)); result.set(e.name, span(data, e.offset, e.size)); } return result;
 }
 
-export function verifyAdFields(fields) { assert.deepEqual(fields, LIVE, '먹점프 운영 광고 ID가 다르거나 테스트/전면 광고가 섞였습니다'); }
+export function verifyAdFields(fields, expected = LIVE) {
+  // 콘솔에서 준비 완료를 확인하기 전에는 LIVE의 빈 전면 ID를 성공 기준으로 사용하지 않는다.
+  for (const key of ['rewarded', 'interstitial', 'banner'])
+    assert(/^ait\.v2\.live\.[a-f0-9]{16}$/.test(expected[key] ?? ''), `운영 광고 설정 미확정: ${key}`);
+  assert.equal(new Set(Object.values(expected)).size, 3, '광고 유형별 ID가 중복됩니다');
+  assert.deepEqual(fields, expected, '먹점프 운영 광고 ID가 다르거나 테스트 광고가 섞였습니다');
+}
 
-export function inspectResources(bytes) {
+export function inspectResources(bytes, expected = LIVE) {
   assert(Buffer.isBuffer(bytes), 'resources.assets 없음');
   const name = 'AppsInTossAdSettings', at = bytes.indexOf(name); assert(at >= 4 && bytes.readUInt32LE(at - 4) === name.length, '직렬화 광고 설정 없음');
   let p = align(at + name.length);
   const string = () => { const n = bytes.readUInt32LE(p); p += 4; assert(n <= 256); const value = span(bytes, p, n).toString(); p = align(p + n); return value; };
-  const fields = { rewarded: string(), interstitial: string(), banner: string() }; verifyAdFields(fields);
-  for (const token of [...NATIVE, 'ait-ad-test-rewarded-id', 'ait-ad-test-banner-id']) assert(!bytes.includes(Buffer.from(token)), `Resources에 금지 설정 포함: ${token}`);
+  const fields = { rewarded: string(), interstitial: string(), banner: string() }; verifyAdFields(fields, expected);
+  for (const token of [...NATIVE, 'ait-ad-test-rewarded-id', 'ait-ad-test-interstitial-id', 'ait-ad-test-banner-id']) assert(!bytes.includes(Buffer.from(token)), `Resources에 금지 설정 포함: ${token}`);
   return fields;
+}
+
+export function inspectPremiumResources(bytes, expectedSku) {
+  assert(typeof expectedSku === 'string' && expectedSku.trim() === expectedSku && expectedSku.length > 0, '콘솔 확인 상품 SKU가 필요합니다');
+  assert(Buffer.isBuffer(bytes), 'resources.assets 없음');
+  const name = 'AppsInTossPremiumSettings', at = bytes.indexOf(name);
+  assert(at >= 4 && bytes.readUInt32LE(at - 4) === name.length, '직렬화 상품 설정 없음');
+  const p = align(at + name.length), n = bytes.readUInt32LE(p);
+  assert(n > 0 && n <= 1024, '상품 SKU가 없거나 비정상 크기입니다');
+  const sku = span(bytes, p + 4, n).toString();
+  assert.equal(sku, expectedSku, '콘솔 상품과 최종 패키지의 SKU가 다릅니다');
+  return { sku, serializedSettingsVerified: true, realPurchaseVerified: false };
 }
 
 function attributes(tag) { return Object.fromEntries([...tag.matchAll(/([\w-]+)="([^"]*)"/g)].map(m => [m[1], m[2]])); }
@@ -154,7 +172,7 @@ export function verifyAnalyticsPayload(webData) {
   return { runtimeBootstrap: true, events, parameters };
 }
 
-export async function verifyArtifact(project, file) {
+export async function verifyArtifact(project, file, expectedSku) {
   const require = createRequire(resolveCliEntry(resolve(project, 'ait-build')));
   const { AITReader } = require('@apps-in-toss/ait-format');
   const bytes = readFileSync(file), reader = AITReader.fromBuffer(bytes), metadata = reader.toAppJson()._metadata;
@@ -176,17 +194,20 @@ export async function verifyArtifact(project, file) {
   assert(html.includes("if ('false' !== 'true') return"), '디버그 콘솔이 꺼졌는지 확인할 수 없습니다');
   const bridge = files.get('sources/assets/index.js')?.toString() ?? '';
   assert(html.includes('./assets/index.js') && /window\.AppsInToss\s*=/.test(bridge), 'SDK 3.5 웹 브리지 연결이 없습니다');
-  for (const api of ['loadFullScreenAd', 'showFullScreenAd', 'TossAds']) assert(bridge.includes(api), `광고 API 누락: ${api}`);
+  for (const api of ['loadFullScreenAd', 'showFullScreenAd', 'TossAds', 'getProductItemList', 'createOneTimePurchaseOrder', 'getPendingOrders', 'getCompletedOrRefundedOrders', 'completeProductGrant']) assert(bridge.includes(api), `광고/구매 API 누락: ${api}`);
   assert(!names.some(n => /devtools|devconsole|vconsole/i.test(n)), '출시 번들에 개발 도구가 포함됐습니다');
   const dataNames = names.filter(n => /^sources\/Build\/[^/]+\.data\.unityweb$/.test(n)); assert.equal(dataNames.length, 1);
   const webData = readWebData(brotliDecompressSync(files.get(dataNames[0]), { maxOutputLength: LIMIT }));
   const analytics = verifyAnalyticsPayload(webData);
   const assets = readUnityFs(webData.get('data.unity3d')); const ads = inspectResources(assets.get('resources.assets'));
-  return { path: file, bytes: bytes.length, sha256: sha(bytes), webBytes, deploymentId: reader.deploymentId, runtimeVersion: metadata.runtimeVersion, sdkVersion: metadata.sdkVersion, ads, analytics, production: true, nativeSettingsIncluded: false };
+  const premium = inspectPremiumResources(assets.get('resources.assets'), expectedSku);
+  const initializers = JSON.parse(webData.get('RuntimeInitializeOnLoads.json')?.toString() ?? '{}');
+  assert(initializers.root?.some(entry => entry.assemblyName === 'Assembly-CSharp' && entry.nameSpace === 'MukJump.Core' && entry.className === 'AppsInTossPremiumRuntime' && entry.methodName === 'Bootstrap' && entry.loadTypes === 1), '토스 구매 런타임 시작 연결이 없습니다');
+  return { path: file, bytes: bytes.length, sha256: sha(bytes), webBytes, deploymentId: reader.deploymentId, runtimeVersion: metadata.runtimeVersion, sdkVersion: metadata.sdkVersion, ads, premium, analytics, production: true, nativeSettingsIncluded: false };
 }
 
 async function main() {
-  const { values } = parseArgs({ options: { project: { type: 'string', default: process.cwd() }, ait: { type: 'string', default: 'ait-build/mukjump.ait' }, out: { type: 'string', default: 'output/qa/toss-release-verification.json' }, 'not-before': { type: 'string' }, 'unity-cli': { type: 'string', default: '/Users/seungyeoning/.unity/bin/unity' }, 'require-device': { type: 'boolean', default: false } } });
+  const { values } = parseArgs({ options: { project: { type: 'string', default: process.cwd() }, ait: { type: 'string', default: 'ait-build/mukjump.ait' }, out: { type: 'string', default: 'output/qa/toss-release-verification.json' }, 'not-before': { type: 'string' }, 'premium-sku': { type: 'string' }, 'unity-cli': { type: 'string', default: '/Users/seungyeoning/.unity/bin/unity' }, 'require-device': { type: 'boolean', default: false } } });
   const project = resolve(values.project), out = resolve(project, values.out);
   const report = { checkedAt: new Date().toISOString(), automatedPassed: false, releaseReady: false, errors: [] };
   try {
@@ -203,7 +224,7 @@ async function main() {
     verifyAudit(report.audit, project);
     report.releaseSettings = unity(project, values['unity-cli'], 'eval', ['return new { issues = MukJump.EditorTools.MukJumpAppsInTossSetup.CollectReleaseIssues(), payloadIssues = MukJump.EditorTools.MukJumpAppsInTossSetup.CollectBuiltPayloadIssues("ait-build/dist/web") };']);
     assert.equal(report.releaseSettings.issues.length, 0); assert.equal(report.releaseSettings.payloadIssues.length, 0);
-    report.artifact = await verifyArtifact(project, resolve(project, values.ait));
+    report.artifact = await verifyArtifact(project, resolve(project, values.ait), values['premium-sku']);
     report.automatedPassed = true;
   } catch (error) { report.errors.push(error.message); }
   report.checklist = checklistRows(readFileSync(resolve(project, 'docs/store/apps-in-toss-game-checklist.md'), 'utf8'), report.automatedPassed);
