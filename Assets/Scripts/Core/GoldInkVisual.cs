@@ -5,7 +5,8 @@ namespace MukJump.Core
     /// 원본 프레임·색상 애니메이션을 건드리지 않는 공용 금색 머티리얼 두 개만 사용한다.
     public static class GoldInkVisual
     {
-        public static readonly Color LandingTint = new(.88f, .68f, .22f, 1f);
+        public static readonly Color LandingTint = new(.98f, .64f, .025f, 1f);
+        public static readonly Color LandingHighlight = new(1f, .87f, .25f, 1f);
         static Material world, ui;
         static bool observingSettings;
         static readonly int ShimmerId = Shader.PropertyToID("_GoldShimmer");

@@ -160,23 +160,36 @@ namespace MukJump.Core
 
         void EmitGoldLanding(Vector3 position)
         {
-            // 기존 가루 방출기·동시 입자 한도를 공유한다. 금색은 장식이며 판정·점프력을 바꾸지 않는다.
-            int count = Mathf.Min(VfxQualityRuntime.Profile.ScaleDecorativeCount(10, 4),
+            // 금박 부채·잔광·바닥 번짐 모두 기존 세 방출기와 품질별 한도를 공유한다.
+            // 점프 직후에도 남는 크기와 수명으로 착지의 금빛을 보여 주며 판정에는 관여하지 않는다.
+            int flakes = Mathf.Min(VfxQualityRuntime.Profile.ScaleDecorativeCount(14, 6),
+                drops.main.maxParticles - drops.particleCount);
+            for (int i = 0; i < flakes; i++)
+            {
+                float fan = Mathf.Lerp(-1f, 1f, (i + .5f) / flakes);
+                Vector2 velocity = new(fan * Range(2.8f, 3.8f), Range(1.8f, 3.4f));
+                float size = Range(.24f, .38f);
+                Emit(drops, position + new Vector3(fan * .25f, .06f), velocity,
+                    new Vector3(size, size * 1.45f, 1f), Range(.72f, .95f), 1f,
+                    Mathf.Atan2(velocity.y, velocity.x) * Mathf.Rad2Deg - 90f,
+                    i % 3 == 0 ? GoldInkVisual.LandingHighlight : GoldInkVisual.LandingTint);
+            }
+            int count = Mathf.Min(VfxQualityRuntime.Profile.ScaleDecorativeCount(20, 8),
                 motes.main.maxParticles - motes.particleCount);
             for (int i = 0; i < count; i++)
             {
                 float side = i % 2 == 0 ? -1f : 1f;
-                float size = Range(.06f, .12f);
-                Emit(motes, position + new Vector3(Range(-.3f, .3f), .03f),
-                    new Vector2(side * Range(.4f, 1.35f), Range(.6f, 1.5f)),
-                    new Vector3(size, size * 1.6f, 1f), Range(.32f, .6f), .95f, Range(0, 360),
-                    GoldInkVisual.LandingTint);
+                float size = Range(.14f, .24f);
+                Emit(motes, position + new Vector3(Range(-.45f, .45f), .08f),
+                    new Vector2(side * Range(.9f, 2.1f), Range(1.1f, 2.5f)),
+                    new Vector3(size, size * 1.5f, 1f), Range(.65f, .9f), 1f, Range(0, 360),
+                    i % 2 == 0 ? GoldInkVisual.LandingHighlight : GoldInkVisual.LandingTint);
             }
             // 착지 바닥 번짐도 같은 금색으로 보인다. 기존 방출기·한도를 그대로 재사용한다.
             if (wash.particleCount < wash.main.maxParticles)
-                Emit(wash, position, Vector2.zero, new Vector3(1.25f, .25f, 1f),
-                    .32f, .34f, 0f, GoldInkVisual.LandingTint);
-            motes.Pause(false); wash.Pause(false);
+                Emit(wash, position, Vector2.zero, new Vector3(3.4f, .8f, 1f),
+                    .62f, .82f, 0f, GoldInkVisual.LandingTint);
+            drops.Pause(false); motes.Pause(false); wash.Pause(false);
         }
 
         /// 빠른 이동 뒤 갈필 두 조각만 남긴다. 접촉/응집을 위한 자리를 항상 보존한다.

@@ -37,6 +37,8 @@ namespace MukJump.EditorTests
                 Assert.That(InkSkinPreferences.TryEquipGold(), Is.True);
                 var host = new GameObject("Isolated landing feedback color test");
                 var feedback = host.AddComponent<GameFeedbackController>();
+                var previousTier = VfxQualityRuntime.Tier;
+                VfxQualityRuntime.SetTier(VfxQualityTier.Medium, VfxQualityChangeReason.DebugOverride);
                 const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
                 void Landing() => typeof(GameFeedbackController).GetMethod("EmitLanding", flags)
                     .Invoke(feedback, new object[] { Vector3.zero, 12f });
@@ -44,15 +46,23 @@ namespace MukJump.EditorTests
                 {
                     var rings = host.GetComponentsInChildren<LineRenderer>()
                         .Where(line => line.enabled && line.name == "FeedbackRing").ToArray();
-                    Assert.That(rings.Length, Is.EqualTo(1));
-                    Assert.That(rings[0].sharedMaterial, Is.SameAs(expected == GoldInkVisual.LandingTint
-                        ? MukJump.AI.FallbackInkStyle.SharedTintableBrushMaterial
-                        : MukJump.AI.FallbackInkStyle.SharedInkMaterial));
-                    var tint = rings[0].startColor;
-                    // 렌더러의 Color32 양자화 오차(1/255)를 허용한다.
-                    Assert.That(tint.r, Is.EqualTo(expected.r).Within(1f / 255));
-                    Assert.That(tint.g, Is.EqualTo(expected.g).Within(1f / 255));
-                    Assert.That(tint.b, Is.EqualTo(expected.b).Within(1f / 255));
+                    bool gold = expected == GoldInkVisual.LandingTint;
+                    bool doubleRing = gold && !LobbySettingsProfile.ReducedMotionEnabled && VfxQualityRuntime.Tier >= VfxQualityTier.Medium;
+                    Assert.That(rings.Length, Is.EqualTo(doubleRing ? 2 : 1),
+                        $"gold={gold}, reduced={LobbySettingsProfile.ReducedMotionEnabled}, tier={VfxQualityRuntime.Tier}");
+                    foreach (var ring in rings)
+                    {
+                        Assert.That(ring.sharedMaterial, Is.SameAs(gold
+                            ? MukJump.AI.FallbackInkStyle.SharedTintableBrushMaterial
+                            : MukJump.AI.FallbackInkStyle.SharedInkMaterial));
+                        var tint = ring.startColor;
+                        Color target = gold && tint.g > .8f ? GoldInkVisual.LandingHighlight : expected;
+                        // 렌더러의 Color32 양자화 오차(1/255)를 허용한다.
+                        Assert.That(tint.r, Is.EqualTo(target.r).Within(1f / 255));
+                        Assert.That(tint.g, Is.EqualTo(target.g).Within(1f / 255));
+                        Assert.That(tint.b, Is.EqualTo(target.b).Within(1f / 255));
+                    }
+                    if (gold) Assert.That(rings.Max(ring => ring.startWidth), Is.GreaterThan(.18f));
                 }
                 try
                 {
@@ -65,10 +75,16 @@ namespace MukJump.EditorTests
                         foreach (var drop in host.GetComponentsInChildren<SpriteRenderer>().Where(x => x.enabled))
                             Assert.That(drop.color.r, Is.EqualTo(GoldInkVisual.LandingTint.r).Within(.001f));
                     });
-                    yield return Wait(.6f);
+                    yield return WaitFeedbackRelease(feedback);
+                    foreach (var tier in new[] { VfxQualityTier.Low, VfxQualityTier.High })
+                    {
+                        VfxQualityRuntime.SetTier(tier, VfxQualityChangeReason.DebugOverride);
+                        yield return InGameFrame(() => { Landing(); Check(GoldInkVisual.LandingTint); });
+                        yield return WaitFeedbackRelease(feedback);
+                    }
                     fixture.Store.Owned = false;
                     yield return InGameFrame(() => { Landing(); Check(InkPalette.Ink); });
-                    yield return Wait(.6f);
+                    yield return WaitFeedbackRelease(feedback);
                     fixture.Store.Owned = true;
                     yield return InGameFrame(() =>
                     {
@@ -76,17 +92,31 @@ namespace MukJump.EditorTests
                             .Invoke(feedback, new object[] { Vector3.zero, Vector2.up, false });
                         Check(InkPalette.Ink);
                     });
-                    yield return Wait(.6f);
+                    yield return WaitFeedbackRelease(feedback);
                     LobbySettingsProfile.SetReducedMotionEnabled(true);
                     yield return InGameFrame(() => { Landing(); Check(GoldInkVisual.LandingTint); });
-                    yield return Wait(.6f);
+                    yield return WaitFeedbackRelease(feedback);
                     CollectionAssert.AreEquivalent(poolElements,
                         host.GetComponentsInChildren<LineRenderer>(true));
                     Assert.That(feedback.ActiveLineVfxCount + feedback.ActiveSpriteVfxCount, Is.Zero);
                 }
-                finally { Object.Destroy(host); }
+                finally
+                {
+                    Object.Destroy(host);
+                    VfxQualityRuntime.SetTier(previousTier, VfxQualityChangeReason.DebugOverride);
+                }
             }
             yield return new ExitPlayMode();
+        }
+
+        static IEnumerator WaitFeedbackRelease(GameFeedbackController feedback)
+        {
+            // 에디터 검사 프레임과 실제 게임 프레임 속도가 달라도 이전 파동이 다음 검사에 섞이지 않는다.
+            double deadline = Time.realtimeSinceStartupAsDouble + 8;
+            while (feedback.ActiveLineVfxCount + feedback.ActiveSpriteVfxCount > 0 &&
+                Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+            Assert.That(feedback.ActiveLineVfxCount + feedback.ActiveSpriteVfxCount, Is.Zero,
+                "착지 효과가 게임 시간으로 끝나고 풀에 반환되어야 한다");
         }
 
         // 녹화는 요청할 때만 실행한다. 실제 저장·구매 대신 메모리 공급자를 사용한다.

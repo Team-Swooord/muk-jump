@@ -164,13 +164,29 @@ namespace MukJump.EditorTests
                 particles.EmitLanding(Vector3.zero, 1f, true);
                 var system = host.transform.Find("InkContactParticles/DryBrushMotes").GetComponent<ParticleSystem>();
                 var snapshot = new ParticleSystem.Particle[40]; int count = system.GetParticles(snapshot);
-                Assert.That(count, Is.InRange(1, 10));
+                Assert.That(count, Is.EqualTo(Mathf.Min(VfxQualityRuntime.Profile.ScaleDecorativeCount(20, 8), system.main.maxParticles)));
                 var color = (Color)snapshot[0].startColor;
                 Assert.That(color.r, Is.GreaterThan(color.g)); Assert.That(color.g, Is.GreaterThan(color.b));
+                Assert.That(snapshot[0].startSize3D.x, Is.GreaterThanOrEqualTo(.14f));
+                Assert.That(snapshot[0].startLifetime, Is.GreaterThanOrEqualTo(.65f));
+                var flakes = host.transform.Find("InkContactParticles/BallisticInk").GetComponent<ParticleSystem>();
+                var flakeSnapshot = new ParticleSystem.Particle[48];
+                int flakeCount = flakes.GetParticles(flakeSnapshot);
+                Assert.That(flakeCount, Is.EqualTo(VfxQualityRuntime.Profile.ScaleDecorativeCount(14, 6)));
+                for (int i = 0; i < flakeCount; i++)
+                {
+                    Assert.That(flakeSnapshot[i].startSize3D.x, Is.GreaterThanOrEqualTo(.24f));
+                    Assert.That(flakeSnapshot[i].startLifetime, Is.GreaterThanOrEqualTo(.72f));
+                    AssertRgb(flakeSnapshot[i].startColor,
+                        i % 3 == 0 ? GoldInkVisual.LandingHighlight : GoldInkVisual.LandingTint);
+                }
                 var wash = host.transform.Find("InkContactParticles/ContactWash").GetComponent<ParticleSystem>();
                 var washSnapshot = new ParticleSystem.Particle[16];
                 Assert.That(wash.GetParticles(washSnapshot), Is.EqualTo(1));
                 AssertRgb(washSnapshot[0].startColor, GoldInkVisual.LandingTint);
+                Assert.That(washSnapshot[0].startSize3D.x, Is.EqualTo(3.4f));
+                Assert.That(washSnapshot[0].startSize3D.y, Is.EqualTo(.8f));
+                Assert.That(((Color)washSnapshot[0].startColor).a, Is.GreaterThan(.8f));
                 float lifetime = snapshot[0].remainingLifetime;
                 particles.Advance(.3f, false); system.GetParticles(snapshot);
                 Assert.That(snapshot[0].remainingLifetime, Is.EqualTo(lifetime));

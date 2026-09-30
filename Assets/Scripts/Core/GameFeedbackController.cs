@@ -474,9 +474,18 @@ namespace MukJump.Core
             VfxAudioManager.Instance?.PlayOneShot(landingClip, Mathf.Lerp(0.45f, 0.9f, strength));
             bool gold = InkPremiumAppearance.IsGoldInRun;
             Color landingTint = gold ? GoldInkVisual.LandingTint : InkPalette.Ink;
-            StartCoroutine(AnimateRing(position, landingTint, 0.12f,
-                Mathf.Lerp(0.42f, 0.88f, strength), 0.26f, 0.07f, gold ? 0.72f : 0.48f, 0.2f,
-                tintable: gold));
+            if (gold)
+            {
+                // 몸체가 곧바로 다시 뛰어도 발밑에 진한 금빛 파동이 남아 착지임을 보여 준다.
+                StartCoroutine(AnimateRing(position, landingTint, .18f,
+                    Mathf.Lerp(1.35f, 1.65f, strength), .62f, .2f, 1f, .32f, tintable: true));
+                if (!LobbySettingsProfile.ReducedMotionEnabled && VfxQualityRuntime.Tier >= VfxQualityTier.Medium)
+                    StartCoroutine(AnimateRing(position, GoldInkVisual.LandingHighlight, .12f,
+                        1.12f, .46f, .11f, .95f, .45f, VfxImportance.Decorative, tintable: true));
+            }
+            else
+                StartCoroutine(AnimateRing(position, landingTint, .12f,
+                    Mathf.Lerp(.42f, .88f, strength), .26f, .07f, .48f, .2f));
             contactParticles?.EmitLanding(position, strength, gold,
                 InkCosmeticCatalog.InRun(InkCosmeticSlot.Landing) == InkCosmeticCatalog.BambooLeaf);
             if (contactParticles == null && strength >= 0.45f)
