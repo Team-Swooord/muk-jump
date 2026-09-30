@@ -170,9 +170,13 @@ namespace MukJump.Core
                 Emit(motes, position + new Vector3(Range(-.3f, .3f), .03f),
                     new Vector2(side * Range(.4f, 1.35f), Range(.6f, 1.5f)),
                     new Vector3(size, size * 1.6f, 1f), Range(.32f, .6f), .95f, Range(0, 360),
-                    new Color(.88f, .68f, .22f, 1f));
+                    GoldInkVisual.LandingTint);
             }
-            motes.Pause(false);
+            // 착지 바닥 번짐도 같은 금색으로 보인다. 기존 방출기·한도를 그대로 재사용한다.
+            if (wash.particleCount < wash.main.maxParticles)
+                Emit(wash, position, Vector2.zero, new Vector3(1.25f, .25f, 1f),
+                    .32f, .34f, 0f, GoldInkVisual.LandingTint);
+            motes.Pause(false); wash.Pause(false);
         }
 
         /// 빠른 이동 뒤 갈필 두 조각만 남긴다. 접촉/응집을 위한 자리를 항상 보존한다.

@@ -88,12 +88,18 @@ namespace MukJump.EditorTests
                         Assert.That(preview.DisplayedFrame, Is.EqualTo(GoldInkRecordedPreview.StillFrame));
                         yield return Wait(.2f); Assert.That(preview.DisplayedFrame, Is.EqualTo(GoldInkRecordedPreview.StillFrame));
                         var previewPaper = preview.transform.Find("GoldPreviewCanvas/SafeArea/PreviewPaper");
-                        foreach (var entry in new[] { ("Title", "황금 착지 이펙트"), ("Caption", "황금 먹의 특별한 착지효과") })
-                        {
-                            var label = previewPaper.Find(entry.Item1).GetComponent<Text>();
-                            Assert.That(label.text, Is.EqualTo(GameLocalization.Translate(entry.Item2)));
-                            if (language != GameLanguage.Korean) Assert.That(label.text, Is.Not.EqualTo(entry.Item2));
-                        }
+                        var title = previewPaper.Find("Title").GetComponent<Text>();
+                        const string titleSource = "황금 먹의 특별한 착지효과";
+                        Assert.That(title.text, Is.EqualTo(GameLocalization.Translate(titleSource)));
+                        if (language != GameLanguage.Korean) Assert.That(title.text, Is.Not.EqualTo(titleSource));
+                        Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+                        Assert.That(title.fontStyle, Is.EqualTo(FontStyle.Bold));
+                        Assert.That(title.fontSize, Is.GreaterThanOrEqualTo(language == GameLanguage.Japanese ? 48 : 64));
+                        Assert.That(title.rectTransform.anchoredPosition.x, Is.Zero);
+                        Assert.That(Bounds(title.rectTransform).yMin,
+                            Is.GreaterThan(Bounds((RectTransform)previewPaper.Find("RecordedJump")).yMax));
+                        Assert.That(previewPaper.Find("Caption"), Is.Null);
+                        Assert.That(previewPaper.Find("ReturnHint"), Is.Null);
                         foreach (var label in previewPaper.GetComponentsInChildren<Text>())
                             Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 2), label.name + " " + language);
                         yield return CapturePackage("preview-" + dimensions.x + "-" + language);

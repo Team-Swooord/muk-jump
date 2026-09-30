@@ -472,13 +472,16 @@ namespace MukJump.Core
             lastLandingFeedbackTime = Time.unscaledTime;
             lastLandingStrength = strength;
             VfxAudioManager.Instance?.PlayOneShot(landingClip, Mathf.Lerp(0.45f, 0.9f, strength));
-            StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.12f,
-                Mathf.Lerp(0.42f, 0.88f, strength), 0.26f, 0.07f, 0.48f, 0.2f));
-            contactParticles?.EmitLanding(position, strength, InkPremiumAppearance.IsGoldInRun,
+            bool gold = InkPremiumAppearance.IsGoldInRun;
+            Color landingTint = gold ? GoldInkVisual.LandingTint : InkPalette.Ink;
+            StartCoroutine(AnimateRing(position, landingTint, 0.12f,
+                Mathf.Lerp(0.42f, 0.88f, strength), 0.26f, 0.07f, gold ? 0.72f : 0.48f, 0.2f,
+                tintable: gold));
+            contactParticles?.EmitLanding(position, strength, gold,
                 InkCosmeticCatalog.InRun(InkCosmeticSlot.Landing) == InkCosmeticCatalog.BambooLeaf);
             if (contactParticles == null && strength >= 0.45f)
                 SpawnDroplets(position, 3 + Mathf.RoundToInt(strength * 2f),
-                    InkPalette.Ink, VfxImportance.Decorative);
+                    landingTint, VfxImportance.Decorative);
             if (strength >= 0.34f && Time.unscaledTime - lastLandingHapticTime >= 0.18f)
             {
                 lastLandingHapticTime = Time.unscaledTime;
@@ -654,7 +657,7 @@ namespace MukJump.Core
 
         IEnumerator AnimateRing(Vector3 position, Color color, float startRadius, float endRadius,
             float duration, float width, float startAlpha, float yScale = 1f,
-            VfxImportance importance = VfxImportance.Normal)
+            VfxImportance importance = VfxImportance.Normal, bool tintable = false)
         {
             bool reduced = LobbySettingsProfile.ReducedMotionEnabled;
             if (reduced) endRadius = Mathf.Lerp(startRadius, endRadius, 0.25f);
@@ -666,7 +669,8 @@ namespace MukJump.Core
             line.useWorldSpace = false;
             line.loop = true;
             line.positionCount = VfxQualityRuntime.Profile.TransientRingSegments;
-            line.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
+            // 검은 텍스처에 금색을 곱하면 검게 남으므로 기존 색상용 붓 마스크를 재사용한다.
+            line.sharedMaterial = tintable ? FallbackInkStyle.SharedTintableBrushMaterial : FallbackInkStyle.SharedInkMaterial;
             line.sortingOrder = 12;
             line.startWidth = line.endWidth = width;
 

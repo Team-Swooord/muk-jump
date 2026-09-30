@@ -167,6 +167,10 @@ namespace MukJump.EditorTests
                 Assert.That(count, Is.InRange(1, 10));
                 var color = (Color)snapshot[0].startColor;
                 Assert.That(color.r, Is.GreaterThan(color.g)); Assert.That(color.g, Is.GreaterThan(color.b));
+                var wash = host.transform.Find("InkContactParticles/ContactWash").GetComponent<ParticleSystem>();
+                var washSnapshot = new ParticleSystem.Particle[16];
+                Assert.That(wash.GetParticles(washSnapshot), Is.EqualTo(1));
+                AssertRgb(washSnapshot[0].startColor, GoldInkVisual.LandingTint);
                 float lifetime = snapshot[0].remainingLifetime;
                 particles.Advance(.3f, false); system.GetParticles(snapshot);
                 Assert.That(snapshot[0].remainingLifetime, Is.EqualTo(lifetime));
@@ -175,11 +179,25 @@ namespace MukJump.EditorTests
                 Assert.That(host.GetComponentsInChildren<ParticleSystem>().Length, Is.EqualTo(3));
                 for (int i = 0; i < 30; i++) particles.Advance(.05f, true);
                 Assert.That(particles.ActiveCount, Is.Zero);
+                particles.EmitLanding(Vector3.zero, 1f);
+                Assert.That(wash.GetParticles(washSnapshot), Is.GreaterThan(0));
+                AssertRgb(washSnapshot[0].startColor, InkPalette.Ink);
+                particles.Clear();
+                particles.EmitJump(Vector3.zero, Vector2.up, false);
+                Assert.That(wash.GetParticles(washSnapshot), Is.GreaterThan(0));
+                AssertRgb(washSnapshot[0].startColor, InkPalette.Ink);
+                particles.Clear();
                 LobbySettingsProfile.SetReducedMotionEnabled(true);
                 particles.EmitLanding(Vector3.zero, 1f, true);
                 Assert.That(particles.ActiveCount, Is.Zero);
             }
             finally { VfxQualityRuntime.SetTier(previous, VfxQualityChangeReason.DebugOverride); }
+        }
+        static void AssertRgb(Color actual, Color expected)
+        {
+            Assert.That(actual.r, Is.EqualTo(expected.r).Within(.005f));
+            Assert.That(actual.g, Is.EqualTo(expected.g).Within(.005f));
+            Assert.That(actual.b, Is.EqualTo(expected.b).Within(.005f));
         }
         [Test] public void GoldCardPreviewsBeforePurchaseAndOnlyPurchaseButtonOpensShop()
         {
