@@ -114,8 +114,8 @@ namespace MukJump.EditorTests
             var summary = paper.Find("BenefitsHeading").GetComponent<Text>();
             var lastBenefit = (RectTransform)paper.Find("LandingBenefit");
             Assert.That(paper.Find("GoldInfo/InfoGlyph").GetComponent<Text>().text, Is.EqualTo("i"));
-            Assert.That(((RectTransform)paper.Find("GoldInfo/Circle")).sizeDelta, Is.EqualTo(Vector2.one * 54));
-            Assert.That(((RectTransform)paper.Find("GoldInfo")).anchoredPosition, Is.EqualTo(new Vector2(225, 390)));
+            Assert.That(((RectTransform)paper.Find("GoldInfo/Circle")).sizeDelta, Is.EqualTo(Vector2.one * 42));
+            Assert.That(((RectTransform)paper.Find("GoldInfo")).anchoredPosition, Is.EqualTo(new Vector2(195, 390)));
             Assert.That(((RectTransform)paper.Find("GoldInfo")).sizeDelta, Is.EqualTo(Vector2.one * 160),
                 "시각 크기를 줄여도 터치 영역은 유지한다");
             foreach (string name in new[] { "BenefitsRuleLeft", "BenefitsRuleRight" })

@@ -65,7 +65,7 @@ namespace MukJump.EditorTests
                             foreach (var button in new[] { info, purchase })
                                 Assert.That(Bounds((RectTransform)button.transform).height, Is.GreaterThanOrEqualTo(44), button.name);
                             var infoCircle = Bounds((RectTransform)info.transform.Find("Circle"));
-                            Assert.That(infoCircle.height, Is.LessThan(23),
+                            Assert.That(infoCircle.height, Is.LessThan(18),
                                 "작은 원형 i의 시각 크기");
                             // 가까워진 투명 터치 여백은 입력이 없는 장식과만 겹칠 수 있다. 보이는 원은 먹 밖에 둔다.
                             Assert.That(infoCircle.Overlaps(Bounds((RectTransform)paper.Find("GoldenInk"))), Is.False);
