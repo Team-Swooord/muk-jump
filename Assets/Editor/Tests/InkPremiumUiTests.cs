@@ -96,7 +96,7 @@ namespace MukJump.EditorTests
                 Is.EquivalentTo(new[] { "Title", "BenefitsHeading", "AdBenefit", "SkinBenefit", "LandingBenefit", "InfoGlyph", "Label", "PurchaseNotice", "Status" }));
             Assert.That(paper.Find("Title").GetComponent<Text>().text, Is.EqualTo(GameLocalization.Translate("황금먹패키지(영구)")));
             string[] names = { "BenefitsHeading", "AdBenefit", "SkinBenefit", "LandingBenefit" };
-            string[] sources = { "혜택", "1. 모든 광고 제거", "2. 황금 먹 스킨 제공", "특별한 착지효과 제공" };
+            string[] sources = { "혜택", "1. 모든 광고 제거", "2. 황금 먹 스킨 제공", "특별한 착지 효과 포함" };
             for (int i = 0; i < names.Length; i++)
             {
                 var label = paper.Find(names[i]).GetComponent<Text>();
@@ -114,7 +114,8 @@ namespace MukJump.EditorTests
             var summary = paper.Find("BenefitsHeading").GetComponent<Text>();
             var lastBenefit = (RectTransform)paper.Find("LandingBenefit");
             Assert.That(paper.Find("GoldInfo/InfoGlyph").GetComponent<Text>().text, Is.EqualTo("i"));
-            Assert.That(((RectTransform)paper.Find("GoldInfo/Circle")).sizeDelta, Is.EqualTo(Vector2.one * 68));
+            Assert.That(((RectTransform)paper.Find("GoldInfo/Circle")).sizeDelta, Is.EqualTo(Vector2.one * 54));
+            Assert.That(((RectTransform)paper.Find("GoldInfo")).anchoredPosition, Is.EqualTo(new Vector2(225, 390)));
             Assert.That(((RectTransform)paper.Find("GoldInfo")).sizeDelta, Is.EqualTo(Vector2.one * 160),
                 "시각 크기를 줄여도 터치 영역은 유지한다");
             foreach (string name in new[] { "BenefitsRuleLeft", "BenefitsRuleRight" })

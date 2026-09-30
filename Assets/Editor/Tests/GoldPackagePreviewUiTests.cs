@@ -64,9 +64,13 @@ namespace MukJump.EditorTests
                                 Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 2), label.name + " " + language);
                             foreach (var button in new[] { info, purchase })
                                 Assert.That(Bounds((RectTransform)button.transform).height, Is.GreaterThanOrEqualTo(44), button.name);
-                            Assert.That(Bounds((RectTransform)info.transform.Find("Circle")).height, Is.LessThan(28),
+                            var infoCircle = Bounds((RectTransform)info.transform.Find("Circle"));
+                            Assert.That(infoCircle.height, Is.LessThan(23),
                                 "작은 원형 i의 시각 크기");
-                            foreach (string name in new[] { "Title", "GoldenInk", "BenefitsHeading", "AdBenefit", "SkinBenefit", "LandingBenefit", "Purchase" })
+                            // 가까워진 투명 터치 여백은 입력이 없는 장식과만 겹칠 수 있다. 보이는 원은 먹 밖에 둔다.
+                            Assert.That(infoCircle.Overlaps(Bounds((RectTransform)paper.Find("GoldenInk"))), Is.False);
+                            Assert.That(paper.Find("GoldenInk").GetComponent<Image>().raycastTarget, Is.False);
+                            foreach (string name in new[] { "Title", "BenefitsHeading", "AdBenefit", "SkinBenefit", "LandingBenefit", "Purchase" })
                                 Assert.That(Bounds((RectTransform)info.transform).Overlaps(Bounds((RectTransform)paper.Find(name))), Is.False, name);
                         });
                         yield return CapturePackage("shop-" + dimensions.x + "-" + language);

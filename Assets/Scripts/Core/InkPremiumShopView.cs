@@ -96,7 +96,7 @@ namespace MukJump.Core
             Benefit("BenefitsHeading", "혜택", 40, 40, 56, true).color = new Color(.46f, .31f, .12f);
             Benefit("AdBenefit", "1. 모든 광고 제거", 44, -38, 64, true);
             Benefit("SkinBenefit", "2. 황금 먹 스킨 제공", 44, -118, 64, true);
-            Benefit("LandingBenefit", "특별한 착지효과 제공", 32, -184, 48, false).color = new Color(.46f, .31f, .12f);
+            Benefit("LandingBenefit", "특별한 착지 효과 포함", 32, -184, 48, false).color = new Color(.46f, .31f, .12f);
             purchase = Action("Purchase", "상품 확인 중...", -310, out purchaseLabel);
             purchaseLabel.fontSize = 48;
             var purchaseSurface = purchase.targetGraphic as Image;
@@ -142,13 +142,13 @@ namespace MukJump.Core
         void BuildInfoButton()
         {
             // 작은 원의 시각 크기와 별개로 모바일 터치 영역은 충분히 확보한다.
-            var hit = Rect("GoldInfo", paper, new Vector2(270, 390), Vector2.one * 160);
+            var hit = Rect("GoldInfo", paper, new Vector2(225, 390), Vector2.one * 160);
             var target = hit.gameObject.AddComponent<Image>(); target.color = Color.clear;
             var ring = BackdropImage("Circle", hit, InkUiTextureFactory.CreateCelestialDiscSprite(),
-                Vector2.zero, Vector2.one * 68, new Color(.46f, .31f, .12f));
-            BackdropImage("Fill", hit, ring.sprite, Vector2.zero, Vector2.one * 60, InkPalette.Paper);
-            var label = Rect("InfoGlyph", hit, Vector2.zero, Vector2.one * 56).gameObject.AddComponent<Text>();
-            InkUiStyle.ApplyReadableText(label, 40, TextAnchor.MiddleCenter, true, true);
+                Vector2.zero, Vector2.one * 54, new Color(.46f, .31f, .12f));
+            BackdropImage("Fill", hit, ring.sprite, Vector2.zero, Vector2.one * 48, InkPalette.Paper);
+            var label = Rect("InfoGlyph", hit, Vector2.zero, Vector2.one * 44).gameObject.AddComponent<Text>();
+            InkUiStyle.ApplyReadableText(label, 32, TextAnchor.MiddleCenter, true, true);
             label.text = "i"; label.raycastTarget = false; label.color = InkPalette.TextDark;
             InkLocalizedText.Exclude(label);
             var button = hit.gameObject.AddComponent<Button>(); InkUiStyle.ConfigureButton(button, ring);
