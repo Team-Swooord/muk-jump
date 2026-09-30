@@ -103,11 +103,11 @@ namespace MukJump.Core
             scroll = HanjiScrollFrame.Attach(paper, new Vector2(880, 1360));
             InkUiStyle.ConfigurePopupDismiss(dim, paper, Close,
                 () => IsOpen && group.interactable && (!Application.isPlaying || scroll.IsReady));
-            Label("Title", "특별한 착지효과 제공", 52, 530, 110, true);
+            Label("Title", "황금 착지 이펙트", 52, 530, 110, true);
             movie = Rect("RecordedJump", paper, new Vector2(0, 45), new Vector2(576, 768)).gameObject.AddComponent<RawImage>();
             movie.raycastTarget = false;
             unavailable = Label("Unavailable", "미리보기를 불러오지 못했어요", 36, 45, 140, false);
-            Label("Caption", "황금 먹의 점프와 금빛 착지", 38, -430, 110, true);
+            Label("Caption", "황금 먹의 특별한 착지효과", 38, -430, 110, true);
             Label("ReturnHint", "바깥을 누르면 패키지로 돌아가요", 30, -565, 100, false);
             Hide();
         }

@@ -101,6 +101,8 @@ namespace MukJump.EditorTests
             {
                 var label = paper.Find(names[i]).GetComponent<Text>();
                 Assert.That(label.text, Is.EqualTo(GameLocalization.Translate(sources[i])));
+                Assert.That(label.alignment, Is.EqualTo(TextAnchor.MiddleCenter), names[i]);
+                Assert.That(label.rectTransform.anchoredPosition.x, Is.Zero, names[i]);
                 if (language != GameLanguage.Korean) Assert.That(label.text, Is.Not.EqualTo(sources[i]));
                 if (i > 0)
                 {
@@ -112,6 +114,11 @@ namespace MukJump.EditorTests
             var summary = paper.Find("BenefitsHeading").GetComponent<Text>();
             var lastBenefit = (RectTransform)paper.Find("LandingBenefit");
             Assert.That(paper.Find("GoldInfo/InfoGlyph").GetComponent<Text>().text, Is.EqualTo("i"));
+            Assert.That(((RectTransform)paper.Find("GoldInfo/Circle")).sizeDelta, Is.EqualTo(Vector2.one * 68));
+            Assert.That(((RectTransform)paper.Find("GoldInfo")).sizeDelta, Is.EqualTo(Vector2.one * 160),
+                "시각 크기를 줄여도 터치 영역은 유지한다");
+            foreach (string name in new[] { "BenefitsRuleLeft", "BenefitsRuleRight" })
+                Assert.That(paper.Find(name).GetComponent<Image>().raycastTarget, Is.False);
             string noticeSource = "※ 구매 즉시 광고 제거 및 패키지 혜택이 적용됩니다. 디지털 콘텐츠 제공이 시작된 이후에는 관련 법령 및 스토어 정책에 따라 청약철회가 제한될 수 있습니다.";
             var notice = paper.Find("PurchaseNotice").GetComponent<Text>();
             Assert.That(notice.text, Is.EqualTo(GameLocalization.Translate(noticeSource)));

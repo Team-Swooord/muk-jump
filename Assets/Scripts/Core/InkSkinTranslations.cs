@@ -48,7 +48,8 @@ namespace MukJump.Core
                 ["1. 모든 광고 제거"] = ("1. Remove all ads", "1. すべての広告を削除"),
                 ["2. 황금 먹 스킨 제공"] = ("2. Golden Ink skin included", "2. 金色の墨スキンつき"),
                 ["특별한 착지효과 제공"] = ("Exclusive landing effect", "特別な着地エフェクトつき"),
-                ["황금 먹의 점프와 금빛 착지"] = ("Golden Ink jump & golden landing", "金色の墨のジャンプと金色の着地"),
+                ["황금 착지 이펙트"] = ("Golden landing effect", "金色の着地エフェクト"),
+                ["황금 먹의 특별한 착지효과"] = ("Golden Ink's exclusive landing effect", "金色の墨だけの特別な着地効果"),
                 ["바깥을 누르면 패키지로 돌아가요"] = ("Tap outside to return to the package", "外側をタップするとパッケージに戻ります"),
                 ["미리보기를 불러오지 못했어요"] = ("Preview unavailable", "プレビューを読み込めませんでした"),
                 ["황금먹 패키지 구매 시 영구 광고 제거,\n특별한 황금 먹 스킨 제공"] =

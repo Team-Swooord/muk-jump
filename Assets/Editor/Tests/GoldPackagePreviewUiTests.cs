@@ -64,6 +64,8 @@ namespace MukJump.EditorTests
                                 Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 2), label.name + " " + language);
                             foreach (var button in new[] { info, purchase })
                                 Assert.That(Bounds((RectTransform)button.transform).height, Is.GreaterThanOrEqualTo(44), button.name);
+                            Assert.That(Bounds((RectTransform)info.transform.Find("Circle")).height, Is.LessThan(28),
+                                "작은 원형 i의 시각 크기");
                             foreach (string name in new[] { "Title", "GoldenInk", "BenefitsHeading", "AdBenefit", "SkinBenefit", "LandingBenefit", "Purchase" })
                                 Assert.That(Bounds((RectTransform)info.transform).Overlaps(Bounds((RectTransform)paper.Find(name))), Is.False, name);
                         });
@@ -80,6 +82,12 @@ namespace MukJump.EditorTests
                         Assert.That(preview.DisplayedFrame, Is.EqualTo(GoldInkRecordedPreview.StillFrame));
                         yield return Wait(.2f); Assert.That(preview.DisplayedFrame, Is.EqualTo(GoldInkRecordedPreview.StillFrame));
                         var previewPaper = preview.transform.Find("GoldPreviewCanvas/SafeArea/PreviewPaper");
+                        foreach (var entry in new[] { ("Title", "황금 착지 이펙트"), ("Caption", "황금 먹의 특별한 착지효과") })
+                        {
+                            var label = previewPaper.Find(entry.Item1).GetComponent<Text>();
+                            Assert.That(label.text, Is.EqualTo(GameLocalization.Translate(entry.Item2)));
+                            if (language != GameLanguage.Korean) Assert.That(label.text, Is.Not.EqualTo(entry.Item2));
+                        }
                         foreach (var label in previewPaper.GetComponentsInChildren<Text>())
                             Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 2), label.name + " " + language);
                         yield return CapturePackage("preview-" + dimensions.x + "-" + language);
@@ -153,7 +161,8 @@ namespace MukJump.EditorTests
             double deadline = Time.realtimeSinceStartupAsDouble + 5;
             while (!File.Exists(path) && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
             Assert.That(File.Exists(path), Is.True);
-            Directory.CreateDirectory(Output + "/ui"); File.Copy(path, Output + "/ui/" + name + ".png", true);
+            string destination = Environment.GetEnvironmentVariable("MUKJUMP_PREMIUM_UI_OUTPUT") ?? Output + "/ui";
+            Directory.CreateDirectory(destination); File.Copy(path, destination + "/" + name + ".png", true);
         }
         sealed class UiMemoryFixture : IDisposable
         {
