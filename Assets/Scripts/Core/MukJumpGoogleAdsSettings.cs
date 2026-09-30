@@ -96,6 +96,8 @@ namespace MukJump.Core
             "ca-app-pub-2944517353618559/3377777224";
         public const string IosProductionRewardedId =
             "ca-app-pub-2944517353618559/5343691518";
+        public const string IosProductionInterstitialId =
+            "ca-app-pub-2944517353618559/7952913061";
 
         [Header("노출 정책")]
         [SerializeField] bool enableLobbyBanner = true;
@@ -117,6 +119,8 @@ namespace MukJump.Core
 
         public bool EnableLobbyBanner => enableLobbyBanner;
         public bool EnablePostRunInterstitial => enablePostRunInterstitial;
+        public bool EnablesInterstitialFor(GoogleAdsPlatform platform) => enablePostRunInterstitial &&
+            platform == GoogleAdsPlatform.IOS && UnitsFor(platform)?.Interstitial == IosProductionInterstitialId;
         public bool ProductionConfigurationVerified =>
             productionConfigurationVerified;
         public string VerificationNote => verificationNote;
@@ -229,10 +233,11 @@ namespace MukJump.Core
                     $"{platform} 부활 보상형 광고 단위가 확인된 먹점프 전용 값과 다릅니다.";
                 return false;
             }
-            if (enablePostRunInterstitial &&
-                !IsAdUnitId(units.Interstitial))
+            bool interstitialRequired = platform == GoogleAdsPlatform.IOS;
+            if (interstitialRequired && (!enablePostRunInterstitial ||
+                units.Interstitial != IosProductionInterstitialId))
             {
-                error = $"{platform} 전면 광고 단위 ID가 필요합니다.";
+                error = $"{platform} 전면 광고가 활성화되고 확인된 먹점프 전용 ID가 필요합니다.";
                 return false;
             }
 
@@ -260,14 +265,14 @@ namespace MukJump.Core
 
             string[] RequiredUnitIds(GoogleAdUnitSet value)
             {
-                if (enableLobbyBanner && enablePostRunInterstitial)
+                if (enableLobbyBanner && interstitialRequired)
                     return new[]
                     {
                         value.Banner, value.Rewarded, value.Interstitial,
                     };
                 if (enableLobbyBanner)
                     return new[] { value.Banner, value.Rewarded };
-                if (enablePostRunInterstitial)
+                if (interstitialRequired)
                     return new[] { value.Rewarded, value.Interstitial };
                 return new[] { value.Rewarded };
             }
@@ -331,14 +336,13 @@ namespace MukJump.Core
         public void ConfigureProductionAdMobIds()
         {
             enableLobbyBanner = true;
-            string iosInterstitial = ios?.Interstitial ?? string.Empty;
             string androidInterstitial = android?.Interstitial ?? string.Empty;
-            enablePostRunInterstitial = IsAdUnitId(iosInterstitial);
+            enablePostRunInterstitial = true;
             productionConfigurationVerified = true;
             verificationNote =
                 "2026-08-26 cysbandcs@gmail.com AdMob 계정에서 먹점프 전용 " +
                 "Android·iOS 앱과 배너·보상형 광고 단위를 생성해 확인했습니다. " +
-                "스토어 출시 후 각 AdMob 앱을 실제 스토어 목록과 연결해야 합니다.";
+                "2026-09-30 iOS 판 종료 전면 단위를 콘솔에서 등록하고 2분당 1회 제한을 확인했습니다. 운영 노출·실기기 검증은 별도입니다.";
             androidAppId = AndroidProductionAppId;
             iosAppId = IosProductionAppId;
             android ??= new GoogleAdUnitSet();
@@ -350,13 +354,13 @@ namespace MukJump.Core
             ios.Configure(
                 IosProductionBannerId,
                 IosProductionRewardedId,
-                iosInterstitial);
+                IosProductionInterstitialId);
         }
 
         public void ConfigureIosPostRunInterstitial(string verifiedUnitId)
         {
             string value = verifiedUnitId?.Trim();
-            if (!IsAdUnitId(value) || PublisherPrefix(value) != PublisherPrefix(IosProductionAppId))
+            if (value != IosProductionInterstitialId)
                 throw new ArgumentException("먹점프 iOS 계정에서 확인한 전면 광고 ID가 필요합니다.");
             ios ??= new GoogleAdUnitSet();
             ios.Configure(IosProductionBannerId, IosProductionRewardedId, value);

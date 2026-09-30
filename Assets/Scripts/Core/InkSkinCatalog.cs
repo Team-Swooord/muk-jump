@@ -365,14 +365,14 @@ namespace MukJump.Core
         }
 
         public static bool TryEquip(InkSkinId id) => TryEquipAppearance(id, false);
-        public static bool TryEquipGold() => InkPremiumAppearance.IsOwned && TryEquipAppearance(InkSkinId.Ink, true);
+        public static bool TryEquipGold() => InkPremiumAppearance.CanEquipGold && TryEquipAppearance(InkSkinId.Ink, true);
         static bool TryEquipAppearance(InkSkinId id, bool gold)
         {
             if (!SkinDebugSession.CanEquip(id) ||
                 GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby ||
                 MukJumpAccountRuntime.Instance != null && MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync)
                 return false;
-            if (SkinDebugSession.Active) return !gold && SkinDebugSession.TryEquip(id);
+            if (SkinDebugSession.Active) return gold ? SkinDebugSession.TryEquipGold() : SkinDebugSession.TryEquip(id);
             // 최고점 같은 확인된 진행으로 착용 가능한 의상도 먼저 영구 해금으로 확정한다.
             // 재실행의 계정/최고점 로딩 순서 때문에 이미 착용한 의상이 다시 잠기지 않게 한다.
             if (!gold && id != InkSkinId.Ink && !PermanentGrowthProfile.TryGrantLiveAchievements(

@@ -779,7 +779,7 @@ namespace MukJump.Core
             transitionInProgress = true;
             PointerInput.SuppressUntilRelease();
             // 붓 전환음은 들리되 물리는 화면이 완전히 덮일 때까지 멈춘 상태를 유지한다.
-            AudioListener.pause = false;
+            AudioListener.pause = NativePurchaseOverlay.IsActive;
             void ReloadLobby()
             {
                 MukJumpAnalytics.EndRun(currentRunId, ScoreManager.Instance != null ? ScoreManager.Instance.Height : 0,
@@ -1129,7 +1129,7 @@ namespace MukJump.Core
 
         static void SetReviveAdAudioActive(bool active)
         {
-            AudioListener.pause = active || !MobileApplicationLifecycle.IsApplicationActive ||
+            AudioListener.pause = active || NativePurchaseOverlay.IsActive || !MobileApplicationLifecycle.IsApplicationActive ||
                 (Instance != null && Instance.IsPaused);
             BackgroundMusicController.Instance?.SetFullScreenAdActive(active);
             AudioPlaybackDiagnostics.Record(active ? "game-pause" : "game-resume");
@@ -2269,7 +2269,7 @@ namespace MukJump.Core
             skinUnlocks.BeginRun(currentRunId, PermanentGrowthProfile.SkinAccountToken, InkSkinUnlockState.ReadUnlocked());
             skinUnlockPresentationPending = skinUnlockReturnPending = false;
             activeGameplaySeconds = 0f;
-            skinRunStats = SkinRunStats.Begin(LobbyNightState.TargetNight, InkSkinPreferences.Equipped);
+            skinRunStats = SkinRunStats.Begin(LobbyNightState.TargetNight, InkSkinPreferences.Equipped, InkPremiumAppearance.IsEquipped);
             liveAchievements.Begin(); itemFlightSequence = itemFlightCount = liveGameplayMask = 0;
             lastActiveTimeSampleFrame = -1;
             lastDeadPlayer = null;
@@ -2390,7 +2390,7 @@ namespace MukJump.Core
                 AudioListener.pause = true;
                 return;
             }
-            AudioListener.pause = false;
+            AudioListener.pause = NativePurchaseOverlay.IsActive;
             if (!wasPaused)
             {
                 PauseReason = GameplayPauseReason.None;

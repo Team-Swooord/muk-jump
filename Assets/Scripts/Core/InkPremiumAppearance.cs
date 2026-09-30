@@ -53,11 +53,23 @@ namespace MukJump.Core
 #endif
             }
         }
-        public static bool IsEquipped => IsOwned && InkSkinPreferences.GoldSelected &&
-            InkSkinPreferences.Equipped == InkSkinId.Ink && !SkinDebugSession.Active;
-        public static bool IsGoldInRun => IsOwned && (RunGrowthController.Instance != null &&
-            GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby
-                ? RunGrowthController.Instance.GoldSnapshot : IsEquipped);
+        // 외형 시험만 허용한다. IsOwned와 SuppressAds는 실제 스토어 권한을 유지한다.
+        public static bool CanEquipGold => IsSupported && (IsOwned || SkinDebugSession.Active);
+        public static bool IsEquipped => IsSupported && (SkinDebugSession.Active
+            ? SkinDebugSession.IsGoldEquipped
+            : IsOwned && InkSkinPreferences.GoldSelected && InkSkinPreferences.Equipped == InkSkinId.Ink);
+        public static bool IsGoldInRun
+        {
+            get
+            {
+                if (!IsSupported) return false;
+                var run = RunGrowthController.Instance;
+                if (run == null || GameManager.Instance == null || GameManager.Instance.State == GameState.Lobby)
+                    return IsEquipped;
+                // 디버그 판의 외형은 세션 종료·계정 교체 뒤 구매 권한으로 되살리지 않는다.
+                return run.GoldSnapshot && (run.DebugGoldSnapshot ? SkinDebugSession.IsGoldEquipped : IsOwned);
+            }
+        }
         internal static void Register(IInkPremiumEntitlement value) => entitlement = value;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

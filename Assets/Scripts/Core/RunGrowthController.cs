@@ -23,6 +23,7 @@ namespace MukJump.Core
         [SerializeField] InkSkinId skinSnapshot;
         public InkSkinId SkinSnapshot => InkSkinCatalog.Normalize(skinSnapshot);
         public bool GoldSnapshot { get; private set; }
+        public bool DebugGoldSnapshot { get; private set; }
         [SerializeField] string cosmeticSkinSnapshot = "";
         [SerializeField] string landingSnapshot = InkCosmeticCatalog.DefaultLanding;
         [SerializeField] string cloneSnapshot = InkCosmeticCatalog.FollowBody;
@@ -370,6 +371,7 @@ namespace MukJump.Core
             // 광고 부활과 분신 생성은 새 판이 아니다. 로비에서 시작할 때만 고정한다.
             skinSnapshot = InkSkinPreferences.Equipped;
             GoldSnapshot = InkPremiumAppearance.IsEquipped;
+            DebugGoldSnapshot = GoldSnapshot && SkinDebugSession.Active;
             cosmeticSkinSnapshot = InkSkinPreferences.EquippedCosmetic(InkCosmeticSlot.Skin);
             landingSnapshot = InkSkinPreferences.EquippedCosmetic(InkCosmeticSlot.Landing);
             cloneSnapshot = InkSkinPreferences.EquippedCosmetic(InkCosmeticSlot.Clone);

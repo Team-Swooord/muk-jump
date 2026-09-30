@@ -351,6 +351,8 @@ namespace MukJump.EditorTools
             AppsInTossAdSettings adSettings, bool testAdsAllowed = false)
         {
             var issues = new List<string>();
+            if (!testAdsAllowed && (adSettings == null || string.IsNullOrWhiteSpace(adSettings.InterstitialAdGroupId)))
+                issues.Add("• Production 토스 전면 광고에는 콘솔에서 확인한 운영 광고 그룹 ID가 필요합니다.");
             if (!testAdsAllowed && adSettings != null && IsTestAdGroupId(
                     adSettings.RewardedAdGroupId))
                 issues.Add(

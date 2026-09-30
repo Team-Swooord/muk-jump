@@ -139,7 +139,11 @@ namespace MukJump.EditorTests
         [TestCase(GameLanguage.Japanese, "最高 237m", "記録なし")]
         public void BoldInkStaysInsideDetailsAndPersonalRecordsKeepNormalTypography(GameLanguage language, string record, string empty)
         {
-            Finish("card", InkSkinId.Ink, 237);
+            // 능력 상세는 실제 해금한 의상만 열 수 있다. 점수와 아이템 조건을 혼동하지 않는다.
+            var stats = SkinRunStats.Begin(false, InkSkinId.Ink);
+            stats.inkDrops = stats.items = InkSkinAchievements.Goal(InkSkinId.WindFan);
+            Assert.That(PermanentGrowthProfile.SettleRun("card", 237, 237, 0, 30, true, stats).Accepted, Is.True);
+            Assert.That(InkSkinAchievements.IsUnlocked(InkSkinId.WindFan), Is.True);
             GameLocalization.SetLanguage(language);
             wardrobeObject = new GameObject("CostumeRecordView");
             var view = wardrobeObject.AddComponent<InkWardrobeView>();
@@ -147,6 +151,7 @@ namespace MukJump.EditorTests
             view.BuildForTests(sprite);
             view.SetNavigationPresentation(true, true);
             view.Select(InkSkinId.WindFan);
+            Assert.That(view.Selected, Is.EqualTo(InkSkinId.WindFan));
             Assert.That(view.OpenSkillDetails(), Is.True);
             Assert.That(view.SkillDetailsRoot.gameObject.activeSelf, Is.True);
             var detailLabels = view.GetComponentsInChildren<UnityEngine.UI.Text>(true);
@@ -154,9 +159,10 @@ namespace MukJump.EditorTests
             {
                 var label = detailLabels.Single(x => x.name == name);
                 Assert.That(label.fontStyle, Is.EqualTo(FontStyle.Bold), name);
-                Assert.That(label.color, Is.EqualTo(name is "Category" or "Cooldown" ? InkPalette.Red : InkPalette.Ink), name);
+                Assert.That(label.color, Is.EqualTo(name == "Category" ? InkPalette.Red : name == "Cooldown" ? InkPalette.TextLight : InkPalette.Ink), name);
                 Assert.That(label.GetComponent<UnityEngine.UI.Outline>().enabled, Is.False, name);
             }
+            Assert.That(view.SkillDetailsRoot.Find("CooldownBadge").GetComponent<UnityEngine.UI.Image>().color, Is.EqualTo(InkPalette.Red));
             view.CloseSkillDetails();
             foreach (bool expanded in new[] { false, true })
             {

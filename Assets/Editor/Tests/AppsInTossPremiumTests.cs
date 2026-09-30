@@ -5,19 +5,72 @@ using MukJump.Core;
 
 namespace MukJump.EditorTools.Tests
 {
+    public sealed class NativePurchaseOverlayTests
+    {
+        [TestCase(false)] [TestCase(true)]
+        public void PaymentLeaseEndsOnceAndDoesNotClearAnotherLeaseOrBackground(bool background)
+        {
+            bool original = UnityEngine.AudioListener.pause;
+            NativePurchaseOverlay first = null, second = null;
+            try
+            {
+                MobileApplicationLifecycle.SetPlatformVisibility(true);
+                first = new(); second = new();
+                Assert.That(NativePurchaseOverlay.IsActive && UnityEngine.AudioListener.pause, Is.True);
+                first.Dispose(); first.Dispose();
+                Assert.That(NativePurchaseOverlay.IsActive && UnityEngine.AudioListener.pause, Is.True);
+                if (background) MobileApplicationLifecycle.SetPlatformVisibility(false);
+                second.Dispose(); second.Dispose();
+                Assert.That(NativePurchaseOverlay.IsActive, Is.False);
+                Assert.That(UnityEngine.AudioListener.pause, Is.EqualTo(background));
+            }
+            finally
+            {
+                first?.Dispose(); second?.Dispose();
+                MobileApplicationLifecycle.SetPlatformVisibility(true); UnityEngine.AudioListener.pause = original;
+            }
+        }
+        [Test] public void PaymentAndAdMusicLocksAreIndependent()
+        {
+            bool original = UnityEngine.AudioListener.pause;
+            var previousMusic = BackgroundMusicController.Instance;
+            UnityEngine.GameObject host = null; NativePurchaseOverlay payment = null;
+            try
+            {
+                host = new UnityEngine.GameObject("PaymentMusicFixture");
+                host.SetActive(false);
+                var music = host.AddComponent<BackgroundMusicController>();
+                typeof(BackgroundMusicController).GetProperty("Instance").SetValue(null, music);
+                payment = new(); music.SetFullScreenAdActive(true); payment.Dispose();
+                Assert.That(music.IsFullScreenAdActive, Is.True);
+                Assert.That(UnityEngine.AudioListener.pause, Is.True);
+                payment = new(); music.SetFullScreenAdActive(false);
+                Assert.That(NativePurchaseOverlay.IsActive, Is.True);
+                payment.Dispose(); Assert.That(UnityEngine.AudioListener.pause, Is.False);
+            }
+            finally
+            {
+                payment?.Dispose(); if (host != null) UnityEngine.Object.DestroyImmediate(host);
+                typeof(BackgroundMusicController).GetProperty("Instance").SetValue(null, previousMusic);
+                UnityEngine.AudioListener.pause = original;
+            }
+        }
+    }
     public sealed class AppsInTossPremiumTests
     {
         sealed class Gateway : IAppsInTossPremiumGateway
         {
             public TossPremiumOrder[] Orders = Array.Empty<TossPremiumOrder>();
             public bool Fail, GrantResult = true;
+            public string ErrorCode;
             public int Purchases, Completions;
             public Func<string, bool> Grant;
             public Action Success;
             public Action<string> Failure;
             public TaskCompletionSource<TossPremiumOrder[]> Pending;
             public Task<string> FetchPrice(string sku) => Task.FromResult("₩4,900");
-            public Task<TossPremiumOrder[]> FetchOrders() => Pending?.Task ?? (Fail
+            public Task<TossPremiumOrder[]> FetchOrders() => Pending?.Task ?? (ErrorCode != null
+                ? Task.FromException<TossPremiumOrder[]>(new TossPremiumLookupException(ErrorCode)) : Fail
                 ? Task.FromException<TossPremiumOrder[]>(new Exception("offline")) : Task.FromResult(Orders));
             public Task<bool> CompleteGrant(string id) { Completions++; return Task.FromResult(GrantResult); }
             public void Purchase(string sku, Func<string, bool> grant, Action completed, Action<string> failed)
@@ -55,6 +108,43 @@ namespace MukJump.EditorTools.Tests
             gateway.Fail = true; await store.Refresh();
             Assert.That(store.IsOwned, Is.True); Assert.That(store.CanPurchase, Is.False);
         }
+        [TestCase(false)] [TestCase(true)]
+        public async Task IncompleteHistoryInvalidatesOldResolutionWithoutRevokingConfirmedPurchase(bool wasOwned)
+        {
+            gateway.Orders = wasOwned ? new[] { Order("owned", "COMPLETED") } : Array.Empty<TossPremiumOrder>();
+            await store.Refresh(); Assert.That(store.OwnershipResolved, Is.True);
+            gateway.ErrorCode = "INCOMPLETE_ORDER_HISTORY";
+            await store.Refresh(); store.Purchase();
+            Assert.That(store.IsOwned, Is.EqualTo(wasOwned));
+            Assert.That(store.OwnershipResolved, Is.False);
+            Assert.That(store.CanPurchase, Is.False); Assert.That(store.LocalizedPrice, Is.Empty);
+            Assert.That(InkPremiumAppearance.SuppressAds, Is.True);
+            Assert.That(gateway.Completions + gateway.Purchases, Is.Zero);
+            Assert.That(store.StatusMessage, Does.Contain("구매 내역이 많아"));
+        }
+        [Test] public async Task UnsupportedVersionShowsUpdateAndBlocksAdsAndPurchases()
+        {
+            await store.Refresh(); gateway.ErrorCode = "UNSUPPORTED_APP_VERSION"; await store.Refresh();
+            Assert.That(store.StatusMessage, Does.Contain("최신 버전"));
+            Assert.That(store.CanPurchase, Is.False); Assert.That(InkPremiumAppearance.SuppressAds, Is.True);
+        }
+        [Test] public async Task AlreadyOwnedErrorImmediatelyBlocksRepurchaseUntilRestore()
+        {
+            await store.Refresh(); store.Purchase(); gateway.Failure("ITEM_ALREADY_OWNED"); store.Purchase();
+            Assert.That(gateway.Purchases, Is.EqualTo(1)); Assert.That(store.OwnershipResolved, Is.False);
+            Assert.That(InkPremiumAppearance.SuppressAds, Is.True);
+            gateway.Orders = new[] { Order("owned", "COMPLETED") }; store.Tick();
+            Assert.That(store.IsOwned, Is.True);
+        }
+        [TestCase("NON_CONSUMABLE", "₩4,895")]
+        [TestCase("CONSUMABLE", "")]
+        [TestCase(null, "")]
+        public void PriceRequiresNonConsumableProductType(string type, string expected)
+        {
+            var product = new AppsInToss.IapProductListItem { DisplayAmount = "₩4,895" };
+            if (type != null) product._extensionData = new System.Collections.Generic.Dictionary<string, Newtonsoft.Json.Linq.JToken> { ["type"] = type };
+            Assert.That(AppsInTossPremiumRuntime.ProductPrice(product), Is.EqualTo(expected));
+        }
         [Test] public async Task RefundWinsForSameOrderButRepurchaseIsIndependent()
         {
             gateway.Orders = new[] { Order("first", "REFUNDED"), Order("first", "COMPLETED") };
@@ -80,17 +170,32 @@ namespace MukJump.EditorTools.Tests
         [TestCase("USER_CANCELED")]
         [TestCase("PAYMENT_PENDING")]
         [TestCase("ERROR")]
+        [TestCase("")]
+        [TestCase("NETWORK_ERROR")]
         public async Task FailedOrDeferredPaymentDoesNotGrant(string code)
         {
             await store.Refresh(); store.Purchase(); gateway.Failure(code);
             Assert.That(store.IsOwned, Is.False);
-            if (code == "PAYMENT_PENDING") Assert.That(store.CanPurchase, Is.False);
+            if (code != "USER_CANCELED")
+            {
+                Assert.That(store.CanPurchase, Is.False);
+                Assert.That(store.OwnershipResolved, Is.False);
+                Assert.That(InkPremiumAppearance.SuppressAds, Is.True);
+            }
         }
         [Test] public async Task ChangedOwnerRejectsLateGrant()
         {
             await store.Refresh(); store.Purchase(); owner = "owner-b";
             Assert.That(gateway.Grant("late"), Is.False); gateway.Success(); store.Tick();
             Assert.That(store.IsOwned, Is.False); Assert.That(store.CanPurchase, Is.False);
+        }
+        [Test] public async Task DeferredPaymentCanRetryOnlyAfterCompleteHistoryConfirmsNoPendingOrder()
+        {
+            await store.Refresh(); store.Purchase(); gateway.Failure("PAYMENT_PENDING");
+            gateway.ErrorCode = "INCOMPLETE_ORDER_HISTORY"; await store.Refresh();
+            Assert.That(store.CanPurchase, Is.False);
+            gateway.ErrorCode = null; await store.Refresh();
+            Assert.That(store.CanPurchase, Is.True);
         }
         [Test] public async Task ChangedOwnerRejectsLateLookup()
         {

@@ -18,6 +18,7 @@ namespace MukJump.Core
         InkShowroomPresentation presentation;
         InkShowroomSwipe swipe;
         Text nameText, loreText, descriptionText, equipText, statusText, achievementText, progressText, collectionToggleText;
+        GoldInkNameGradient goldNameGradient;
         InkWardrobeScroll collectionScroll;
         InkWardrobeCollectionLayout collectionGrid;
         readonly RectTransform[] collectionHeadings = new RectTransform[3];
@@ -162,7 +163,7 @@ namespace MukJump.Core
         {
             if (!CanInteract() || categoryHome) return;
             if (selectedSlot != InkCosmeticSlot.Skin) { EquipEffect(); return; }
-            if (selectedGold && !InkPremiumAppearance.IsOwned) { InkPremiumAppearance.OpenShop(); return; }
+            if (selectedGold && !InkPremiumAppearance.CanEquipGold) { InkPremiumAppearance.OpenShop(); return; }
             if (!SkinDebugSession.CanEquip(selected) ||
                 IsSelectedSkinEquipped) return;
             bool saved = selectedNest ? InkSkinPreferences.TryEquipCosmetic(InkCosmeticSlot.Skin, InkCosmeticCatalog.MagpieNest) :
@@ -186,10 +187,11 @@ namespace MukJump.Core
             if (selectedSlot != InkCosmeticSlot.Skin) { RefreshEffectSelection(); return; }
             bool hidden = SkinDebugSession.IsConcealed(selected);
             bool hasAbility = InkSkinCatalog.HasAbility(selected);
-            bool unlocked = selectedNest ? PermanentGrowthProfile.OwnsCosmetic(InkCosmeticCatalog.MagpieNest) : selectedGold ? InkPremiumAppearance.IsOwned : SkinDebugSession.CanEquip(selected);
+            bool unlocked = selectedNest ? PermanentGrowthProfile.OwnsCosmetic(InkCosmeticCatalog.MagpieNest) : selectedGold ? InkPremiumAppearance.CanEquipGold : SkinDebugSession.CanEquip(selected);
             bool equipped = IsSelectedSkinEquipped;
-            InkLocalizedText.SetSource(nameText, hidden ? "" : selectedNest ? "까치 둥지" : selectedGold ? "금색 먹" : InkSkinCatalog.Name(selected));
-            InkLocalizedText.SetSource(loreText, hidden ? "" : selectedNest ? "하나씩 모은 선물이 둥지를 채워요\n능력 변화 없음" : selectedGold ? "익숙한 먹에 금빛을 더해요\n능력과 성장 효과는 그대로예요" : InkSkinLore.Get(selected).ko);
+            InkLocalizedText.SetSource(nameText, hidden ? "" : selectedNest ? "까치 둥지" : selectedGold ? "금빛 먹" : InkSkinCatalog.Name(selected));
+            goldNameGradient.enabled = selectedGold && !hidden;
+            InkLocalizedText.SetSource(loreText, hidden ? "" : selectedNest ? "하나씩 모은 선물이 둥지를 채워요\n능력 변화 없음" : selectedGold ? "햇살을 머금은 한 방울\n발끝마다 금빛 여운을 남겨요" : InkSkinLore.Get(selected).ko);
             InkLocalizedText.SetSource(descriptionText, hidden ? InkSkinLore.Get(selected).ko : "");
             RefreshDetailLayout(hidden, hasAbility, unlocked || selectedGold);
             RefreshInlineSkill(hidden, hasAbility && unlocked);
@@ -230,16 +232,16 @@ namespace MukJump.Core
                 bool nest = i == InkSkinCatalog.Count + 1;
                 var id = gold || nest ? InkSkinId.Ink : (InkSkinId)i;
                 bool concealed = SkinDebugSession.IsConcealed(id);
-                bool cardUnlocked = nest ? PermanentGrowthProfile.OwnsCosmetic(InkCosmeticCatalog.MagpieNest) : gold ? InkPremiumAppearance.IsOwned : SkinDebugSession.CanEquip(id);
+                bool cardUnlocked = nest ? PermanentGrowthProfile.OwnsCosmetic(InkCosmeticCatalog.MagpieNest) : gold ? InkPremiumAppearance.CanEquipGold : SkinDebugSession.CanEquip(id);
                 bool cardSelected = id == selected && gold == selectedGold && nest == selectedNest;
                 bool cardEquipped = IsSkinEquipped(id, gold, nest);
                 cardPapers[i].color = cardSelected ? InkPalette.Paper : new Color(.86f, .82f, .73f, .62f);
                 cardStates[i].color = cardSelected ? InkPalette.Red : InkPalette.TextMuted;
                 SetPreview(cardBodies[i], cardAccessories[i], id, 200, concealed, cardUnlocked || gold, gold, nest);
                 cardQuestions[i].enabled = concealed;
-                InkLocalizedText.SetSource(cardNames[i], concealed ? "?" : nest ? "까치 둥지" : gold ? "금색 먹" : InkSkinCatalog.Name(id));
-                int bestHeight = PermanentGrowthProfile.SkinBestHeight(id);
-                InkLocalizedText.SetSource(cardBestHeights[i], nest ? "능력 변화 없음" : gold ? "구매 전용 의상" : bestHeight < 0 ? "기록 없음" : $"최고 {bestHeight}m");
+                InkLocalizedText.SetSource(cardNames[i], concealed ? "?" : nest ? "까치 둥지" : gold ? "금빛 먹" : InkSkinCatalog.Name(id));
+                int bestHeight = gold ? PermanentGrowthProfile.GoldBestHeight : PermanentGrowthProfile.SkinBestHeight(id);
+                InkLocalizedText.SetSource(cardBestHeights[i], nest ? "능력 변화 없음" : bestHeight < 0 ? "기록 없음" : $"최고 {bestHeight}m");
                 cardSkillMarks[i].gameObject.SetActive(!concealed && InkSkinCatalog.HasAbility(id));
                 InkLocalizedText.SetSource(cardStates[i], concealed ? "" : !cardUnlocked ? "잠김" :
                     cardEquipped ? "착용 중" : cardSelected ? "선택됨" : "해금됨");
@@ -261,7 +263,8 @@ namespace MukJump.Core
             nameText.alignment = TextAnchor.MiddleCenter;
             nameText.rectTransform.anchoredPosition = new Vector2(0, showAbility ? 169f : 200f);
             nameText.rectTransform.sizeDelta = new Vector2(900, showAbility ? 90f : 124f);
-            PlaceDetailRow(loreText.rectTransform, showAbility ? 120f : 126f, 108f);
+            // 금빛 먹의 두 줄 소개는 CJK 붓글씨 행간까지 들어가도록 여유를 둔다.
+            PlaceDetailRow(loreText.rectTransform, showAbility ? 120f : 126f, selectedGold ? 148f : 108f);
             detailDivider.rectTransform.anchoredPosition = new Vector2(0, 10f);
             detailPaper.gameObject.SetActive(!collectionExpanded);
             detailDivider.gameObject.SetActive(!collectionExpanded && !locked && hasAbility);
@@ -409,6 +412,8 @@ namespace MukJump.Core
             nameText=Label("SkinName",paper,"",76,new Vector2(0,188),new Vector2(900,92),true);
             // 진한 먹색 강조는 한지 설명칸 안에만 적용한다.
             nameText.color=InkPalette.Ink;
+            goldNameGradient=nameText.gameObject.AddComponent<GoldInkNameGradient>();
+            goldNameGradient.enabled=false;
             loreText=Label("ItemLore",paper,"",44,new Vector2(0,84),new Vector2(900,108),false);
             loreText.color=InkPalette.Ink; loreText.fontStyle=FontStyle.Bold; loreText.lineSpacing=1.12f;
             BuildInlineSkill();
@@ -637,6 +642,7 @@ namespace MukJump.Core
             cardQuestions[i]=Label("QuestionMark",viewport,"?",48,Vector2.zero,new Vector2(104,90),true);
             cardStates[i]=Label("State",button.transform,"",24,new Vector2(0,-48),new Vector2(104,28),false);
             cardNames[i]=Label("CardName",button.transform,"",34,Vector2.zero,new Vector2(282,80),true);
+            if (entry.Gold) cardNames[i].gameObject.AddComponent<GoldInkNameGradient>();
             var bestHeight=Label("BestHeight",button.transform,"기록 없음",26,new Vector2(0,-28),new Vector2(166,50),false);
             cardBestHeights[i]=bestHeight;
             bestHeight.rectTransform.anchorMin=bestHeight.rectTransform.anchorMax=new Vector2(.5f,1);

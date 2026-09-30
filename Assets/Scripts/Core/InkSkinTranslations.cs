@@ -85,6 +85,8 @@ namespace MukJump.Core
                 ["스토어 연결을 다시 시도하고 있어요"] = ("Reconnecting to the store", "ストアへの接続を再試行しています"),
                 ["가격을 불러오지 못했어요. 구입 복원은 이용할 수 있어요"] = ("Price unavailable. You can still restore purchases.", "価格を取得できません。購入の復元は利用できます"),
                 ["구매 내역을 확인하고 있어요"] = ("Checking your purchases", "購入履歴を確認しています"),
+                ["토스 앱을 최신 버전으로 업데이트해 주세요"] = ("Please update the Toss app", "トスアプリを最新版に更新してください"),
+                ["구매 내역이 많아 자동 확인을 마치지 못했어요"] = ("We couldn't verify your full purchase history", "購入履歴が多く、すべて確認できませんでした"),
                 ["구매는 확인했어요. 저장 후 다시 마무리할게요"] = ("Purchase verified. Finishing after saving.", "購入を確認しました。保存後に完了します"),
                 ["광고 제거와 금색 먹을 이용할 수 있어요"] = ("No Ads and Golden Ink are available", "広告なしと金色の墨を利用できます"),
                 ["현재 App Store 계정의 구매 내역이 없어요"] = ("No purchase found for this App Store account", "現在のApp Storeアカウントに購入がありません"),
@@ -101,6 +103,9 @@ namespace MukJump.Core
                 ["구입 복원을 완료하지 못했어요"] = ("Could not restore purchases", "購入を復元できませんでした"),
                 ["스토어 응답을 기다리고 있어요. 구입 복원으로 확인해 주세요"] = ("Waiting for the store. Check with Restore Purchases.", "ストアの応答待ちです。購入の復元で確認してください"),
                 ["금색 먹"] = ("Golden Ink", "金色の墨"),
+                ["금빛 먹"] = ("Golden Ink", "金色の墨"),
+                ["햇살을 머금은 한 방울\n발끝마다 금빛 여운을 남겨요"] =
+                    ("A drop of captured sunlight\nLeaving a golden glow with every landing", "陽だまりを宿すひとしずく\n足もとに金色の余韻を残します"),
                 ["구매 전용 의상"] = ("Premium outfit", "購入限定衣装"),
                 ["구매 보기"] = ("View purchase", "購入について"),
                 ["익숙한 먹에 금빛을 더해요\n능력과 성장 효과는 그대로예요"] =

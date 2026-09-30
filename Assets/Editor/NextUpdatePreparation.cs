@@ -4,6 +4,8 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.Build.Player;
+using UnityEngine;
+using MukJump.Core;
 
 namespace MukJump.EditorTools
 {
@@ -17,6 +19,34 @@ namespace MukJump.EditorTools
         {
             MukJumpSceneBuilder.Build();
             Save("scene-audit.json", MukJumpAgentAudit.Audit());
+        }
+
+        public static void ConfigureReleaseMonetization()
+        {
+            var ads = Resources.Load<MukJumpGoogleAdsSettings>(MukJumpGoogleAdsSettings.ResourcePath);
+            if (ads == null) throw new InvalidOperationException("기존 AdMob 설정이 없습니다.");
+            ads.ConfigureProductionAdMobIds();
+            EditorUtility.SetDirty(ads);
+            AssetDatabase.SaveAssets();
+            MukJumpGoogleMobileAdsSetup.EnsureProjectSettings();
+            if (!ads.TryValidateProduction(GoogleAdsPlatform.IOS, out string error))
+                throw new InvalidOperationException(error);
+
+            string sku = Environment.GetEnvironmentVariable("MUKJUMP_AIT_PREMIUM_SKU");
+            if (!string.IsNullOrWhiteSpace(sku))
+            {
+                string path = "Assets/Resources/" + AppsInTossPremiumSettings.ResourcePath + ".asset";
+                var premium = AssetDatabase.LoadAssetAtPath<AppsInTossPremiumSettings>(path);
+                if (premium == null)
+                {
+                    premium = ScriptableObject.CreateInstance<AppsInTossPremiumSettings>();
+                    AssetDatabase.CreateAsset(premium, path);
+                }
+                premium.Configure(sku); EditorUtility.SetDirty(premium);
+            }
+            AssetDatabase.SaveAssets();
+            Save("monetization-config.json", new { iosInterstitial = ads.UnitsFor(GoogleAdsPlatform.IOS).Interstitial,
+                tossSkuConfigured = !string.IsNullOrWhiteSpace(sku), realDeviceVerified = false });
         }
 
         public static void PrepareCompileAndAudit()

@@ -20,8 +20,9 @@ namespace MukJump.Core
         static object owner;
         static bool allUnlocked, menuOpen;
         static InkSkinId equipped;
-        static bool hasEquipped;
+        static bool hasEquipped, goldEquipped;
         public static bool Active { get { ValidateOwner(); return Available && allUnlocked; } }
+        public static bool IsGoldEquipped => Active && hasEquipped && goldEquipped;
         public static bool MenuOpen { get { ValidateOwner(); return Available && menuOpen; } }
         public static bool CanEquip(InkSkinId id) => InkSkinCatalog.IsAvailable(id) &&
             (Active || InkSkinAchievements.IsUnlocked(id));
@@ -34,7 +35,7 @@ namespace MukJump.Core
             { Reset(); owner = current; }
         }
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        public static void Reset() { owner = null; allUnlocked = menuOpen = hasEquipped = false; equipped = InkSkinId.Ink; }
+        public static void Reset() { owner = null; allUnlocked = menuOpen = hasEquipped = goldEquipped = false; equipped = InkSkinId.Ink; }
         public static void SetMenuOpen(bool value) { ValidateOwner(); menuOpen = Available && value; }
         public static bool SetAllUnlocked(bool value)
         {
@@ -42,7 +43,7 @@ namespace MukJump.Core
             if (!Available || PermanentGrowthProfile.RequiresRecovery ||
                 GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby ||
                 MukJumpAccountRuntime.Instance != null && MukJumpAccountRuntime.Instance.BlocksGameplayForAccountSync) return false;
-            allUnlocked = value; hasEquipped = false; return true;
+            allUnlocked = value; hasEquipped = goldEquipped = false; return true;
         }
         public static bool TryGetEquipped(out InkSkinId id)
         { id = equipped; return Active && hasEquipped; }
@@ -50,7 +51,14 @@ namespace MukJump.Core
         {
             if (!Active || !InkSkinCatalog.IsAvailable(id) ||
                 GameManager.Instance != null && GameManager.Instance.State != GameState.Lobby) return false;
-            equipped = id; hasEquipped = true; return true;
+            equipped = id; hasEquipped = true; goldEquipped = false; return true;
+        }
+        // 구매 권한·저장된 취향 대신 현재 시험 세션에서만 금빛 외형을 빌린다.
+        public static bool TryEquipGold()
+        {
+            if (!InkPremiumAppearance.IsSupported || !TryEquip(InkSkinId.Ink)) return false;
+            goldEquipped = true;
+            return true;
         }
         public static void ExcludeTestRun()
         {

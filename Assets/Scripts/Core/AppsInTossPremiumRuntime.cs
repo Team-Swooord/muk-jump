@@ -24,6 +24,8 @@ namespace MukJump.Core
         }
         readonly WaitingStore waiting = new();
         readonly Dictionary<string, TaskCompletionSource<TossPremiumOrder[]>> requests = new();
+        delegate Action PurchaseStarter(string sku, Func<string, bool> grant, Action completed, Action<string> failed);
+        readonly Dictionary<string, (Func<string, bool> grant, Action completed, Action<string> failed)> purchases = new();
         AppsInTossPremiumStore service;
         string owner;
         bool active;
@@ -35,6 +37,9 @@ namespace MukJump.Core
                 new GameObject(nameof(AppsInTossPremiumRuntime)).AddComponent<AppsInTossPremiumRuntime>();
         }
         [DllImport("__Internal")] static extern void MukJumpTossPremiumReadOrders(string target, string request);
+        [DllImport("__Internal")] static extern void MukJumpTossPremiumPurchase(string target, string request, string sku);
+        [DllImport("__Internal")] static extern void MukJumpTossPremiumGrantReply(string request, string grantId, int allowed);
+        [DllImport("__Internal")] static extern void MukJumpTossPremiumCancelPurchase(string request);
 #endif
         void OnEnable()
         {
@@ -54,7 +59,7 @@ namespace MukJump.Core
                 if (!string.IsNullOrEmpty(owner))
                 {
                     var settings = Resources.Load<AppsInTossPremiumSettings>(AppsInTossPremiumSettings.ResourcePath);
-                    var gateway = new Gateway(ReadOrders, owner);
+                    var gateway = new Gateway(ReadOrders, StartPurchase, owner);
                     service = new AppsInTossPremiumStore(gateway, settings?.RemoveAdsSku, owner,
                         () => gateway.OwnerMatches ? AppsInTossIdentityPolicy.VerifiedOwnerToken : string.Empty,
                         () => Time.realtimeSinceStartupAsDouble);
@@ -62,6 +67,41 @@ namespace MukJump.Core
                 }
             }
             if (MobileApplicationLifecycle.IsApplicationActive) service?.Tick();
+        }
+        Action StartPurchase(string sku, Func<string, bool> grant, Action completed, Action<string> failed)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            string id = Guid.NewGuid().ToString("N");
+            purchases.Add(id, (grant, completed, failed));
+            try { MukJumpTossPremiumPurchase(gameObject.name, id, sku); }
+            catch { purchases.Remove(id); MukJumpTossPremiumCancelPurchase(id); throw; }
+            return () => { purchases.Remove(id); MukJumpTossPremiumCancelPurchase(id); };
+#else
+            throw new InvalidOperationException("Toss app required");
+#endif
+        }
+        [UnityEngine.Scripting.Preserve]
+        public void ReceivePremiumPurchase(string json)
+        {
+            if (!active) return;
+            var response = JObject.Parse(json);
+            string id = (string)response["request"];
+            if (id == null || !purchases.TryGetValue(id, out var callbacks)) return;
+            if ((string)response["kind"] == "grant")
+            {
+                bool allowed = false;
+                try { allowed = callbacks.grant((string)response["orderId"]); }
+                finally
+                {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                    MukJumpTossPremiumGrantReply(id, (string)response["grantId"], allowed ? 1 : 0);
+#endif
+                }
+                return;
+            }
+            purchases.Remove(id);
+            if ((string)response["kind"] == "success") callbacks.completed();
+            else callbacks.failed((string)response["code"] ?? "ERROR");
         }
         void OnApplicationFocus(bool focused) { if (focused && active && service != null) _ = service.Refresh(); }
         void OnApplicationPause(bool paused) { if (!paused && active && service != null) _ = service.Refresh(); }
@@ -78,7 +118,7 @@ namespace MukJump.Core
             return Task.FromException<TossPremiumOrder[]>(new InvalidOperationException("Toss app required"));
 #endif
         }
-        // 페이지네이션 인자를 노출하지 않는 설치 SDK를 보완하는 자체 브리지의 응답이다.
+        // 설치 SDK의 첫 페이지가 전체 내역인 경우만 성공으로 받는다.
         [UnityEngine.Scripting.Preserve]
         public void ReceivePremiumOrders(string json)
         {
@@ -89,8 +129,9 @@ namespace MukJump.Core
                 var response = JObject.Parse(json);
                 string id = (string)response["request"];
                 if (id == null || !requests.Remove(id, out request)) return;
-                if ((bool?)response["ok"] != true || response["orders"] is not JArray orders)
-                { request.TrySetException(new InvalidOperationException("Order lookup failed")); return; }
+                if ((bool?)response["ok"] != true || (bool?)response["historyComplete"] != true ||
+                    response["orders"] is not JArray orders)
+                { request.TrySetException(new TossPremiumLookupException((string)response["code"] ?? "ERROR")); return; }
                 request.TrySetResult(orders.Select(order => new TossPremiumOrder(
                     (string)order["orderId"], (string)order["sku"], (string)order["status"])).ToArray());
             }
@@ -102,6 +143,7 @@ namespace MukJump.Core
             if (ReferenceEquals(InkPremiumAppearance.Store, service) || ReferenceEquals(InkPremiumAppearance.Store, waiting))
                 InkPremiumAppearance.Register(null);
             service?.Dispose(); service = null;
+            purchases.Clear();
             foreach (var request in requests.Values) request.TrySetCanceled();
             requests.Clear();
         }
@@ -109,12 +151,14 @@ namespace MukJump.Core
         sealed class Gateway : IAppsInTossPremiumGateway
         {
             readonly Func<Task<TossPremiumOrder[]>> readOrders;
+            readonly PurchaseStarter startPurchase;
             readonly string expectedOwner;
             Action cleanup;
+            NativePurchaseOverlay purchaseOverlay;
             bool disposed;
             public bool OwnerMatches { get; private set; } = true;
-            public Gateway(Func<Task<TossPremiumOrder[]>> readOrders, string owner)
-            { this.readOrders = readOrders; expectedOwner = owner; }
+            public Gateway(Func<Task<TossPremiumOrder[]>> readOrders, PurchaseStarter startPurchase, string owner)
+            { this.readOrders = readOrders; this.startPurchase = startPurchase; expectedOwner = owner; }
             async Task VerifyOwner()
             {
                 string raw = await AIT.GetUserKeyForGame(15000);
@@ -140,7 +184,7 @@ namespace MukJump.Core
             {
                 var result = await AIT.IAPGetProductItemList(15000);
                 if (disposed || result == null || !string.IsNullOrEmpty(result.error)) throw new InvalidOperationException();
-                return result.Products?.FirstOrDefault(p => p.Sku == sku)?.DisplayAmount ?? string.Empty;
+                return ProductPrice(result.Products?.FirstOrDefault(p => p.Sku == sku));
             }
             public async Task<bool> CompleteGrant(string orderId)
             {
@@ -153,31 +197,45 @@ namespace MukJump.Core
                 try { await VerifyOwner(); }
                 catch { if (!disposed) failed("IDENTITY_UNAVAILABLE"); return; }
                 bool finished = false;
-                void Finish() { finished = true; cleanup?.Invoke(); cleanup = null; }
+                void Finish()
+                {
+                    finished = true;
+                    try { cleanup?.Invoke(); }
+                    finally { cleanup = null; purchaseOverlay?.Dispose(); purchaseOverlay = null; }
+                }
                 try
                 {
-                Action dispose = AIT.IAPCreateOneTimePurchaseOrder(success =>
+                purchaseOverlay = new NativePurchaseOverlay();
+                // SDK 3.5 Unity 생성 브리지는 error.code를 버리므로 프로젝트 어댑터로 보존한다.
+                Action dispose = startPurchase(sku,
+                    orderId => !disposed && OwnerMatches && grant(orderId), () =>
                 {
                     if (disposed || finished) return;
                     Finish();
-                    if (success?.Type == "success" && !string.IsNullOrEmpty(success.Data?.OrderId)) completed();
-                    else failed("INVALID_RESPONSE");
-                }, new IapCreateOneTimePurchaseOrderOptionsOptions
-                {
-                    ProductId = sku, Sku = sku,
-                    ProcessProductGrant = order => !disposed && OwnerMatches && grant(order.OrderId)
-                }, error =>
+                    completed();
+                }, code =>
                 {
                     if (disposed || finished) return;
                     Finish();
-                    string code = error?.ErrorCode ?? "ERROR";
-                    failed(code);
+                    failed(string.IsNullOrEmpty(code) ? "ERROR" : code);
                 });
                 if (finished || disposed) dispose?.Invoke(); else cleanup = dispose;
                 }
                 catch { Finish(); if (!disposed) failed("ERROR"); }
             }
-            public void Dispose() { disposed = true; cleanup?.Invoke(); cleanup = null; }
+            public void Dispose()
+            {
+                disposed = true;
+                try { cleanup?.Invoke(); }
+                finally { cleanup = null; purchaseOverlay?.Dispose(); purchaseOverlay = null; }
+            }
+        }
+
+        public static string ProductPrice(IapProductListItem product)
+        {
+            // Unity 생성형에 아직 없는 최신 상품 종류는 SDK 확장 필드로 확인한다.
+            return product?._extensionData != null && product._extensionData.TryGetValue("type", out var type) &&
+                type?.ToString() == "NON_CONSUMABLE" ? product.DisplayAmount ?? string.Empty : string.Empty;
         }
     }
 }

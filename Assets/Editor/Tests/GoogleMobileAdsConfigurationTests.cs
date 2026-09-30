@@ -166,17 +166,20 @@ namespace MukJump.EditorTests
             Assert.That(iosError, Does.Contain("먹점프 전용"));
         }
 
-        [Test]
-        public void ReleaseRequiresConfiguredInterstitialUnit()
+        [TestCase(true, "")]
+        [TestCase(false, MukJumpGoogleAdsSettings.IosProductionInterstitialId)]
+        [TestCase(true, "ca-app-pub-2944517353618559/1000000003")]
+        [TestCase(true, "ca-app-pub-3940256099942544/4411468910")]
+        public void ReleaseRequiresConfiguredInterstitialUnit(bool enabled, string id)
         {
             var units = new GoogleAdUnitSet(
-                MukJumpGoogleAdsSettings.AndroidProductionBannerId,
-                MukJumpGoogleAdsSettings.AndroidProductionRewardedId,
-                string.Empty);
+                MukJumpGoogleAdsSettings.IosProductionBannerId,
+                MukJumpGoogleAdsSettings.IosProductionRewardedId,
+                id);
             settings.ConfigureForTests(
                 true,
                 true,
-                true,
+                enabled,
                 MukJumpGoogleAdsSettings.AndroidProductionAppId,
                 units,
                 MukJumpGoogleAdsSettings.IosProductionAppId,
@@ -184,7 +187,7 @@ namespace MukJump.EditorTests
 
             Assert.That(
                 settings.TryValidateProduction(
-                    GoogleAdsPlatform.Android,
+                    GoogleAdsPlatform.IOS,
                     out string error),
                 Is.False);
             Assert.That(error, Does.Contain("전면 광고"));
@@ -220,6 +223,10 @@ namespace MukJump.EditorTests
         public void ProductionPresetUsesMukJumpAdMobUnits()
         {
             settings.ConfigureProductionAdMobIds();
+            Assert.That(settings.EnablesInterstitialFor(GoogleAdsPlatform.IOS), Is.True);
+            Assert.That(settings.EnablesInterstitialFor(GoogleAdsPlatform.Android), Is.False);
+            Assert.That(settings.UnitsFor(GoogleAdsPlatform.IOS).Interstitial,
+                Is.EqualTo(MukJumpGoogleAdsSettings.IosProductionInterstitialId));
 
             Assert.That(
                 MukJumpGoogleAdsSettings.ProductionPublisherPrefix,

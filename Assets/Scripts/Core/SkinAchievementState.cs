@@ -12,11 +12,14 @@ namespace MukJump.Core
         public bool startedAtNight;
         // 기존 v1 정산 복구본에서는 누락 시 false. 치명적인 용 접촉을 직접 확인한 판만 인정한다.
         public bool diedToDragon;
+        // 구 정산 복구본은 기본 false. 금빛 외형을 기존 의상 ID와 분리해 기록한다.
+        public bool startingGold;
         public InkSkinId startingSkin;
-        public static SkinRunStats Begin(bool night, InkSkinId skin) => new()
-        { version = 1, startedAtNight = night, startingSkin = skin, maxLivingPlayers = 1 };
+        public static SkinRunStats Begin(bool night, InkSkinId skin, bool gold = false) => new()
+        { version = 1, startedAtNight = night, startingSkin = skin, startingGold = gold, maxLivingPlayers = 1 };
         public bool IsMeasured => version == 1 && drawnLandings >= 0 && items >= 0 && inkDrops >= 0 &&
-            inkDrops <= items && maxLivingPlayers >= 1 && InkSkinCatalog.IsValid(startingSkin);
+            inkDrops <= items && maxLivingPlayers >= 1 && InkSkinCatalog.IsValid(startingSkin) &&
+            (!startingGold || startingSkin == InkSkinId.Ink);
         public static bool HasCompletePayload(string json)
         {
             var match = System.Text.RegularExpressions.Regex.Match(json,
@@ -24,6 +27,8 @@ namespace MukJump.Core
             if (!match.Success) return false;
             foreach (string field in new[] { "version", "drawnLandings", "items", "inkDrops", "maxLivingPlayers", "startedAtNight", "startingSkin" })
                 if (!System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"" + field + "\"\\s*:")) return false;
+            if (System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"startingGold\"\\s*:") &&
+                !System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"startingGold\"\\s*:\\s*(?:true|false)\\s*[,}]")) return false;
             return true;
         }
     }
@@ -40,10 +45,15 @@ namespace MukJump.Core
         // 의상 ID별 정상 정산 최고 고도. -1은 미기록이며 0m와 구분한다.
         // 구 저장에는 이 선택 필드가 없다. 전체 최고점으로 과거 착용 기록을 추정하지 않는다.
         public int[] skinBestHeights = Array.Empty<int>();
+        // 없던 금빛 기록을 기본 먹이나 전체 최고에서 추정하지 않는다. false/0은 미기록이다.
+        public bool hasGoldBestHeight;
+        public int goldBestHeight;
+        public int GoldBestHeight => hasGoldBestHeight ? goldBestHeight : -1;
         public bool IsValid => (version == 1 || version == 2) && gameplayMask >= 0 && gameplayMask <= 3 && runs >= 0 && best >= 0 && drawnLandings >= 0 &&
             items >= 0 && inkDrops >= 0 && inkDrops <= items && survival >= 0 && clones >= 0 &&
             nightBest >= 0 && noItemBest >= 0 && growth >= 0 && dragonDeaths >= 0 && unlockedMask >= 0 &&
-            (unlockedMask >> InkSkinCatalog.Count) == 0 && ValidSkinBestHeights();
+            (unlockedMask >> InkSkinCatalog.Count) == 0 && ValidSkinBestHeights() &&
+            goldBestHeight >= 0 && (hasGoldBestHeight ? goldBestHeight <= best : goldBestHeight == 0);
         bool ValidSkinBestHeights()
         {
             if (skinBestHeights == null) return true;
@@ -80,6 +90,11 @@ namespace MukJump.Core
             if (System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"skinBestHeights\"\\s*:") &&
                 !System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value,
                     "\"skinBestHeights\"\\s*:\\s*\\[(?:\\s*-?\\d+\\s*(?:,\\s*-?\\d+\\s*)*)?\\]")) return false;
+            bool hasGoldFlag = System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"hasGoldBestHeight\"\\s*:");
+            bool hasGoldValue = System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"goldBestHeight\"\\s*:");
+            if (hasGoldFlag != hasGoldValue || hasGoldFlag &&
+                (!System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"hasGoldBestHeight\"\\s*:\\s*(?:true|false)\\s*[,}]") ||
+                 !System.Text.RegularExpressions.Regex.IsMatch(match.Groups[1].Value, "\"goldBestHeight\"\\s*:\\s*\\d+\\s*[,}]"))) return false;
             return true;
         }
         public void Grant(InkSkinId id) { if (InkSkinCatalog.IsValid(id)) unlockedMask |= 1L << (int)id; }
@@ -109,7 +124,14 @@ namespace MukJump.Core
             {
                 // 현재 미리보기/장착 설정이 아닌, 판 시작 때 확정한 의상에 기록한다.
                 if (height >= 0 && seconds >= 0 && !float.IsNaN(seconds) && !float.IsInfinity(seconds))
-                    RecordSkinBestHeight(stats.startingSkin, height);
+                {
+                    if (stats.startingGold)
+                    {
+                        goldBestHeight = Math.Max(goldBestHeight, height);
+                        hasGoldBestHeight = true;
+                    }
+                    else RecordSkinBestHeight(stats.startingSkin, height);
+                }
                 drawnLandings = Add(drawnLandings, stats.drawnLandings);
                 items = Add(items, stats.items);
                 inkDrops = Add(inkDrops, stats.inkDrops);

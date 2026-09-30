@@ -638,7 +638,7 @@ namespace MukJump.Core
             {
                 var newProvider = new GoogleMobileAdsProvider(
                     units.Rewarded,
-                    settings != null && settings.EnablePostRunInterstitial
+                    settings != null && settings.EnablesInterstitialFor(CurrentPlatform())
                         ? units.Interstitial
                         : string.Empty);
                 provider = newProvider;
@@ -646,7 +646,7 @@ namespace MukJump.Core
                 initialized = true;
                 newProvider.Preload(
                     FullScreenAdPlacement.GameOverReviveReward);
-                if (settings != null && settings.EnablePostRunInterstitial)
+                if (settings != null && settings.EnablesInterstitialFor(CurrentPlatform()))
                     newProvider.Preload(
                         FullScreenAdPlacement.PostRunInterstitial);
                 LoadBannerIfNeeded();

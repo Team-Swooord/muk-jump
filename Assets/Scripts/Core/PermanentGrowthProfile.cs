@@ -473,6 +473,10 @@ namespace MukJump.Core
             EnsureLoaded();
             return writeBlocked ? -1 : data.skinAchievements?.BestHeightForSkin(id) ?? -1;
         }
+        public static int GoldBestHeight
+        {
+            get { EnsureLoaded(); return writeBlocked ? -1 : data.skinAchievements?.GoldBestHeight ?? -1; }
+        }
         public static SkinAchievementState AchievementSyncSnapshot()
         {
             var state = AchievementSnapshot();

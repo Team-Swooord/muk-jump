@@ -61,7 +61,7 @@ namespace MukJump.EditorTests
             try
             {
                 settings.Configure(AppsInTossAdRuntime.TestRewardedId, "", AppsInTossAdRuntime.TestBannerId);
-                Assert.That(MukJumpAppsInTossSetup.CollectAdPolicyIssues(settings), Has.Count.EqualTo(2));
+                Assert.That(MukJumpAppsInTossSetup.CollectAdPolicyIssues(settings), Has.Count.EqualTo(3));
                 Assert.That(MukJumpAppsInTossSetup.CollectAdPolicyIssues(settings, true), Is.Empty);
                 settings.Configure(AppsInTossAdRuntime.TestRewardedId, "forced-interstitial", AppsInTossAdRuntime.TestBannerId);
                 Assert.That(MukJumpAppsInTossSetup.CollectAdPolicyIssues(settings, true), Is.Not.Empty);
@@ -806,13 +806,13 @@ namespace MukJump.EditorTests
 
                 var issues =
                     MukJumpAppsInTossSetup.CollectAdPolicyIssues(settings);
-                Assert.That(issues, Has.Count.EqualTo(2));
+                Assert.That(issues, Has.Count.EqualTo(3));
                 Assert.That(issues, Has.Some.Contains("보상형"));
                 Assert.That(issues, Has.Some.Contains("배너"));
 
                 settings.Configure(
                     "operation-rewarded",
-                    string.Empty,
+                    "ait.v2.live.test-fixture",
                     "operation-banner");
                 Assert.That(
                     MukJumpAppsInTossSetup.CollectAdPolicyIssues(settings),

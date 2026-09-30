@@ -4,6 +4,12 @@ using System.Threading.Tasks;
 
 namespace MukJump.Core
 {
+    public sealed class TossPremiumLookupException : Exception
+    {
+        public string Code { get; }
+        public TossPremiumLookupException(string code) : base(code) { Code = code; }
+    }
+
     public readonly struct TossPremiumOrder
     {
         public readonly string Id, Sku, Status;
@@ -61,7 +67,7 @@ namespace MukJump.Core
             nextRefresh = clock() + 30;
             try
             {
-                // 전체 페이지 성공 이전의 빈/부분 결과로 기존 구매를 회수하지 않는다.
+                // 브리지는 전체 내역임을 확인한 목록만 반환하고 부분 결과는 실패 처리한다.
                 TossPremiumOrder[] orders = await gateway.FetchOrders();
                 if (!ValidOwner || request != revision) return;
                 if (orders == null) throw new InvalidOperationException("Missing orders");
@@ -87,6 +93,7 @@ namespace MukJump.Core
                 // SDK 지급 콜백 직후 주문 목록 반영이 늦어져도 확인된 구매를 회수하지 않는다.
                 // 해당 주문이 조회되면 서버 상태로 전환하며 명시적인 환불은 즉시 우선한다.
                 owned |= granted.Count > 0;
+                if (!pending) deferred = false;
                 IsOwned = owned; OwnershipResolved = true;
                 StatusMessage = owned ? "광고 제거와 금색 먹을 이용할 수 있어요" :
                     "한 번 구매하면 계속 이용할 수 있어요";
@@ -108,10 +115,17 @@ namespace MukJump.Core
                 }
                 catch { if (ValidOwner && request == revision) LocalizedPrice = string.Empty; }
             }
-            catch
+            catch (Exception error)
             {
                 if (ValidOwner && request == revision)
-                    StatusMessage = "구매 확인을 다시 시도해 주세요. 기존 구매는 유지돼요";
+                {
+                    OwnershipResolved = false; LocalizedPrice = string.Empty;
+                    StatusMessage = error is TossPremiumLookupException lookup && lookup.Code == "UNSUPPORTED_APP_VERSION"
+                        ? "토스 앱을 최신 버전으로 업데이트해 주세요"
+                        : error is TossPremiumLookupException incomplete && incomplete.Code == "INCOMPLETE_ORDER_HISTORY"
+                        ? "구매 내역이 많아 자동 확인을 마치지 못했어요"
+                        : "구매 확인을 다시 시도해 주세요. 기존 구매는 유지돼요";
+                }
             }
             finally { refreshing = false; }
         }
@@ -143,13 +157,28 @@ namespace MukJump.Core
                 {
                     if (!ValidOwner || !purchasing) return;
                     purchasing = false;
+                    if (error == "ITEM_ALREADY_OWNED" || error == "UNSUPPORTED_APP_VERSION")
+                    {
+                        OwnershipResolved = false; LocalizedPrice = string.Empty;
+                        StatusMessage = error == "ITEM_ALREADY_OWNED" ? "구매 내역을 확인하고 있어요" :
+                            "토스 앱을 최신 버전으로 업데이트해 주세요";
+                        nextRefresh = clock();
+                        return;
+                    }
                     deferred = error == "PAYMENT_PENDING";
+                    if (error != "USER_CANCELED")
+                    { OwnershipResolved = false; LocalizedPrice = string.Empty; }
                     StatusMessage = error == "USER_CANCELED" ? "구매를 취소했어요" :
                         deferred ? "구매 승인 대기 중이에요" : "구매하지 못했어요. 구입 복원으로 확인해 주세요";
                     nextRefresh = clock() + 30;
                 });
             }
-            catch { purchasing = false; StatusMessage = "구매하지 못했어요. 잠시 후 다시 시도해 주세요"; }
+            catch
+            {
+                purchasing = false; OwnershipResolved = false; LocalizedPrice = string.Empty;
+                nextRefresh = clock() + 30;
+                StatusMessage = "구매하지 못했어요. 구입 복원으로 확인해 주세요";
+            }
         }
         public void Restore() { if (!IsBusy) _ = Refresh(); }
         public void Tick()

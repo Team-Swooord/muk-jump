@@ -21,6 +21,7 @@ namespace MukJump.Core
         AudioSource source;
         bool applicationActive = true;
         bool fullScreenAdActive;
+        bool purchaseActive;
 
         void OnEnable()
         {
@@ -50,6 +51,7 @@ namespace MukJump.Core
             source.clip = Resources.Load<AudioClip>(MusicResourcePath);
             source.volume = lobbyVolume * LobbySettingsProfile.BgmVolume;
             applicationActive = MobileApplicationLifecycle.IsApplicationActive;
+            purchaseActive = NativePurchaseOverlay.IsActive;
             RefreshWebAudioRecovery();
 
             if (source.clip == null)
@@ -58,14 +60,14 @@ namespace MukJump.Core
                 return;
             }
 
-            if (applicationActive && !fullScreenAdActive)
+            if (applicationActive && !fullScreenAdActive && !purchaseActive)
                 source.Play();
         }
 
         void Update()
         {
             if (Instance != this || source == null || source.clip == null ||
-                !applicationActive || fullScreenAdActive)
+                !applicationActive || fullScreenAdActive || purchaseActive)
                 return;
 
             float stateVolume = GameManager.Instance == null
@@ -101,12 +103,18 @@ namespace MukJump.Core
             ApplyPlaybackState();
         }
 
+        public void SetPurchaseActive(bool active)
+        {
+            purchaseActive = active;
+            ApplyPlaybackState();
+        }
+
         void ApplyPlaybackState()
         {
             RefreshWebAudioRecovery();
             if (source == null || source.clip == null)
                 return;
-            if (applicationActive && !fullScreenAdActive)
+            if (applicationActive && !fullScreenAdActive && !purchaseActive)
             {
                 if (!source.isPlaying)
                 {
@@ -138,7 +146,7 @@ namespace MukJump.Core
         void RefreshWebAudioRecovery()
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            MukJumpWebAudioSetRecoveryAllowed(applicationActive && !fullScreenAdActive ? 1 : 0);
+            MukJumpWebAudioSetRecoveryAllowed(applicationActive && !fullScreenAdActive && !purchaseActive ? 1 : 0);
 #endif
         }
 

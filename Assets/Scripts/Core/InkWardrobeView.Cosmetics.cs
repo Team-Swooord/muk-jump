@@ -18,7 +18,8 @@ namespace MukJump.Core
         bool IsSelectedSkinEquipped => IsSkinEquipped(selected, selectedGold, selectedNest);
         bool IsSkinEquipped(InkSkinId id, bool gold, bool nest)
         {
-            if (SkinDebugSession.Active) return !gold && !nest && InkSkinPreferences.Equipped == id;
+            if (SkinDebugSession.Active) return gold ? SkinDebugSession.IsGoldEquipped :
+                !nest && !SkinDebugSession.IsGoldEquipped && InkSkinPreferences.Equipped == id;
             string key = nest ? InkCosmeticCatalog.MagpieNest : gold ? InkCosmeticCatalog.Gold : InkCosmeticCatalog.Legacy(id);
             return InkSkinPreferences.EquippedCosmetic(InkCosmeticSlot.Skin) == key;
         }
@@ -118,6 +119,7 @@ namespace MukJump.Core
         }
         void RefreshEffectSelection()
         {
+            goldNameGradient.enabled = false;
             // 다른 계정으로 바뀌면 갈래 미리보기의 본체도 현재 권한으로 다시 결정한다.
             var currentSkin = InkSkinPreferences.Equipped;
             bool gold = InkPremiumAppearance.IsEquipped;
