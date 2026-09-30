@@ -209,6 +209,65 @@ namespace MukJump.EditorTests
             }
             finally { VfxQualityRuntime.SetTier(previous, VfxQualityChangeReason.DebugOverride); }
         }
+        [TestCase(VfxQualityTier.Low, false)]
+        [TestCase(VfxQualityTier.Medium, false)]
+        [TestCase(VfxQualityTier.High, false)]
+        [TestCase(VfxQualityTier.Low, true)]
+        [TestCase(VfxQualityTier.Medium, true)]
+        [TestCase(VfxQualityTier.High, true)]
+        public void GoldFallLandingAndImmediateJumpNeverMixBlackParticles(VfxQualityTier tier, bool bamboo)
+        {
+            var previous = VfxQualityRuntime.Tier;
+            host = new GameObject("GoldContactSequenceTest");
+            const string art = "Assets/MukJump/VFX/InkDropJump/Textures/";
+            VfxQualityRuntime.SetTier(tier, VfxQualityChangeReason.DebugOverride);
+            using var particles = new InkContactParticles(host.transform,
+                AssetDatabase.LoadAssetAtPath<Texture2D>(art + "T_VFX_InkDropletAtlas_512.png"),
+                AssetDatabase.LoadAssetAtPath<Texture2D>(art + "T_VFX_InkSplash_512.png"),
+                Resources.Load<Shader>("MukJump/Shaders/InkContactParticle"),
+                bamboo ? InkCosmeticCatalog.Sprite(InkCosmeticCatalog.BambooLeaf).texture : null);
+            void Check(bool gold)
+            {
+                Assert.That(particles.ActiveCount, Is.GreaterThan(0));
+                Assert.That(particles.ActiveCount, Is.LessThanOrEqualTo(particles.Capacity));
+                foreach (var system in host.GetComponentsInChildren<ParticleSystem>())
+                {
+                    Assert.That(system.GetComponent<ParticleSystemRenderer>().sortingOrder, Is.InRange(3, 4));
+                    var snapshot = new ParticleSystem.Particle[system.main.maxParticles];
+                    int count = system.GetParticles(snapshot);
+                    for (int i = 0; i < count; i++)
+                    {
+                        Color actual = snapshot[i].startColor;
+                        AssertRgb(actual, gold
+                            ? actual.g > .8f ? GoldInkVisual.LandingHighlight : GoldInkVisual.LandingTint
+                            : InkPalette.Ink);
+                    }
+                }
+            }
+            try
+            {
+                particles.EmitAirSlip(Vector3.up, Vector2.down * 9, true); Check(true);
+                particles.Advance(.05f, true);
+                particles.EmitLanding(Vector3.zero, 1, true, bamboo); Check(true);
+                particles.EmitJump(Vector3.zero, Vector2.up, false, true); Check(true);
+                particles.EmitJump(Vector3.up, Vector2.up, true, true); Check(true);
+                particles.EmitAirSlip(Vector3.up, Vector2.up * 9, true); Check(true);
+                Assert.That(host.GetComponentsInChildren<ParticleSystem>().Length, Is.EqualTo(bamboo ? 4 : 3));
+                if (bamboo) Assert.That(particles.LeafCount, Is.GreaterThan(0), "기존 잎 모양·장착은 유지");
+                for (int i = 0; i < 30; i++) particles.Advance(.05f, true);
+                Assert.That(particles.ActiveCount, Is.Zero);
+                particles.EmitAirSlip(Vector3.up, Vector2.down * 9);
+                particles.EmitLanding(Vector3.zero, 1, false, bamboo);
+                particles.EmitJump(Vector3.zero, Vector2.up, false); Check(false);
+                particles.Clear();
+                LobbySettingsProfile.SetReducedMotionEnabled(true);
+                particles.EmitAirSlip(Vector3.up, Vector2.down * 9, true);
+                particles.EmitLanding(Vector3.zero, 1, true, bamboo);
+                particles.EmitJump(Vector3.zero, Vector2.up, false, true);
+                Assert.That(particles.ActiveCount, Is.Zero);
+            }
+            finally { VfxQualityRuntime.SetTier(previous, VfxQualityChangeReason.DebugOverride); }
+        }
         static void AssertRgb(Color actual, Color expected)
         {
             Assert.That(actual.r, Is.EqualTo(expected.r).Within(.005f));

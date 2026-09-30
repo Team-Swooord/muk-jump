@@ -121,14 +121,15 @@ namespace MukJump.Core
             return system;
         }
 
-        public void EmitJump(Vector3 position, Vector2 direction, bool airborne)
+        public void EmitJump(Vector3 position, Vector2 direction, bool airborne, bool gold = false)
         {
             if (disposed) return;
             SyncSettings();
             // 움직임 줄이기에서는 기존 압축 고리만 사용한다.
             if (reduced) return;
             direction = direction.sqrMagnitude > 0.001f ? direction.normalized : Vector2.up;
-            EmitFan(position, direction, airborne ? 0.65f : 0.42f, false, airborne);
+            EmitFan(position, direction, airborne ? 0.65f : 0.42f, false, airborne,
+                gold ? GoldInkVisual.LandingTint : InkPalette.Ink);
         }
 
         public void EmitLanding(Vector3 position, float strength, bool gold = false, bool bamboo = false)
@@ -137,13 +138,14 @@ namespace MukJump.Core
             SyncSettings();
             if (reduced) return;
             if (gold) EmitGoldLanding(position);
-            if (bamboo && leaves != null) { EmitBambooLanding(position); return; }
+            if (bamboo && leaves != null) { EmitBambooLanding(position, gold); return; }
             if (gold) return;
             EmitFan(position, Vector2.up, Mathf.Clamp01(strength), true, false);
         }
 
-        void EmitBambooLanding(Vector3 position)
+        void EmitBambooLanding(Vector3 position, bool gold)
         {
+            Color tint = gold ? GoldInkVisual.LandingTint : InkPalette.Ink;
             int count = Mathf.Min((int)tier + 2, leaves.main.maxParticles - leaves.particleCount);
             for (int i = 0; i < count; i++)
             {
@@ -151,10 +153,10 @@ namespace MukJump.Core
                 float size = Range(.32f, .44f);
                 Emit(leaves, position + new Vector3(Range(-.22f, .22f), .03f),
                     new Vector2(side * Range(.35f, .85f), Range(.35f, .8f)),
-                    new Vector3(size, size, 1), Range(.42f, .66f), .9f, Range(-160f, 160f));
+                    new Vector3(size, size, 1), Range(.42f, .66f), .9f, Range(-160f, 160f), tint);
             }
             if (wash.particleCount < wash.main.maxParticles)
-                Emit(wash, position, Vector2.zero, new Vector3(1.25f, .25f, 1), .32f, .2f, 0);
+                Emit(wash, position, Vector2.zero, new Vector3(1.25f, .25f, 1), .32f, .2f, 0, tint);
             leaves.Pause(false); wash.Pause(false);
         }
 
@@ -193,7 +195,7 @@ namespace MukJump.Core
         }
 
         /// 빠른 이동 뒤 갈필 두 조각만 남긴다. 접촉/응집을 위한 자리를 항상 보존한다.
-        public void EmitAirSlip(Vector3 position, Vector2 velocity)
+        public void EmitAirSlip(Vector3 position, Vector2 velocity, bool gold = false)
         {
             if (disposed) return;
             SyncSettings();
@@ -208,7 +210,8 @@ namespace MukJump.Core
                 Emit(motes, position + (Vector3)(tangent * side * Range(0.12f, 0.22f)),
                     -direction * Range(0.25f, 0.65f) + tangent * side * 0.15f,
                     new Vector3(0.055f, Range(0.18f, 0.29f), 1f), Range(0.2f, 0.34f),
-                    0.36f, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f);
+                    0.36f, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f,
+                    gold ? GoldInkVisual.LandingTint : InkPalette.Ink);
             }
             motes.Pause(false);
         }
@@ -279,7 +282,7 @@ namespace MukJump.Core
             motes.Pause(false);
         }
 
-        void EmitFan(Vector3 position, Vector2 direction, float strength, bool landing, bool airborne)
+        void EmitFan(Vector3 position, Vector2 direction, float strength, bool landing, bool airborne, Color? tint = null)
         {
             Vector2 tangent = new Vector2(direction.y, -direction.x);
             int dropCount = VfxQualityRuntime.Profile.ScaleDecorativeCount(landing ? Mathf.RoundToInt(Mathf.Lerp(7f, 14f, strength)) : 10, 3);
@@ -296,7 +299,7 @@ namespace MukJump.Core
                 float width = Range(0.20f, 0.36f) * Mathf.Lerp(0.85f, 1.2f, strength);
                 Emit(drops, position + (Vector3)(tangent * side * Range(0.08f, 0.3f)), velocity,
                     new Vector3(width, width * Range(1.2f, 1.85f), 1f), Range(0.38f, 0.62f),
-                    Range(0.82f, 1f), Mathf.Atan2(velocity.y, velocity.x) * Mathf.Rad2Deg - 90f);
+                    Range(0.82f, 1f), Mathf.Atan2(velocity.y, velocity.x) * Mathf.Rad2Deg - 90f, tint);
             }
             for (int i = 0; i < moteCount; i++)
             {
@@ -304,12 +307,12 @@ namespace MukJump.Core
                 float size = Range(0.08f, 0.17f);
                 Emit(motes, position + new Vector3(Range(-0.4f, 0.4f), Range(-0.05f, 0.15f)),
                     new Vector2(side * Range(0.5f, 1.7f), Range(0.15f, 0.8f)),
-                    new Vector3(size, size, 1f), Range(0.5f, 0.85f), Range(0.45f, 0.68f), Range(0f, 360f));
+                    new Vector3(size, size, 1f), Range(0.5f, 0.85f), Range(0.45f, 0.68f), Range(0f, 360f), tint);
             }
             if (!airborne && wash.particleCount < wash.main.maxParticles)
                 Emit(wash, position, Vector2.zero,
                     new Vector3(Mathf.Lerp(1.7f, 2.6f, strength), Mathf.Lerp(0.45f, 0.72f, strength), 1f),
-                    landing ? 0.48f : 0.35f, landing ? 0.34f : 0.23f, 0f);
+                    landing ? 0.48f : 0.35f, landing ? 0.34f : 0.23f, 0f, tint);
             // Emit은 정지된 방출기를 다시 재생 상태로 바꿀 수 있다. 네이티브 자동
             // 업데이트가 같은 프레임에 한 번 더 진행하지 않도록 방출 직후 멈춘다.
             drops.Pause(false);

@@ -26,7 +26,7 @@ namespace MukJump.EditorTests
         static string RecordingOutput => Environment.GetEnvironmentVariable("MUKJUMP_GOLD_RECORDING_OUTPUT") ?? Output;
 
         [UnityTest, Timeout(30000)]
-        public IEnumerator GoldenLandingRingUsesGoldButRefundAndJumpRemainInk()
+        public IEnumerator GoldenContactStaysGoldBehindBodyAndRefundRestoresInk()
         {
             yield return new EnterPlayMode();
             using (var fixture = new UiMemoryFixture())
@@ -42,6 +42,8 @@ namespace MukJump.EditorTests
                 const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
                 void Landing() => typeof(GameFeedbackController).GetMethod("EmitLanding", flags)
                     .Invoke(feedback, new object[] { Vector3.zero, 12f });
+                void Jump() => typeof(GameFeedbackController).GetMethod("EmitJump", flags)
+                    .Invoke(feedback, new object[] { Vector3.zero, Vector2.up, false });
                 void Check(Color expected)
                 {
                     var rings = host.GetComponentsInChildren<LineRenderer>()
@@ -52,6 +54,7 @@ namespace MukJump.EditorTests
                         $"gold={gold}, reduced={LobbySettingsProfile.ReducedMotionEnabled}, tier={VfxQualityRuntime.Tier}");
                     foreach (var ring in rings)
                     {
+                        Assert.That(ring.sortingOrder, Is.EqualTo(gold ? GoldInkVisual.ContactSortingOrder : 12));
                         Assert.That(ring.sharedMaterial, Is.SameAs(gold
                             ? MukJump.AI.FallbackInkStyle.SharedTintableBrushMaterial
                             : MukJump.AI.FallbackInkStyle.SharedInkMaterial));
@@ -64,6 +67,34 @@ namespace MukJump.EditorTests
                     }
                     if (gold) Assert.That(rings.Max(ring => ring.startWidth), Is.GreaterThan(.18f));
                 }
+                void CheckJump(bool gold)
+                {
+                    var lines = host.GetComponentsInChildren<LineRenderer>()
+                        .Where(line => line.enabled).ToArray();
+                    Assert.That(lines.Any(line => line.name == "JumpBrushStreak"), Is.True);
+                    foreach (var line in lines)
+                    {
+                        Color color = line.startColor;
+                        if (gold)
+                        {
+                            Assert.That(color.r, Is.GreaterThan(.9f));
+                            Assert.That(color.g, Is.GreaterThan(.6f));
+                            Assert.That(color.b, Is.LessThan(.3f));
+                            Assert.That(line.sortingOrder, Is.EqualTo(GoldInkVisual.ContactSortingOrder));
+                            Assert.That(line.sortingOrder, Is.InRange(3, 4), "바닥 먹선 위·몸체 뒤");
+                        }
+                        else
+                        {
+                            Assert.That(color.r, Is.EqualTo(InkPalette.Ink.r).Within(1f / 255));
+                            Assert.That(color.g, Is.EqualTo(InkPalette.Ink.g).Within(1f / 255));
+                            Assert.That(color.b, Is.EqualTo(InkPalette.Ink.b).Within(1f / 255));
+                            Assert.That(line.sortingOrder, Is.EqualTo(line.name == "JumpBrushStreak" ? 11 : 12));
+                        }
+                        Assert.That(line.sharedMaterial, Is.SameAs(gold
+                            ? MukJump.AI.FallbackInkStyle.SharedTintableBrushMaterial
+                            : MukJump.AI.FallbackInkStyle.SharedInkMaterial));
+                    }
+                }
                 try
                 {
                     var poolElements = host.GetComponentsInChildren<LineRenderer>(true);
@@ -73,24 +104,26 @@ namespace MukJump.EditorTests
                         Landing(); Check(GoldInkVisual.LandingTint);
                         // 입자 자산이 없는 폴백도 검은 방울로 돌아가지 않는다.
                         foreach (var drop in host.GetComponentsInChildren<SpriteRenderer>().Where(x => x.enabled))
+                        {
                             Assert.That(drop.color.r, Is.EqualTo(GoldInkVisual.LandingTint.r).Within(.001f));
+                            Assert.That(drop.sortingOrder, Is.EqualTo(GoldInkVisual.ContactSortingOrder));
+                        }
+                        Jump(); CheckJump(true);
                     });
                     yield return WaitFeedbackRelease(feedback);
                     foreach (var tier in new[] { VfxQualityTier.Low, VfxQualityTier.High })
                     {
                         VfxQualityRuntime.SetTier(tier, VfxQualityChangeReason.DebugOverride);
-                        yield return InGameFrame(() => { Landing(); Check(GoldInkVisual.LandingTint); });
+                        yield return InGameFrame(() => { Landing(); Check(GoldInkVisual.LandingTint); Jump(); CheckJump(true); });
                         yield return WaitFeedbackRelease(feedback);
                     }
                     fixture.Store.Owned = false;
-                    yield return InGameFrame(() => { Landing(); Check(InkPalette.Ink); });
+                    yield return InGameFrame(() => { Landing(); Check(InkPalette.Ink); Jump(); CheckJump(false); });
                     yield return WaitFeedbackRelease(feedback);
                     fixture.Store.Owned = true;
                     yield return InGameFrame(() =>
                     {
-                        typeof(GameFeedbackController).GetMethod("EmitJump", flags)
-                            .Invoke(feedback, new object[] { Vector3.zero, Vector2.up, false });
-                        Check(InkPalette.Ink);
+                        Jump(); CheckJump(true);
                     });
                     yield return WaitFeedbackRelease(feedback);
                     LobbySettingsProfile.SetReducedMotionEnabled(true);
@@ -177,6 +210,9 @@ namespace MukJump.EditorTests
                 Assert.That(evidence.Min(x => x.Value<float>("velocityY")), Is.LessThan(-3), "실제 낙하");
                 Assert.That(evidence.Count(x => x.Value<int>("contactParticles") > 0), Is.GreaterThan(1), "실제 착지 입자");
                 Assert.That(evidence.Count(x => x.Value<int>("goldLandingRings") > 0), Is.GreaterThan(0), "실제 금색 착지 파동");
+                Assert.That(evidence.Sum(x => x.Value<int>("nonGoldContactParticles")), Is.Zero, "낙하→착지→재점프 전 구간의 검은 입자 혼입");
+                Assert.That(evidence.Sum(x => x.Value<int>("contactLinesOverBody")), Is.Zero, "파동·점프 붓 선이 얼굴 앞으로 나오면 안 된다");
+                Assert.That(evidence.Sum(x => x.Value<int>("nonGoldContactLines")), Is.Zero);
             }
             finally
             {
@@ -230,10 +266,24 @@ namespace MukJump.EditorTests
                     HideRecordingHud();
                     Assert.That(Screen.width, Is.EqualTo(384)); Assert.That(Screen.height, Is.EqualTo(512));
                     paths.Add(JObject.FromObject(MukJumpAgentAudit.CaptureUi()).Value<string>("path"));
+                    var feedback = GameFeedbackController.Instance;
+                    var contactLines = feedback.GetComponentsInChildren<LineRenderer>()
+                        .Where(line => line.enabled && (line.name == "FeedbackRing" || line.name == "JumpBrushStreak")).ToArray();
+                    int nonGoldParticles = 0;
+                    foreach (var system in feedback.GetComponentsInChildren<ParticleSystem>())
+                    {
+                        var particles = new ParticleSystem.Particle[system.main.maxParticles];
+                        int count = system.GetParticles(particles);
+                        for (int p = 0; p < count; p++)
+                            if (!IsGoldContactColor(particles[p].startColor)) nonGoldParticles++;
+                    }
                     evidence.Add(new JObject { ["frame"] = i, ["x"] = body.position.x, ["y"] = body.position.y,
                         ["velocityY"] = body.linearVelocity.y, ["gold"] = InkPremiumAppearance.IsGoldInRun,
-                        ["contactParticles"] = GameFeedbackController.Instance.ActiveContactParticleCount,
-                        ["goldLandingRings"] = GameFeedbackController.Instance.GetComponentsInChildren<LineRenderer>()
+                        ["contactParticles"] = feedback.ActiveContactParticleCount,
+                        ["nonGoldContactParticles"] = nonGoldParticles,
+                        ["contactLinesOverBody"] = contactLines.Count(line => line.sortingOrder >= player.GetComponent<SpriteRenderer>().sortingOrder),
+                        ["nonGoldContactLines"] = contactLines.Count(line => !IsGoldContactColor(line.startColor)),
+                        ["goldLandingRings"] = contactLines
                             .Count(line => line.name == "FeedbackRing" && line.enabled &&
                                 line.startColor.r > .8f && line.startColor.g > .6f && line.startColor.b < .3f) });
                 }
@@ -241,6 +291,8 @@ namespace MukJump.EditorTests
             }
             yield return null; done(error);
         }
+
+        static bool IsGoldContactColor(Color color) => color.r > .9f && color.g > .6f && color.b < .3f;
 
         static void HideRecordingHud()
         {

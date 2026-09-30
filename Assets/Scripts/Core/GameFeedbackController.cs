@@ -214,7 +214,8 @@ namespace MukJump.Core
             }
             if (wakeSampler.Sample(1, position, Time.deltaTime) &&
                 !float.IsPositiveInfinity(FeedbackDistance(position)))
-                contactParticles.EmitAirSlip(position - Vector3.up * 0.3f, leader.Body.linearVelocity);
+                contactParticles.EmitAirSlip(position - Vector3.up * 0.3f, leader.Body.linearVelocity,
+                    InkPremiumAppearance.IsGoldInRun);
         }
 
         float FeedbackDistance(Vector3 position)
@@ -440,12 +441,15 @@ namespace MukJump.Core
             lastJumpFeedbackTime = Time.unscaledTime;
             lastJumpWasAirborne = airborne;
             VfxAudioManager.Instance?.PlayOneShot(jumpClip, airborne ? 0.64f : 0.48f);
+            // 착지 직후 자동 점프와 낙하 잔입자도 같은 몸체의 색을 사용한다.
+            bool gold = InkPremiumAppearance.IsGoldInRun;
             if (!airborne)
-                StartCoroutine(AnimateRing(position, InkPalette.Ink, 0.12f, 0.62f,
-                    0.22f, 0.055f, 0.36f, 0.24f, VfxImportance.Decorative));
+                StartCoroutine(AnimateRing(position, gold ? GoldInkVisual.LandingTint : InkPalette.Ink, 0.12f, 0.62f,
+                    0.22f, 0.055f, 0.36f, 0.24f, VfxImportance.Decorative,
+                    tintable: gold, sortingOrder: gold ? GoldInkVisual.ContactSortingOrder : 12));
             if (!LobbySettingsProfile.ReducedMotionEnabled)
-                StartCoroutine(AnimateBrushStreak(position, direction, airborne));
-            contactParticles?.EmitJump(position, direction, airborne);
+                StartCoroutine(AnimateBrushStreak(position, direction, airborne, gold));
+            contactParticles?.EmitJump(position, direction, airborne, gold);
         }
 
         public void PlayLanding(Vector3 position, float impactSpeed)
@@ -478,10 +482,12 @@ namespace MukJump.Core
             {
                 // 몸체가 곧바로 다시 뛰어도 발밑에 진한 금빛 파동이 남아 착지임을 보여 준다.
                 StartCoroutine(AnimateRing(position, landingTint, .18f,
-                    Mathf.Lerp(1.35f, 1.65f, strength), .62f, .2f, 1f, .32f, tintable: true));
+                    Mathf.Lerp(1.35f, 1.65f, strength), .62f, .2f, 1f, .32f, tintable: true,
+                    sortingOrder: GoldInkVisual.ContactSortingOrder));
                 if (!LobbySettingsProfile.ReducedMotionEnabled && VfxQualityRuntime.Tier >= VfxQualityTier.Medium)
                     StartCoroutine(AnimateRing(position, GoldInkVisual.LandingHighlight, .12f,
-                        1.12f, .46f, .11f, .95f, .45f, VfxImportance.Decorative, tintable: true));
+                        1.12f, .46f, .11f, .95f, .45f, VfxImportance.Decorative, tintable: true,
+                        sortingOrder: GoldInkVisual.ContactSortingOrder));
             }
             else
                 StartCoroutine(AnimateRing(position, landingTint, .12f,
@@ -490,7 +496,8 @@ namespace MukJump.Core
                 InkCosmeticCatalog.InRun(InkCosmeticSlot.Landing) == InkCosmeticCatalog.BambooLeaf);
             if (contactParticles == null && strength >= 0.45f)
                 SpawnDroplets(position, 3 + Mathf.RoundToInt(strength * 2f),
-                    landingTint, VfxImportance.Decorative);
+                    landingTint, VfxImportance.Decorative,
+                    sortingOrder: gold ? GoldInkVisual.ContactSortingOrder : 12);
             if (strength >= 0.34f && Time.unscaledTime - lastLandingHapticTime >= 0.18f)
             {
                 lastLandingHapticTime = Time.unscaledTime;
@@ -666,7 +673,7 @@ namespace MukJump.Core
 
         IEnumerator AnimateRing(Vector3 position, Color color, float startRadius, float endRadius,
             float duration, float width, float startAlpha, float yScale = 1f,
-            VfxImportance importance = VfxImportance.Normal, bool tintable = false)
+            VfxImportance importance = VfxImportance.Normal, bool tintable = false, int sortingOrder = 12)
         {
             bool reduced = LobbySettingsProfile.ReducedMotionEnabled;
             if (reduced) endRadius = Mathf.Lerp(startRadius, endRadius, 0.25f);
@@ -680,7 +687,7 @@ namespace MukJump.Core
             line.positionCount = VfxQualityRuntime.Profile.TransientRingSegments;
             // 검은 텍스처에 금색을 곱하면 검게 남으므로 기존 색상용 붓 마스크를 재사용한다.
             line.sharedMaterial = tintable ? FallbackInkStyle.SharedTintableBrushMaterial : FallbackInkStyle.SharedInkMaterial;
-            line.sortingOrder = 12;
+            line.sortingOrder = sortingOrder;
             line.startWidth = line.endWidth = width;
 
             float elapsed = 0f;
@@ -860,7 +867,7 @@ namespace MukJump.Core
         }
 #endif
 
-        IEnumerator AnimateBrushStreak(Vector3 position, Vector2 direction, bool airborne)
+        IEnumerator AnimateBrushStreak(Vector3 position, Vector2 direction, bool airborne, bool gold)
         {
             var element = TryAcquireLineVfx(
                 "JumpBrushStreak",
@@ -873,8 +880,8 @@ namespace MukJump.Core
             line.useWorldSpace = false;
             line.loop = false;
             line.positionCount = 4;
-            line.sharedMaterial = FallbackInkStyle.SharedInkMaterial;
-            line.sortingOrder = 11;
+            line.sharedMaterial = gold ? FallbackInkStyle.SharedTintableBrushMaterial : FallbackInkStyle.SharedInkMaterial;
+            line.sortingOrder = gold ? GoldInkVisual.ContactSortingOrder : 11;
             line.startWidth = airborne ? 0.14f : 0.11f;
             line.endWidth = 0.012f;
             line.SetPosition(0, new Vector3(airborne ? -0.35f : -0.04f, 0f));
@@ -885,7 +892,7 @@ namespace MukJump.Core
             while (elapsed < 0.24f)
             {
                 elapsed += Time.deltaTime;
-                Color color = InkPalette.Ink;
+                Color color = gold ? GoldInkVisual.LandingTint : InkPalette.Ink;
                 float t = Mathf.Clamp01(elapsed / 0.24f);
                 color.a = 0.74f * (1f - t) * (1f - t);
                 element.transform.localScale = new Vector3(1f, Mathf.Lerp(0.45f, 1.12f, t), 1f);
@@ -1096,7 +1103,8 @@ namespace MukJump.Core
             int count,
             Color color,
             VfxImportance importance,
-            int minimumCount = 0)
+            int minimumCount = 0,
+            int sortingOrder = 12)
         {
             if (LobbySettingsProfile.ReducedMotionEnabled && importance == VfxImportance.Decorative)
                 return;
@@ -1112,17 +1120,18 @@ namespace MukJump.Core
                     position,
                     color,
                     i,
-                    scaledCount));
+                    scaledCount,
+                    sortingOrder));
             }
         }
 
         IEnumerator AnimateDroplet(TransientVfxElement element, Vector3 position, Color color,
-            int index, int count)
+            int index, int count, int sortingOrder)
         {
             element.transform.position = position;
             var renderer = element.UseSprite();
             renderer.sprite = dotSprite;
-            renderer.sortingOrder = 12;
+            renderer.sortingOrder = sortingOrder;
             renderer.color = color;
             float angle = Mathf.Lerp(20f, 160f, (index + 0.5f) / count) * Mathf.Deg2Rad;
             float speed = VisualRange(1.1f, 2.5f);

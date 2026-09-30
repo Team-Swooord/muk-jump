@@ -7,6 +7,8 @@ namespace MukJump.Core
     {
         public static readonly Color LandingTint = new(.98f, .64f, .025f, 1f);
         public static readonly Color LandingHighlight = new(1f, .87f, .25f, 1f);
+        // 바닥 먹선(2) 위, 먹 몸체(5) 아래. 뒤쪽 파동이 얼굴을 가리지 않는다.
+        public const int ContactSortingOrder = 4;
         static Material world, ui;
         static bool observingSettings;
         static readonly int ShimmerId = Shader.PropertyToID("_GoldShimmer");
