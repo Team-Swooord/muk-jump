@@ -142,7 +142,7 @@ namespace MukJump.Core
         void BuildInfoButton()
         {
             // 작은 원의 시각 크기와 별개로 모바일 터치 영역은 충분히 확보한다.
-            var hit = Rect("GoldInfo", paper, new Vector2(195, 390), Vector2.one * 160);
+            var hit = Rect("GoldInfo", paper, new Vector2(150, 390), Vector2.one * 160);
             var target = hit.gameObject.AddComponent<Image>(); target.color = Color.clear;
             var ring = BackdropImage("Circle", hit, InkUiTextureFactory.CreateCelestialDiscSprite(),
                 Vector2.zero, Vector2.one * 42, new Color(.46f, .31f, .12f));

@@ -67,8 +67,10 @@ namespace MukJump.EditorTests
                             var infoCircle = Bounds((RectTransform)info.transform.Find("Circle"));
                             Assert.That(infoCircle.height, Is.LessThan(18),
                                 "작은 원형 i의 시각 크기");
-                            // 가까워진 투명 터치 여백은 입력이 없는 장식과만 겹칠 수 있다. 보이는 원은 먹 밖에 둔다.
-                            Assert.That(infoCircle.Overlaps(Bounds((RectTransform)paper.Find("GoldenInk"))), Is.False);
+                            // 먹 오른쪽 위에 붙인다. 입력이 없는 먹 이미지의 투명 모서리·터치 여백 겹침은 허용한다.
+                            var bodyBounds = Bounds((RectTransform)paper.Find("GoldenInk"));
+                            Assert.That(infoCircle.center.x, Is.GreaterThan(bodyBounds.center.x));
+                            Assert.That(infoCircle.center.y, Is.GreaterThan(bodyBounds.center.y));
                             Assert.That(paper.Find("GoldenInk").GetComponent<Image>().raycastTarget, Is.False);
                             foreach (string name in new[] { "Title", "BenefitsHeading", "AdBenefit", "SkinBenefit", "LandingBenefit", "Purchase" })
                                 Assert.That(Bounds((RectTransform)info.transform).Overlaps(Bounds((RectTransform)paper.Find(name))), Is.False, name);
