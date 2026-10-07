@@ -11,7 +11,7 @@ import { brotliDecompressSync } from 'node:zlib';
 import { parseArgs } from 'node:util';
 import { resolveCliEntry } from '../Assets/Editor/ait-patch-cli.mjs';
 
-export const LIVE = Object.freeze({ rewarded: 'ait.v2.live.7edb523366544df1', interstitial: '', banner: 'ait.v2.live.5d95763582324c1c' });
+export const LIVE = Object.freeze({ rewarded: 'ait.v2.live.7edb523366544df1', interstitial: 'ait.v2.live.2435df0f5bb64145', banner: 'ait.v2.live.5d95763582324c1c' });
 const LIMIT = 512 * 1024 * 1024;
 const NATIVE = ['MukJumpBackendSettings', 'MukJumpGoogleAdsSettings', 'MukJumpAnalyticsSettings', 'TheBackendSettings', 'TheBackendGoogleSettingsForAndroid', 'TheBackendGoogleSettingsForIOS', 'GoogleMobileAdsSettings'];
 const NA = new Set([20, 22, 23, 30, 31, 55, 56, 57, 58, 59, 60]);
@@ -87,7 +87,7 @@ export function readUnityFs(bytes) {
 }
 
 export function verifyAdFields(fields, expected = LIVE) {
-  // 콘솔에서 준비 완료를 확인하기 전에는 LIVE의 빈 전면 ID를 성공 기준으로 사용하지 않는다.
+  // 콘솔에서 대조한 운영 ID만 허용하며 빈 설정이나 테스트 ID는 거부한다.
   for (const key of ['rewarded', 'interstitial', 'banner'])
     assert(/^ait\.v2\.live\.[a-f0-9]{16}$/.test(expected[key] ?? ''), `운영 광고 설정 미확정: ${key}`);
   assert.equal(new Set(Object.values(expected)).size, 3, '광고 유형별 ID가 중복됩니다');

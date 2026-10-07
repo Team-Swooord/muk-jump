@@ -5,6 +5,11 @@ import { LIVE, decodeLz4, readWebData, inspectResources, inspectPremiumResources
 
 // 아래 전면 ID와 SKU는 메모리 직렬화 fixture에만 사용하며 LIVE/Unity 설정에 넣지 않는다.
 const fixtureAds = { ...LIVE, interstitial: 'ait.v2.live.0123456789abcdef' };
+test('최종 패키지 검사 기준과 Unity 운영 광고 설정이 일치한다', () => {
+  const settings = readFileSync(new URL('../../Assets/Resources/MukJump/Settings/AppsInTossAdSettings.asset', import.meta.url), 'utf8');
+  verifyAdFields(LIVE);
+  for (const id of Object.values(LIVE)) assert(settings.includes(id));
+});
 test('운영 광고 세 ID를 대조하고 빈 전면 설정을 거부한다', () => {
   verifyAdFields({ ...fixtureAds }, fixtureAds);
   for (const invalid of [
